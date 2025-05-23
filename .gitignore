@@ -1,0 +1,16 @@
+
+.keys/
+
+.env
+node_modules
+*.log
+images/*
+*.webp
+logs
+*-wallet.json
+attached_assets/*
+src/config/user.config.json
+CLAUDE.md
+rati/keys/*
+.lore-*
+.env.*
