@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // AvatarService.mjs – fully ESM, generic‑filter version
 // -------------------------------------------------------
 //  * requires helpers/buildAvatarQuery.mjs (see previous message)

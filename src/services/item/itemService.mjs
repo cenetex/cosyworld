@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // services/entity/itemService.mjs
 import { ObjectId } from 'mongodb';
 import { SchemaValidator } from '../../utils/schemaValidator.mjs';

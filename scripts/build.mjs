@@ -1,4 +1,7 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ * 
  * Production build script
  * 
  * This script orchestrates the full production build process:

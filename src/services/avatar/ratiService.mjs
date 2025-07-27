@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import Ajv from 'ajv';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';

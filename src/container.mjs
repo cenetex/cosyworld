@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import { createContainer, asClass, InjectionMode, asValue, asFunction } from 'awilix';
 import { globby } from 'globby';
 import path from 'path';

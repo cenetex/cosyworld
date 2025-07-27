@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // CooldownService.mjs
 // Centralized cooldown management for tools and avatars
 

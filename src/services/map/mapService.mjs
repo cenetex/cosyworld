@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // MapService.mjs – ESM rewrite with in‑memory caching & avatarGateway
 // ---------------------------------------------------------------
 //  * depends on avatar/avatarGateway.js

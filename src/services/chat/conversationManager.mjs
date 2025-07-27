@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import { handleCommands } from '../commands/commandHandler.mjs';
 
 const GUILD_NAME = process.env.GUILD_NAME || 'The Guild';

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * API client for making requests to the backend
  * Provides standardized error handling and response parsing
  */

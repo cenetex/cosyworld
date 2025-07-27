@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * Tabs component
  * Handles tab navigation and tab content switching
  */

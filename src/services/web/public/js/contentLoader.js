@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import { loadSquad } from './tabs/squad.js';
 import { loadActionLog } from './tabs/actions.js';
 import { loadLeaderboard } from './tabs/leaderboard.js';

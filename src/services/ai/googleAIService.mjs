@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';

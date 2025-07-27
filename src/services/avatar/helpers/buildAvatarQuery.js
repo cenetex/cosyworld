@@ -1,6 +1,7 @@
-// helpers/avatarFilters.mjs -------------------------------------------------
-
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ * 
  * Build a MongoDB query from an arbitrary “filters” object.
  *
  * @param {Record<string, any>} filters

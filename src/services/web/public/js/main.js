@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * Main application entry point
  * Initializes core functionality and sets up event listeners
  */

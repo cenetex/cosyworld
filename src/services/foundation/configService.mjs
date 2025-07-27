@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';

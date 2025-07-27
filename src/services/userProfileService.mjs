@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // UserProfileService: manages user profiles, social handles, and summaries of past interactions
 
 export class UserProfileService {

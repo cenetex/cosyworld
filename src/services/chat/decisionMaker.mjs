@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // Configuration constants (consider moving to a config file or env variables)
 const BASE_RESPONSE_CHANCE = 0.25;
 const DAILY_RESPONSE_LIMIT = 100; // Max immediate responses per human per day

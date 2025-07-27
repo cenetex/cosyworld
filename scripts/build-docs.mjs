@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ * 
  * Documentation Builder Script
  * 
  * This script builds HTML documentation from markdown files using markdown-it.

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 export function initializeTabs() {
   const tabButtons = document.querySelectorAll("[data-tab]");
   tabButtons.forEach((btn) =>

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // BattleService.mjs
 // Centralizes all combat mechanics (attack, defend, knockout, etc.)
 

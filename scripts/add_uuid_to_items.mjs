@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // scripts/add_uuid_to_items.js
 import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';

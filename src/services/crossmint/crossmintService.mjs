@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // services/marketplace/crossmintService.mjs
 import axios from 'axios';
 import crypto from 'crypto';

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * Global state management for the application
  * Provides a centralized store and methods to update it
  */

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import OpenAI from 'openai';
 import models from '../../models.openrouter.config.mjs';
 

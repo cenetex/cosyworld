@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import express from 'express';
 import NodeCache from 'node-cache';
 import { thumbnailService } from '../services/thumbnailService.js';

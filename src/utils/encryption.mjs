@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'; // Use 'node:' prefix for built-in modules
 
 // Constants

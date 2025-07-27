@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * routes/avatar.js
  *
  * Combines and organizes all avatar-related endpoints in one place.

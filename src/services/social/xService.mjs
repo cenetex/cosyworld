@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
  * X (Twitter) Authentication Service
  * Provides utilities for managing X platform integration
  */

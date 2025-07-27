@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 export async function loadGuildWhitelist(database, client, logger) {
   try {
     logger.info("Pre-loading guild whitelist settings...");

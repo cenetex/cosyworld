@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
 // Audit logs API endpoint to retrieve guild access logs
 import express from "express";
 import { isAuthenticated as authMiddleware } from "../services/authService.mjs";
