@@ -13,6 +13,7 @@ import { ConfigService } from './services/foundation/configService.mjs';
 import { CrossmintService } from './services/crossmint/crossmintService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
+import eventBus from './utils/eventBus.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,11 @@ const __dirname = path.dirname(__filename);
 export const container = createContainer({
   injectionMode: InjectionMode.PROXY,
   strict: true
+});
+
+// Register utilities
+container.register({
+  eventBus: asValue(eventBus)
 });
 
 // --- instantiate once ---

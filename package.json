@@ -17,8 +17,10 @@
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./dist/css/tailwind.css --minify",
     "docs": "node scripts/build-docs.mjs",
     "copy-assets": "node scripts/copy-assets.mjs",
-  "update:models": "node scripts/updateModels.mjs",
-  "sync:nft": "node scripts/syncNftAvatars.mjs"
+    "update:models": "node scripts/updateModels.mjs",
+    "sync:nft": "node scripts/syncNftAvatars.mjs",
+    "backfill:agent-ids": "node scripts/backfillAgentIds.mjs",
+    "migrate:agent-blocks": "node scripts/migrateAgentBlocks.mjs"
   },
   "keywords": [
     "discord",
@@ -52,8 +54,9 @@
     "express": "^4.21.2",
     "fuse.js": "^7.0.0",
     "globby": "^14.1.0",
+    "js-sha3": "^0.9.3",
     "mongodb": "^6.11.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^1.4.5-lts.2",
     "node-cache": "^5.1.2",
     "ollama": "^0.5.9",
     "openai": "^4.73.0",

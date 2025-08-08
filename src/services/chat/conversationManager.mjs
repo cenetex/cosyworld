@@ -328,9 +328,29 @@ export class ConversationManager  {
           thoughts.push(thought.trim());
           return '';
         }).trim();
+        
         if (thoughts.length > 0) {
-          avatar.narrativeHistory = avatar.narrativeHistory || [];
+          // Initialize thoughts array if it doesn't exist
+          avatar.thoughts = avatar.thoughts || [];
           const guildName = GUILD_NAME;
+          
+          // Add new thoughts to the thoughts array
+          thoughts.forEach(thought => {
+            if (thought) {
+              const thoughtData = { 
+                content: thought, 
+                timestamp: Date.now(), 
+                guildName 
+              };
+              avatar.thoughts.unshift(thoughtData);
+            }
+          });
+          
+          // Keep only the most recent 20 thoughts
+          avatar.thoughts = avatar.thoughts.slice(0, 20);
+          
+          // Also maintain backward compatibility by adding to narrativeHistory
+          avatar.narrativeHistory = avatar.narrativeHistory || [];
           thoughts.forEach(thought => {
             if (thought) {
               const narrativeData = { timestamp: Date.now(), content: thought, guildName };
@@ -341,14 +361,26 @@ export class ConversationManager  {
           avatar.narrativesSummary = avatar.narrativeHistory
             .map(r => `[${new Date(r.timestamp).toLocaleDateString()}] ${r.guildName}: ${r.content}`)
             .join('\n\n');
+            
           await this.avatarService.updateAvatar(avatar);
         }
+        
         if (cleanedText) {
           let sentMessage = await this.discordService.sendAsWebhook(channel.id, cleanedText, avatar);
           if (!sentMessage) {
             this.logger.error(`Failed to send message in channel ${channel.id}`);
             return null;
           }
+          
+          // React with brain emoji if thoughts were detected
+          if (thoughts.length > 0) {
+            try {
+              await sentMessage.react('🧠');
+            } catch (error) {
+              this.logger.error(`Failed to add brain reaction: ${error.message}`);
+            }
+          }
+          
           let guild = await this.discordService.getGuildByChannelId(channel.id);
           if (!guild) {
             this.logger.error(`Guild not found for channel ${avatar.channelId}`);

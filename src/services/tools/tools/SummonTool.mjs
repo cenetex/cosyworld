@@ -30,7 +30,7 @@ export class SummonTool extends BasicTool {
     this.description = 'Summons a new avatar';
     this.emoji = '🔮'; // Default emoji
   // Limit: one summon per user per day (excluding admin override)
-  this.DAILY_SUMMON_LIMIT = 1;
+  this.DAILY_SUMMON_LIMIT = 18;
     this.replyNotification = true;
     this.cooldownMs = 10 * 1000; // 1 minute cooldown
   }

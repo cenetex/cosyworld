@@ -603,4 +603,70 @@ export class AvatarService {
       this.logger.error(`setLastBredDate failed – ${err.message}`);
     }
   }
+
+  /* -------------------------------------------------- */
+  /*  THOUGHTS MANAGEMENT                                */
+  /* -------------------------------------------------- */
+
+  /**
+   * Get recent thoughts for an avatar
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {number} limit - Maximum number of thoughts to return (default: 10)
+   * @returns {Promise<Array>} Array of thought objects
+   */
+  async getRecentThoughts(avatarId, limit = 10) {
+    try {
+      const db = await this._db();
+      const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { thoughts: 1 } }
+      );
+      
+      if (!avatar?.thoughts) return [];
+      
+      return avatar.thoughts
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
+    } catch (err) {
+      this.logger.error(`getRecentThoughts failed – ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Add a thought to an avatar's thoughts collection
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {string} content - Thought content
+   * @param {string} guildName - Guild name where thought occurred
+   * @returns {Promise<boolean>} Success status
+   */
+  async addThought(avatarId, content, guildName = 'Unknown') {
+    try {
+      const db = await this._db();
+      const thoughtData = {
+        content: content.trim(),
+        timestamp: Date.now(),
+        guildName
+      };
+
+      const result = await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { 
+          $push: { 
+            thoughts: { 
+              $each: [thoughtData], 
+              $position: 0,
+              $slice: 20  // Keep only the most recent 20 thoughts
+            } 
+          },
+          $set: { updatedAt: new Date() }
+        }
+      );
+
+      return result.modifiedCount > 0;
+    } catch (err) {
+      this.logger.error(`addThought failed – ${err.message}`);
+      return false;
+    }
+  }
 }

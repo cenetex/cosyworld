@@ -40,6 +40,7 @@ export class PromptService  {
    */
   async getFullSystemPrompt(avatar, db) {
     const lastNarrative = await this.getLastNarrative(avatar, db);
+    const latestThought = await this.getLatestThought(avatar);
     const { location } = 
       (await this.mapService.getAvatarLocation(avatar));
 
@@ -48,6 +49,7 @@ You are ${avatar.name}.
 ${avatar.personality}
 ${avatar.dynamicPersonality}
 ${lastNarrative ? lastNarrative.content : ''}
+${latestThought ? `Latest thought: ${latestThought}` : ''}
 ${location ? `Location: ${location.name} - ${location.description}` : ''}
   `.trim();
   }
@@ -62,11 +64,12 @@ ${location ? `Location: ${location.name} - ${location.description}` : ''}
     const memories = await this.getMemories(avatar,100);
     const recentActions = await this.getRecentActions(avatar);
     const narrativeContent = await this.getNarrativeContent(avatar);
+    const latestThought = await this.getLatestThought(avatar);
     let lastNarrative = '';
     try {
       lastNarrative = (await this.getLastNarrative(avatar, this.db))?.content || '';
     } catch {}
-    return `Current personality: ${avatar.dynamicPersonality || 'None yet'}\n\nLatest narrative: ${lastNarrative}\n\nMemories: ${memories}\n\nRecent actions: ${recentActions}\n\nNarrative thoughts: ${narrativeContent}`;
+    return `Current personality: ${avatar.dynamicPersonality || 'None yet'}\n\nLatest narrative: ${lastNarrative}\n\n${latestThought ? `Latest thought: ${latestThought}\n\n` : ''}Memories: ${memories}\n\nRecent actions: ${recentActions}\n\nNarrative thoughts: ${narrativeContent}`;
   }
 
   /**
@@ -331,5 +334,20 @@ ${recentActionsText}
       }
     }
     return descriptions;
+  }
+
+  /**
+   * Gets the latest thought for an avatar to include in context.
+   * @param {Object} avatar - The avatar object.
+   * @returns {Promise<string|null>} The latest thought content or null.
+   */
+  async getLatestThought(avatar) {
+    if (!avatar.thoughts || !Array.isArray(avatar.thoughts) || avatar.thoughts.length === 0) {
+      return null;
+    }
+    
+    // Get the most recent thought (thoughts are sorted with newest first)
+    const latestThought = avatar.thoughts[0];
+    return latestThought?.content || null;
   }
 }
