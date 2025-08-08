@@ -254,6 +254,32 @@
                   </div>
                 </div>
 
+                <!-- Avatar Tribe Restrictions -->
+                <div class="bg-gray-50 p-4 rounded-md">
+                  <h4 class="text-lg font-medium text-gray-900 mb-4">Avatar Tribe Restrictions</h4>
+
+                  <div class="mb-4">
+                    <label for="avatar-tribe-mode" class="block text-sm font-medium text-gray-700">Default Restriction Mode</label>
+                    <select id="avatar-tribe-mode" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="permit">Permit All (only listed emojis forbidden)</option>
+                      <option value="forbid">Forbid All (only listed emojis permitted)</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-4">
+                    <label for="avatar-tribe-exceptions" class="block text-sm font-medium text-gray-700">Exceptions (comma-separated emojis)</label>
+                    <input type="text" id="avatar-tribe-exceptions" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="🐉, 🦄">
+                  </div>
+
+                  <div class="mb-4">
+                    <h5 class="text-md font-medium text-gray-700 mb-2">Channel Overrides</h5>
+                    <div id="avatar-tribe-restrictions-channels" class="space-y-2"></div>
+                    <button type="button" id="add-avatar-tribe-override" class="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      + Add Channel Override
+                    </button>
+                  </div>
+                </div>
+
                 <div class="flex justify-end">
                   <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                     Save Settings
@@ -471,6 +497,32 @@
                       <textarea id="breed-prompt" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
                       <p class="mt-1 text-xs text-gray-500">Used for breeding actions</p>
                     </div>
+                  </div>
+                </div>
+
+                <!-- Avatar Tribe Restrictions -->
+                <div class="bg-gray-50 p-4 rounded-md">
+                  <h4 class="text-lg font-medium text-gray-900 mb-4">Avatar Tribe Restrictions</h4>
+
+                  <div class="mb-4">
+                    <label for="avatar-tribe-mode" class="block text-sm font-medium text-gray-700">Default Restriction Mode</label>
+                    <select id="avatar-tribe-mode" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                      <option value="permit">Permit All (only listed emojis forbidden)</option>
+                      <option value="forbid">Forbid All (only listed emojis permitted)</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-4">
+                    <label for="avatar-tribe-exceptions" class="block text-sm font-medium text-gray-700">Exceptions (comma-separated emojis)</label>
+                    <input type="text" id="avatar-tribe-exceptions" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="🐉, 🦄">
+                  </div>
+
+                  <div class="mb-4">
+                    <h5 class="text-md font-medium text-gray-700 mb-2">Channel Overrides</h5>
+                    <div id="avatar-tribe-restrictions-channels" class="space-y-2"></div>
+                    <button type="button" id="add-avatar-tribe-override" class="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      + Add Channel Override
+                    </button>
                   </div>
                 </div>
 

@@ -134,6 +134,11 @@ export class OpenRouterAIService {
       , ...options,
     };
 
+    // Ensure we always have a concrete model string
+    if (!mergedOptions.model) {
+      mergedOptions.model = this.defaultChatOptions?.model || this.model || 'openrouter/auto';
+    }
+
     if (options.schema) {
       mergedOptions.response_format = {
         type: 'json_schema',
@@ -143,7 +148,7 @@ export class OpenRouterAIService {
 
     // Verify that the chosen model is available. If not, fall back.
     let fallback = false;
-    if (this.model != 'openrouter/auto' && !this.modelIsAvailable(mergedOptions.model)) {
+    if (mergedOptions.model !== 'openrouter/auto' && !this.modelIsAvailable(mergedOptions.model)) {
       this.logger.error('Invalid model provided to chat:', mergedOptions.model);
       mergedOptions.model = 'openrouter/auto';
       this.logger.info('Falling back to random model:', mergedOptions.model);
