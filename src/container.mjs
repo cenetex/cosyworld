@@ -12,6 +12,7 @@ import { Logger } from './services/logger/logger.mjs';
 import { ConfigService } from './services/foundation/configService.mjs';
 import { CrossmintService } from './services/crossmint/crossmintService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
+import { GoogleAIService } from './services/ai/googleAIService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,16 @@ const logger        = new Logger();
 const configService = new ConfigService({ logger });
 const crossmintService = new CrossmintService({ logger });
 const aiModelService = new (await import('./services/ai/aiModelService.mjs')).AIModelService;
+// Optional secondary Google AI service (for image/video) even if primary AI_SERVICE is not google
+let googleAIService = null;
+try {
+  const googleApiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (googleApiKey) {
+    googleAIService = new GoogleAIService({ configService, s3Service: null });
+  }
+} catch (e) {
+  console.warn('[container] Failed to init optional GoogleAIService:', e.message);
+}
 
 
 // --- value‑register them ---
@@ -36,6 +47,7 @@ container.register({
   configService: asValue(configService),
   crossmintService: asValue(crossmintService),
   aiModelService: asValue(aiModelService),
+  googleAIService: asValue(googleAIService),
   itemService: asClass(ItemService).singleton()
 });
 
@@ -76,3 +88,16 @@ container.register({
 });
 
 console.log('🔧 registered services:', Object.keys(container.registrations));
+
+// Late bind s3Service into optional googleAIService if both exist
+try {
+  if (googleAIService && container.registrations.s3Service) {
+    const s3Service = container.resolve('s3Service');
+    if (s3Service && !googleAIService.s3Service) {
+      googleAIService.s3Service = s3Service;
+      console.log('[container] Injected s3Service into googleAIService for image generation fallback.');
+    }
+  }
+} catch (e) {
+  console.warn('[container] Failed post-injection for googleAIService:', e.message);
+}

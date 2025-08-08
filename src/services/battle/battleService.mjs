@@ -33,12 +33,17 @@ export class BattleService  {
     // D&D style attack roll: d20 + strength modifier
     const strMod = Math.floor((attackerStats.strength - 10) / 2);
     const dexMod = Math.floor((targetStats.dexterity - 10) / 2);
-    const attackRoll = this.diceService.rollDie(20) + strMod;
+    const rawRoll = this.diceService.rollDie(20);
+    const attackRoll = rawRoll + strMod;
     const armorClass = 10 + dexMod + (targetStats.isDefending ? 2 : 0);
 
+    const isCritical = rawRoll === 20; // natural 20 critical
+
     if (attackRoll >= armorClass) {
-      // Damage roll: 1d8 + strength modifier (longsword)
-      const damage = Math.max(1, this.diceService.rollDie(8) + strMod);
+      // Damage roll: 1d8 + strength modifier; on crit double the dice (not modifier)
+      let damageDice = this.diceService.rollDie(8);
+      if (isCritical) damageDice += this.diceService.rollDie(8);
+      const damage = Math.max(1, damageDice + strMod);
       // Apply damage as a damage counter (modifier)
       await this.statService.createModifier('damage', damage, { avatarId: defender._id });
       targetStats.isDefending = false; // Reset defense stance
@@ -49,16 +54,22 @@ export class BattleService  {
       const currentHp = targetStats.hp - totalDamage;
 
       if (currentHp <= 0) {
-        return await this.handleKnockout({ message, targetAvatar: defender, damage, attacker, services });
+        const ko = await this.handleKnockout({ message, targetAvatar: defender, damage, attacker, services });
+        if (isCritical) ko.critical = true; // propagate critical flag for death videos
+        return ko;
       }
 
+      const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
+      const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
       return {
         result: 'hit',
-        message: `-# ⚔️ [ ${attacker.name} hits ${defender.name} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`,
+        critical: isCritical,
+        message: baseMsg + critMsg,
         damage,
         currentHp,
         attackRoll,
-        armorClass
+        armorClass,
+        rawRoll
       };
     } else {
       targetStats.isDefending = false; // Reset defense stance on miss
@@ -67,7 +78,8 @@ export class BattleService  {
         result: 'miss',
         message: `-# 🛡️ [ ${attacker.name}'s attack misses ${defender.name}! (${attackRoll} vs AC ${armorClass}) ]`,
         attackRoll,
-        armorClass
+        armorClass,
+        rawRoll
       };
     }
   }

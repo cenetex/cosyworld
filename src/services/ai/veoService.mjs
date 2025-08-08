@@ -16,6 +16,8 @@ export class VeoService {
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
     this.ai = new GoogleGenAI({ apiKey: this.apiKey });
     this.s3Service = s3Service;
+  // Hard global cap (in-memory) regardless of configured perDay to prevent abuse
+  this.GLOBAL_DAILY_CAP = 3;
   }
 
   recentRequests = [];
@@ -33,9 +35,9 @@ export class VeoService {
 
     // Filter recent requests within the last day
     const dailyRequests = this.recentRequests.filter(req => now - req.timestamp < 24 * 60 * 60 * 1000);
-    if (dailyRequests.length >= perDayLimit) {
-      return false; // Daily limit exceeded
-    }
+  if (dailyRequests.length >= perDayLimit) return false; // Config daily limit exceeded
+  // Enforce stricter global cap
+  if (dailyRequests.length >= this.GLOBAL_DAILY_CAP) return false;
     return true;
   }
 
@@ -51,6 +53,12 @@ export class VeoService {
   async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult"  }, model = 'veo-2.0-generate-001' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!images || images.length === 0) throw new Error('At least one image is required');
+
+    // Enforce rate limits (global + configured)
+    if (!this.checkRateLimit()) {
+      this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
+      return [];
+    }
 
     // Prepare the image payload for image-to-video
     const first = images[0];

@@ -23,6 +23,7 @@ export class ToolService {
   constructor({
     logger,
     aiService,
+  googleAIService,
     imageProcessingService,
     configService,
     cooldownService,
@@ -50,6 +51,7 @@ export class ToolService {
     this.toolServices = {
       logger,
       aiService,
+  googleAIService,
       imageProcessingService,
       battleService,
       locationService,
