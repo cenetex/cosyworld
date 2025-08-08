@@ -17,7 +17,8 @@
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./dist/css/tailwind.css --minify",
     "docs": "node scripts/build-docs.mjs",
     "copy-assets": "node scripts/copy-assets.mjs",
-    "update:models": "node scripts/updateModels.mjs"
+  "update:models": "node scripts/updateModels.mjs",
+  "sync:nft": "node scripts/syncNftAvatars.mjs"
   },
   "keywords": [
     "discord",

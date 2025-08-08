@@ -129,15 +129,53 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
   }
 
   if (avatar.traits) {
-    embed.addFields({ name: '🧬 Traits', value: avatar.traits, inline: false });
+    try {
+      let traitStr = '';
+      if (Array.isArray(avatar.traits)) {
+        traitStr = avatar.traits.map(t => {
+          if (typeof t === 'string') return t;
+            if (!t) return '';
+            const k = t.trait_type || t.type || t.key || t.name || 'Trait';
+            const v = t.value || t.val || t.trait || t.name || '';
+            return `${k}: ${v}`;
+        }).filter(Boolean).join('\n');
+      } else if (typeof avatar.traits === 'object') {
+        traitStr = Object.entries(avatar.traits).map(([k,v]) => `${k}: ${v}`).join('\n');
+      } else if (typeof avatar.traits === 'string') {
+        traitStr = avatar.traits;
+      }
+      if (traitStr.length > 1024) traitStr = traitStr.slice(0, 1021) + '...';
+      if (traitStr.trim()) embed.addFields({ name: '🧬 Traits', value: traitStr, inline: false });
+    } catch (e) {
+      // swallow trait formatting errors
+    }
+  }
+
+  if (avatar.nft) {
+    const nftLines = [];
+    if (avatar.nft.collection) nftLines.push(`Collection: ${avatar.nft.collection}`);
+    if (avatar.nft.tokenId || avatar.nft.mint) nftLines.push(`Token: ${avatar.nft.tokenId || avatar.nft.mint}`);
+    if (avatar.nft.chain) nftLines.push(`Chain: ${avatar.nft.chain}`);
+    const nftVal = nftLines.join('\n') || 'NFT Linked';
+    embed.addFields({ name: '📦 NFT', value: nftVal.slice(0, 1024), inline: true });
   }
 
   if (rest) {
     embed.addFields({ name: 'More Info', value: rest, inline: false });
   }
 
-  const button = buildViewButton(url);
-  return { embed, components: [button] };
+  const buttons = [];
+  try {
+    const mint = avatar?.nft?.mint || avatar?.nft?.tokenId || avatar?.nft?.id || avatar?.nft?.originalMint;
+    const chain = (avatar?.nft?.chain || '').toLowerCase();
+    if (chain === 'solana' && mint && typeof mint === 'string') {
+      const meUrl = `https://magiceden.io/item-details/${mint}`;
+      buttons.push(buildViewButton(meUrl, 'Magic Eden'));
+    }
+  } catch (_) { /* ignore */ }
+
+  // Intentionally no fallback internal link per new spec.
+  return { embed, components: buttons };
 }
 
 /**
