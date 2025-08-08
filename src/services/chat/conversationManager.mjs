@@ -365,6 +365,7 @@ export class ConversationManager  {
           await this.avatarService.updateAvatar(avatar);
         }
         
+        // Send the cleaned text (without think tags) if there's any content left
         if (cleanedText) {
           let sentMessage = await this.discordService.sendAsWebhook(channel.id, cleanedText, avatar);
           if (!sentMessage) {
@@ -375,7 +376,7 @@ export class ConversationManager  {
           // React with brain emoji if thoughts were detected
           if (thoughts.length > 0) {
             try {
-              await sentMessage.react('🧠');
+              await this.discordService.reactToMessage(sentMessage, '🧠');
             } catch (error) {
               this.logger.error(`Failed to add brain reaction: ${error.message}`);
             }
@@ -397,6 +398,11 @@ export class ConversationManager  {
             discordService: this.discordService,
             configService: this.configService
           }, avatar, this.getChannelContext(channel.id, 50));
+        }
+        // If there was only think tags and no other content, still process thoughts but don't send a message
+        else if (thoughts.length > 0) {
+          // Just log that we processed thoughts without sending a message
+          this.logger.debug(`Processed ${thoughts.length} thought(s) for ${avatar.name} without sending a message`);
         }
       }
       this.channelLastMessage.set(channel.id, Date.now());
