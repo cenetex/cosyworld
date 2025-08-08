@@ -103,20 +103,42 @@ export class SummonTool extends BasicTool {
       // Check for existing avatar
       const existingAvatar = await this.avatarService.getAvatarByName(avatarName);
       if (existingAvatar) {
-        // Check if avatar imageUrl is missing or blank, regenerate if needed
+        const alreadyHere = existingAvatar.channelId === message.channel.id;
+        // Ensure avatar has an image
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
-          this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) has no imageUrl. Generating new image.`);
-          const newImageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description);
-          existingAvatar.imageUrl = newImageUrl;
+          try {
+            this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
+            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description);
+          } catch (e) {
+            this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
+          }
         }
-        await this.mapService.updateAvatarPosition(existingAvatar, message.channel.id);
-        await this.avatarService.updateAvatar(existingAvatar);
-
+        if (!alreadyHere) {
+          // Move avatar to this channel
+            await this.mapService.updateAvatarPosition(existingAvatar, message.channel.id);
+            existingAvatar.channelId = message.channel.id;
+            await this.avatarService.updateAvatar(existingAvatar);
+        }
         await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
-        setTimeout(async () => {
-          await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id);
-        }, 1000);
-        return `-# ${this.emoji} [ ${existingAvatar.name} has been summoned to this location. ]`;
+        if (alreadyHere) {
+          // Trigger brief speech instead of full panel
+          try {
+            const speech = await this.aiService.chat([
+              { role: 'system', content: `You are ${existingAvatar.name}, ${existingAvatar.description}. Keep responses under 120 characters.` },
+              { role: 'user', content: `You were just redundantly summoned again in the same spot. React briefly, maybe playfully.` }
+            ], { model: existingAvatar.model });
+            await this.discordService.sendAsWebhook(message.channel.id, speech || `${existingAvatar.name} acknowledges the summon.`, existingAvatar);
+          } catch (e) {
+            this.logger.warn(`Failed to generate brief speech for existing avatar: ${e.message}`);
+          }
+          return `-# ${this.emoji} [ ${existingAvatar.name} was already here. They respond. ]`;
+        } else {
+          // Arrival mini embed
+          setTimeout(async () => {
+            await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
+          }, 800);
+          return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
+        }
       }
 
       // Check summon limit (bypass for specific user ID, e.g., admin)
