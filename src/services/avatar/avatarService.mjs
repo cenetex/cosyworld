@@ -573,4 +573,34 @@ export class AvatarService {
     const db = await this._db();
     return db.collection('items').find({ _id: { $in: ids.map(toObjectId) } }).toArray();
   }
+
+  /* -------------------------------------------------- */
+  /*  BREED TRACKING                                     */
+  /* -------------------------------------------------- */
+
+  async getLastBredDate(avatarId) {
+    try {
+      const db = await this._db();
+      const doc = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { lastBredAt: 1 } }
+      );
+      return doc?.lastBredAt || null;
+    } catch (err) {
+      this.logger.error(`getLastBredDate failed – ${err.message}`);
+      return null;
+    }
+  }
+
+  async setLastBredDate(avatarId, date = new Date()) {
+    try {
+      const db = await this._db();
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { $set: { lastBredAt: date, updatedAt: new Date() } }
+      );
+    } catch (err) {
+      this.logger.error(`setLastBredDate failed – ${err.message}`);
+    }
+  }
 }
