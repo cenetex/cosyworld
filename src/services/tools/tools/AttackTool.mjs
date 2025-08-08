@@ -53,12 +53,12 @@ export class AttackTool extends BasicTool {
       return `-# [ ❌ Error: No target specified. ]`;
     }
 
-  const targetName = params.join(' ');
+  const targetName = params.join(' ').trim();
 
     try {
       // Find defender in location
       const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
-      if (!locationResult || !locationResult.location || !locationResult.avatars) {
+  if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());

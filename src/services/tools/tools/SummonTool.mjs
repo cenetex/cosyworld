@@ -58,12 +58,11 @@ export class SummonTool extends BasicTool {
    */
   async checkDailySummonLimit(userId) {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const count = await this.db.collection('daily_summons').countDocuments({
-        userId,
-        timestamp: { $gte: today },
-      });
+  // Always ensure DB reference (in case called before execute sets this.db)
+  this.db = this.db || await this.databaseService.getDatabase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
       return count < this.DAILY_SUMMON_LIMIT;
     } catch (error) {
       this.logger.error(`Error checking summon limit: ${error.message}`);
@@ -77,7 +76,7 @@ export class SummonTool extends BasicTool {
    */
   async trackSummon(userId) {
     try {
-      this.db = await this.databaseService.getDatabase();
+  this.db = this.db || await this.databaseService.getDatabase();
       await this.db.collection('daily_summons').insertOne({
         userId,
         timestamp: new Date(),
@@ -97,9 +96,18 @@ export class SummonTool extends BasicTool {
   async execute(message, params = {}, avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
-      // Parse command content (assumes a 2-character prefix like "!")
-      const content = message.content.trim().substring(2).trim();
-      const [avatarName] = content.split('\n').map(line => line.trim());
+      // Parse command content robustly: remove leading emoji + optional word 'summon'
+      const raw = message.content.trim();
+      const content = raw
+        .replace(/^<a?:\w+?:\d+>\s*/,'') // custom discord emoji
+        .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
+        .replace(/^(summon)\s+/i,'')
+        .trim();
+      const [avatarName] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
+      if (!avatarName) {
+        await this.discordService.replyToMessage(message, 'Provide a name or description to summon an avatar.');
+        return '-# [ Summon aborted: no description provided. ]';
+      }
 
       // Check for existing avatar
       const existingAvatar = await this.avatarService.getAvatarByName(avatarName);
@@ -165,11 +173,9 @@ export class SummonTool extends BasicTool {
       const stats = this.statService.generateStatsFromDate(creationDate);
 
       // Prepare avatar creation data
-      const prompt = (summonPrompt
-        ? `Avatar Stats: ${JSON.stringify(stats)} \n\n${summonPrompt}`
-        : `Avatar Stats: ${JSON.stringify(stats)}`) + 
-        `\n\nDesign an avatar with the above stats based on this message from ${message.author.displayName || message.author.displayName}:
-        \n\n\t${content}`; 
+      const displayAuthor = message.author.displayName || message.author.username || 'Unknown Summoner';
+      const prompt = (summonPrompt ? `Avatar Stats: ${JSON.stringify(stats)} \n\n${summonPrompt}` : `Avatar Stats: ${JSON.stringify(stats)}`) +
+        `\n\nDesign an avatar with the above stats based on this message from ${displayAuthor}:\n\n\t${content}`;
       const avatarData = {
         prompt,
         channelId: message.channel.id
