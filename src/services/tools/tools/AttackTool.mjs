@@ -20,6 +20,7 @@ export class AttackTool extends BasicTool {
   googleAIService,
     s3Service,
   veoService,
+  discordService,
   }) {
 
     super();
@@ -33,6 +34,7 @@ export class AttackTool extends BasicTool {
     this.diceService = diceService;
     this.battleService = battleService;
     this.aiService = aiService;
+  this.discordService = discordService;
   // Optional secondary googleAIService for image/video if primary provider (e.g., OpenRouter) lacks it
   this.googleAIService = googleAIService;
     this.s3Service = s3Service;
@@ -51,7 +53,7 @@ export class AttackTool extends BasicTool {
       return `-# [ ❌ Error: No target specified. ]`;
     }
 
-    const targetName = params.join(' ');
+  const targetName = params.join(' ');
 
     try {
       // Find defender in location
@@ -60,7 +62,13 @@ export class AttackTool extends BasicTool {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
-      if (!defender) return `-# 🫠 [ Target '${targetName}' not found in this area. ]`;
+      if (!defender) {
+        // React to source message to indicate invalid local target without verbose reply
+        if (this.discordService?.reactToMessage) {
+          this.discordService.reactToMessage(message, '👀');
+        }
+        return `-# 🫠 [ Target '${targetName}' not found here. ]`;
+      }
       if (defender.status === 'dead') {
         return `-# ⚰️ [ **${defender.name}** is already dead! Have some *respect* for the fallen. ]`;
       }

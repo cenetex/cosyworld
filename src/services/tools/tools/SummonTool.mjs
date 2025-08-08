@@ -29,7 +29,8 @@ export class SummonTool extends BasicTool {
     this.name = 'summon';
     this.description = 'Summons a new avatar';
     this.emoji = '🔮'; // Default emoji
-    this.DAILY_SUMMON_LIMIT = 16;
+  // Limit: one summon per user per day (excluding admin override)
+  this.DAILY_SUMMON_LIMIT = 1;
     this.replyNotification = true;
     this.cooldownMs = 10 * 1000; // 1 minute cooldown
   }
@@ -144,9 +145,10 @@ export class SummonTool extends BasicTool {
       // Check summon limit (bypass for specific user ID, e.g., admin)
       const breed = Boolean(params.breed);
       const canSummon = message.author.id === '1175877613017895032' || (await this.checkDailySummonLimit(message.author.id));
-      if (!canSummon) {
-        await this.discordService.replyToMessage(message, `Daily summon limit of ${this.DAILY_SUMMON_LIMIT} reached. Try again tomorrow!`);
-        return '-# [ Failed to summon: Daily limit reached. ]';
+    if (!canSummon) {
+      // Friendly singular message (avoid spam)
+      await this.discordService.replyToMessage(message, `You've already summoned an avatar today. (Daily limit: ${this.DAILY_SUMMON_LIMIT})`);
+      return '-# [ Summon rejected: daily limit reached. ]';
       }
 
       // Get guild configuration
