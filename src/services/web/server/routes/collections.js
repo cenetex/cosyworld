@@ -6,6 +6,8 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { thumbnailService } from '../services/thumbnailService.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 function toObjectId(id) {
   return ObjectId.isValid(id) ? new ObjectId(id) : id;
@@ -14,6 +16,36 @@ function toObjectId(id) {
 export default function collectionsRoutes(db) {
   if (!db) throw new Error('Database not connected');
   const router = Router();
+
+  // Lazy-loaded metadata (optional): data/collections.json
+  // Shape can be either an object map { "<id>": { name, description, thumbnailUrl? } }
+  // or an array of { id|key, name, description, thumbnailUrl }
+  let collectionsMetaCache = null;
+  async function loadCollectionsMeta() {
+    if (collectionsMetaCache) return collectionsMetaCache;
+    try {
+      const metaPath = path.join(process.cwd(), 'data', 'collections.json');
+      const json = JSON.parse(await fs.readFile(metaPath, 'utf8'));
+      /** @type {Record<string, {name?:string, description?:string, thumbnailUrl?:string}>} */
+      const map = {};
+      if (Array.isArray(json)) {
+        for (const it of json) {
+          const key = it?.id || it?.key || it?.collection || it?.slug;
+          if (!key) continue;
+          map[String(key)] = { name: it.name, description: it.description, thumbnailUrl: it.thumbnailUrl };
+        }
+      } else if (json && typeof json === 'object') {
+        for (const [k, v] of Object.entries(json)) {
+          map[String(k)] = { name: v?.name, description: v?.description, thumbnailUrl: v?.thumbnailUrl };
+        }
+      }
+      collectionsMetaCache = map;
+      return collectionsMetaCache;
+    } catch {
+      collectionsMetaCache = {};
+      return collectionsMetaCache;
+    }
+  }
 
   // GET /api/collections
   // List collections with counts and a sample thumbnail
@@ -42,6 +74,8 @@ export default function collectionsRoutes(db) {
   const grouped = await db.collection('avatars').aggregate(pipeline).toArray();
   await thumbnailService.ensureThumbnailDir();
 
+      const meta = await loadCollectionsMeta();
+
       const collections = await Promise.all(
         grouped.map(async (g) => {
           const sampleUrl = g.sample?.thumbnailUrl || g.sample?.imageUrl;
@@ -49,12 +83,17 @@ export default function collectionsRoutes(db) {
           if (sampleUrl) {
             try { thumb = await thumbnailService.generateThumbnail(sampleUrl); } catch { /* keep default */ }
           }
+          const m = meta[g._id] || meta[String(g._id)] || null;
+          const displayName = m?.name || g.sample?.nft?.collectionName || g.sample?.collectionName || g._id;
+          const description = m?.description || g.sample?.nft?.collectionDescription || null;
+          const outThumb = m?.thumbnailUrl || thumb;
           return {
             id: g._id,
             key: g._id,
-            name: g._id,
+            name: displayName,
+            description,
             count: g.count,
-            thumbnailUrl: thumb,
+            thumbnailUrl: outThumb,
             latestAt: g.sample?.createdAt || null,
           };
         })
