@@ -39,14 +39,16 @@ export default function collectionsRoutes(db) {
         { $limit: limit },
       ];
 
-      const grouped = await db.collection('avatars').aggregate(pipeline).toArray();
-      await thumbnailService.ensureThumbnailDir();
+  const grouped = await db.collection('avatars').aggregate(pipeline).toArray();
+  await thumbnailService.ensureThumbnailDir();
 
       const collections = await Promise.all(
         grouped.map(async (g) => {
           const sampleUrl = g.sample?.thumbnailUrl || g.sample?.imageUrl;
-          let thumb = sampleUrl;
-          try { thumb = await thumbnailService.generateThumbnail(sampleUrl); } catch {}
+          let thumb = '/images/default-collection.svg';
+          if (sampleUrl) {
+            try { thumb = await thumbnailService.generateThumbnail(sampleUrl); } catch { /* keep default */ }
+          }
           return {
             id: g._id,
             key: g._id,
@@ -104,11 +106,13 @@ export default function collectionsRoutes(db) {
         await thumbnailService.ensureThumbnailDir();
         avatars = await Promise.all(
           avatars.map(async (av) => {
+            const src = av.thumbnailUrl || av.imageUrl;
+            if (!src) return { ...av, thumbnailUrl: '/images/default-avatar.svg' };
             try {
-              const url = await thumbnailService.generateThumbnail(av.thumbnailUrl || av.imageUrl);
+              const url = await thumbnailService.generateThumbnail(src);
               return { ...av, thumbnailUrl: url };
             } catch {
-              return av;
+              return { ...av, thumbnailUrl: '/images/default-avatar.svg' };
             }
           })
         );

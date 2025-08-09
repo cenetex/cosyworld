@@ -40,6 +40,12 @@ async function initializeApp(services) {
       : path.join(__dirname, '..', 'public', 'thumbnails');
     app.use('/thumbnails', express.static(thumbsDir, { maxAge: '7d', etag: false }));
 
+  // Serve images from both root-level /images and bundled public/images
+  const rootImagesDir = path.join(process.cwd(), 'images');
+  app.use('/images', express.static(rootImagesDir, { maxAge: '7d', etag: false }));
+  const publicImagesDir = path.join(staticDir, 'images');
+  app.use('/images', express.static(publicImagesDir, { maxAge: '7d', etag: false }));
+
     // Core services
     app.locals.services = services;
     await services.databaseService.connect();

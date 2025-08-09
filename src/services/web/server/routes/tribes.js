@@ -118,18 +118,17 @@ export default function(db) {
         { $limit: limit }
       ]).toArray();
 
-      let members;
-      if (thumbs) {
-        members = await Promise.all(
-          tribe.map(async (member) => ({
-            ...member,
-            thumbnailUrl: await thumbnailService.generateThumbnail(member.imageUrl)
-          }))
-        );
-      } else {
-        // Fast path: reuse imageUrl as thumbnailUrl
-        members = tribe.map(m => ({ ...m, thumbnailUrl: m.imageUrl }));
-      }
+      await thumbnailService.ensureThumbnailDir();
+      const makeThumb = async (url) => {
+        if (!url) return '/images/default-avatar.svg';
+        try { return await thumbnailService.generateThumbnail(url); } catch { return '/images/default-avatar.svg'; }
+      };
+      const members = await Promise.all(
+        tribe.map(async (member) => ({
+          ...member,
+          thumbnailUrl: await makeThumb(member.imageUrl)
+        }))
+      );
 
   const nextCursor = members.length === limit ? String(members[members.length - 1]._id) : null;
   const payload = { emoji, members, nextCursor };

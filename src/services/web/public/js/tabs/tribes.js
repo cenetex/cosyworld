@@ -243,15 +243,16 @@ function renderTribeMembers(container, members, emoji) {
   container.innerHTML = members.map(member => {
     const safeName = member.name || 'Unknown';
     const initial = safeName.charAt(0).toUpperCase();
-    return `
+  const imgUrl = member.thumbnailUrl || member.imageUrl;
+  return `
       <div 
         class="bg-gray-800 p-3 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
         onclick="showAvatarDetails('${member._id}')"
       >
         <div class="flex items-center gap-3">
-          ${member.imageUrl
+      ${imgUrl
             ? `<img 
-                  src="${member.imageUrl}" 
+          src="${imgUrl}" 
                   alt="${safeName}" 
                   class="w-16 h-16 object-cover rounded-full"
                   onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\'%3E%3Crect fill=\\'%23333\\' width=\\'100\\' height=\\'100\\'/%3E%3Ctext fill=\\'%23FFF\\' x=\\'50\\' y=\\'50\\' font-size=\\'50\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'%3E${initial}%3C/text%3E%3C/svg%3E';">` 
