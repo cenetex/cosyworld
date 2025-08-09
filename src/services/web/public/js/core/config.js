@@ -53,7 +53,8 @@ export const ENDPOINTS = {
   CLAIMS: `${API_BASE_URL}/claims`,
   XAUTH: `${API_BASE_URL}/xauth`,
   TRIBES: `${API_BASE_URL}/tribes`,
-  LEADERBOARD: `${API_BASE_URL}/leaderboard`
+  LEADERBOARD: `${API_BASE_URL}/leaderboard`,
+  COLLECTIONS: `${API_BASE_URL}/collections`
 };
 
 // UI Configuration

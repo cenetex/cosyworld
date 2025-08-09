@@ -30,15 +30,10 @@ export default (env, argv) => {
         './src/services/web/public/css/tribe-styles.css'
       ]
     },
-    experiments: {
-      outputModule: true
-    },
     output: {
       filename: '[name].bundle.js',
       path: path.resolve(__dirname, 'dist/js'),
-      publicPath: '/js/',
-      module: true, 
-      chunkFormat: 'array-push' // Use array-push format which is more compatible
+  publicPath: '/js/'
     },
     module: {
       rules: [

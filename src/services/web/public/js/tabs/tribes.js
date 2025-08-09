@@ -139,6 +139,8 @@ export async function showTribeDetailsContent(emoji) {
     const tribeEmoji = document.getElementById('tribe-emoji');
     const tribeName = document.getElementById('tribe-name');
     const tribeMembers = document.getElementById('tribe-members');
+  let nextCursor = null;
+  const limit = 24;
 
     // Update UI
     tribesContent.classList.add('hidden');
@@ -153,10 +155,17 @@ export async function showTribeDetailsContent(emoji) {
       </div>
     `;
 
-    // Fetch tribe details
-    const tribeData = await TribesAPI.getTribeByEmoji(emoji);
+    async function fetchPage() {
+      const qs = new URLSearchParams({ limit: String(limit), thumbs: '0' });
+      if (nextCursor) qs.set('after', nextCursor);
+      const tribeData = await TribesAPI.getTribeByEmoji(emoji + `?${qs.toString()}`);
+      nextCursor = tribeData?.nextCursor || null;
+      return tribeData?.members || [];
+    }
 
-    if (!tribeData || !tribeData.members || tribeData.members.length === 0) {
+    // First page
+    const firstMembers = await fetchPage();
+    if (!firstMembers || firstMembers.length === 0) {
       tribeMembers.innerHTML = `
         <div class="col-span-full text-center text-gray-400 py-8">
           No members found for this tribe
@@ -165,8 +174,48 @@ export async function showTribeDetailsContent(emoji) {
       return;
     }
 
-    // Render tribe members with safe name extraction
-    renderTribeMembers(tribeMembers, tribeData.members, emoji);
+    tribeMembers.innerHTML = '';
+  renderTribeMembers(tribeMembers, firstMembers, emoji);
+
+    // Add load more button
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'col-span-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded';
+    loadMoreBtn.textContent = 'Load more';
+    loadMoreBtn.addEventListener('click', async () => {
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = 'Loading...';
+      try {
+        const next = await fetchPage();
+        if (next.length) {
+          renderTribeMembers(tribeMembers, next, emoji);
+          if (nextCursor) {
+            loadMoreBtn.textContent = 'Load more';
+            loadMoreBtn.disabled = false;
+          } else {
+            loadMoreBtn.textContent = 'No more members';
+          }
+        } else {
+          loadMoreBtn.textContent = 'No more members';
+        }
+      } catch (e) {
+        console.error(e);
+        loadMoreBtn.textContent = 'Load more';
+        loadMoreBtn.disabled = false;
+      }
+    });
+    tribeMembers.appendChild(loadMoreBtn);
+
+    // Optional: infinite scroll
+    const sentinel = document.createElement('div');
+    sentinel.className = 'col-span-full h-6';
+    tribeMembers.appendChild(sentinel);
+    const io = new IntersectionObserver(async (entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && !loadMoreBtn.disabled) {
+        loadMoreBtn.click();
+      }
+    }, { rootMargin: '200px' });
+    io.observe(sentinel);
 
   } catch (err) {
     console.error("Show Tribe Details error:", err);

@@ -83,6 +83,7 @@ export function setWallet(walletData) {
 export function setActiveTab(tabName) {
   state.activeTab = tabName;
   emit(STATE_EVENTS.TAB_CHANGED, tabName);
+  try { localStorage.setItem('lastActiveTab', tabName); } catch {}
 }
 
 /**

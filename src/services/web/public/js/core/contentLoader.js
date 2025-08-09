@@ -47,6 +47,9 @@ export async function loadContent() {
       case "leaderboard":
         await loadTabContent("leaderboard");
         break;
+      case "collections":
+        await loadTabContent("collections");
+        break;
       case "tribes":
         await loadTabContent("tribes");
         break;

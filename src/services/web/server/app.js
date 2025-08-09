@@ -34,6 +34,12 @@ async function initializeApp(services) {
     // Static files (optional, only if needed)
     app.use(express.static(staticDir, { maxAge: '1h', etag: false }));
 
+    // Serve generated thumbnails regardless of environment
+    const thumbsDir = process.env.NODE_ENV === 'production'
+      ? path.join(staticDir, 'thumbnails')
+      : path.join(__dirname, '..', 'public', 'thumbnails');
+    app.use('/thumbnails', express.static(thumbsDir, { maxAge: '7d', etag: false }));
+
     // Core services
     app.locals.services = services;
     await services.databaseService.connect();
@@ -56,6 +62,7 @@ async function initializeApp(services) {
     app.use('/api/admin', (await import('./routes/admin.js')).default(db));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
     app.use('/api/models', (await import('./routes/models.js')).default(db));
+  app.use('/api/collections', (await import('./routes/collections.js')).default(db));
 
     // Custom route
     app.post('/api/claims/renounce', async (req, res) => {

@@ -20,7 +20,9 @@
     "update:models": "node scripts/updateModels.mjs",
     "sync:nft": "node scripts/syncNftAvatars.mjs",
     "backfill:agent-ids": "node scripts/backfillAgentIds.mjs",
-    "migrate:agent-blocks": "node scripts/migrateAgentBlocks.mjs"
+  "migrate:agent-blocks": "node scripts/migrateAgentBlocks.mjs",
+  "migrate:agent-events": "node scripts/migrateAgentEvents.mjs",
+  "test:agent-events": "node scripts/testAgentEvents.mjs"
   },
   "keywords": [
     "discord",

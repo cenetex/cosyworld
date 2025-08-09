@@ -230,13 +230,22 @@ export class DatabaseService {
           { key: { messageId: 1 }, unique: true },
           { key: { channelId: 1 }, background: true },
         ]),
+        db.collection('agent_events').createIndexes([
+          { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
+          { key: { hash: 1 }, name: 'agent_events_hash', unique: true, background: true },
+          { key: { type: 1, ts: -1 }, name: 'agent_events_type_ts', background: true }
+        ]),
         db.collection('avatars').createIndexes([
           { key: { name: 1, createdAt: -1 }, background: true },
           { key: { model: 1 }, background: true },
           { key: { emoji: 1 }, background: true },
+          { key: { emoji: 1, _id: -1 }, name: 'avatars_emoji_id_desc', background: true },
+          { key: { 'nft.collection': 1, _id: -1 }, name: 'avatars_nft_collection_id_desc', background: true },
+          { key: { collection: 1, _id: -1 }, name: 'avatars_collection_id_desc', background: true },
           { key: { parents: 1 }, background: true },
           { key: { createdAt: -1 }, background: true },
           { key: { channelId: 1 }, background: true },
+          { key: { agentId: 1 }, name: 'avatars_agent_id', background: true, sparse: true },
           { key: { name: 'text', description: 'text' }, background: true },
         ]),
         db.collection('dungeon_stats').createIndex(

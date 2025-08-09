@@ -21,7 +21,16 @@ export async function loadContent() {
   try {
     content.innerHTML = `
       <div class="max-w-7xl mx-auto px-4">
-        <h1 class="text-3xl font-bold mb-6">Leaderboard</h1>
+        <h1 class="text-3xl font-bold mb-4">Leaderboard</h1>
+        <div class="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <input id="lb-filter-collection" class="bg-surface-800 rounded px-3 py-2" placeholder="Filter by collection id..." />
+          <input id="lb-filter-emoji" class="bg-surface-800 rounded px-3 py-2" placeholder="Filter by emoji (e.g., 🧬)" />
+          <select id="lb-filter-claimed" class="bg-surface-800 rounded px-3 py-2">
+            <option value="">All</option>
+            <option value="true">Claimed</option>
+            <option value="false">Unclaimed</option>
+          </select>
+        </div>
         <div id="leaderboard-items" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
         <div id="leaderboard-loader" class="text-center py-8 hidden">
           <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
@@ -46,7 +55,8 @@ export async function loadContent() {
     }
 
     // Load initial data
-    const data = await LeaderboardAPI.getLeaderboard({ page: 1, limit: 12 });
+  const filters = getFilters();
+  const data = await LeaderboardAPI.getLeaderboard({ page: 1, limit: 12, ...filters });
     const leaderboardItems = document.getElementById("leaderboard-items");
     const loader = document.getElementById("leaderboard-loader");
 
@@ -75,7 +85,8 @@ export async function loadContent() {
     }));
 
     renderLeaderboardItems(leaderboardItems, avatarsWithClaimStatus);
-    setupInfiniteScroll(loader, leaderboardItems);
+  setupFilterHandlers(() => reloadLeaderboard(leaderboardItems, loader));
+  setupInfiniteScroll(loader, leaderboardItems);
 
   } catch (err) {
     console.error("Load Leaderboard error:", err);
@@ -197,8 +208,9 @@ function setupInfiniteScroll(loader, container) {
     loader.classList.remove("hidden");
 
     try {
-      const nextPage = window.scrollState.page + 1;
-      const moreData = await LeaderboardAPI.getLeaderboard({ page: nextPage, limit: 12 });
+  const nextPage = window.scrollState.page + 1;
+  const filters = getFilters();
+  const moreData = await LeaderboardAPI.getLeaderboard({ page: nextPage, limit: 12, ...filters });
 
       if (!moreData.avatars || moreData.avatars.length === 0) {
         window.scrollState.hasMore = false;
@@ -274,4 +286,45 @@ function setupInfiniteScroll(loader, container) {
 
   observer.observe(loader);
   loader.classList.remove("hidden");
+}
+
+function getFilters() {
+  const collection = document.getElementById('lb-filter-collection')?.value?.trim();
+  const emoji = document.getElementById('lb-filter-emoji')?.value?.trim();
+  const claimed = document.getElementById('lb-filter-claimed')?.value;
+  const params = {};
+  if (collection) params.collection = collection;
+  if (emoji) params.emoji = emoji;
+  if (claimed) params.claimed = claimed;
+  return params;
+}
+
+function setupFilterHandlers(onChange) {
+  const ids = ['lb-filter-collection', 'lb-filter-emoji', 'lb-filter-claimed'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', onChange);
+    if (el.tagName === 'INPUT') {
+      el.addEventListener('keyup', (e) => { if (e.key === 'Enter') onChange(); });
+    }
+  });
+}
+
+async function reloadLeaderboard(container, loader) {
+  container.innerHTML = '';
+  window.scrollState = { page: 1, loading: false, hasMore: true };
+  const filters = getFilters();
+  const data = await LeaderboardAPI.getLeaderboard({ page: 1, limit: 12, ...filters });
+  if (!data.avatars?.length) {
+    renderEmptyState(container); return;
+  }
+  const avatarsWithClaimStatus = await Promise.all(data.avatars.map(async avatar => {
+    try {
+      const claimStatusRes = await ClaimsAPI.getStatus(avatar._id);
+      return { ...avatar, isClaimed: claimStatusRes.claimed || false, claimedBy: claimStatusRes.claimedBy || '' };
+    } catch { return { ...avatar, isClaimed: false, claimedBy: '' }; }
+  }));
+  renderLeaderboardItems(container, avatarsWithClaimStatus);
+  setupInfiniteScroll(loader, container);
 }
