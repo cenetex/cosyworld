@@ -12,6 +12,8 @@
  */
 import 'dotenv/config';
 import { container } from '../src/container.mjs';
+import { computeAgentId, resolveChainId } from '../src/utils/agentIdentity.mjs';
+import pkg from 'js-sha3';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -324,6 +326,20 @@ async function upsertAvatarFromNft(nft, { force = false } = {}) {
   }
   const model = await aiService?.getModel?.(nft.model || '');
 
+  // Determine agent identity (optional if token id resolvable)
+  const explicitChainId = process.env.NFT_CHAIN_ID ? Number(process.env.NFT_CHAIN_ID) : undefined;
+  const chainId = resolveChainId(NFT_CHAIN, explicitChainId);
+  const originContract = COLLECTION; // treat collection identifier as namespace / contract
+  const rawToken = nft.token_id || nft.tokenId || nft.mint || nft.id || null;
+  let tokenNumeric = null;
+  if (rawToken && /^\d+$/.test(String(rawToken))) tokenNumeric = BigInt(rawToken);
+  else if (rawToken && /^0x[0-9a-fA-F]+$/.test(String(rawToken))) tokenNumeric = BigInt(rawToken);
+  else if (rawToken) {
+    tokenNumeric = BigInt('0x' + pkg.keccak_256(rawToken).slice(0,16));
+  }
+  let agentId = null;
+  try { if (tokenNumeric != null) agentId = computeAgentId({ chainId, originContract, tokenId: tokenNumeric }); } catch {}
+
   const doc = {
     name,
     description,
@@ -342,6 +358,9 @@ async function upsertAvatarFromNft(nft, { force = false } = {}) {
       provider: NFT_API_PROVIDER || null,
       fetchedAt: new Date()
     },
+    agentId: agentId || null,
+    chainId: agentId ? chainId : undefined,
+    originContract: agentId ? originContract : undefined,
     traits: nft.attributes || nft.traits || [],
     updatedAt: new Date(),
     createdAt: existing?.createdAt || new Date(),
