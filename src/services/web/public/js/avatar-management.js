@@ -99,6 +99,12 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAvatars();
   setupEventListeners();
 
+  // Helper to produce signed headers for admin writes
+  async function getSignedHeaders(extra) {
+    const mod = await import('./services/wallet.js');
+    return mod.signWriteHeaders(extra);
+  }
+
   // Event Listeners Setup
   function setupEventListeners() {
     elements.prevPageBtn.addEventListener("click", () => {
@@ -192,7 +198,7 @@ uploadButton.addEventListener('click', () => {
   fileInput.click();
 });
 
-fileInput.addEventListener('change', async (e) => {
+  fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
@@ -203,10 +209,12 @@ fileInput.addEventListener('change', async (e) => {
     uploadButton.disabled = true;
     uploadButton.textContent = 'Uploading...';
 
-    const response = await fetch('/api/admin/upload-image', {
-      method: 'POST',
-      body: formData
-    });
+      const headers = await getSignedHeaders({ op: 'upload_image' });
+      const response = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers,
+        body: formData
+      });
 
     if (!response.ok) {
       throw new Error(`Upload failed: ${response.statusText}`);
@@ -401,9 +409,10 @@ elements.imageUrlInput.addEventListener("input", () => {
     elements.saveBtn.textContent = "Saving...";
 
     try {
+      const headers = await getSignedHeaders({ op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId });
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(Object.fromEntries(formData)),
       });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
@@ -438,11 +447,33 @@ elements.imageUrlInput.addEventListener("input", () => {
       return;
 
     try {
+      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
       const response = await fetch(`/api/admin/avatars/${avatarId}`, {
         method: "DELETE",
+        headers
       });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       closeModal();
+      loadAvatars();
+      showNotification("Avatar deleted successfully");
+    } catch (error) {
+      console.error("Error deleting avatar:", error);
+      showNotification("Failed to delete avatar", "error");
+    }
+  }
+
+  // Row action delete (confirmation already handled by caller)
+  async function deleteAvatar(avatarId) {
+    if (!avatarId) return;
+    try {
+      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
+      const response = await fetch(`/api/admin/avatars/${avatarId}`, {
+        method: "DELETE",
+        headers
+      });
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      // If modal is open for this avatar, close it
+      if (elements.avatarForm.dataset.avatarId === avatarId) closeModal();
       loadAvatars();
       showNotification("Avatar deleted successfully");
     } catch (error) {

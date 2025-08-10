@@ -6,11 +6,8 @@
 import path from 'path';
 import webpack from 'webpack';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
-import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import CopyWebpackPlugin from 'copy-webpack-plugin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,11 +22,9 @@ export default (env, argv) => {
       main: './src/services/web/public/js/main.js',
       adminPanel: './src/services/web/public/js/adminPanel.js',
       avatarManagement: './src/services/web/public/js/avatar-management.js',
-  entityManagement: './src/services/web/public/js/entity-management.js',
-      styles: [
-        './src/tailwind.css',
-        './src/services/web/public/css/tribe-styles.css'
-      ]
+  entityManagement: './src/services/web/public/js/entity-management.js'
+  ,adminLogin: './src/services/web/public/js/admin-login.js'
+  ,adminDashboard: './src/services/web/public/js/admin-dashboard.js'
     },
     output: {
       filename: '[name].bundle.js',
@@ -47,7 +42,7 @@ export default (env, argv) => {
               presets: [
                 ['@babel/preset-env', {
                   targets: '> 0.25%, not dead',
-                  useBuiltIns: 'entry',
+      useBuiltIns: 'usage',
                   corejs: 3,
                   modules: false // Preserve ES modules
                 }]
@@ -64,7 +59,7 @@ export default (env, argv) => {
               presets: [
                 ['@babel/preset-env', {
                   targets: '> 0.25%, not dead',
-                  useBuiltIns: 'entry',
+      useBuiltIns: 'usage',
                   corejs: 3,
                   modules: false // Preserve ES modules
                 }]
@@ -77,17 +72,8 @@ export default (env, argv) => {
           use: [
             isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
             'css-loader',
-            {
-              loader: 'postcss-loader',
-              options: {
-                postcssOptions: {
-                  plugins: [
-                    tailwindcss,
-                    autoprefixer,
-                  ],
-                },
-              },
-            },
+    // Rely on postcss.config.js for Tailwind and Autoprefixer configuration
+    'postcss-loader',
           ],
         },
       ]
@@ -112,12 +98,6 @@ export default (env, argv) => {
       // Extract CSS into separate files
       new MiniCssExtractPlugin({
         filename: '../css/[name].css',
-      }),
-      // Copy static files to the dist folder
-      new CopyWebpackPlugin({
-        patterns: [
-          { from: './src/services/web/public', to: '../' }
-        ]
       }),
     ]
   };

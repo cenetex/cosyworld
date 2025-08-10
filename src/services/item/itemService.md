@@ -1,7 +1,7 @@
 # Item Service
 
 ## Overview
-The ItemService manages creation, storage, retrieval, and interaction of items in the RATi Avatar System. It supports AI-driven item generation, inventory management, item evolution, crafting, and blockchain integration via the RATi NFT Metadata Standard.
+The ItemService manages creation, storage, retrieval, and interaction of items in the RATi Swarm. It supports AI-driven item generation, inventory management, item evolution, crafting, and blockchain integration via the RATi NFT Metadata Standard.
 
 ## Functionality
 - **Item Creation**: Generates new items with AI-driven properties and metadata

@@ -200,3 +200,24 @@ export function updateWalletUI() {
     }
   }
 }
+
+/**
+ * Sign a write payload with Phantom for server-side verification
+ * Returns headers: { 'X-Wallet-Address', 'X-Message', 'X-Signature' }
+ */
+export async function signWriteHeaders(extra = {}) {
+  const address = window.state?.wallet?.publicKey;
+  const provider = window?.phantom?.solana;
+  if (!address || !provider) throw new Error('Wallet not connected');
+  const payload = { ts: Date.now(), nonce: Math.random().toString(36).slice(2), ...extra };
+  const msg = JSON.stringify(payload);
+  const encoded = new TextEncoder().encode(msg);
+  const { signature } = await provider.signMessage(encoded, 'utf8');
+  // signature is Uint8Array; convert to base58 string for compact transport
+  const bs58sig = (await import('bs58')).default.encode(signature);
+  return {
+    'X-Wallet-Address': address,
+    'X-Message': msg,
+    'X-Signature': bs58sig
+  };
+}

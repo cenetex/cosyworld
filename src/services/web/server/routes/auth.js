@@ -19,7 +19,7 @@ export default function createAuthRouter(db) {
 
   // Issue a short-lived nonce for a wallet address
   router.post('/nonce', asyncHandler(async (req, res) => {
-    const { address } = req.body || {};
+    const { address, scope } = req.body || {};
     if (!address || typeof address !== 'string') {
       return res.status(400).json({ error: 'address is required' });
     }
@@ -29,21 +29,21 @@ export default function createAuthRouter(db) {
 
     await nonces.updateOne(
       { address },
-      { $set: { address, nonce, expiresAt, updatedAt: new Date() } },
+      { $set: { address, nonce, scope: scope || 'login', expiresAt, updatedAt: new Date() } },
       { upsert: true }
     );
 
-    res.json({ nonce, expiresAt });
+    res.json({ nonce, scope: scope || 'login', expiresAt });
   }));
 
   // Verify a signed nonce and upsert the user
   router.post('/verify', asyncHandler(async (req, res) => {
-    const { address, nonce, signature } = req.body || {};
+  const { address, nonce, signature } = req.body || {};
     if (!address || !nonce || !signature) {
       return res.status(400).json({ error: 'address, nonce, signature are required' });
     }
 
-    const nonceDoc = await nonces.findOne({ address });
+  const nonceDoc = await nonces.findOne({ address });
     if (!nonceDoc || nonceDoc.nonce !== nonce) {
       return res.status(400).json({ error: 'Invalid nonce' });
     }
@@ -52,7 +52,7 @@ export default function createAuthRouter(db) {
     }
 
     // Prepare data for verification
-    const message = new TextEncoder().encode(nonce);
+  const message = new TextEncoder().encode(nonce);
     let sigBytes;
     if (Array.isArray(signature)) {
       sigBytes = new Uint8Array(signature);

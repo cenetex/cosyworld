@@ -1,6 +1,7 @@
 // Simple tabbed Entity Management; reuses Avatar logic and basic loaders for Locations/Items
 
 import './avatar-management.js';
+import { signWriteHeaders } from './services/wallet.js';
 
 (function(){
   function activate(tabId) {
@@ -128,7 +129,8 @@ import './avatar-management.js';
     const id = document.getElementById('location-form').dataset.id;
     if (!id) return;
     if (!confirm('Delete this location?')) return;
-    await fetch(`/api/admin/locations/${id}`, { method: 'DELETE' });
+  const hdrs = await signWriteHeaders({ op: 'delete_location', id });
+  await fetch(`/api/admin/locations/${id}`, { method: 'DELETE', headers: hdrs });
     document.getElementById('location-modal').classList.add('hidden');
     loadLocations();
   });
@@ -144,7 +146,8 @@ import './avatar-management.js';
     };
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/admin/locations/${id}` : '/api/admin/locations';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const hdrs = await signWriteHeaders({ op: id ? 'update_location' : 'create_location', id });
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...hdrs }, body: JSON.stringify(payload) });
     if (!res.ok) {
       alert('Failed to save'); return;
     }
@@ -202,7 +205,8 @@ import './avatar-management.js';
     const id = document.getElementById('item-form').dataset.id;
     if (!id) return;
     if (!confirm('Delete this item?')) return;
-    await fetch(`/api/admin/items/${id}`, { method: 'DELETE' });
+  const hdrs = await signWriteHeaders({ op: 'delete_item', id });
+  await fetch(`/api/admin/items/${id}`, { method: 'DELETE', headers: hdrs });
     document.getElementById('item-modal').classList.add('hidden');
     loadItems();
   });
@@ -220,7 +224,8 @@ import './avatar-management.js';
     };
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/admin/items/${id}` : '/api/admin/items';
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const hdrs = await signWriteHeaders({ op: id ? 'update_item' : 'create_item', id });
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...hdrs }, body: JSON.stringify(payload) });
     if (!res.ok) { alert('Failed to save'); return; }
     document.getElementById('item-modal').classList.add('hidden');
     loadItems();

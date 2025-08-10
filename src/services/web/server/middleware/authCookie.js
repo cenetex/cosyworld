@@ -70,13 +70,69 @@ export function issueAuthCookie(res, { addr, isAdmin }) {
   const now = Date.now();
   const payload = { addr, isAdmin: !!isAdmin, iat: now, exp: now + 7 * 24 * 60 * 60 * 1000 };
   const token = signPayload(payload);
+  // Decide secure cookie behavior
+  const xfProto = res?.req?.headers?.['x-forwarded-proto'];
+  const isHttps = res?.req?.secure || res?.req?.protocol === 'https' || xfProto === 'https';
+  let secure;
+  if (process.env.COOKIE_SECURE === 'true') secure = true;
+  else if (process.env.COOKIE_SECURE === 'false') secure = false;
+  else secure = !!isHttps; // default to secure only when request is HTTPS
   res.cookie('authToken', token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure,
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 
 export default { attachUserFromCookie, ensureAuthenticated, ensureAdmin, issueAuthCookie };
+
+// Additional write-safety middleware: require a fresh signed message
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
+
+export function requireSignedWrite(req, res, next) {
+  try {
+    const method = (req.method || 'GET').toUpperCase();
+    // Only enforce for mutating methods
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return next();
+
+    const addr = req.headers['x-wallet-address'];
+    const msg = req.headers['x-message'];
+    const sig = req.headers['x-signature'];
+    if (!addr || !msg || !sig) {
+      return res.status(401).json({ error: 'Signed message required' });
+    }
+
+    // Reject messages older than 2 minutes to prevent replay
+    let payload;
+    try { payload = JSON.parse(msg); } catch {}
+    const now = Date.now();
+    if (!payload || typeof payload !== 'object' || !payload.nonce || !payload.ts) {
+      return res.status(400).json({ error: 'Invalid message payload' });
+    }
+    if (Math.abs(now - Number(payload.ts)) > 2 * 60 * 1000) {
+      return res.status(400).json({ error: 'Signed message expired' });
+    }
+
+    // Verify signature (ed25519 base58 address/signature)
+    const pubKey = bs58.decode(String(addr));
+    // Sign the exact msg string to avoid canonicalization differences
+    const messageBytes = new TextEncoder().encode(String(msg));
+    let sigBytes;
+    try { sigBytes = bs58.decode(String(sig)); } catch {
+      // Allow JSON array of byte values as a fallback
+      try { sigBytes = new Uint8Array(JSON.parse(sig)); } catch { return res.status(400).json({ error: 'Invalid signature format' }); }
+    }
+
+    const ok = nacl.sign.detached.verify(messageBytes, sigBytes, pubKey);
+    if (!ok) return res.status(401).json({ error: 'Invalid signature' });
+
+    // Attach signer to request for downstream handlers
+    req.signer = { walletAddress: String(addr), payload };
+    return next();
+  } catch (e) {
+    return res.status(400).json({ error: 'Signature verification error' });
+  }
+}

@@ -9,7 +9,7 @@ import process from 'process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
-import { attachUserFromCookie, ensureAuthenticated, ensureAdmin } from './middleware/authCookie.js';
+import { attachUserFromCookie, ensureAuthenticated, ensureAdmin, requireSignedWrite } from './middleware/authCookie.js';
 
 async function initializeApp(services) {
   try {
@@ -89,7 +89,8 @@ async function initializeApp(services) {
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
   // Protect admin API
-  app.use('/api/admin', ensureAdmin, (await import('./routes/admin.js')).default(db));
+  // Admin API: allow reads with session; require signed message for writes
+  app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));

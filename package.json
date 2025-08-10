@@ -9,11 +9,11 @@
     "node": ">=18.18"
   },
   "scripts": {
-    "dev": "DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
-    "start": "cross-env NODE_ENV=production node src/index.mjs",
-    "build": "npm run clean && npm run build:js && npm run build:css && npm run docs && npm run copy-assets",
+  "dev": "DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
+  "start": "cross-env NODE_ENV=production node src/index.mjs",
+  "build": "npm run clean && npm run build:js && npm run build:css && npm run docs && npm run copy-assets",
     "clean": "rimraf dist",
-    "build:js": "webpack --mode production --progress",
+  "build:js": "webpack --mode production --progress --stats=errors-only",
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./dist/css/tailwind.css --minify",
     "docs": "node scripts/build-docs.mjs",
     "copy-assets": "node scripts/copy-assets.mjs",
@@ -22,7 +22,11 @@
     "backfill:agent-ids": "node scripts/backfillAgentIds.mjs",
   "migrate:agent-blocks": "node scripts/migrateAgentBlocks.mjs",
   "migrate:agent-events": "node scripts/migrateAgentEvents.mjs",
-  "test:agent-events": "node scripts/testAgentEvents.mjs"
+  "test:agent-events": "node scripts/testAgentEvents.mjs",
+  "lint": "eslint .",
+  "format": "prettier --write .",
+  "format:check": "prettier --check .",
+  "analyze": "webpack --mode production --profile --json > webpack-stats.json"
   },
   "keywords": [
     "discord",
@@ -89,6 +93,7 @@
     "rimraf": "^5.0.10",
     "style-loader": "^3.3.4",
     "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1"
+  "webpack-cli": "^6.0.1",
+  "core-js": "^3.38.1"
   }
 }
