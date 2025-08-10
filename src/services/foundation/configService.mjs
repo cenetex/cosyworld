@@ -15,8 +15,9 @@ const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
 
 export class ConfigService {
-  constructor({ logger }) {
+  constructor({ logger, secretsService } = {}) {
     this.logger = logger;
+    this.secrets = secretsService;
 
     // Initialize global configuration with defaults from environment variables
     this.config = {
@@ -32,7 +33,7 @@ export class ConfigService {
           }
         },
         google: {
-          apiKey: process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
+          apiKey: this.secrets?.get('GOOGLE_API_KEY') || this.secrets?.get('GOOGLE_AI_API_KEY') || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
           model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash-001',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'gemini-2.0-flash',
           structuredModel: process.env.GOOGLE_AI_STRUCTURED_MODEL || 'models/gemini-2.0-flash',
@@ -43,7 +44,7 @@ export class ConfigService {
           topP: 1.0
         },
         openrouter: {
-          apiKey: process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
+          apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
           model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
           structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'openai/gpt-4o',
@@ -54,7 +55,7 @@ export class ConfigService {
           topP: 1.0
         },
         replicate: {
-          apiToken: process.env.REPLICATE_API_TOKEN,
+          apiToken: this.secrets?.get('REPLICATE_API_TOKEN') || process.env.REPLICATE_API_TOKEN,
           model: process.env.REPLICATE_MODEL,
           lora_weights: process.env.REPLICATE_LORA_WEIGHTS,
           loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER,
@@ -62,7 +63,7 @@ export class ConfigService {
         },
       },
       mongo: {
-        uri: process.env.MONGO_URI,
+        uri: this.secrets?.get('MONGO_URI') || process.env.MONGO_URI,
         dbName: process.env.MONGO_DB_NAME || 'discord-bot',
         collections: {
           avatars: 'avatars',
@@ -147,12 +148,12 @@ export class ConfigService {
 
   // Get Discord-specific configuration
   getDiscordConfig() {
-    if (!process.env.DISCORD_BOT_TOKEN) {
+    if (!(this.secrets?.get('DISCORD_BOT_TOKEN') || process.env.DISCORD_BOT_TOKEN)) {
       console.warn('DISCORD_BOT_TOKEN not found in environment variables');
     }
     return {
-      botToken: process.env.DISCORD_BOT_TOKEN,
-      clientId: process.env.DISCORD_CLIENT_ID,
+      botToken: this.secrets?.get('DISCORD_BOT_TOKEN') || process.env.DISCORD_BOT_TOKEN,
+      clientId: this.secrets?.get('DISCORD_CLIENT_ID') || process.env.DISCORD_CLIENT_ID,
       webhooks: this.config.webhooks || {}
     };
   }

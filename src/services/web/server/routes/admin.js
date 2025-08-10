@@ -35,36 +35,38 @@ const asyncHandler = (fn) => (req, res, next) =>
 
 // Config utility functions
 async function loadConfig() {
+  const fallback = {
+    whitelistedGuilds: [],
+    emojis: { summon: "🔮", breed: "🏹", attack: "⚔️", defend: "🛡️" },
+    prompts: {
+      introduction: "You have been summoned to this realm. This is your one chance to impress me, and save yourself from Elimination. Good luck, and DONT fuck it up.",
+      summon: "Create a unique avatar with a special ability."
+    },
+    features: { breeding: true, combat: true, itemCreation: true },
+    rateLimit: { messages: 5, interval: 10 },
+    adminRoles: ["Admin", "Moderator"]
+  };
   try {
-    const defaultConfig = JSON.parse(await fs.readFile(path.join(configPath, 'default.config.json')));
-    const userConfig = JSON.parse(await fs.readFile(path.join(configPath, 'user.config.json')));
-    return { ...defaultConfig, ...userConfig };
+    const defaultPath = path.join(configPath, 'default.config.json');
+    const userPath = path.join(configPath, 'user.config.json');
+    let defaultConfig = {};
+    try {
+      defaultConfig = JSON.parse(await fs.readFile(defaultPath));
+    } catch {}
+    let userConfig = {};
+    try {
+      userConfig = JSON.parse(await fs.readFile(userPath));
+    } catch (e) {
+      // lazily create user config from fallback + default
+      await fs.mkdir(configPath, { recursive: true });
+      const initial = { ...fallback, ...defaultConfig };
+      await fs.writeFile(userPath, JSON.stringify(initial, null, 2));
+      userConfig = initial;
+    }
+    return { ...fallback, ...defaultConfig, ...userConfig };
   } catch (error) {
-    console.error('Config load error:', error);
-    // Return empty config if files don't exist
-    return {
-      whitelistedGuilds: [],
-      emojis: {
-        summon: "🔮",
-        breed: "🏹",
-        attack: "⚔️",
-        defend: "🛡️"
-      },
-      prompts: {
-        introduction: "You have been summoned to this realm. This is your one chance to impress me, and save yourself from Elimination. Good luck, and DONT fuck it up.",
-        summon: "Create a unique avatar with a special ability."
-      },
-      features: {
-        breeding: true,
-        combat: true,
-        itemCreation: true
-      },
-      rateLimit: {
-        messages: 5,
-        interval: 10
-      },
-      adminRoles: ["Admin", "Moderator"]
-    };
+    // Final fallback without logging noise
+    return fallback;
   }
 }
 

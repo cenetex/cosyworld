@@ -8,6 +8,8 @@ import cors from 'cors';
 import process from 'process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cookieParser from 'cookie-parser';
+import { attachUserFromCookie, ensureAuthenticated, ensureAdmin } from './middleware/authCookie.js';
 
 async function initializeApp(services) {
   try {
@@ -25,10 +27,22 @@ async function initializeApp(services) {
     // Middleware setup
     app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
     app.use(express.json({ limit: '1mb' }));
+  app.use(cookieParser());
+  app.use(attachUserFromCookie);
     app.use((req, res, next) => {
       logger.info(`Request: ${req.method} ${req.path}`);
       res.setHeader('Cache-Control', 'no-cache');
       next();
+    });
+
+    // Gate all /admin paths behind wallet login (except the login page itself)
+    app.use('/admin', (req, res, next) => {
+      const p = req.path || '';
+      // Allow the login page without auth
+      if (p === '/login' || p === '/login.html') return next();
+      if (req.user) return next();
+      if (req.accepts('html')) return res.redirect('/admin/login');
+      return res.status(401).json({ error: 'Unauthorized' });
     });
 
     // Static files (optional, only if needed)
@@ -52,9 +66,16 @@ async function initializeApp(services) {
     const db = await services.databaseService.getDatabase();
     logger.info('Database connected and services initialized');
 
+    // Ensure SecretsService is attached to DB for persistence
+    try {
+      await services.secretsService.attachDB(db, { collectionName: 'secrets' });
+    } catch (e) {
+      logger.error('Failed to attach SecretsService to DB:', e);
+    }
+
     // Routes
     app.get('/test', (req, res) => res.json({ message: 'Test route working' }));
-    app.use('/api/leaderboard', (await import('./routes/leaderboard.js')).default(db));
+  app.use('/api/leaderboard', (await import('./routes/leaderboard.js')).default(db));
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
     app.use('/api/health', (await import('./routes/health.js')).default(db));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
@@ -65,10 +86,13 @@ async function initializeApp(services) {
     app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
-    app.use('/api/admin', (await import('./routes/admin.js')).default(db));
+  // Protect admin API
+  app.use('/api/admin', ensureAdmin, (await import('./routes/admin.js')).default(db));
+  app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
     app.use('/api/models', (await import('./routes/models.js')).default(db));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
+  app.use('/api/auth', (await import('./routes/auth.js')).default(db));
 
     // Custom route
     app.post('/api/claims/renounce', async (req, res) => {
@@ -91,6 +115,34 @@ async function initializeApp(services) {
         version: process.env.npm_package_version || '1.0.0',
         environment: process.env.NODE_ENV || 'development',
         buildDate: new Date().toISOString(),
+      });
+    });
+
+    // Admin pages (serve clean URLs for static admin HTML)
+    app.get('/admin/login', (req, res, next) => {
+      if (req.user) return res.redirect('/admin');
+      res.sendFile(path.join(staticDir, 'admin', 'login.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin', ensureAuthenticated, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/guild-settings', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'guild-settings.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/avatar-management', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'avatar-management.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
+        if (err) next(err);
       });
     });
 

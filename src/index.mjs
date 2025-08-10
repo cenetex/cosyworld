@@ -23,6 +23,15 @@ async function main() {
     const config = container.resolve('configService');
     config.db = await db.getDatabase(); // your system relies on this
 
+    // Attach SecretsService to Mongo so secrets persist in the 'secrets' collection
+    try {
+      const secrets = container.resolve('secretsService');
+      await secrets.attachDB(config.db, { collectionName: 'secrets' });
+      logger.log('[startup] SecretsService attached to Mongo');
+    } catch (e) {
+      logger.error(`[startup] Failed to attach SecretsService to Mongo: ${e.message}`);
+    }
+
 
     await db.createIndexes();
     logger.log('[startup] Database indexes created');

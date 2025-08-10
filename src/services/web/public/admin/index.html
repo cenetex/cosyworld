@@ -23,6 +23,15 @@
               <div class="flex-shrink-0">
                 <h1 class="text-xl font-bold">RATi Admin Panel</h1>
               </div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Dashboard</a>
+                <a href="/admin/guild-settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Guild Settings</a>
+                <a href="/admin/avatar-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Avatar Management</a>
+                <a href="/admin/secrets" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Secrets</a>
+              </div>
+            </div>
+            <div>
+              <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
             </div>
           </div>
         </div>
@@ -39,6 +48,31 @@
                 <p class="mt-1 max-w-2xl text-sm text-gray-500">
                   Manage various aspects of your application
                 </p>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4" id="admin-stats">
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Avatars</div>
+                    <div class="text-2xl font-semibold" id="stat-avatars">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Items</div>
+                    <div class="text-2xl font-semibold" id="stat-items">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Locations</div>
+                    <div class="text-2xl font-semibold" id="stat-locations">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Memories</div>
+                    <div class="text-2xl font-semibold" id="stat-memories">--</div>
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between bg-gray-50 px-4 py-3 rounded border">
+                  <div>
+                    <div class="text-sm font-medium text-gray-700">Admin login</div>
+                    <div class="text-xs text-gray-500" id="admin-login-status">Connect with Phantom to access admin features</div>
+                  </div>
+                  <div class="wallet-container"></div>
+                </div>
               </div>
               <div class="border-t border-gray-200">
                 <div
@@ -96,5 +130,15 @@
         </div>
       </footer>
     </div>
+  <script type="module" src="/js/admin-dashboard.js"></script>
+  <script>
+  (function(){
+    const btn = document.getElementById('admin-logout');
+    if (btn) btn.addEventListener('click', async () => {
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+      location.href = '/admin/login';
+    });
+  })();
+  </script>
   </body>
 </html>

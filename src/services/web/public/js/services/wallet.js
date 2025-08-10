@@ -16,6 +16,9 @@ import { shortenAddress } from '../utils/formatting.js';
  * Initialize wallet functionality
  */
 export function initializeWallet() {
+  // Determine if we should suppress toasts (admin pages)
+  const suppressToasts = location.pathname.startsWith('/admin');
+  window.__walletSuppressToasts = suppressToasts;
   // Check for wallet connect button and inject if missing
   const walletContainer = document.querySelector(".wallet-container");
   if (walletContainer && !walletContainer.querySelector('button')) {
@@ -73,7 +76,7 @@ export async function connectWallet() {
     const provider = window?.phantom?.solana;
     
     if (!provider) {
-      showToast("Please install Phantom wallet", { type: 'warning' });
+  if (!window.__walletSuppressToasts) showToast("Please install Phantom wallet", { type: 'warning' });
       return null;
     }
     
@@ -86,7 +89,7 @@ export async function connectWallet() {
     return connection;
   } catch (error) {
     console.error("Wallet connection error:", error);
-    showToast(`Wallet connection failed: ${error.message}`, { type: 'error' });
+  if (!window.__walletSuppressToasts) showToast(`Wallet connection failed: ${error.message}`, { type: 'error' });
     return null;
   }
 }
@@ -107,15 +110,18 @@ export function disconnectWallet() {
     // Update UI
     updateWalletUI();
     
-    showToast("Wallet disconnected", { type: 'info' });
+  if (!window.__walletSuppressToasts) showToast("Wallet disconnected", { type: 'info' });
     
     // Reload content if needed
     if (window.loadContent) {
       window.loadContent();
     }
+
+  // Notify listeners of disconnect
+  try { window.dispatchEvent(new CustomEvent('wallet:disconnected')); } catch {}
   } catch (error) {
     console.error("Wallet disconnect error:", error);
-    showToast(`Error disconnecting wallet: ${error.message}`, { type: 'error' });
+  if (!window.__walletSuppressToasts) showToast(`Error disconnecting wallet: ${error.message}`, { type: 'error' });
   }
 }
 
@@ -140,12 +146,15 @@ function handleSuccessfulConnection(connection) {
   // Update UI
   updateWalletUI();
   
-  showToast(`Wallet connected: ${shortenAddress(walletData.publicKey)}`, { type: 'success' });
+  if (!window.__walletSuppressToasts) showToast(`Wallet connected: ${shortenAddress(walletData.publicKey)}`, { type: 'success' });
   
   // Reload content if needed
   if (window.loadContent) {
     window.loadContent();
   }
+
+  // Notify listeners of connect
+  try { window.dispatchEvent(new CustomEvent('wallet:connected', { detail: { publicKey: walletData.publicKey } })); } catch {}
 }
 
 /**

@@ -14,6 +14,7 @@ import { CrossmintService } from './services/crossmint/crossmintService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import eventBus from './utils/eventBus.mjs';
+import { SecretsService } from './services/security/secretsService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,12 @@ container.register({
 
 // --- instantiate once ---
 const logger        = new Logger();               
+const secretsService = new SecretsService({ logger });
+// Preload known secret keys from env (kept only encryption key in env per plan)
+secretsService.hydrateFromEnv([
+  'OPENROUTER_API_KEY','OPENROUTER_API_TOKEN','GOOGLE_API_KEY','GOOGLE_AI_API_KEY',
+  'REPLICATE_API_TOKEN','MONGO_URI','DISCORD_BOT_TOKEN','DISCORD_CLIENT_ID',
+]);
 const configService = new ConfigService({ logger });
 const crossmintService = new CrossmintService({ logger });
 const aiModelService = new (await import('./services/ai/aiModelService.mjs')).AIModelService;
@@ -50,6 +57,7 @@ try {
 // --- value‑register them ---
 container.register({
   logger:        asValue(logger),
+  secretsService: asValue(secretsService),
   configService: asValue(configService),
   crossmintService: asValue(crossmintService),
   aiModelService: asValue(aiModelService),

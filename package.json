@@ -50,6 +50,7 @@
     "bs58": "^6.0.0",
     "copy-webpack-plugin": "^13.0.0",
     "cors": "^2.8.5",
+  "cookie-parser": "^1.4.6",
     "csv-stringify": "^6.5.2",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
