@@ -27,6 +27,7 @@ const assetsToCopy = [
   { src: 'checkout.html', dest: 'checkout.html', transform: true },
   { src: 'api-docs.html', dest: 'api-docs.html', transform: true },
   { src: 'admin/avatar-management.html', dest: 'admin/avatar-management.html', transform: true },
+  { src: 'admin/entity-management.html', dest: 'admin/entity-management.html', transform: true },
   { src: 'admin/guild-settings.html', dest: 'admin/guild-settings.html', transform: true },
   { src: 'admin/index.html', dest: 'admin/index.html', transform: true },
 ];

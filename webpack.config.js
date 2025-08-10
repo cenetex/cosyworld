@@ -25,6 +25,7 @@ export default (env, argv) => {
       main: './src/services/web/public/js/main.js',
       adminPanel: './src/services/web/public/js/adminPanel.js',
       avatarManagement: './src/services/web/public/js/avatar-management.js',
+  entityManagement: './src/services/web/public/js/entity-management.js',
       styles: [
         './src/tailwind.css',
         './src/services/web/public/css/tribe-styles.css'

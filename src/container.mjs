@@ -39,7 +39,8 @@ secretsService.hydrateFromEnv([
   'OPENROUTER_API_KEY','OPENROUTER_API_TOKEN','GOOGLE_API_KEY','GOOGLE_AI_API_KEY',
   'REPLICATE_API_TOKEN','MONGO_URI','DISCORD_BOT_TOKEN','DISCORD_CLIENT_ID',
 ]);
-const configService = new ConfigService({ logger });
+const configService = new ConfigService({ logger, secretsService });
+await configService.loadConfig();
 const crossmintService = new CrossmintService({ logger });
 const aiModelService = new (await import('./services/ai/aiModelService.mjs')).AIModelService;
 // Optional secondary Google AI service (for image/video) even if primary AI_SERVICE is not google

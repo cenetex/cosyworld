@@ -7,6 +7,7 @@ import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import { ObjectId } from 'mongodb';
+import { thumbnailService } from '../services/thumbnailService.js';
 
 import multer from 'multer';
 
@@ -229,18 +230,63 @@ function createRouter(db) {
     const offset = parseInt(req.query.offset) || 0;
 
     const total = await db.collection('items').countDocuments();
-    const data = await db.collection('items')
+    const raw = await db.collection('items')
       .find()
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit)
       .toArray();
 
+    // Enrich with thumbnails when possible
+    const data = await Promise.all((raw || []).map(async (it) => {
+      if (!it.thumbnailUrl && it.imageUrl) {
+        try { it.thumbnailUrl = await thumbnailService.generateThumbnail(it.imageUrl); } catch {}
+      }
+      return it;
+    }));
+
     res.json({ data, total, limit, offset });
   }));
 
+  // Item CRUD: get/update/delete
+  router.get('/items/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+    const item = await db.collection('items').findOne({ _id: id });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (!item.thumbnailUrl && item.imageUrl) {
+      try { item.thumbnailUrl = await thumbnailService.generateThumbnail(item.imageUrl); } catch {}
+    }
+    res.json(item);
+  }));
+
+  router.put('/items/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+  let { name, description, emoji, imageUrl, rarity, owner, locationId } = req.body || {};
+  if (typeof name === 'string') name = name.trim();
+  if (name && name.length > 120) return res.status(400).json({ error: 'Name must be at most 120 characters' });
+    const update = { updatedAt: new Date() };
+    if (name !== undefined) update.name = name;
+    if (description !== undefined) update.description = description;
+    if (emoji !== undefined) update.emoji = emoji;
+    if (imageUrl !== undefined) update.imageUrl = imageUrl;
+    if (rarity !== undefined) update.rarity = rarity;
+    if (owner !== undefined) update.owner = owner;
+    if (locationId !== undefined) update.locationId = locationId;
+    const result = await db.collection('items').updateOne({ _id: id }, { $set: update });
+    if (!result.matchedCount) return res.status(404).json({ error: 'Not found' });
+    const item = await db.collection('items').findOne({ _id: id });
+    res.json(item);
+  }));
+
+  router.delete('/items/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+    const result = await db.collection('items').deleteOne({ _id: id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    res.status(204).end();
+  }));
+
   router.post('/items', asyncHandler(async (req, res) => {
-    const {
+    let {
       name,
       description,
       emoji,
@@ -250,8 +296,13 @@ function createRouter(db) {
       locationId
     } = req.body;
 
+    if (typeof name === 'string') name = name.trim();
+    if (name && name.length > 120) {
+      return res.status(400).json({ error: 'Name must be at most 120 characters' });
+    }
+
     // Validate required fields
-    if (!name || !description) {
+  if (!name || !description) {
       return res.status(400).json({ error: 'Name and description are required' });
     }
 
@@ -284,14 +335,52 @@ function createRouter(db) {
     const offset = parseInt(req.query.offset) || 0;
 
     const total = await db.collection('locations').countDocuments();
-    const data = await db.collection('locations')
+    const raw = await db.collection('locations')
       .find()
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit)
       .toArray();
 
+    const data = await Promise.all((raw || []).map(async (loc) => {
+      if (!loc.thumbnailUrl && loc.imageUrl) {
+        try { loc.thumbnailUrl = await thumbnailService.generateThumbnail(loc.imageUrl); } catch {}
+      }
+      return loc;
+    }));
+
     res.json({ data, total, limit, offset });
+  }));
+
+  router.get('/locations/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+    const location = await db.collection('locations').findOne({ _id: id });
+    if (!location) return res.status(404).json({ error: 'Not found' });
+    if (!location.thumbnailUrl && location.imageUrl) {
+      try { location.thumbnailUrl = await thumbnailService.generateThumbnail(location.imageUrl); } catch {}
+    }
+    res.json(location);
+  }));
+
+  router.put('/locations/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+    const { name, description, imageUrl, type } = req.body || {};
+    const update = { updatedAt: new Date() };
+    if (name !== undefined) update.name = name;
+    if (description !== undefined) update.description = description;
+    if (imageUrl !== undefined) update.imageUrl = imageUrl;
+    if (type !== undefined) update.type = type;
+    const result = await db.collection('locations').updateOne({ _id: id }, { $set: update });
+    if (!result.matchedCount) return res.status(404).json({ error: 'Not found' });
+    const location = await db.collection('locations').findOne({ _id: id });
+    res.json(location);
+  }));
+
+  router.delete('/locations/:id', asyncHandler(async (req, res) => {
+    let id; try { id = new ObjectId(req.params.id); } catch { return res.status(400).json({ error: 'Invalid ID' }); }
+    const result = await db.collection('locations').deleteOne({ _id: id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    res.status(204).end();
   }));
 
   router.post('/locations', asyncHandler(async (req, res) => {
@@ -422,15 +511,15 @@ function createRouter(db) {
         avatarsCollection.countDocuments(),
         db.collection('items').countDocuments(),
         db.collection('locations').countDocuments(),
-        db.memories ? db.memories.countDocuments() : 0
+        db.collection('memories').countDocuments()
       ]);
 
       // Get recent activity (last 10 memories)
-      const recentActivity = db.memories ? await db.memories
+      const recentActivity = await db.collection('memories')
         .find()
         .sort({ timestamp: -1 })
         .limit(10)
-        .toArray() : [];
+        .toArray();
 
       // Get blacklisted users
       const config = await loadConfig();

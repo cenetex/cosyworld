@@ -21,11 +21,13 @@ async function initializeApp(services) {
       : path.join(__dirname, '..', 'public');
 
     const app = express();
-    const PORT = process.env.WEB_PORT || 3000;
+  const serverCfg = services.configService?.config?.server || {};
+  const PORT = serverCfg.port || process.env.WEB_PORT || 3000;
     const logger = services.logger;
 
     // Middleware setup
-    app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+  const corsOpts = serverCfg.cors || { enabled: true, origin: '*', credentials: false };
+  app.use(cors({ origin: corsOpts.origin || '*', credentials: !!corsOpts.credentials }));
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(attachUserFromCookie);
@@ -36,7 +38,7 @@ async function initializeApp(services) {
     });
 
     // Gate all /admin paths behind wallet login (except the login page itself)
-    app.use('/admin', (req, res, next) => {
+  app.use('/admin', (req, res, next) => {
       const p = req.path || '';
       // Allow the login page without auth
       if (p === '/login' || p === '/login.html') return next();
@@ -89,6 +91,7 @@ async function initializeApp(services) {
   // Protect admin API
   app.use('/api/admin', ensureAdmin, (await import('./routes/admin.js')).default(db));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
+  app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
     app.use('/api/models', (await import('./routes/models.js')).default(db));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
@@ -135,13 +138,22 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/avatar-management', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'avatar-management.html'), (err) => {
+    // Backward compat: redirect old Avatar Management to Entity Management
+    app.get('/admin/avatar-management', ensureAdmin, (req, res) => {
+      res.redirect('/admin/entity-management');
+    });
+    app.get('/admin/entity-management', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'entity-management.html'), (err) => {
         if (err) next(err);
       });
     });
     app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/settings', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'settings.html'), (err) => {
         if (err) next(err);
       });
     });

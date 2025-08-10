@@ -21,9 +21,34 @@ export class ConfigService {
 
     // Initialize global configuration with defaults from environment variables
     this.config = {
+      server: {
+        host: process.env.HOST || '0.0.0.0',
+        port: Number(process.env.WEB_PORT || 3000),
+        baseUrl: process.env.BASE_URL || `http://localhost:${process.env.WEB_PORT || 3000}`,
+        publicUrl: process.env.PUBLIC_URL || process.env.BASE_URL || `http://localhost:${process.env.WEB_PORT || 3000}`,
+        cors: {
+          enabled: true,
+          origin: process.env.CORS_ORIGIN || '*',
+          credentials: false
+        },
+        session: {
+          cookieName: 'authToken',
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax'
+        },
+        admin: {
+          enabled: true,
+          loginPath: '/admin/login',
+          gateAll: true
+        },
+        rateLimit: { enabled: false, windowMs: 60000, max: 100 }
+      },
       prompt: {
         summon: process.env.SUMMON_PROMPT || "Create a twisted avatar, a servant of dark V.A.L.I.S.",
-        introduction: process.env.INTRODUCTION_PROMPT || "You've just arrived. Introduce yourself."
+  introduction: process.env.INTRODUCTION_PROMPT || "You've just arrived. Introduce yourself.",
+  attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name} with your abilities.",
+  defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack.",
+  breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
       },
       ai: {
         veo: {
@@ -77,6 +102,19 @@ export class ConfigService {
     this.guildConfigCache = new Map(); // Cache for guild configurations
   }
 
+  static deepMerge(target, source) {
+    for (const key of Object.keys(source || {})) {
+      const sv = source[key];
+      const tv = target[key];
+      if (sv && typeof sv === 'object' && !Array.isArray(sv)) {
+        target[key] = ConfigService.deepMerge(tv && typeof tv === 'object' ? { ...tv } : {}, sv);
+      } else {
+        target[key] = sv;
+      }
+    }
+    return target;
+  }
+
   getAIConfig(service = null) {
     if (service) {
       return this.config.ai[service] || this.config.ai.openrouter;
@@ -107,25 +145,31 @@ export class ConfigService {
   // Load global configuration from JSON files
   async loadConfig() {
     try {
-      const defaultConfig = JSON.parse(
-        await fs.readFile(path.join(CONFIG_DIR, 'default.config.json'), 'utf8')
-      );
-      let userConfig = {};
+      // 1) Start with in-code defaults (this.config)
+      let merged = { ...this.config };
+
+      // 2) Merge JSON template defaults from services/config/default.config.json
       try {
-        userConfig = JSON.parse(
-          await fs.readFile(path.join(CONFIG_DIR, 'user.config.json'), 'utf8')
-        );
-      } catch (error) {
-        // If user config doesn't exist, create it with defaults
-        await fs.writeFile(
-          path.join(CONFIG_DIR, 'user.config.json'),
-          JSON.stringify(this.config, null, 2)
-        );
-        userConfig = this.config;
+        const defaultConfig = JSON.parse(await fs.readFile(path.join(CONFIG_DIR, 'default.config.json'), 'utf8'));
+        merged = ConfigService.deepMerge(merged, defaultConfig);
+      } catch {}
+
+      // 3) Merge environment-specific overrides file if present
+      //    Looks for services/config/{NODE_ENV}.config.json and services/config/user.config.json
+      const envName = process.env.NODE_ENV || 'development';
+      const candidates = [
+        path.join(CONFIG_DIR, `${envName}.config.json`),
+        path.join(CONFIG_DIR, 'user.config.json')
+      ];
+      for (const file of candidates) {
+        try {
+          const content = await fs.readFile(file, 'utf8');
+          const json = JSON.parse(content);
+          merged = ConfigService.deepMerge(merged, json);
+        } catch {}
       }
 
-      // Merge configs, with user config taking precedence
-      this.config = { ...this.config, ...defaultConfig, ...userConfig };
+      this.config = merged;
     } catch (error) {
       console.error('Error loading config:', error);
     }
@@ -166,8 +210,11 @@ export class ConfigService {
       summonerRole: "🔮",
       summonEmoji: "🔮",
       prompts: {
-        summon: this.config.prompt.summon,
-        introduction: this.config.prompt.introduction
+  summon: this.config.prompt.summon,
+  introduction: this.config.prompt.introduction,
+  attack: this.config.prompt.attack,
+  defend: this.config.prompt.defend,
+  breed: this.config.prompt.breed
       },
       toolEmojis: {
         summon: '🔮',
@@ -193,8 +240,11 @@ export class ConfigService {
       ...defaults,
       ...guildConfig,
       prompts: {
-        summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
-        introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction
+  summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
+  introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction,
+  attack: guildConfig?.prompts?.attack || defaults.prompts.attack,
+  defend: guildConfig?.prompts?.defend || defaults.prompts.defend,
+  breed: guildConfig?.prompts?.breed || defaults.prompts.breed
       },
       toolEmojis: {
         ...defaults.toolEmojis,

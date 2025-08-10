@@ -16,11 +16,12 @@ export default function createSecretsRouter(services) {
 
   // List known secrets (masked)
   router.get('/', async (req, res) => {
-    const keys = await secretsService.listKeys();
+    const guildId = req.query.guildId || null;
+    const keys = await secretsService.listKeys({ guildId });
     const items = [];
     for (const k of keys) {
-      const val = await secretsService.getAsync(k);
-      items.push({ key: k, value: val ? MASK(val) : null });
+      const r = await secretsService.getWithSource(k, { guildId });
+      items.push({ key: k, value: r.value ? MASK(r.value) : null, source: r.source });
     }
     res.json({ items });
   });
@@ -28,6 +29,7 @@ export default function createSecretsRouter(services) {
   // Import secrets from a .env formatted payload in the body { envText: "KEY=VALUE\n..." }
   router.post('/import', express.json({ limit: '2mb' }), async (req, res) => {
     const { envText } = req.body || {};
+    const guildId = req.query.guildId || null;
     if (!envText || typeof envText !== 'string') return res.status(400).json({ error: 'envText string required' });
     const lines = envText.split(/\r?\n/);
     let imported = 0;
@@ -43,7 +45,7 @@ export default function createSecretsRouter(services) {
         value = value.slice(1, -1);
       }
       if (!key) continue;
-      await secretsService.set(key, value);
+  await secretsService.set(key, value, { guildId });
       imported++;
     }
     res.json({ ok: true, imported });
@@ -52,30 +54,33 @@ export default function createSecretsRouter(services) {
   // Get single secret masked
   router.get('/:key', async (req, res) => {
     const key = req.params.key;
-    const val = await secretsService.getAsync(key);
-    if (!val) return res.status(404).json({ error: 'Not found' });
-    res.json({ key, value: MASK(val) });
+    const guildId = req.query.guildId || null;
+    const { value, source } = await secretsService.getWithSource(key, { guildId });
+    if (!value) return res.status(404).json({ error: 'Not found' });
+    res.json({ key, value: MASK(value), source });
   });
 
   // Update/set secret
   router.post('/:key', express.json(), async (req, res) => {
     const key = req.params.key;
+    const guildId = req.query.guildId || null;
     const { value } = req.body || {};
     if (!value || typeof value !== 'string') return res.status(400).json({ error: 'value required' });
-    await secretsService.set(key, value);
+    await secretsService.set(key, value, { guildId });
     res.json({ ok: true });
   });
 
   // Rotate: replace with new value or clear
   router.post('/:key/rotate', express.json(), async (req, res) => {
     const key = req.params.key;
+    const guildId = req.query.guildId || null;
     const { value } = req.body || {};
     if (value && typeof value === 'string') {
-      await secretsService.set(key, value);
+      await secretsService.set(key, value, { guildId });
       return res.json({ ok: true });
     }
     // if value omitted, just clear
-    await secretsService.delete(key);
+    await secretsService.delete(key, { guildId });
     res.json({ ok: true, cleared: true });
   });
 
