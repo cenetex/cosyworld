@@ -23,6 +23,7 @@ import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
+import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -138,3 +139,8 @@ async function initializeContainer() {
 }
 
 export const containerReady = initializeContainer();
+
+// Register PromptAssembler in the container and expose it to PromptService.
+container.register({
+  promptAssembler: asFunction(({ logger, memoryService, configService }) => new PromptAssembler({ logger, memoryService, configService })).singleton(),
+});

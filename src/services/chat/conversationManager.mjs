@@ -306,7 +306,13 @@ export class ConversationManager  {
       }
       const channelHistory = await this.getChannelContext(channel.id, 50);
       const channelSummary = await this.getChannelSummary(avatar._id, channel.id);
-      let chatMessages = await this.promptService.getResponseChatMessages(avatar, channel, channelHistory, channelSummary, this.db);
+      let chatMessages;
+      const useV2 = this.promptService?.promptAssembler && String(process.env.MEMORY_RECALL_ENABLED || 'true') === 'true';
+      if (useV2 && typeof this.promptService.getResponseChatMessagesV2 === 'function') {
+        chatMessages = await this.promptService.getResponseChatMessagesV2(avatar, channel, channelHistory, channelSummary, this.db);
+      } else {
+        chatMessages = await this.promptService.getResponseChatMessages(avatar, channel, channelHistory, channelSummary, this.db);
+      }
       let userContent = chatMessages.find(msg => msg.role === 'user').content;
       if (this.aiService.supportsMultimodal && imagePromptParts.length > 0) {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];
