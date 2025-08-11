@@ -43,6 +43,15 @@ async function main() {
     await toolService.initialize();
     logger.log('[startup] ToolService initialized');
 
+    // Start Memory nightly job (if enabled)
+    try {
+      const memoryScheduler = container.resolve('memoryScheduler');
+      memoryScheduler.start?.();
+      logger.log('[startup] MemoryScheduler started');
+    } catch (e) {
+      logger.warn(`[startup] MemoryScheduler not started: ${e.message}`);
+    }
+
     // Step 5: Launch Discord bot
     const discord = container.resolve('discordService');
     await discord.login();

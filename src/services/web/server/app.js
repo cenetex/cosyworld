@@ -107,6 +107,7 @@ async function initializeApp(services) {
     app.use('/api/models', (await import('./routes/models.js')).default(db));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
   app.use('/api/auth', (await import('./routes/auth.js')).default(db));
+  app.use('/api/memory', ensureAdmin, (await import('./routes/memory.js')).default(db));
 
     // Custom route
     app.post('/api/claims/renounce', async (req, res) => {

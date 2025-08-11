@@ -21,6 +21,8 @@ import { ItemService } from './services/item/itemService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
+import { EmbeddingService } from './services/memory/embeddingService.mjs';
+import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -85,7 +87,9 @@ async function initializeContainer() {
     toolService: asClass(ToolService).singleton(),
     discordService: asClass(DiscordService).singleton(),
     messageHandler: asClass(MessageHandler).singleton(),
-    webService: asClass(WebService).singleton()
+  webService: asClass(WebService).singleton(),
+  embeddingService: asClass(EmbeddingService).singleton(),
+  memoryScheduler: asClass(MemoryScheduler).singleton(),
   });
 
   // Dynamically register remaining services

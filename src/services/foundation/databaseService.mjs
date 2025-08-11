@@ -255,10 +255,10 @@ export class DatabaseService {
           { avatarId: 1, timestamp: -1 },
           { background: true }
         ),
-        db.collection('memories').createIndex(
-          { avatarId: 1, timestamp: -1 },
-          { background: true }
-        ),
+        db.collection('memories').createIndexes([
+          { key: { avatarId: 1, timestamp: -1 }, background: true },
+          { key: { avatarId: 1, ts: -1 }, background: true },
+        ]),
         db.collection('dungeon_log').createIndexes([
           { key: { timestamp: -1 }, background: true },
           { key: { actor: 1 }, background: true },
