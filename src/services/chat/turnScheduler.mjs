@@ -99,7 +99,11 @@ export class TurnScheduler {
       .slice(0, K * 3);
 
     let taken = 0;
-    const channel = this.discordService.client.channels.cache.get(channelId);
+    let channel = this.discordService.client.channels.cache.get(channelId);
+    if (!channel && this.discordService.client.channels?.fetch) {
+      try { channel = await this.discordService.client.channels.fetch(channelId); }
+      catch {}
+    }
     for (const r of ranked) {
       if (taken >= K) break;
       if (r.doc.state !== 'present') continue;
@@ -107,7 +111,9 @@ export class TurnScheduler {
       const ok = await this.tryLease(channelId, r.doc.avatarId, tickId);
       if (!ok) continue;
       try {
-        await this.conversationManager.sendResponse(channel, { _id: r.doc.avatarId });
+        const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
+        if (!avatar) { await this.completeLease(channelId, r.doc.avatarId, tickId); continue; }
+        await this.conversationManager.sendResponse(channel, avatar);
         await this.completeLease(channelId, r.doc.avatarId, tickId);
         await this.presenceService.recordTurn(channelId, r.doc.avatarId);
         taken++;
@@ -121,7 +127,11 @@ export class TurnScheduler {
     const guildId = message.guild?.id;
     const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
     const tickId = await this.currentTickId(channelId);
-    const channel = this.discordService.client.channels.cache.get(channelId);
+    let channel = this.discordService.client.channels.cache.get(channelId);
+    if (!channel && this.discordService.client.channels?.fetch) {
+      try { channel = await this.discordService.client.channels.fetch(channelId); }
+      catch {}
+    }
 
     const content = (message.content || '').toLowerCase();
     const candidates = [];
@@ -138,11 +148,13 @@ export class TurnScheduler {
 
     if (candidates.length === 0) return false;
 
-    for (const r of candidates) {
+  for (const r of candidates) {
       const ok = await this.tryLease(channelId, r.doc.avatarId, tickId);
       if (!ok) continue;
       try {
-        await this.conversationManager.sendResponse(channel, { _id: r.doc.avatarId });
+    const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
+    if (!avatar) { await this.completeLease(channelId, r.doc.avatarId, tickId); continue; }
+    await this.conversationManager.sendResponse(channel, avatar);
         await this.completeLease(channelId, r.doc.avatarId, tickId);
         await this.presenceService.recordTurn(channelId, r.doc.avatarId);
         return true;
