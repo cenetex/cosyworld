@@ -122,6 +122,53 @@ export class DiscordService {
         }
       }
     });
+
+    // Simple text command: !link to get a one-time code via DM
+    this.client.on('messageCreate', async (message) => {
+      try {
+        if (message.author.bot) return;
+        const content = (message.content || '').trim();
+        if (!content.startsWith('!link')) return;
+  await this.databaseService.getDatabase();
+
+  // Resolve a single public origin and use it for both API and the DM link
+  const rawPublicBase = process.env.PUBLIC_BASE_URL || process.env.API_URL || 'http://0.0.0.0:3000';
+  let publicOrigin = 'http://0.0.0.0:3000';
+  try { publicOrigin = new URL(rawPublicBase).origin; } catch {}
+  const initiateUrl = `${publicOrigin}/api/link/initiate`;
+
+        const res = await fetch(initiateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ discordId: message.author.id, guildId: message.guild?.id })
+        }).then(async r => {
+          // Try to parse JSON even on non-2xx to surface server-provided error
+          const data = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+          if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+          return data;
+        });
+        const code = res?.code;
+        if (!code) throw new Error('Failed to obtain link code from API');
+
+  // Build a fully-qualified link page URL on the same origin
+  const url = `${publicOrigin}/link.html?code=${encodeURIComponent(code)}`;
+        const embed = {
+          title: 'Link your wallet',
+          description: 'Click the button to open a secure page and sign a message to link your wallet to this Discord account. Code expires in 10 minutes.',
+          color: 0x5865f2,
+          fields: [{ name: 'Your code', value: `||${code}||` }]
+        };
+        await message.author.send({ embeds: [embed], components: [{ type: 1, components: [{ type: 2, style: 5, label: 'Open Link Page', url }] }] });
+        if (message.channel?.isTextBased()) await message.reply('I DM’d you a secure link to link your wallet.');
+      } catch (e) {
+        this.logger.error('wallet link command failed: ' + e.message);
+        try {
+          if (message.channel?.isTextBased()) {
+            await message.reply('Sorry, I could not start the wallet link flow. Please try again in a minute.');
+          }
+        } catch {}
+      }
+    });
   }
 
   // Utility Methods (moved from module scope to class)
@@ -340,7 +387,7 @@ export class DiscordService {
     const components = [];
     try {
       this.db = await this.databaseService.getDatabase();
-      const crossmintData = await this.db.collection('crossmint_dev').findOne({ avatarId: avatar._id, chain: 'base' });
+  await this.db.collection('crossmint_dev').findOne({ avatarId: avatar._id, chain: 'base' });
       // Add button logic if needed (commented out in original)
     } catch (error) {
       this.logger.error(`Failed to fetch crossmint data for avatar ${avatar._id}: ${error.message}`);

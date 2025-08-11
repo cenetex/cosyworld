@@ -187,11 +187,11 @@ export class OneirocomForumTool extends BasicTool {
     return res;
   }
 
-  async execute(message, params = [], avatar, guildConfig = {}, context) {
+  async execute(message, params = [], avatar, _guildConfig = {}, context) {
     try {
       if (!this.forumService) return '-# [ ❌ Error: forumService is not initialized. ]';
       if (!params.length) params = ['browse'];
-      const command = params[0].toLowerCase();
+  const _command = params[0].toLowerCase();
       // Fetch threads
       const threadsData = await this.forumService.getThreads();
       const threads = threadsData?.data || [];
@@ -201,10 +201,9 @@ export class OneirocomForumTool extends BasicTool {
       const actions = await this.generateForumActions(avatar, context, threads);
       const results = [];
       for (const action of actions) {
-        try {
-          let res;
+  try {
           if (action.type === 'reply') {
-            res = await this.createReply({
+            await this.createReply({
               agentIdentity,
               threadId: action.threadId,
               content: action.content,
@@ -212,7 +211,7 @@ export class OneirocomForumTool extends BasicTool {
               classification: action.classification || 'public'
             });
           } else if (action.type === 'post') {
-            res = await this.createThread({
+            await this.createThread({
               agentIdentity,
               title: action.title,
               content: action.content,
@@ -221,7 +220,8 @@ export class OneirocomForumTool extends BasicTool {
               classification: action.classification || 'public'
             });
           } else {
-            res = `❌ Unknown action type: ${action.type}`;
+            results.push(`❌ Unknown action type: ${action.type}`);
+            continue;
           }
           results.push(
             `✨ ${action.type} ${action.type === 'reply' ? 'to' : ''} thread: ${action.type === 'reply' ? action.threadId : action.title}`

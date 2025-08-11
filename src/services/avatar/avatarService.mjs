@@ -360,7 +360,7 @@ export class AvatarService {
   /*  AI‑ASSISTED GENERATION                             */
   /* -------------------------------------------------- */
 
-  async generateAvatarDetails(userPrompt, guildId = null) {
+  async generateAvatarDetails(userPrompt, _guildId = null) {
     const prompt = `Generate a unique and creative character for a role‑playing game based on this description: "${userPrompt}". Include fields: name, description, personality, emoji, and model (or \"none\").`;
     const schema = {
       name: 'rati-avatar', strict: true,
@@ -470,7 +470,18 @@ export class AvatarService {
     const file = await this.generateAvatarImage(avatar.description);
     if (!file) return false;
 
-    const s3Url = await uploadImage(file); // assumed available in scope
+    // Upload via s3Service if available, otherwise return false
+    let s3Url = null;
+    try {
+      if (this.schemaService?.uploadImage) {
+        s3Url = await this.schemaService.uploadImage(file);
+      } else if (this.aiService?.s3Service?.uploadImage) {
+        s3Url = await this.aiService.s3Service.uploadImage(file);
+      }
+    } catch (err) {
+      this.logger?.error(`uploadImage failed: ${err.message}`);
+    }
+    if (!s3Url) return false;
     const res = await db.collection(this.AVATARS_COLLECTION)
       .updateOne({ _id: avatar._id }, { $set: { imageUrl: s3Url, updatedAt: new Date() } });
     return !!res.modifiedCount;

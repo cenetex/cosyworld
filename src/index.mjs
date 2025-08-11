@@ -3,9 +3,11 @@
  * Licensed under the MIT License.
  */
 
-import { container } from './container.mjs';
+import { container, containerReady } from './container.mjs';
 
 async function main() {
+  // Ensure container finished async initialization
+  await containerReady;
   const logger = container.resolve('logger');
 
   try {

@@ -8,7 +8,10 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
 export class RatiService {
-  constructor() {
+  constructor(services = {}) {
+    this.avatarService = services.avatarService;
+    this.itemService = services.itemService;
+    this.locationService = services.locationService;
     this.ajv = new Ajv();
     this.ratiSchema = {
       $schema: "http://json-schema.org/draft-07/schema#",
@@ -145,9 +148,9 @@ export class RatiService {
    */
   async generateRandomPacks(count) {
     // Fetch unassigned resources from respective services
-    const unassignedAvatars = await avatarService.getUnassignedAvatars();
-    const unassignedItems = await itemService.getUnassignedItems();
-    const unassignedLocations = await locationService.getUnassignedLocations();
+  const unassignedAvatars = await this.avatarService.getUnassignedAvatars();
+  const unassignedItems = await this.itemService.getUnassignedItems();
+  const unassignedLocations = await this.locationService.getUnassignedLocations();
 
     // Calculate the maximum number of packs that can be generated
     const maxPacks = Math.min(
@@ -191,9 +194,9 @@ export class RatiService {
     }
 
     // Update the services to mark the used resources as assigned
-    await avatarService.markAsAssigned(assignedResources.avatars);
-    await itemService.markAsAssigned(assignedResources.items);
-    await locationService.markAsAssigned(assignedResources.locations);
+  await this.avatarService.markAsAssigned(assignedResources.avatars);
+  await this.itemService.markAsAssigned(assignedResources.items);
+  await this.locationService.markAsAssigned(assignedResources.locations);
 
     // Store assigned resources within the service for tracking
     this.assignedResources = this.assignedResources || { avatars: [], items: [], locations: [] };
@@ -234,7 +237,7 @@ export class RatiService {
       
       return encrypted;
     } catch (error) {
-      console.error('Encryption error:', error);
+    console.error('Encryption error');
       throw new Error('Failed to encrypt data');
     }
   }

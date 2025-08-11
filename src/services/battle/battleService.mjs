@@ -25,7 +25,7 @@ export class BattleService  {
     this.started = false;
   }
 
-  async attack({ message, attacker, defender, services }) {
+  async attack({ message: _message, attacker, defender, services: _services }) {
     // Get or create stats for attacker and target
     const attackerStats = await this.avatarService.getOrCreateStats(attacker);
     const targetStats = await this.avatarService.getOrCreateStats(defender);
@@ -54,7 +54,7 @@ export class BattleService  {
       const currentHp = targetStats.hp - totalDamage;
 
       if (currentHp <= 0) {
-        const ko = await this.handleKnockout({ message, targetAvatar: defender, damage, attacker, services });
+  const ko = await this.handleKnockout({ targetAvatar: defender, damage, attacker });
         if (isCritical) ko.critical = true; // propagate critical flag for death videos
         return ko;
       }
@@ -84,7 +84,7 @@ export class BattleService  {
     }
   }
 
-  async handleKnockout({ message, targetAvatar, damage, attacker, services }) {
+  async handleKnockout({ message: _message, targetAvatar, damage, attacker, services: _services }) {
     targetAvatar.lives = (targetAvatar.lives || 3) - 1;
     if (targetAvatar.lives <= 0) {
       targetAvatar.status = 'dead';

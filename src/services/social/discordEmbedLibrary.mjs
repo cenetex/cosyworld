@@ -48,7 +48,7 @@ export function buildMiniAvatarEmbed(avatar, message = '') {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const randomSentence = sentences[Math.floor(Math.random() * sentences.length)].trim();
 
-  const { firstSentence, rest } = splitDescription(randomSentence);
+  const { firstSentence, rest: _rest } = splitDescription(randomSentence);
 
   const embed = new EmbedBuilder()
     .setColor('#00b0f4')
@@ -99,9 +99,9 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
     undefined: 'U' };
   const tier = tierMap[rarity.toLowerCase()] || 'U';
 
-  const { firstSentence, rest } = splitDescription(avatar.short_description || avatar.description || 'No description.');
+  const { firstSentence, rest: _rest } = splitDescription(avatar.short_description || avatar.description || 'No description.');
 
-  const url = options.viewDetailsUrl || `${process.env.BASE_URL}/avatar.html?id=${avatar._id}`;
+  const _url = options.viewDetailsUrl || `${process.env.BASE_URL}/avatar.html?id=${avatar._id}`;
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(`${avatar.emoji || ''} ${avatar.name}`)
@@ -146,7 +146,7 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
       }
       if (traitStr.length > 1024) traitStr = traitStr.slice(0, 1021) + '...';
       if (traitStr.trim()) embed.addFields({ name: '🧬 Traits', value: traitStr, inline: false });
-    } catch (e) {
+  } catch {
       // swallow trait formatting errors
     }
   }
@@ -160,8 +160,8 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
     embed.addFields({ name: '📦 NFT', value: nftVal.slice(0, 1024), inline: true });
   }
 
-  if (rest) {
-    embed.addFields({ name: 'More Info', value: rest, inline: false });
+  if (_rest) {
+    embed.addFields({ name: 'More Info', value: _rest, inline: false });
   }
 
   const buttons = [];
@@ -172,7 +172,7 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
       const meUrl = `https://magiceden.io/item-details/${mint}`;
       buttons.push(buildViewButton(meUrl, 'Magic Eden'));
     }
-  } catch (_) { /* ignore */ }
+  } catch (_err) { /* ignore */ }
 
   // Intentionally no fallback internal link per new spec.
   return { embed, components: buttons };
@@ -185,7 +185,7 @@ export function buildMiniLocationEmbed(location) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = location.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest } = splitDescription(location.description || 'No description.');
+  const { firstSentence, rest: _rest2 } = splitDescription(location.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(location.name)
@@ -221,8 +221,8 @@ export function buildFullLocationEmbed(location, items = [], avatars = []) {
     embed.addFields({ name: 'More Info', value: rest, inline: false });
   }
 
-  const url = `${process.env.BASE_URL}/location.html?id=${location._id}`;
-  const button = buildViewButton(url);
+  const viewUrl = `${process.env.BASE_URL}/location.html?id=${location._id}`;
+  const button = buildViewButton(viewUrl);
   return { embed, components: [button] };
 }
 
@@ -233,7 +233,7 @@ export function buildMiniItemEmbed(item) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = item.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest } = splitDescription(item.description || 'No description.');
+  const { firstSentence, rest: _rest3 } = splitDescription(item.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(item.name)

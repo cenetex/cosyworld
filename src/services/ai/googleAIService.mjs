@@ -11,11 +11,13 @@ import fs from 'fs/promises';
 export class GoogleAIService {
   constructor({
     configService,
-    s3Service
+  s3Service,
+  aiModelService
   }) {
     
     this.configService = configService;
     this.s3Service = s3Service;
+  this.aiModelService = aiModelService;
     
     const config = this.configService.config.ai.google;
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
@@ -76,7 +78,11 @@ export class GoogleAIService {
       return;
     }
 
-    aiModelService.registerModels('googleAI', supportedModels);
+    if (this.aiModelService?.registerModels) {
+      this.aiModelService.registerModels('googleAI', supportedModels);
+    } else {
+      console.warn('[GoogleAIService] aiModelService not available, skipping model registration.');
+    }
 
     console.info(`[GoogleAIService] Registered ${supportedModels.length} models with aiModelService.`);
   }
@@ -240,7 +246,7 @@ export class GoogleAIService {
 
     const modelId = options.model || this.model;
 
-    const { model, ...restOptions } = options;
+  const { model: _model, ...restOptions } = options;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -504,7 +510,7 @@ export class GoogleAIService {
       try {
         const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp-image-generation' });
         // Only include supported options for image generation
-        const { temperature, maxOutputTokens, topP, topK, ...rest } = { ...this.defaultCompletionOptions, ...options };
+  const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
         const generationConfig = { temperature, maxOutputTokens, topP, topK, ...options };
         // Remove penalty fields if present (always for image models)
         delete generationConfig.frequencyPenalty;

@@ -31,88 +31,90 @@ container.register({
   eventBus: asValue(eventBus)
 });
 
-// --- instantiate once ---
-const logger        = new Logger();               
+// Core singletons created synchronously
+const logger        = new Logger();
 const secretsService = new SecretsService({ logger });
-// Preload known secret keys from env (kept only encryption key in env per plan)
 secretsService.hydrateFromEnv([
   'OPENROUTER_API_KEY','OPENROUTER_API_TOKEN','GOOGLE_API_KEY','GOOGLE_AI_API_KEY',
   'REPLICATE_API_TOKEN','MONGO_URI','DISCORD_BOT_TOKEN','DISCORD_CLIENT_ID',
 ]);
 const configService = new ConfigService({ logger, secretsService });
-await configService.loadConfig();
-const crossmintService = new CrossmintService({ logger });
-const aiModelService = new (await import('./services/ai/aiModelService.mjs')).AIModelService;
-// Optional secondary Google AI service (for image/video) even if primary AI_SERVICE is not google
-let googleAIService = null;
-try {
-  const googleApiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (googleApiKey) {
-    googleAIService = new GoogleAIService({ configService, s3Service: null });
-  }
-} catch (e) {
-  console.warn('[container] Failed to init optional GoogleAIService:', e.message);
-}
 
-
-// --- value‑register them ---
+// Pre-register core values; other services will be loaded during containerReady
 container.register({
   logger:        asValue(logger),
   secretsService: asValue(secretsService),
   configService: asValue(configService),
-  crossmintService: asValue(crossmintService),
-  aiModelService: asValue(aiModelService),
-  googleAIService: asValue(googleAIService),
+  // Keep ItemService explicit as an example singleton
   itemService: asClass(ItemService).singleton()
 });
 
 // Make the container available for injection under the name 'services'
 container.register({ services: asValue(container) });
 
-// Find all service files
-const servicePaths = await globby('./services/**/*.mjs', {
-  cwd: __dirname,
-  absolute: true,
-});
+// Async initialization to avoid top-level await issues
+async function initializeContainer() {
+  await configService.loadConfig();
 
-// Dynamically import and register each service
-for (const file of servicePaths) {
+  // Optional secondary Google AI service
+  let googleAIService = null;
   try {
-    const mod = await import(file);
-
-    // Find the default or first named export that is a class
-    const ServiceClass = mod.default || Object.values(mod).find(
-      (val) => typeof val === 'function' && /^\s*class\s/.test(val.toString())
-    );
-
-    if (!ServiceClass) continue;
-
-    // Derive the registration name from filename
-    const fileName = path.basename(file, '.mjs');
-    const camelName = fileName.charAt(0).toLowerCase() + fileName.slice(1);
-
-    container.register(camelName, asClass(ServiceClass).singleton());
-  } catch (err) {
-    console.error(`Failed to register service from ${file}:`, err);
+    const googleApiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (googleApiKey) {
+      googleAIService = new GoogleAIService({ configService, s3Service: null });
+      container.register({ googleAIService: asValue(googleAIService) });
+    }
+  } catch (e) {
+    console.warn('[container] Failed to init optional GoogleAIService:', e.message);
   }
-}
 
-// Provide a late-binding getter for MapService to break circular dependencies
-container.register({
-  getMapService: asFunction(() => () => container.resolve('mapService')).singleton()
-});
+  // Precreate crossmint as value; dynamic loader may also provide class, so guard duplicates
+  const crossmintService = new CrossmintService({ logger });
+  container.register({ crossmintService: asValue(crossmintService) });
 
-console.log('🔧 registered services:', Object.keys(container.registrations));
+  // Dynamically register remaining services
+  const servicePaths = await globby('./services/**/*.mjs', {
+    cwd: __dirname,
+    absolute: true,
+  });
 
-// Late bind s3Service into optional googleAIService if both exist
-try {
-  if (googleAIService && container.registrations.s3Service) {
-    const s3Service = container.resolve('s3Service');
-    if (s3Service && !googleAIService.s3Service) {
-      googleAIService.s3Service = s3Service;
-      console.log('[container] Injected s3Service into googleAIService for image generation fallback.');
+  for (const file of servicePaths) {
+    try {
+      const mod = await import(file);
+      // Only consider class exports; skip pure function/object utilities
+      const isClass = (v) => typeof v === 'function' && /^\s*class\s/.test(v.toString());
+      const exportsArray = Object.entries(mod);
+      const defaultIsClass = isClass(mod.default);
+      const namedClass = exportsArray.map(([, v]) => v).find(isClass);
+      const ServiceClass = defaultIsClass ? mod.default : namedClass;
+      if (!ServiceClass) continue; // skip modules that don't export a class
+      const fileName = path.basename(file, '.mjs');
+      const camelName = fileName.charAt(0).toLowerCase() + fileName.slice(1);
+      // Skip registering if a value already exists with same name
+      if (container.registrations[camelName]) continue;
+      container.register(camelName, asClass(ServiceClass).singleton());
+    } catch (err) {
+      console.error(`Failed to register service from ${file}:`, err);
     }
   }
-} catch (e) {
-  console.warn('[container] Failed post-injection for googleAIService:', e.message);
+
+  // Provide late-binding getter for MapService to break circular deps
+  container.register({ getMapService: asFunction(() => () => container.resolve('mapService')).singleton() });
+
+  console.log('🔧 registered services:', Object.keys(container.registrations));
+
+  // Late bind s3Service into optional googleAIService
+  try {
+    if (googleAIService && container.registrations.s3Service) {
+      const s3Service = container.resolve('s3Service');
+      if (s3Service && !googleAIService.s3Service) {
+        googleAIService.s3Service = s3Service;
+        console.log('[container] Injected s3Service into googleAIService for image generation fallback.');
+      }
+    }
+  } catch (e) {
+    console.warn('[container] Failed post-injection for googleAIService:', e.message);
+  }
 }
+
+export const containerReady = initializeContainer();

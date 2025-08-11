@@ -128,7 +128,7 @@ export class XSocialTool extends BasicTool {
     }
 
     // --- Social Action Generation ---
-    async generateSocialActions(avatar, context, timeline, notifications, userId) {
+    async generateSocialActions(avatar, context, timeline, notifications, _userId) {
         const memories = await this.memoryService.getMemories(avatar._id, 20);
         const systemPrompt = `You are ${avatar.name}\n${avatar.personality}\n\n${avatar.dynamicPrompt}\n`;
         const prompt = `
@@ -172,8 +172,8 @@ Only output the JSON array, no commentary.`.trim();
         };
         try {
             return await this.schemaService.executePipeline({ prompt, schema });
-        } catch (error) {
-            this.logger?.error?.(`Error generating social actions: ${error.message}`);
+        } catch {
+            this.logger?.error?.('Error generating social actions');
             return [];
         }
     }

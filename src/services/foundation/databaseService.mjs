@@ -29,8 +29,7 @@ export class DatabaseService {
       return this.db;
     }
 
-    // Check if we're in development mode
-    const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !process.env.NODE_ENV;
+  // Note: environment is determined via process.env.NODE_ENV when needed.
 
     if (!process.env.MONGO_URI) {
       throw new Error('MongoDB URI not provided in environment variables.');

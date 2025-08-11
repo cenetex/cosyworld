@@ -206,13 +206,24 @@ async function mintClaim(claimId) {
 window.claimAvatar = async function(avatarId) {
   try {
     showToast("Claiming avatar...");
-    const response = await fetch(`/api/claims/claim/${avatarId}`, { method: 'POST' });
-    const data = await response.json();
-    if (data.success) {
-      showToast("Avatar claimed!", { type: 'success' });
+    if (!state.wallet || !state.wallet.publicKey) throw new Error('Wallet not connected');
+    if (!window.phantom?.solana) throw new Error('Solana wallet not found');
+    const message = `I am claiming avatar ${avatarId}`;
+    const encoded = new TextEncoder().encode(message);
+    const sig = await window.phantom.solana.signMessage(encoded, 'utf8');
+    const signatureHex = Array.from(sig.signature).map(b => b.toString(16).padStart(2, '0')).join('');
+    const response = await fetch('/api/claims/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatarId, walletAddress: state.wallet.publicKey, signature: signatureHex, message })
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() };
+    if (response.ok && data.success) {
+      showToast('Avatar claimed!', { type: 'success' });
       loadContent();
     } else {
-      throw new Error(data.error || "Claim failed");
+      throw new Error(data.error || 'Claim failed');
     }
   } catch (err) {
     showToast(`Claim failed: ${err.message}`, { type: 'error' });

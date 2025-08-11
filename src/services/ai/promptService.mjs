@@ -118,16 +118,16 @@ Based on all of the above context, share an updated personality that reflects yo
     const selectedItemText = selectedItem ? `Selected item: ${selectedItem.name}` : 'No item selected.';
     const groundItems = await this.itemService.searchItems(avatar.channelId, '');
     const groundItemsText = groundItems.length > 0 ? `Items on the ground: ${groundItems.map(i => i.name).join(', ')}` : 'There are no items on the ground.';
-    let summonEmoji = this.configService.getGuildConfig(guildId)?.summonEmoji || '🔮';
-    let breedEmoji = '🏹';
+  let _summonEmoji = this.configService.getGuildConfig(guildId)?.summonEmoji || '🔮';
+  let _breedEmoji = '🏹';
     try {
       if (avatar.channelId) {
         const channel = await this.discordService.client.channels.fetch(avatar.channelId);
         if (channel && channel.guild && this.db) {
           const guildConfig = await this.db.collection('guild_configs').findOne({ guildId: channel.guild.id });
           if (guildConfig && guildConfig.toolEmojis) {
-            summonEmoji = guildConfig.toolEmojis.summon || summonEmoji;
-            breedEmoji = guildConfig.toolEmojis.breed || breedEmoji;
+      _summonEmoji = guildConfig.toolEmojis.summon || _summonEmoji;
+      _breedEmoji = guildConfig.toolEmojis.breed || _breedEmoji;
           }
         }
       }

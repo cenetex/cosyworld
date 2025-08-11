@@ -93,7 +93,7 @@ export class SummonTool extends BasicTool {
    * @param {Object} avatar - The current avatar context, if applicable.
    * @returns {string} Result message for logging or further processing.
    */
-  async execute(message, params = {}, avatar) {
+  async execute(message, params = {}, _avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
       // Parse command content robustly: remove leading emoji + optional word 'summon'
@@ -163,10 +163,10 @@ export class SummonTool extends BasicTool {
       const guildId = message.guildId || message.guild?.id;
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
       let summonPrompt = guildConfig?.prompts?.summon || 'Create an avatar with the following description:';
-      let arweavePrompt = null;
+  let _arweavePrompt = null;
       if (summonPrompt.match(/^(https:\/\/.*\.arweave\.net\/|ar:\/\/)/)) {
-        arweavePrompt = summonPrompt;
-        summonPrompt = null;
+  _arweavePrompt = summonPrompt;
+  summonPrompt = null;
       }
       // Generate stats for the avatar
       const creationDate = new Date();

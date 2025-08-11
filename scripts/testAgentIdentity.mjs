@@ -2,7 +2,7 @@
 /**
  * Test agent identity utilities
  */
-import { computeAgentId, resolveChainId, computeBlockHash, buildBlock } from '../src/utils/agentIdentity.mjs';
+import { computeAgentId, resolveChainId, buildBlock } from '../src/utils/agentIdentity.mjs';
 
 console.log('Testing Agent Identity Utils...\n');
 

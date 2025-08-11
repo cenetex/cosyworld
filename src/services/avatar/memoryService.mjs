@@ -33,7 +33,7 @@ export class MemoryService {
     }
   }
 
-  async getMemories(avatarId, limit = 10, skipEntitySync = false) {
+  async getMemories(avatarId, limit = 10, _skipEntitySync = false) {
     try {
       this.db = await this.databaseService.getDatabase();
       const memories = await this.db.collection('memories')

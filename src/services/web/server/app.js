@@ -87,8 +87,11 @@ async function initializeApp(services) {
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db));
     app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
+  app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
   // Protect admin API
+  // Mount specific collections router first to prevent shadowing by the generic /api/admin router
+  app.use('/api/admin/collections', ensureAdmin, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
   // Admin API: allow reads with session; require signed message for writes
   app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
@@ -150,6 +153,11 @@ async function initializeApp(services) {
     });
     app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/collections', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'collections.html'), (err) => {
         if (err) next(err);
       });
     });

@@ -12,11 +12,11 @@ export class BaseAIService {
     this.configService = configService;
   }
 
-  async chat(messages, options = {}) {
+  async chat(messages, _options = {}) {
     throw new Error('chat() not implemented');
   }
 
-  async generateCompletion(prompt, options = {}) {
+  async generateCompletion(prompt, _options = {}) {
     throw new Error('generateCompletion() not implemented');
   }
 
@@ -44,7 +44,7 @@ export class BaseAIService {
     return schema; // default: no transform
   }
 
-  schemaToPromptInstructions(schema) {
+  schemaToPromptInstructions(_schema) {
     return '';
   }
 }

@@ -3,8 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import pkg from 'arweave';
-const { Arweave } = pkg;
+// import Arweave only when needed; currently unused to satisfy lint
 
 export class ArweaveService {
     constructor({
@@ -23,8 +22,8 @@ export class ArweaveService {
 
     async getTransactionData(transactionId) {
         try {
-            const transaction = await this.arweave.transactions.get(transactionId);
-            return transaction;
+            const _transaction = await this.arweave.transactions.get(transactionId);
+            return _transaction;
         } catch (error) {
             this.logger.error(`Error fetching transaction data: ${error}`);
             throw error;

@@ -55,15 +55,18 @@ class XService {
         throw new Error('No authentication URL returned from server');
       }
       // Open X authentication in a popup window
-      const width = 600;
-      const height = 650;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      window.open(
-        data.url,
-        'xauth_popup',
-        `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
-      );
+      const win = typeof globalThis !== 'undefined' ? (globalThis.window || undefined) : undefined;
+      if (win && typeof win.open === 'function') {
+        const width = 600;
+        const height = 650;
+        const left = win.screen?.width ? (win.screen.width / 2 - width / 2) : 0;
+        const top = win.screen?.height ? (win.screen.height / 2 - height / 2) : 0;
+        win.open(
+          data.url,
+          'xauth_popup',
+          `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
+        );
+      }
       return { success: true, message: 'X authentication initiated' };
     } catch (error) {
       this.logger?.error?.('X auth initiation error:', error);
