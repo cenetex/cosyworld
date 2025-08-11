@@ -202,10 +202,10 @@ function transformMarkdown(markdown, filePath) {
     // Check if it's a relative path with directory traversal
     if (link.startsWith('../')) {
       // Handle parent directory links
-      const baseDir = path.dirname(path.relative(docsDir, filePath));
+      // baseDir not required for computation, keep relative calc minimal
       const targetPath = path.resolve(path.dirname(filePath), link);
-      const relativePath = path.relative(docsDir, targetPath);
-      const htmlLink = relativePath.replace('.md', '.html');
+      const _relativePath = path.relative(docsDir, targetPath);
+      const htmlLink = _relativePath.replace('.md', '.html');
       const basePath = getRelativeBasePath(filePath);
       return `[${text}](${basePath}${htmlLink})`;
     }
@@ -238,7 +238,7 @@ async function generateCombinedMarkdown(markdownFiles) {
     for (const file of sectionFiles) {
       const fileContent = await fs.readFile(file, 'utf8');
       const title = fileContent.split('\n')[0].replace('# ', '').trim();
-      const relativePath = path.relative(docsDir, file);
+      const _relativePath = path.relative(docsDir, file);
       combinedContent += `- [${title}](#${title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')})\n`;
     }
     

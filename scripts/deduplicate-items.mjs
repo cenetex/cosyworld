@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 
 async function dedupeAndReindex() {
@@ -45,7 +45,7 @@ async function dedupeAndReindex() {
   try {
     await coll.dropIndex('uuid_1');
     console.log('Dropped existing uuid_1 index');
-  } catch (e) { /* ignore if not exist */ }
+  } catch { /* ignore if not exist */ }
 
   await coll.createIndex(
     { uuid: 1 },

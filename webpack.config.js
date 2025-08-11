@@ -43,6 +43,8 @@ export default (env, argv) => {
       entityManagement: './src/services/web/public/js/entity-management.js',
       adminLogin: './src/services/web/public/js/admin-login.js',
       adminDashboard: './src/services/web/public/js/admin-dashboard.js',
+  adminCollections: './src/services/web/public/js/admin-collections.js',
+  adminSettings: './src/services/web/public/js/admin-settings.js',
       tailwind: './src/tailwind.css'
     },
     output: {
@@ -101,6 +103,7 @@ export default (env, argv) => {
           { from: path.resolve(__dirname, 'src/services/web/public/index.html'), to: path.resolve(__dirname, 'dist/index.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/checkout.html'), to: path.resolve(__dirname, 'dist/checkout.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/api-docs.html'), to: path.resolve(__dirname, 'dist/api-docs.html'), transform: transformHtml },
+          { from: path.resolve(__dirname, 'src/services/web/public/link.html'), to: path.resolve(__dirname, 'dist/link.html'), transform: transformHtml },
           // Admin HTML
           { from: path.resolve(__dirname, 'src/services/web/public/admin/*.html'), to: path.resolve(__dirname, 'dist/admin/[name][ext]'), transform: transformHtml },
           // Other static files

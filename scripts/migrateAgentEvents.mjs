@@ -9,7 +9,7 @@ const databaseService = container.resolve('databaseService');
 async function migrate() {
   const db = await databaseService.getDatabase();
   logger.info('Ensuring agent_events collection...');
-  try { await db.createCollection('agent_events'); } catch (e) { if (e.codeName !== 'NamespaceExists') throw e; }
+  try { await db.createCollection('agent_events'); } catch (err) { if (err.codeName !== 'NamespaceExists') throw err; }
   await db.collection('agent_events').createIndexes([
     { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts' },
     { key: { hash: 1 }, name: 'agent_events_hash', unique: true },
@@ -34,10 +34,10 @@ async function migrate() {
         v: '1.0',
         hash: b.block_hash // reuse existing hash
       };
-      try {
+  try {
         await db.collection('agent_events').updateOne({ hash: evt.hash }, { $setOnInsert: evt }, { upsert: true });
         inserted++;
-      } catch (e) { skipped++; }
+  } catch { skipped++; }
     }
     logger.info(`Backfill complete inserted=${inserted} skipped=${skipped}`);
   }
