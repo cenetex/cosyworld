@@ -273,6 +273,7 @@ export class DatabaseService {
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
           { key: { channelId: 1, lastTurnAt: -1 }, name: 'presence_lastTurn', background: true },
           { key: { updatedAt: 1 }, name: 'presence_updatedAt', background: true },
+          { key: { updatedAt: 1 }, expireAfterSeconds: 14 * 24 * 60 * 60, name: 'presence_ttl', background: true },
         ]),
         db.collection('turn_leases').createIndexes([
           { key: { channelId: 1, avatarId: 1, tickId: 1 }, unique: true, name: 'leases_unique', background: true },

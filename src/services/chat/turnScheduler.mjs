@@ -7,8 +7,9 @@ export class TurnScheduler {
     this.discordService = discordService;
     this.conversationManager = conversationManager;
     this.avatarService = avatarService;
-    this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 60000);
-    this.JITTER_MS = Number(process.env.CHANNEL_TICK_JITTER_MS || 15000);
+  // Default: 1 hour ticks with ±5 minutes jitter
+  this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
+  this.JITTER_MS = Number(process.env.CHANNEL_TICK_JITTER_MS || 300000);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -26,22 +27,41 @@ export class TurnScheduler {
 
   async currentTickId(channelId) {
     const ticks = await this.col('channel_ticks');
-    const doc = await ticks.findOneAndUpdate(
-      { channelId },
-      { $setOnInsert: { lastTickAt: new Date(), tickId: 0 } },
-      { upsert: true, returnDocument: 'after' }
-    );
-    return doc.value?.tickId || 0;
+    try {
+      const doc = await ticks.findOneAndUpdate(
+        { channelId },
+        { $setOnInsert: { lastTickAt: new Date(), tickId: 0 } },
+        { upsert: true, returnDocument: 'after' }
+      );
+      if (doc?.value && typeof doc.value.tickId === 'number') return doc.value.tickId;
+    } catch {}
+    const found = await ticks.findOne({ channelId });
+    if (found?.tickId != null) return found.tickId;
+    try { await ticks.insertOne({ channelId, tickId: 0, lastTickAt: new Date() }); } catch {}
+    const again = await ticks.findOne({ channelId });
+    return again?.tickId || 0;
   }
 
   async nextTickId(channelId) {
     const ticks = await this.col('channel_ticks');
-    const res = await ticks.findOneAndUpdate(
+    try {
+      const res = await ticks.findOneAndUpdate(
+        { channelId },
+        { $inc: { tickId: 1 }, $set: { lastTickAt: new Date() } },
+        { upsert: true, returnDocument: 'after' }
+      );
+      if (res?.value && typeof res.value.tickId === 'number') return res.value.tickId;
+    } catch {}
+    // Fallback path
+    await ticks.updateOne(
       { channelId },
-      { $inc: { tickId: 1 }, $set: { lastTickAt: new Date() } },
-      { upsert: true, returnDocument: 'after' }
+      { $setOnInsert: { tickId: 0, lastTickAt: new Date() } },
+      { upsert: true }
     );
-    return res.value.tickId;
+    const cur = await this.currentTickId(channelId);
+    const next = cur + 1;
+    await ticks.updateOne({ channelId }, { $set: { tickId: next, lastTickAt: new Date() } });
+    return next;
   }
 
   async tryLease(channelId, avatarId, tickId) {
@@ -90,7 +110,15 @@ export class TurnScheduler {
     const present = await this.presenceService.listPresent(channelId);
     if (!present.length) return;
 
-    const K = this.computeK(3);
+    // Estimate human activity in last 10 minutes
+    let activeHumans = 0;
+    try {
+      const db = await this.databaseService.getDatabase();
+      const since = Date.now() - 10 * 60 * 1000;
+      activeHumans = await db.collection('messages').distinct('authorId', { channelId, timestamp: { $gt: since }, 'author.bot': false }).then(a => a.length).catch(() => 0);
+    } catch {}
+
+    const K = this.computeK(activeHumans);
 
     const ctx = { mentionedSet: new Set(), topicTags: [] };
     const ranked = present
@@ -99,11 +127,12 @@ export class TurnScheduler {
       .slice(0, K * 3);
 
     let taken = 0;
-    let channel = this.discordService.client.channels.cache.get(channelId);
+  let channel = this.discordService.client.channels.cache.get(channelId);
     if (!channel && this.discordService.client.channels?.fetch) {
       try { channel = await this.discordService.client.channels.fetch(channelId); }
       catch {}
     }
+  if (!channel) return;
     for (const r of ranked) {
       if (taken >= K) break;
       if (r.doc.state !== 'present') continue;
