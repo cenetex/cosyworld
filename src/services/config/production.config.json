@@ -1,0 +1,23 @@
+{
+  "server": {
+    "cors": {
+      "enabled": true,
+      "origin": [
+        "https://cosy.world",
+        "https://www.cosy.world",
+        "https://cosyworld.app"
+      ],
+      "credentials": false
+    },
+    "rateLimit": {
+      "enabled": true,
+      "windowMs": 60000,
+      "max": 120
+    },
+    "session": {
+      "cookieName": "authToken",
+      "secure": true,
+      "sameSite": "lax"
+    }
+  }
+}

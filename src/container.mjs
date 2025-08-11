@@ -11,6 +11,12 @@ import { fileURLToPath } from 'url';
 import { Logger } from './services/logger/logger.mjs';
 import { ConfigService } from './services/foundation/configService.mjs';
 import { CrossmintService } from './services/crossmint/crossmintService.mjs';
+import { DatabaseService } from './services/foundation/databaseService.mjs';
+import { DiscordService } from './services/social/discordService.mjs';
+import { WebService } from './services/web/webService.mjs';
+import { MessageHandler } from './services/chat/messageHandler.mjs';
+import { ToolService } from './services/tools/ToolService.mjs';
+import { AIModelService } from './services/ai/aiModelService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import eventBus from './utils/eventBus.mjs';
@@ -72,6 +78,16 @@ async function initializeContainer() {
   const crossmintService = new CrossmintService({ logger });
   container.register({ crossmintService: asValue(crossmintService) });
 
+  // Explicitly register core services in a known order
+  container.register({
+    databaseService: asClass(DatabaseService).singleton(),
+    aiModelService: asClass(AIModelService).singleton(),
+    toolService: asClass(ToolService).singleton(),
+    discordService: asClass(DiscordService).singleton(),
+    messageHandler: asClass(MessageHandler).singleton(),
+    webService: asClass(WebService).singleton()
+  });
+
   // Dynamically register remaining services
   const servicePaths = await globby('./services/**/*.mjs', {
     cwd: __dirname,
@@ -90,8 +106,8 @@ async function initializeContainer() {
       if (!ServiceClass) continue; // skip modules that don't export a class
       const fileName = path.basename(file, '.mjs');
       const camelName = fileName.charAt(0).toLowerCase() + fileName.slice(1);
-      // Skip registering if a value already exists with same name
-      if (container.registrations[camelName]) continue;
+  // Skip registering if a value already exists with same name (honor core order)
+  if (container.registrations[camelName]) continue;
       container.register(camelName, asClass(ServiceClass).singleton());
     } catch (err) {
       console.error(`Failed to register service from ${file}:`, err);

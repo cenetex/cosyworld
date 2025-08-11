@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "AI Avatar Discord bot with persistent memory, turn‑based combat, and Crossmint NFT support",
   "type": "module",
   "private": true,
@@ -35,7 +35,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/immanencer/cosyworld8.git"
+    "url": "https://github.com/cenetex/cosyworld.git"
   },
   "author": "Jon Beckwith",
   "license": "MIT",
@@ -58,6 +58,7 @@
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+  "express-rate-limit": "^7.5.0",
     "fuse.js": "^7.0.0",
     "globby": "^14.1.0",
     "js-sha3": "^0.9.3",

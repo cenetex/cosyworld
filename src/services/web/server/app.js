@@ -5,6 +5,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import process from 'process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,8 +27,14 @@ async function initializeApp(services) {
     const logger = services.logger;
 
     // Middleware setup
-  const corsOpts = serverCfg.cors || { enabled: true, origin: '*', credentials: false };
-  app.use(cors({ origin: corsOpts.origin || '*', credentials: !!corsOpts.credentials }));
+  const corsCfg = serverCfg.cors || { enabled: true, origin: '*', credentials: false };
+  const allowedOrigins = Array.isArray(corsCfg.origin) ? corsCfg.origin : String(corsCfg.origin || '*');
+  app.use(cors({ origin: allowedOrigins, credentials: !!corsCfg.credentials }));
+  // Optional basic rate limit
+  const rl = serverCfg.rateLimit || { enabled: false, windowMs: 60_000, max: 100 };
+  if (rl.enabled) {
+    app.use(rateLimit({ windowMs: Number(rl.windowMs) || 60_000, max: Number(rl.max) || 100, standardHeaders: true, legacyHeaders: false }));
+  }
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(attachUserFromCookie);

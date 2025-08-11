@@ -28,7 +28,7 @@ export class ConfigService {
         publicUrl: process.env.PUBLIC_URL || process.env.BASE_URL || `http://localhost:${process.env.WEB_PORT || 3000}`,
         cors: {
           enabled: true,
-          origin: process.env.CORS_ORIGIN || '*',
+          origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s=>s.trim()) : '*',
           credentials: false
         },
         session: {
@@ -41,7 +41,7 @@ export class ConfigService {
           loginPath: '/admin/login',
           gateAll: true
         },
-        rateLimit: { enabled: false, windowMs: 60000, max: 100 }
+  rateLimit: { enabled: process.env.NODE_ENV === 'production', windowMs: 60000, max: 120 }
       },
       prompt: {
         summon: process.env.SUMMON_PROMPT || "Create a twisted avatar, a servant of dark V.A.L.I.S.",
@@ -154,9 +154,9 @@ export class ConfigService {
         merged = ConfigService.deepMerge(merged, defaultConfig);
       } catch {}
 
-      // 3) Merge environment-specific overrides file if present
+  // 3) Merge environment-specific overrides file if present
       //    Looks for services/config/{NODE_ENV}.config.json and services/config/user.config.json
-      const envName = process.env.NODE_ENV || 'development';
+  const envName = process.env.NODE_ENV || 'development';
       const candidates = [
         path.join(CONFIG_DIR, `${envName}.config.json`),
         path.join(CONFIG_DIR, 'user.config.json')

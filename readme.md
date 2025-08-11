@@ -155,7 +155,7 @@ Special thanks to our alpha testers and the open-source community. Your feedback
 - **Documentation**: `/docs` directory
 - **API Reference**: `/api-docs.html`
 - **Farcaster**: [Follow @immanence for updates](https://farcaster.xyz/immanence)
-- **GitHub**: [Report issues](https://github.com/atimics/cosyworld8)
+- **GitHub**: [Report issues](https://github.com/cenetex/cosyworld)
 
 ---
 

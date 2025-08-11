@@ -1,6 +1,12 @@
 import crypto from 'crypto';
 
-const secret = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || 'dev-secret';
+const rawSecret = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
+if (process.env.NODE_ENV === 'production') {
+  if (!rawSecret || rawSecret.length < 16) {
+    throw new Error('ENCRYPTION_KEY/APP_SECRET must be set to a strong value in production');
+  }
+}
+const secret = rawSecret || 'dev-secret';
 
 function b64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -76,7 +82,7 @@ export function issueAuthCookie(res, { addr, isAdmin }) {
   let secure;
   if (process.env.COOKIE_SECURE === 'true') secure = true;
   else if (process.env.COOKIE_SECURE === 'false') secure = false;
-  else secure = !!isHttps; // default to secure only when request is HTTPS
+  else secure = process.env.NODE_ENV === 'production' ? true : !!isHttps; // default secure in prod
   res.cookie('authToken', token, {
     httpOnly: true,
     sameSite: 'lax',
