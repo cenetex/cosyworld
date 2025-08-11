@@ -273,7 +273,6 @@ export class DatabaseService {
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
           { key: { channelId: 1, lastTurnAt: -1 }, name: 'presence_lastTurn', background: true },
           { key: { updatedAt: 1 }, name: 'presence_updatedAt', background: true },
-          { key: { updatedAt: 1 }, expireAfterSeconds: 14 * 24 * 60 * 60, name: 'presence_ttl', background: true },
         ]),
         db.collection('turn_leases').createIndexes([
           { key: { channelId: 1, avatarId: 1, tickId: 1 }, unique: true, name: 'leases_unique', background: true },
@@ -284,9 +283,26 @@ export class DatabaseService {
           { key: { lastTickAt: -1 }, name: 'ticks_lastTick', background: true },
         ]),
       ]);
+      // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
+      try {
+        const presence = db.collection('presence');
+        const idx = await presence.indexes();
+        const hasUpdatedIndex = idx.some(i => i.key && i.key.updatedAt === 1);
+        if (!hasUpdatedIndex) {
+          await presence.createIndex({ updatedAt: 1 }, { expireAfterSeconds: 14 * 24 * 60 * 60, name: 'presence_ttl', background: true });
+        } else {
+          this.logger.info('Presence updatedAt index exists; skipping TTL index to avoid conflict.');
+        }
+      } catch (e) {
+        this.logger.warn(`presence TTL index skipped: ${e.message}`);
+      }
       this.logger.info('Database indexes created successfully');
     } catch (error) {
       this.logger.error(`Error creating indexes: ${error.message}`);
+      if (String(error.message).includes('An equivalent index already exists')) {
+        this.logger.warn('Index exists with different name/options; proceeding without failure.');
+        return; // degrade to warning
+      }
       throw error;
     }
   }
