@@ -16,9 +16,10 @@ export class OpenRouterAIService {
     this.aiModelService = aiModelService;
     this.configService = configService;
 
-    
-    this.model = this.configService.config.ai.openrouter.defaultModel || 'openai/gpt-4o-mini';
-    this.structured_model = this.configService.config.ai.openrouter.structured_model || 'openai/gpt-4o';
+  // Resolve defaults from ConfigService (note: align with keys defined in ConfigService)
+  const orCfg = this.configService?.config?.ai?.openrouter || {};
+  this.model = orCfg.model || 'openai/gpt-4o-mini';
+  this.structured_model = orCfg.structuredModel || 'openai/gpt-4o';
     this.openai = new OpenAI({
       apiKey: this.configService.config.ai.openrouter.apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
@@ -43,17 +44,18 @@ export class OpenRouterAIService {
 
     // Note: Chat defaults differ from completions. They can be adjusted as needed.
     this.defaultChatOptions = {
-      model: 'meta-llama/llama-3.2-1b-instruct',
-      temperature: 0.7,
+      // Prefer configured chat model; fall back to a lightweight default
+      model: orCfg.chatModel || 'meta-llama/llama-3.2-1b-instruct',
       max_tokens: 1000,
-      temperature: 0.9,        // More randomness for creative output
-      top_p: 0.95,             // Broader token selection for diversity
-      frequency_penalty: 0.2,  // Moderate penalty to avoid repetitive loops
-      presence_penalty: 0.3,   // Push for new ideas and concepts
+      // Creativity knobs
+      temperature: 0.9,
+      top_p: 0.95,
+      frequency_penalty: 0.2,
+      presence_penalty: 0.3,
     };
 
     this.defaultVisionOptions = {
-      model: '"x-ai/grok-2-vision-1212"',
+      model: orCfg.visionModel || 'x-ai/grok-2-vision-1212',
       temperature: 0.5,
       max_tokens: 200,
     };
