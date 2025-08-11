@@ -12,6 +12,8 @@ export class PromptAssembler {
     this.LAMBDA_DAYS = Number(process.env.MEMORY_LAMBDA_DAYS || 14);
     this.ENABLE_ENTITY_BONUS = String(process.env.MEMORY_ENABLE_ENTITY_BONUS || 'true') === 'true';
     this.RECALL_ENABLED = String(process.env.MEMORY_RECALL_ENABLED || 'true') === 'true';
+  this.RECALL_SHADOW = String(process.env.MEMORY_RECALL_SHADOW || 'false') === 'true';
+  this.FOCUS_MIN_TOKENS = Number(process.env.MEMORY_FOCUS_MIN_TOKENS || 1500);
   }
 
   // Very rough token estimator: ~4 chars per token
@@ -63,7 +65,9 @@ export class PromptAssembler {
     // Strip URLs and secrets-like strings
     let s = String(text);
     s = s.replace(/\bhttps?:\/\/\S+/g, '[url]');
-    s = s.replace(/sk-[A-Za-z0-9_\-]{10,}/g, '[secret]');
+  s = s.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[email]');
+  s = s.replace(/sk-[A-Za-z0-9_\-]{10,}/g, '[secret]');
+  s = s.replace(/(?<![A-Za-z0-9])(?:xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9._-]{20,})(?![A-Za-z0-9])/g, '[secret]');
     return s;
   }
 
@@ -125,10 +129,27 @@ export class PromptAssembler {
     }
     for (const k of Object.keys(buckets)) buckets[k].sort((a,b)=>b.scoreFinal-a.scoreFinal);
 
-    const out = [];
+  const out = [];
     const order = ['summary','fact','event'];
     let budget = maxTokens;
     const seenEntity = new Set();
+  const seenText = new Set();
+
+    // Guarantee at least one of each kind if present
+    for (const kind of order) {
+      if (budget <= perSnippet) break;
+      const next = buckets[kind]?.shift?.();
+      if (!next) continue;
+      const ents = this.extractEntities(next.text || next.memory || '');
+      const entKey = [...ents].sort().join('|');
+      if (entKey && seenEntity.has(entKey)) continue;
+      seenEntity.add(entKey);
+  const body = String(next.text || next.memory || '').trim().toLowerCase();
+  if (!body || seenText.has(body)) continue;
+  seenText.add(body);
+  out.push(next);
+  budget -= Math.min(perSnippet, next.tokens || perSnippet);
+    }
 
     while (budget > perSnippet) {
       let placed = false;
@@ -140,9 +161,14 @@ export class PromptAssembler {
         const entKey = [...ents].sort().join('|');
         if (entKey && seenEntity.has(entKey)) continue;
         seenEntity.add(entKey);
-        out.push(next);
-        budget -= Math.min(perSnippet, next.tokens || perSnippet);
-        placed = true;
+        const body = String(next.text || next.memory || '').trim().toLowerCase();
+        if (body && !seenText.has(body)) {
+          seenText.add(body);
+          out.push(next);
+          budget -= Math.min(perSnippet, next.tokens || perSnippet);
+          placed = true;
+        }
+        
       }
       if (!placed) break;
     }
@@ -194,18 +220,21 @@ export class PromptAssembler {
     const S = this.tokensOf(systemText);
     const C = this.tokensOf(contextText);
     const W = Math.max(1500, Math.min(4000, this.tokensOf(focusText)));
-    const R = Math.max(0, Math.min(recallCap, B - (S + C + W + 250)));
+    let R = Math.max(0, Math.min(recallCap, B - (S + C + W + 250)));
     const k = Math.floor(R / perSnippet);
 
     let picked = [];
     let pickedSnippets = [];
     let candidates = [];
     let scored = [];
+    let retrievalLatencyMs = null;
 
     if (this.RECALL_ENABLED && R > 0 && k > 0) {
       try {
         const queryText = `${msgText || ''}\n${contextText || ''}`.trim();
+        const t0 = Date.now();
         const raw = await this.memoryService.query({ avatarId, queryText, topK: Math.max(k, this.TOPK) });
+        retrievalLatencyMs = Date.now() - t0;
         // add rough token sizes for each memory text
         candidates = (raw || []).map(r => ({ ...r, tokens: this.tokensOf(r.text || r.memory || '') }));
         const turnEntities = this.extractEntities(msgText || '');
@@ -214,7 +243,7 @@ export class PromptAssembler {
         picked = this.pickBalanced(scored, { perSnippet, maxTokens: R });
         pickedSnippets = picked.map(it => {
           const sn = this.toSnippet(it, who, it.source || source);
-          const why = `semantic ${it.semantic?.toFixed?.(2) ?? 'n/a'}, recency ${it.recency?.toFixed?.(2) ?? 'n/a'}, weight ${it.weight ?? 1}`;
+          const why = `semantic ${it.semantic?.toFixed?.(2) ?? 'n/a'}, recency ${it.recency?.toFixed?.(2) ?? 'n/a'}, weight ${it.weight ?? 1}${(it.entityBonus||0)>0 ? ', entity +0.05' : ''}`;
           return { ...sn, why };
         });
       } catch (e) {
@@ -222,11 +251,34 @@ export class PromptAssembler {
       }
     }
 
+    // Must-have fallback: if nothing picked but we have candidates with strong score, shrink FOCUS to minimum and retry picking
+    if (this.RECALL_ENABLED && picked.length === 0 && candidates.length > 0) {
+      const strong = (scored[0]?.scoreFinal || 0) >= 0.75;
+      const focusMin = this.FOCUS_MIN_TOKENS;
+      const focusTrimmed = this.truncateToTokensSentences(focusText, focusMin);
+      const W2 = Math.max(1500, Math.min(4000, this.tokensOf(focusTrimmed)));
+      const R2 = Math.max(0, Math.min(recallCap, B - (S + C + W2 + 250)));
+      if (strong && R2 >= perSnippet) {
+        const picked2 = this.pickBalanced(scored, { perSnippet, maxTokens: R2 });
+        if (picked2.length > 0) {
+          picked = picked2;
+          pickedSnippets = picked.map(it => {
+            const sn = this.toSnippet(it, who, it.source || source);
+            const why = `semantic ${it.semantic?.toFixed?.(2) ?? 'n/a'}, recency ${it.recency?.toFixed?.(2) ?? 'n/a'}, weight ${it.weight ?? 1}${(it.entityBonus||0)>0 ? ', entity +0.05' : ''}`;
+            return { ...sn, why };
+          });
+          // Replace focusText with trimmed version used for budgeting
+          focusText = focusTrimmed;
+          R = R2;
+        }
+      }
+    }
+
     const blocks = this.joinBlocks({
       SYSTEM: systemText,
       CONTEXT: contextText,
       FOCUS: focusText,
-      RECALL: pickedSnippets,
+      RECALL: this.RECALL_SHADOW ? [] : pickedSnippets,
       CONSTRAINTS: constraintsText,
       TASK: taskText,
       OUTPUT_SCHEMA: outputSchema
@@ -241,7 +293,13 @@ export class PromptAssembler {
         pickedMemoryIds: picked.map(p => p._id || p.id).filter(Boolean),
         tokens: { S, C, W, R, perSnippet, k },
         modelUsed,
-        scores: picked.map(p => ({ id: p._id || p.id, score: p.scoreFinal, semantic: p.semantic, recency: p.recency, weight: p.weight }))
+        scores: picked.map(p => ({ id: p._id || p.id, score: p.scoreFinal, semantic: p.semantic, recency: p.recency, weight: p.weight })),
+        counters: {
+          recall_injections_total: this.RECALL_SHADOW ? 0 : picked.length,
+          recall_dropped_due_to_budget_total: Math.max(0, (candidates?.length || 0) - picked.length),
+          prompt_tokens_total: S + C + W + R
+        },
+        latencyMs: retrievalLatencyMs
       };
       this.logger.info?.(meta);
     } catch {}
