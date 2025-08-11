@@ -185,7 +185,7 @@ Only output the JSON array, no commentary.`.trim();
                 visible: true,
                 info: recentPosts ? `Recent X posts:\n${recentPosts}` : 'No recent posts.'
             };
-        } catch (error) {
+        } catch {
             return { visible: true, info: 'Error fetching timeline.' };
         }
     }

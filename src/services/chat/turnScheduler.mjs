@@ -68,11 +68,12 @@ export class TurnScheduler {
     return next;
   }
 
-  async tryLease(channelId, avatarId, tickId) {
+  async tryLease(channelId, avatarId, tickId, meta = {}) {
     const leases = await this.col('turn_leases');
-  const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending' };
+    const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending', ...meta };
     try {
       await leases.insertOne(lease);
+      this.logger.debug?.(`[TurnScheduler] lease granted ${channelId}:${avatarId}:${tickId} mode=${meta.mode || 'ambient'}`);
       return true;
     } catch (e) {
       if (String(e?.message || '').includes('duplicate key')) return false;
@@ -163,7 +164,7 @@ export class TurnScheduler {
       if (taken >= K) break;
       if (r.doc.state !== 'present') continue;
       if (this.presenceService.cooldownActive(r.doc)) continue;
-      const ok = await this.tryLease(channelId, r.doc.avatarId, tickId);
+  const ok = await this.tryLease(channelId, r.doc.avatarId, tickId, { mode: 'ambient' });
       if (!ok) continue;
       try {
         const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
@@ -206,7 +207,7 @@ export class TurnScheduler {
     if (candidates.length === 0) return false;
 
   for (const r of candidates) {
-      const ok = await this.tryLease(channelId, r.doc.avatarId, tickId);
+      const ok = await this.tryLease(channelId, r.doc.avatarId, tickId, { mode: 'fastlane', messageId: message.id, authorId: message.author?.id });
       if (!ok) continue;
       try {
     const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
@@ -217,6 +218,7 @@ export class TurnScheduler {
         return true;
       } catch (e) {
         this.logger.warn(`[TurnScheduler] fast-lane failed for ${r.doc.avatarId}: ${e.message}`);
+        try { await this.failLease(channelId, r.doc.avatarId, tickId, e); } catch {}
       }
     }
     return false;
