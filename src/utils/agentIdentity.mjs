@@ -89,7 +89,7 @@ export function buildBlock({ previous, core }) {
     base.index = 0;
     base.parent_hash = null;
   }
-  const { block_hash, ...withoutHash } = base; // ensure no accidental field
+  const { block_hash: _block_hash, ...withoutHash } = base; // ensure no accidental field
   base.block_hash = computeBlockHash(withoutHash);
   return base;
 }

@@ -286,7 +286,7 @@ export class ToolService {
    * @param {Object} guildConfig - The guild configuration
    * @returns {Promise<string>} The tool's response
    */
-  async executeTool(toolName, message, params, avatar, guildConfig = {}, context) {
+  async executeTool(toolName, message, params, avatar, _guildConfig = {}, context) {
     const tool = this.tools.get(toolName);
     if (!tool) {
       return `Tool '${toolName}' not found.`;

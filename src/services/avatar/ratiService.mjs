@@ -236,8 +236,8 @@ export class RatiService {
       encrypted += cipher.final('base64');
       
       return encrypted;
-    } catch (error) {
-    console.error('Encryption error');
+  } catch {
+  console.error('Encryption error');
       throw new Error('Failed to encrypt data');
     }
   }
@@ -263,8 +263,8 @@ export class RatiService {
       decrypted += decipher.final('utf8');
       
       return JSON.parse(decrypted);
-    } catch (error) {
-      console.error('Decryption error:', error);
+    } catch {
+      console.error('Decryption error');
       throw new Error('Failed to decrypt data or invalid key');
     }
   }
@@ -418,7 +418,7 @@ export class RatiService {
       try {
         const fileContent = await fs.readFile(keyStoragePath, 'utf8');
         existingData = JSON.parse(fileContent);
-      } catch (err) {
+  } catch {
         // File doesn't exist or is invalid, use default empty data
       }
 

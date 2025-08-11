@@ -44,7 +44,7 @@ export class ModerationService  {
         try {
           const dynRegex = new RegExp(this.dynamicModerationRegex, 'i');
           matched = dynRegex.test(content);
-        } catch (e) {
+  } catch {
           this.logger.warn('Invalid dynamic moderation regex, skipping.');
         }
       }

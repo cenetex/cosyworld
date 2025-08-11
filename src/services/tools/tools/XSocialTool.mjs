@@ -95,8 +95,8 @@ export class XSocialTool extends BasicTool {
                                 result = `❌ Unknown action type: ${action.type}`;
                         }
                         results.push(result);
-                    } catch (error) {
-                        results.push(`❌ ${action.type} failed: ${error.message}`);
+                    } catch {
+                        results.push(`❌ ${action.type} failed.`);
                     }
                 }
                 return results.map(T => `-# [ ${T.replace(/\n/g,``)} ]`).join('\n');
@@ -147,10 +147,6 @@ Recent Notifications (each tweet has isOwn=true if posted by this avatar, false 
 ${JSON.stringify(notifications)}
 Avoid replying to or quoting tweets where isOwn=true (your own posts).
 Generate a JSON array of actions. Each action must have:
-- "type": one of post, reply, quote, follow, like, repost, block
-- "content": text for post/reply/quote (max 280 chars), always include even if not applicable.
-- "tweetId": the Tweet ID for reply/quote/like/repost, or null if not applicable
-- "userId": the User ID for follow/block, or null if not applicable
 Only output the JSON array, no commentary.`.trim();
         const schema = {
             name: 'rati-x-social-actions',

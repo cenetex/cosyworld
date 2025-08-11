@@ -48,7 +48,7 @@ export function buildMiniAvatarEmbed(avatar, message = '') {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const randomSentence = sentences[Math.floor(Math.random() * sentences.length)].trim();
 
-  const { firstSentence, rest: _rest } = splitDescription(randomSentence);
+  const { firstSentence } = splitDescription(randomSentence);
 
   const embed = new EmbedBuilder()
     .setColor('#00b0f4')
@@ -172,7 +172,7 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
       const meUrl = `https://magiceden.io/item-details/${mint}`;
       buttons.push(buildViewButton(meUrl, 'Magic Eden'));
     }
-  } catch (_err) { /* ignore */ }
+  } catch { /* ignore */ }
 
   // Intentionally no fallback internal link per new spec.
   return { embed, components: buttons };
@@ -185,7 +185,7 @@ export function buildMiniLocationEmbed(location) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = location.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest: _rest2 } = splitDescription(location.description || 'No description.');
+  const { firstSentence } = splitDescription(location.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(location.name)
@@ -233,7 +233,7 @@ export function buildMiniItemEmbed(item) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = item.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest: _rest3 } = splitDescription(item.description || 'No description.');
+  const { firstSentence } = splitDescription(item.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(item.name)

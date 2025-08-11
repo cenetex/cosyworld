@@ -10,6 +10,10 @@ export class TurnScheduler {
   // Default: 1 hour ticks with ±5 minutes jitter
   this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
   this.JITTER_MS = Number(process.env.CHANNEL_TICK_JITTER_MS || 300000);
+  // Global ambient budget per sweep across channels (fairness limiter)
+  this.AMBIENT_GLOBAL_BUDGET = Number(process.env.CHANNEL_TICK_GLOBAL_BUDGET || 6);
+  // Cap per-channel selections even if activity is high
+  this.MAX_K = Number(process.env.CHANNEL_TICK_MAX_K || 3);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -66,7 +70,7 @@ export class TurnScheduler {
 
   async tryLease(channelId, avatarId, tickId) {
     const leases = await this.col('turn_leases');
-    const lease = { channelId, avatarId, tickId, leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending' };
+  const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending' };
     try {
       await leases.insertOne(lease);
       return true;
@@ -78,11 +82,23 @@ export class TurnScheduler {
 
   async completeLease(channelId, avatarId, tickId) {
     const leases = await this.col('turn_leases');
-    await leases.updateOne({ channelId, avatarId, tickId }, { $set: { status: 'completed' } });
+    await leases.updateOne(
+      { channelId, avatarId, tickId },
+      { $set: { status: 'completed', completedAt: new Date() } }
+    );
+  }
+
+  async failLease(channelId, avatarId, tickId, error) {
+    const leases = await this.col('turn_leases');
+    await leases.updateOne(
+      { channelId, avatarId, tickId },
+      { $set: { status: 'failed', failedAt: new Date(), error: String(error?.message || error || 'unknown') } }
+    );
   }
 
   computeK(activeHumans) {
-    return Math.max(1, Math.min(3, Math.ceil((activeHumans || 0) / 5)));
+    // Base K grows with active humans; clamp by MAX_K
+    return Math.max(1, Math.min(this.MAX_K, Math.ceil((activeHumans || 0) / 5)));
   }
 
   async tickAll() {
@@ -92,13 +108,22 @@ export class TurnScheduler {
       .sort({ lastActivityTimestamp: -1 })
       .limit(50)
       .toArray();
+    let budgetLeft = this.AMBIENT_GLOBAL_BUDGET;
     for (const ch of channels) {
-      try { await this.onChannelTick(ch._id); }
+      if (budgetLeft <= 0) break;
+      try {
+        const taken = await this.onChannelTick(ch._id, budgetLeft);
+        budgetLeft -= taken;
+      }
       catch (e) { this.logger.warn(`[TurnScheduler] tick ${ch._id} failed: ${e.message}`); }
+    }
+    if (this.AMBIENT_GLOBAL_BUDGET > 0) {
+      const used = this.AMBIENT_GLOBAL_BUDGET - budgetLeft;
+      this.logger.debug?.(`[TurnScheduler] Ambient sweep used ${used}/${this.AMBIENT_GLOBAL_BUDGET} budget across ${channels.length} channels`);
     }
   }
 
-  async onChannelTick(channelId) {
+  async onChannelTick(channelId, budgetAllowed = Infinity) {
     // Ensure presence docs exist for avatars in channel
     const guildId = (await this.discordService.getGuildByChannelId(channelId))?.id;
     const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
@@ -108,7 +133,7 @@ export class TurnScheduler {
 
     const tickId = await this.nextTickId(channelId);
     const present = await this.presenceService.listPresent(channelId);
-    if (!present.length) return;
+    if (!present.length) return 0;
 
     // Estimate human activity in last 10 minutes
     let activeHumans = 0;
@@ -118,7 +143,8 @@ export class TurnScheduler {
       activeHumans = await db.collection('messages').distinct('authorId', { channelId, timestamp: { $gt: since }, 'author.bot': false }).then(a => a.length).catch(() => 0);
     } catch {}
 
-    const K = this.computeK(activeHumans);
+  let K = this.computeK(activeHumans);
+  if (Number.isFinite(budgetAllowed)) K = Math.min(K, Math.max(0, budgetAllowed));
 
     const ctx = { mentionedSet: new Set(), topicTags: [] };
     const ranked = present
@@ -132,7 +158,7 @@ export class TurnScheduler {
       try { channel = await this.discordService.client.channels.fetch(channelId); }
       catch {}
     }
-  if (!channel) return;
+  if (!channel) return 0;
     for (const r of ranked) {
       if (taken >= K) break;
       if (r.doc.state !== 'present') continue;
@@ -148,8 +174,10 @@ export class TurnScheduler {
         taken++;
       } catch (e) {
         this.logger.warn(`[TurnScheduler] sendResponse failed for ${r.doc.avatarId}: ${e.message}`);
+        try { await this.failLease(channelId, r.doc.avatarId, tickId, e); } catch {}
       }
     }
+    return taken;
   }
 
   async onHumanMessage(channelId, message) {
