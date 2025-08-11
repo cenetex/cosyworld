@@ -268,6 +268,20 @@ export class DatabaseService {
         db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
+        // Presence and scheduling indexes
+        db.collection('presence').createIndexes([
+          { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
+          { key: { channelId: 1, lastTurnAt: -1 }, name: 'presence_lastTurn', background: true },
+          { key: { updatedAt: 1 }, name: 'presence_updatedAt', background: true },
+        ]),
+        db.collection('turn_leases').createIndexes([
+          { key: { channelId: 1, avatarId: 1, tickId: 1 }, unique: true, name: 'leases_unique', background: true },
+          { key: { leaseExpiresAt: 1 }, expireAfterSeconds: 3600, name: 'leases_ttl', background: true },
+        ]),
+        db.collection('channel_ticks').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'ticks_channel', background: true },
+          { key: { lastTickAt: -1 }, name: 'ticks_lastTick', background: true },
+        ]),
       ]);
       this.logger.info('Database indexes created successfully');
     } catch (error) {

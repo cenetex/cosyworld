@@ -52,6 +52,15 @@ async function main() {
       logger.warn(`[startup] MemoryScheduler not started: ${e.message}`);
     }
 
+    // Start Turn Scheduler for ambient ticks
+    try {
+      const turnScheduler = container.resolve('turnScheduler');
+      turnScheduler?.start?.();
+      logger.log('[startup] TurnScheduler started');
+    } catch (e) {
+      logger.warn(`[startup] TurnScheduler not started: ${e.message}`);
+    }
+
     // Step 5: Launch Discord bot
     const discord = container.resolve('discordService');
     await discord.login();

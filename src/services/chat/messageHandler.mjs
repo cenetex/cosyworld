@@ -23,6 +23,7 @@ export class MessageHandler  {
     configService,
     spamControlService,
     schedulingService,
+  turnScheduler,
     avatarService,
     decisionMaker,
     conversationManager,
@@ -37,6 +38,7 @@ export class MessageHandler  {
     this.configService = configService;
     this.spamControlService = spamControlService;
     this.schedulingService = schedulingService;
+  this.turnScheduler = turnScheduler;
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.conversationManager = conversationManager;
@@ -157,13 +159,22 @@ export class MessageHandler  {
       }, avatar, this.conversationManager.getChannelContext(message.channel.id));
     }
 
-    const channelId = message.channel.id;
+  const channelId = message.channel.id;
     const guildId = message.guild.id;
 
     // Mark the channel as active
     await this.databaseService.markChannelActive(channelId, guildId);
 
     // Process the channel (initial pass, e.g., for immediate responses)
+    // Fast-lane: try targeted avatar responses via scheduler leases first
+    try {
+      if (this.turnScheduler) {
+        await this.turnScheduler.onHumanMessage(channelId, message);
+      }
+    } catch (e) {
+      this.logger.warn(`Fast-lane scheduling error: ${e.message}`);
+    }
+
     await this.processChannel(channelId, message);
 
     // Structured moderation: analyze links and assign threat level
