@@ -137,6 +137,23 @@ export class MemoryService {
   return scored.slice(0, topK).map(({ _score, embedding: _embedding, ...rest }) => rest);
   }
 
+  /** Persistent recall: high-weight summaries/facts irrespective of current query */
+  async persistent({ avatarId, topK = 6, minWeight = 1.2, kinds = ['summary','fact'] } = {}) {
+    const db = (this.db ||= await this.databaseService.getDatabase());
+    const col = db.collection('memories');
+    const filter = { avatarId, weight: { $gte: minWeight } };
+    if (Array.isArray(kinds) && kinds.length) {
+      filter.kind = { $in: kinds };
+    }
+    const items = await col
+      .find(filter)
+      .sort({ weight: -1, ts: -1 })
+      .limit(topK)
+      .project({ avatarId: 1, guildId: 1, ts: 1, kind: 1, text: 1, weight: 1 })
+      .toArray();
+    return items;
+  }
+
   async storeNarrative(avatarId, content) {
     try {
       this.db = await this.databaseService.getDatabase();
