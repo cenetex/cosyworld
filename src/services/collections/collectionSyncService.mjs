@@ -395,7 +395,7 @@ export async function syncAvatarsForCollection({
   chain = (process.env.NFT_CHAIN || 'ethereum').toLowerCase(),
   fileSource,
   force = false,
-}) {
+}, progressReporter = null) {
   if (!collectionId) throw new Error('collectionId required');
   const databaseService = getDBService();
   await databaseService.getDatabase();
@@ -422,14 +422,25 @@ export async function syncAvatarsForCollection({
     throw new Error('No NFT metadata sources available (API/file)');
   }
 
+  // Notify UI of total to enable percentage rendering
+  if (typeof progressReporter === 'function') {
+    try { await progressReporter({ collectionId, total: (apiNfts && apiNfts.length) ? (apiNfts.length) : (fileNfts?.length || 0), startedAt: new Date() }); } catch {}
+  }
   let success = 0, failures = 0;
+  let processed = 0;
   for (const nft of nfts) {
     try {
       await upsertAvatarFromNft(nft, { collectionId, chain, provider, force });
-      success++;
+      processed++; success++;
+      if (typeof progressReporter === 'function') {
+        try { await progressReporter({ collectionId, processed, success, failures, nft }); } catch {}
+      }
     } catch (e) {
-      failures++;
+      processed++; failures++;
       getLogger().error(`Failed processing NFT '${nft?.name}': ${e.message}`);
+      if (typeof progressReporter === 'function') {
+        try { await progressReporter({ collectionId, processed, success, failures, nft, error: e.message }); } catch {}
+      }
     }
   }
   return { processed: nfts.length, success, failures };

@@ -35,8 +35,11 @@
             </div>
 
             <div class="mb-6 p-4 bg-gray-50 border rounded">
-              <h3 class="font-medium mb-3">Add / Update Collection</h3>
-              <form id="cfgForm" class="grid gap-2 md:grid-cols-2">
+              <div class="flex items-center justify-between">
+                <h3 class="font-medium mb-3">Collections</h3>
+                <button id="toggleForm" class="px-2 py-1 rounded bg-gray-800 text-white text-sm" title="Add / Update Collection">＋</button>
+              </div>
+              <form id="cfgForm" class="grid gap-2 md:grid-cols-2 hidden">
                 <input id="key" class="border p-2 rounded" placeholder="key (slug or contract)" />
                 <select id="type" class="border p-2 rounded">
                   <option value="avatar">avatar</option>
@@ -56,6 +59,11 @@
                 <button class="bg-indigo-600 text-white rounded px-3 py-2 md:col-span-2">Save</button>
               </form>
               <div id="status" class="text-sm text-gray-600 mt-2"></div>
+              <div id="progressPanel" class="mt-4 hidden">
+                <div class="text-sm text-gray-700 mb-1">Sync progress</div>
+                <div class="text-xs text-gray-500" id="progressMeta">Waiting…</div>
+                <ul id="progressList" class="mt-2 divide-y"></ul>
+              </div>
             </div>
 
             <div class="p-4 bg-gray-50 border rounded">
