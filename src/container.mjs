@@ -149,6 +149,15 @@ async function initializeContainer() {
           unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
           container.register({ unifiedAIService: asValue(unifiedAIService) });
           console.log('[container] Registered unifiedAIService wrapping', name);
+          // If decisionMaker already instantiated, inject adapter reference
+          try {
+            if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
+              container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
+              console.log('[container] Injected unifiedAIService into existing decisionMaker instance.');
+            }
+          } catch (e) {
+            console.warn('[container] Failed to inject unifiedAIService into decisionMaker:', e.message);
+          }
           break;
         }
       }
