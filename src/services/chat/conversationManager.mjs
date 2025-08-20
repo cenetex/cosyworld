@@ -93,7 +93,9 @@ export class ConversationManager  {
         }
       }
 
-      const narrative = await this.aiService.chat(chatMessages, { model: avatar.model, max_tokens: 2048 });
+  const ai = this.unifiedAIService || this.aiService;
+  let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048 });
+  if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
       if (!narrative) {
         this.logger.error(`No narrative generated for ${avatar.name}.`);
         return null;
@@ -232,10 +234,12 @@ export class ConversationManager  {
   ${messagesText}
       `.trim();
     }
-    const summary = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
     ], { model: avatar.model, max_tokens: 500 });
+  if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
     if (!summary) {
       this.logger.error(`Failed to generate summary for avatar ${avatar.name} in channel ${channelId}`);
       return summaryDoc ? summaryDoc.summary : '';

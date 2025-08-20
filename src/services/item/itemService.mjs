@@ -179,10 +179,12 @@ export class ItemService {
     const memoryHistory = await this.memoryService.getMemories(item._id, 10);
     const summary       = memoryHistory.map(m => m.memory).join('\n');
 
-    const resp = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let resp = await ai.chat([
       { role: 'system', content: `You are the spirit of the item ${item.name}.` },
       { role: 'user',   content: `Memory:\n${summary}\nRespond to acknowledge use.` }
     ], { model: avatar.model, max_tokens: 100 });
+  if (resp && typeof resp === 'object' && resp.text) resp = resp.text;
 
     await this.discordService.sendAsWebhook(
       channelId,

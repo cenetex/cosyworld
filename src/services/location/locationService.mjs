@@ -18,14 +18,16 @@ export class LocationService  {
    * @param {Object} [aiService=null] - Optional AI service (defaults to OpenRouterService if not provided).
    */
   constructor({
-    aiService,
+  aiService,
+  unifiedAIService,
     discordService,
     databaseService,
     schemaService,
     itemService,
     getMapService,
   }) {
-    this.aiService = aiService;
+  this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService; // optional adapter
     this.discordService = discordService;
     this.databaseService = databaseService;
     this.schemaService = schemaService;
@@ -79,7 +81,8 @@ export class LocationService  {
     try {
       // Generate an image if currentLocation has none
       if (!currentLocation.imageUrl) {
-        const locDescription = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let locDescription = await ai.chat([
           {
             role: 'system',
             content: 'Generate a brief description of this location.'
@@ -89,6 +92,7 @@ export class LocationService  {
             content: `Describe ${currentLocation.name} in 2-3 sentences.`
           }
         ]);
+  if (locDescription && typeof locDescription === 'object' && locDescription.text) locDescription = locDescription.text;
         currentLocation.imageUrl = await this.generateLocationImage(
           currentLocation.name,
           locDescription
@@ -97,7 +101,8 @@ export class LocationService  {
 
       // Generate the AI text
       const prompt = `You are ${currentLocation.name}. Describe ${avatar.name}'s departure to ${newLocation.name} in a brief atmospheric message.`;
-      const response = await this.aiService.chat([
+  const ai2 = this.unifiedAIService || this.aiService;
+  let response = await ai2.chat([
         {
           role: 'system',
           content: 'You are a mystical location describing travelers.'
@@ -107,9 +112,8 @@ export class LocationService  {
           content: prompt
         }
       ]);
-
-      // Replace mention of the new location with a channel reference
-      return response.replace(newLocation.name, `<#${newLocation.channel.id}>`);
+  if (response && typeof response === 'object' && response.text) response = response.text;
+  return response.replace(newLocation.name, `<#${newLocation.channel.id}>`);
     } catch (error) {
       console.error('Error generating departure message:', error);
       return 'The winds shift, but no words arise...';
@@ -176,7 +180,8 @@ export class LocationService  {
       const fuse = new Fuse(existingLocations, this.fuseOptions);
 
       // Use AI to sanitize or refine the location name
-      let cleanLocationName = await this.aiService.chat(
+  const ai3 = this.unifiedAIService || this.aiService;
+  let cleanLocationName = await ai3.chat(
         [
           { role: 'system', content: 'You are an expert editor.' },
           {
@@ -192,7 +197,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         {
           model: STRUCTURED_MODEL
         }
-      );
+  );
+  if (cleanLocationName && typeof cleanLocationName === 'object' && cleanLocationName.text) cleanLocationName = cleanLocationName.text;
 
       // Safety net for name length
       if (!cleanLocationName) {
@@ -221,7 +227,7 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       }
 
       // Generate short description & image for new location
-      const locationDescription = await this.aiService.chat(
+  let locationDescription = await ai3.chat(
         [
           {
             role: 'system',
@@ -236,6 +242,7 @@ If already suitable, return as is. If it needs editing, revise it while preservi
           model: STRUCTURED_MODEL
         }
       );
+  if (locationDescription && typeof locationDescription === 'object' && locationDescription.text) locationDescription = locationDescription.text;
       const locationImage = await this.generateLocationImage(
         cleanLocationName,
         locationDescription
@@ -325,7 +332,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
 
       let locationName = channel.name;
 
-      const cleanLocationName = await this.aiService.chat(
+  const ai4 = this.unifiedAIService || this.aiService;
+  const cleanLocationName = await ai4.chat(
         [
           { role: 'system', content: 'You are an expert editor.' },
           {
@@ -336,13 +344,14 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         { model: STRUCTURED_MODEL }
       ).catch(() => locationName.slice(0, 80));
 
-      const description = await this.aiService.chat(
+  let description = await ai4.chat(
         [
           { role: 'system', content: 'Generate a brief, atmospheric description of this fantasy location.' },
           { role: 'user', content: `Describe ${cleanLocationName} in 2-3 sentences.` }
         ],
         { model: STRUCTURED_MODEL }
       );
+  if (description && typeof description === 'object' && description.text) description = description.text;
 
       const imageUrl = await this.generateLocationImage(cleanLocationName, description);
 
@@ -444,10 +453,12 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         As ${location.name}, provide a short atmosheric summary of the recent activity in this location.
         No more than one or two paragraphs.
       `;
-      const summary = await this.aiService.chat([
+  const ai5 = this.unifiedAIService || this.aiService;
+  let summary = await ai5.chat([
         { role: 'system', content: 'You are a mystical location describing events and characters.' },
         { role: 'user', content: prompt }
       ]);
+  if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
 
       this.discordService.sendLocationEmbed(location, items, avatars, locationId);
       await this.discordService.sendAsWebhook(locationId, summary, {
