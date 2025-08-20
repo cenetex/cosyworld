@@ -324,7 +324,6 @@ export class PromptAssembler {
         },
         latencyMs: retrievalLatencyMs
       };
-      this.logger.info?.(meta);
     } catch {}
 
     return { system: systemText, blocks, tokens: { B, S, C, W, R, perSnippet, k }, picked, pickedSnippets };
