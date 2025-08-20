@@ -23,9 +23,27 @@ export class ConfigService {
     this.config = {
       server: {
         host: process.env.HOST || '0.0.0.0',
-        port: Number(process.env.WEB_PORT || 3000),
-        baseUrl: process.env.BASE_URL || `http://localhost:${process.env.WEB_PORT || 3000}`,
-        publicUrl: process.env.PUBLIC_URL || process.env.BASE_URL || `http://localhost:${process.env.WEB_PORT || 3000}`,
+        // Support separate dev vs prod ports so both can run simultaneously.
+        // Precedence: explicit WEB_PORT (forces both), then environment-specific (DEV_WEB_PORT/PROD_WEB_PORT), then default 3000.
+        port: Number(
+          process.env.WEB_PORT ||
+          (process.env.NODE_ENV === 'production' ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT) : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT)) ||
+          3000
+        ),
+        baseUrl: process.env.BASE_URL || (() => {
+          const explicit = process.env.WEB_PORT || (process.env.NODE_ENV === 'production'
+            ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT)
+            : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT));
+          const p = explicit || 3000;
+          return `http://localhost:${p}`;
+        })(),
+        publicUrl: process.env.PUBLIC_URL || process.env.BASE_URL || (() => {
+          const explicit = process.env.WEB_PORT || (process.env.NODE_ENV === 'production'
+            ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT)
+            : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT));
+          const p = explicit || 3000;
+          return `http://localhost:${p}`;
+        })(),
         cors: {
           enabled: true,
           origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s=>s.trim()) : '*',

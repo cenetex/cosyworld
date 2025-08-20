@@ -9,7 +9,7 @@
     "node": ">=18.18"
   },
   "scripts": {
-  "dev": "DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
+  "dev": "cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
   "start": "cross-env NODE_ENV=production node src/index.mjs",
   "build": "npm run clean && npm run build:js && npm run docs",
     "clean": "rimraf dist",
