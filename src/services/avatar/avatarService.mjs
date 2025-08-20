@@ -408,7 +408,10 @@ export class AvatarService {
     if (!details?.name) return null;
 
     const existing = await this.getAvatarByName(details.name);
-    if (existing) return existing;
+  // If an avatar with this generated name already exists, return it and
+  // flag as existing so callers (e.g. SummonTool) can avoid treating it
+  // as freshly created (prevent duplicate introductions, stat overrides, etc.)
+  if (existing) return { ...existing, _existing: true };
 
     const imageUrl = await this.generateAvatarImage(details.description);
     const model = await this.aiService.getModel(details.model);

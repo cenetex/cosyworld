@@ -28,22 +28,42 @@ export class Logger {
   }
 
   info(...args) {
-    this.logger.info(...args);
+    const formatted = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return `${a.message}\n${a.stack}`;
+      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+    });
+    this.logger.info(formatted.join(' '));
   }
 
   warn(...args) {
-    this.logger.warn(...args);
+    const formatted = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return `${a.message}\n${a.stack}`;
+      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+    });
+    this.logger.warn(formatted.join(' '));
   }
 
   error(...args) {
-    this.logger.error(...args);
+    const formatted = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return `${a.message}\n${a.stack}`;
+      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+    });
+    this.logger.error(formatted.join(' '));
   }
 
   debug(...args) {
-    this.logger.debug(...args);
+    const formatted = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return `${a.message}\n${a.stack}`;
+      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+    });
+    this.logger.debug(formatted.join(' '));
   }
 
   log(...args) {
-    this.logger.info(...args);
+    this.info(...args);
   }
 }

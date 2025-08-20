@@ -14,6 +14,7 @@ export class SummonTool extends BasicTool {
     databaseService,
     aiService,
     statService,
+    presenceService,
     logger,
   }) {
     super();
@@ -23,7 +24,8 @@ export class SummonTool extends BasicTool {
     this.configService = configService;
     this.databaseService = databaseService;
     this.aiService = aiService;
-    this.statService = statService;
+  this.statService = statService;
+  this.presenceService = presenceService;
     this.logger = logger;
 
     this.name = 'summon';
@@ -183,10 +185,38 @@ export class SummonTool extends BasicTool {
 
       // Create new avatar
       const createdAvatar = await this.avatarService.createAvatar(avatarData);
-      createdAvatar.stats = stats;
-      createdAvatar.createdAt = creationDate;
-      createdAvatar.channelId = message.channel.id;
-      await this.avatarService.updateAvatar(createdAvatar);
+      const wasExisting = createdAvatar?._existing === true;
+      if (!createdAvatar) {
+        await this.discordService.replyToMessage(message, 'Failed to create avatar. Try a more detailed description.');
+        return '-# [ Failed to create avatar. The description may be too vague. ]';
+      }
+
+      if (!wasExisting) {
+        // Only set initial stats & timestamps for brand new avatars
+        createdAvatar.stats = stats;
+        createdAvatar.createdAt = creationDate;
+        createdAvatar.channelId = message.channel.id;
+        await this.avatarService.updateAvatar(createdAvatar);
+      } else {
+        // Ensure channel/location sync for existing avatar name collision
+        if (createdAvatar.channelId !== message.channel.id) {
+          await this.mapService.updateAvatarPosition(createdAvatar, message.channel.id);
+          createdAvatar.channelId = message.channel.id;
+          await this.avatarService.updateAvatar(createdAvatar);
+        }
+        await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
+        // Provide a lightweight acknowledgement instead of full intro/embed
+        try {
+          const brief = await this.aiService.chat([
+            { role: 'system', content: `You are ${createdAvatar.name}, ${createdAvatar.description}. Keep response under 120 characters.` },
+            { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
+          ], { model: createdAvatar.model });
+          await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
+        } catch (e) {
+          this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
+        }
+        return `-# ${this.emoji} [ Existing avatar ${createdAvatar.name} referenced; avoided duplicate introduction. ]`;
+      }
 
       if (!createdAvatar || !createdAvatar.name) {
         await this.discordService.replyToMessage(message, 'Failed to create avatar. Try a more detailed description.');
@@ -195,7 +225,7 @@ export class SummonTool extends BasicTool {
 
       // Generate introduction
       const introPrompt = guildConfig?.prompts?.introduction || 'You\'ve just arrived. Introduce yourself.';
-      const intro = await this.aiService.chat(
+      let intro = await this.aiService.chat(
         [
           {
             role: 'system',
@@ -205,10 +235,32 @@ export class SummonTool extends BasicTool {
         ],
         { model: createdAvatar.model }
       );
-      createdAvatar.dynamicPersonality = intro;
+      // Extract <think> tags from intro, store as thoughts & strip before sending
+      try {
+        const thinkRegex = /<think>(.*?)<\/think>/gs;
+        const thoughts = [];
+        const cleanedIntro = intro.replace(thinkRegex, (m, inner) => { thoughts.push(inner.trim()); return ''; }).trim();
+        if (thoughts.length) {
+          createdAvatar.thoughts = createdAvatar.thoughts || [];
+            // Prepend new thoughts, keep only most recent 20
+          thoughts.forEach(t => t && createdAvatar.thoughts.unshift({ content: t, timestamp: Date.now(), guildName: message.guild?.name || 'Unknown' }));
+          createdAvatar.thoughts = createdAvatar.thoughts.slice(0, 20);
+        }
+        intro = cleanedIntro || '(The avatar arrives silently, deep in thought.)';
+      } catch (e) {
+        this.logger.warn(`Failed to process <think> tags in intro: ${e.message}`);
+      }
+      createdAvatar.dynamicPersonality = intro; // use cleaned intro as initial dynamic personality snapshot
 
       // Initialize avatar and react
       await this.avatarService.initializeAvatar(createdAvatar, message.channel.id);
+      // Presence priority: mark start session & grant guaranteed early turns
+      try {
+        if (this.presenceService?.startSession) {
+          await this.presenceService.startSession(message.channel.id, `${createdAvatar._id}`);
+          await this.presenceService.grantNewSummonTurns(message.channel.id, `${createdAvatar._id}`, 3);
+        }
+      } catch (e) { this.logger?.warn?.(`Failed to grant new summon priority: ${e.message}`); }
 
       // Ensure avatar's position is updated in the mapService
       await this.mapService.updateAvatarPosition(createdAvatar, message.channel.id);

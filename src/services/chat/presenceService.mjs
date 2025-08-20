@@ -97,6 +97,34 @@ export class PresenceService {
     const c = await this.col();
     return await c.find({ channelId, state: { $in: ['present','cooldown'] } }).project({}).toArray();
   }
+
+  /**
+   * Grant a limited number of guaranteed early turns to a freshly summoned avatar.
+   */
+  async grantNewSummonTurns(channelId, avatarId, turns = 2) {
+    try {
+      const c = await this.col();
+      await c.updateOne({ channelId, avatarId }, { $set: { newSummonTurnsRemaining: turns, lastSummonedAt: new Date(), updatedAt: new Date() } }, { upsert: true });
+    } catch (e) {
+      this.logger?.warn?.(`grantNewSummonTurns failed: ${e.message}`);
+    }
+  }
+
+  async consumeNewSummonTurn(channelId, avatarId) {
+    try {
+      const c = await this.col();
+      const res = await c.findOneAndUpdate(
+        { channelId, avatarId, newSummonTurnsRemaining: { $gt: 0 } },
+        { $inc: { newSummonTurnsRemaining: -1 }, $set: { updatedAt: new Date() } },
+        { returnDocument: 'after' }
+      );
+      if (res.value && res.value.newSummonTurnsRemaining <= 0) {
+        await c.updateOne({ channelId, avatarId }, { $unset: { newSummonTurnsRemaining: '' }, $set: { updatedAt: new Date() } });
+      }
+    } catch (e) {
+      this.logger?.warn?.(`consumeNewSummonTurn failed: ${e.message}`);
+    }
+  }
 }
 
 export default PresenceService;

@@ -185,7 +185,12 @@ export class OpenRouterAIService {
 
       // Handle function/tool calls if present
       if (result.tool_calls) {
-        return result;
+        // Return a serialized representation so downstream logging does not show [object Object]
+        try {
+          return JSON.stringify({ tool_calls: result.tool_calls }, null, 2);
+        } catch {
+          return '[tool_calls returned – serialization failed]';
+        }
       }
 
       if (!result.content && !result.reasoning) {

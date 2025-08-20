@@ -14,6 +14,9 @@ export class TurnScheduler {
   this.AMBIENT_GLOBAL_BUDGET = Number(process.env.CHANNEL_TICK_GLOBAL_BUDGET || 6);
   // Cap per-channel selections even if activity is high
   this.MAX_K = Number(process.env.CHANNEL_TICK_MAX_K || 3);
+  // Suppress ambient chatter briefly after each human message to avoid pileups
+  this.blockAmbientUntil = new Map(); // channelId -> timestamp
+  this.HUMAN_SUPPRESSION_MS = Number(process.env.HUMAN_SUPPRESSION_MS || 4000);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -125,6 +128,8 @@ export class TurnScheduler {
   }
 
   async onChannelTick(channelId, budgetAllowed = Infinity) {
+  const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
+  if (Date.now() < suppressedUntil) return 0;
     // Ensure presence docs exist for avatars in channel
     const guildId = (await this.discordService.getGuildByChannelId(channelId))?.id;
     const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
@@ -191,6 +196,40 @@ export class TurnScheduler {
       catch {}
     }
 
+  let usedResponses = 0;
+  // Start suppression window for ambient chatter
+  this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
+    // Priority: freshly summoned avatars with guaranteed turns
+    try {
+      const c = await this.presenceService.col();
+      const priorityDoc = await c.find({ channelId, newSummonTurnsRemaining: { $gt: 0 } })
+        .sort({ lastSummonedAt: -1 })
+        .limit(1)
+        .next();
+      if (priorityDoc) {
+        const ok = await this.tryLease(channelId, priorityDoc.avatarId, tickId, { mode: 'priority', messageId: message.id, authorId: message.author?.id });
+        if (ok) {
+          try {
+            const avatar = await this.avatarService.getAvatarById(priorityDoc.avatarId);
+            if (avatar) {
+              await this.conversationManager.sendResponse(channel, avatar, null, { overrideCooldown: true });
+              await this.completeLease(channelId, priorityDoc.avatarId, tickId);
+              await this.presenceService.recordTurn(channelId, priorityDoc.avatarId);
+              await this.presenceService.consumeNewSummonTurn(channelId, priorityDoc.avatarId);
+              usedResponses++;
+            } else {
+              await this.completeLease(channelId, priorityDoc.avatarId, tickId);
+            }
+          } catch (e) {
+            this.logger.warn(`[TurnScheduler] priority summon failed for ${priorityDoc.avatarId}: ${e.message}`);
+            try { await this.failLease(channelId, priorityDoc.avatarId, tickId, e); } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.warn(`[TurnScheduler] priority summon lookup failed: ${e.message}`);
+    }
+
     const content = (message.content || '').toLowerCase();
     const candidates = [];
     for (const av of avatars) {
@@ -200,13 +239,22 @@ export class TurnScheduler {
       if (name && content.includes(name) || (emoji && content.includes(emoji))) {
         await this.presenceService.ensurePresence(channelId, `${av._id}`);
         await this.presenceService.recordMention(channelId, `${av._id}`);
+        // Light mention boost: grant 1 priority turn if none pending
+        try {
+          const c = await this.presenceService.col();
+          const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+          if (!doc?.newSummonTurnsRemaining) await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+        } catch (e) {
+          this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
+        }
         candidates.push({ doc: { avatarId: `${av._id}` }, score: 1 });
       }
     }
 
-    if (candidates.length === 0) return false;
+  if (candidates.length === 0) return usedResponses > 0;
 
   for (const r of candidates) {
+      if (usedResponses >= (this.conversationManager?.MAX_RESPONSES_PER_MESSAGE || this.MAX_RESPONSES_PER_MESSAGE)) break;
       const ok = await this.tryLease(channelId, r.doc.avatarId, tickId, { mode: 'fastlane', messageId: message.id, authorId: message.author?.id });
       if (!ok) continue;
       try {
@@ -215,13 +263,14 @@ export class TurnScheduler {
     await this.conversationManager.sendResponse(channel, avatar);
         await this.completeLease(channelId, r.doc.avatarId, tickId);
         await this.presenceService.recordTurn(channelId, r.doc.avatarId);
-        return true;
+        usedResponses++;
+        if (usedResponses >= (this.conversationManager?.MAX_RESPONSES_PER_MESSAGE || this.MAX_RESPONSES_PER_MESSAGE)) return true;
       } catch (e) {
         this.logger.warn(`[TurnScheduler] fast-lane failed for ${r.doc.avatarId}: ${e.message}`);
         try { await this.failLease(channelId, r.doc.avatarId, tickId, e); } catch {}
       }
     }
-    return false;
+    return usedResponses > 0;
   }
 }
 

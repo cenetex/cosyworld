@@ -262,14 +262,15 @@ export class ConversationManager  {
     return response;
   }
 
-  async sendResponse(channel, avatar, presetResponse = null) {
+  async sendResponse(channel, avatar, presetResponse = null, options = {}) {
+    const { overrideCooldown = false } = options || {};
     this.db = await this.databaseService.getDatabase();
     if (!await this.checkChannelPermissions(channel)) {
       this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
       return null;
     }
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
-    if (Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
+  if (!overrideCooldown && Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
       this.logger.debug(`Channel ${channel.id} is on cooldown`);
       return null;
     }

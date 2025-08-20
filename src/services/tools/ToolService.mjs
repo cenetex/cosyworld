@@ -46,7 +46,8 @@ export class ToolService {
     schemaService,
     knowledgeService,
     oneirocomForumService,
-    veoService
+    veoService,
+    presenceService
   }) {
     this.toolServices = {
       logger,
@@ -74,7 +75,8 @@ export class ToolService {
       schemaService,
       knowledgeService,
       forumService: oneirocomForumService,
-      veoService
+      veoService,
+      presenceService
     }
 
     this.logger = logger || console;
