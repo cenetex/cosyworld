@@ -163,14 +163,15 @@ export class ConfigService {
   // Load global configuration from JSON files
   async loadConfig() {
     try {
-      // 1) Start with in-code defaults (this.config)
-      let merged = { ...this.config };
-
-      // 2) Merge JSON template defaults from services/config/default.config.json
+      // 1) Load JSON template defaults first
+      let merged = {};
       try {
         const defaultConfig = JSON.parse(await fs.readFile(path.join(CONFIG_DIR, 'default.config.json'), 'utf8'));
         merged = ConfigService.deepMerge(merged, defaultConfig);
       } catch {}
+
+      // 2) Merge in the in-code/env-derived defaults so env vars override file defaults
+      merged = ConfigService.deepMerge(merged, this.config);
 
   // 3) Merge environment-specific overrides file if present
       //    Looks for services/config/{NODE_ENV}.config.json and services/config/user.config.json
@@ -187,7 +188,7 @@ export class ConfigService {
         } catch {}
       }
 
-      this.config = merged;
+  this.config = merged;
     } catch (error) {
       console.error('Error loading config:', error);
     }
