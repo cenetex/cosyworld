@@ -14,6 +14,7 @@ const consoleFormat = printf(({ level, message, timestamp }) => {
 
 export class Logger {
   constructor() {
+  this._context = new Map(); // thread-local-ish simple map; keyed by async operation id if expanded later
     this.logger = winston.createLogger({
       level: 'info',
       format: combine(
@@ -27,13 +28,27 @@ export class Logger {
     });
   }
 
+  withCorrelation(corrId, fn) {
+    const prev = this._context.get('corrId');
+    this._context.set('corrId', corrId);
+    try { return fn(); } finally {
+      if (prev) this._context.set('corrId', prev); else this._context.delete('corrId');
+    }
+  }
+
+  _injectContext(args) {
+    const corrId = this._context.get('corrId');
+    if (!corrId) return args;
+    return [ `[corrId=${corrId}]`, ...args ];
+  }
+
   info(...args) {
     const formatted = args.map(a => {
       if (typeof a === 'string') return a;
       if (a instanceof Error) return `${a.message}\n${a.stack}`;
       try { return JSON.stringify(a, null, 2); } catch { return String(a); }
     });
-    this.logger.info(formatted.join(' '));
+  this.logger.info(this._injectContext(formatted).join(' '));
   }
 
   warn(...args) {
@@ -42,7 +57,7 @@ export class Logger {
       if (a instanceof Error) return `${a.message}\n${a.stack}`;
       try { return JSON.stringify(a, null, 2); } catch { return String(a); }
     });
-    this.logger.warn(formatted.join(' '));
+  this.logger.warn(this._injectContext(formatted).join(' '));
   }
 
   error(...args) {
@@ -51,7 +66,7 @@ export class Logger {
       if (a instanceof Error) return `${a.message}\n${a.stack}`;
       try { return JSON.stringify(a, null, 2); } catch { return String(a); }
     });
-    this.logger.error(formatted.join(' '));
+  this.logger.error(this._injectContext(formatted).join(' '));
   }
 
   debug(...args) {
@@ -60,7 +75,7 @@ export class Logger {
       if (a instanceof Error) return `${a.message}\n${a.stack}`;
       try { return JSON.stringify(a, null, 2); } catch { return String(a); }
     });
-    this.logger.debug(formatted.join(' '));
+  this.logger.debug(this._injectContext(formatted).join(' '));
   }
 
   log(...args) {

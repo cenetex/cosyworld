@@ -86,6 +86,11 @@ export class MessageHandler  {
    * @param {Object} message - The Discord message object to process.
    */
   async handleMessage(message) {
+    const corrId = `msg:${message.id}`;
+    return this.logger.withCorrelation ? this.logger.withCorrelation(corrId, () => this._handleMessageInner(message)) : this._handleMessageInner(message);
+  }
+
+  async _handleMessageInner(message) {
 
     if (this.discordService.messageCache) {
       // Check if the message is already cached
@@ -183,7 +188,7 @@ export class MessageHandler  {
     // Structured moderation: backlog moderation if needed
     await this.moderationService.moderateBacklogIfNeeded(message.channel);
 
-    this.logger.debug(`Message processed successfully in channel ${channelId}`);
+  this.logger.debug(`Message processed successfully in channel ${channelId}`);
   }
 
   /**

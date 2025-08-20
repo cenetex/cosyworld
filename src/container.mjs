@@ -25,6 +25,7 @@ import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
+import { validateEnv } from './config/validateEnv.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +65,7 @@ container.register({ services: asValue(container) });
 
 // Async initialization to avoid top-level await issues
 async function initializeContainer() {
+  try { validateEnv(logger); } catch (e) { logger.error('[container] Env validation threw:', e.message); }
   await configService.loadConfig();
 
   // Optional secondary Google AI service
