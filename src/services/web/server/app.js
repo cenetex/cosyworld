@@ -71,13 +71,15 @@ async function initializeApp(services) {
 
     // Core services
     app.locals.services = services;
-    await services.databaseService.connect();
-    const db = await services.databaseService.getDatabase();
-    logger.info('Database connected and services initialized');
+  // Reuse existing DB connection; do not force re-connect if already connected
+  const db = await services.databaseService.getDatabase();
+  logger.info('Web server using existing database connection');
 
     // Ensure SecretsService is attached to DB for persistence
     try {
-      await services.secretsService.attachDB(db, { collectionName: 'secrets' });
+      if (!services.secretsService.db) {
+        await services.secretsService.attachDB(db, { collectionName: 'secrets' });
+      }
     } catch (e) {
       logger.error('Failed to attach SecretsService to DB:', e);
     }
