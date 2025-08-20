@@ -13,6 +13,7 @@ export class SummonTool extends BasicTool {
     configService,
     databaseService,
     aiService,
+  unifiedAIService,
     statService,
     presenceService,
     logger,
@@ -24,6 +25,7 @@ export class SummonTool extends BasicTool {
     this.configService = configService;
     this.databaseService = databaseService;
     this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService;
   this.statService = statService;
   this.presenceService = presenceService;
     this.logger = logger;
@@ -134,10 +136,12 @@ export class SummonTool extends BasicTool {
         if (alreadyHere) {
           // Trigger brief speech instead of full panel
           try {
-            const speech = await this.aiService.chat([
+            const ai = this.unifiedAIService || this.aiService;
+            const speechResult = await ai.chat([
               { role: 'system', content: `You are ${existingAvatar.name}, ${existingAvatar.description}. Keep responses under 120 characters.` },
               { role: 'user', content: `You were just redundantly summoned again in the same spot. React briefly, maybe playfully.` }
             ], { model: existingAvatar.model });
+            const speech = typeof speechResult === 'object' && speechResult?.text ? speechResult.text : speechResult;
             await this.discordService.sendAsWebhook(message.channel.id, speech || `${existingAvatar.name} acknowledges the summon.`, existingAvatar);
           } catch (e) {
             this.logger.warn(`Failed to generate brief speech for existing avatar: ${e.message}`);
@@ -207,10 +211,12 @@ export class SummonTool extends BasicTool {
         await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
         // Provide a lightweight acknowledgement instead of full intro/embed
         try {
-          const brief = await this.aiService.chat([
+          const ai2 = this.unifiedAIService || this.aiService;
+          const briefResult = await ai2.chat([
             { role: 'system', content: `You are ${createdAvatar.name}, ${createdAvatar.description}. Keep response under 120 characters.` },
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
           ], { model: createdAvatar.model });
+          const brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
           this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
@@ -225,7 +231,8 @@ export class SummonTool extends BasicTool {
 
       // Generate introduction
       const introPrompt = guildConfig?.prompts?.introduction || 'You\'ve just arrived. Introduce yourself.';
-      let intro = await this.aiService.chat(
+  const ai3 = this.unifiedAIService || this.aiService;
+  let introResult = await ai3.chat(
         [
           {
             role: 'system',
@@ -235,6 +242,7 @@ export class SummonTool extends BasicTool {
         ],
         { model: createdAvatar.model }
       );
+  let intro = typeof introResult === 'object' && introResult?.text ? introResult.text : introResult;
       // Extract <think> tags from intro, store as thoughts & strip before sending
       try {
         const thinkRegex = /<think>(.*?)<\/think>/gs;

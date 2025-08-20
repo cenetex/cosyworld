@@ -24,6 +24,7 @@ import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
+import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -67,6 +68,7 @@ async function initializeContainer() {
 
   // Optional secondary Google AI service
   let googleAIService = null;
+  let unifiedAIService = null;
   try {
     const googleApiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
     if (googleApiKey) {
@@ -75,6 +77,24 @@ async function initializeContainer() {
     }
   } catch (e) {
     console.warn('[container] Failed to init optional GoogleAIService:', e.message);
+  }
+
+  // Wrap primary aiService (whichever provider class dynamic loader registers) with UnifiedAIService once base provider is available.
+  try {
+    // The dynamic service registration will later register something like openrouterAIService, googleAIService, etc.
+    // We attempt a late binding after dynamic registration below if not yet present here.
+    // For early minimal functionality, try to locate a base provider now if already registered.
+    const candidateNames = ['openrouterAIService','googleAIService','ollamaAIService','aiService'];
+    for (const name of candidateNames) {
+      if (container.registrations[name]) {
+        const base = container.resolve(name);
+        unifiedAIService = new UnifiedAIService({ aiService: base, logger });
+        container.register({ unifiedAIService: asValue(unifiedAIService) });
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn('[container] Failed early unifiedAIService init:', e.message);
   }
 
   // Precreate crossmint as value; dynamic loader may also provide class, so guard duplicates
@@ -117,6 +137,24 @@ async function initializeContainer() {
     } catch (err) {
       console.error(`Failed to register service from ${file}:`, err);
     }
+  }
+
+  // Late-binding unifiedAIService if not already registered (after dynamic services loaded)
+  try {
+    if (!container.registrations.unifiedAIService) {
+      const candidateNames = ['openrouterAIService','googleAIService','ollamaAIService'];
+      for (const name of candidateNames) {
+        if (container.registrations[name]) {
+          const base = container.resolve(name);
+          unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
+          container.register({ unifiedAIService: asValue(unifiedAIService) });
+          console.log('[container] Registered unifiedAIService wrapping', name);
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[container] Failed late unifiedAIService init:', e.message);
   }
 
   // Provide late-binding getter for MapService to break circular deps

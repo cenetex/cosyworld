@@ -12,6 +12,7 @@ export class ConversationManager  {
     logger,
     databaseService,
     aiService,
+  unifiedAIService,
     discordService,
     avatarService,
     memoryService,
@@ -26,6 +27,7 @@ export class ConversationManager  {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService; // optional adapter
     this.discordService = discordService;
     this.avatarService = avatarService;
     this.memoryService = memoryService;
@@ -321,7 +323,13 @@ export class ConversationManager  {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];
         chatMessages = chatMessages.map(msg => msg.role === 'user' ? { role: 'user', content: userContent } : msg);
       }
-      response = await this.aiService.chat(chatMessages, { model: avatar.model, max_tokens: 256 });
+      const ai = this.unifiedAIService || this.aiService;
+      let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256 });
+      if (result && typeof result === 'object' && result.text) {
+        response = result.text;
+      } else {
+        response = result;
+      }
       if (!response) {
         this.logger.error(`Empty response generated for ${avatar.name}`);
         return null;

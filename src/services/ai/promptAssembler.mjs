@@ -324,6 +324,7 @@ export class PromptAssembler {
         },
         latencyMs: retrievalLatencyMs
       };
+  this.logger.info?.(`[telemetry] ${JSON.stringify(meta)}`);
     } catch {}
 
     return { system: systemText, blocks, tokens: { B, S, C, W, R, perSnippet, k }, picked, pickedSnippets };

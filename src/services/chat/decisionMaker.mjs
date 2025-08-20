@@ -12,11 +12,13 @@ export class DecisionMaker  {
   constructor({
     logger,
     aiService,
+  unifiedAIService,
     discordService,
     configService
   }) {
     this.logger = logger || console;
     this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService; // optional normalized adapter
     this.discordService = discordService;
     this.configService = configService;
     
@@ -273,17 +275,18 @@ export class DecisionMaker  {
         }
       ];
 
-      const response = await this.aiService.chat(prompt, {
+  const ai = this.unifiedAIService || this.aiService;
+  const response = await ai.chat(prompt, {
         model: this.configService.getAIConfig().decisionMakerModel,
         temperature: 0.5,
         max_tokens: 32
       });
-      if (!response) {
+  const text = typeof response === 'object' && response?.text ? response.text : response;
+  if (!text) {
         this.logger.debug('AI response is empty');
         return false;
       }
-      
-      const decision = response.trim().toUpperCase().indexOf('YES') !== -1;
+  const decision = text.trim().toUpperCase().indexOf('YES') !== -1;
 
       if (decision) {
         this._finalizeResponse(avatar);
@@ -322,11 +325,13 @@ export class DecisionMaker  {
 
     if (avatar.innerMonologueChannel) {
       try {
-        const haiku = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  const haiku = await ai.chat([
           { role: 'system', content: `Generate a haiku reflecting the ${this.currentMode} mind mode.` },
           { role: 'user', content: 'Create a single haiku.' }
         ], { model: this.model });
-        const safe = (typeof haiku === 'string' && haiku.trim()) ? haiku.trim() : null;
+  const safeText = typeof haiku === 'object' && haiku?.text ? haiku.text : haiku;
+  const safe = (typeof safeText === 'string' && safeText.trim()) ? safeText.trim() : null;
         if (safe) {
           await this.discordService.sendAsWebhook(avatar.innerMonologueChannel, `-# [ ${this.currentMode} ]\n${safe}`, avatar);
         } else {
