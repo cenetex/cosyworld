@@ -19,7 +19,8 @@ export class ConversationManager  {
     configService,
     knowledgeService,
     mapService,
-    toolService
+  toolService,
+  presenceService
   }) {
     this.toolService = toolService;
     this.logger = logger || console;
@@ -32,6 +33,7 @@ export class ConversationManager  {
     this.configService = configService;
     this.knowledgeService = knowledgeService;
     this.mapService = mapService;
+  this.presenceService = presenceService; // optional; used for bot->bot mention cascades
 
     this.GLOBAL_NARRATIVE_COOLDOWN = 60 * 60 * 1000; // 1 hour
     this.lastGlobalNarrativeTime = 0;
@@ -263,7 +265,7 @@ export class ConversationManager  {
   }
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
-    const { overrideCooldown = false } = options || {};
+  const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
     this.db = await this.databaseService.getDatabase();
     if (!await this.checkChannelPermissions(channel)) {
       this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
@@ -405,6 +407,15 @@ export class ConversationManager  {
             discordService: this.discordService,
             configService: this.configService
           }, avatar, this.getChannelContext(channel.id, 50));
+
+          // After successfully sending a visible message, process bot->bot mentions (limited cascade)
+          try {
+            if (cleanedText && this.presenceService) {
+              await this.handleAvatarMentions(channel, avatar, cleanedText, { cascadeDepth });
+            }
+          } catch (e) {
+            this.logger.warn(`bot mention cascade failed: ${e.message}`);
+          }
         }
         // If there was only think tags and no other content, still process thoughts but don't send a message
         else if (thoughts.length > 0) {
@@ -419,6 +430,77 @@ export class ConversationManager  {
     } catch (error) {
       this.logger.error(`CONVERSATION: Error sending response for ${avatar.name}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Detects when an avatar mentions other avatars and triggers limited immediate replies.
+   * Rules:
+   * - Only triggers once per originating send (cascadeDepth 0)
+   * - Respects MAX_RESPONSES_PER_MESSAGE budget
+   * - Uses simple word-boundary / emoji substring matching
+   * - Grants a light mention boost (recordMention + optionally grant newSummon turn)
+   */
+  async handleAvatarMentions(channel, speakingAvatar, text, { cascadeDepth = 0 } = {}) {
+    if (cascadeDepth > 0) return; // prevent deep recursion chains
+    if (!channel || !speakingAvatar || !text) return;
+    const guildId = channel.guild?.id;
+    let others = [];
+    try {
+      others = await this.avatarService.getAvatarsInChannel(channel.id, guildId);
+    } catch (e) { this.logger.warn(`mention cascade: failed to load avatars: ${e.message}`); return; }
+    if (!Array.isArray(others) || !others.length) return;
+
+    const lower = text.toLowerCase();
+    const responders = this.channelResponders.get(channel.id) || new Set();
+    const maxPerMessage = this.MAX_RESPONSES_PER_MESSAGE;
+    if (responders.size >= maxPerMessage) return;
+
+    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const mentioned = [];
+    for (const av of others) {
+      if (!av || av._id === speakingAvatar._id) continue;
+      const name = String(av.name || '').trim();
+      if (!name) continue;
+      const nameLower = name.toLowerCase();
+      // Use word boundary regex to reduce incidental substring hits (fallback to includes for CJK / emoji)
+      let matched = false;
+      if (/^[\p{L}\p{N}_'-]+$/u.test(name)) {
+        const re = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(nameLower)}(?:$|[^\p{L}\p{N}])`, 'u');
+        matched = re.test(lower);
+      } else {
+        matched = lower.includes(nameLower);
+      }
+      if (!matched && av.emoji) {
+        const emo = String(av.emoji).trim();
+        if (emo && lower.includes(emo.toLowerCase())) matched = true;
+      }
+      if (matched) mentioned.push(av);
+    }
+    if (!mentioned.length) return;
+
+    // Limit cascade replies; env override BOT_MENTION_CASCADE_LIMIT else default 1
+    const limit = Number(process.env.BOT_MENTION_CASCADE_LIMIT || 1);
+    const slice = mentioned.slice(0, Math.max(0, limit));
+    for (const target of slice) {
+      if (responders.size >= maxPerMessage) break;
+      try {
+        // Presence updates & lightweight boost
+        await this.presenceService.ensurePresence(channel.id, `${target._id}`);
+        await this.presenceService.recordMention(channel.id, `${target._id}`);
+        // Only grant a turn if they don't already have pending summon turns
+        try {
+          const presCol = await this.presenceService.col();
+            const doc = await presCol.findOne({ channelId: channel.id, avatarId: `${target._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+          if (!doc?.newSummonTurnsRemaining) {
+            await this.presenceService.grantNewSummonTurns(channel.id, `${target._id}`, 1);
+          }
+        } catch {}
+        // Attempt immediate reply (overrideCooldown to keep flow natural)
+        await this.sendResponse(channel, target, null, { overrideCooldown: true, cascadeDepth: cascadeDepth + 1 });
+      } catch (e) {
+        this.logger.debug?.(`mention cascade send failed for ${target.name}: ${e.message}`);
+      }
     }
   }
 }

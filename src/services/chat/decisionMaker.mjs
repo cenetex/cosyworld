@@ -326,8 +326,12 @@ export class DecisionMaker  {
           { role: 'system', content: `Generate a haiku reflecting the ${this.currentMode} mind mode.` },
           { role: 'user', content: 'Create a single haiku.' }
         ], { model: this.model });
-
-        await this.discordService.sendAsWebhook(avatar.innerMonologueChannel, `-# [ ${this.currentMode} ]\n${haiku}`, avatar);
+        const safe = (typeof haiku === 'string' && haiku.trim()) ? haiku.trim() : null;
+        if (safe) {
+          await this.discordService.sendAsWebhook(avatar.innerMonologueChannel, `-# [ ${this.currentMode} ]\n${safe}`, avatar);
+        } else {
+          this.logger.debug?.(`Haiku generation returned empty for mode ${this.currentMode}; skipping inner monologue message.`);
+        }
       } catch (error) {
         this.logger.error(`Haiku generation error: ${error.message}`);
       }
@@ -335,4 +339,5 @@ export class DecisionMaker  {
 
     this.currentMode = this.mindModes[Math.floor(Math.random() * this.mindModes.length)];
   }
+
 }
