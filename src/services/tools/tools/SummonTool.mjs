@@ -137,10 +137,11 @@ export class SummonTool extends BasicTool {
           // Trigger brief speech instead of full panel
           try {
             const ai = this.unifiedAIService || this.aiService;
+            const corrId = `summon-existing:${existingAvatar._id}:${Date.now()}`;
             const speechResult = await ai.chat([
               { role: 'system', content: `You are ${existingAvatar.name}, ${existingAvatar.description}. Keep responses under 120 characters.` },
               { role: 'user', content: `You were just redundantly summoned again in the same spot. React briefly, maybe playfully.` }
-            ], { model: existingAvatar.model });
+            ], { model: existingAvatar.model, corrId });
             const speech = typeof speechResult === 'object' && speechResult?.text ? speechResult.text : speechResult;
             await this.discordService.sendAsWebhook(message.channel.id, speech || `${existingAvatar.name} acknowledges the summon.`, existingAvatar);
           } catch (e) {
@@ -212,10 +213,11 @@ export class SummonTool extends BasicTool {
         // Provide a lightweight acknowledgement instead of full intro/embed
         try {
           const ai2 = this.unifiedAIService || this.aiService;
+          const corrId = `resummon:${createdAvatar._id}:${Date.now()}`;
           const briefResult = await ai2.chat([
             { role: 'system', content: `You are ${createdAvatar.name}, ${createdAvatar.description}. Keep response under 120 characters.` },
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
-          ], { model: createdAvatar.model });
+          ], { model: createdAvatar.model, corrId });
           const brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
@@ -232,6 +234,7 @@ export class SummonTool extends BasicTool {
       // Generate introduction
       const introPrompt = guildConfig?.prompts?.introduction || 'You\'ve just arrived. Introduce yourself.';
   const ai3 = this.unifiedAIService || this.aiService;
+  const introCorrId = `intro:${createdAvatar._id}:${Date.now()}`;
   let introResult = await ai3.chat(
         [
           {
@@ -240,7 +243,7 @@ export class SummonTool extends BasicTool {
           },
           { role: 'user', content: introPrompt },
         ],
-        { model: createdAvatar.model }
+        { model: createdAvatar.model, corrId: introCorrId }
       );
   let intro = typeof introResult === 'object' && introResult?.text ? introResult.text : introResult;
       // Extract <think> tags from intro, store as thoughts & strip before sending

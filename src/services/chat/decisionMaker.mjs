@@ -276,10 +276,12 @@ export class DecisionMaker  {
       ];
 
   const ai = this.unifiedAIService || this.aiService;
-  const response = await ai.chat(prompt, {
+      const corrId = `decide:${avatar._id}:${Date.now()}`;
+      const response = await ai.chat(prompt, {
         model: this.configService.getAIConfig().decisionMakerModel,
         temperature: 0.5,
-        max_tokens: 32
+        max_tokens: 32,
+        corrId
       });
   const text = typeof response === 'object' && response?.text ? response.text : response;
   if (!text) {
@@ -326,10 +328,11 @@ export class DecisionMaker  {
     if (avatar.innerMonologueChannel) {
       try {
   const ai = this.unifiedAIService || this.aiService;
+  const corrId = `haiku:${avatar._id}:${Date.now()}`;
   const haiku = await ai.chat([
           { role: 'system', content: `Generate a haiku reflecting the ${this.currentMode} mind mode.` },
           { role: 'user', content: 'Create a single haiku.' }
-        ], { model: this.model });
+  ], { model: this.model, corrId });
   const safeText = typeof haiku === 'object' && haiku?.text ? haiku.text : haiku;
   const safe = (typeof safeText === 'string' && safeText.trim()) ? safeText.trim() : null;
         if (safe) {

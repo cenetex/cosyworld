@@ -20,7 +20,10 @@ export class UnifiedAIService {
       return { text: null, reasoning: null, toolCalls: null, model, provider, error: { code: 'NO_CONTENT', message: 'Empty response' } };
     }
     if (typeof raw === 'object' && raw.text) {
-      return { model, provider, ...raw, error: raw.error || null };
+  const env = { model, provider, ...raw, error: raw.error || null };
+  if (!env.usage) env.usage = {};
+  this._estimateTokens(env);
+  return env;
     }
     let text = String(raw);
     let reasoning = [];
@@ -32,7 +35,10 @@ export class UnifiedAIService {
       }
       if (reasoning.length) text = text.replace(thinkRegex, '').trim();
     } catch {}
-    return { text, reasoning: reasoning.length ? reasoning.join('\n') : null, toolCalls: null, model, provider, error: null, raw };
+  const env = { text, reasoning: reasoning.length ? reasoning.join('\n') : null, toolCalls: null, model, provider, error: null, raw };
+  env.usage = env.usage || {};
+  this._estimateTokens(env);
+  return env;
   }
 
   async chat(messages, options = {}) {
@@ -48,6 +54,7 @@ export class UnifiedAIService {
         env.usage = { latencyMs: Date.now() - t0, attempts: attempt + 1 };
         if (attempt > 0) env.meta = { recovered: true };
         env.corrId = options.corrId || null;
+  this._estimateTokens(env);
         release();
         return env;
       } catch (e) {
@@ -91,6 +98,23 @@ export class UnifiedAIService {
     if (status >= 500 && status < 600) return { code: 'SERVER_ERROR', retryable: true };
     if (msg.includes('timeout') || msg.includes('network')) return { code: 'NETWORK', retryable: true };
     return { code: code || 'EXCEPTION', retryable: false };
+  }
+
+  _estimateTokens(env) {
+    if (!env || !env.text) return;
+    try {
+      // Very rough heuristic: 1 token ≈ 4 chars (English) -> use 3.5 to be conservative
+      const completionTokens = Math.max(1, Math.ceil(env.text.length / 3.5));
+      const reasoningTokens = env.reasoning ? Math.ceil(String(env.reasoning).length / 3.5) : 0;
+      env.usage = env.usage || {};
+      if (!env.usage.completionTokens) env.usage.completionTokens = completionTokens + reasoningTokens;
+      if (!env.usage.promptTokens && env.rawPrompt) {
+        env.usage.promptTokens = Math.ceil(env.rawPrompt.length / 3.5);
+      }
+      if (env.usage.promptTokens && env.usage.completionTokens) {
+        env.usage.totalTokens = env.usage.promptTokens + env.usage.completionTokens;
+      }
+    } catch {}
   }
 
   async _acquireSlot() {
