@@ -92,10 +92,10 @@ MONGO_URI=mongodb://localhost:27017
 MONGO_DB_NAME=cosyworld8
 # Web Ports (run dev + prod side-by-side)
 # Optional: set different ports so you can run both simultaneously
-DEV_WEB_PORT=3000
-PROD_WEB_PORT=4000
-# Or set WEB_PORT to force a single port for any env
-WEB_PORT=3000
+DEV_WEB_PORT=3100   # default if unset in development
+PROD_WEB_PORT=3000  # default if unset in production
+# Or set WEB_PORT to force a single port for all envs
+# WEB_PORT=8080
 
 # AI Services
 OPENROUTER_API_TOKEN=your_token
