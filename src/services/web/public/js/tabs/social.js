@@ -35,6 +35,11 @@ export async function loadSocialContent() {
   }
 }
 
+// Provide generic loader name expected by dynamic content loader
+export async function loadContent() {
+  return loadSocialContent();
+}
+
 /**
  * Render empty state when no posts found
  * @param {HTMLElement} container - Container element
