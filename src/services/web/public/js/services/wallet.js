@@ -12,6 +12,34 @@ import { setWallet } from '../core/state.js';
 import { showToast } from '../utils/toast.js';
 import { shortenAddress } from '../utils/formatting.js';
 
+// Lightweight Base58 encoder (Bitcoin alphabet) to avoid bundler/runtime bare specifier issues with 'bs58' in dev mode
+// This mirrors the encoding expected by the server (which uses bs58 to decode signatures)
+const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function encodeBase58(bytes) {
+  if (!bytes || !bytes.length) return '';
+  // Count leading zeros
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  // Clone bytes for mutation
+  const input = Array.from(bytes);
+  const encoded = [];
+  let startAt = zeros;
+  while (startAt < input.length) {
+    let carry = 0;
+    for (let i = startAt; i < input.length; i++) {
+      const val = (input[i] & 0xff) + carry * 256;
+      input[i] = Math.floor(val / 58);
+      carry = val % 58;
+    }
+    encoded.push(B58_ALPHABET[carry]);
+    // Skip leading zeros in input after division
+    while (startAt < input.length && input[startAt] === 0) startAt++;
+  }
+  // Add leading zeros
+  for (let i = 0; i < zeros; i++) encoded.push('1');
+  return encoded.reverse().join('');
+}
+
 /**
  * Initialize wallet functionality
  */
@@ -241,7 +269,7 @@ export async function signWriteHeaders(extra = {}) {
   const encoded = new TextEncoder().encode(msg);
   const { signature } = await provider.signMessage(encoded, 'utf8');
   // signature is Uint8Array; convert to base58 string for compact transport
-  const bs58sig = (await import('bs58')).default.encode(signature);
+  const bs58sig = encodeBase58(signature);
   return {
     'X-Wallet-Address': finalAddress,
     'X-Message': msg,
