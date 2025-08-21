@@ -14,8 +14,24 @@ export class UnifiedAIService {
   this._queue = [];
   }
 
+  /** Convenience helper to extract plain text from an envelope or raw */
+  static unwrap(result) {
+    if (result == null) return null;
+    if (typeof result === 'string') return result;
+    if (typeof result === 'object') return result.text || null;
+    return String(result);
+  }
+
   /** Normalize raw result (string or object) into envelope */
   _toEnvelope(raw, { model, provider } = {}) {
+    // Pass through if already looks like envelope (has text or error key and provider)
+    if (raw && typeof raw === 'object' && (Object.prototype.hasOwnProperty.call(raw,'text') || Object.prototype.hasOwnProperty.call(raw,'error')) && (raw.provider || raw.model || raw.usage)) {
+      const env = { model, provider, ...raw };
+      if (!env.model) env.model = model;
+      if (!env.provider) env.provider = provider;
+      this._estimateTokens(env);
+      return env;
+    }
     if (raw == null) {
       return { text: null, reasoning: null, toolCalls: null, model, provider, error: { code: 'NO_CONTENT', message: 'Empty response' } };
     }

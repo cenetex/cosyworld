@@ -120,10 +120,11 @@ export class OpenRouterAIService {
         this.logger.error('Invalid response from OpenRouter during completion generation.');
         return null;
       }
-      return response.choices[0].text.trim();
+  const text = response.choices[0].text.trim();
+  return { text, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null };
     } catch (error) {
       this.logger.error('Error while generating completion from OpenRouter:', error);
-      return null;
+  return { text: null, raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: 'COMPLETION_ERROR', message: error.message } };
     }
   }
 
@@ -204,7 +205,8 @@ export class OpenRouterAIService {
         result.content = '<think>' + result.reasoning + '</think>' + result.content;
       }
 
-      return (result.content.trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
+  const baseText = (result.content.trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
+  return { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null };
     } catch (error) {
       this.logger.error('Error while chatting with OpenRouter:', error);
       // Retry if the error is a rate limit error
@@ -213,7 +215,7 @@ export class OpenRouterAIService {
         await new Promise(resolve => setTimeout(resolve, 5000));
         return this.chat(messages, options, retries - 1);
       }
-      return null;
+  return { text: null, raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: error.response?.status === 429 ? 'RATE_LIMIT' : 'CHAT_ERROR', message: error.message } };
     }
   }
 

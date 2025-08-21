@@ -8,6 +8,7 @@ import { loadActionLog } from './tabs/actions.js';
 import { loadLeaderboard } from './tabs/leaderboard.js';
 import { loadTribes } from './tabs/tribes.js';
 import { loadSocialContent } from './tabs/social.js';
+import { loadCollections } from './tabs/collections.js';
 
 export function initializeContentLoader() {
   window.loadContent = async function () {
@@ -30,6 +31,9 @@ export function initializeContentLoader() {
           break;
         case "social":
           await loadSocialContent();
+          break;
+        case "collections":
+          await loadCollections();
           break;
         default:
           content.innerHTML = `<div class="text-center py-12 text-red-500">Unknown tab: ${state.activeTab}</div>`;

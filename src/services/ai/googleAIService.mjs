@@ -216,7 +216,8 @@ export class GoogleAIService {
               ...restOptions,
             },
           });
-        return result.response.text();
+        const text = result.response.text();
+        return { text, raw: result, model: modelId, provider: 'google', error: null };
       } catch (error) {
         const retryInfo = this._parseRetryDelay(error);
         if (retryInfo.shouldRetry && attempt < 2) {
@@ -226,7 +227,7 @@ export class GoogleAIService {
         }
         if (retryInfo.isQuotaError) {
           console.warn(`[GoogleAIService] Quota exceeded: ${error.message}`);
-          return 'Error: Google AI quota exceeded. Please try again later.';
+          return { text: null, raw: null, model: modelId, provider: 'google', error: { code: 'QUOTA', message: 'Google AI quota exceeded. Please try again later.' } };
         }
         console.error(`[${new Date().toISOString()}] Completion error:`, error.message);
         throw error;
@@ -301,10 +302,8 @@ export class GoogleAIService {
   
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await chatSession.sendMessage([
-          { text: lastMessage.content }
-        ]);
-        return result.response.text();
+        const result = await chatSession.sendMessage([{ text: lastMessage.content }]);
+        return { text: result.response.text(), raw: result, model: modelId, provider: 'google', error: null };
       } catch (error) {
         const retryInfo = this._parseRetryDelay(error);
         if (retryInfo.shouldRetry && attempt < 2) {
@@ -314,10 +313,10 @@ export class GoogleAIService {
         }
         if (retryInfo.isQuotaError) {
           console.warn(`[GoogleAIService] Quota exceeded during chat: ${error.message}`);
-          return '-# [ Error: Google AI quota exceeded. Please try again later. ]';
+          return { text: null, raw: null, model: modelId, provider: 'google', error: { code: 'QUOTA', message: 'Google AI quota exceeded. Please try again later.' } };
         }
         console.error(`[${new Date().toISOString()}] Google AI service error:`, error.message);
-        return `-# [ Error: ${error.message} ]`;
+        return { text: null, raw: null, model: modelId, provider: 'google', error: { code: 'CHAT_ERROR', message: error.message } };
       }
     }
   }

@@ -49,10 +49,10 @@ export class OllamaService {
         console.error('Invalid response from Ollama during chat.');
         return null;
       }
-      return response.message.content.trim();
+  return { text: response.message.content.trim(), raw: response, model: this.model, provider: 'ollama', error: null };
     } catch (error) {
       console.error('Error while chatting with Ollama:', error);
-      return null;
+  return { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'CHAT_ERROR', message: error.message } };
     }
   }
 
@@ -70,10 +70,10 @@ export class OllamaService {
         console.error('Invalid response from Ollama during completion generation.');
         return null;
       }
-      return response.response.trim();
+  return { text: response.response.trim(), raw: response, model: this.model, provider: 'ollama', error: null };
     } catch (error) {
       console.error('Error while generating completion from Ollama:', error);
-      return null;
+  return { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'COMPLETION_ERROR', message: error.message } };
     }
   }
 
