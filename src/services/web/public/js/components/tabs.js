@@ -8,7 +8,7 @@
  * Handles tab navigation and tab content switching
  */
 
-import { setActiveTab } from '../core/state.js';
+import { setActiveTab, state } from '../core/state.js';
 
 /**
  * Initialize tabs component
@@ -26,8 +26,26 @@ export function initializeTabs() {
     });
   });
   
+  // Derive initial tab from URL hash if present (#tab or #tab=xyz)
+  const urlTab = extractTabFromHash();
+  if (urlTab) {
+    setActiveTab(urlTab);
+  }
+
+  // Apply initial UI state
+  updateTabUI(state.activeTab);
+
   // Set up tab indicator if present
   setupTabIndicator();
+
+  // Listen for hash changes (back/forward navigation)
+  window.addEventListener('hashchange', () => {
+    const newTab = extractTabFromHash();
+    if (newTab && newTab !== state.activeTab) {
+      setActiveTab(newTab);
+      updateTabUI(newTab);
+    }
+  });
 }
 
 /**
@@ -59,6 +77,9 @@ export function updateTabUI(activeTab) {
   
   // Update tab indicator position if present
   updateTabIndicator(activeTab);
+
+  // Sync URL hash
+  try { updateTabHash(activeTab); } catch {}
   
   // Trigger content loading
   if (window.loadContent) {
@@ -105,4 +126,33 @@ function updateTabIndicator(activeTab) {
   // Update indicator position and height
   indicator.style.top = `${top - containerTop}px`;
   indicator.style.height = `${height}px`;
+}
+
+/**
+ * Extract a tab name from location.hash supporting forms: #actions or #tab=actions
+ */
+function extractTabFromHash() {
+  if (!location.hash) return null;
+  const hash = location.hash.slice(1); // remove '#'
+  if (!hash) return null;
+  if (hash.startsWith('tab=')) return sanitizeTab(hash.split('=')[1]);
+  return sanitizeTab(hash);
+}
+
+const VALID_TABS = new Set(['squad','actions','leaderboard','collections','tribes','social']);
+function sanitizeTab(tab) {
+  if (!tab) return null;
+  tab = tab.toLowerCase();
+  return VALID_TABS.has(tab) ? tab : null;
+}
+
+/**
+ * Update URL hash without adding duplicate history entries.
+ */
+export function updateTabHash(tab) {
+  if (!tab) return;
+  const desired = `#${tab}`;
+  if (location.hash !== desired) {
+    history.pushState(null, '', desired);
+  }
 }

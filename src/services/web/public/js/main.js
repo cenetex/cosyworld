@@ -32,6 +32,15 @@ function initializeApplication() {
   
   // Initialize tabs
   initializeTabs();
+
+  // If hash specifies a valid tab and differs, content loader will handle; otherwise ensure default present
+  const validTabs = new Set(['squad','actions','leaderboard','collections','tribes','social']);
+  if (location.hash) {
+    const h = location.hash.replace(/^#/,'').replace(/^tab=/,'').toLowerCase();
+    if (validTabs.has(h)) {
+      state.activeTab = h;
+    }
+  }
   
   // Initialize content loader
   initializeContentLoader();

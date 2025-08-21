@@ -13,6 +13,15 @@ import { loadCollections } from './tabs/collections.js';
 export function initializeContentLoader() {
   window.loadContent = async function () {
     const content = document.getElementById("content");
+    const cacheKey = (window.state?.activeTab) || 'unknown';
+    const now = Date.now();
+    window.__tabCache = window.__tabCache || new Map();
+    const cached = window.__tabCache.get(cacheKey);
+    const TTL = 15_000; // 15s reuse
+    if (cached && (now - cached.when) < TTL) {
+      content.innerHTML = cached.html;
+      return; // Serve from cache
+    }
     content.innerHTML = '<div class="text-center py-12">Loading...</div>';
     const state = window.state || {};
     try {
@@ -38,6 +47,8 @@ export function initializeContentLoader() {
         default:
           content.innerHTML = `<div class="text-center py-12 text-red-500">Unknown tab: ${state.activeTab}</div>`;
       }
+  // Cache rendered HTML (shallow clone)
+  window.__tabCache.set(cacheKey, { when: now, html: content.innerHTML });
     } catch (err) {
       console.error("Content load error:", err);
       content.innerHTML = `<div class="text-center py-12 text-red-500">${err.message}</div>`;
