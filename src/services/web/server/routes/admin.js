@@ -677,21 +677,20 @@ function createRouter(db) {
         return res.status(500).json({ error: 'S3Service not available' });
       }
 
-      // Save the uploaded file temporarily
-      const tempFilePath = `/tmp/${req.file.originalname}`;
+      const tempFilePath = `/tmp/${Date.now()}-${req.file.originalname}`;
       await fs.writeFile(tempFilePath, req.file.buffer);
-
-      // Upload to S3 using the existing uploadImage method
-      const s3Url = await s3Service.uploadImage(tempFilePath);
-      if (!s3Url) {
+      try {
+        const s3Url = await s3Service.uploadImage(tempFilePath);
+        if (!s3Url) {
+          return res.status(500).json({ error: 'Failed to upload image to S3' });
+        }
+        await fs.unlink(tempFilePath).catch(() => {});
+        return res.json({ url: s3Url });
+      } catch (e) {
+        console.error('S3 upload failed:', e);
+        await fs.unlink(tempFilePath).catch(() => {});
         return res.status(500).json({ error: 'Failed to upload image to S3' });
       }
-
-      // Clean up the temporary file
-      await fs.unlink(tempFilePath);
-
-      // Return the S3 URL for the uploaded image
-      res.json({ url: s3Url });
     } catch (error) {
       console.error('Upload error:', error);
       res.status(500).json({ error: 'Failed to upload image' });

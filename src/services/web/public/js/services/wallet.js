@@ -44,6 +44,16 @@ export function initializeWallet() {
   // Make connectWallet function available globally
   window.connectWallet = connectWallet;
   window.disconnectWallet = disconnectWallet;
+
+  // If on admin pages without a wallet container, provide a floating connect button
+  if (suppressToasts && !walletContainer && !window.state?.wallet?.publicKey && !document.getElementById('wallet-connect-floating')) {
+    const btn = document.createElement('button');
+    btn.id = 'wallet-connect-floating';
+    btn.textContent = 'Connect Wallet';
+    btn.className = 'fixed top-3 right-3 z-50 px-3 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700';
+    btn.addEventListener('click', connectWallet);
+    document.body.appendChild(btn);
+  }
 }
 
 /**
@@ -208,7 +218,24 @@ export function updateWalletUI() {
 export async function signWriteHeaders(extra = {}) {
   const address = window.state?.wallet?.publicKey;
   const provider = window?.phantom?.solana;
-  if (!address || !provider) throw new Error('Wallet not connected');
+  if ((!address || !provider)) {
+    // Attempt an on-demand connection (interactive) before failing
+    if (provider?.connect) {
+      try {
+        const connection = await provider.connect();
+        if (connection?.publicKey) {
+          setWallet({ publicKey: connection.publicKey.toString(), isConnected: true });
+        }
+      } catch (e) {
+        throw new Error('Wallet not connected');
+      }
+    } else {
+      throw new Error('Wallet not connected');
+    }
+  }
+  // Re-check after attempted connect
+  const finalAddress = window.state?.wallet?.publicKey;
+  if (!finalAddress) throw new Error('Wallet not connected');
   const payload = { ts: Date.now(), nonce: Math.random().toString(36).slice(2), ...extra };
   const msg = JSON.stringify(payload);
   const encoded = new TextEncoder().encode(msg);
@@ -216,7 +243,7 @@ export async function signWriteHeaders(extra = {}) {
   // signature is Uint8Array; convert to base58 string for compact transport
   const bs58sig = (await import('bs58')).default.encode(signature);
   return {
-    'X-Wallet-Address': address,
+    'X-Wallet-Address': finalAddress,
     'X-Message': msg,
     'X-Signature': bs58sig
   };

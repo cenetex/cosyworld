@@ -216,18 +216,21 @@ uploadButton.addEventListener('click', () => {
         body: formData
       });
 
+    let data;
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
+      let errMsg = `Upload failed (${response.status})`;
+      try { const j = await response.json(); if (j?.error) errMsg += `: ${j.error}`; } catch {}
+      throw new Error(errMsg);
+    } else {
+      data = await response.json();
     }
-
-    const data = await response.json();
     elements.imageUrlInput.value = data.url;
     elements.imagePreview.src = data.url;
     elements.imagePreview.classList.remove('hidden');
     showNotification('Image uploaded successfully');
   } catch (error) {
     console.error('Upload error:', error);
-    showNotification('Failed to upload image', 'error');
+    showNotification(error.message || 'Failed to upload image', 'error');
   } finally {
     uploadButton.disabled = false;
     uploadButton.textContent = 'Upload Image';
@@ -415,7 +418,11 @@ elements.imageUrlInput.addEventListener("input", () => {
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(Object.fromEntries(formData)),
       });
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      if (!response.ok) {
+        let msg = `Save failed (${response.status})`;
+        try { const j = await response.json(); if (j?.error) msg += `: ${j.error}`; } catch {}
+        throw new Error(msg);
+      }
       // Fetch the updated avatar and refresh the modal fields
       let updatedAvatar;
       if (avatarId) {
@@ -434,7 +441,7 @@ elements.imageUrlInput.addEventListener("input", () => {
       loadAvatars();
     } catch (error) {
       console.error("Error saving avatar:", error);
-      showNotification("Failed to save avatar", "error");
+      showNotification(error.message || "Failed to save avatar", "error");
     } finally {
       elements.saveBtn.disabled = false;
       elements.saveBtn.textContent = "Save Changes";

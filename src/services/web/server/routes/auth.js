@@ -78,30 +78,45 @@ export default function createAuthRouter(db) {
     // Clear nonce after successful verify
     await nonces.deleteOne({ address });
 
-    // Admin bootstrapping: first user becomes admin
+    // Admin assignment logic
     const existingAdmin = await users.findOne({ isAdmin: true });
     const now = new Date();
-
     const update = {
       $setOnInsert: { createdAt: now },
       $set: { walletAddress: address, updatedAt: now },
     };
-
     const upsertRes = await users.findOneAndUpdate(
       { walletAddress: address },
       update,
       { upsert: true, returnDocument: 'after' }
     );
-
-    // Some drivers may return null value on upsert; fetch explicitly
     let user = upsertRes?.value || await users.findOne({ walletAddress: address });
-    if (!existingAdmin && !user.isAdmin) {
-      await users.updateOne({ _id: user._id }, { $set: { isAdmin: true, updatedAt: new Date() } });
-      user = await users.findOne({ _id: user._id });
-    } else if (!user.isAdmin) {
-      // Ensure others start with no rights
-      await users.updateOne({ _id: user._id }, { $set: { isAdmin: false } });
-      user = await users.findOne({ _id: user._id });
+
+    // Environment-driven admin list: ADMIN_WALLET or ADMIN_WALLETS (comma / space separated)
+    const envAdminRaw = (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || '').trim();
+    const envAdmins = envAdminRaw
+      ? envAdminRaw.split(/[,\s]+/).filter(Boolean).map(a => a.toLowerCase())
+      : [];
+    const isEnvAdmin = envAdmins.length > 0 && envAdmins.includes(address.toLowerCase());
+
+    if (envAdmins.length > 0) {
+      // Explicit allow-list: only listed wallets are admins
+      if (user.isAdmin !== isEnvAdmin) {
+        await users.updateOne({ _id: user._id }, { $set: { isAdmin: isEnvAdmin, updatedAt: new Date() } });
+        user = await users.findOne({ _id: user._id });
+      }
+    } else {
+      // Fallback bootstrap: first user becomes admin
+      if (!existingAdmin && !user.isAdmin) {
+        await users.updateOne({ _id: user._id }, { $set: { isAdmin: true, updatedAt: new Date() } });
+        user = await users.findOne({ _id: user._id });
+      } else if (!user.isAdmin) {
+        // Ensure later users are not admins by default
+        if (user.isAdmin) {
+          await users.updateOne({ _id: user._id }, { $set: { isAdmin: false, updatedAt: new Date() } });
+          user = await users.findOne({ _id: user._id });
+        }
+      }
     }
 
   // Issue httpOnly auth cookie
