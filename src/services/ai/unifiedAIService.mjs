@@ -63,10 +63,12 @@ export class UnifiedAIService {
     let lastErr = null;
     const corr = options.corrId ? `[corrId=${options.corrId}] ` : '';
     const release = await this._acquireSlot();
+  // Force providers to return envelope form
+  const baseOptions = { ...options, returnEnvelope: true };
     while (attempt <= this.maxRetries) {
       try {
-        const raw = await this.base.chat(messages, options);
-        const env = this._toEnvelope(raw, { model: options.model, provider: this.base?.constructor?.name });
+    const raw = await this.base.chat(messages, baseOptions);
+    const env = this._toEnvelope(raw, { model: baseOptions.model, provider: this.base?.constructor?.name });
         env.usage = { latencyMs: Date.now() - t0, attempts: attempt + 1 };
         if (attempt > 0) env.meta = { recovered: true };
         env.corrId = options.corrId || null;

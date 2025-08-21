@@ -49,10 +49,11 @@ export class OllamaService {
         console.error('Invalid response from Ollama during chat.');
         return null;
       }
-  return { text: response.message.content.trim(), raw: response, model: this.model, provider: 'ollama', error: null };
+  const text = response.message.content.trim();
+  return options.returnEnvelope ? { text, raw: response, model: this.model, provider: 'ollama', error: null } : text;
     } catch (error) {
       console.error('Error while chatting with Ollama:', error);
-  return { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'CHAT_ERROR', message: error.message } };
+  return options.returnEnvelope ? { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'CHAT_ERROR', message: error.message } } : null;
     }
   }
 
@@ -70,10 +71,11 @@ export class OllamaService {
         console.error('Invalid response from Ollama during completion generation.');
         return null;
       }
-  return { text: response.response.trim(), raw: response, model: this.model, provider: 'ollama', error: null };
+  const text = response.response.trim();
+  return options.returnEnvelope ? { text, raw: response, model: this.model, provider: 'ollama', error: null } : text;
     } catch (error) {
       console.error('Error while generating completion from Ollama:', error);
-  return { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'COMPLETION_ERROR', message: error.message } };
+  return options.returnEnvelope ? { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'COMPLETION_ERROR', message: error.message } } : null;
     }
   }
 
