@@ -13,16 +13,23 @@ import { loadCollections } from './tabs/collections.js';
 export function initializeContentLoader() {
   window.loadContent = async function () {
     const content = document.getElementById("content");
-    const cacheKey = (window.state?.activeTab) || 'unknown';
+    const activeAtStart = (window.state?.activeTab) || 'unknown';
+    const cacheKey = activeAtStart;
     const now = Date.now();
     window.__tabCache = window.__tabCache || new Map();
+    window.__tabLoadSeq = (window.__tabLoadSeq || 0) + 1;
+    const mySeq = window.__tabLoadSeq;
     const cached = window.__tabCache.get(cacheKey);
     const TTL = 15_000; // 15s reuse
     if (cached && (now - cached.when) < TTL) {
-      content.innerHTML = cached.html;
+      // Prevent stale render if tab changed after scheduling
+      if (activeAtStart === window.state?.activeTab && mySeq === window.__tabLoadSeq) {
+        content.innerHTML = cached.html;
+      }
       return; // Serve from cache
     }
-    content.innerHTML = '<div class="text-center py-12">Loading...</div>';
+    const safeLabel = activeAtStart.replace(/[^a-z0-9_-]/gi,'');
+    content.innerHTML = `<div class="text-center py-12">Loading ${safeLabel}...</div>`;
     const state = window.state || {};
     try {
       switch (state.activeTab) {
@@ -47,11 +54,15 @@ export function initializeContentLoader() {
         default:
           content.innerHTML = `<div class="text-center py-12 text-red-500">Unknown tab: ${state.activeTab}</div>`;
       }
-  // Cache rendered HTML (shallow clone)
-  window.__tabCache.set(cacheKey, { when: now, html: content.innerHTML });
+      // Only commit & cache if still the latest load and tab unchanged
+      if (mySeq === window.__tabLoadSeq && activeAtStart === window.state?.activeTab) {
+        window.__tabCache.set(cacheKey, { when: now, html: content.innerHTML });
+      }
     } catch (err) {
       console.error("Content load error:", err);
-      content.innerHTML = `<div class="text-center py-12 text-red-500">${err.message}</div>`;
+      if (mySeq === window.__tabLoadSeq && activeAtStart === window.state?.activeTab) {
+        content.innerHTML = `<div class="text-center py-12 text-red-500">${err.message}</div>`;
+      }
     }
   };
 }

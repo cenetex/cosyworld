@@ -19,7 +19,6 @@ import { generateFallbackAvatar } from '../utils/fallbacks.js';
 export async function loadContent() {
   const content = document.getElementById('content');
   if (!content) return;
-  window.loadContent = loadContent; // expose for retry handler
   setLoading(content, { message: 'Loading actions' });
   try {
     const actions = await DungeonAPI.getActionLog();
