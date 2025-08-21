@@ -5,6 +5,7 @@
 
 import OpenAI from 'openai';
 import models from '../../models.openrouter.config.mjs';
+import { parseFirstJson } from '../../utils/jsonParse.mjs';
 
 export class OpenRouterAIService {
   constructor({
@@ -95,7 +96,7 @@ export class OpenRouterAIService {
     const response = await this.chat(messages, structuredOptions);
 
     try {
-      return typeof response === 'string' ? JSON.parse(response) : response;
+      return typeof response === 'string' ? parseFirstJson(response) : response;
     } catch (err) {
       this.logger.error('Failed to parse structured output from OpenRouter:', err);
       throw new Error('Structured output was not valid JSON.');

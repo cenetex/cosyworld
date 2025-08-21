@@ -7,6 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';
 import fs from 'fs/promises';
+import { parseWithRetries } from '../../utils/jsonParse.mjs';
 
 export class GoogleAIService {
   constructor({
@@ -169,76 +170,33 @@ export class GoogleAIService {
     return clone;
   }
 
-  async tryParseGeminiJSONResponse(getRawResponse, retries = 2) {
-    for (let i = 0; i <= retries; i++) {
-      const raw = await getRawResponse();
-      try {
-        // Extract the first JSON object or array, ignoring trailing characters
-        const jsonRegex = /([\[{])[\s\S]*?([\]}])/m;
-        const match = raw.match(jsonRegex);
-        if (!match) throw new Error("No JSON found");
-
-        // Find the full JSON substring from the first opening to its matching closing brace/bracket
-        const startIdx = raw.indexOf(match[1]);
-        let openChar = match[1];
-        let closeChar = openChar === '{' ? '}' : ']';
-        let depth = 0;
-        let endIdx = -1;
-        for (let j = startIdx; j < raw.length; j++) {
-          if (raw[j] === openChar) depth++;
-          else if (raw[j] === closeChar) depth--;
-          if (depth === 0) {
-            endIdx = j + 1;
-            break;
-          }
-        }
-        if (endIdx === -1) throw new Error("Unbalanced JSON braces");
-
-        const jsonStr = raw.slice(startIdx, endIdx).trim();
-        return JSON.parse(jsonStr);
-      } catch (err) {
-        console.warn(`JSON parse failed (attempt ${i + 1}):`, err.message);
-        if (i === retries) throw new Error("Failed to parse JSON after retries");
-      }
-    }
-  }
+  // Removed legacy tryParseGeminiJSONResponse in favor of shared jsonParse utilities
   
   async generateStructuredOutput({ prompt, schema, options = {} }) {
+    const started = Date.now();
     const actualSchema = schema?.schema || schema;
-
-    // Clone and sanitize schema
     const sanitizedSchema = this.sanitizeSchema(actualSchema);
-
-    // Add propertyOrdering recursively if missing
-    function addOrdering(obj) {
-      if (obj && typeof obj === 'object') {
-        if (obj.type === 'object' && obj.properties && !obj.propertyOrdering) {
-          obj.propertyOrdering = Object.keys(obj.properties);
-        }
-        if (obj.properties) {
-          for (const key of Object.keys(obj.properties)) {
-            addOrdering(obj.properties[key]);
-          }
-        }
-        if (obj.items) {
-          addOrdering(obj.items);
-        }
-      }
-    }
-    addOrdering(sanitizedSchema);
-
+    (function addOrdering(obj){
+      if (!obj || typeof obj !== 'object') return;
+      if (obj.type === 'object' && obj.properties && !obj.propertyOrdering) obj.propertyOrdering = Object.keys(obj.properties);
+      if (obj.properties) Object.values(obj.properties).forEach(addOrdering);
+      if (obj.items) addOrdering(obj.items);
+    })(sanitizedSchema);
     const schemaInstructions = this.schemaToPromptInstructions(actualSchema);
     const fullPrompt = `${schemaInstructions}\n\n${prompt.trim()}`;
-
-    return await this.tryParseGeminiJSONResponse(() =>
-      this.generateCompletion(fullPrompt, {
+    try {
+      const data = await parseWithRetries(() => this.generateCompletion(fullPrompt, {
         ...this.defaultCompletionOptions,
         ...options,
         model: this.structured_model,
         responseMimeType: 'application/json',
         responseSchema: sanitizedSchema,
-      })
-    );
+      }), { retries: 2, backoffMs: 600 });
+      return data;
+    } catch (e) {
+      this.logger?.warn?.(`[GoogleAIService] structured output parse failed after retries in ${Date.now()-started}ms: ${e.message}`);
+      throw e;
+    }
   }
 
   async generateCompletion(prompt, options = {}) {

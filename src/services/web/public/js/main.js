@@ -13,6 +13,7 @@ import { initializeWallet } from './services/wallet.js';
 import { initializeTabs } from './components/tabs.js';
 import { initializeContentLoader } from './core/contentLoader.js';
 import { showToast } from './utils/toast.js';
+import { installGlobalRetryHandler } from './utils/dom.js';
 
 // Initialize the application when DOM is loaded
 document.addEventListener("DOMContentLoaded", initializeApplication);
@@ -34,6 +35,9 @@ function initializeApplication() {
   
   // Initialize content loader
   initializeContentLoader();
+  
+  // Install global retry handler for error states
+  installGlobalRetryHandler();
   
   // Set up mobile navigation toggles
   setupMobileNavigation();

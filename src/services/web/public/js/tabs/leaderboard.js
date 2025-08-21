@@ -10,6 +10,8 @@
 
 import { LeaderboardAPI, ClaimsAPI } from '../core/api.js';
 import { state } from '../core/state.js';
+import { setLoading, setError, setEmpty, escapeHtml } from '../utils/dom.js';
+import { generateFallbackAvatar } from '../utils/fallbacks.js';
 
 /**
  * Load leaderboard tab content
@@ -17,6 +19,9 @@ import { state } from '../core/state.js';
 export async function loadContent() {
   const content = document.getElementById("content");
   if (!content) return;
+  window.loadContent = loadContent; // expose for retry
+  
+  setLoading(content, { message: 'Loading leaderboard' });
   
   try {
     content.innerHTML = `
@@ -61,7 +66,7 @@ export async function loadContent() {
     const loader = document.getElementById("leaderboard-loader");
 
     if (!data.avatars || data.avatars.length === 0) {
-      renderEmptyState(leaderboardItems);
+      setEmpty(leaderboardItems, { title: 'No Leaderboard Data Available', description: 'Check back later for updated rankings.' });
       return;
     }
 
@@ -90,14 +95,7 @@ export async function loadContent() {
 
   } catch (err) {
     console.error("Load Leaderboard error:", err);
-    content.innerHTML = `
-      <div class="text-center py-12 text-red-500">
-        Failed to load leaderboard: ${err.message}
-        <button class="mt-4 px-4 py-2 bg-primary-600 rounded" onclick="loadContent()">
-          Retry
-        </button>
-      </div>
-    `;
+    setError(content, `Failed to load leaderboard: ${escapeHtml(err.message)}`, { retryFnName: 'loadContent' });
   }
 }
 
@@ -106,12 +104,7 @@ export async function loadContent() {
  * @param {HTMLElement} container - Container element
  */
 function renderEmptyState(container) {
-  container.innerHTML = `
-    <div class="col-span-full text-center py-4">
-      <h2 class="text-xl font-bold mb-2">No Leaderboard Data Available</h2>
-      <p class="text-gray-400">Check back later for updated rankings.</p>
-    </div>
-  `;
+  setEmpty(container, { title: 'No Leaderboard Data Available', description: 'Check back later for updated rankings.' });
 }
 
 /**
@@ -163,21 +156,25 @@ function defaultRenderLeaderboardCard(avatar, isClaimed) {
     return colors[tier] || colors.U;
   };
 
+  const safeName = escapeHtml(avatar.name || 'Unknown');
+  const initial = safeName.charAt(0).toUpperCase();
+  const fallbackSrc = generateFallbackAvatar(initial);
+
   return `
     <div class="avatar-card bg-gray-800 p-3 rounded-lg hover:bg-gray-700 transition-colors ${isClaimed ? 'border-l-2 border-green-500' : ''}">
       <div class="flex gap-3 items-center">
         <div class="relative">
           <img 
             src="${avatar.thumbnailUrl || avatar.imageUrl}" 
-            alt="${avatar.name}" 
+            alt="${safeName}" 
             class="w-16 h-16 object-cover rounded-full border-2 border-gray-600"
-            onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\'%3E%3Crect fill=\\'%23333\\' width=\\'100\\' height=\\'100\\'/%3E%3Ctext fill=\\'%23FFF\\' x=\\'50\\' y=\\'50\\' font-size=\\'50\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'%3E${avatar.name.charAt(0).toUpperCase()}%3C/text%3E%3C/svg%3E';"
+            onerror="this.onerror=null; this.src='${fallbackSrc}';"
           >
           ${isClaimed ? `<div class="absolute -top-1 -right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center text-xs">✓</div>` : ''}
         </div>
         
         <div class="flex-1 min-w-0">
-          <h3 class="text-sm font-semibold truncate">${avatar.name}</h3>
+          <h3 class="text-sm font-semibold truncate">${safeName}</h3>
           <p class="text-xs text-gray-400">Score: ${avatar.score || 0}</p>
           
           <div class="flex items-center gap-2 mt-1">

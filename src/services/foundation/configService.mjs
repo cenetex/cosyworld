@@ -188,6 +188,31 @@ export class ConfigService {
         } catch {}
       }
 
+      // Finalize: enforce deterministic defaults if not explicitly overridden by env vars
+      const explicitEnvPort = process.env.WEB_PORT || process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT || process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT;
+      if (!explicitEnvPort) {
+        if ((process.env.NODE_ENV || 'development') === 'production') {
+          merged.server.port = 3000;
+          merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3000';
+          merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3000';
+        } else {
+          merged.server.port = 3100;
+          merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3100';
+          merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3100';
+        }
+      }
+
+      // Diagnostic logging (temporarily verbose to trace unexpected port values)
+      try {
+        const envPortVars = {
+          WEB_PORT: process.env.WEB_PORT,
+          DEV_WEB_PORT: process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT,
+          PROD_WEB_PORT: process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT,
+          NODE_ENV: process.env.NODE_ENV
+        };
+        this.logger?.info?.(`[config] Final server.port=${merged.server.port} (explicitEnvPort=${explicitEnvPort||'none'}) envVars=${JSON.stringify(envPortVars)}`);
+      } catch {}
+
   this.config = merged;
     } catch (error) {
       console.error('Error loading config:', error);
