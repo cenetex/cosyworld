@@ -59,6 +59,13 @@ export async function loadContent() {
   }
 }
 
+// Allow other modules to invalidate a specific tab cache (e.g., after claim)
+export function invalidateTabCache(tab) {
+  if (!tab) return;
+  tabCache.delete(tab);
+}
+window.invalidateTabCache = invalidateTabCache;
+
 /**
  * Load content for a specific tab
  * @param {string} tabName - Name of the tab to load

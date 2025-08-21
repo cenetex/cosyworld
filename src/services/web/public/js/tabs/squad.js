@@ -10,6 +10,7 @@
 
 import { state } from '../core/state.js';
 import { AvatarAPI, ClaimsAPI } from '../core/api.js';
+import { claimAvatar as claimViaService } from '../services/claimService.js';
 import { showToast } from '../utils/toast.js';
 import { shortenAddress } from '../utils/formatting.js';
 import { setEmpty, setError, escapeHtml } from '../utils/dom.js';
@@ -118,7 +119,21 @@ function renderAvatarGrid(container, avatars) {
       </div>
     </div>`;
   // Attach button listeners (delegation could be global later)
-  container.querySelectorAll('[data-claim]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); window.claimAvatar?.(btn.getAttribute('data-claim')); }));
+  container.querySelectorAll('[data-claim]').forEach(btn => btn.addEventListener('click', async e => { 
+    e.stopPropagation();
+    const id = btn.getAttribute('data-claim');
+    if (!id) return;
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Claiming...';
+    const result = await claimViaService(id, { silent: true });
+    if (!result.success) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    } else {
+      btn.outerHTML = '<div class="absolute bottom-4 left-4 right-4 px-3 py-2 bg-green-600 text-white text-xs rounded text-center opacity-90">Claimed</div>';
+    }
+  }));
   container.querySelectorAll('[data-mint]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); mintClaim(btn.getAttribute('data-mint')); }));
   container.querySelectorAll('img').forEach(img => addImageFallback(img, 'avatar', img.getAttribute('alt')));
 }
@@ -178,29 +193,4 @@ async function mintClaim(claimId) {
 }
 
 // Add claimAvatar function for claim button
-window.claimAvatar = async function(avatarId) {
-  try {
-    showToast("Claiming avatar...");
-    if (!state.wallet || !state.wallet.publicKey) throw new Error('Wallet not connected');
-    if (!window.phantom?.solana) throw new Error('Solana wallet not found');
-    const message = `I am claiming avatar ${avatarId}`;
-    const encoded = new TextEncoder().encode(message);
-    const sig = await window.phantom.solana.signMessage(encoded, 'utf8');
-    const signatureHex = Array.from(sig.signature).map(b => b.toString(16).padStart(2, '0')).join('');
-    const response = await fetch('/api/claims/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avatarId, walletAddress: state.wallet.publicKey, signature: signatureHex, message })
-    });
-    const contentType = response.headers.get('content-type') || '';
-    const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() };
-    if (response.ok && data.success) {
-      showToast('Avatar claimed!', { type: 'success' });
-  window.loadContent?.();
-    } else {
-      throw new Error(data.error || 'Claim failed');
-    }
-  } catch (err) {
-    showToast(`Claim failed: ${err.message}`, { type: 'error' });
-  }
-};
+window.claimAvatar = (avatarId) => claimViaService(avatarId);

@@ -9,6 +9,7 @@
  */
 
 import { AvatarAPI, ClaimsAPI, XAuthAPI } from '../core/api.js';
+import { claimAvatar as claimViaService } from '../services/claimService.js';
 import { state } from '../core/state.js';
 import { showToast } from '../utils/toast.js';
 import { formatDate, shortenAddress, getActionIcon, getTierColorClass, getTier } from '../utils/formatting.js';
@@ -332,45 +333,7 @@ async function disconnectXAuth(avatarId) {
  * Claim an avatar
  * @param {string} avatarId - Avatar ID
  */
-async function claimAvatar(avatarId) {
-  try {
-    if (!state.wallet || !state.wallet.publicKey) {
-      showToast("Please connect your wallet first", { type: 'warning' });
-      return;
-    }
-
-    showToast("Processing claim...");
-
-    // Sign a claim message with Phantom (Solana)
-    const message = `I am claiming avatar ${avatarId}`;
-    const encoded = new TextEncoder().encode(message);
-    if (!window.phantom?.solana) {
-      throw new Error('Solana wallet not found');
-    }
-    const sigResp = await window.phantom.solana.signMessage(encoded, 'utf8');
-    const signatureHex = Array.from(sigResp.signature).map(b => b.toString(16).padStart(2, '0')).join('');
-
-    const response = await fetch('/api/claims/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avatarId, walletAddress: state.wallet.publicKey, signature: signatureHex, message })
-    });
-
-    const contentType = response.headers.get('content-type') || '';
-    const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() };
-
-    if (response.ok && data.success) {
-      showToast('Avatar claimed successfully!', { type: 'success' });
-      closeAvatarModal();
-      if (window.loadContent) window.loadContent();
-    } else {
-      throw new Error(data.error || 'Failed to claim avatar');
-    }
-  } catch (err) {
-    console.error("Claim error:", err);
-    showToast(`Failed to claim avatar: ${err.message}`, { type: 'error' });
-  }
-}
+async function claimAvatar(avatarId) { const r = await claimViaService(avatarId); if (r.success) closeAvatarModal(); }
 
 /**
  * Render avatar details
