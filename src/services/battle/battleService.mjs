@@ -71,7 +71,7 @@ export class BattleService  {
       const currentHp = targetStats.hp - totalDamage;
 
       if (currentHp <= 0) {
-        const ko = await this.handleKnockout({ targetAvatar: defender, damage, attacker });
+        const ko = await this.handleKnockout({ message: _message, targetAvatar: defender, damage, attacker, services: _services });
         this.logger?.info?.(`[BattleService] KO/Death: ${attacker.name} → ${defender.name} (${ko.result}) dmg=${damage}`);
         if (isCritical) ko.critical = true; // propagate critical flag for death videos
         // Encounter integration
@@ -168,6 +168,18 @@ export class BattleService  {
   targetAvatar.status = 'knocked_out';
   targetAvatar.knockedOutUntil = now + 24 * 60 * 60 * 1000; // 24 hours
   await this.avatarService.updateAvatar(targetAvatar);
+  // Movement: send KO'd avatar to Graveyard thread under their current channel
+  try {
+    const discordService = _services?.discordService;
+    const baseChannelId = _message?.channel?.id || targetAvatar.channelId;
+    if (discordService?.getOrCreateThread && baseChannelId && this.mapService?.updateAvatarPosition) {
+      const graveyardId = await discordService.getOrCreateThread(baseChannelId, 'graveyard');
+      await this.mapService.updateAvatarPosition(targetAvatar, graveyardId);
+      this.logger?.info?.(`[BattleService] KO move: ${targetAvatar.name} → Graveyard (${graveyardId})`);
+    }
+  } catch (e) {
+    this.logger?.warn?.(`[BattleService] KO graveyard move failed: ${e.message}`);
+  }
     return {
       result: 'knockout',
       message: `-# 💥 [ ${attacker.name} knocked out ${targetAvatar.name} for ${damage} damage! ${targetAvatar.lives} lives remaining! 💫 ]`

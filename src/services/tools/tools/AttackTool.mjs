@@ -65,7 +65,7 @@ export class AttackTool extends BasicTool {
       if (avatar?.status === 'knocked_out') return null;
       if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
     } catch {}
-    if (!params || !params[0]) {
+  if (!params || !params[0]) {
       // Attempt AI intent parse if encounter active
       const encounterService = services?.combatEncounterService;
       if (encounterService) {
@@ -93,7 +93,7 @@ export class AttackTool extends BasicTool {
       if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
-      const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
+  const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
       if (!defender) {
         // React to source message to indicate invalid local target without verbose reply
         if (this.discordService?.reactToMessage) {
@@ -108,8 +108,14 @@ export class AttackTool extends BasicTool {
       if (defender.knockedOutUntil && now < defender.knockedOutUntil) {
         return `-# 💤 [ **${defender.name}** cannot fight again today. ]`;
       }
+      if (defender.combatCooldownUntil && now < defender.combatCooldownUntil) {
+        return `-# 💤 [ **${defender.name}** refuses to fight after fleeing. ]`;
+      }
       if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) {
         return `-# 💤 [ **${avatar.name}** is still recovering and cannot initiate combat. ]`;
+      }
+      if (avatar.combatCooldownUntil && now < avatar.combatCooldownUntil) {
+        return `-# 💤 [ **${avatar.name}** is resting after a narrow escape and cannot enter combat yet. ]`;
       }
       // Ensure encounter exists & both combatants present (no human command layer yet)
   let isNewEncounter = false;
@@ -118,7 +124,15 @@ export class AttackTool extends BasicTool {
         const encounterService = services?.combatEncounterService;
         if (encounterService?.ensureEncounterForAttack) {
           const before = encounterService.getEncounter(message.channel.id);
-          const encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
+          let encounter;
+          try {
+            encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
+          } catch (e) {
+            if (String(e?.message).includes('flee_cooldown')) {
+              return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
+            }
+            throw e;
+          }
           isNewEncounter = !before && !!encounter;
           // If brand-new encounter, show location image and a "vs" fight poster
           if (isNewEncounter) {

@@ -33,6 +33,14 @@ export class ChallengeTool extends BasicTool {
   }
 
   async execute(message, params, avatar, services) {
+    // Block initiating combat if actor cannot enter (KO/dead/knockout or flee cooldown)
+    try {
+      const now = Date.now();
+      if (avatar?.status === 'dead') return null;
+      if (avatar?.status === 'knocked_out') return null;
+      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return `-# 💤 [ **${avatar.name}** cannot fight again today. ]`;
+      if (avatar?.combatCooldownUntil && now < avatar.combatCooldownUntil) return `-# 💤 [ **${avatar.name}** is resting after a narrow escape and cannot enter combat yet. ]`;
+    } catch {}
     if (!params || !params[0]) {
       return `-# [ ❌ Error: No target specified. ]`;
     }
@@ -51,7 +59,15 @@ export class ChallengeTool extends BasicTool {
       if (!ces?.ensureEncounterForAttack) return `-# [ ❌ Combat system unavailable. ]`;
 
       const before = ces.getEncounter(message.channel.id);
-      const encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
+      let encounter;
+      try {
+        encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
+      } catch (e) {
+        if (String(e?.message).includes('flee_cooldown')) {
+          return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
+        }
+        throw e;
+      }
       const isNew = !before && !!encounter;
       this.logger?.info?.(`[ChallengeTool][${message.channel.id}] ${avatar.name} challenges ${defender.name} (isNew=${isNew}).`);
 

@@ -20,6 +20,7 @@ import { CooldownService } from './CooldownService.mjs';
 import { SelfieTool } from './tools/SelfieTool.mjs';
 import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
+import { FleeTool } from './tools/FleeTool.mjs';
 
 export class ToolService {
   constructor({
@@ -117,6 +118,7 @@ export class ToolService {
       challenge: ChallengeTool,
   hide: HideTool,
       defend: DefendTool,
+  flee: FleeTool,
       move: MoveTool,
       remember: RememberTool,
       create: CreationTool,
@@ -318,7 +320,24 @@ export class ToolService {
     // Back-compat: detect where `context` was provided.
     // If maybeContext is defined, treat it as the true context and disregard guildConfig for now.
     // If not, assume the 5th arg is actually the context.
-    const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
+  const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
+
+    // Global gating: KO/dead cannot use tools; in-combat restrict tools
+    try {
+      const now = Date.now();
+      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+        return null; // silent block
+      }
+    } catch {}
+
+    const ces = this.toolServices?.combatEncounterService;
+    const inCombat = (() => {
+      try { return ces?.isInActiveCombat?.(message.channel.id, avatar.id || avatar._id) || false; } catch { return false; }
+    })();
+    const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
+    if (inCombat && !combatAllowed.has(toolName)) {
+      return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
+    }
 
     let result;
     try {
@@ -329,6 +348,8 @@ export class ToolService {
       if (this.toolServices?.battleMediaService) {
         context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;
       }
+      // Provide discordService for downstream actions (e.g., KO movement)
+      if (this.discordService && !context.discordService) context.discordService = this.discordService;
       result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {

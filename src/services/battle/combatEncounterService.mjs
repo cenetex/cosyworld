@@ -53,6 +53,27 @@ export class CombatEncounterService {
     return Math.floor((dex - 10) / 2);
   }
 
+  /** Public: is avatar an active combatant in channel's encounter */
+  isInActiveCombat(channelId, avatarId) {
+    try {
+      const enc = this.getEncounter(channelId);
+      if (!enc || enc.state !== 'active') return false;
+      return !!this.getCombatant(enc, avatarId);
+    } catch { return false; }
+  }
+
+  /** Public: can avatar enter combat (blocks KO/death & KO cooldown & flee cooldown) */
+  canEnterCombat(avatar) {
+    try {
+      const now = Date.now();
+      if (!avatar) return false;
+      if (avatar.status === 'dead' || avatar.status === 'knocked_out') return false;
+      if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) return false;
+      if (avatar.combatCooldownUntil && now < avatar.combatCooldownUntil) return false;
+      return true;
+    } catch { return false; }
+  }
+
   /** Helper: rebuild initiative order; optionally preserve current turn avatar when inserting */
   _rebuildInitiativeOrder(encounter, { preserveCurrent = false } = {}) {
     if (!encounter) return;
@@ -527,6 +548,57 @@ export class CombatEncounterService {
     return false;
   }
 
+  /** Attempt to flee for a combatant; on success, end encounter and move to Tavern thread. */
+  async handleFlee(encounter, avatarId) {
+    try {
+      if (!encounter || encounter.state !== 'active') return { success: false, message: '-# [ Not in an active encounter. ]' };
+      const actor = this.getCombatant(encounter, avatarId);
+      if (!actor) return { success: false, message: '-# [ You are not part of this battle. ]' };
+      // Enforce turn order
+      if (!this.isTurn(encounter, avatarId)) return { success: false, message: null }; // silent per out-of-turn policy
+
+      // Dex check vs highest enemy passive Perception (10 + Dex mod)
+      const enemies = encounter.combatants.filter(c => this._normalizeId(c.avatarId) !== this._normalizeId(actor.avatarId) && (c.currentHp || 0) > 0);
+      let dc = 10;
+      for (const e of enemies) {
+        try {
+          const stats = await this.avatarService.getOrCreateStats(e.ref);
+          const mod = this._dexModFromStats(stats);
+          dc = Math.max(dc, 10 + mod);
+        } catch {}
+      }
+      const aStats = await this.avatarService.getOrCreateStats(actor.ref);
+      const roll = this.diceService.rollDie(20) + this._dexModFromStats(aStats);
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] flee attempt: ${actor.name} roll=${roll} vs DC ${dc}`);
+      if (roll >= dc) {
+        // Success: set 24h flee cooldown and move to Tavern thread
+        try {
+          actor.ref.combatCooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
+          await this.avatarService.updateAvatar(actor.ref);
+        } catch {}
+        try {
+          const tavernId = await this.discordService?.getOrCreateThread?.(encounter.channelId, 'tavern');
+          if (tavernId && this.mapService?.updateAvatarPosition) {
+            await this.mapService.updateAvatarPosition(actor.ref, tavernId);
+            this.logger?.info?.(`[Location][${encounter.channelId}] ${actor.name} → Tavern (${tavernId})`);
+          }
+        } catch (e) { this.logger?.warn?.(`[CombatEncounter] flee movement failed: ${e.message}`); }
+        // End encounter due to flee
+        try { encounter.fleerId = this._normalizeId(actor.avatarId); } catch {}
+        this.endEncounter(encounter, { reason: 'flee' });
+        return { success: true, message: `-# 🏃 [ ${actor.name} flees to the Tavern! The duel ends. ]` };
+      }
+      // Failure: consume turn
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] flee failed for ${actor.name}`);
+      try { encounter.lastActionAt = Date.now(); } catch {}
+      await this.nextTurn(encounter);
+      return { success: false, message: `-# 🏃 [ ${actor.name} fails to escape! ]` };
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] handleFlee error: ${e.message}`);
+      return { success: false, message: '-# [ Flee attempt failed. ]' };
+    }
+  }
+
   /** Ends encounter and clears timers */
   endEncounter(encounter, { reason } = {}) {
   this._clearTimers(encounter);
@@ -567,6 +639,9 @@ export class CombatEncounterService {
     const now = Date.now();
     if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {
       throw new Error('knockout_cooldown');
+    }
+    if ((attacker?.combatCooldownUntil && now < attacker.combatCooldownUntil) || (defender?.combatCooldownUntil && now < defender.combatCooldownUntil)) {
+      throw new Error('flee_cooldown');
     }
     let encounter = this.getEncounter(channelId);
     if (!encounter) {
@@ -917,6 +992,7 @@ Message: ${messageContent}`;
       idle: 'No hostilities for a while — the fight winds down.',
       round_limit: 'Time is up — the duel concludes after the final exchange.',
       capacity_reclaim: 'This encounter ended to make room for a new one.',
+      flee: 'A fighter fled — the duel ends.',
       unspecified: 'The encounter concludes.',
     };
     let text = map[code] || map.unspecified;
@@ -924,6 +1000,12 @@ Message: ${messageContent}`;
       try {
         const alive = (encounter?.combatants || []).filter(c => (c.currentHp || 0) > 0);
         if (alive.length === 1) text += ` Winner: ${alive[0].name}.`;
+      } catch {}
+    }
+    if (code === 'flee') {
+      try {
+        const n = encounter?.fleerId ? this.getCombatant(encounter, encounter.fleerId)?.name : null;
+        if (n) text = `${n} fled to safety — the battle ends.`;
       } catch {}
     }
     return text;

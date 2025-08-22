@@ -37,6 +37,18 @@ export class HideTool extends BasicTool {
       if (!this.battleService?.hide) {
         return `-# [ ❌ Hide is not available. ]`;
       }
+      // If in encounter, enforce turn and consume turn
+      const ces = _services?.combatEncounterService;
+      const enc = ces?.getEncounter?.(message.channel.id);
+      if (enc && enc.state === 'active') {
+        if (!ces.isTurn(enc, avatar.id || avatar._id)) return null;
+        const res = await this.battleService.hide({ message, avatar });
+        try {
+          enc.lastActionAt = Date.now();
+        } catch {}
+        await ces.nextTurn(enc);
+        return res?.message || res || `-# [ ${avatar.name} attempts to hide. ]`;
+      }
       const res = await this.battleService.hide({ message, avatar });
       return res?.message || res || `-# [ ${avatar.name} attempts to hide. ]`;
     } catch (e) {

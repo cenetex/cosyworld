@@ -456,4 +456,50 @@ export class DiscordService {
       return [];
     }
   }
+
+  /**
+   * Ensure a thread with the given name exists under the provided channel.
+   * Returns the thread channel ID. If channelId already refers to a thread, the
+   * thread's parent will be used for creation. Case-insensitive name match.
+   */
+  async getOrCreateThread(channelId, threadName) {
+    try {
+      if (!channelId || !threadName) throw new Error('channelId and threadName are required');
+      const baseChannel = await this.client.channels.fetch(channelId);
+      if (!baseChannel) throw new Error('Base channel not found');
+      const channel = baseChannel.isThread() ? await baseChannel.parent.fetch() : baseChannel;
+      if (!channel?.isTextBased?.() || !channel?.threads) return channelId; // fallback: cannot create, return original
+
+      // Try to find an existing thread by name (case-insensitive) among active and archived
+      const lower = threadName.toLowerCase();
+      try {
+        // Check active threads cache first
+        const existingActive = channel.threads.cache?.find(t => t.name?.toLowerCase() === lower);
+        if (existingActive) return existingActive.id;
+      } catch {}
+      try {
+        // Fetch active threads
+        const active = await channel.threads.fetchActive();
+        const foundActive = active?.threads?.find(t => t.name?.toLowerCase() === lower);
+        if (foundActive) return foundActive.id;
+      } catch {}
+      try {
+        // Fetch archived threads (public)
+        const archived = await channel.threads.fetchArchived({ type: 'public' });
+        const foundArchived = archived?.threads?.find(t => t.name?.toLowerCase() === lower);
+        if (foundArchived) return foundArchived.id;
+      } catch {}
+
+      // Create a new thread
+      const created = await channel.threads.create({
+        name: threadName,
+        autoArchiveDuration: 10080, // 7 days
+        reason: `Auto-created ${threadName} thread`,
+      });
+      return created?.id || channelId;
+    } catch (e) {
+      this.logger?.warn?.(`getOrCreateThread failed for ${channelId}/${threadName}: ${e.message}`);
+      return channelId; // fallback to base
+    }
+  }
 }

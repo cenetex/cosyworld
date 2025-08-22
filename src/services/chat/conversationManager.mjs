@@ -274,6 +274,13 @@ export class ConversationManager  {
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
   const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
+    // Gate speaking for KO/dead avatars
+    try {
+      const now = Date.now();
+      if (avatar?.status === 'dead') return null;
+      if (avatar?.status === 'knocked_out') return null;
+      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
+    } catch {}
     this.db = await this.databaseService.getDatabase();
     if (!await this.checkChannelPermissions(channel)) {
       this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
