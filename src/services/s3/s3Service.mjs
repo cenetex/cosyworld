@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { request } from 'https';
 import { request as httpRequest } from 'http';
+import { UploadService } from '../media/uploadService.mjs';
 
 export class S3Service {
   constructor({ logger }) {
@@ -16,10 +17,24 @@ export class S3Service {
     this.S3_API_KEY = process.env.S3_API_KEY;
     this.S3_API_ENDPOINT = process.env.S3_API_ENDPOINT;
     this.CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN;
+    this.USE_UPLOAD_API = !!process.env.UPLOAD_API_BASE_URL;
 
-    // Validate environment variables
-    if (!this.S3_API_KEY || !this.S3_API_ENDPOINT || !this.CLOUDFRONT_DOMAIN) {
-      throw new Error('Missing one or more required environment variables (S3_API_KEY, S3_API_ENDPOINT, CLOUDFRONT_DOMAIN)');
+    // Initialize new upload flow if enabled
+    if (this.USE_UPLOAD_API) {
+      this.uploadService = new UploadService({
+        logger: this.logger,
+        apiBaseUrl: process.env.UPLOAD_API_BASE_URL,
+        cdnDomain: this.CLOUDFRONT_DOMAIN,
+      });
+      // Only CDN is required for returning URLs; S3_API_* not needed
+      if (!this.CLOUDFRONT_DOMAIN) {
+        this.logger?.warn?.('[S3Service] CLOUDFRONT_DOMAIN missing; cdnUrl will be null (UploadService still works)');
+      }
+    } else {
+      // Legacy path requires these
+      if (!this.S3_API_KEY || !this.S3_API_ENDPOINT || !this.CLOUDFRONT_DOMAIN) {
+        throw new Error('Missing one or more required environment variables (S3_API_KEY, S3_API_ENDPOINT, CLOUDFRONT_DOMAIN)');
+      }
     }
   }
 
@@ -31,17 +46,32 @@ export class S3Service {
         return;
       }
 
-      // Read the image file
-      const imageBuffer = fs.readFileSync(filePath);
-      const imageBase64 = imageBuffer.toString('base64');
       const imageType = path.extname(filePath).substring(1).toLowerCase(); // e.g., 'png', 'jpg'
-
-      // Validate image type
       const validImageTypes = ['png', 'jpg', 'jpeg', 'gif', 'mp4'];
       if (!validImageTypes.includes(imageType)) {
         this.logger.error(`Error: Unsupported image type ".${imageType}". Supported types: ${validImageTypes.join(', ')}`);
         return;
       }
+
+      // New upload API path (presigned direct-to-S3)
+      if (this.USE_UPLOAD_API && this.uploadService) {
+        const ct = imageType === 'mp4'
+          ? 'video/mp4'
+          : `image/${imageType === 'jpg' ? 'jpeg' : imageType}`;
+        const { key, cdnUrl, status } = await this.uploadService.uploadFile(filePath, { contentType: ct });
+        const finalUrl = cdnUrl || (this.CLOUDFRONT_DOMAIN ? `${this.CLOUDFRONT_DOMAIN.replace(/\/$/, '')}/${key}` : null);
+        if (!finalUrl) {
+          this.logger.error('[S3Service] Upload succeeded but no CDN domain configured to build URL');
+          return null;
+        }
+        this.logger.info(`Upload Successful via UploadService! status=${status}`);
+        this.logger.info(`Image URL: ${finalUrl}`);
+        return finalUrl;
+      }
+
+      // Legacy path: POST base64 payload to S3_API_ENDPOINT
+      const imageBuffer = fs.readFileSync(filePath);
+      const imageBase64 = imageBuffer.toString('base64');
 
       // Prepare the request payload
       const payload = JSON.stringify({
@@ -49,7 +79,7 @@ export class S3Service {
         imageType: imageType,
       });
 
-      // Send POST request to upload the image
+  // Send POST request to upload the image (legacy)
       const { protocol, hostname, pathname } = new URL(this.S3_API_ENDPOINT);
       const httpModule = protocol === 'https:' ? request : httpRequest;
 
@@ -80,7 +110,7 @@ export class S3Service {
                   return;
                 }
           
-                this.logger.info('Upload Successful!');
+                this.logger.info('Upload Successful (legacy)!');
                 this.logger.info(`Image URL: ${responseData.url}`);
                 resolve(responseData.url);
               } catch (error) {
