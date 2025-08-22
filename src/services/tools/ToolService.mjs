@@ -18,6 +18,7 @@ import { OneirocomForumTool as ForumTool } from './tools/ForumTool.mjs';
 import { CooldownService } from './CooldownService.mjs';
 import { SelfieTool } from './tools/SelfieTool.mjs';
 import { DevilTool } from './tools/DevilTool.mjs';
+import { HideTool } from './tools/HideTool.mjs';
 
 export class ToolService {
   constructor({
@@ -40,6 +41,7 @@ export class ToolService {
     s3Service,
     locationService,
     battleService,
+  combatEncounterService,
     xService,
     itemService,
     statService,
@@ -55,6 +57,7 @@ export class ToolService {
   googleAIService,
       imageProcessingService,
       battleService,
+  combatEncounterService,
       locationService,
       configService,
       cooldownService,
@@ -107,6 +110,7 @@ export class ToolService {
       summon: SummonTool,
       breed: BreedTool,
       attack: AttackTool,
+  hide: HideTool,
       defend: DefendTool,
       move: MoveTool,
       remember: RememberTool,
@@ -288,7 +292,9 @@ export class ToolService {
    * @param {Object} guildConfig - The guild configuration
    * @returns {Promise<string>} The tool's response
    */
-  async executeTool(toolName, message, params, avatar, _guildConfig = {}, context) {
+  // Note: Some callers pass `context` as the 5th argument (omitting guildConfig).
+  // To maintain backward compatibility, accept either 5th or 6th param as context.
+  async executeTool(toolName, message, params, avatar, _guildConfig_or_context = {}, maybeContext) {
     const tool = this.tools.get(toolName);
     if (!tool) {
       return `Tool '${toolName}' not found.`;
@@ -301,11 +307,16 @@ export class ToolService {
       return `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]`;
     }
 
+    // Back-compat: detect where `context` was provided.
+    // If maybeContext is defined, treat it as the true context and disregard guildConfig for now.
+    // If not, assume the 5th arg is actually the context.
+    const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
+
     let result;
     try {
       // Augment context with combatEncounterService if available
-      if (this.toolServices?.combatEncounterService && context && !context.combatEncounterService) {
-        context.combatEncounterService = this.toolServices.combatEncounterService;
+      if (this.toolServices?.combatEncounterService) {
+        context.combatEncounterService = context.combatEncounterService || this.toolServices.combatEncounterService;
       }
       result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);

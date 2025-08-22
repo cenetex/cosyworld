@@ -33,11 +33,20 @@ export class BattleService  {
     // D&D style attack roll: d20 + strength modifier
     const strMod = Math.floor((attackerStats.strength - 10) / 2);
     const dexMod = Math.floor((targetStats.dexterity - 10) / 2);
-    const rawRoll = this.diceService.rollDie(20);
+    // Advantage if attacker has advantageNextAttack (e.g., from Hide)
+    const rollOnce = () => this.diceService.rollDie(20);
+    let raw1 = rollOnce();
+    let raw2 = null;
+    let usedAdvantage = false;
+    if (attackerStats.advantageNextAttack) {
+      raw2 = rollOnce();
+      usedAdvantage = true;
+    }
+    const rawRoll = raw2 ? Math.max(raw1, raw2) : raw1;
     const attackRoll = rawRoll + strMod;
     const armorClass = 10 + dexMod + (targetStats.isDefending ? 2 : 0);
 
-    const isCritical = rawRoll === 20; // natural 20 critical
+  const isCritical = rawRoll === 20; // natural 20 critical
 
   if (attackRoll >= armorClass) {
       // Damage roll: 1d8 + strength modifier; on crit double the dice (not modifier)
@@ -67,7 +76,8 @@ export class BattleService  {
         return ko;
       }
 
-      const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
+  const advNote = usedAdvantage ? ' with advantage' : '';
+  const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name}${advNote} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
       const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
       const res = {
         result: 'hit',
@@ -86,6 +96,14 @@ export class BattleService  {
           if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: res });
         }
       } catch (e) { this.logger.warn?.(`[BattleService] encounter hit hook failed: ${e.message}`); }
+      // If attacker had advantageNextAttack, consume it and reveal (no longer hidden)
+      if (usedAdvantage) {
+        try {
+          attackerStats.advantageNextAttack = false;
+          attackerStats.isHidden = false;
+          await this.avatarService.updateAvatarStats(attacker, attackerStats);
+        } catch {}
+      }
       return res;
     } else {
       targetStats.isDefending = false; // Reset defense stance on miss
@@ -97,6 +115,14 @@ export class BattleService  {
         armorClass,
         rawRoll
       };
+      // Consume advantage even on a miss if it was used (RAW: advantage is consumed by the roll)
+      if (usedAdvantage) {
+        try {
+          attackerStats.advantageNextAttack = false;
+          attackerStats.isHidden = false;
+          await this.avatarService.updateAvatarStats(attacker, attackerStats);
+        } catch {}
+      }
       try {
         const ces = _services?.combatEncounterService;
         if (ces) {
@@ -138,5 +164,46 @@ export class BattleService  {
     stats.isDefending = true;
     await this.avatarService.updateAvatarStats(avatar, stats);
     return `-# 🛡️ [ **${avatar.name}** takes a defensive stance! **AC increased by 2** until next attack. ]`;
+  }
+
+  /**
+   * Hide: Stealth check vs highest passive Perception among visible foes at location.
+   * On success: set isHidden=true and advantageNextAttack=true until next attack.
+   */
+  async hide({ message, avatar }) {
+    const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
+    const others = (locationResult?.avatars || []).filter(a => a._id?.toString() !== avatar._id?.toString());
+    const stats = await this.avatarService.getOrCreateStats(avatar);
+
+    // Compute opposing passive perception = 10 + Wis mod (take highest among others)
+    let highestPassive = 10;
+    for (const o of others) {
+      try {
+        const os = await this.avatarService.getOrCreateStats(o);
+        const wisMod = Math.floor(((os.wisdom || 10) - 10) / 2);
+        highestPassive = Math.max(highestPassive, 10 + wisMod);
+      } catch {}
+    }
+
+    const dexMod = Math.floor(((stats.dexterity || 10) - 10) / 2);
+    const roll = this.diceService.rollDie(20);
+    const stealth = roll + dexMod;
+
+    if (stealth >= highestPassive) {
+      stats.isHidden = true;
+      stats.advantageNextAttack = true;
+      await this.avatarService.updateAvatarStats(avatar, stats);
+      return {
+        result: 'success',
+        message: `-# 🫥 [ ${avatar.name} slips into the shadows (Stealth ${stealth} vs Passive ${highestPassive}). Next attack has advantage. ]`
+      };
+    } else {
+      stats.isHidden = false;
+      await this.avatarService.updateAvatarStats(avatar, stats);
+      return {
+        result: 'fail',
+        message: `-# 👀 [ ${avatar.name} fails to hide (Stealth ${stealth} vs Passive ${highestPassive}). ]`
+      };
+    }
   }
 }
