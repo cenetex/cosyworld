@@ -4,7 +4,7 @@
  * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
-  constructor({ logger, diceService, avatarService, mapService, battleService, databaseService, unifiedAIService, discordService, configService }) {
+  constructor({ logger, diceService, avatarService, mapService, battleService, databaseService, unifiedAIService, discordService, configService, promptAssembler }) {
     this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
@@ -14,6 +14,7 @@ export class CombatEncounterService {
     this.unifiedAIService = unifiedAIService; // optional
     this.discordService = discordService; // for embeds / announcements
     this.configService = configService;
+    this.promptAssembler = promptAssembler || null;
 
     // channelId -> encounter object
     this.encounters = new Map();
@@ -38,6 +39,61 @@ export class CombatEncounterService {
   // Round planning & narration
   this.enableRoundPlanning = (process.env.COMBAT_ROUND_PLANNING_ENABLED || 'true') === 'true';
   this.roundPlanningTimeoutMs = Number(process.env.COMBAT_ROUND_PLANNING_TIMEOUT_MS || 3500);
+  }
+
+  /** Compose an avatar persona system prompt */
+  _getAvatarPersonaSystem(avatar, { locationName, role = 'actor' } = {}) {
+    const traits = [avatar.title, avatar.personality, avatar.traits]?.filter(Boolean).join(', ');
+    const desc = avatar.description || avatar.bio || '';
+    const faction = avatar.faction || avatar.coordinator || '';
+    const lines = [];
+    lines.push(`You are ${avatar.displayName || avatar.name}. Stay strictly in-character (${role}).`);
+    if (traits) lines.push(`Traits: ${traits}.`);
+    if (faction) lines.push(`Faction: ${faction}.`);
+    if (desc) lines.push(`Backstory/Description: ${desc}`);
+    if (locationName) lines.push(`Current Location: ${locationName}.`);
+    lines.push('Voice: concise, flavorful, fitting your persona. Avoid meta commentary.');
+    return lines.join('\n');
+  }
+
+  /** Build AI chat messages with memory recall via PromptAssembler if available */
+  async _buildAvatarMessages(avatar, { task, context = '' } = {}) {
+    if (!this.unifiedAIService?.chat) return null;
+    let locName = null;
+    try { locName = await this.mapService?.getLocationDescription?.({ channelId: avatar.channelId || avatar.locationId }); } catch {}
+    const systemText = this._getAvatarPersonaSystem(avatar, { locationName: locName, role: 'actor' });
+    const focusText = 'Reply with ONE short line (max 20 words). Keep it in-universe. No hashtags. Avoid emojis unless fitting.';
+    const msgText = task || 'Speak one short in-character line for this moment.';
+    const contextText = context || '';
+    try {
+      if (this.promptAssembler) {
+        const built = await this.promptAssembler.buildPrompt({
+          avatarId: avatar._id || avatar.id,
+          systemText,
+          contextText,
+          focusText,
+          msgText,
+          limitTokens: 8000,
+          guardrail: 800,
+          recallCap: 1200,
+          perSnippet: 160,
+          who: avatar.name,
+          source: 'combat'
+        });
+        const blocks = built?.blocks || `${systemText}\n${contextText}`;
+        return [
+          { role: 'system', content: blocks },
+          { role: 'user', content: 'Reply now with a single fitting line.' }
+        ];
+      }
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] prompt assemble failed: ${e.message}`);
+    }
+    // Fallback without assembler
+    return [
+      { role: 'system', content: systemText },
+      { role: 'user', content: `${context}\n\n${msgText}`.trim() }
+    ];
   }
 
   /** Normalize any avatar identifier to a string */
@@ -347,6 +403,9 @@ export class CombatEncounterService {
     if (encounter.state !== 'active' && encounter.state !== 'pending') return;
   const aid = this._getAvatarId(avatar);
   if (!aid) return;
+  // Enforce knockout cooldown
+  const now = Date.now();
+  if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return;
   if (this.getCombatant(encounter, aid)) return; // already in
     const stats = await this.avatarService.getOrCreateStats(avatar).catch(() => null);
     const dexMod = Math.floor((((stats?.dexterity) ?? 10) - 10) / 2);
@@ -362,6 +421,10 @@ export class CombatEncounterService {
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
   async ensureEncounterForAttack({ channelId, attacker, defender, sourceMessage }) {
+    const now = Date.now();
+    if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {
+      throw new Error('knockout_cooldown');
+    }
     let encounter = this.getEncounter(channelId);
     if (!encounter) {
       encounter = this.createEncounter({ channelId, participants: [attacker, defender], sourceMessage });
@@ -500,13 +563,16 @@ Message: ${messageContent}`;
     if (!this.discordService?.client) return;
     const channel = this.discordService.client.channels.cache.get(encounter.channelId);
     if (!channel?.send) return;
+    // Fetch location meta if available
+    let locName = null;
+    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
     const orderLines = encounter.initiativeOrder.map((id, i) => {
       const c = this.getCombatant(encounter, id);
       return `${i+1}. ${c.name} (Init ${c.initiative})`;
     }).join('\n');
     const embed = {
       title: '⚔️ Combat Initiated',
-      description: `Round 1 begins!`,
+      description: `Round 1 begins!${locName ? `\nLocation: ${locName}` : ''}`,
       fields: [
         { name: 'Initiative Order', value: orderLines || '—' }
       ],
@@ -527,9 +593,12 @@ Message: ${messageContent}`;
     if (!current) return;
   const status = encounter.combatants.map(c => `${this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' '} ${c.name}: ${c.currentHp}/${c.maxHp} HP${c.isDefending ? ' 🛡️' : ''}`).join('\n');
     const mode = this._getCombatModeFor(current);
+    // Try pull location name for flavor
+    let locName = null;
+    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
     const embed = {
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...'),
+      description: `${locName ? `Location: ${locName}\n` : ''}${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
       fields: [ { name: 'Status', value: status.slice(0, 1024) } ],
       color: 0x00AD2F,
       footer: { text: '30s turn timer • act with narrative or commands' }
@@ -550,26 +619,25 @@ Message: ${messageContent}`;
     if (!attacker || !defender) return;
 
     // Choose speaker based on outcome
+    let locName = null;
+    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
     let speaker = defender;
-    let system = 'You are roleplaying as the speaker. Respond with one short, in-character line (max 20 words). No emojis unless fitting.';
-    let user = '';
+    let user = locName ? `(Location: ${locName}) ` : '';
     if (ctx.result === 'miss') {
-      user = `${attacker.name} just missed their attack against you. Offer a quick, playful taunt or witty dodge comment.`;
+      user += `${attacker.name} just missed their attack against you. Offer a quick, playful taunt or witty dodge comment.`;
     } else if (ctx.result === 'hit') {
-      user = `${attacker.name} just hit you for ${ctx.damage} damage. React briefly in-character (pain, resolve, or strategy).`;
+      user += `${attacker.name} just hit you for ${ctx.damage} damage. React briefly in-character (pain, resolve, or strategy).`;
     } else if (ctx.result === 'knockout' || ctx.result === 'dead') {
       speaker = attacker; // victor speaks
-      user = `You have just ${ctx.result === 'dead' ? 'defeated' : 'knocked out'} ${defender.name}. Say one short line (victory, respect, or remorse).`;
+      user += `You have just ${ctx.result === 'dead' ? 'defeated' : 'knocked out'} ${defender.name}. Say one short line (victory, respect, or remorse).`;
     } else {
       // fallback generic
-      user = `Brief in-character reaction to the recent exchange with ${attacker.name} and ${defender.name}.`;
+      user += `Brief in-character reaction to the recent exchange with ${attacker.name} and ${defender.name}.`;
     }
 
     try {
-      const messages = [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ];
+      const sc = encounter.combatants.map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`).join(', ');
+      const messages = await this._buildAvatarMessages(speaker, { task: user, context: `Combatants: ${sc}. Round ${encounter.round}.` });
       const resp = await this.unifiedAIService.chat(messages, { temperature: 0.7 });
       const text = (resp?.text || '').trim();
       if (text) {
@@ -591,10 +659,9 @@ Message: ${messageContent}`;
       const plans = [];
       for (const c of alive) {
         try {
-          const messages = [
-            { role: 'system', content: 'You are roleplaying as this character. Reply with one short plan for this round (max 15 words). No emojis unless fitting.' },
-            { role: 'user', content: 'What is your plan this round?' }
-          ];
+          let locName = null;
+          try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
+          const messages = await this._buildAvatarMessages(c.ref, { task: `${locName ? `(Location: ${locName}) ` : ''}What is your plan this round?`, context: `Round ${encounter.round+1} starting. Your HP: ${c.currentHp}/${c.maxHp}.` });
           const resp = await this.unifiedAIService.chat(messages, { temperature: 0.7 });
           const plan = (resp?.text || '').trim();
           if (plan) {
