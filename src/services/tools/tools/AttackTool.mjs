@@ -50,15 +50,31 @@ export class AttackTool extends BasicTool {
 
   async execute(message, params, avatar, services) {
     if (!params || !params[0]) {
-      return `-# [ ❌ Error: No target specified. ]`;
+      // Attempt AI intent parse if encounter active
+      const encounterService = services?.combatEncounterService;
+      if (encounterService) {
+        try {
+          const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
+          const intent = await encounterService.parseCombatIntent({ messageContent: message.content, avatarsInLocation: locationResult?.avatars || [] });
+          if (intent?.action === 'attack' && intent?.target) {
+            params = [intent.target];
+          } else {
+            return `-# [ ❌ Error: No target specified. ]`;
+          }
+        } catch {
+          return `-# [ ❌ Error: No target specified. ]`;
+        }
+      } else {
+        return `-# [ ❌ Error: No target specified. ]`;
+      }
     }
 
-  const targetName = params.join(' ').trim();
+    const targetName = params.join(' ').trim();
 
     try {
       // Find defender in location
       const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
-  if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
+      if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
@@ -71,6 +87,19 @@ export class AttackTool extends BasicTool {
       }
       if (defender.status === 'dead') {
         return `-# ⚰️ [ **${defender.name}** is already dead! Have some *respect* for the fallen. ]`;
+      }
+      // Ensure encounter exists & both combatants present (no human command layer yet)
+      try {
+        const encounterService = services?.combatEncounterService;
+        if (encounterService?.ensureEncounterForAttack) {
+          const encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message });
+          // Turn enforcement
+          if (!encounterService.isTurn(encounter, avatar.id || avatar._id)) {
+            return `-# ⏳ [ It's not **${avatar.name}**'s turn. ]`;
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[AttackTool] encounter ensure failed: ${e.message}`);
       }
       // Delegate to battleService
       const result = await this.battleService.attack({ message, attacker: avatar, defender, services });
