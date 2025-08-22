@@ -303,6 +303,10 @@ export class ToolService {
 
     let result;
     try {
+      // Augment context with combatEncounterService if available
+      if (this.toolServices?.combatEncounterService && context && !context.combatEncounterService) {
+        context.combatEncounterService = this.toolServices.combatEncounterService;
+      }
       result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {

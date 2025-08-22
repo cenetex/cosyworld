@@ -39,7 +39,7 @@ export class BattleService  {
 
     const isCritical = rawRoll === 20; // natural 20 critical
 
-    if (attackRoll >= armorClass) {
+  if (attackRoll >= armorClass) {
       // Damage roll: 1d8 + strength modifier; on crit double the dice (not modifier)
       let damageDice = this.diceService.rollDie(8);
       if (isCritical) damageDice += this.diceService.rollDie(8);
@@ -54,14 +54,22 @@ export class BattleService  {
       const currentHp = targetStats.hp - totalDamage;
 
       if (currentHp <= 0) {
-  const ko = await this.handleKnockout({ targetAvatar: defender, damage, attacker });
+        const ko = await this.handleKnockout({ targetAvatar: defender, damage, attacker });
         if (isCritical) ko.critical = true; // propagate critical flag for death videos
+        // Encounter integration
+        try {
+          const ces = _services?.combatEncounterService;
+          if (ces) {
+            const encounter = ces.getEncounter(_message?.channel?.id);
+            if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: { ...ko, damage } });
+          }
+        } catch (e) { this.logger.warn?.(`[BattleService] encounter knockout hook failed: ${e.message}`); }
         return ko;
       }
 
       const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
       const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
-      return {
+      const res = {
         result: 'hit',
         critical: isCritical,
         message: baseMsg + critMsg,
@@ -71,16 +79,32 @@ export class BattleService  {
         armorClass,
         rawRoll
       };
+      try {
+        const ces = _services?.combatEncounterService;
+        if (ces) {
+          const encounter = ces.getEncounter(_message?.channel?.id);
+          if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: res });
+        }
+      } catch (e) { this.logger.warn?.(`[BattleService] encounter hit hook failed: ${e.message}`); }
+      return res;
     } else {
       targetStats.isDefending = false; // Reset defense stance on miss
       await this.avatarService.updateAvatarStats(defender, targetStats);
-      return {
+      const res = {
         result: 'miss',
         message: `-# 🛡️ [ ${attacker.name}'s attack misses ${defender.name}! (${attackRoll} vs AC ${armorClass}) ]`,
         attackRoll,
         armorClass,
         rawRoll
       };
+      try {
+        const ces = _services?.combatEncounterService;
+        if (ces) {
+          const encounter = ces.getEncounter(_message?.channel?.id);
+          if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: res });
+        }
+      } catch (e) { this.logger.warn?.(`[BattleService] encounter miss hook failed: ${e.message}`); }
+      return res;
     }
   }
 
