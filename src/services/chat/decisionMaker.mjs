@@ -277,13 +277,13 @@ export class DecisionMaker  {
 
   const ai = this.unifiedAIService || this.aiService;
       const corrId = `decide:${avatar._id}:${Date.now()}`;
-      const response = await ai.chat(prompt, {
+    const response = await ai.chat(prompt, {
         model: this.configService.getAIConfig().decisionMakerModel,
         temperature: 0.5,
         max_tokens: 32,
         corrId
       });
-  const text = typeof response === 'object' && response?.text ? response.text : response;
+  const text = typeof response === 'object' && response?.text ? response.text : (typeof response === 'string' ? response : '');
   if (!text) {
         this.logger.debug('AI response is empty');
         return false;

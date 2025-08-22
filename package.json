@@ -25,7 +25,8 @@
   "lint": "eslint .",
   "format": "prettier --write .",
   "format:check": "prettier --check .",
-  "analyze": "webpack --mode production --profile --json > webpack-stats.json"
+  "analyze": "webpack --mode production --profile --json > webpack-stats.json",
+  "smoke:ai": "node scripts/smoke-ai.mjs"
   },
   "keywords": [
     "discord",

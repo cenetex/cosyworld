@@ -105,10 +105,14 @@ export class OpenRouterAIService {
 
 
   async generateCompletion(prompt, options = {}) {
-    // Merge our defaults with caller-supplied options.
+    // Merge defaults with caller options and map model to an available one
+    let selectedModel = options.model || this.model;
+    try {
+      const mapped = await this.getModel(selectedModel);
+      if (mapped) selectedModel = mapped;
+    } catch {}
     const mergedOptions = {
-      model: this.model,
-      transforms: ["middle-out"],
+      model: selectedModel,
       prompt,
       ...this.defaultCompletionOptions,
       ...options,
@@ -118,24 +122,40 @@ export class OpenRouterAIService {
       const response = await this.openai.completions.create(mergedOptions);
       if (!response || !response.choices || response.choices.length === 0) {
         this.logger.error('Invalid response from OpenRouter during completion generation.');
-        return null;
+        return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'EMPTY', message: 'No choices' } } : null;
       }
   const text = response.choices[0].text.trim();
   return options.returnEnvelope ? { text, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : text;
     } catch (error) {
       this.logger.error('Error while generating completion from OpenRouter:', error);
-  return options.returnEnvelope ? { text: null, raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: 'COMPLETION_ERROR', message: error.message } } : null;
+      // Try a safe fallback model once on 400/404
+      const status = error?.response?.status || error?.status;
+      if ((status === 400 || status === 404) && selectedModel !== this.defaultChatOptions?.model) {
+        try {
+          const fallbackModel = this.defaultChatOptions?.model || this.model || 'openai/gpt-4o-mini';
+          const resp = await this.openai.completions.create({ ...mergedOptions, model: fallbackModel });
+          const text = resp?.choices?.[0]?.text?.trim?.() || '';
+          return options.returnEnvelope ? { text, raw: resp, model: fallbackModel, provider: 'openrouter', error: null } : text || null;
+        } catch {}
+      }
+      return options.returnEnvelope ? { text: '', raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: status === 429 ? 'RATE_LIMIT' : 'COMPLETION_ERROR', message: error.message } } : null;
     }
   }
 
   async chat(messages, options = {}, retries = 3) {
-    // Merge our default chat options with any caller options, preserving structure
+    const attempted = new Set();
+    // Merge defaults with caller options and map model to an available one
+    let selectedModel = options.model || this.defaultChatOptions?.model || this.model;
+    try {
+      const mapped = await this.getModel(selectedModel);
+      if (mapped) selectedModel = mapped;
+    } catch {}
+    // Merge with correct precedence: defaults < selected model/messages < caller options
     const mergedOptions = {
-      model: this.model,
-      transforms: ["middle-out"],
-      messages: messages.filter(m => m.content),
-      ...this.defaultChatOptions
-      , ...options,
+      ...this.defaultChatOptions,
+      model: selectedModel,
+      messages: (messages || []).filter(m => m && m.content !== undefined),
+      ...options,
     };
 
     // Ensure we always have a concrete model string
@@ -150,22 +170,27 @@ export class OpenRouterAIService {
       };
     }
 
-    // Verify that the chosen model is available. If not, fall back.
+    // Verify that the chosen model is available. If not, map or fall back.
     let fallback = false;
     if (mergedOptions.model !== 'openrouter/auto' && !this.modelIsAvailable(mergedOptions.model)) {
       this.logger.error('Invalid model provided to chat:', mergedOptions.model);
-      mergedOptions.model = 'openrouter/auto';
-      this.logger.info('Falling back to random model:', mergedOptions.model);
-      fallback = true;
+      const mapped = await this.getModel(mergedOptions.model);
+      if (mapped && this.modelIsAvailable(mapped)) {
+        mergedOptions.model = mapped;
+      } else {
+        mergedOptions.model = this.defaultChatOptions?.model || this.model || 'openrouter/auto';
+        fallback = true;
+      }
     }
 
     this.logger.info(`Generating chat completion with model ${mergedOptions.model}...`);
 
     try {
-      const response = await this.openai.chat.completions.create(mergedOptions);
+  attempted.add(mergedOptions.model);
+  const response = await this.openai.chat.completions.create(mergedOptions);
       if (!response) {
         this.logger.error('Null response from OpenRouter during chat.');
-        return null;
+        return options.returnEnvelope ? { text: '', raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: 'EMPTY', message: 'Null response' } } : null;
       }
 
       if (response.error) {
@@ -174,9 +199,9 @@ export class OpenRouterAIService {
       }
 
       if (!response.choices || response.choices.length === 0) {
-        this.logger.error('Unexpected response format from OpenRouter:', response);
-        this.logger.info('Response:', JSON.stringify(response, null, 2));
-        return null;
+  this.logger.error('Unexpected response format from OpenRouter:', response);
+  this.logger.info('Response:', JSON.stringify(response, null, 2));
+  return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
       const result = response.choices[0].message;
 
@@ -198,24 +223,47 @@ export class OpenRouterAIService {
       if (!result.content && !result.reasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
         this.logger.info(JSON.stringify(result, null, 2));
-        return '\n-# [⚠️ No response from OpenRouter]';
+        const txt = '\n-# [⚠️ No response from OpenRouter]';
+        return options.returnEnvelope ? { text: txt, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : txt;
       }
 
       if (result.reasoning) { 
         result.content = '<think>' + result.reasoning + '</think>' + result.content;
       }
 
-  const baseText = (result.content.trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
+  const baseText = (String(result.content || '').trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
   return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
     } catch (error) {
       this.logger.error('Error while chatting with OpenRouter:', error);
+      const status = error?.response?.status || error?.status;
       // Retry if the error is a rate limit error
-      if (error.response && error.response.status === 429 && retries > 0) {
+      if (status === 429 && retries > 0) {
         this.logger.error('Retrying chat with OpenRouter in 5 seconds...');
         await new Promise(resolve => setTimeout(resolve, 5000));
         return this.chat(messages, options, retries - 1);
       }
-  return options.returnEnvelope ? { text: null, raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: error.response?.status === 429 ? 'RATE_LIMIT' : 'CHAT_ERROR', message: error.message } } : null;
+      // On 400/402/404 (invalid/unavailable/paid-only), try prioritized fallbacks once per call
+      if ((status === 400 || status === 402 || status === 404) && retries > 0) {
+        const candidates = await this._getFallbackModels(mergedOptions.model);
+        for (const m of candidates) {
+          if (!m || attempted.has(m)) continue;
+          try {
+            this.logger.info(`Retrying with fallback model ${m}...`);
+            attempted.add(m);
+            const resp = await this.openai.chat.completions.create({ ...mergedOptions, model: m });
+            const choice = resp?.choices?.[0]?.message;
+            if (!choice) continue;
+            let content = choice.content;
+            if (choice.reasoning) content = '<think>' + choice.reasoning + '</think>' + content;
+            const baseText = (String(content || '').trim() || '...') + (m !== mergedOptions.model ? `\n-# [⚠️ Fallback model (${m}) used.]` : '');
+            return options.returnEnvelope ? { text: baseText, raw: resp, model: m, provider: 'openrouter', error: null } : baseText;
+          } catch (e) {
+            const st = e?.response?.status || e?.status;
+            this.logger.warn?.(`Fallback model ${m} failed (${st || 'ERR'}). Trying next...`);
+          }
+        }
+      }
+      return options.returnEnvelope ? { text: '', raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: status === 429 ? 'RATE_LIMIT' : 'CHAT_ERROR', message: error.message } } : null;
     }
   }
 
@@ -229,10 +277,55 @@ export class OpenRouterAIService {
       console.warn('No model name provided for retrieval.');
       return await this.selectRandomModel();
     }
-    // Normalize the model name by removing any suffixes (e.g., ":online")
-    modelName = modelName.replace(/:online$/, '').trim();
+    // Normalize the model name by removing suffixes and applying fixups
+    modelName = modelName.replace(/:(online|free)$/i, '').trim();
+    modelName = this._normalizePreferredModel(modelName);
+    try {
+      const mapped = this.aiModelService.findClosestModel('openrouter', modelName);
+      if (mapped) return mapped;
+      // Heuristics: strip provider prefixes from other ecosystems
+      const name = modelName.replace(/^google\//, '').replace(/^x-ai\//, '').replace(/^openai\//, '').replace(/^meta-llama\//, 'meta-llama/');
+      const fallback = this.aiModelService.findClosestModel('openrouter', name);
+      return fallback;
+    } catch {
+      return null;
+    }
+  }
 
-    return this.aiModelService.findClosestModel('openrouter', modelName);
+  /** Normalize known problematic/external model names to safer equivalents */
+  _normalizePreferredModel(name) {
+    if (!name) return name;
+    const fixes = new Map([
+      // OpenAI dated variants
+      ['openai/gpt-4o-2024-11-20', 'openai/gpt-4o'],
+      ['openai/gpt-4o-2024-08-06', 'openai/gpt-4o'],
+      // Yi / 01.ai family
+      ['01-ai/yi-large', 'openai/gpt-oss-20b'],
+      // GLM variants
+      ['thudm/glm-z1-32b', 'thudm/glm-4-32b'],
+      // QwQ free variant normalizations
+      ['qwen/qwq-32b', 'qwen/qwq-32b'],
+    ]);
+    return fixes.get(name) || name;
+  }
+
+  /** Produce a prioritized list of fallback models, filtered to those we "know" are available */
+  async _getFallbackModels(badModel) {
+    const cleaned = String(badModel || '').replace(/:(online|free)$/i, '');
+    const candidatesRaw = [
+      this._normalizePreferredModel(cleaned),
+      'openai/gpt-4o',
+      'openai/gpt-4.1',
+      'openai/gpt-4o-mini',
+      'openai/gpt-oss-20b',
+      'openai/gpt-oss-120b',
+      'sao10k/l3.3-euryale-70b',
+      'meta-llama/llama-3.3-70b-instruct',
+      'mistralai/mixtral-8x7b-instruct',
+    ];
+    const uniq = [...new Set(candidatesRaw)].filter(Boolean);
+    // Keep only those present in our registered model list to improve success odds
+    return uniq.filter(m => this.modelIsAvailable(m));
   }
 
 
@@ -275,11 +368,21 @@ export class OpenRouterAIService {
         return null;
       }
 
-      const response = await this.openai.chat.completions.create({
+      // Map/resolve the vision model and merge options safely
+      let visionModel = options.model || this.defaultVisionOptions?.model;
+      try {
+        const mapped = await this.getModel(visionModel);
+        if (mapped) visionModel = mapped;
+      } catch {}
+
+      const visionOpts = {
         ...this.defaultVisionOptions,
+        model: visionModel,
         messages,
         ...options,
-      });
+      };
+
+      let response = await this.openai.chat.completions.create(visionOpts);
 
       if (!response || !response.choices || response.choices.length === 0) {
         this.logger.error('Invalid response from OpenRouter during image analysis.');
@@ -293,6 +396,23 @@ export class OpenRouterAIService {
       }
       return content;
     } catch (error) {
+      // On model issues (400/404), retry once with default chat model as last resort
+      const status = error?.response?.status || error?.status;
+      if (status === 400 || status === 404) {
+        try {
+          const fallbackModel = this.defaultChatOptions?.model || this.model || 'openai/gpt-4o-mini';
+          const response = await this.openai.chat.completions.create({
+            model: fallbackModel,
+            messages: [
+              { role: 'user', content: [{ type: 'text', text: prompt }] },
+            ],
+            max_tokens: this.defaultVisionOptions?.max_tokens || 200,
+            temperature: this.defaultVisionOptions?.temperature || 0.5,
+          });
+          const content = response?.choices?.[0]?.message?.content?.trim?.();
+          return content || null;
+  } catch {}
+      }
       this.logger.error('Error analyzing image with OpenRouter:', error);
       return null;
     }

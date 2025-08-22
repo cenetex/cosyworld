@@ -46,6 +46,31 @@ export class ConversationManager  {
     this.requiredPermissions = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'ManageWebhooks'];
   }
 
+  /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
+  _normalizeToText(response, context = 'response') {
+    try {
+      if (response == null) return '';
+      if (typeof response === 'string') return response;
+      if (typeof response === 'object') {
+        if (typeof response.text === 'string') return response.text;
+        // Common OpenAI-like shapes
+        const maybe = response?.choices?.[0]?.message?.content
+          || response?.message?.content
+          || response?.content;
+        if (typeof maybe === 'string') return maybe;
+        // As a last resort, log and do not leak object dump to chat
+        const keys = Object.keys(response);
+        this.logger.warn?.(`[AI][normalize] Non-string ${context}; keys=${keys.join(',') || 'none'}`);
+        return '';
+      }
+      // Numbers/booleans/etc: toString safely
+      return String(response);
+    } catch (e) {
+      this.logger.warn?.(`[AI][normalize] Failed to normalize ${context}: ${e.message}`);
+      return '';
+    }
+  }
+
   /** Ensure the avatar has a model assigned; persist if we pick one */
   async ensureAvatarModel(avatar) {
     try {
@@ -286,11 +311,13 @@ export class ConversationManager  {
   }
 
   removeAvatarPrefix(response, avatar) {
+    if (response == null) return '';
+    const text = this._normalizeToText(response, 'prefix');
     const prefixes = [`${avatar.name} ${avatar.emoji}:`, `${avatar.emoji} ${avatar.name}:`, `${avatar.name}:`];
     for (const prefix of prefixes) {
-      if (response.startsWith(prefix)) return response.slice(prefix.length).trim();
+      if (text.startsWith(prefix)) return text.slice(prefix.length).trim();
     }
-    return response;
+    return text;
   }
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
@@ -372,10 +399,15 @@ export class ConversationManager  {
         this.logger.error(`Empty response generated for ${avatar.name}`);
         return null;
       }
-      response = this.removeAvatarPrefix(response, avatar);
+      // Normalize and strip any avatar prefix before processing think tags
+      response = this.removeAvatarPrefix(this._normalizeToText(response, 'send.raw'), avatar);
     }
 
-      const finalText = response;
+      const finalText = this._normalizeToText(response, 'send.final');
+      if (!finalText || finalText === '[object Object]') {
+        this.logger.warn?.(`[AI][sendResponse] Suppressing non-text output for ${avatar.name}.`);
+        return null;
+      }
       if (finalText && finalText.trim()) {
         const thinkRegex = /<think>(.*?)<\/think>/gs;
         const thoughts = [];
