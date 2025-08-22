@@ -53,6 +53,19 @@ export class ChallengeTool extends BasicTool {
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
       if (!defender) return `-# 🫠 [ Target '${targetName}' not found here. ]`;
+      // Defender state checks for clearer reasons
+      try {
+        const now = Date.now();
+        if (defender.status === 'dead') {
+          return `-# ⚰️ [ **${defender.name}** is already dead! Have some respect for the fallen. ]`;
+        }
+        if (defender.knockedOutUntil && now < defender.knockedOutUntil) {
+          return `-# 💤 [ **${defender.name}** cannot fight again today. ]`;
+        }
+        if (defender.combatCooldownUntil && now < defender.combatCooldownUntil) {
+          return `-# 💤 [ **${defender.name}** refuses to fight after fleeing. ]`;
+        }
+      } catch {}
 
       // Ensure encounter exists but defer start while we post poster + chatter
       const ces = services?.combatEncounterService;
@@ -63,8 +76,12 @@ export class ChallengeTool extends BasicTool {
       try {
         encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
       } catch (e) {
-        if (String(e?.message).includes('flee_cooldown')) {
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('flee_cooldown')) {
           return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
+        }
+        if (msg.includes('knockout_cooldown')) {
+          return `-# 💤 [ Combat cannot start: one combatant is knocked out and cannot fight today. ]`;
         }
         throw e;
       }
@@ -111,7 +128,15 @@ export class ChallengeTool extends BasicTool {
       try { await ces.rollInitiative(ces.getEncounter(message.channel.id)); } catch {}
       return null; // no extra text
     } catch (error) {
-      this.logger?.error?.(`[ChallengeTool] error: ${error.message}`);
+      const reason = String(error?.message || '').trim();
+      this.logger?.error?.(`[ChallengeTool] error: ${reason}`);
+      // Provide a slightly more descriptive fallback when we have a reason code
+      if (reason) {
+        const friendly = reason
+          .replace(/_/g, ' ')
+          .replace(/^([a-z])/, (m, c) => c.toUpperCase());
+        return `-# [ ❌ Error: Challenge failed — ${friendly}. ]`;
+      }
       return `-# [ ❌ Error: Challenge failed. Please try again later. ]`;
     }
   }

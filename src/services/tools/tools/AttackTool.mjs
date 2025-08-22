@@ -128,8 +128,12 @@ export class AttackTool extends BasicTool {
           try {
             encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
           } catch (e) {
-            if (String(e?.message).includes('flee_cooldown')) {
+            const msg = String(e?.message || '').toLowerCase();
+            if (msg.includes('flee_cooldown')) {
               return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
+            }
+            if (msg.includes('knockout_cooldown')) {
+              return `-# 💤 [ Combat cannot start: one combatant is knocked out and cannot fight today. ]`;
             }
             throw e;
           }

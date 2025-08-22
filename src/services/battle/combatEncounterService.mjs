@@ -394,12 +394,20 @@ export class CombatEncounterService {
         return;
       }
 
-      // Attack some other conscious combatant
-      const targets = encounter.combatants.filter(c => c.avatarId !== actor.avatarId && (c.currentHp || 0) > 0);
+      // Attack some other conscious combatant (exclude KO'd/dead/unconscious/knocked_out)
+      const now = Date.now();
+      const targets = encounter.combatants.filter(c => {
+        if (this._normalizeId(c.avatarId) === this._normalizeId(actor.avatarId)) return false;
+        const hpOk = (c.currentHp || 0) > 0;
+        const notUnconscious = !(c.conditions?.includes('unconscious'));
+        const notDead = c.ref?.status !== 'dead';
+        const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+        return hpOk && notUnconscious && notDead && notKO;
+      });
       const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
       if (target && this.battleService?.attack) {
         const messageShim = { channel: { id: encounter.channelId } };
-        const services = { combatEncounterService: this, battleMediaService: this.battleService?.battleMediaService };
+  const services = { combatEncounterService: this, battleMediaService: this.battleService?.battleMediaService, discordService: this.discordService };
         const res = await this.battleService.attack({ message: messageShim, attacker: actor.ref, defender: target.ref, services });
         if (res?.message) {
           await post(`${actor.name} used attack ⚔️\n${res.message}`);
@@ -527,7 +535,14 @@ export class CombatEncounterService {
   evaluateEnd(encounter) {
     if (encounter.state !== 'active') return false;
     // Basic rule: if <=1 conscious combatant remains
-    const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
+    const now = Date.now();
+    const alive = encounter.combatants.filter(c => {
+      const hpOk = (c.currentHp || 0) > 0;
+      const notUnconscious = !(c.conditions?.includes('unconscious'));
+      const notDead = c.ref?.status !== 'dead';
+      const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+      return hpOk && notUnconscious && notDead && notKO;
+    });
     if (alive.length <= 1) {
       this.endEncounter(encounter, { reason: 'single_combatant' });
       return true;
@@ -684,6 +699,14 @@ export class CombatEncounterService {
     }
     if (result?.result === 'knockout' || result?.result === 'dead') {
       try { encounter.knockout = { attackerId: attId, defenderId: defId, result: result?.result }; } catch {}
+      // Force KO state in encounter immediately for end checks and target selection
+      try {
+        const def = this.getCombatant(encounter, defId);
+        if (def) {
+          def.currentHp = 0;
+          if (!def.conditions?.includes('unconscious')) def.conditions = [...(def.conditions || []), 'unconscious'];
+        }
+      } catch {}
     }
     // Record last action context for pacing & commentary
     try {
@@ -701,6 +724,12 @@ export class CombatEncounterService {
         critical: !!result?.critical,
       };
       encounter.lastActionAt = Date.now();
+    } catch {}
+    // If KO/death occurred, evaluate end immediately before advancing
+    try {
+      if (result?.result === 'knockout' || result?.result === 'dead') {
+        if (this.evaluateEnd(encounter)) return;
+      }
     } catch {}
     // Advance turn only if attacker was current turn
     if (this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId) {
