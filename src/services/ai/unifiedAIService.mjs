@@ -63,6 +63,11 @@ export class UnifiedAIService {
     let lastErr = null;
     const corr = options.corrId ? `[corrId=${options.corrId}] ` : '';
     const release = await this._acquireSlot();
+    try {
+      const modelName = options?.model || this.base?.model || 'auto';
+      const provider = this.base?.constructor?.name || 'UnknownProvider';
+      this.logger.info?.(`${corr}[unifiedAI] chat:start model=${modelName} provider=${provider} messages=${Array.isArray(messages) ? messages.length : 0}`);
+    } catch {}
   // Force providers to return envelope form
   const baseOptions = { ...options, returnEnvelope: true };
     while (attempt <= this.maxRetries) {
@@ -73,6 +78,9 @@ export class UnifiedAIService {
         if (attempt > 0) env.meta = { recovered: true };
         env.corrId = options.corrId || null;
   this._estimateTokens(env);
+        try {
+          this.logger.info?.(`${corr}[unifiedAI] chat:done model=${env.model} provider=${env.provider} latencyMs=${env.usage?.latencyMs} tokens=${env.usage?.totalTokens || env.usage?.completionTokens || 'n/a'}`);
+        } catch {}
         release();
         return env;
       } catch (e) {
@@ -80,6 +88,10 @@ export class UnifiedAIService {
         const classified = this._classifyError(e);
         const retryable = classified.retryable && attempt < this.maxRetries;
         if (!retryable) {
+          try {
+            const modelName = options?.model || this.base?.model || 'auto';
+            this.logger.warn?.(`${corr}[unifiedAI] chat:fail model=${modelName} provider=${this.base?.constructor?.name} code=${classified.code} attempts=${attempt+1}`);
+          } catch {}
           release();
           return { text: null, reasoning: null, toolCalls: null, model: options.model, provider: this.base?.constructor?.name, error: { code: classified.code, message: e.message, attempts: attempt + 1 }, corrId: options.corrId || null };
         }

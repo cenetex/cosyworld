@@ -825,6 +825,7 @@ Message: ${messageContent}`;
     try {
       const channel = this._getChannel(encounter);
       if (!channel) return;
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] commentary: speaker=${speaker?.name}`);
   await conversationManager.sendResponse(channel, speaker, null, { overrideCooldown: true });
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] commentary relay failed: ${e.message}`);
@@ -842,7 +843,10 @@ Message: ${messageContent}`;
       if (!channel) return;
       const talkers = encounter.combatants.slice(0, 2); // limit to avoid spam
       for (const c of talkers) {
-        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+        try {
+          this.logger.info?.(`[CombatEncounter][${encounter.channelId}] pre-combat chatter: ${c.ref?.name}`);
+          await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
+        } catch {}
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] pre-combat chatter error: ${e.message}`);
@@ -861,7 +865,10 @@ Message: ${messageContent}`;
       const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
       const talkers = alive.slice(0, 2);
       for (const c of talkers) {
-        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+        try {
+          this.logger.info?.(`[CombatEncounter][${encounter.channelId}] post-round discussion: ${c.ref?.name}`);
+          await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
+        } catch {}
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] post-round discussion error: ${e.message}`);
@@ -880,9 +887,10 @@ Message: ${messageContent}`;
       const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
       // Trigger a lightweight in-character response from participants instead of bespoke planning prompts.
       const limit = Math.min(2, alive.length);
-      for (let i = 0; i < limit; i++) {
+    for (let i = 0; i < limit; i++) {
         const c = alive[i];
         try {
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] planning phase talk: ${c.ref?.name}`);
           await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] round planning relay failed for ${c.name}: ${e.message}`);
@@ -927,7 +935,10 @@ Message: ${messageContent}`;
       const others = encounter.combatants.filter(c => this._normalizeId(c.avatarId) !== this._normalizeId(currentId));
       const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 2);
       for (const c of shuffled) {
-        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+        try {
+          this.logger.info?.(`[CombatEncounter][${encounter.channelId}] inter-turn chatter: ${c.ref?.name}`);
+          await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
+        } catch {}
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] inter-turn chatter error: ${e.message}`);

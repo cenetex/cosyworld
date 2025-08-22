@@ -95,6 +95,7 @@ export class ConversationManager  {
 
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
+  this.logger.info?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048, corrId });
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
       if (!narrative) {
@@ -237,6 +238,7 @@ export class ConversationManager  {
     }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `summary:${avatar._id}:${channelId}`;
+  this.logger.info?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
@@ -336,8 +338,10 @@ export class ConversationManager  {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];
         chatMessages = chatMessages.map(msg => msg.role === 'user' ? { role: 'user', content: userContent } : msg);
       }
-      const ai = this.unifiedAIService || this.aiService;
-      let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256 });
+  const ai = this.unifiedAIService || this.aiService;
+  const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
+  this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown}`);
+  let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId });
       if (result && typeof result === 'object' && result.text) {
         response = result.text;
       } else {
