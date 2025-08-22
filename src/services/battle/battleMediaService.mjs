@@ -72,9 +72,12 @@ export class BattleMediaService {
   async _maybeGenerateVideo({ attacker, defender, result, imageUrl }) {
     const isCritical = !!result?.critical;
     const isDeath = result?.result === 'dead';
-    const wantCriticalVideo = this.enableCriticalHitVideo && isCritical && Math.random() < this.criticalHitVideoChance;
-    const wantDeathVideo = this.enableDeathVideo && isDeath && Math.random() < this.deathVideoChance;
-    const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo);
+  const isKnockout = result?.result === 'knockout';
+  const wantCriticalVideo = this.enableCriticalHitVideo && isCritical && Math.random() < this.criticalHitVideoChance;
+  const wantDeathVideo = this.enableDeathVideo && isDeath && Math.random() < this.deathVideoChance;
+  // Always try to generate a video on knockouts if video service is available
+  const wantKnockoutVideo = !!this.veoService && isKnockout;
+  const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo || wantKnockoutVideo);
 
     if (!imageUrl || !allowVideo) return null;
     if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) return null;
@@ -82,9 +85,12 @@ export class BattleMediaService {
     try {
       const sceneBuf = await this.s3Service.downloadImage(imageUrl);
       const baseImages = [{ data: sceneBuf.toString('base64'), mimeType: 'image/png', label: 'scene' }];
-      const prompt = isDeath
-        ? `Cinematic slow-motion final blow as ${attacker.name} defeats ${defender.name}. Epic, dramatic, particle effects.`
-        : `Explosive critical hit by ${attacker.name} against ${defender.name}, dynamic camera, sparks, energy burst.`;
+      let prompt = `Explosive critical hit by ${attacker.name} against ${defender.name}, dynamic camera, sparks, energy burst.`;
+      if (isDeath) {
+        prompt = `Cinematic slow-motion final blow as ${attacker.name} defeats ${defender.name}. Epic, dramatic, particle effects.`;
+      } else if (isKnockout) {
+        prompt = `Cinematic knockout moment as ${attacker.name} drops ${defender.name}. Impact, slow motion, dramatic particles.`;
+      }
       const videos = await this.veoService.generateVideosFromImages({ prompt, images: baseImages });
       return Array.isArray(videos) ? videos[0] : null;
     } catch (e) {
@@ -114,13 +120,39 @@ export class BattleMediaService {
       const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
       const videoUrl = await this._maybeGenerateVideo({ attacker, defender, result, imageUrl });
 
-      if (!imageUrl && !videoUrl) return null;
-      let text = '';
-      if (imageUrl) text += `\n-# [ ⚔️ [Battle Scene](${imageUrl}) ]`;
-      if (videoUrl) text += `\n-# 🎬 [${result.result === 'dead' ? 'Final Blow' : 'Critical Hit'} Clip](${videoUrl})`;
-      return { imageUrl, videoUrl, text };
+  if (!imageUrl && !videoUrl) return null;
+  // Return media only; callers are responsible for embedding
+  return { imageUrl, videoUrl };
     } catch (e) {
       this.logger?.warn?.(`[BattleMedia] generateForAttack error: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate a pre-fight "Avatar vs Avatar" poster at a location (16:9, both visible, bold typography).
+   */
+  async generateFightPoster({ attacker, defender, location }) {
+    try {
+      if (!this.s3Service) return null;
+      if (!attacker || !defender) return null;
+      const locName = location?.name || location?.title || 'Unknown Arena';
+      const scenePrompt = `${attacker.name} vs ${defender.name} — at ${locName}. BOTH fighters visible in one shot, bold typography, cinematic lighting, 16:9 widescreen. Avoid solo portrait — include both characters with the setting.`;
+
+      const images = [];
+      const a64 = await this._downloadAsBase64(attacker.imageUrl);
+      if (a64) images.push({ data: a64, mimeType: 'image/png', label: 'attacker' });
+      const d64 = await this._downloadAsBase64(defender.imageUrl);
+      if (d64) images.push({ data: d64, mimeType: 'image/png', label: 'defender' });
+      const l64 = await this._downloadAsBase64(location?.imageUrl);
+      if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
+      images.splice(3);
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      if (!imageUrl) return null;
+      return { imageUrl };
+    } catch (e) {
+      this.logger?.warn?.(`[BattleMedia] generateFightPoster error: ${e.message}`);
       return null;
     }
   }

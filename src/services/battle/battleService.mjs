@@ -26,12 +26,20 @@ export class BattleService  {
   }
 
   async attack({ message: _message, attacker, defender, services: _services }) {
+    // Block attacks from dead or knocked-out attackers (defense-in-depth)
+    try {
+      const now = Date.now();
+      if (attacker?.status === 'dead' || attacker?.status === 'knocked_out' || (attacker?.knockedOutUntil && now < attacker.knockedOutUntil)) {
+        this.logger?.info?.(`[BattleService] attack blocked: ${attacker?.name || attacker?.id} is KO'd or dead.`);
+        return { result: 'invalid', message: `-# 💤 [ ${attacker?.name || 'Attacker'} cannot act right now. ]` };
+      }
+    } catch {}
     // Get or create stats for attacker and target
     const attackerStats = await this.avatarService.getOrCreateStats(attacker);
     const targetStats = await this.avatarService.getOrCreateStats(defender);
 
     // D&D style attack roll: d20 + strength modifier
-    const strMod = Math.floor((attackerStats.strength - 10) / 2);
+  const strMod = Math.floor((attackerStats.strength - 10) / 2);
     const dexMod = Math.floor((targetStats.dexterity - 10) / 2);
     // Advantage if attacker has advantageNextAttack (e.g., from Hide)
     const rollOnce = () => this.diceService.rollDie(20);
@@ -64,6 +72,7 @@ export class BattleService  {
 
       if (currentHp <= 0) {
         const ko = await this.handleKnockout({ targetAvatar: defender, damage, attacker });
+        this.logger?.info?.(`[BattleService] KO/Death: ${attacker.name} → ${defender.name} (${ko.result}) dmg=${damage}`);
         if (isCritical) ko.critical = true; // propagate critical flag for death videos
         // Encounter integration
         try {
@@ -79,7 +88,7 @@ export class BattleService  {
   const advNote = usedAdvantage ? ' with advantage' : '';
   const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name}${advNote} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
       const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
-      const res = {
+  const res = {
         result: 'hit',
         critical: isCritical,
         message: baseMsg + critMsg,
@@ -89,6 +98,7 @@ export class BattleService  {
         armorClass,
         rawRoll
       };
+  this.logger?.info?.(`[BattleService] Hit: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass} dmg=${damage}${isCritical ? ' CRIT' : ''}`);
       try {
         const ces = _services?.combatEncounterService;
         if (ces) {
@@ -108,13 +118,14 @@ export class BattleService  {
     } else {
       targetStats.isDefending = false; // Reset defense stance on miss
       await this.avatarService.updateAvatarStats(defender, targetStats);
-      const res = {
+  const res = {
         result: 'miss',
         message: `-# 🛡️ [ ${attacker.name}'s attack misses ${defender.name}! (${attackRoll} vs AC ${armorClass}) ]`,
         attackRoll,
         armorClass,
         rawRoll
       };
+  this.logger?.info?.(`[BattleService] Miss: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass}`);
       // Consume advantage even on a miss if it was used (RAW: advantage is consumed by the roll)
       if (usedAdvantage) {
         try {

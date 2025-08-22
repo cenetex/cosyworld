@@ -134,20 +134,13 @@ export class SummonTool extends BasicTool {
         }
         await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
         if (alreadyHere) {
-          // Trigger brief speech instead of full panel
+          // Resummon in same channel: show the avatar's full embed for the user
           try {
-            const ai = this.unifiedAIService || this.aiService;
-            const corrId = `summon-existing:${existingAvatar._id}:${Date.now()}`;
-            const speechResult = await ai.chat([
-              { role: 'system', content: `You are ${existingAvatar.name}, ${existingAvatar.description}. Keep responses under 120 characters.` },
-              { role: 'user', content: `You were just redundantly summoned again in the same spot. React briefly, maybe playfully.` }
-            ], { model: existingAvatar.model, corrId });
-            const speech = typeof speechResult === 'object' && speechResult?.text ? speechResult.text : speechResult;
-            await this.discordService.sendAsWebhook(message.channel.id, speech || `${existingAvatar.name} acknowledges the summon.`, existingAvatar);
+            await this.discordService.sendAvatarEmbed(existingAvatar, message.channel.id, this.aiService);
           } catch (e) {
-            this.logger.warn(`Failed to generate brief speech for existing avatar: ${e.message}`);
+            this.logger.warn(`Failed to send avatar embed on resummon: ${e.message}`);
           }
-          return `-# ${this.emoji} [ ${existingAvatar.name} was already here. They respond. ]`;
+          return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
         } else {
           // Arrival mini embed
           setTimeout(async () => {

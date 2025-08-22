@@ -4,8 +4,8 @@
  * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
-  constructor({ logger, diceService, avatarService, mapService, battleService, databaseService, unifiedAIService, discordService, configService, promptAssembler }) {
-    this.logger = logger || console;
+  constructor({ logger, diceService, avatarService, mapService, battleService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager }) {
+  this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
     this.mapService = mapService;
@@ -14,7 +14,8 @@ export class CombatEncounterService {
     this.unifiedAIService = unifiedAIService; // optional
     this.discordService = discordService; // for embeds / announcements
     this.configService = configService;
-    this.promptAssembler = promptAssembler || null;
+  this.promptAssembler = promptAssembler || null;
+  this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
 
     // channelId -> encounter object
     this.encounters = new Map();
@@ -39,61 +40,66 @@ export class CombatEncounterService {
   // Round planning & narration
   this.enableRoundPlanning = (process.env.COMBAT_ROUND_PLANNING_ENABLED || 'true') === 'true';
   this.roundPlanningTimeoutMs = Number(process.env.COMBAT_ROUND_PLANNING_TIMEOUT_MS || 3500);
+  // Turn sequencing & media gating
+  this.mediaWaitTimeoutMs = Number(process.env.COMBAT_MEDIA_WAIT_TIMEOUT_MS || 45_000);
+  this.posterWaitTimeoutMs = Number(process.env.COMBAT_POSTER_WAIT_TIMEOUT_MS || 15_000);
   }
 
-  /** Compose an avatar persona system prompt */
-  _getAvatarPersonaSystem(avatar, { locationName, role = 'actor' } = {}) {
-    const traits = [avatar.title, avatar.personality, avatar.traits]?.filter(Boolean).join(', ');
-    const desc = avatar.description || avatar.bio || '';
-    const faction = avatar.faction || avatar.coordinator || '';
-    const lines = [];
-    lines.push(`You are ${avatar.displayName || avatar.name}. Stay strictly in-character (${role}).`);
-    if (traits) lines.push(`Traits: ${traits}.`);
-    if (faction) lines.push(`Faction: ${faction}.`);
-    if (desc) lines.push(`Backstory/Description: ${desc}`);
-    if (locationName) lines.push(`Current Location: ${locationName}.`);
-    lines.push('Voice: concise, flavorful, fitting your persona. Avoid meta commentary.');
-    return lines.join('\n');
+  // Removed in-channel AI chat builders; combat now delegates speaking to ConversationManager
+
+  /** Helper: compute DEX modifier from stats, defaulting to 10 */
+  _dexModFromStats(stats) {
+    const dex = Number(stats?.dexterity ?? 10);
+    return Math.floor((dex - 10) / 2);
   }
 
-  /** Build AI chat messages with memory recall via PromptAssembler if available */
-  async _buildAvatarMessages(avatar, { task, context = '' } = {}) {
-    if (!this.unifiedAIService?.chat) return null;
-    let locName = null;
-    try { locName = await this.mapService?.getLocationDescription?.({ channelId: avatar.channelId || avatar.locationId }); } catch {}
-    const systemText = this._getAvatarPersonaSystem(avatar, { locationName: locName, role: 'actor' });
-    const focusText = 'Reply with ONE short line (max 20 words). Keep it in-universe. No hashtags. Avoid emojis unless fitting.';
-    const msgText = task || 'Speak one short in-character line for this moment.';
-    const contextText = context || '';
+  /** Helper: rebuild initiative order; optionally preserve current turn avatar when inserting */
+  _rebuildInitiativeOrder(encounter, { preserveCurrent = false } = {}) {
+    if (!encounter) return;
+    const currentId = preserveCurrent ? this._normalizeId(this.getCurrentTurnAvatarId(encounter)) : null;
+    encounter.initiativeOrder = encounter.combatants
+      .slice()
+      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0))
+      .map(c => this._normalizeId(c.avatarId));
+    if (preserveCurrent && currentId) {
+      const idx = encounter.initiativeOrder.indexOf(currentId);
+      encounter.currentTurnIndex = Math.max(0, idx);
+    }
+  }
+
+  /** Helper: clear all timers associated with an encounter */
+  _clearTimers(encounter) {
+    if (!encounter?.timers) return;
+    if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
+    if (encounter.timers.startTurn) clearTimeout(encounter.timers.startTurn);
+    if (encounter.timers.auto) clearTimeout(encounter.timers.auto);
+    encounter.timers.turn = encounter.timers.startTurn = encounter.timers.auto = null;
+  }
+
+  /** Helper: discord text channel for encounter (if available) */
+  _getChannel(encounter) {
+    return this.discordService?.client?.channels?.cache?.get(encounter?.channelId) || null;
+  }
+
+  /** Helper: retrieve location description/name if mapService supports it */
+  async _getLocationName(encounter) {
     try {
-      if (this.promptAssembler) {
-        const built = await this.promptAssembler.buildPrompt({
-          avatarId: avatar._id || avatar.id,
-          systemText,
-          contextText,
-          focusText,
-          msgText,
-          limitTokens: 8000,
-          guardrail: 800,
-          recallCap: 1200,
-          perSnippet: 160,
-          who: avatar.name,
-          source: 'combat'
-        });
-        const blocks = built?.blocks || `${systemText}\n${contextText}`;
-        return [
-          { role: 'system', content: blocks },
-          { role: 'user', content: 'Reply now with a single fitting line.' }
-        ];
+      return await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId });
+    } catch {
+      return null;
+    }
+  }
+
+  /** Helper: post content via webhook as an actor if supported */
+  async _postAsWebhook(encounter, actorRef, content) {
+    if (!content) return;
+    try {
+      if (this.discordService?.sendAsWebhook) {
+        await this.discordService.sendAsWebhook(encounter.channelId, content, actorRef);
       }
     } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] prompt assemble failed: ${e.message}`);
+      this.logger.warn?.(`[CombatEncounter] webhook post failed: ${e.message}`);
     }
-    // Fallback without assembler
-    return [
-      { role: 'system', content: systemText },
-      { role: 'user', content: `${context}\n\n${msgText}`.trim() }
-    ];
   }
 
   /** Normalize any avatar identifier to a string */
@@ -162,37 +168,51 @@ export class CombatEncounterService {
   lastActionAt: null,
   lastAction: null,
       timers: {},
+  knockout: null,
+  knockoutMedia: null,
+  // Media/turn sequencing controls
+  turnAdvanceBlockers: [], // array of Promises to await before advancing to next turn
+  manualActionCount: 0, // increments during manual/command-driven actions to pause auto-act
+      posterBlocker: (() => {
+        let resolve;
+        const p = new Promise(res => { resolve = res; });
+        // Auto-resolve after timeout to avoid deadlock if no poster is produced
+        setTimeout(() => { try { resolve(); } catch {} }, this.posterWaitTimeoutMs).unref?.();
+        return { promise: p, resolve };
+      })(),
       sourceMessageId: sourceMessage?.id || null
     };
-    this.encounters.set(channelId, encounter);
-    return encounter;
+  this.encounters.set(channelId, encounter);
+  this.logger?.info?.(`[CombatEncounter][${channelId}] created: ${combatants.length} combatant(s), state=pending`);
+  return encounter;
   }
 
   /** Rolls initiative for all combatants (d20 + DEX mod if stats available) */
   async rollInitiative(encounter) {
     for (const c of encounter.combatants) {
       try {
-        const stats = await this.avatarService.getOrCreateStats(c.ref);
-        const dexMod = Math.floor(((stats?.dexterity || 10) - 10) / 2);
+    const stats = await this.avatarService.getOrCreateStats(c.ref);
+    const dexMod = this._dexModFromStats(stats);
         const roll = this.diceService.rollDie(20);
         c.initiative = roll + dexMod;
-        c.armorClass = 10 + Math.floor(((stats?.dexterity || 10) - 10) / 2); // base AC for now
+    c.armorClass = 10 + dexMod; // base AC for now
       } catch (e) {
         c.initiative = this.diceService.rollDie(20);
         this.logger.warn?.(`[CombatEncounter] Failed stats for ${c.name}: ${e.message}`);
       }
     }
-    encounter.initiativeOrder = encounter.combatants
-      .slice()
-      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0))
-  .map(c => this._normalizeId(c.avatarId));
+  this._rebuildInitiativeOrder(encounter, { preserveCurrent: false });
     encounter.state = 'active';
     encounter.startedAt = Date.now();
-    encounter.round = 1;
-    encounter.currentTurnIndex = 0;
+  encounter.round = 1;
+  encounter.currentTurnIndex = 0;
+  // Wait for fight poster phase (if any) before initiative and chatter for clean ordering
+  try { await encounter.posterBlocker?.promise; } catch {}
+  // Skip the old 'Combat Initiated' embed. Go straight to brief chatter before first turn.
+  await this._preCombatChatter(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] pre-combat chatter failed: ${e.message}`));
   // kick off first turn using pacing logic
+  this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
   this._scheduleTurnStart(encounter, { roundWrap: false });
-  this._announceInitiative(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] initiative announce failed: ${e.message}`));
     return encounter;
   }
 
@@ -214,13 +234,44 @@ export class CombatEncounterService {
     if (encounter.currentTurnIndex >= encounter.initiativeOrder.length) {
       encounter.currentTurnIndex = 0;
       encounter.round += 1;
-      // When wrapping to new round, optionally request brief plans then narrate
+      if (encounter.round > 3) {
+        this.endEncounter(encounter, { reason: 'round_limit' });
+        return;
+      }
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] round wrap -> round=${encounter.round}`);
+      await this._postRoundDiscussion(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] round discussion failed: ${e.message}`));
       if (this.enableRoundPlanning) {
         await this._roundPlanningPhase(encounter);
       }
       this._scheduleTurnStart(encounter, { roundWrap: true });
       return;
     }
+    // If the next combatant is KO'd, skip ahead until a valid one or round wraps
+    try {
+      let safety = encounter.initiativeOrder.length;
+      while (safety-- > 0) {
+        const cid = this.getCurrentTurnAvatarId(encounter);
+        const c = this.getCombatant(encounter, cid);
+        const now = Date.now();
+        const isKO = !c || (c.currentHp || 0) <= 0 || c.conditions?.includes('unconscious') || c.ref?.status === 'dead' || c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil);
+        if (!isKO) break;
+        encounter.currentTurnIndex += 1;
+        if (encounter.currentTurnIndex >= encounter.initiativeOrder.length) {
+          encounter.currentTurnIndex = 0;
+          encounter.round += 1;
+          if (encounter.round > 3) {
+            this.endEncounter(encounter, { reason: 'round_limit' });
+            return;
+          }
+      await this._postRoundDiscussion(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] round discussion failed: ${e.message}`));
+          if (this.enableRoundPlanning) {
+            await this._roundPlanningPhase(encounter);
+          }
+          this._scheduleTurnStart(encounter, { roundWrap: true });
+          return;
+        }
+      }
+    } catch {}
     this._scheduleTurnStart(encounter, { roundWrap: false });
   }
 
@@ -230,6 +281,16 @@ export class CombatEncounterService {
     if (!avatarId) return;
     const combatant = this.getCombatant(encounter, avatarId);
     if (!combatant) return;
+    // If combatant is KO'd or dead, just advance turn without acting
+    try {
+      const now = Date.now();
+      const isKO = (combatant.currentHp || 0) <= 0 || combatant.conditions?.includes('unconscious') || combatant.ref?.status === 'dead' || (combatant.ref?.status === 'knocked_out') || (combatant.ref?.knockedOutUntil && now < combatant.ref.knockedOutUntil);
+      if (isKO) {
+        this.logger.info?.(`[CombatEncounter] timeout on KO'd combatant ${combatant.name}; skipping action`);
+        await this.nextTurn(encounter);
+        return;
+      }
+    } catch {}
     // Auto-defend (set defending state) using battleService if available
     try {
       combatant.isDefending = true;
@@ -257,6 +318,12 @@ export class CombatEncounterService {
     const currentId = this.getCurrentTurnAvatarId(encounter);
     const combatant = this.getCombatant(encounter, currentId);
   if (!combatant) return;
+    // If a manual action is currently in progress (e.g., user command + poster/media), don't auto-act yet
+    if ((encounter.manualActionCount || 0) > 0) {
+      this.logger.info?.(`[CombatEncounter] manual action in progress; delaying auto-act for ${this.autoActDelayMs}ms`);
+      encounter.timers.auto = setTimeout(() => this._scheduleAutoAct(encounter), this.autoActDelayMs);
+      return;
+    }
     if (this._getCombatModeFor(combatant) !== 'auto') return; // manual: do not auto-act
     // Schedule with small delay to allow UI/embeds to post first
   this.logger.info?.(`[CombatEncounter] scheduling auto-act for ${combatant.name} in ${this.autoActDelayMs}ms (turn of ${combatant.avatarId})`);
@@ -271,32 +338,38 @@ export class CombatEncounterService {
     const actor = this.getCombatant(encounter, currentId);
     if (!actor) return;
     if (this._getCombatModeFor(actor) !== 'auto') return;
-  this.logger.info?.(`[CombatEncounter] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
+    // If actor is KO'd or dead, skip auto-act and advance turn
+    try {
+      const now = Date.now();
+      const isKO = (actor.currentHp || 0) <= 0 || actor.conditions?.includes('unconscious') || actor.ref?.status === 'dead' || (actor.ref?.status === 'knocked_out') || (actor.ref?.knockedOutUntil && now < actor.ref.knockedOutUntil);
+      if (isKO) {
+        this.logger.info?.(`[CombatEncounter] auto-act skip for KO'd combatant ${actor.name}`);
+        await this.nextTurn(encounter);
+        return;
+      }
+    } catch {}
+  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
 
     // Choose action: simple heuristic (low HP -> defend; else attack)
     const hp = Math.max(0, actor.currentHp || 0);
     const maxHp = Math.max(1, actor.maxHp || 10);
     const low = hp / maxHp <= 0.3;
-    let didAct = false;
-    const post = async (content) => {
-      try {
-        if (this.discordService?.sendAsWebhook && content) {
-          await this.discordService.sendAsWebhook(encounter.channelId, content, actor.ref);
-        }
-      } catch (e) {
-        this.logger.warn?.(`[CombatEncounter] auto-act post failed: ${e.message}`);
-      }
-    };
+  let didAct = false;
+  const post = async (content) => this._postAsWebhook(encounter, actor.ref, content);
 
-    try {
+  // Pre-register a turn-advance blocker so handleAttackResult waits for any media we generate
+  const latch = this._preRegisterTurnAdvanceBlocker(encounter.channelId);
+  try {
       if (low && this.battleService?.defend) {
         const msg = await this.battleService.defend({ avatar: actor.ref });
         actor.isDefending = true; // reflect in encounter for status UI
-        await post(`${actor.name} used defend 🛡️\n${msg}`);
-        this.logger.info?.(`[CombatEncounter] ${actor.name} auto-defends (low HP).`);
+  await post(`${actor.name} used defend 🛡️\n${msg}`);
+  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-defends (low HP).`);
         didAct = true;
         // Advance turn after defend
-        await this.nextTurn(encounter);
+    // Resolve latch immediately; no media to wait for
+    try { latch.resolve(); } catch {}
+    await this.nextTurn(encounter);
         return;
       }
 
@@ -305,12 +378,49 @@ export class CombatEncounterService {
       const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
       if (target && this.battleService?.attack) {
         const messageShim = { channel: { id: encounter.channelId } };
-        const services = { combatEncounterService: this };
+        const services = { combatEncounterService: this, battleMediaService: this.battleService?.battleMediaService };
         const res = await this.battleService.attack({ message: messageShim, attacker: actor.ref, defender: target.ref, services });
         if (res?.message) {
           await post(`${actor.name} used attack ⚔️\n${res.message}`);
         }
-        this.logger.info?.(`[CombatEncounter] ${actor.name} auto-attacks ${target.name}.`);
+        // Optional: generate battle scene image/video on auto-act
+  try {
+          const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
+          const battleMedia = services?.battleMediaService;
+          if (battleMedia && (res?.result)) {
+            const media = await battleMedia.generateForAttack({ attacker: actor.ref, defender: target.ref, result: res, location: loc?.location });
+            if ((media?.imageUrl || media?.videoUrl) && this.discordService?.sendEmbedAsWebhook) {
+              try {
+                const embed = {
+                  title: '⚔️ Battle Scene',
+                  color: 0xffa502,
+                  image: media.imageUrl ? { url: media.imageUrl } : undefined,
+                  description: media.videoUrl ? `🎬 Final Clip: ${media.videoUrl}` : undefined,
+                  footer: {
+                    text: [
+                      `${actor.ref.name} ▶ ${target.ref.name}`,
+                      (res?.attackRoll != null && res?.armorClass != null) ? `${res.attackRoll} vs AC ${res.armorClass}` : null,
+                      (typeof res?.damage === 'number') ? `DMG: ${res.damage}` : null,
+                    ].filter(Boolean).join(' • '),
+                  },
+                };
+                await this.discordService.sendEmbedAsWebhook(encounter.channelId, embed, actor.ref.name, actor.ref.imageUrl);
+              } catch (e) {
+                this.logger?.warn?.(`[CombatEncounter] failed to send battle embed: ${e.message}`);
+              }
+            }
+            // If this resulted in a KO/death, persist media for summary fallback
+            if ((res?.result === 'knockout' || res?.result === 'dead') && (media?.imageUrl || media?.videoUrl)) {
+              try { this.addKnockoutMedia(encounter.channelId, media); } catch {}
+            }
+          }
+          // Media generation complete; release latch
+          try { latch.resolve(); } catch {}
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] auto-act media generation failed: ${e.message}`);
+          try { latch.resolve(); } catch {}
+        }
+  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-attacks ${target.name}.`);
         didAct = true; // turn advancement handled via handleAttackResult in battleService
       }
     } catch (e) {
@@ -322,9 +432,10 @@ export class CombatEncounterService {
       let msg = '';
       if (this.battleService?.defend) msg = await this.battleService.defend({ avatar: actor.ref });
           actor.isDefending = true;
-      await post(`${actor.name} used defend 🛡️\n${msg}`);
-      this.logger.info?.(`[CombatEncounter] ${actor.name} fallback defend (no target).`);
+  await post(`${actor.name} used defend 🛡️\n${msg}`);
+  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} fallback defend (no target).`);
         } catch {}
+        try { latch.resolve(); } catch {}
         await this.nextTurn(encounter);
       }
     }
@@ -332,7 +443,7 @@ export class CombatEncounterService {
 
   _scheduleTurnTimeout(encounter) {
     // clear previous timer
-    if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
+  if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
     encounter.timers.turn = setTimeout(() => this._onTurnTimeout(encounter), this.turnTimeoutMs);
   }
 
@@ -347,13 +458,36 @@ export class CombatEncounterService {
     let delay = Math.max(0, this.minTurnGapMs - sinceLast);
     if (roundWrap) delay += this.roundCooldownMs;
 
-    const doStart = async () => {
-      // Optional commentary before announcing the new turn
+  const doStart = async () => {
+      // If a manual action is currently in progress (e.g., poster/media), defer start slightly and retry
+      if ((encounter.manualActionCount || 0) > 0) {
+        this.logger.info?.(`[CombatEncounter] manual action; rescheduling turn start in ${this.autoActDelayMs}ms`);
+        encounter.timers.startTurn = setTimeout(() => this._scheduleTurnStart(encounter, { roundWrap }), this.autoActDelayMs);
+        return;
+      }
+      // Skip turns for knocked-out or dead combatants
+      try {
+        const currentId = this.getCurrentTurnAvatarId(encounter);
+        const current = this.getCombatant(encounter, currentId);
+        const now = Date.now();
+        const isKO = !current || (current.currentHp || 0) <= 0 || current.conditions?.includes('unconscious') || current.ref?.status === 'dead' || (current.ref?.status === 'knocked_out') || (current.ref?.knockedOutUntil && now < current.ref.knockedOutUntil);
+        if (isKO) {
+          this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId}`);
+          if (this.evaluateEnd(encounter)) return;
+          // Avoid tight recursion: advance on next tick
+          setTimeout(() => this.nextTurn(encounter), 0);
+          return;
+        }
+      } catch (e) { this.logger.warn?.(`[CombatEncounter] KO skip check failed: ${e.message}`); }
+      // Optional commentary and inter-turn chatter (no per-turn embed)
       try { await this._maybePostCommentary(encounter); } catch (e) { this.logger.warn?.(`[CombatEncounter] commentary error: ${e.message}`); }
-      // Now announce and start timers
+      // Some older instances may not have this method; guard to avoid noisy TypeErrors
+      if (typeof this._postInterTurnChatter === 'function') {
+        try { await this._postInterTurnChatter(encounter); } catch (e) { this.logger.warn?.(`[CombatEncounter] inter-turn chatter error: ${e.message}`); }
+      }
+      // Start timers
       this._scheduleTurnTimeout(encounter);
       this._scheduleAutoAct(encounter);
-      this._announceTurn(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] turn announce failed: ${e.message}`));
     };
     if (delay > 0) {
       this.logger.info?.(`[CombatEncounter] delaying next turn by ${delay}ms (roundWrap=${roundWrap})`);
@@ -377,6 +511,11 @@ export class CombatEncounterService {
       this.endEncounter(encounter, { reason: 'single_combatant' });
       return true;
     }
+    // End if all alive combatants are defending
+    if (alive.length >= 2 && alive.every(c => c.isDefending)) {
+      this.endEncounter(encounter, { reason: 'all_defending' });
+      return true;
+    }
     // Idle logic: if no hostile actions for N rounds after at least one hostile
     if (encounter.lastHostileAt) {
       const roundsSince = (Date.now() - encounter.lastHostileAt) / (this.turnTimeoutMs);
@@ -390,12 +529,18 @@ export class CombatEncounterService {
 
   /** Ends encounter and clears timers */
   endEncounter(encounter, { reason } = {}) {
-    if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
+  this._clearTimers(encounter);
     encounter.state = 'ended';
     encounter.endedAt = Date.now();
     encounter.endReason = reason || 'unspecified';
+    try {
+      const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
+      const winner = alive.length === 1 ? alive[0].name : null;
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ended: reason=${encounter.endReason}${winner ? ` winner=${winner}` : ''}`);
+    } catch {}
     // Optionally persist summary later
   this._persistEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] persist failed: ${e.message}`));
+  this._sendSummary(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] summary send failed: ${e.message}`));
   }
 
   /** Adds an avatar mid-combat (e.g., new hostile). Rolls initiative just for them and inserts into order. */
@@ -407,20 +552,18 @@ export class CombatEncounterService {
   const now = Date.now();
   if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return;
   if (this.getCombatant(encounter, aid)) return; // already in
-    const stats = await this.avatarService.getOrCreateStats(avatar).catch(() => null);
-    const dexMod = Math.floor((((stats?.dexterity) ?? 10) - 10) / 2);
+  const stats = await this.avatarService.getOrCreateStats(avatar).catch(() => null);
+  const dexMod = this._dexModFromStats(stats);
     const initiative = this.diceService.rollDie(20) + dexMod;
     const armorClass = 10 + dexMod;
   const combatant = { avatarId: aid, name: avatar.name, ref: avatar, initiative, currentHp: stats?.hp || 10, maxHp: stats?.hp || 10, armorClass, hasActed: false, isDefending: false, conditions: [], side: 'neutral' };
     encounter.combatants.push(combatant);
     // Rebuild initiative order and keep current turn index referencing correct avatar
-    const currentAvatarId = this.getCurrentTurnAvatarId(encounter);
-  encounter.initiativeOrder = encounter.combatants.slice().sort((a, b) => b.initiative - a.initiative).map(c => this._normalizeId(c.avatarId));
-  encounter.currentTurnIndex = Math.max(0, encounter.initiativeOrder.indexOf(this._normalizeId(currentAvatarId)));
+  this._rebuildInitiativeOrder(encounter, { preserveCurrent: true });
   }
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
-  async ensureEncounterForAttack({ channelId, attacker, defender, sourceMessage }) {
+  async ensureEncounterForAttack({ channelId, attacker, defender, sourceMessage, deferStart = false }) {
     const now = Date.now();
     if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {
       throw new Error('knockout_cooldown');
@@ -428,11 +571,15 @@ export class CombatEncounterService {
     let encounter = this.getEncounter(channelId);
     if (!encounter) {
       encounter = this.createEncounter({ channelId, participants: [attacker, defender], sourceMessage });
-      await this.rollInitiative(encounter);
+      if (!deferStart) {
+        await this.rollInitiative(encounter);
+      }
       this.logger.info?.(`[CombatEncounter] Created new encounter in channel ${channelId} with ${encounter.combatants.length} combatants.`);
     } else if (encounter.state === 'pending') {
       // finalize
-      await this.rollInitiative(encounter);
+      if (!deferStart) {
+        await this.rollInitiative(encounter);
+      }
     } else {
       // ensure both are present
       await this.addCombatant(encounter, attacker);
@@ -452,13 +599,16 @@ export class CombatEncounterService {
   }
 
   /** Central handler after an attack result for turn advancement & damage application */
-  handleAttackResult(encounter, { attackerId, defenderId, result }) {
+  async handleAttackResult(encounter, { attackerId, defenderId, result }) {
     if (!encounter || encounter.state !== 'active') return;
     const attId = this._normalizeId(attackerId);
     const defId = this._normalizeId(defenderId);
     if (result?.damage && (result.result === 'hit' || result.result === 'knockout' || result.result === 'dead')) {
       this.applyDamage(encounter, defId, result.damage);
       this.markHostile(encounter);
+    }
+    if (result?.result === 'knockout' || result?.result === 'dead') {
+      try { encounter.knockout = { attackerId: attId, defenderId: defId, result: result?.result }; } catch {}
     }
     // Record last action context for pacing & commentary
     try {
@@ -479,7 +629,9 @@ export class CombatEncounterService {
     } catch {}
     // Advance turn only if attacker was current turn
     if (this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId) {
-  this.nextTurn(encounter);
+      // Wait for any registered media/blockers to finish (with timeout) before moving to next turn
+      try { await this._awaitTurnAdvanceBlockers(encounter); } catch {}
+      this.nextTurn(encounter);
     }
     this.evaluateEnd(encounter);
   }
@@ -558,34 +710,12 @@ Message: ${messageContent}`;
   return this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === this._normalizeId(avatarId);
   }
 
-  /** Post an embed for initiative order */
-  async _announceInitiative(encounter) {
-    if (!this.discordService?.client) return;
-    const channel = this.discordService.client.channels.cache.get(encounter.channelId);
-    if (!channel?.send) return;
-    // Fetch location meta if available
-    let locName = null;
-    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
-    const orderLines = encounter.initiativeOrder.map((id, i) => {
-      const c = this.getCombatant(encounter, id);
-      return `${i+1}. ${c.name} (Init ${c.initiative})`;
-    }).join('\n');
-    const embed = {
-      title: '⚔️ Combat Initiated',
-      description: `Round 1 begins!${locName ? `\nLocation: ${locName}` : ''}`,
-      fields: [
-        { name: 'Initiative Order', value: orderLines || '—' }
-      ],
-      color: 0xFF0000,
-      footer: { text: `${this.getCombatant(encounter, this.getCurrentTurnAvatarId(encounter))?.name || 'Unknown'} acts first` }
-    };
-    try { await channel.send({ embeds: [embed] }); } catch (e) { this.logger.warn?.(`[CombatEncounter] send initiative embed failed: ${e.message}`); }
-  }
+  /** Initiative embed intentionally removed */
 
   /** Post an embed for each new turn */
   async _announceTurn(encounter) {
-    if (!this.discordService?.client) return;
-    const channel = this.discordService.client.channels.cache.get(encounter.channelId);
+  if (!this.discordService?.client) return;
+  const channel = this._getChannel(encounter);
     if (!channel?.send) return;
     if (encounter.state !== 'active') return;
     const currentId = this.getCurrentTurnAvatarId(encounter);
@@ -594,11 +724,9 @@ Message: ${messageContent}`;
   const status = encounter.combatants.map(c => `${this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' '} ${c.name}: ${c.currentHp}/${c.maxHp} HP${c.isDefending ? ' 🛡️' : ''}`).join('\n');
     const mode = this._getCombatModeFor(current);
     // Try pull location name for flavor
-    let locName = null;
-    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
     const embed = {
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: `${locName ? `Location: ${locName}\n` : ''}${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
+  description: `${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
       fields: [ { name: 'Status', value: status.slice(0, 1024) } ],
       color: 0x00AD2F,
       footer: { text: '30s turn timer • act with narrative or commands' }
@@ -610,41 +738,58 @@ Message: ${messageContent}`;
   async _maybePostCommentary(encounter) {
     if (!this.enableCommentary) return;
     if (Math.random() > this.commentaryChance) return;
-    if (!this.unifiedAIService?.chat) return; // requires unified AI
-    if (!this.discordService?.sendAsWebhook) return;
+  const conversationManager = this.getConversationManager?.();
+  if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     const ctx = encounter.lastAction;
     if (!ctx) return;
     const attacker = this.getCombatant(encounter, ctx.attackerId)?.ref;
     const defender = this.getCombatant(encounter, ctx.defenderId)?.ref;
     if (!attacker || !defender) return;
-
-    // Choose speaker based on outcome
-    let locName = null;
-    try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
-    let speaker = defender;
-    let user = locName ? `(Location: ${locName}) ` : '';
-    if (ctx.result === 'miss') {
-      user += `${attacker.name} just missed their attack against you. Offer a quick, playful taunt or witty dodge comment.`;
-    } else if (ctx.result === 'hit') {
-      user += `${attacker.name} just hit you for ${ctx.damage} damage. React briefly in-character (pain, resolve, or strategy).`;
-    } else if (ctx.result === 'knockout' || ctx.result === 'dead') {
-      speaker = attacker; // victor speaks
-      user += `You have just ${ctx.result === 'dead' ? 'defeated' : 'knocked out'} ${defender.name}. Say one short line (victory, respect, or remorse).`;
-    } else {
-      // fallback generic
-      user += `Brief in-character reaction to the recent exchange with ${attacker.name} and ${defender.name}.`;
-    }
-
+    // Choose speaker based on outcome: miss/hit -> defender, KO/death -> attacker
+    const speaker = (ctx.result === 'knockout' || ctx.result === 'dead') ? attacker : defender;
     try {
-      const sc = encounter.combatants.map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`).join(', ');
-      const messages = await this._buildAvatarMessages(speaker, { task: user, context: `Combatants: ${sc}. Round ${encounter.round}.` });
-      const resp = await this.unifiedAIService.chat(messages, { temperature: 0.7 });
-      const text = (resp?.text || '').trim();
-      if (text) {
-        await this.discordService.sendAsWebhook(encounter.channelId, text, speaker);
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+  await conversationManager.sendResponse(channel, speaker, null, { overrideCooldown: true });
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] commentary relay failed: ${e.message}`);
+    }
+  }
+
+  /**
+   * Brief pre-combat chatter: give each combatant a chance to speak once after initiative.
+   */
+  async _preCombatChatter(encounter) {
+    const conversationManager = this.getConversationManager?.();
+    if (!this.discordService?.client || !conversationManager?.sendResponse) return;
+    try {
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+      const talkers = encounter.combatants.slice(0, 2); // limit to avoid spam
+      for (const c of talkers) {
+        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
       }
     } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] commentary AI/send failed: ${e.message}`);
+      this.logger.warn?.(`[CombatEncounter] pre-combat chatter error: ${e.message}`);
+    }
+  }
+
+  /**
+   * Post-round discussion: after each full round, let 2 participants speak to extend pacing.
+   */
+  async _postRoundDiscussion(encounter) {
+    const conversationManager = this.getConversationManager?.();
+    if (!this.discordService?.client || !conversationManager?.sendResponse) return;
+    try {
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+      const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
+      const talkers = alive.slice(0, 2);
+      for (const c of talkers) {
+        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+      }
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] post-round discussion error: ${e.message}`);
     }
   }
 
@@ -652,44 +797,21 @@ Message: ${messageContent}`;
    * Brief per-round planning: ask each avatar for a one-liner intent, then have a DM narrator summarize the setup.
    */
   async _roundPlanningPhase(encounter) {
-    if (!this.unifiedAIService?.chat || !this.discordService?.sendAsWebhook) return;
+  const conversationManager = this.getConversationManager?.();
+  if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
-      // Ask each conscious combatant for a quick plan line
+  const channel = this._getChannel(encounter);
+      if (!channel) return;
       const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
-      const plans = [];
-      for (const c of alive) {
+      // Trigger a lightweight in-character response from participants instead of bespoke planning prompts.
+      const limit = Math.min(2, alive.length);
+      for (let i = 0; i < limit; i++) {
+        const c = alive[i];
         try {
-          let locName = null;
-          try { locName = await this.mapService?.getLocationDescription?.({ channelId: encounter.channelId }); } catch {}
-          const messages = await this._buildAvatarMessages(c.ref, { task: `${locName ? `(Location: ${locName}) ` : ''}What is your plan this round?`, context: `Round ${encounter.round+1} starting. Your HP: ${c.currentHp}/${c.maxHp}.` });
-          const resp = await this.unifiedAIService.chat(messages, { temperature: 0.7 });
-          const plan = (resp?.text || '').trim();
-          if (plan) {
-            plans.push({ id: c.avatarId, name: c.name, plan, ref: c.ref });
-            await this.discordService.sendAsWebhook(encounter.channelId, `“${plan}”`, c.ref);
-          }
+          await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
         } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] plan for ${c.name} failed: ${e.message}`);
+          this.logger.warn?.(`[CombatEncounter] round planning relay failed for ${c.name}: ${e.message}`);
         }
-      }
-
-      // Short wait to avoid flooding
-      await new Promise(r => setTimeout(r, Math.min(this.roundPlanningTimeoutMs, 6000)));
-
-      // DM narration: location POV synthesis
-      try {
-        const summary = plans.map(p => `${p.name}: ${p.plan}`).join('\n');
-        const messages = [
-          { role: 'system', content: 'You are the Dungeon Master describing the scene succinctly. 2–3 short sentences, evocative but concise.' },
-          { role: 'user', content: `Round ${encounter.round+1} is about to start. Plans:\n${summary || 'No plans provided.'}` }
-        ];
-        const dm = await this.unifiedAIService.chat(messages, { temperature: 0.6 });
-        const dmText = (dm?.text || '').trim();
-        if (dmText) {
-          await this.discordService.sendAsWebhook(encounter.channelId, dmText, null /* generic bot avatar */);
-        }
-      } catch (e) {
-        this.logger.warn?.(`[CombatEncounter] DM narration failed: ${e.message}`);
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] planning phase error: ${e.message}`);
@@ -703,7 +825,7 @@ Message: ${messageContent}`;
       const ended = enc.state === 'ended';
       const stale = !ended && enc.startedAt && (now - enc.startedAt > this.staleEncounterMs);
       if (ended || stale) {
-        if (enc.timers.turn) clearTimeout(enc.timers.turn);
+  this._clearTimers(enc);
         this.encounters.delete(channelId);
         this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${channelId} reason=${ended ? 'ended' : 'stale'}`);
       }
@@ -714,9 +836,151 @@ Message: ${messageContent}`;
   destroy() {
     if (this.cleanupInterval) clearInterval(this.cleanupInterval);
     for (const enc of this.encounters.values()) {
-      if (enc.timers.turn) clearTimeout(enc.timers.turn);
+  this._clearTimers(enc);
     }
     this.encounters.clear();
+  }
+
+  /** Inter-turn chatter allowing other avatars to chime in between turns */
+  async _postInterTurnChatter(encounter) {
+    const conversationManager = this.getConversationManager?.();
+    if (!this.discordService?.client || !conversationManager?.sendResponse) return;
+    try {
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+      const currentId = this.getCurrentTurnAvatarId(encounter);
+      const others = encounter.combatants.filter(c => this._normalizeId(c.avatarId) !== this._normalizeId(currentId));
+      const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 2);
+      for (const c of shuffled) {
+        try { await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+      }
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] inter-turn chatter error: ${e.message}`);
+    }
+  }
+
+  /** Final summary embed with optional image/video if a knockout/death occurred */
+  async _sendSummary(encounter) {
+    try {
+      const channel = this._getChannel(encounter);
+      if (!channel?.send) return;
+      const status = encounter.combatants.map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`).join('\n');
+      const friendlyReason = this._formatEndReason?.(encounter) || 'The encounter concludes.';
+      const embed = {
+        title: 'Combat Summary',
+        description: friendlyReason,
+        color: 0x7289da,
+        fields: [{ name: 'Status', value: status.slice(0, 1024) }],
+      };
+      try {
+        if (this.battleService?.battleMediaService && encounter.knockout) {
+          const attacker = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref;
+          const defender = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref;
+          const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
+          // 1) Prefer media captured during the KO action
+          let media = encounter.knockoutMedia || null;
+          // 2) Else, re-generate a finishing scene
+          if (!media || (!media.imageUrl && !media.videoUrl)) {
+            try {
+              media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: { result: encounter.knockout.result }, location: loc?.location });
+            } catch {}
+          }
+          // 3) Else, fall back to a fight poster so there is always an image
+          if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
+            try {
+              const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
+              if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
+            } catch {}
+          }
+          if (media?.imageUrl) embed.image = { url: media.imageUrl };
+          if (media?.videoUrl) embed.description = `${embed.description || ''}\n🎬 Final Clip: ${media.videoUrl}`.trim();
+          // 4) Absolute fallback: ensure some image is attached (attacker or defender avatar)
+          if (!embed.image && (attacker?.imageUrl || defender?.imageUrl)) {
+            embed.image = { url: attacker?.imageUrl || defender?.imageUrl };
+          }
+        }
+      } catch (e) {
+        this.logger.warn?.(`[CombatEncounter] summary media failed: ${e.message}`);
+      }
+      await channel.send({ embeds: [embed] });
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] summary send error: ${e.message}`);
+    }
+  }
+
+  /** Friendly text for summary footer based on endReason */
+  _formatEndReason(encounter) {
+    const code = encounter?.endReason || 'unspecified';
+    const map = {
+      single_combatant: 'Only one fighter remains — the battle is decided.',
+      all_defending: 'Everyone turtled up — the clash fizzles out.',
+      idle: 'No hostilities for a while — the fight winds down.',
+      round_limit: 'Time is up — the duel concludes after the final exchange.',
+      capacity_reclaim: 'This encounter ended to make room for a new one.',
+      unspecified: 'The encounter concludes.',
+    };
+    let text = map[code] || map.unspecified;
+    if (code === 'single_combatant') {
+      try {
+        const alive = (encounter?.combatants || []).filter(c => (c.currentHp || 0) > 0);
+        if (alive.length === 1) text += ` Winner: ${alive[0].name}.`;
+      } catch {}
+    }
+    return text;
+  }
+
+  /** Public: increment/decrement manual action guard for a channel to pause auto-act/turn starts */
+  beginManualAction(channelId) {
+    const enc = this.getEncounter(channelId);
+    if (!enc) return;
+    enc.manualActionCount = (enc.manualActionCount || 0) + 1;
+  }
+
+  endManualAction(channelId) {
+    const enc = this.getEncounter(channelId);
+    if (!enc) return;
+    enc.manualActionCount = Math.max(0, (enc.manualActionCount || 0) - 1);
+  }
+
+  /** Register a promise to block turn advancement until it resolves (or timeout elapses) */
+  addTurnAdvanceBlocker(channelId, promise) {
+    const enc = this.getEncounter(channelId);
+    if (!enc || !promise) return;
+    enc.turnAdvanceBlockers = enc.turnAdvanceBlockers || [];
+    enc.turnAdvanceBlockers.push(Promise.resolve(promise).catch(() => {}));
+  }
+
+  /** Persist media for the finishing blow so summary can always include an image or video */
+  addKnockoutMedia(channelId, media) {
+    const enc = this.getEncounter(channelId);
+    if (!enc) return;
+    try {
+      enc.knockoutMedia = media || null;
+    } catch {}
+  }
+
+  /** Create a deferred blocker that can be resolved later; useful to pre-register before attack */
+  _preRegisterTurnAdvanceBlocker(channelId) {
+    let resolve, reject;
+    const p = new Promise((res, rej) => { resolve = res; reject = rej; });
+    this.addTurnAdvanceBlocker(channelId, p);
+    return { promise: p, resolve: resolve || (()=>{}), reject: reject || (()=>{}) };
+  }
+
+  /** Internal: await all blockers with a timeout to prevent deadlocks */
+  async _awaitTurnAdvanceBlockers(encounter) {
+    const blockers = Array.isArray(encounter.turnAdvanceBlockers) ? encounter.turnAdvanceBlockers.slice() : [];
+    // Reset immediately so subsequent actions start a fresh set
+    encounter.turnAdvanceBlockers = [];
+    if (blockers.length === 0) return;
+    const timeoutMs = this.mediaWaitTimeoutMs;
+    const timeout = new Promise(resolve => setTimeout(resolve, timeoutMs));
+    try {
+      await Promise.race([
+        Promise.allSettled(blockers),
+        timeout
+      ]);
+    } catch {}
   }
 }
 

@@ -170,6 +170,8 @@ async function initializeContainer() {
 
   // Provide late-binding getter for MapService to break circular deps
   container.register({ getMapService: asFunction(() => () => container.resolve('mapService')).singleton() });
+  // Provide late-binding getter for ConversationManager to break circular deps (combat -> CM -> prompt -> tool -> combat)
+  container.register({ getConversationManager: asFunction(() => () => container.resolve('conversationManager')).singleton() });
 
   console.log('🔧 registered services:', Object.keys(container.registrations));
 

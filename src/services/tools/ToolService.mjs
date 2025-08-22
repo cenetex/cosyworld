@@ -5,6 +5,7 @@
 
 import { ActionLog } from './ActionLog.mjs';
 import { AttackTool } from './tools/AttackTool.mjs';
+import { ChallengeTool } from './tools/ChallengeTool.mjs';
 import { DefendTool } from './tools/DefendTool.mjs';
 import { MoveTool } from './tools/MoveTool.mjs';
 import { RememberTool } from './tools/RememberTool.mjs';
@@ -111,7 +112,9 @@ export class ToolService {
     const toolClasses = {
       summon: SummonTool,
       breed: BreedTool,
+      // Keep AttackTool for explicit attack command, but move ⚔️ to 'challenge'
       attack: AttackTool,
+      challenge: ChallengeTool,
   hide: HideTool,
       defend: DefendTool,
       move: MoveTool,
@@ -125,17 +128,20 @@ export class ToolService {
       devil: DevilTool
     };
 
-    Object.entries(toolClasses).forEach(([name, ToolClass]) => {
+  Object.entries(toolClasses).forEach(([name, ToolClass]) => {
       const tool = new ToolClass(this.toolServices);
       this.tools.set(name, tool);
       if (tool.emoji) this.toolEmojis.set(tool.emoji, name);
     });
 
     // Load emoji mappings from config
-    const configEmojis = this.configService.get('toolEmojis') || {};
+  const configEmojis = this.configService.get('toolEmojis') || {};
     Object.entries(configEmojis).forEach(([emoji, toolName]) => {
       this.toolEmojis.set(emoji, toolName);
     });
+
+  // Ensure ⚔️ maps to 'challenge' by default for neutral initiation
+  this.toolEmojis.set('⚔️', 'challenge');
   }
 
   registerTool(tool) {
