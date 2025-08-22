@@ -1,0 +1,129 @@
+/**
+ * BattleMediaService
+ * Generates battle scene images and optional short video clips based on attack outcomes.
+ */
+export class BattleMediaService {
+  constructor({ logger, aiService, googleAIService, s3Service, veoService }) {
+    this.logger = logger || console;
+    this.aiService = aiService;
+    this.googleAIService = googleAIService; // optional fallback
+    this.s3Service = s3Service; // required for image downloads and hosting URLs
+    this.veoService = veoService; // optional video generation
+
+    // Feature toggles
+    const env = (k, d) => (process.env[k] ?? d);
+    this.enableCriticalHitVideo = env('BATTLE_VIDEO_CRITICAL_ENABLED', 'true') === 'true';
+    this.enableDeathVideo = env('BATTLE_VIDEO_DEATH_ENABLED', 'true') === 'true';
+    this.criticalHitVideoChance = Math.max(0, Math.min(1, parseFloat(env('BATTLE_VIDEO_CRITICAL_CHANCE', '0.5')) || 0.5));
+    this.deathVideoChance = Math.max(0, Math.min(1, parseFloat(env('BATTLE_VIDEO_DEATH_CHANCE', '1')) || 1));
+  }
+
+  _buildScenePrompt(attacker, defender, result, location) {
+    const base = {
+      dead: `Final blow moment: ${attacker.name} defeats ${defender.name}. BOTH characters visible in the same shot, decisive impact, dramatic particles, 16:9 widescreen. Do NOT render a solo portrait; include both fighters.${location?.name ? ` Setting: ${location.name}.` : ''}` ,
+      knockout: `Knockout moment: ${attacker.name} drops ${defender.name}. BOTH characters visible in the same shot, dramatic impact, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}` ,
+      hit: `Cinematic strike: ${attacker.name} hits ${defender.name}. BOTH characters visible in the same shot, dynamic action, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}`
+    };
+    if (result?.result === 'dead') return base.dead;
+    if (result?.result === 'knockout') return base.knockout;
+    return base.hit;
+  }
+
+  async _downloadAsBase64(url) {
+    if (!url || !this.s3Service) return null;
+    try {
+      const buf = await this.s3Service.downloadImage(url);
+      return buf?.toString('base64') || null;
+    } catch (e) {
+      this.logger?.warn?.(`[BattleMedia] download failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  async _composeOrGenerateImage(images, scenePrompt) {
+    // Try primary provider first, fallback to googleAIService
+    const tryProvider = async (provider) => {
+      if (!provider) return null;
+      try {
+        if (typeof provider.composeImageWithGemini === 'function') {
+          const composed = await provider.composeImageWithGemini(images, scenePrompt);
+          if (composed) return composed;
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[BattleMedia] compose attempt failed: ${e.message}`);
+      }
+      try {
+        if (typeof provider.generateImage === 'function') {
+          const prompt = `${scenePrompt}`;
+          const gen = await provider.generateImage(prompt);
+          if (gen) return gen;
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[BattleMedia] generate attempt failed: ${e.message}`);
+      }
+      return null;
+    };
+
+    let imageUrl = await tryProvider(this.aiService);
+    if (!imageUrl) imageUrl = await tryProvider(this.googleAIService);
+    return imageUrl;
+  }
+
+  async _maybeGenerateVideo({ attacker, defender, result, imageUrl }) {
+    const isCritical = !!result?.critical;
+    const isDeath = result?.result === 'dead';
+    const wantCriticalVideo = this.enableCriticalHitVideo && isCritical && Math.random() < this.criticalHitVideoChance;
+    const wantDeathVideo = this.enableDeathVideo && isDeath && Math.random() < this.deathVideoChance;
+    const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo);
+
+    if (!imageUrl || !allowVideo) return null;
+    if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) return null;
+
+    try {
+      const sceneBuf = await this.s3Service.downloadImage(imageUrl);
+      const baseImages = [{ data: sceneBuf.toString('base64'), mimeType: 'image/png', label: 'scene' }];
+      const prompt = isDeath
+        ? `Cinematic slow-motion final blow as ${attacker.name} defeats ${defender.name}. Epic, dramatic, particle effects.`
+        : `Explosive critical hit by ${attacker.name} against ${defender.name}, dynamic camera, sparks, energy burst.`;
+      const videos = await this.veoService.generateVideosFromImages({ prompt, images: baseImages });
+      return Array.isArray(videos) ? videos[0] : null;
+    } catch (e) {
+      this.logger?.warn?.(`[BattleMedia] video generation failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  async generateForAttack({ attacker, defender, result, location }) {
+    try {
+      if (!this.s3Service) return null; // media disabled
+      if (!result || !attacker || !defender) return null;
+      if (!['hit','knockout','dead'].includes(result.result)) return null;
+
+  const scenePrompt = this._buildScenePrompt(attacker, defender, result, location);
+
+      const images = [];
+      const a64 = await this._downloadAsBase64(attacker.imageUrl);
+      if (a64) images.push({ data: a64, mimeType: 'image/png', label: 'attacker' });
+      const d64 = await this._downloadAsBase64(defender.imageUrl);
+      if (d64) images.push({ data: d64, mimeType: 'image/png', label: 'defender' });
+      const locUrl = location?.imageUrl;
+      const l64 = await this._downloadAsBase64(locUrl);
+      if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
+      images.splice(3);
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      const videoUrl = await this._maybeGenerateVideo({ attacker, defender, result, imageUrl });
+
+      if (!imageUrl && !videoUrl) return null;
+      let text = '';
+      if (imageUrl) text += `\n-# [ ⚔️ [Battle Scene](${imageUrl}) ]`;
+      if (videoUrl) text += `\n-# 🎬 [${result.result === 'dead' ? 'Final Blow' : 'Critical Hit'} Clip](${videoUrl})`;
+      return { imageUrl, videoUrl, text };
+    } catch (e) {
+      this.logger?.warn?.(`[BattleMedia] generateForAttack error: ${e.message}`);
+      return null;
+    }
+  }
+}
+
+export default BattleMediaService;

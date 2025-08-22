@@ -135,7 +135,7 @@ export class BattleService  {
   }
 
   async handleKnockout({ message: _message, targetAvatar, damage, attacker, services: _services }) {
-    targetAvatar.lives = (targetAvatar.lives || 3) - 1;
+  targetAvatar.lives = (targetAvatar.lives || 3) - 1;
     if (targetAvatar.lives <= 0) {
       targetAvatar.status = 'dead';
       targetAvatar.deathTimestamp = Date.now();
@@ -152,7 +152,11 @@ export class BattleService  {
     const newStats = this.statService.generateStatsFromDate(targetAvatar.createdAt);
     newStats.avatarId = targetAvatar._id;
     await this.avatarService.updateAvatarStats(targetAvatar, newStats);
-    await this.avatarService.updateAvatar(targetAvatar);
+  // Set 24h knockout cooldown preventing combat re-entry
+  const now = Date.now();
+  targetAvatar.status = 'knocked_out';
+  targetAvatar.knockedOutUntil = now + 24 * 60 * 60 * 1000; // 24 hours
+  await this.avatarService.updateAvatar(targetAvatar);
     return {
       result: 'knockout',
       message: `-# 💥 [ ${attacker.name} knocked out ${targetAvatar.name} for ${damage} damage! ${targetAvatar.lives} lives remaining! 💫 ]`

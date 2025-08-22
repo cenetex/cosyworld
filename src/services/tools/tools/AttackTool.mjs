@@ -94,8 +94,19 @@ export class AttackTool extends BasicTool {
         }
         return `-# 🫠 [ Target '${targetName}' not found here. ]`;
       }
+      const now = Date.now();
       if (defender.status === 'dead') {
         return `-# ⚰️ [ **${defender.name}** is already dead! Have some *respect* for the fallen. ]`;
+      }
+      if (defender.knockedOutUntil && now < defender.knockedOutUntil) {
+        const remainingMs = defender.knockedOutUntil - now;
+        const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
+        return `-# 💤 [ **${defender.name}** is recovering and cannot fight for ~${hours}h. ]`;
+      }
+      if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) {
+        const remainingMs = avatar.knockedOutUntil - now;
+        const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
+        return `-# 💤 [ **${avatar.name}** is still recovering and cannot initiate combat for ~${hours}h. ]`;
       }
       // Ensure encounter exists & both combatants present (no human command layer yet)
       try {
@@ -112,100 +123,14 @@ export class AttackTool extends BasicTool {
       }
       // Delegate to battleService
       const result = await this.battleService.attack({ message, attacker: avatar, defender, services });
-    // On attack outcomes that land, generate composite battle image
-  if ((result.result === 'hit' || result.result === 'dead' || result.result === 'knockout') && this.s3Service) {
+      // Media: delegate to BattleMediaService if available
+      const battleMedia = services?.battleMediaService || this.battleMediaService;
+      if (battleMedia) {
         try {
-          const images = [];
-          if (avatar.imageUrl) {
-            const buf = await this.s3Service.downloadImage(avatar.imageUrl);
-            images.push({ data: buf.toString('base64'), mimeType: 'image/png', label: 'attacker' });
-          }
-          if (defender.imageUrl) {
-            const buf = await this.s3Service.downloadImage(defender.imageUrl);
-            images.push({ data: buf.toString('base64'), mimeType: 'image/png', label: 'defender' });
-          }
-          const locImgUrl = locationResult.location?.imageUrl;
-          if (locImgUrl) {
-            const buf = await this.s3Service.downloadImage(locImgUrl);
-            images.push({ data: buf.toString('base64'), mimeType: 'image/png', label: 'location' });
-          }
-          // Limit to three images
-          images.splice(3);
-          let imageUrl;
-          const primary = this.aiService;
-          const secondary = this.googleAIService && this.googleAIService !== primary ? this.googleAIService : null;
-
-          // Build a strong scene prompt ensuring BOTH combatants appear in-frame
-          const deathScene = `Final blow moment: ${avatar.name} defeats ${defender.name}. BOTH characters visible in the same shot, decisive impact, dramatic particles, 16:9 widescreen. Do NOT render a solo portrait; include both fighters.`;
-          const koScene = `Knockout moment: ${avatar.name} drops ${defender.name}. BOTH characters visible in the same shot, dramatic impact, 16:9 widescreen. No solo portraits.`;
-          const hitScene = `Cinematic strike: ${avatar.name} hits ${defender.name}. BOTH characters visible in the same shot, dynamic action, 16:9 widescreen. No solo portraits.`;
-          const scenePrompt = result.result === 'dead' ? deathScene : (result.result === 'knockout' ? koScene : hitScene);
-
-          // Helper tries compose then generate on a given provider
-          const tryProvider = async (provider) => {
-            if (!provider) return null;
-            try {
-              if (typeof provider.composeImageWithGemini === 'function') {
-                const composed = await provider.composeImageWithGemini(
-                  images,
-                  scenePrompt
-                );
-                if (composed) return composed;
-              }
-            } catch (e) {
-              this.logger?.warn?.(`[AttackTool] compose attempt failed: ${e.message}`);
-            }
-            try {
-              if (typeof provider.generateImage === 'function') {
-                const prompt = `${scenePrompt}\nDetails: ${avatar.name} (${avatar.description || 'attacker'}) vs ${defender.name} (${defender.description || 'defender'}).`;
-                const gen = await provider.generateImage(prompt);
-                if (gen) return gen;
-              }
-            } catch (e) {
-              this.logger?.warn?.(`[AttackTool] generate attempt failed: ${e.message}`);
-            }
-            return null;
-          };
-
-          // Try primary provider first
-          imageUrl = await tryProvider(primary);
-          // Fallback to secondary (Google) if primary failed
-          if (!imageUrl) imageUrl = await tryProvider(secondary);
-
-          // Two-phase rule: only consider video generation if we successfully produced a battle scene image
-          let videoUrl = null;
-          const isCritical = !!result.critical;
-          const isDeath = result.result === 'dead';
-          const wantCriticalVideo = this.enableCriticalHitVideo && isCritical && Math.random() < this.criticalHitVideoChance;
-          const wantDeathVideo = this.enableDeathVideo && isDeath && Math.random() < this.deathVideoChance;
-          const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo);
-
-          // Optional rate limit gate if available
-          const rateOk = !this.veoService?.checkRateLimit || this.veoService.checkRateLimit();
-
-          if (imageUrl && allowVideo && rateOk) {
-            try {
-              // Always download the composed battle scene and use that as the sole source for video generation
-              const sceneBuf = await this.s3Service.downloadImage(imageUrl);
-              const baseImages = [{ data: sceneBuf.toString('base64'), mimeType: 'image/png', label: 'scene' }];
-              const prompt = isDeath
-                ? `Cinematic slow-motion final blow as ${avatar.name} defeats ${defender.name}. Epic, dramatic, particle effects.`
-                : `Explosive critical hit by ${avatar.name} against ${defender.name}, dynamic camera, sparks, energy burst.`;
-              const videos = await this.veoService.generateVideosFromImages({ prompt, images: baseImages });
-              videoUrl = Array.isArray(videos) && videos[0];
-            } catch (e) {
-              this.logger?.warn?.(`[AttackTool] Veo video generation failed: ${e.message}`);
-            }
-          }
-
-          if (imageUrl || videoUrl) {
-            let extra = '';
-            if (imageUrl) extra += `\n-# [ ${this.emoji} [Battle Scene](${imageUrl}) ]`;
-            if (videoUrl) extra += `\n-# 🎬 [${isDeath ? 'Final Blow' : 'Critical Hit'} Clip](${videoUrl})`;
-            return `${result.message}${extra}`;
-          }
-        } catch (err) {
-          this.logger.error(`Image generation error: ${err.message}`);
+          const media = await battleMedia.generateForAttack({ attacker: avatar, defender, result, location: locationResult.location });
+          if (media?.text) return `${result.message}${media.text}`;
+        } catch (e) {
+          this.logger?.warn?.(`[AttackTool] media generation failed: ${e.message}`);
         }
       }
       return result.message;

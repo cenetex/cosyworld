@@ -42,6 +42,7 @@ export class ToolService {
     locationService,
     battleService,
   combatEncounterService,
+  battleMediaService,
     xService,
     itemService,
     statService,
@@ -58,6 +59,7 @@ export class ToolService {
       imageProcessingService,
       battleService,
   combatEncounterService,
+  battleMediaService,
       locationService,
       configService,
       cooldownService,
@@ -317,6 +319,9 @@ export class ToolService {
       // Augment context with combatEncounterService if available
       if (this.toolServices?.combatEncounterService) {
         context.combatEncounterService = context.combatEncounterService || this.toolServices.combatEncounterService;
+      }
+      if (this.toolServices?.battleMediaService) {
+        context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;
       }
       result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
