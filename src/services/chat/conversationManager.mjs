@@ -46,6 +46,23 @@ export class ConversationManager  {
     this.requiredPermissions = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'ManageWebhooks'];
   }
 
+  /** Ensure the avatar has a model assigned; persist if we pick one */
+  async ensureAvatarModel(avatar) {
+    try {
+      if (!avatar?.model) {
+        const picked = await this.aiService.selectRandomModel();
+        if (picked) {
+          avatar.model = picked;
+          try { await this.avatarService.updateAvatar(avatar); } catch {}
+          this.logger.info?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
+        }
+      }
+    } catch (e) {
+      this.logger.warn?.(`[AI] ensureAvatarModel failed: ${e.message}`);
+    }
+    return avatar?.model;
+  }
+
   async checkChannelPermissions(channel) {
     try {
       if (!channel.guild) {
@@ -210,11 +227,13 @@ export class ConversationManager  {
       messagesToSummarize.reverse();
     }
     if (messagesToSummarize.length === 0) return summaryDoc ? summaryDoc.summary : '';
-    const avatar = await this.avatarService.getAvatarById(avatarId);
+  const avatar = await this.avatarService.getAvatarById(avatarId);
     if (!avatar) {
       this.logger.error(`Avatar ${avatarId} not found for summarization.`);
       return summaryDoc ? summaryDoc.summary : '';
     }
+  // Ensure avatar has a model before AI call
+  await this.ensureAvatarModel(avatar);
     const messagesText = messagesToSummarize.map(msg =>
       `${msg.authorUsername || 'User'}: ${msg.content || '[No content]'}${msg.imageDescription ? ` [Image: ${msg.imageDescription}]` : ''}`
     ).join('\n');
@@ -306,6 +325,8 @@ export class ConversationManager  {
     try {
       let response = presetResponse;
       if (!response) {
+  // Ensure avatar has a model before AI call
+  await this.ensureAvatarModel(avatar);
       const messages = await channel.messages.fetch({ limit: 50 });
       const imagePromptParts = [];
       let recentImageMessage = null;

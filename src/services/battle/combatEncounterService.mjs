@@ -412,43 +412,8 @@ export class CombatEncounterService {
         if (res?.message) {
           await post(`${actor.name} used attack ⚔️\n${res.message}`);
         }
-        // Optional: generate battle scene image/video on auto-act
-  try {
-          const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
-          const battleMedia = services?.battleMediaService;
-          if (battleMedia && (res?.result)) {
-            const media = await battleMedia.generateForAttack({ attacker: actor.ref, defender: target.ref, result: res, location: loc?.location });
-            if ((media?.imageUrl || media?.videoUrl) && this.discordService?.sendEmbedAsWebhook) {
-              try {
-                const embed = {
-                  title: '⚔️ Battle Scene',
-                  color: 0xffa502,
-                  image: media.imageUrl ? { url: media.imageUrl } : undefined,
-                  description: media.videoUrl ? `🎬 Final Clip: ${media.videoUrl}` : undefined,
-                  footer: {
-                    text: [
-                      `${actor.ref.name} ▶ ${target.ref.name}`,
-                      (res?.attackRoll != null && res?.armorClass != null) ? `${res.attackRoll} vs AC ${res.armorClass}` : null,
-                      (typeof res?.damage === 'number') ? `DMG: ${res.damage}` : null,
-                    ].filter(Boolean).join(' • '),
-                  },
-                };
-                await this.discordService.sendEmbedAsWebhook(encounter.channelId, embed, actor.ref.name, actor.ref.imageUrl);
-              } catch (e) {
-                this.logger?.warn?.(`[CombatEncounter] failed to send battle embed: ${e.message}`);
-              }
-            }
-            // If this resulted in a KO/death, persist media for summary fallback
-            if ((res?.result === 'knockout' || res?.result === 'dead') && (media?.imageUrl || media?.videoUrl)) {
-              try { this.addKnockoutMedia(encounter.channelId, media); } catch {}
-            }
-          }
-          // Media generation complete; release latch
-          try { latch.resolve(); } catch {}
-        } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] auto-act media generation failed: ${e.message}`);
-          try { latch.resolve(); } catch {}
-        }
+  // No per-action media; resolve latch immediately
+  try { latch.resolve(); } catch {}
   this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-attacks ${target.name}.`);
         didAct = true; // turn advancement handled via handleAttackResult in battleService
       }
@@ -988,28 +953,59 @@ Message: ${messageContent}`;
         fields: [{ name: 'Status', value: status.slice(0, 1024) }],
       };
       try {
-        if (this.battleService?.battleMediaService && encounter.knockout) {
-          const attacker = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref;
-          const defender = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref;
+        if (this.battleService?.battleMediaService) {
           const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
-          // 1) Prefer media captured during the KO action
-          let media = encounter.knockoutMedia || null;
-          // 2) Else, re-generate a finishing scene
-          if (!media || (!media.imageUrl && !media.videoUrl)) {
-            try {
-              media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: { result: encounter.knockout.result }, location: loc?.location });
-            } catch {}
+          let media = null;
+          let attacker = null;
+          let defender = null;
+          // KO path: prefer captured media, else generate finishing scene
+          if (encounter.knockout) {
+            attacker = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref;
+            defender = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref;
+            media = encounter.knockoutMedia || null;
+            if (!media || (!media.imageUrl && !media.videoUrl)) {
+              try {
+                media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: { result: encounter.knockout.result }, location: loc?.location });
+              } catch {}
+            }
+            if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
+              try {
+                const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
+                if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
+              } catch {}
+            }
+          } else {
+            // Non-KO end: try to illustrate last action or a generic poster
+            if (encounter.lastAction) {
+              attacker = this.getCombatant(encounter, encounter.lastAction.attackerId)?.ref;
+              defender = this.getCombatant(encounter, encounter.lastAction.defenderId)?.ref;
+              const resultStub = { result: encounter.lastAction.result || 'hit', critical: !!encounter.lastAction.critical };
+              try {
+                media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: resultStub, location: loc?.location });
+              } catch {}
+            }
+            if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
+              try {
+                // Choose first two combatants for poster if attacker/defender not set
+                if (!attacker || !defender) {
+                  const c0 = encounter.combatants?.[0]?.ref;
+                  const c1 = encounter.combatants?.[1]?.ref;
+                  attacker = attacker || c0;
+                  defender = defender || c1 || c0; // handle solo case
+                }
+                const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
+                if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
+              } catch {}
+            }
           }
-          // 3) Else, fall back to a fight poster so there is always an image
-          if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
-            try {
-              const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
-              if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
-            } catch {}
-          }
+          // Attach media if any
           if (media?.imageUrl) embed.image = { url: media.imageUrl };
-          if (media?.videoUrl) embed.description = `${embed.description || ''}\n🎬 Final Clip: ${media.videoUrl}`.trim();
-          // 4) Absolute fallback: ensure some image is attached (attacker or defender avatar)
+          if (media?.videoUrl) {
+            // Prefer native embed video if client allows; also keep link in description as fallback
+            embed.video = { url: media.videoUrl };
+            embed.description = `${embed.description || ''}\n🎬 Final Clip: ${media.videoUrl}`.trim();
+          }
+          // Fallback to avatar image if no generated image
           if (!embed.image && (attacker?.imageUrl || defender?.imageUrl)) {
             embed.image = { url: attacker?.imageUrl || defender?.imageUrl };
           }
@@ -1017,7 +1013,9 @@ Message: ${messageContent}`;
       } catch (e) {
         this.logger.warn?.(`[CombatEncounter] summary media failed: ${e.message}`);
       }
-      await channel.send({ embeds: [embed] });
+  // If a video URL exists, include it in content for best chance of inline playback
+  const content = embed?.video?.url ? `🎬 ${embed.video.url}` : undefined;
+  await channel.send({ content, embeds: [embed] });
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] summary send error: ${e.message}`);
     }

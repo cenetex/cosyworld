@@ -207,44 +207,7 @@ export class AttackTool extends BasicTool {
       } catch {}
   this.logger?.info?.(`[AttackTool][${message.channel.id}] ${avatar.name} attacks ${defender.name}`);
   const result = await this.battleService.attack({ message, attacker: avatar, defender, services });
-      // Media: delegate to BattleMediaService if available
-      const battleMedia = services?.battleMediaService || this.battleMediaService;
-      if (battleMedia) {
-        try {
-          const media = await battleMedia.generateForAttack({ attacker: avatar, defender, result, location: locationResult.location });
-          // Post media as an embed (not a plain link)
-          if ((media?.imageUrl || media?.videoUrl) && this.discordService?.sendEmbedAsWebhook) {
-            try {
-              const embed = {
-                title: '⚔️ Battle Scene',
-                color: 0xffa502,
-                image: media.imageUrl ? { url: media.imageUrl } : undefined,
-                description: media.videoUrl ? `🎬 Final Clip: ${media.videoUrl}` : undefined,
-                footer: {
-                  text: [
-                    `${avatar.name} ▶ ${defender.name}`,
-                    (result?.attackRoll != null && result?.armorClass != null) ? `${result.attackRoll} vs AC ${result.armorClass}` : null,
-                    (typeof result?.damage === 'number') ? `DMG: ${result.damage}` : null,
-                    (typeof result?.currentHp === 'number') ? `HP: ${result.currentHp}` : null,
-                  ].filter(Boolean).join(' • '),
-                },
-              };
-              await this.discordService.sendEmbedAsWebhook(message.channel.id, embed, avatar.name, avatar.imageUrl);
-            } catch (e) { this.logger?.warn?.(`[AttackTool] failed to send battle embed: ${e.message}`); }
-          }
-          // If this was a KO/death, persist media for the summary
-          try {
-            if ((result?.result === 'knockout' || result?.result === 'dead') && (media?.imageUrl || media?.videoUrl)) {
-              services?.combatEncounterService?.addKnockoutMedia?.(message.channel.id, media);
-            }
-          } catch {}
-          // Resolve blocker now that media completed
-          try { resolveBlocker && resolveBlocker(); } catch {}
-        } catch (e) {
-          this.logger?.warn?.(`[AttackTool] media generation failed: ${e.message}`);
-          try { resolveBlocker && resolveBlocker(); } catch {}
-        }
-      }
+  // No per-action media generation; proceed
       try { resolveBlocker && resolveBlocker(); } catch {}
       return result.message;
     } catch (error) {

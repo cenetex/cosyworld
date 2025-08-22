@@ -100,6 +100,19 @@ export class SummonTool extends BasicTool {
   async execute(message, params = {}, _avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
+      const ensureModel = async (av) => {
+        try {
+          if (av && !av.model) {
+            const picked = await this.aiService.selectRandomModel();
+            if (picked) {
+              av.model = picked;
+              try { await this.avatarService.updateAvatar(av); } catch {}
+              this.logger?.info?.(`[AI][SummonTool] assigned model='${picked}' to ${av.name || av._id}`);
+            }
+          }
+        } catch (e) { this.logger?.warn?.(`[AI][SummonTool] ensureModel failed: ${e.message}`); }
+        return av?.model;
+      };
       // Parse command content robustly: remove leading emoji + optional word 'summon'
       const raw = message.content.trim();
       const content = raw
@@ -117,6 +130,8 @@ export class SummonTool extends BasicTool {
       const existingAvatar = await this.avatarService.getAvatarByName(avatarName);
       if (existingAvatar) {
         const alreadyHere = existingAvatar.channelId === message.channel.id;
+  // Ensure model is set for any upcoming AI generation
+  await ensureModel(existingAvatar);
         // Ensure avatar has an image
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
           try {
@@ -195,6 +210,7 @@ export class SummonTool extends BasicTool {
         createdAvatar.createdAt = creationDate;
         createdAvatar.channelId = message.channel.id;
         await this.avatarService.updateAvatar(createdAvatar);
+        await ensureModel(createdAvatar);
       } else {
         // Ensure channel/location sync for existing avatar name collision
         if (createdAvatar.channelId !== message.channel.id) {
@@ -205,6 +221,7 @@ export class SummonTool extends BasicTool {
         await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
         // Provide a lightweight acknowledgement instead of full intro/embed
         try {
+          await ensureModel(createdAvatar);
           const ai2 = this.unifiedAIService || this.aiService;
           const corrId = `resummon:${createdAvatar._id}:${Date.now()}`;
           const briefResult = await ai2.chat([
@@ -225,6 +242,7 @@ export class SummonTool extends BasicTool {
       }
 
       // Generate introduction
+  await ensureModel(createdAvatar);
       const introPrompt = guildConfig?.prompts?.introduction || 'You\'ve just arrived. Introduce yourself.';
   const ai3 = this.unifiedAIService || this.aiService;
   const introCorrId = `intro:${createdAvatar._id}:${Date.now()}`;

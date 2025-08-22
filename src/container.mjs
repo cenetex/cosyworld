@@ -81,24 +81,6 @@ async function initializeContainer() {
     console.warn('[container] Failed to init optional GoogleAIService:', e.message);
   }
 
-  // Wrap primary aiService (whichever provider class dynamic loader registers) with UnifiedAIService once base provider is available.
-  try {
-    // The dynamic service registration will later register something like openrouterAIService, googleAIService, etc.
-    // We attempt a late binding after dynamic registration below if not yet present here.
-    // For early minimal functionality, try to locate a base provider now if already registered.
-    const candidateNames = ['openrouterAIService','googleAIService','ollamaAIService','aiService'];
-    for (const name of candidateNames) {
-      if (container.registrations[name]) {
-        const base = container.resolve(name);
-        unifiedAIService = new UnifiedAIService({ aiService: base, logger });
-        container.register({ unifiedAIService: asValue(unifiedAIService) });
-        break;
-      }
-    }
-  } catch (e) {
-    console.warn('[container] Failed early unifiedAIService init:', e.message);
-  }
-
   // Precreate crossmint as value; dynamic loader may also provide class, so guard duplicates
   const crossmintService = new CrossmintService({ logger });
   container.register({ crossmintService: asValue(crossmintService) });
@@ -141,27 +123,42 @@ async function initializeContainer() {
     }
   }
 
+  // Provide a stable alias 'aiService' that prefers OpenRouter for all chat/text,
+  // while still allowing Google to be used separately for media generation fallback.
+  try {
+    if (container.registrations.openrouterAIService) {
+      container.register({ aiService: asValue(container.resolve('openrouterAIService')) });
+    } else if (container.registrations.ollamaAIService) {
+      container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
+    } else if (container.registrations.googleAIService) {
+      container.register({ aiService: asValue(container.resolve('googleAIService')) });
+    }
+  } catch (e) {
+    console.warn('[container] Failed to set aiService alias:', e.message);
+  }
+
   // Late-binding unifiedAIService if not already registered (after dynamic services loaded)
   try {
-    if (!container.registrations.unifiedAIService) {
-      const candidateNames = ['openrouterAIService','googleAIService','ollamaAIService'];
-      for (const name of candidateNames) {
-        if (container.registrations[name]) {
-          const base = container.resolve(name);
-          unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
-          container.register({ unifiedAIService: asValue(unifiedAIService) });
-          console.log('[container] Registered unifiedAIService wrapping', name);
-          // If decisionMaker already instantiated, inject adapter reference
-          try {
-            if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
-              container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
-              console.log('[container] Injected unifiedAIService into existing decisionMaker instance.');
-            }
-          } catch (e) {
-            console.warn('[container] Failed to inject unifiedAIService into decisionMaker:', e.message);
-          }
-          break;
+    // Always bind unifiedAIService to the best available chat provider, preferring OpenRouter.
+  const preferred = ['openrouterAIService','ollamaAIService','googleAIService'];
+    let wrappedName = null;
+    for (const name of preferred) {
+      if (container.registrations[name]) { wrappedName = name; break; }
+    }
+    if (wrappedName) {
+      const base = container.resolve(wrappedName);
+      unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
+      // Overwrite any previous registration to ensure correct provider
+      container.register({ unifiedAIService: asValue(unifiedAIService) });
+      console.log('[container] Registered unifiedAIService wrapping', wrappedName);
+      // If decisionMaker already instantiated, inject adapter reference
+      try {
+        if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
+          container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
+          console.log('[container] Injected unifiedAIService into existing decisionMaker instance.');
         }
+      } catch (e) {
+        console.warn('[container] Failed to inject unifiedAIService into decisionMaker:', e.message);
       }
     }
   } catch (e) {
