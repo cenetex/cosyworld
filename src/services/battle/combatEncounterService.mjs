@@ -4,12 +4,14 @@
  * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
-  constructor({ logger, diceService, avatarService, mapService, battleService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager }) {
+  constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager }) {
   this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
     this.mapService = mapService;
     this.battleService = battleService;
+    // Prefer direct injection of battleMediaService (container-registered); fall back to any instance hung off battleService
+    this.battleMediaService = battleMediaService || (battleService && battleService.battleMediaService) || null;
     this.databaseService = databaseService;
     this.unifiedAIService = unifiedAIService; // optional
     this.discordService = discordService; // for embeds / announcements
@@ -407,7 +409,7 @@ export class CombatEncounterService {
       const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
       if (target && this.battleService?.attack) {
         const messageShim = { channel: { id: encounter.channelId } };
-  const services = { combatEncounterService: this, battleMediaService: this.battleService?.battleMediaService, discordService: this.discordService };
+  const services = { combatEncounterService: this, battleMediaService: this.battleMediaService || this.battleService?.battleMediaService, discordService: this.discordService };
         const res = await this.battleService.attack({ message: messageShim, attacker: actor.ref, defender: target.ref, services });
         if (res?.message) {
           await post(`${actor.name} used attack ⚔️\n${res.message}`);
@@ -953,7 +955,8 @@ Message: ${messageContent}`;
         fields: [{ name: 'Status', value: status.slice(0, 1024) }],
       };
       try {
-        if (this.battleService?.battleMediaService) {
+        if (this.battleMediaService || this.battleService?.battleMediaService) {
+          const bms = this.battleMediaService || this.battleService?.battleMediaService;
           const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
           let media = null;
           let attacker = null;
@@ -966,7 +969,7 @@ Message: ${messageContent}`;
             // Prefer summary generator so videos are only created in summary
             if (!media || (!media.imageUrl && !media.videoUrl)) {
               try {
-                media = await this.battleService.battleMediaService.generateSummaryMedia({
+                media = await bms.generateSummaryMedia({
                   winner: attacker,
                   loser: defender,
                   outcome: encounter.knockout.result,
@@ -974,9 +977,9 @@ Message: ${messageContent}`;
                 });
               } catch {}
             }
-            if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
+            if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateFightPoster) {
               try {
-                const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
+                const poster = await bms.generateFightPoster({ attacker, defender, location: loc?.location });
                 if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
               } catch {}
             }
@@ -997,14 +1000,14 @@ Message: ${messageContent}`;
               const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
               attacker = winnerC?.ref;
               defender = loserC?.ref;
-              media = await this.battleService.battleMediaService.generateSummaryMedia({
+              media = await bms.generateSummaryMedia({
                 winner: attacker,
                 loser: defender,
                 outcome: 'win',
                 location: loc?.location
               });
             } catch {}
-            if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
+            if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateFightPoster) {
               try {
                 // Choose first two combatants for poster if attacker/defender not set
                 if (!attacker || !defender) {
@@ -1013,13 +1016,13 @@ Message: ${messageContent}`;
                   attacker = attacker || c0;
                   defender = defender || c1 || c0; // handle solo case
                 }
-                const poster = await this.battleService.battleMediaService.generateFightPoster({ attacker, defender, location: loc?.location });
+                const poster = await bms.generateFightPoster({ attacker, defender, location: loc?.location });
                 if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
               } catch {}
             }
           }
           // If nothing yet, try a dedicated summary image generator (winner vs loser)
-          if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateSummaryMedia) {
+          if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateSummaryMedia) {
             try {
               const now = Date.now();
               const aliveNow = (encounter.combatants || []).filter(c => {
@@ -1034,7 +1037,7 @@ Message: ${messageContent}`;
                 : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
               const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
               const outcome = encounter.knockout?.result || 'win';
-              const sum = await this.battleService.battleMediaService.generateSummaryMedia({
+              const sum = await bms.generateSummaryMedia({
                 winner: winnerC?.ref,
                 loser: loserC?.ref,
                 outcome,
