@@ -21,6 +21,7 @@ import { SelfieTool } from './tools/SelfieTool.mjs';
 import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
+import { PotionTool } from './tools/PotionTool.mjs';
 
 export class ToolService {
   constructor({
@@ -124,6 +125,7 @@ export class ToolService {
       create: CreationTool,
       x: XSocialTool,
       item: ItemTool,
+  potion: PotionTool,
       respond: ThinkTool,
       forum: ForumTool,
       camera: SelfieTool,
@@ -144,6 +146,8 @@ export class ToolService {
 
   // Ensure ⚔️ maps to 'challenge' by default for neutral initiation
   this.toolEmojis.set('⚔️', 'challenge');
+  // Map 🧪 to the new potion tool
+  this.toolEmojis.set('🧪', 'potion');
   }
 
   registerTool(tool) {
@@ -334,8 +338,9 @@ export class ToolService {
     const inCombat = (() => {
       try { return ces?.isInActiveCombat?.(message.channel.id, avatar.id || avatar._id) || false; } catch { return false; }
     })();
-    const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
-    if (inCombat && !combatAllowed.has(toolName)) {
+  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
+  const isItemUse = toolName === 'item' && Array.isArray(params) && params[0] && String(params[0]).toLowerCase() === 'use';
+  if (inCombat && !combatAllowed.has(toolName) && !isItemUse) {
       return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
     }
 

@@ -667,6 +667,18 @@ export class CombatEncounterService {
     }
   }
 
+  /** Convenience: apply healing to a combatant if present; returns actual healed amount */
+  applyHeal(encounter, avatarId, amount) {
+    try {
+      const c = this.getCombatant(encounter, avatarId);
+      if (!c || typeof amount !== 'number' || amount <= 0) return 0;
+      const before = Math.max(0, c.currentHp || 0);
+      const maxHp = Math.max(1, c.maxHp || c.ref?.stats?.hp || 10);
+      c.currentHp = Math.min(maxHp, before + amount);
+      return c.currentHp - before;
+    } catch { return 0; }
+  }
+
   /** Central handler after an attack result for turn advancement & damage application */
   async handleAttackResult(encounter, { attackerId, defenderId, result }) {
     if (!encounter || encounter.state !== 'active') return;

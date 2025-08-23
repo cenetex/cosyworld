@@ -30,7 +30,7 @@ export class ItemTool extends BasicTool {
     this.logger = logger;
     
     this.name = 'item';
-    this.description = 'Manage items: take, drop, use, store, or craft items. Usage: 📦 take <item>, 📦 drop <item>, 📦 use, 📦 store, or 📦 craft <item1> <item2>.';
+  this.description = 'Manage items: take, drop, use, store, craft, or get your soulbound potion. Usage: 📦 take <item>, 📦 drop <item>, 📦 use, 📦 store, 📦 craft <item1> <item2>, or 📦 potion [select|store].';
     this.emoji = '📦';
     this.replyNotification = true;
   }
@@ -40,12 +40,12 @@ export class ItemTool extends BasicTool {
     await this.discordService.sendAsWebhook(channelId, `**${item.name}**\n\n${item.description}`, item);
   }
 
-  async execute(message, params, avatar) {
+  async execute(message, params, avatar, services = {}) {
     if (!message.channel.guild) {
       return `-# [${this.emoji} This command can only be used in a guild!]`;
     }
     if (!params || params.length < 1) {
-      return `-# [${this.emoji} Usage: !item <use|craft|take|drop|store> [params]]`;
+      return `-# [${this.emoji} Usage: !item <use|craft|take|drop|store|potion> [params]]`;
     }
 
     // No longer using avatar.inventory; only selectedItemId and storedItemId (item IDs)
@@ -64,7 +64,7 @@ export class ItemTool extends BasicTool {
             return `-# [${this.emoji} Selected item not found in inventory.]`;
           }
           const extraContext = params.slice(1).join(' ').trim();
-          const response = await this.itemService.useItem(avatar, item, message.channel.id, extraContext);
+          const response = await this.itemService.useItem(avatar, item, message.channel.id, extraContext, services);
           return response;
         }
         case 'take': {
@@ -133,14 +133,49 @@ export class ItemTool extends BasicTool {
           if (!itemId) {
             return `-# [${this.emoji} No item specified or found to drop.]`;
           }
-          // Remove from avatar
+          // Fetch item and attempt to drop first (prevents clearing slots if disallowed)
+          item = await db.collection('items').findOne({ _id: itemId });
+          const dropped = await this.itemService.dropItem(avatar, item, locationId);
+          if (!dropped) {
+            return `-# [${this.emoji} You cannot drop ${item?.name || 'that item'} (it may be soulbound).]`;
+          }
+          // Remove from avatar only after successful drop
           if (avatar.selectedItemId && avatar.selectedItemId.equals(itemId)) avatar.selectedItemId = null;
           if (avatar.storedItemId && avatar.storedItemId.equals(itemId)) avatar.storedItemId = null;
           await this.avatarService.updateAvatar(avatar);
-          // Update item ownership/location atomically
-          item = await db.collection('items').findOne({ _id: itemId });
-          await this.itemService.dropItem(avatar, item, locationId);
           return `-# [${this.emoji} You dropped ${item.name}.]`;
+        }
+        case 'potion': {
+          // Ensure the avatar has their soulbound, recharging healing potion
+          const behavior = (params[1] || '').toLowerCase(); // optional: select|store
+          const potion = await this.itemService.ensureSoulboundPotion(avatar, { healValue: 10 });
+          let placed = '';
+          // Optionally select or store it for convenience
+          if (behavior === 'select' || (!avatar.selectedItemId)) {
+            avatar.selectedItemId = potion._id;
+            if (avatar.storedItemId && avatar.storedItemId.equals(potion._id)) {
+              avatar.storedItemId = null;
+            }
+            placed = ' (selected)';
+            await this.avatarService.updateAvatar(avatar);
+          } else if (behavior === 'store' || !avatar.storedItemId) {
+            if (!avatar.storedItemId || (avatar.storedItemId && !avatar.storedItemId.equals(potion._id))) {
+              avatar.storedItemId = potion._id;
+              placed = ' (stored)';
+              await this.avatarService.updateAvatar(avatar);
+            }
+          }
+
+          // Show the item and status
+          try { await this.postItemDetails(message.channel.id, potion); } catch {}
+          const charges = Number(potion?.properties?.charges ?? 0);
+          const rechargeAt = Number(potion?.properties?.rechargeAt ?? 0);
+          let status = charges > 0
+            ? `Ready to use. Charges: ${charges}.`
+            : rechargeAt
+              ? `Recharging. Ready <t:${Math.floor(rechargeAt/1000)}:R>.`
+              : 'Recharging soon.';
+          return `-# [${this.emoji} Ensured your Soulbound Potion${placed}. ${status}]`;
         }
         case 'craft': {
           if (!avatar.selectedItemId || !avatar.storedItemId) {
@@ -164,7 +199,7 @@ export class ItemTool extends BasicTool {
           return `-# [${this.emoji} You have crafted a new item: ${newItem.name}]`;
         }
         default:
-          return `-# [${this.emoji} Invalid subcommand. Use !item <use|craft|take|drop|store> [params]]`;
+          return `-# [${this.emoji} Invalid subcommand. Use !item <use|craft|take|drop|store|potion> [params]]`;
       }
     } catch (error) {
       this.logger?.error('Error in ItemTool execute:', error);
@@ -214,10 +249,10 @@ export class ItemTool extends BasicTool {
   }
 
   getDescription() {
-    return 'Manage items: take, drop, use, store, or craft items. Usage: 📦 take <item>, 📦 drop <item>, 📦 use, 📦 store, or 📦 craft <item1> <item2>.';
+  return 'Manage items: take, drop, use, store, craft, or get your soulbound potion. Usage: 📦 take <item>, 📦 drop <item>, 📦 use, 📦 store, 📦 craft <item1> <item2>, or 📦 potion [select|store].';
   }
 
   async getSyntax() {
-    return '📦 take|use|store|craft|drop <item1> <item2>';
+  return '📦 take|use|store|craft|drop|potion <item1> <item2>';
   }
 }

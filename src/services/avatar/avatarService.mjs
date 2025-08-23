@@ -404,7 +404,27 @@ export class AvatarService {
   }
 
   async createAvatar({ prompt, summoner, channelId, guildId }) {
-    const details = await this.generateAvatarDetails(prompt, guildId);
+    let details = null;
+    try {
+      details = await this.generateAvatarDetails(prompt, guildId);
+    } catch (err) {
+      // Harden against upstream structured-output/JSON issues by falling back to a simple heuristic
+      this.logger?.warn?.(`generateAvatarDetails failed: ${err?.message || err}`);
+      try {
+        const fallbackPrompt = [
+          { role: 'system', content: 'You are generating a minimal RPG character. Reply with a single line: Name | One-sentence description | emoji | model (short). No JSON.' },
+          { role: 'user', content: `Create a character for: ${prompt}` }
+        ];
+        const raw = await this.aiService.chat(fallbackPrompt, { max_tokens: 128 });
+        const text = typeof raw === 'object' && raw?.text ? raw.text : String(raw || '');
+        const parts = text.split('|').map(s => s.trim()).filter(Boolean);
+        const [name, description, emoji, model] = [parts[0] || 'Wanderer', parts[1] || 'A curious soul.', parts[2] || '🙂', parts[3] || 'auto'];
+        details = { name, description, personality: parts[1] || 'curious', emoji, model };
+      } catch (e2) {
+        this.logger?.error?.(`Fallback avatar details failed: ${e2?.message || e2}`);
+        return null;
+      }
+    }
     if (!details?.name) return null;
 
     const existing = await this.getAvatarByName(details.name);
@@ -413,8 +433,13 @@ export class AvatarService {
   // as freshly created (prevent duplicate introductions, stat overrides, etc.)
   if (existing) return { ...existing, _existing: true };
 
-    const imageUrl = await this.generateAvatarImage(details.description);
-    const model = await this.aiService.getModel(details.model);
+    let imageUrl = null;
+    try { imageUrl = await this.generateAvatarImage(details.description); } catch (e) {
+      this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
+      imageUrl = null;
+    }
+    let model = null;
+    try { model = await this.aiService.getModel(details.model); } catch { model = details.model || 'auto'; }
 
     const doc = {
       ...details,
