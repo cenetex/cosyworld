@@ -4,6 +4,7 @@
  */
 
 import { handleCommands } from "../commands/commandHandler.mjs";
+import { ToolPlannerService } from "../tools/ToolPlannerService.mjs";
 const CONSTRUCTION_ROADBLOCK_EMOJI = '🚧';
 
 /**
@@ -46,6 +47,9 @@ export class MessageHandler  {
     this.moderationService = moderationService;
     this.mapService = mapService;
 
+  // Lazy-initialized tool planner; constructed in start() to ensure services are ready
+  this.toolPlanner = null;
+
     this.client = this.discordService.client;
     this.started = false;
 
@@ -73,6 +77,19 @@ export class MessageHandler  {
     this.logger.info('MessageHandler started.');
 
     await this.moderationService.refreshDynamicRegex();
+
+    // Initialize tool planner
+    try {
+      this.toolPlanner = new ToolPlannerService({
+        logger: this.logger,
+        configService: this.configService,
+        toolService: this.toolService,
+        schedulingService: this.schedulingService,
+      });
+    } catch (e) {
+      this.logger.warn?.(`ToolPlanner init failed: ${e.message}`);
+      this.toolPlanner = null;
+    }
   }
 
   async stop() {
@@ -187,6 +204,16 @@ export class MessageHandler  {
 
     // Structured moderation: backlog moderation if needed
     await this.moderationService.moderateBacklogIfNeeded(message.channel);
+
+    // Agentic tool planning phase (post-response, general chat only)
+    try {
+      if (this.toolPlanner && !message.author.bot) {
+        const context = this.conversationManager.getChannelContext(message.channel.id) || {};
+        await this.toolPlanner.planAndMaybeExecute(message, (await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id)) || (await this.avatarService.summonUserAvatar(message)).avatar, context);
+      }
+    } catch (e) {
+      this.logger.debug?.(`Agentic planner skipped: ${e.message}`);
+    }
 
   this.logger.debug(`Message processed successfully in channel ${channelId}`);
   }
