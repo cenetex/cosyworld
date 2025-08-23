@@ -190,6 +190,8 @@ export class CombatEncounterService {
       lastHostileAt: null,
   lastActionAt: null,
   lastAction: null,
+  // Chatter tracking to avoid repetitive speakers
+  chatter: { spokenThisRound: new Set(), lastSpeakerId: null },
       timers: {},
   knockout: null,
   knockoutMedia: null,
@@ -229,6 +231,10 @@ export class CombatEncounterService {
     encounter.startedAt = Date.now();
   encounter.round = 1;
   encounter.currentTurnIndex = 0;
+  // Reset chatter tracking for new combat
+  encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+  encounter.chatter.spokenThisRound = new Set();
+  encounter.chatter.lastSpeakerId = null;
   // Wait for fight poster phase (if any) before initiative and chatter for clean ordering
   try { await encounter.posterBlocker?.promise; } catch {}
   // Skip the old 'Combat Initiated' embed. Go straight to brief chatter before first turn.
@@ -262,6 +268,12 @@ export class CombatEncounterService {
         return;
       }
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] round wrap -> round=${encounter.round}`);
+      // New round: reset chatter tracking
+      try {
+        encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+        encounter.chatter.spokenThisRound = new Set();
+        encounter.chatter.lastSpeakerId = null;
+      } catch {}
       await this._postRoundDiscussion(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] round discussion failed: ${e.message}`));
       if (this.enableRoundPlanning) {
         await this._roundPlanningPhase(encounter);
@@ -817,7 +829,26 @@ Message: ${messageContent}`;
     const defender = this.getCombatant(encounter, ctx.defenderId)?.ref;
     if (!attacker || !defender) return;
     // Choose speaker based on outcome: miss/hit -> defender, KO/death -> attacker
-    const speaker = (ctx.result === 'knockout' || ctx.result === 'dead') ? attacker : defender;
+    let speaker = (ctx.result === 'knockout' || ctx.result === 'dead') ? attacker : defender;
+    // Avoid repeating same speaker back-to-back and more than once per round
+    try {
+      encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+      const spoken = encounter.chatter.spokenThisRound instanceof Set ? encounter.chatter.spokenThisRound : new Set();
+      const lastId = encounter.chatter.lastSpeakerId || null;
+      const speakerId = this._normalizeId(speaker?.id || speaker?._id);
+      // Swap to the other participant if current already spoke or is same as last speaker
+      if ((speakerId && spoken.has(speakerId)) || (lastId && speakerId === lastId)) {
+        const alt = (speaker === attacker) ? defender : attacker;
+        speaker = alt || speaker;
+      }
+      // Update tracking
+      const finalId = this._normalizeId(speaker?.id || speaker?._id);
+      if (finalId) {
+        spoken.add(finalId);
+        encounter.chatter.spokenThisRound = spoken;
+        encounter.chatter.lastSpeakerId = finalId;
+      }
+    } catch {}
     try {
       const channel = this._getChannel(encounter);
       if (!channel) return;
@@ -927,13 +958,35 @@ Message: ${messageContent}`;
     try {
       const channel = this._getChannel(encounter);
       if (!channel) return;
+      // Respect initiative order: pick next two in order after current turn
       const currentId = this.getCurrentTurnAvatarId(encounter);
-      const others = encounter.combatants.filter(c => this._normalizeId(c.avatarId) !== this._normalizeId(currentId));
-      const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 2);
-      for (const c of shuffled) {
+      const order = encounter.initiativeOrder || [];
+      const idx = Math.max(0, order.indexOf(this._normalizeId(currentId)));
+      const nextIds = [order[(idx + 1) % order.length], order[(idx + 2) % order.length]].filter(Boolean);
+      // Filter to alive and distinct
+      const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
+      const nextInOrder = nextIds
+        .map(id => alive.find(c => this._normalizeId(c.avatarId) === this._normalizeId(id)))
+        .filter(Boolean);
+      // Avoid duplicates: one message per combatant per round and not the last speaker
+      encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+      const spoken = encounter.chatter.spokenThisRound instanceof Set ? encounter.chatter.spokenThisRound : new Set();
+      const lastId = encounter.chatter.lastSpeakerId || null;
+      const candidates = nextInOrder.filter(c => {
+        const cid = this._normalizeId(c.avatarId);
+        return cid && !spoken.has(cid) && cid !== this._normalizeId(currentId) && cid !== lastId;
+      }).slice(0, 2);
+      for (const c of candidates) {
         try {
           this.logger.info?.(`[CombatEncounter][${encounter.channelId}] inter-turn chatter: ${c.ref?.name}`);
           await conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true });
+          // mark as spoken
+          const cid = this._normalizeId(c.avatarId);
+          if (cid) {
+            spoken.add(cid);
+            encounter.chatter.spokenThisRound = spoken;
+            encounter.chatter.lastSpeakerId = cid;
+          }
         } catch {}
       }
     } catch (e) {
@@ -954,6 +1007,8 @@ Message: ${messageContent}`;
         color: 0x7289da,
         fields: [{ name: 'Status', value: status.slice(0, 1024) }],
       };
+  // Capture any video URL we plan to post separately after the embed
+  let _videoUrl = null;
       try {
         if (this.battleMediaService || this.battleService?.battleMediaService) {
           const bms = this.battleMediaService || this.battleService?.battleMediaService;
@@ -1051,11 +1106,8 @@ Message: ${messageContent}`;
 
           // Attach media if any
           if (media?.imageUrl) embed.image = { url: media.imageUrl };
-          if (media?.videoUrl) {
-            // Prefer native embed video if client allows; also keep link in description as fallback
-            embed.video = { url: media.videoUrl };
-            embed.description = `${embed.description || ''}\n🎬 Final Clip: ${media.videoUrl}`.trim();
-          }
+          // Do not attach video inside the embed; post it separately for reliable inline playback
+          _videoUrl = media?.videoUrl || null;
           // Fallback to avatar image if no generated image
           if (!embed.image && (attacker?.imageUrl || defender?.imageUrl)) {
             embed.image = { url: attacker?.imageUrl || defender?.imageUrl };
@@ -1064,9 +1116,16 @@ Message: ${messageContent}`;
       } catch (e) {
         this.logger.warn?.(`[CombatEncounter] summary media failed: ${e.message}`);
       }
-  // If a video URL exists, include it in content for best chance of inline playback
-  const content = embed?.video?.url ? `🎬 ${embed.video.url}` : undefined;
-  await channel.send({ content, embeds: [embed] });
+  // Send the embed first
+  await channel.send({ embeds: [embed] });
+  // Then, if a video URL exists, post it as a separate message so the client can inline it
+  try {
+    if (typeof _videoUrl === 'string' && _videoUrl.length > 0) {
+      await channel.send({ content: `🎬 Final clip: ${_videoUrl}` });
+    }
+  } catch (e) {
+    this.logger.warn?.(`[CombatEncounter] posting video link failed: ${e.message}`);
+  }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] summary send error: ${e.message}`);
     }

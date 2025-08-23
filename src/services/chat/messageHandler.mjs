@@ -277,6 +277,24 @@ export class MessageHandler  {
         return;
       }
 
+      // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness
+      try {
+        if (message?.author && !message.author.bot && typeof message.content === 'string' && message.content.trim()) {
+          const lower = message.content.toLowerCase();
+          const mentioned = eligibleAvatars.find(av => {
+            const name = String(av.name || '').toLowerCase();
+            const emo = String(av.emoji || '').toLowerCase();
+            if (!name && !emo) return false;
+            return (name && lower.includes(name)) || (emo && lower.includes(emo));
+          });
+          if (mentioned && this.decisionMaker?._recordAffinity) {
+            const avId = `${mentioned._id || mentioned.id}`;
+            this.decisionMaker._recordAffinity(channelId, message.author.id, avId);
+            this.logger.debug?.(`Affinity recorded for user ${message.author.id} -> avatar ${avId} in ${channelId}`);
+          }
+        }
+      } catch {}
+
       const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
         eligibleAvatars,
         message

@@ -34,8 +34,9 @@ export class DecisionMaker  {
       RECENT_SUMMON_COOLDOWN: 30 * 1000,       // 30 seconds
       MINIMUM_ATTENTION_THRESHOLD: 15,
       ATTENTION_DECAY_RATE: 0.95,              // Decay rate per minute
-      TOP_N: 8,
-      RANDOM_N: 5
+  TOP_N: 8,
+  RANDOM_N: 5,
+  STICKY_WINDOW_MS: Number(process.env.STICKY_WINDOW_MS || 10 * 60 * 1000)
     };
 
     // Mind modes for varying behavior
@@ -47,6 +48,10 @@ export class DecisionMaker  {
     this.botMentionDebounce = new Map();      // avatarId -> timestamp
     this.attentionStates = new Map();         // avatarId -> { level, lastResponse, lastMention }
     this.dailyHumanResponseCount = new Map(); // userId -> { count, lastReset }
+
+  // Sticky user→avatar affinity per channel (in-memory with TTL)
+  // key: `${channelId}:${userId}` -> { avatarId: string, until: number, strength: number }
+  this.userAffinity = new Map();
   }
 
   /** Get or reset human response count for daily limits */
@@ -98,12 +103,47 @@ export class DecisionMaker  {
   }
 
   /**
+   * Record a sticky affinity binding a human user to an avatar in a channel for a period.
+   * Subsequent messages from that user will bias selection toward this avatar until expiry.
+   */
+  _recordAffinity(channelId, userId, avatarId, ttlMs = this.config.STICKY_WINDOW_MS || 10 * 60 * 1000, strength = 1) {
+    if (!channelId || !userId || !avatarId) return;
+    const key = `${channelId}:${userId}`;
+    const until = Date.now() + Math.max(5_000, ttlMs);
+    this.userAffinity.set(key, { avatarId: String(avatarId), until, strength: Math.max(1, strength) });
+  }
+
+  /**
+   * Resolve sticky affinity for a user in a channel if not expired.
+   */
+  _getAffinityAvatarId(channelId, userId) {
+    if (!channelId || !userId) return null;
+    const key = `${channelId}:${userId}`;
+    const rec = this.userAffinity.get(key);
+    if (!rec) return null;
+    if (Date.now() > rec.until) {
+      this.userAffinity.delete(key);
+      return null;
+    }
+    return rec.avatarId || null;
+  }
+
+  /**
    * Selects a subset of avatars to consider for responding to a message.
    * @param {Array} avatars - List of all avatars in the channel.
    * @param {Object} message - The Discord message object.
    * @returns {Array} Subset of avatars to consider.
    */
   selectAvatarsToConsider(avatars, message) {
+    // If there's a sticky affinity from this human, prefer that avatar first
+    let sticky = null;
+    try {
+      if (message?.author && !message.author.bot) {
+        const favId = this._getAffinityAvatarId(message.channel?.id || message.channelId, message.author.id);
+        if (favId) sticky = avatars.find(a => `${a.id || a._id}` === `${favId}` || `${a._id}` === `${favId}`);
+      }
+    } catch {}
+
     // Filter avatars directly mentioned in the message
     const mentioned = avatars.filter(avatar => this._isMentioned(message, avatar));
 
@@ -124,7 +164,12 @@ export class DecisionMaker  {
     const randomM = this._selectRandom(remaining.slice(this.config.TOP_N || 3), this.config.RANDOM_M || 2);
 
     // Combine into final subset
-    return [...mentioned, ...topN, ...randomM];
+    const combined = [...mentioned, ...topN, ...randomM];
+    // Ensure sticky avatar is at the front if present and not already included
+    if (sticky && !combined.some(a => (a._id || a.id)?.toString() === (sticky._id || sticky.id)?.toString())) {
+      return [sticky, ...combined];
+    }
+    return combined;
   }
 
   /**
@@ -160,6 +205,12 @@ export class DecisionMaker  {
     if (triggerMessage && this._isMentioned(triggerMessage, avatar)) {
       this._updateAttention(avatar.id, 30);
       this._updateConversation(channel.id, avatar.id);
+      // Record sticky affinity for this human → avatar in this channel
+      try {
+        if (triggerMessage.author && !triggerMessage.author.bot) {
+          this._recordAffinity(channel.id, triggerMessage.author.id, avatar.id);
+        }
+      } catch {}
       return true;
     }
 
@@ -182,11 +233,32 @@ export class DecisionMaker  {
     const isBot = lastMessage.author.bot;
     const isHuman = !isBot;
 
+    // Sticky bias: if this human has affinity to this avatar, strongly bias response (respect cooldown)
+    if (isHuman) {
+      const favId = this._getAffinityAvatarId(channel.id, lastMessage.author.id);
+      if (favId && (favId === avatar.id || favId === `${avatar._id}`)) {
+        // Slightly relax cooldown window when sticky
+        const stickyCooldown = Math.max(10_000, Math.floor((this.config.PER_AVATAR_COOLDOWN || 120_000) * 0.6));
+        const state = this._getAttentionState(avatar.id);
+        if (Date.now() - state.lastResponse >= stickyCooldown) {
+          this._updateAttention(avatar.id, 20);
+          this._updateConversation(channel.id, avatar.id);
+          return true;
+        }
+      }
+    }
+
     // Check for direct mentions
     const mentioned = this._isMentioned(lastMessage, avatar);
     if (mentioned) {
       this._updateAttention(avatar.id, isBot ? 20 : 30);
       this._updateConversation(channel.id, avatar.id);
+      // Refresh/extend sticky affinity on subsequent mentions
+      try {
+        if (lastMessage.author && !lastMessage.author.bot) {
+          this._recordAffinity(channel.id, lastMessage.author.id, avatar.id);
+        }
+      } catch {}
       return true;
     }
 
