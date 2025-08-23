@@ -168,17 +168,17 @@ export class BattleService  {
   targetAvatar.status = 'knocked_out';
   targetAvatar.knockedOutUntil = now + 24 * 60 * 60 * 1000; // 24 hours
   await this.avatarService.updateAvatar(targetAvatar);
-  // Movement: send KO'd avatar to Graveyard thread under their current channel
+  // Movement: send KO'd avatar to Tavern thread under their current channel
   try {
     const discordService = _services?.discordService;
     const baseChannelId = _message?.channel?.id || targetAvatar.channelId;
     if (discordService?.getOrCreateThread && baseChannelId && this.mapService?.updateAvatarPosition) {
-      const graveyardId = await discordService.getOrCreateThread(baseChannelId, 'graveyard');
-      await this.mapService.updateAvatarPosition(targetAvatar, graveyardId);
-      this.logger?.info?.(`[BattleService] KO move: ${targetAvatar.name} → Graveyard (${graveyardId})`);
+      const tavernId = await discordService.getOrCreateThread(baseChannelId, 'tavern');
+      await this.mapService.updateAvatarPosition(targetAvatar, tavernId);
+      this.logger?.info?.(`[BattleService] KO move: ${targetAvatar.name} → Tavern (${tavernId})`);
     }
   } catch (e) {
-    this.logger?.warn?.(`[BattleService] KO graveyard move failed: ${e.message}`);
+    this.logger?.warn?.(`[BattleService] KO tavern move failed: ${e.message}`);
   }
     return {
       result: 'knockout',

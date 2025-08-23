@@ -220,7 +220,17 @@ export class OpenRouterAIService {
         }
       }
 
-      if (!result.content && !result.reasoning) {
+        // Normalize content that might be an array of segments
+        let normalizedContent = result.content;
+        if (Array.isArray(normalizedContent)) {
+          try {
+            normalizedContent = normalizedContent.map(p => (typeof p === 'string' ? p : p?.text || p?.content || ''))
+              .filter(Boolean)
+              .join('\n')
+              .trim();
+          } catch {}
+        }
+        if (!normalizedContent && !result.reasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
         this.logger.info(JSON.stringify(result, null, 2));
         const txt = '\n-# [⚠️ No response from OpenRouter]';
@@ -228,7 +238,9 @@ export class OpenRouterAIService {
       }
 
       if (result.reasoning) { 
-        result.content = '<think>' + result.reasoning + '</think>' + result.content;
+          result.content = '<think>' + result.reasoning + '</think>' + (normalizedContent || '');
+        } else {
+          result.content = normalizedContent;
       }
 
   const baseText = (String(result.content || '').trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');

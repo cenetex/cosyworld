@@ -2,6 +2,8 @@
  * BattleMediaService
  * Generates battle scene images and optional short video clips based on attack outcomes.
  */
+import axios from 'axios';
+
 export class BattleMediaService {
   constructor({ logger, aiService, googleAIService, s3Service, veoService }) {
     this.logger = logger || console;
@@ -35,7 +37,16 @@ export class BattleMediaService {
       const buf = await this.s3Service.downloadImage(url);
       return buf?.toString('base64') || null;
     } catch (e) {
-      this.logger?.warn?.(`[BattleMedia] download failed: ${e.message}`);
+      this.logger?.warn?.(`[BattleMedia] s3 download failed: ${e.message}`);
+      // Fallback: fetch via HTTP if URL is external
+      try {
+        if (/^https?:\/\//i.test(url)) {
+          const resp = await axios.get(url, { responseType: 'arraybuffer' });
+          return Buffer.from(resp.data).toString('base64');
+        }
+      } catch (e2) {
+        this.logger?.warn?.(`[BattleMedia] http download failed: ${e2.message}`);
+      }
       return null;
     }
   }

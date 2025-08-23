@@ -390,6 +390,14 @@ export class ConversationManager  {
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
   this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown}`);
   let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId });
+      // Log non-string/atypical shapes for diagnostics
+      try {
+        if (result && typeof result !== 'string') {
+          const keys = Object.keys(result || {});
+          const preview = (() => { try { return JSON.stringify(result).slice(0, 500); } catch { return '[unstringifiable]'; } })();
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] non-string result; keys=${keys.join(',')}; preview=${preview}`);
+        }
+      } catch {}
       if (result && typeof result === 'object' && result.text) {
         response = result.text;
       } else {
@@ -397,15 +405,22 @@ export class ConversationManager  {
       }
       if (!response) {
         this.logger.error(`Empty response generated for ${avatar.name}`);
+        try {
+          const preview = (() => { try { return JSON.stringify(result).slice(0, 500); } catch { return String(result); } })();
+          this.logger.error(`[AI][sendResponse][${corrId}] empty response; rawPreview=${preview}`);
+        } catch {}
         return null;
       }
       // Normalize and strip any avatar prefix before processing think tags
       response = this.removeAvatarPrefix(this._normalizeToText(response, 'send.raw'), avatar);
     }
 
-      const finalText = this._normalizeToText(response, 'send.final');
+    const finalText = this._normalizeToText(response, 'send.final');
       if (!finalText || finalText === '[object Object]') {
-        this.logger.warn?.(`[AI][sendResponse] Suppressing non-text output for ${avatar.name}.`);
+        try {
+          const preview = (() => { try { return JSON.stringify(response).slice(0, 300); } catch { return String(response); } })();
+      this.logger.warn?.(`[AI][sendResponse] Suppressing non-text output for ${avatar.name}; preview=${preview}`);
+        } catch {}
         return null;
       }
       if (finalText && finalText.trim()) {
@@ -498,7 +513,7 @@ export class ConversationManager  {
         // If there was only think tags and no other content, still process thoughts but don't send a message
         else if (thoughts.length > 0) {
           // Just log that we processed thoughts without sending a message
-          this.logger.debug(`Processed ${thoughts.length} thought(s) for ${avatar.name} without sending a message`);
+          this.logger.debug(`Processed ${thoughts.length} thought(s) for ${avatar.name} without sending a message (think-only).`);
         }
       }
       this.channelLastMessage.set(channel.id, Date.now());
