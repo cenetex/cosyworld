@@ -24,10 +24,12 @@ export class BattleMediaService {
     const base = {
       dead: `Final blow moment: ${attacker.name} defeats ${defender.name}. BOTH characters visible in the same shot, decisive impact, dramatic particles, 16:9 widescreen. Do NOT render a solo portrait; include both fighters.${location?.name ? ` Setting: ${location.name}.` : ''}` ,
       knockout: `Knockout moment: ${attacker.name} drops ${defender.name}. BOTH characters visible in the same shot, dramatic impact, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}` ,
-      hit: `Cinematic strike: ${attacker.name} hits ${defender.name}. BOTH characters visible in the same shot, dynamic action, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}`
+      hit: `Cinematic strike: ${attacker.name} hits ${defender.name}. BOTH characters visible in the same shot, dynamic action, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}`,
+      miss: `Dramatic near-miss: ${attacker.name}'s attack narrowly misses ${defender.name}. BOTH characters visible in the same shot, tense motion blur, defensive dodge, 16:9 widescreen. No solo portraits.${location?.name ? ` Setting: ${location.name}.` : ''}`
     };
     if (result?.result === 'dead') return base.dead;
     if (result?.result === 'knockout') return base.knockout;
+    if (result?.result === 'miss') return base.miss;
     return base.hit;
   }
 
@@ -114,7 +116,8 @@ export class BattleMediaService {
     try {
       if (!this.s3Service) return null; // media disabled
       if (!result || !attacker || !defender) return null;
-      if (!['hit','knockout','dead'].includes(result.result)) return null;
+  // Allow image generation for misses too so the UI always has a battle scene frame
+  if (!['hit','knockout','dead','miss'].includes(result.result)) return null;
 
   const scenePrompt = this._buildScenePrompt(attacker, defender, result, location);
 
@@ -164,6 +167,58 @@ export class BattleMediaService {
       return { imageUrl };
     } catch (e) {
       this.logger?.warn?.(`[BattleMedia] generateFightPoster error: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate media for the combat summary. Always attempts an image of the climactic moment
+   * (winner vs loser in one 16:9 shot). If outcome is 'knockout' or 'dead' and a video service
+   * is available, also attempts a short video clip.
+   *
+   * @param {Object} params
+   * @param {Object} params.winner - The winner combatant { name, imageUrl }
+   * @param {Object} params.loser - The loser combatant { name, imageUrl }
+   * @param {('dead'|'knockout'|'win')} params.outcome - Final outcome for the loser
+   * @param {Object} [params.location] - Optional location { name, imageUrl }
+   * @returns {Promise<{ imageUrl: string|null, videoUrl: string|null }|null>}
+   */
+  async generateSummaryMedia({ winner, loser, outcome, location }) {
+    try {
+      if (!this.s3Service) return null;
+      if (!winner || !loser) return null;
+
+      const scenePrompt = (() => {
+        const loc = location?.name || location?.title;
+        const base = `${winner.name || 'Winner'} stands over ${loser.name || 'Opponent'} in the decisive moment. BOTH characters visible in one dramatic 16:9 shot, strong lighting, dynamic composition. Avoid solo portrait.`;
+        const withLoc = loc ? `${base} Setting: ${loc}.` : base;
+        if (outcome === 'dead') return `Final victory: ${withLoc} Emphasize the finishing blow impact and particles.`;
+        if (outcome === 'knockout') return `Knockout victory: ${withLoc} Emphasize the KO impact and motion.`;
+        return `Victory standoff: ${withLoc} Emphasize closure and tension release.`;
+      })();
+
+      const images = [];
+      const w64 = await this._downloadAsBase64(winner.imageUrl);
+      if (w64) images.push({ data: w64, mimeType: 'image/png', label: 'winner' });
+      const l64 = await this._downloadAsBase64(loser.imageUrl);
+      if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'loser' });
+      const loc64 = await this._downloadAsBase64(location?.imageUrl);
+      if (loc64) images.push({ data: loc64, mimeType: 'image/png', label: 'location' });
+      images.splice(3);
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+
+      // For summary, attempt a video if knockout/death occurred
+      let videoUrl = null;
+      if (imageUrl && (outcome === 'dead' || outcome === 'knockout')) {
+        const fauxResult = { result: outcome, critical: false };
+        videoUrl = await this._maybeGenerateVideo({ attacker: winner, defender: loser, result: fauxResult, imageUrl });
+      }
+
+      if (!imageUrl && !videoUrl) return null;
+      return { imageUrl, videoUrl };
+    } catch (e) {
+      this.logger?.warn?.(`[BattleMedia] generateSummaryMedia error: ${e.message}`);
       return null;
     }
   }

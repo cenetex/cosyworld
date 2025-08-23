@@ -998,6 +998,34 @@ Message: ${messageContent}`;
               } catch {}
             }
           }
+          // If nothing yet, try a dedicated summary image generator (winner vs loser)
+          if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateSummaryMedia) {
+            try {
+              const now = Date.now();
+              const aliveNow = (encounter.combatants || []).filter(c => {
+                const hpOk = (c.currentHp || 0) > 0;
+                const notDead = c.ref?.status !== 'dead';
+                const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+                return hpOk && notDead && notKO;
+              });
+              const everyone = (encounter.combatants || []).slice();
+              const winnerC = aliveNow.length === 1
+                ? aliveNow[0]
+                : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
+              const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
+              const outcome = encounter.knockout?.result || 'win';
+              const sum = await this.battleService.battleMediaService.generateSummaryMedia({
+                winner: winnerC?.ref,
+                loser: loserC?.ref,
+                outcome,
+                location: loc?.location
+              });
+              if (sum?.imageUrl || sum?.videoUrl) media = sum;
+            } catch (e) {
+              this.logger.warn?.(`[CombatEncounter] summary fallback media failed: ${e.message}`);
+            }
+          }
+
           // Attach media if any
           if (media?.imageUrl) embed.image = { url: media.imageUrl };
           if (media?.videoUrl) {
