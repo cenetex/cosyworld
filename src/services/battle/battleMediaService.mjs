@@ -131,12 +131,10 @@ export class BattleMediaService {
       if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
-      const videoUrl = await this._maybeGenerateVideo({ attacker, defender, result, imageUrl });
-
-  if (!imageUrl && !videoUrl) return null;
-  // Return media only; callers are responsible for embedding
-  return { imageUrl, videoUrl };
+  const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+  // Mid-battle: never generate video here. Video is only attempted in summaries.
+  if (!imageUrl) return null;
+  return { imageUrl, videoUrl: null };
     } catch (e) {
       this.logger?.warn?.(`[BattleMedia] generateForAttack error: ${e.message}`);
       return null;

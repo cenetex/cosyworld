@@ -963,9 +963,15 @@ Message: ${messageContent}`;
             attacker = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref;
             defender = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref;
             media = encounter.knockoutMedia || null;
+            // Prefer summary generator so videos are only created in summary
             if (!media || (!media.imageUrl && !media.videoUrl)) {
               try {
-                media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: { result: encounter.knockout.result }, location: loc?.location });
+                media = await this.battleService.battleMediaService.generateSummaryMedia({
+                  winner: attacker,
+                  loser: defender,
+                  outcome: encounter.knockout.result,
+                  location: loc?.location
+                });
               } catch {}
             }
             if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
@@ -975,15 +981,29 @@ Message: ${messageContent}`;
               } catch {}
             }
           } else {
-            // Non-KO end: try to illustrate last action or a generic poster
-            if (encounter.lastAction) {
-              attacker = this.getCombatant(encounter, encounter.lastAction.attackerId)?.ref;
-              defender = this.getCombatant(encounter, encounter.lastAction.defenderId)?.ref;
-              const resultStub = { result: encounter.lastAction.result || 'hit', critical: !!encounter.lastAction.critical };
-              try {
-                media = await this.battleService.battleMediaService.generateForAttack({ attacker, defender, result: resultStub, location: loc?.location });
-              } catch {}
-            }
+            // Non-KO end: prefer a summary scene of the winner vs loser
+            try {
+              const now = Date.now();
+              const aliveNow = (encounter.combatants || []).filter(c => {
+                const hpOk = (c.currentHp || 0) > 0;
+                const notDead = c.ref?.status !== 'dead';
+                const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+                return hpOk && notDead && notKO;
+              });
+              const everyone = (encounter.combatants || []).slice();
+              const winnerC = aliveNow.length === 1
+                ? aliveNow[0]
+                : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
+              const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
+              attacker = winnerC?.ref;
+              defender = loserC?.ref;
+              media = await this.battleService.battleMediaService.generateSummaryMedia({
+                winner: attacker,
+                loser: defender,
+                outcome: 'win',
+                location: loc?.location
+              });
+            } catch {}
             if ((!media || (!media.imageUrl && !media.videoUrl)) && this.battleService?.battleMediaService?.generateFightPoster) {
               try {
                 // Choose first two combatants for poster if attacker/defender not set
