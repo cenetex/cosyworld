@@ -20,6 +20,9 @@ export class DiscordService {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
+  // Optional cross-service hooks
+  this.getMapService = services.getMapService || null;
+  this.avatarService = services.avatarService || null;
     
     this.webhookCache = new Map();
     this.client = new Client({
@@ -167,6 +170,51 @@ export class DiscordService {
             await message.reply('Sorry, I could not start the wallet link flow. Please try again in a minute.');
           }
         } catch {}
+      }
+    });
+
+    // When a thread is created from a message, move the speaking avatar into that thread
+    this.client.on('threadCreate', async (thread) => {
+      try {
+        // Only act on newly created threads under text channels
+        if (!thread || !thread.parentId || !thread.guild) return;
+        const parentId = thread.parentId;
+        // Try to fetch the starter message; if not available, skip
+        let starter = null;
+        try { starter = await thread.fetchStarterMessage(); } catch {}
+        if (!starter) return;
+
+        // We only care about messages sent by our webhook (avatar speech). Webhook messages have webhookId set.
+        if (!starter.webhookId) return;
+
+        // Resolve avatar by the webhook display name within the parent channel
+        const avatarName = starter.author?.username;
+        if (!avatarName) return;
+
+        const db = await this.databaseService.getDatabase();
+        if (!db) return;
+
+        // Find the avatar that last spoke with this name in the parent channel
+        const avatar = await db.collection('avatars').findOne({ name: avatarName, channelId: parentId });
+        if (!avatar) return;
+        if (String(avatar.channelId) === String(thread.id)) return; // already there
+
+        // Move via MapService if available, else update directly
+        try {
+          if (this.getMapService) {
+            await this.getMapService().updateAvatarPosition(avatar, thread.id, avatar.channelId);
+          } else {
+            await db.collection('avatars').updateOne(
+              { _id: avatar._id },
+              { $set: { channelId: thread.id, updatedAt: new Date() } }
+            );
+          }
+          this.logger?.info?.(`Moved avatar '${avatar.name}' to new thread ${thread.id} from message starter.`);
+        } catch (err) {
+          this.logger?.warn?.(`Failed to move avatar '${avatarName}' to thread ${thread.id}: ${err.message}`);
+        }
+      } catch (e) {
+        this.logger?.warn?.(`threadCreate handler failed: ${e.message}`);
       }
     });
   }

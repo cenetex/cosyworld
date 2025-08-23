@@ -298,6 +298,26 @@ export class MessageHandler  {
         return;
       }
 
+      // If users mention an avatar by name/emoji anywhere in the guild, move that avatar to this channel
+      try {
+        if (message?.content && message.guild?.id) {
+          const globalMentions = await this.avatarService.findMentionedAvatarsInGuild(message.content, message.guild.id, 3);
+          if (globalMentions?.length) {
+            const mapSvc = this.mapService || (this.toolService?.toolServices?.mapService);
+            for (const av of globalMentions) {
+              try {
+                if (String(av.channelId) !== String(channelId) && mapSvc?.updateAvatarPosition) {
+                  await mapSvc.updateAvatarPosition(av, channelId, av.channelId);
+                  this.logger.debug?.(`Moved mentioned avatar ${av.name} to ${channelId}`);
+                }
+              } catch (moveErr) {
+                this.logger.warn?.(`Failed moving mentioned avatar ${av.name}: ${moveErr.message}`);
+              }
+            }
+          }
+        }
+      } catch {}
+
       const eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
       if (!eligibleAvatars || eligibleAvatars.length === 0) {
         this.logger.debug(`No avatars found in channel ${channelId}.`);

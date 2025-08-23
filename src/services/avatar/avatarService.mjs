@@ -176,26 +176,27 @@ export class AvatarService {
   
     const guildConfig = await this.configService.getGuildConfig(guildId);
   
-  
-    // 2) then apply your tribe restrictions
+    // Apply avatar tribe restrictions:
+    // - mode === 'permit': permit all EXCEPT listed emojis (blocklist)
+    // - mode === 'forbid': forbid all EXCEPT listed emojis (allowlist)
     const restrictions = guildConfig.avatarTribeRestrictions || {};
     const override = restrictions.channels?.[channelId];
     const mode = override?.mode || restrictions.default?.mode || 'permit';
     const exceptions = override?.emojis || restrictions.default?.emojis || [];
-  
+
     let filtered = avatars.filter(av => av.status !== 'dead' && av.active !== false);
     if (mode === 'permit') {
-      // permit all except listed exceptions
-      filtered = exceptions.length
-        ? filtered.filter(av => exceptions.includes(av.emoji))
-        : filtered;
-    } else {
-      // forbid mode: only allow listed exceptions
+      // Block the listed emojis when in permit mode
       filtered = exceptions.length
         ? filtered.filter(av => !exceptions.includes(av.emoji))
+        : filtered;
+    } else {
+      // Allow only listed emojis when in forbid mode
+      filtered = exceptions.length
+        ? filtered.filter(av => exceptions.includes(av.emoji))
         : [];
     }
-  
+
     return filtered;
   }
 
@@ -264,6 +265,27 @@ export class AvatarService {
     });
 
     return mentioned;
+  }
+
+  /**
+   * Find avatars in a guild whose name or emoji are mentioned in the provided content.
+   * Returns up to `limit` avatars, prioritizing exact matches first, then fuzzy.
+   */
+  async findMentionedAvatarsInGuild(content, guildId, limit = 3) {
+    if (!content || !guildId) return [];
+    try {
+      const db = await this._db();
+      // Pull a bounded set of active avatars in the guild
+      const avatars = await db.collection(this.AVATARS_COLLECTION)
+        .find({ guildId, status: { $ne: 'dead' }, active: { $ne: false } }, { projection: { name: 1, emoji: 1, channelId: 1 } })
+        .limit(500)
+        .toArray();
+      const mentioned = Array.from(this.extractMentionedAvatars(content, avatars));
+      return mentioned.slice(0, limit);
+    } catch (err) {
+      this.logger?.warn?.(`findMentionedAvatarsInGuild failed: ${err?.message}`);
+      return [];
+    }
   }
 
   /* -------------------------------------------------- */
