@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import axios from 'axios';
+
 export default class VideoJobService {
   constructor({ logger, databaseService, veoService, s3Service, discordService, schedulingService, configService }) {
     this.logger = logger || console;
@@ -174,8 +176,22 @@ export default class VideoJobService {
         return;
       }
       // Download keyframe and kick off generation (idempotent if repeated)
-      const buf = await this.s3Service.downloadImage(job.keyframeUrl);
-      const base64 = buf.toString('base64');
+      let base64;
+      try {
+        const buf = await this.s3Service.downloadImage(job.keyframeUrl);
+        base64 = buf?.toString('base64');
+      } catch (e) {
+        this.logger.warn?.(`[VideoJobService] s3 keyframe download failed: ${e.message}`);
+      }
+      if (!base64 && /^https?:\/\//i.test(job.keyframeUrl)) {
+        try {
+          const resp = await axios.get(job.keyframeUrl, { responseType: 'arraybuffer' });
+          base64 = Buffer.from(resp.data).toString('base64');
+        } catch (e2) {
+          this.logger.warn?.(`[VideoJobService] http keyframe download failed: ${e2.message}`);
+        }
+      }
+      if (!base64) throw new Error('Failed to download keyframe image');
       const uris = await this.veoService.generateVideosFromImages({
         prompt: job.prompt,
         images: [{ data: base64, mimeType: 'image/png' }],

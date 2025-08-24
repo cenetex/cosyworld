@@ -26,7 +26,6 @@ import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
-import VideoJobService from './services/video/videoJobService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -96,7 +95,6 @@ async function initializeContainer() {
   webService: asClass(WebService).singleton(),
   embeddingService: asClass(EmbeddingService).singleton(),
   memoryScheduler: asClass(MemoryScheduler).singleton(),
-  videoJobService: asClass(VideoJobService).singleton(),
   });
 
   // Dynamically register remaining services
