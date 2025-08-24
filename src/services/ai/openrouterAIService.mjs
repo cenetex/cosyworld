@@ -36,7 +36,7 @@ export class OpenRouterAIService {
 
     // Default options that will be used if not overridden by the caller.
     this.defaultCompletionOptions = {
-      max_tokens: 1000,
+  max_tokens: 2000,
       temperature: 0.9,        // More randomness for creative output
       top_p: 0.95,             // Broader token selection for diversity
       frequency_penalty: 0.2,  // Moderate penalty to avoid repetitive loops
@@ -47,7 +47,7 @@ export class OpenRouterAIService {
     this.defaultChatOptions = {
       // Prefer configured chat model; fall back to a lightweight default
       model: orCfg.chatModel || 'meta-llama/llama-3.2-1b-instruct',
-      max_tokens: 1000,
+  max_tokens: 2000,
       // Creativity knobs
       temperature: 0.9,
       top_p: 0.95,
@@ -58,7 +58,7 @@ export class OpenRouterAIService {
     this.defaultVisionOptions = {
       model: orCfg.visionModel || 'x-ai/grok-2-vision-1212',
       temperature: 0.5,
-      max_tokens: 200,
+  max_tokens: 400,
     };
   }
 

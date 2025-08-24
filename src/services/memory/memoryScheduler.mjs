@@ -49,7 +49,7 @@ export class MemoryScheduler {
     try {
       const prompt = `Summarize the following avatar memories into 1-2 concise sentences, focusing on durable facts and themes.\n\n${text}`;
       if (this.googleAIService?.generateCompletion) {
-        summary = await this.googleAIService.generateCompletion(prompt, { maxOutputTokens: 200, temperature: 0.2 });
+  summary = await this.googleAIService.generateCompletion(prompt, { maxOutputTokens: 400, temperature: 0.2 });
       }
     } catch {}
     summary = (summary || '').trim() || `Summary of ${lows.length} memories.`;

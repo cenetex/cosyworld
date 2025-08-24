@@ -18,6 +18,8 @@ import { BreedTool } from './tools/BreedTool.mjs';
 import { OneirocomForumTool as ForumTool } from './tools/ForumTool.mjs';
 import { CooldownService } from './CooldownService.mjs';
 import { SelfieTool } from './tools/SelfieTool.mjs';
+import { SceneCameraTool } from './tools/SceneCameraTool.mjs';
+import { VideoCameraTool } from './tools/VideoCameraTool.mjs';
 import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
@@ -128,7 +130,9 @@ export class ToolService {
   potion: PotionTool,
       respond: ThinkTool,
       forum: ForumTool,
-      camera: SelfieTool,
+  selfie: SelfieTool,
+  camera: SceneCameraTool,
+  'video camera': VideoCameraTool,
       devil: DevilTool
     };
 
@@ -148,6 +152,10 @@ export class ToolService {
   this.toolEmojis.set('⚔️', 'challenge');
   // Map 🧪 to the new potion tool
   this.toolEmojis.set('🧪', 'potion');
+  // Camera tools emojis
+  this.toolEmojis.set('🤳', 'selfie');
+  this.toolEmojis.set('📷', 'camera');
+  this.toolEmojis.set('🎥', 'video camera');
   }
 
   registerTool(tool) {

@@ -37,7 +37,7 @@ export class GoogleAIService {
     // Default options for chat and completion
     this.defaultCompletionOptions = {
       temperature: 0.9,
-      maxOutputTokens: 1000,
+  maxOutputTokens: 2000,
       topP: 0.95,
       topK: 40
     };
@@ -45,7 +45,7 @@ export class GoogleAIService {
     this.defaultChatOptions = {
       model: this.model,
       temperature: 0.7,
-      maxOutputTokens: 1000,
+  maxOutputTokens: 2000,
       topP: 0.95,
       topK: 40
     };
@@ -53,7 +53,7 @@ export class GoogleAIService {
     this.defaultVisionOptions = {
       model: 'gemini-1.5-vision',
       temperature: 0.5,
-      maxOutputTokens: 200,
+  maxOutputTokens: 400,
     };
 
     console.log(`[${new Date().toISOString()}] Initialized GoogleAIService with default model: ${this.model}`);
@@ -282,7 +282,7 @@ export class GoogleAIService {
   
     const generationConfig = {
       temperature: options.temperature ?? 0.7,
-      maxOutputTokens: options.maxOutputTokens ?? 1500,
+      maxOutputTokens: options.maxOutputTokens ?? 3000,
       topP: options.topP ?? 0.95,
       topK: options.topK ?? 40,
       responseMimeType: options.schema ? 'application/json' : 'text/plain',

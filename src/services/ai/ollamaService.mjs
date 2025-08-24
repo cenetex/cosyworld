@@ -14,7 +14,7 @@ export class OllamaService {
     this.apiKey = process.env.OLLAMA_API_KEY;
     this.defaultChatOptions = {
       temperature: 0.7,
-      max_tokens: 1000,
+  max_tokens: 2000,
       top_p: 1.0,
       frequency_penalty: 0,
       presence_penalty: 0,
