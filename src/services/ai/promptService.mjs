@@ -43,8 +43,16 @@ export class PromptService  {
   async getFullSystemPrompt(avatar, db) {
     const lastNarrative = await this.getLastNarrative(avatar, db);
     const latestThought = await this.getLatestThought(avatar);
-    const { location } = 
-      (await this.mapService.getAvatarLocation(avatar));
+    // Resolve a real location document for the avatar's current channel (creates one if missing)
+    let location = null;
+    try {
+      const pos = await this.mapService.getAvatarLocation(avatar); // returns { locationId, avatarId, ... }
+      const locId = pos?.locationId || avatar.channelId;
+      location = await this.mapService.locationService.getLocationByChannelId(locId);
+  } catch {
+      // Fall back gracefully when no location document exists
+      location = null;
+    }
 
     return `
 You are ${avatar.name}.
@@ -112,10 +120,12 @@ Based on all of the above context, share an updated personality that reflects yo
    */
   async buildDungeonPrompt(avatar, guildId) {
     this.db = await this.databaseService.getDatabase();
-    const commandsDescription = (await this.toolService.getCommandsDescription(guildId)) || '';
-    const location = await this.mapService.getLocationDescription(avatar.channelId, avatar.channelName);
-    const items = await this.itemService.getItemsDescription(avatar);
-    const locationText = location ? `You are currently in ${location.name}. ${location.description}` : `You are in ${avatar.channelName || 'a chat channel'}.`;
+  const commandsDescription = (await this.toolService.getCommandsDescription(guildId)) || '';
+  // Use full location doc (auto-creates if missing) to avoid stringifying objects
+  let locationDoc = null;
+  try { locationDoc = await this.mapService.locationService.getLocationByChannelId(avatar.channelId); } catch {}
+  const items = await this.itemService.getItemsDescription(avatar);
+  const locationText = locationDoc ? `You are currently in ${locationDoc.name}. ${locationDoc.description}` : `You are in ${avatar.channelName || 'a chat channel'}.`;
     const selectedItem = avatar.selectedItemId ? this.itemService.getItem(avatar.selectedItemId): null;
     const selectedItemText = selectedItem ? `Selected item: ${selectedItem.name}` : 'No item selected.';
     const groundItems = await this.itemService.searchItems(avatar.channelId, '');

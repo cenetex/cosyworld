@@ -71,6 +71,15 @@ async function main() {
     await messageHandler.start();
     logger.log('[startup] MessageHandler started');
 
+    // Start DM Planner (lightweight periodic planner)
+    try {
+      const dmPlannerService = container.resolve('dmPlannerService');
+      dmPlannerService?.start?.();
+      logger.log('[startup] DMPlannerService started');
+    } catch (e) {
+      logger.warn(`[startup] DMPlannerService not started: ${e.message}`);
+    }
+
 
     // Start the Web Service
     const web = container.resolve('webService');

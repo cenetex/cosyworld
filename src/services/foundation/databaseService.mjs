@@ -282,6 +282,21 @@ export class DatabaseService {
           { key: { channelId: 1 }, unique: true, name: 'ticks_channel', background: true },
           { key: { lastTickAt: -1 }, name: 'ticks_lastTick', background: true },
         ]),
+        // Planner collections
+        db.collection('thread_states').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'thread_states_channel', background: true },
+          { key: { lastActivityTs: -1 }, name: 'thread_states_activity', background: true },
+          { key: { updatedAt: -1 }, name: 'thread_states_updated', background: true },
+        ]),
+        db.collection('planner_assignments').createIndexes([
+          { key: { status: 1, type: 1, priority: -1, createdAt: 1 }, name: 'assign_status_type_priority', background: true },
+          { key: { channelId: 1, status: 1 }, name: 'assign_channel_status', background: true },
+          { key: { updatedAt: 1 }, name: 'assign_updated', background: true },
+        ]),
+        db.collection('thread_summaries').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'thread_summary_channel', background: true },
+          { key: { updatedAt: -1 }, name: 'thread_summary_updated', background: true },
+        ]),
       ]);
       // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
       try {
