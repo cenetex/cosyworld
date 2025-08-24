@@ -17,6 +17,7 @@ export class VideoCameraTool extends BasicTool {
     s3Service,
     locationService,
     avatarService,
+  videoJobService,
     logger
   }) {
     super();
@@ -32,6 +33,7 @@ export class VideoCameraTool extends BasicTool {
     this.s3Service = s3Service;
     this.locationService = locationService;
     this.avatarService = avatarService;
+  this.videoJobService = videoJobService;
     this.logger = logger || console;
   }
 
@@ -102,26 +104,24 @@ export class VideoCameraTool extends BasicTool {
       }
       if (!imageUrl) return '-# [ ❌ Error: Failed to capture scene keyframe. ]';
 
-      // 2) If Veo is available and within limits, request a video from the keyframe
-      if (!this.veoService || !this.veoService.checkRateLimit()) {
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
-      }
-      try {
-        const buf = await this.s3Service.downloadImage(imageUrl);
-        const base64 = buf.toString('base64');
-        const uris = await this.veoService.generateVideosFromImages({
-          prompt: compositePrompt,
-          images: [{ data: base64, mimeType: 'image/png' }],
-          config: { aspectRatio: '16:9', numberOfVideos: 1 }
-        });
-        if (uris?.length) {
-          return uris.map(u => `-# [ ${this.emoji} [Scene Clip](${u}) ]`).join('\n');
+      // 2) Persist a job to generate video asynchronously; return keyframe immediately
+      if (this.videoJobService) {
+        try {
+          const jobId = await this.videoJobService.enqueue({
+            keyframeUrl: imageUrl,
+            prompt: compositePrompt,
+            channelId,
+            guildId,
+            avatarId: avatar?._id,
+            avatarName: avatar?.name,
+            config: { aspectRatio: '16:9', numberOfVideos: 1 }
+          });
+          return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]\n-# [ queued video job: ${String(jobId)} ]`;
+        } catch (e) {
+          this.logger?.warn?.('[VideoCamera] enqueue failed: ' + (e?.message || e));
         }
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
-      } catch (e) {
-        this.logger?.error?.('[VideoCamera] Veo generate error:', e);
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
       }
+      return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
     } catch (err) {
       return `-# [ ❌ Error: ${err?.message || err} ]`;
     }

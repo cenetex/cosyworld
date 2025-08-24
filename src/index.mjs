@@ -52,6 +52,15 @@ async function main() {
       logger.warn(`[startup] MemoryScheduler not started: ${e.message}`);
     }
 
+    // Start Video job worker (persistent Veo tasks)
+    try {
+      const videoJobService = container.resolve('videoJobService');
+      await videoJobService.start?.();
+      logger.log('[startup] VideoJobService started');
+    } catch (e) {
+      logger.warn(`[startup] VideoJobService not started: ${e.message}`);
+    }
+
     // Start Turn Scheduler for ambient ticks
     try {
       const turnScheduler = container.resolve('turnScheduler');
