@@ -71,8 +71,10 @@ export class ConfigService {
       ai: {
         veo: {
           rateLimit: {
-            perMinute: 2,
-            perDay: 50
+            perMinute: Number(process.env.VEO_RATE_PER_MINUTE || process.env.VEO_PER_MINUTE || 2),
+            perDay: Number(process.env.VEO_RATE_PER_DAY || process.env.VEO_PER_DAY || 50),
+            // Hard global cap to guard against runaway usage; can be overridden via env
+            globalCap: Number(process.env.VEO_GLOBAL_DAILY_CAP || process.env.VEO_GLOBAL_DAILY_LIMIT || 3)
           }
         },
         google: {

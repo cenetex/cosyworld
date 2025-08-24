@@ -101,6 +101,7 @@ async function initializeApp(services) {
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
   app.use('/api/admin/collections', ensureAdmin, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
+  app.use('/api/admin/video-jobs', ensureAdmin, (await import('./routes/videoJobs.js')).default(db));
   // Admin API: allow reads with session; require signed message for writes
   app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));

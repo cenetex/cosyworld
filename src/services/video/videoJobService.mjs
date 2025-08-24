@@ -38,6 +38,9 @@ export default class VideoJobService {
         ]);
       } catch {}
 
+  // Purge queued/running jobs on restart if configured
+  await this._purgeQueuedOnStart();
+
       const tick = async () => {
         try { await this.processLoop(); } catch (e) { this.logger.warn?.(`[VideoJobService] loop error: ${e.message}`); }
       };
@@ -48,8 +51,31 @@ export default class VideoJobService {
         setInterval(tick, this.pollIntervalMs);
         this.logger.info?.('[VideoJobService] Started via setInterval');
       }
+      // Kick once immediately
+      await tick();
     } catch (e) {
       this.logger.error?.('[VideoJobService] start failed:', e);
+    }
+  }
+
+  async _purgeQueuedOnStart() {
+    try {
+      const clearFlag = (process.env.VIDEO_JOBS_CLEAR_ON_START ?? 'true').toString().toLowerCase();
+      const shouldClear = clearFlag === 'true' || clearFlag === '1' || clearFlag === 'yes';
+      if (!shouldClear) return;
+      const hardDeleteFlag = (process.env.VIDEO_JOBS_DELETE_ON_PURGE ?? 'false').toString().toLowerCase();
+      const hardDelete = hardDeleteFlag === 'true' || hardDeleteFlag === '1' || hardDeleteFlag === 'yes';
+      const col = await this.col();
+      const filter = { status: { $in: ['queued', 'running'] } };
+      if (hardDelete) {
+        const res = await col.deleteMany(filter);
+        this.logger.warn?.(`[VideoJobService] Purged ${res?.deletedCount || 0} queued/running job(s) on start (hard delete)`);
+      } else {
+        const res = await col.updateMany(filter, { $set: { status: 'cancelled', lastError: 'RESTART_PURGE', updatedAt: new Date(), nextRunAt: null } });
+        this.logger.warn?.(`[VideoJobService] Cancelled ${res?.modifiedCount || 0} queued/running job(s) on start`);
+      }
+    } catch (e) {
+      this.logger.warn?.(`[VideoJobService] purge-on-start failed: ${e.message}`);
     }
   }
 
@@ -73,8 +99,12 @@ export default class VideoJobService {
       lastError: null,
     };
     const col = await this.col();
-    const res = await col.insertOne(doc);
-    return res.insertedId;
+  const res = await col.insertOne(doc);
+  const id = res.insertedId;
+  this.logger.info?.(`[VideoJobService] enqueued job ${String(id)} for channel=${channelId} avatar=${avatarName || avatarId}`);
+  // Nudge the worker immediately so we don't wait for the next poll
+  try { Promise.resolve().then(() => this.processLoop()); } catch {}
+  return id;
   }
 
   async markCompleted(id, uris = []) {
@@ -88,7 +118,13 @@ export default class VideoJobService {
     const attempts = (doc?.attempts || 0) + 1;
     const status = attempts >= this.maxAttempts ? 'failed' : 'queued';
     const nextRunAt = new Date(Date.now() + (status === 'queued' ? Math.min(backoffMs * attempts, 15 * 60_000) : 0));
-    await col.updateOne({ _id: id }, { $set: { status, attempts, lastError: String(error?.message || error), updatedAt: new Date(), nextRunAt } });
+  await col.updateOne({ _id: id }, { $set: { status, attempts, lastError: String(error?.message || error), updatedAt: new Date(), nextRunAt } });
+  return { attempts, status, nextRunAt };
+  }
+
+  async markCancelled(id, reason = 'cancelled') {
+    const col = await this.col();
+    await col.updateOne({ _id: id }, { $set: { status: 'cancelled', lastError: String(reason), updatedAt: new Date(), nextRunAt: null } });
   }
 
   async processLoop() {
@@ -96,7 +132,7 @@ export default class VideoJobService {
     this._running = true;
     try {
       while (this._inFlight < this.maxConcurrent) {
-        const job = await this._claimJob();
+  const job = await this._claimJob();
         if (!job) break;
         this._inFlight++;
         this._process(job).finally(() => { this._inFlight = Math.max(0, this._inFlight - 1); });
@@ -110,18 +146,31 @@ export default class VideoJobService {
     const col = await this.col();
     const now = new Date();
     const res = await col.findOneAndUpdate(
-      { status: { $in: ['queued', 'running'] }, nextRunAt: { $lte: now } },
+      { status: 'queued', nextRunAt: { $lte: now } },
       { $set: { status: 'running', updatedAt: now, heartbeatAt: now } },
       { sort: { status: 1, createdAt: 1 }, returnDocument: 'after' }
     );
-    return res?.value || null;
+  const job = res?.value || null;
+  if (job) this.logger.info?.(`[VideoJobService] claimed job ${String(job._id)} status=${job.status}`);
+  else {
+    try {
+      const queuedCount = await col.countDocuments({ status: 'queued' });
+      const runningCount = await col.countDocuments({ status: 'running' });
+      this.logger.info?.(`[VideoJobService] no claimable jobs. queued=${queuedCount} running=${runningCount} now=${now.toISOString()}`);
+    } catch {}
+  }
+  return job;
   }
 
   async _process(job) {
     try {
+      this.logger.info?.(`[VideoJobService] processing job ${String(job._id)}...`);
+  if (this._shouldNotifyProgress()) await this._notifyStart(job).catch(() => {});
       // Respect global Veo rate limits; if not allowed, defer
       if (!this.veoService?.checkRateLimit?.()) {
-        await this._defer(job._id, 60_000);
+        await this.markCancelled(job._id, 'RATE_LIMIT');
+        this.logger.warn?.(`[VideoJobService] cancelled job ${String(job._id)} due to rate limit`);
+        await this._notifyCancel(job).catch(() => {});
         return;
       }
       // Download keyframe and kick off generation (idempotent if repeated)
@@ -135,13 +184,20 @@ export default class VideoJobService {
 
       if (uris && uris.length) {
         await this.markCompleted(job._id, uris);
+        this.logger.info?.(`[VideoJobService] job ${String(job._id)} completed with ${uris.length} clip(s)`);
         await this._notify(job, uris).catch(() => {});
       } else {
         throw new Error('No URIs returned from Veo');
       }
     } catch (e) {
       this.logger.warn?.(`[VideoJobService] job ${String(job._id)} failed: ${e.message}`);
-      await this.markFailed(job._id, e);
+      const { status, attempts, nextRunAt } = await this.markFailed(job._id, e);
+      if (status === 'failed') {
+        await this._notifyFailure(job, e).catch(() => {});
+      } else if (this._shouldNotifyProgress() && attempts === 1) {
+        // Optional light notice on first retry
+        await this._notifyRetry(job, attempts, nextRunAt).catch(() => {});
+      }
     }
   }
 
@@ -155,9 +211,66 @@ export default class VideoJobService {
       if (!this.discordService?.sendAsWebhook) return;
       if (!job.channelId || !job.avatarId) return;
       const clipLines = uris.map(u => `-# [ 🎥 [Scene Clip](${u}) ]`).join('\n');
-      await this.discordService.sendAsWebhook(job.channelId, clipLines, { _id: job.avatarId, name: job.avatarName || 'Avatar' });
+      // Build a minimal avatar object that matches sendAsWebhook expectations
+      const avatar = { _id: job.avatarId, id: job.avatarId, name: job.avatarName || 'Avatar', imageUrl: null };
+      await this.discordService.sendAsWebhook(job.channelId, clipLines, avatar);
     } catch (e) {
       this.logger.warn?.(`[VideoJobService] notify failed: ${e.message}`);
+    }
+  }
+
+  async _notifyCancel(job) {
+    try {
+      if (!this.discordService?.sendAsWebhook) return;
+      if (!job.channelId || !job.avatarId) return;
+      const text = `-# [ 🎥 video request cancelled: rate limit reached ]`;
+      const avatar = { _id: job.avatarId, id: job.avatarId, name: job.avatarName || 'Avatar', imageUrl: null };
+      await this.discordService.sendAsWebhook(job.channelId, text, avatar);
+    } catch (e) {
+      this.logger.warn?.(`[VideoJobService] notifyCancel failed: ${e.message}`);
+    }
+  }
+
+  _shouldNotifyProgress() {
+    const flag = (process.env.VIDEO_JOBS_NOTIFY_PROGRESS ?? 'true').toString().toLowerCase();
+    return flag === 'true' || flag === '1' || flag === 'yes';
+  }
+
+  async _notifyStart(job) {
+    try {
+      if (!this.discordService?.sendAsWebhook) return;
+      if (!job.channelId || !job.avatarId) return;
+      const text = `-# [ 🎥 processing your video... ]`;
+      const avatar = { _id: job.avatarId, id: job.avatarId, name: job.avatarName || 'Avatar', imageUrl: null };
+      await this.discordService.sendAsWebhook(job.channelId, text, avatar);
+    } catch (e) {
+      this.logger.warn?.(`[VideoJobService] notifyStart failed: ${e.message}`);
+    }
+  }
+
+  async _notifyRetry(job, attempts, nextRunAt) {
+    try {
+      if (!this.discordService?.sendAsWebhook) return;
+      if (!job.channelId || !job.avatarId) return;
+      const when = nextRunAt ? ` Will retry soon.` : '';
+      const text = `-# [ 🎥 temporary issue, retrying... (attempt ${attempts}) ]${when}`;
+      const avatar = { _id: job.avatarId, id: job.avatarId, name: job.avatarName || 'Avatar', imageUrl: null };
+      await this.discordService.sendAsWebhook(job.channelId, text, avatar);
+    } catch (e) {
+      this.logger.warn?.(`[VideoJobService] notifyRetry failed: ${e.message}`);
+    }
+  }
+
+  async _notifyFailure(job, error) {
+    try {
+      if (!this.discordService?.sendAsWebhook) return;
+      if (!job.channelId || !job.avatarId) return;
+      const msg = (error?.message || 'unknown error').slice(0, 180);
+      const text = `-# [ 🎥 video request failed: ${msg} ]`;
+      const avatar = { _id: job.avatarId, id: job.avatarId, name: job.avatarName || 'Avatar', imageUrl: null };
+      await this.discordService.sendAsWebhook(job.channelId, text, avatar);
+    } catch (e) {
+      this.logger.warn?.(`[VideoJobService] notifyFailure failed: ${e.message}`);
     }
   }
 }

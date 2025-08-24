@@ -55,6 +55,7 @@ export class ToolService {
     knowledgeService,
     oneirocomForumService,
     veoService,
+    videoJobService,
     presenceService
   }) {
     this.toolServices = {
@@ -86,6 +87,7 @@ export class ToolService {
       knowledgeService,
       forumService: oneirocomForumService,
       veoService,
+      videoJobService,
       presenceService
     }
 

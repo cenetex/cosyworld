@@ -16,16 +16,19 @@ export class VeoService {
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
     this.ai = new GoogleGenAI({ apiKey: this.apiKey });
     this.s3Service = s3Service;
-  // Hard global cap (in-memory) regardless of configured perDay to prevent abuse
-  this.GLOBAL_DAILY_CAP = 3;
+  // Hard global cap (in-memory) to prevent abuse; can be customized via config/env
+  this.GLOBAL_DAILY_CAP = Number(this.configService?.config?.ai?.veo?.rateLimit?.globalCap ?? 3);
+  // Polling controls
+  this.POLL_INTERVAL_MS = Number(process.env.VEO_POLL_INTERVAL_MS || 10000);
+  this.MAX_POLL_MINUTES = Number(process.env.VEO_MAX_POLL_MINUTES || 10);
   }
 
   recentRequests = [];
 
   checkRateLimit() {
     const now = Date.now();
-    const perMinuteLimit = this.configService.config.ai.veo.rateLimit.perMinute;
-    const perDayLimit = this.configService.config.ai.veo.rateLimit.perDay;
+  const perMinuteLimit = this.configService?.config?.ai?.veo?.rateLimit?.perMinute ?? 1;
+  const perDayLimit = this.configService?.config?.ai?.veo?.rateLimit?.perDay ?? 3;
 
     // Filter recent requests within the last minute
     const recentRequests = this.recentRequests.filter(req => now - req.timestamp < 60 * 1000);
@@ -74,24 +77,53 @@ export class VeoService {
       image: imageParam,
       config
     });
+    this.recentRequests.push({ operation: 'generate', timestamp: Date.now() });
 
-    this.recentRequests.push({
-      operation: 'generate',
-      timestamp: Date.now()
-    });
+    // Poll until complete with robust fallbacks and timeout
+    const opName = operation?.name || operation?.operation?.name || null;
+    const startedAt = Date.now();
+    const deadline = startedAt + this.MAX_POLL_MINUTES * 60 * 1000;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const getOp = async () => {
+      // Try multiple SDK shapes
+      try {
+        if (this.ai?.operations?.getVideosOperation) {
+          // Try by name if available
+          if (opName) return await this.ai.operations.getVideosOperation({ name: opName });
+          return await this.ai.operations.getVideosOperation({ operation });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[VeoService] getVideosOperation error: ${e.message}`);
+      }
+      try {
+        if (this.ai?.operations?.getOperation && opName) {
+          return await this.ai.operations.getOperation({ name: opName });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[VeoService] getOperation error: ${e.message}`);
+      }
+      return operation; // best effort
+    };
 
-    
-
-    // Poll until complete
-    while (!operation.done) {
-      await new Promise(r => setTimeout(r, 10000));
-      operation = await this.ai.operations.getVideosOperation({ operation });
+    // If operation already done, skip loop
+    while (!operation?.done) {
+      if (Date.now() > deadline) {
+        throw new Error('VEO_TIMEOUT: video generation did not complete within allotted time');
+      }
+      await sleep(this.POLL_INTERVAL_MS);
+      operation = await getOp();
+      const pct = operation?.metadata?.progressPercent || operation?.metadata?.progress || null;
+      if (pct != null) this.logger?.info?.(`[VeoService] video generation progress: ${pct}%`);
     }
 
-    // Build URIs with API key
-    const uris = (operation.response.generatedVideos || []).map(gen => {
-      const uri = gen.video?.uri;
-      return uri ? `${uri}&key=${this.apiKey}` : null;
+    // Extract URIs from various response shapes
+    const vids = operation?.response?.generatedVideos
+      || operation?.response?.videos
+      || operation?.response?.generated_videos
+      || [];
+    const uris = (Array.isArray(vids) ? vids : [vids]).map(gen => {
+      const uri = gen?.video?.uri || gen?.uri || null;
+      return uri ? `${uri}${uri.includes('?') ? '&' : '?'}key=${this.apiKey}` : null;
     }).filter(Boolean);
 
     // Download each video, upload to S3, and collect the S3 URLs
