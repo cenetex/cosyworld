@@ -254,17 +254,23 @@ export class MessageHandler  {
       message.embeds?.some((e) => e.image || e.thumbnail);
 
     let imageDescription = null;
+    let imageUrls = [];
+    let primaryImageUrl = null;
     if (hasImages && this.toolService.aiService?.analyzeImage) {
       const attachment = message.attachments?.find((a) =>
         a.contentType?.startsWith("image/")
       );
       try {
         if (attachment) {
+          primaryImageUrl = attachment.url;
+          imageUrls.push(attachment.url);
           imageDescription = await this.toolService.aiService.analyzeImage(attachment.url);
         } else if (message.embeds?.length) {
           // Try to analyze the first embed image if present
           const embedImg = message.embeds.find(e => e.image?.url)?.image?.url || message.embeds.find(e => e.thumbnail?.url)?.thumbnail?.url;
           if (embedImg) {
+            primaryImageUrl = embedImg;
+            imageUrls.push(embedImg);
             imageDescription = await this.toolService.aiService.analyzeImage(embedImg);
           }
         }
@@ -283,6 +289,8 @@ export class MessageHandler  {
 
     message.imageDescription = imageDescription;
     message.hasImages = hasImages;
+    message.imageUrls = imageUrls;
+    message.primaryImageUrl = primaryImageUrl;
   }
 
   /**
@@ -318,7 +326,11 @@ export class MessageHandler  {
         }
       } catch {}
 
-      const eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
+      let eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
+      // Reorder by priority: in-channel already, then owned by user, then exact name matches
+      try {
+        eligibleAvatars = await this.avatarService.prioritizeAvatarsForMessage(eligibleAvatars, message);
+      } catch {}
       if (!eligibleAvatars || eligibleAvatars.length === 0) {
         this.logger.debug(`No avatars found in channel ${channelId}.`);
         return;
@@ -342,7 +354,7 @@ export class MessageHandler  {
         }
       } catch {}
 
-      const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
+  const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
         eligibleAvatars,
         message
       ).slice(0, 5);

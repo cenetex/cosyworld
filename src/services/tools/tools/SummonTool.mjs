@@ -114,20 +114,23 @@ export class SummonTool extends BasicTool {
         return av?.model;
       };
       // Parse command content robustly: remove leading emoji + optional word 'summon'
-      const raw = message.content.trim();
+      const raw = (message.content || '').trim();
       const content = raw
         .replace(/^<a?:\w+?:\d+>\s*/,'') // custom discord emoji
         .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
         .replace(/^(summon)\s+/i,'')
         .trim();
       const [avatarName] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
-      if (!avatarName) {
-        await this.discordService.replyToMessage(message, 'Provide a name or description to summon an avatar.');
-        return '-# [ Summon aborted: no description provided. ]';
+
+      // If no textual description provided, but an image is attached, switch to image-based summoning
+      const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
+      if (!avatarName && !hasImageForSummon) {
+        await this.discordService.replyToMessage(message, 'Provide a name/description or attach an image to summon an avatar.');
+        return '-# [ Summon aborted: no description or image provided. ]';
       }
 
       // Check for existing avatar
-      const existingAvatar = await this.avatarService.getAvatarByName(avatarName);
+  const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
       if (existingAvatar) {
         const alreadyHere = existingAvatar.channelId === message.channel.id;
   // Ensure model is set for any upcoming AI generation
@@ -189,11 +192,23 @@ export class SummonTool extends BasicTool {
 
       // Prepare avatar creation data
       const displayAuthor = message.author.displayName || message.author.username || 'Unknown Summoner';
-      const prompt = (summonPrompt ? `Avatar Stats: ${JSON.stringify(stats)} \n\n${summonPrompt}` : `Avatar Stats: ${JSON.stringify(stats)}`) +
-        `\n\nDesign an avatar with the above stats based on this message from ${displayAuthor}:\n\n\t${content}`;
+      let prompt;
+      let imageUrlOverride = null;
+      if (hasImageForSummon) {
+        const desc = message.imageDescription || 'Use the attached image as primary inspiration.';
+        const imgUrl = message.primaryImageUrl || (Array.isArray(message.imageUrls) ? message.imageUrls[0] : null);
+        imageUrlOverride = imgUrl || null;
+        prompt = (summonPrompt ? `Avatar Stats: ${JSON.stringify(stats)} \n\n${summonPrompt}` : `Avatar Stats: ${JSON.stringify(stats)}`) +
+          `\n\nDesign an avatar based on this image described as: "${desc}"${imgUrl ? ` (image: ${imgUrl})` : ''}.` +
+          `\nThe summoner is ${displayAuthor}. Name the avatar appropriately and align personality to the image.`;
+      } else {
+        prompt = (summonPrompt ? `Avatar Stats: ${JSON.stringify(stats)} \n\n${summonPrompt}` : `Avatar Stats: ${JSON.stringify(stats)}`) +
+          `\n\nDesign an avatar with the above stats based on this message from ${displayAuthor}:\n\n\t${content}`;
+      }
       const avatarData = {
         prompt,
-        channelId: message.channel.id
+        channelId: message.channel.id,
+        imageUrl: imageUrlOverride
       };
 
       // Create new avatar

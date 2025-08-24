@@ -221,6 +221,28 @@ export class DatabaseService {
     if (!db) return;
 
     try {
+      // Helper to create an index only if a matching key doesn't already exist (any name)
+      const safeEnsureIndex = async (collectionName, key, options = {}) => {
+        try {
+          const coll = db.collection(collectionName);
+          const existing = await coll.indexes();
+          const keyStr = JSON.stringify(key);
+          const hasEquivalent = existing.some(i => JSON.stringify(i.key) === keyStr);
+          if (hasEquivalent) {
+            this.logger.info(`[indexes] ${collectionName} ${keyStr} already exists; skipping`);
+            return;
+          }
+          await coll.createIndex(key, { background: true, ...options });
+        } catch (e) {
+          const msg = String(e.message || e);
+          if (msg.includes('An equivalent index already exists') || msg.includes('Index already exists with a different name')) {
+            this.logger.warn(`[indexes] Skipping existing index on ${collectionName} ${JSON.stringify(key)}: ${msg}`);
+            return;
+          }
+          throw e;
+        }
+      };
+
       await Promise.all([
         db.collection('messages').createIndexes([
           { key: { "author.username": 1 }, background: true },
@@ -297,6 +319,11 @@ export class DatabaseService {
           { key: { channelId: 1 }, unique: true, name: 'thread_summary_channel', background: true },
           { key: { updatedAt: -1 }, name: 'thread_summary_updated', background: true },
         ]),
+  // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
+  (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
+  (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { walletAddress: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { avatarId: 1 }); })(),
       ]);
       // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
       try {
@@ -313,10 +340,11 @@ export class DatabaseService {
       }
       this.logger.info('Database indexes created successfully');
     } catch (error) {
-      this.logger.error(`Error creating indexes: ${error.message}`);
-      if (String(error.message).includes('An equivalent index already exists')) {
-        this.logger.warn('Index exists with different name/options; proceeding without failure.');
-        return; // degrade to warning
+      const msg = String(error.message || error);
+      this.logger.error(`Error creating indexes: ${msg}`);
+      if (msg.includes('An equivalent index already exists') || msg.includes('Index already exists with a different name')) {
+        this.logger.warn('Index exists (possibly with a different name); proceeding without failure.');
+        return; // degrade to warning to avoid blocking startup
       }
       throw error;
     }

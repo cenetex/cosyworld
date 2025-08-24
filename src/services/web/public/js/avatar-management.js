@@ -43,8 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
       defaultOption.textContent = 'All Models';
       modelSelect.appendChild(defaultOption);
 
+      // Compute model name list from API (supports array or object)
+      const modelNames = Array.isArray(data)
+        ? data.map(m => m?.model).filter(Boolean)
+        : (data && typeof data === 'object')
+          ? Object.keys(data)
+          : [];
+
       // Populate models
-      Object.keys(data).forEach((model) => {
+      modelNames.forEach((model) => {
         const option = document.createElement('option');
         option.value = model;
         option.textContent = model;
@@ -56,12 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
         avatarModelSelect.appendChild(avatarOption);
       });
 
-      // Add filter listeners
-      modelSelect.addEventListener('change', () => {
+      // Preserve current selection if possible
+      if (modelNames.includes(state.currentModelFilter)) {
+        modelSelect.value = state.currentModelFilter;
+      }
+
+      // Add filter listeners (ensure only one listener is attached)
+      modelSelect.onchange = () => {
         state.currentModelFilter = modelSelect.value;
         state.currentPage = 1;
         loadAvatars();
-      });
+      };
     } catch (error) {
       console.error('Error loading models:', error);
 
@@ -286,11 +298,17 @@ elements.imageUrlInput.addEventListener("input", () => {
     }
   }
 
-  function updatePagination(total, page, limit) {
+  // Unified pagination updater; parameters optional
+  function updatePagination(total = state.totalAvatars, page = state.currentPage, limit = state.pageSize) {
     const start = (page - 1) * limit + 1;
     const end = Math.min(page * limit, total);
-    document.getElementById("paginationInfo").textContent =
-      `Showing ${start}-${end} of ${total} avatars`;
+    if (elements.paginationInfo) {
+      elements.paginationInfo.textContent = `Showing ${start}-${end} of ${total} avatars`;
+    }
+    if (elements.prevPageBtn && elements.nextPageBtn) {
+      elements.prevPageBtn.disabled = page === 1;
+      elements.nextPageBtn.disabled = end >= total;
+    }
   }
 
   function renderAvatars(avatars) {
@@ -340,16 +358,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     });
   }
 
-  function updatePagination() {
-    const start = (state.currentPage - 1) * state.pageSize + 1;
-    const end = Math.min(
-      state.currentPage * state.pageSize,
-      state.totalAvatars,
-    );
-    elements.paginationInfo.textContent = `Showing ${start}-${end} of ${state.totalAvatars} avatars`;
-    elements.prevPageBtn.disabled = state.currentPage === 1;
-    elements.nextPageBtn.disabled = end >= state.totalAvatars;
-  }
+  // (removed duplicate updatePagination definition)
 
   // Modal Functions
   function openNewAvatarModal() {

@@ -127,7 +127,7 @@ export default function avatarRoutes(db) {
       const skip = (page - 1) * limit;
       const view = req.query.view || 'all'; // e.g. 'gallery', 'owned', 'all'
 
-      let query = {};
+  let query = {};
       let sort = { createdAt: -1 };
 
       if (view === 'claims' && !req.query.walletAddress) {
@@ -165,6 +165,16 @@ export default function avatarRoutes(db) {
           [id.toString(), id])).values()];
 
         query._id = { $in: uniqueIds };
+      }
+
+      // Optional filters: status and model (e.g., from admin UI)
+      const statusFilter = (req.query.status || '').toLowerCase();
+      const modelFilter = req.query.model || '';
+      if (statusFilter && statusFilter !== 'all') {
+        query.status = statusFilter;
+      }
+      if (modelFilter && modelFilter !== 'all') {
+        query.model = modelFilter;
       }
 
       const [rawAvatars, total] = await Promise.all([

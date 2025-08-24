@@ -268,6 +268,123 @@ export class AvatarService {
   }
 
   /**
+   * Fetch all verified wallet addresses linked to a Discord user.
+   * Uses the discord_wallet_links collection (created by the wallet linking flow).
+   * @param {string} discordId
+   * @returns {Promise<string[]>}
+   */
+  async getLinkedWalletsByDiscordId(discordId) {
+    try {
+      if (!discordId) return [];
+      const db = await this._db();
+      const links = await db.collection('discord_wallet_links')
+        .find({ discordId: String(discordId) })
+        .project({ address: 1 })
+        .toArray();
+      return links.map(l => String(l.address)).filter(Boolean);
+    } catch (err) {
+      this.logger?.warn?.(`getLinkedWalletsByDiscordId failed: ${err?.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get a Set of avatarId strings owned by the provided wallet addresses.
+   * Sources: avatar_claims (primary). Optionally merges x_auth if present.
+   * @param {string[]} walletAddresses
+   * @returns {Promise<Set<string>>}
+   */
+  async getOwnedAvatarIdsByWallets(walletAddresses = []) {
+    const owned = new Set();
+    try {
+      const addId = (id) => { try { if (id) owned.add(String(id)); } catch {} };
+      const db = await this._db();
+      if (walletAddresses.length) {
+        // avatar_claims: { avatarId: ObjectId, walletAddress: string }
+        const claims = await db.collection('avatar_claims')
+          .find({ walletAddress: { $in: walletAddresses } })
+          .project({ avatarId: 1 })
+          .toArray();
+        for (const c of claims) addId(c.avatarId);
+      }
+      return owned;
+    } catch (err) {
+      this.logger?.warn?.(`getOwnedAvatarIdsByWallets failed: ${err?.message}`);
+      return owned;
+    }
+  }
+
+  /**
+   * Resolve owned avatar IDs for a set of Discord user IDs by following wallet links.
+   * @param {string[]} discordIds
+   * @returns {Promise<Set<string>>}
+   */
+  async getOwnedAvatarIdsByDiscordIds(discordIds = []) {
+    try {
+      const wallets = new Set();
+      for (const did of discordIds) {
+        const wl = await this.getLinkedWalletsByDiscordId(did);
+        wl.forEach(w => wallets.add(w));
+      }
+      return await this.getOwnedAvatarIdsByWallets([...wallets]);
+    } catch (err) {
+      this.logger?.warn?.(`getOwnedAvatarIdsByDiscordIds failed: ${err?.message}`);
+      return new Set();
+    }
+  }
+
+  /**
+   * Prioritize avatars for a message with the following precedence:
+   *  1) Avatars already in the channel (caller must supply in-channel list)
+   *  2) Avatars the user owns (via linked wallet → avatar_claims)
+   *  3) Avatars with exact name matches in the message content
+   * Remaining avatars follow in original order.
+   * @param {Array} avatarsInChannel - list of avatar docs in the channel
+   * @param {Object} message - Discord message
+   * @returns {Promise<Array>} prioritized list
+   */
+  async prioritizeAvatarsForMessage(avatarsInChannel, message) {
+    try {
+      const avatars = Array.isArray(avatarsInChannel) ? avatarsInChannel.slice() : [];
+      if (!avatars.length || !message?.author?.id) return avatars;
+
+      // 2) Owned avatars (by linked wallets)
+      const wallets = await this.getLinkedWalletsByDiscordId(message.author.id);
+      const ownedIds = wallets.length ? await this.getOwnedAvatarIdsByWallets(wallets) : new Set();
+      const owned = [];
+      const restAfterOwned = [];
+      for (const av of avatars) {
+        if (ownedIds.has(String(av._id))) owned.push(av); else restAfterOwned.push(av);
+      }
+
+      // 3) Exact name matches (word-boundary match, case-insensitive)
+      const content = String(message.content || '');
+      const exact = [];
+      const remainder = [];
+      const seen = new Set(owned.map(a => String(a._id)));
+      for (const av of restAfterOwned) {
+        const name = String(av.name || '').trim();
+        let isExact = false;
+        if (name) {
+          try {
+            const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const rx = new RegExp(`(^|\\b)${esc}(\\b|$)`, 'i');
+            isExact = rx.test(content);
+          } catch { isExact = content.toLowerCase().includes(name.toLowerCase()); }
+        }
+        if (isExact) { exact.push(av); seen.add(String(av._id)); }
+        else remainder.push(av);
+      }
+
+      // Final order: owned → exact → remainder
+      return [...owned, ...exact, ...remainder];
+    } catch (err) {
+      this.logger?.warn?.(`prioritizeAvatarsForMessage failed: ${err?.message}`);
+      return Array.isArray(avatarsInChannel) ? avatarsInChannel : [];
+    }
+  }
+
+  /**
    * Find avatars in a guild whose name or emoji are mentioned in the provided content.
    * Returns up to `limit` avatars, prioritizing exact matches first, then fuzzy.
    */
@@ -425,7 +542,7 @@ export class AvatarService {
     return db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
   }
 
-  async createAvatar({ prompt, summoner, channelId, guildId }) {
+  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
     let details = null;
     try {
       details = await this.generateAvatarDetails(prompt, guildId);
@@ -456,9 +573,13 @@ export class AvatarService {
   if (existing) return { ...existing, _existing: true };
 
     let imageUrl = null;
-    try { imageUrl = await this.generateAvatarImage(details.description); } catch (e) {
-      this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
-      imageUrl = null;
+    if (imageUrlOverride) {
+      imageUrl = imageUrlOverride;
+    } else {
+      try { imageUrl = await this.generateAvatarImage(details.description); } catch (e) {
+        this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
+        imageUrl = null;
+      }
     }
     let model = null;
     try { model = await this.aiService.getModel(details.model); } catch { model = details.model || 'auto'; }
