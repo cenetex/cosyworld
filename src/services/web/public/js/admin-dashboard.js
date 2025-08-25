@@ -70,6 +70,106 @@ function init() {
   fetchStats();
   ensureAdminSession();
   wirePhantomLogin();
+  wireAdminX();
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+async function wireAdminX() {
+  const connectBtn = document.getElementById('admin-x-connect');
+  const disconnectBtn = document.getElementById('admin-x-disconnect');
+  const profileBox = document.getElementById('admin-x-profile');
+  const hint = document.getElementById('admin-x-hint');
+
+  // Helper to refresh status/profile
+  async function refresh() {
+    try {
+      const targetRes = await fetch('/api/xauth/admin/target');
+      if (!targetRes.ok) {
+        const err = await targetRes.json().catch(() => ({}));
+        hint.classList.remove('hidden');
+        hint.textContent = err.error || 'Admin avatar not configured. Set ADMIN_AVATAR_ID.';
+        connectBtn?.setAttribute('disabled', 'true');
+        return;
+      }
+      const { avatarId } = await targetRes.json();
+      const statusRes = await fetch(`/api/xauth/status/${avatarId}`);
+      const status = await statusRes.json();
+      if (status.authorized) {
+        connectBtn?.classList.add('hidden');
+        disconnectBtn?.classList.remove('hidden');
+        profileBox?.classList.remove('hidden');
+        const p = status.profile || {};
+        const img = document.getElementById('admin-x-avatar');
+        const name = document.getElementById('admin-x-name');
+        const user = document.getElementById('admin-x-username');
+        const exp = document.getElementById('admin-x-expiry');
+        if (img && p.profile_image_url) img.src = p.profile_image_url;
+        if (name) name.textContent = p.name || 'Unknown';
+        if (user) user.textContent = p.username ? `@${p.username}` : '';
+        if (exp && status.expiresAt) exp.textContent = `Token expires: ${new Date(status.expiresAt).toLocaleString()}`;
+        hint.classList.add('hidden');
+      } else {
+        connectBtn?.classList.remove('hidden');
+        disconnectBtn?.classList.add('hidden');
+        profileBox?.classList.add('hidden');
+      }
+    } catch (e) {
+      hint.classList.remove('hidden');
+      hint.textContent = `Failed to load X status: ${e.message}`;
+    }
+  }
+
+  if (connectBtn) {
+    connectBtn.addEventListener('click', async () => {
+      try {
+        connectBtn.disabled = true;
+        const res = await fetch('/api/xauth/admin/auth-url');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const w = 600, h = 650;
+        const l = window.screen.width / 2 - w / 2;
+        const t = window.screen.height / 2 - h / 2;
+        const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          throw new Error('Popup blocked. Please allow popups.');
+        }
+        window.addEventListener('message', async function onMsg(ev) {
+          if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
+            window.removeEventListener('message', onMsg);
+            await refresh();
+          }
+        });
+      } catch (e) {
+        hint.classList.remove('hidden');
+        hint.textContent = `Failed to start auth: ${e.message}`;
+      } finally {
+        connectBtn.disabled = false;
+      }
+    });
+  }
+
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', async () => {
+      try {
+        disconnectBtn.disabled = true;
+        const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        await refresh();
+      } catch (e) {
+        hint.classList.remove('hidden');
+        hint.textContent = `Failed to disconnect: ${e.message}`;
+      } finally {
+        disconnectBtn.disabled = false;
+      }
+    });
+  }
+
+  await refresh();
+}
