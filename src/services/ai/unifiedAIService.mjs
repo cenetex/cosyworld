@@ -26,9 +26,24 @@ export class UnifiedAIService {
   _toEnvelope(raw, { model, provider } = {}) {
     // Pass through if already looks like envelope (has text or error key and provider)
     if (raw && typeof raw === 'object' && (Object.prototype.hasOwnProperty.call(raw,'text') || Object.prototype.hasOwnProperty.call(raw,'error')) && (raw.provider || raw.model || raw.usage)) {
+      // Always normalize <think> tags out of env.text and accumulate into env.reasoning
       const env = { model, provider, ...raw };
       if (!env.model) env.model = model;
       if (!env.provider) env.provider = provider;
+      try {
+        const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+        const collected = [];
+        if (typeof env.text === 'string' && env.text.includes('<think>')) {
+          env.text = env.text.replace(thinkRegex, (_, inner) => {
+            if (inner && inner.trim()) collected.push(inner.trim());
+            return '';
+          }).trim();
+        }
+        // Merge existing reasoning with newly collected
+        const existing = env.reasoning ? String(env.reasoning).trim() : '';
+        const merged = [existing, ...collected].filter(Boolean).join('\n').trim();
+        env.reasoning = merged || null;
+      } catch {}
       this._estimateTokens(env);
       return env;
     }
@@ -36,10 +51,24 @@ export class UnifiedAIService {
       return { text: null, reasoning: null, toolCalls: null, model, provider, error: { code: 'NO_CONTENT', message: 'Empty response' } };
     }
     if (typeof raw === 'object' && raw.text) {
-  const env = { model, provider, ...raw, error: raw.error || null };
-  if (!env.usage) env.usage = {};
-  this._estimateTokens(env);
-  return env;
+      // Not an envelope with provider/model metadata, but shape has text. Normalize similarly.
+      const env = { model, provider, ...raw, error: raw.error || null };
+      try {
+        const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+        const collected = [];
+        if (typeof env.text === 'string' && env.text.includes('<think>')) {
+          env.text = env.text.replace(thinkRegex, (_, inner) => {
+            if (inner && inner.trim()) collected.push(inner.trim());
+            return '';
+          }).trim();
+        }
+        const existing = env.reasoning ? String(env.reasoning).trim() : '';
+        const merged = [existing, ...collected].filter(Boolean).join('\n').trim();
+        env.reasoning = merged || null;
+      } catch {}
+      if (!env.usage) env.usage = {};
+      this._estimateTokens(env);
+      return env;
     }
     let text = String(raw);
     let reasoning = [];

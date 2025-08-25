@@ -140,6 +140,8 @@ export class ConversationManager  {
   this.logger.info?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048, corrId });
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
+      // Scrub any <think> tags that may have leaked from providers
+      try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
       if (!narrative) {
         this.logger.error(`No narrative generated for ${avatar.name}.`);
         return null;
@@ -196,17 +198,41 @@ export class ConversationManager  {
         return [];
       }
       const discordMessages = await channel.messages.fetch({ limit });
-      const formattedMessages = Array.from(discordMessages.values())
-        .map(msg => ({
+      const formattedMessages = await Promise.all(Array.from(discordMessages.values()).map(async msg => {
+        // Best-effort backfill for images: extract URLs and caption
+        const hasImages = msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail);
+        let imageUrls = [];
+        let primaryImageUrl = null;
+        let imageDescription = null;
+        if (hasImages) {
+          try {
+            const aUrls = Array.from(msg.attachments.values())
+              .filter(a => a.contentType?.startsWith('image/'))
+              .map(a => a.url);
+            const eUrls = msg.embeds.map(e => e?.image?.url || e?.thumbnail?.url).filter(Boolean);
+            const all = [...aUrls, ...eUrls].filter(Boolean);
+            const seen = new Set();
+            imageUrls = all.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
+            primaryImageUrl = imageUrls[0] || null;
+            if (primaryImageUrl && this.aiService?.analyzeImage) {
+              const cap = await this.aiService.analyzeImage(primaryImageUrl, undefined, 'Write a concise, neutral caption (<=120 chars).');
+              imageDescription = (cap && String(cap).trim()) || null;
+            }
+          } catch {}
+        }
+        return ({
           messageId: msg.id,
           channelId: msg.channel.id,
           authorId: msg.author.id,
           authorUsername: msg.author.username,
           content: msg.content,
-          hasImages: msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail),
-          imageDescription: null, // Rely on database for this
+          hasImages,
+          imageDescription,
+          imageUrls,
+          primaryImageUrl,
           timestamp: msg.createdTimestamp,
-        }))
+        });
+      }))
         .sort((a, b) => a.timestamp - b.timestamp);
       this.logger.debug(`Retrieved ${formattedMessages.length} messages from Discord API for channel ${channelId}`);
       if (this.db) {
@@ -288,6 +314,7 @@ export class ConversationManager  {
       { role: 'user', content: prompt }
   ], { model: avatar.model, max_tokens: 500, corrId });
   if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
+    try { if (typeof summary === 'string') summary = summary.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
     if (!summary) {
       this.logger.error(`Failed to generate summary for avatar ${avatar.name} in channel ${channelId}`);
       return summaryDoc ? summaryDoc.summary : '';
@@ -350,7 +377,9 @@ export class ConversationManager  {
       return null;
     }
     try {
-      let response = presetResponse;
+  let response = presetResponse;
+  // Capture adapter/provider reasoning to merge into thoughts later
+  let resultReasoning = '';
       if (!response) {
   // Ensure avatar has a model before AI call
   await this.ensureAvatarModel(avatar);
@@ -390,6 +419,7 @@ export class ConversationManager  {
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
   this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown}`);
   let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId });
+      resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
       // Log non-string/atypical shapes for diagnostics
       try {
         if (result && typeof result !== 'string') {
@@ -430,6 +460,13 @@ export class ConversationManager  {
           thoughts.push(thought.trim());
           return '';
         }).trim();
+        // Merge any adapter-provided reasoning
+        if (resultReasoning) {
+          try {
+            const split = resultReasoning.split(/\n+/).map(s => s.trim()).filter(Boolean);
+            thoughts.unshift(...split);
+          } catch { thoughts.unshift(resultReasoning.trim()); }
+        }
         
         if (thoughts.length > 0) {
           // Initialize thoughts array if it doesn't exist

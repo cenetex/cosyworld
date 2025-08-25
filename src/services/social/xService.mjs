@@ -221,6 +221,51 @@ class XService {
     }
   }
 
+  async postVideoToX(avatar, videoUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
+    if (!auth?.accessToken) {
+      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    }
+
+    // Initialize clients
+    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const v1Client = twitterClient.v1;
+    const v2Client = twitterClient.v2;
+
+    try {
+      // Download the video
+      const res = await fetch(videoUrl);
+      if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const mimeHeader = res.headers.get('content-type') || '';
+      const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+
+      // Upload media (chunked for video)
+      const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
+
+      // Post tweet with video
+      const tweetContent = String(content || '').trim().slice(0, 280);
+      const tweet = await v2Client.tweet({ text: tweetContent, media: { media_ids: [mediaId] } });
+      if (!tweet?.data?.id) return '-# [ ❌ Failed to post video to X. ]';
+      const tweetId = tweet.data.id;
+      const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+      await db.collection('social_posts').insertOne({
+        avatarId: avatar._id,
+        content: tweetContent,
+        videoUrl,
+        timestamp: new Date(),
+        postedToX: true,
+        tweetId,
+        mediaType: 'video'
+      });
+      return `-# ✨ [ [Posted video to X](${tweetUrl}) ]`;
+    } catch (err) {
+      this.logger?.error('Error posting video to X:', err);
+      throw new Error('Failed to post video to X');
+    }
+  }
+
   async getXTimelineAndNotifications(avatar) {
     const db = await this.databaseService.getDatabase();
     const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });

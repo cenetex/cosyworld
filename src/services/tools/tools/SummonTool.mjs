@@ -243,7 +243,8 @@ export class SummonTool extends BasicTool {
             { role: 'system', content: `You are ${createdAvatar.name}, ${createdAvatar.description}. Keep response under 120 characters.` },
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
           ], { model: createdAvatar.model, corrId });
-          const brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
+          let brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
+          try { if (typeof brief === 'string') brief = brief.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
           this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
@@ -272,6 +273,8 @@ export class SummonTool extends BasicTool {
         { model: createdAvatar.model, corrId: introCorrId }
       );
   let intro = typeof introResult === 'object' && introResult?.text ? introResult.text : introResult;
+      // Safety scrub in case provider leaked <think>
+      try { if (typeof intro === 'string') intro = intro.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
       // Extract <think> tags from intro, store as thoughts & strip before sending
       try {
         const thinkRegex = /<think>(.*?)<\/think>/gs;

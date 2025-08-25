@@ -202,6 +202,23 @@ export default class VideoJobService {
         await this.markCompleted(job._id, uris);
         this.logger.info?.(`[VideoJobService] job ${String(job._id)} completed with ${uris.length} clip(s)`);
         await this._notify(job, uris).catch(() => {});
+        // Optional: auto-post videos to X for admin account with channel summary
+        try {
+          const autoX = String(process.env.X_AUTO_POST_VIDEOS || 'false').toLowerCase();
+          const adminId = process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || null;
+          if (autoX === 'true' && this.configService?.services?.xService && adminId && job.channelId) {
+            const avatar = await this.configService.services.avatarService.getAvatarById(adminId);
+            if (avatar) {
+              let summary = '';
+              try { summary = await this.configService.services.conversationManager.getChannelSummary(avatar._id, job.channelId); } catch {}
+              if (typeof summary !== 'string') summary = String(summary || '');
+              const content = `${job.prompt || 'New clip'} — ${summary}`.slice(0, 240);
+              for (const u of uris) {
+                try { await this.configService.services.xService.postVideoToX(avatar, u, content); } catch (e) { this.logger.warn?.(`Auto X video post failed: ${e.message}`); }
+              }
+            }
+          }
+        } catch (e) { this.logger.debug?.(`auto X video post skipped: ${e.message}`); }
       } else {
         throw new Error('No URIs returned from Veo');
       }

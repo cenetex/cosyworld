@@ -138,6 +138,11 @@ export class DatabaseService {
           attachments,
           embeds,
           hasImages: attachments.some(a => a.contentType?.startsWith("image/")) || embeds.some(e => e.image || e.thumbnail),
+          // Persist AI-generated image captions/urls if the message object was enriched upstream
+          imageDescription: message.imageDescription || null,
+          imageDescriptions: Array.isArray(message.imageDescriptions) ? message.imageDescriptions : null,
+          imageUrls: Array.isArray(message.imageUrls) ? message.imageUrls : null,
+          primaryImageUrl: message.primaryImageUrl || null,
           timestamp: message.createdTimestamp,
         };
   

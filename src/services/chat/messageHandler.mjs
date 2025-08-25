@@ -121,8 +121,11 @@ export class MessageHandler  {
       this.logger.debug(`Caching message ${message.id}.`);
     }
 
-    // Persist the message to the database
-    await this.databaseService.saveMessage(message);
+  // Analyze images and enhance message object BEFORE persisting so captions are saved
+  await this.handleImageAnalysis(message);
+
+  // Persist the message to the database (now enriched with image fields)
+  await this.databaseService.saveMessage(message);
 
     const channel = message.channel;
     if (channel && channel.name) {
@@ -160,8 +163,26 @@ export class MessageHandler  {
       return;
     }
 
-    // Analyze images and enhance message object
-    await this.handleImageAnalysis(message);
+    // (Images already analyzed above before save)
+
+    // Optional: Auto-post images to X for admin account with channel summary
+    try {
+      const autoX = String(process.env.X_AUTO_POST_IMAGES || 'false').toLowerCase();
+      const adminId = process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || null;
+      if (autoX === 'true' && message.hasImages && this.toolService?.xService && adminId) {
+  const avatar = await this.avatarService.getAvatarById(adminId);
+        if (avatar) {
+          // Compute a short channel summary context
+          let summary = await this.conversationManager.getChannelSummary(avatar._id, message.channel.id);
+          if (typeof summary !== 'string') summary = String(summary || '').slice(0, 180);
+          const caption = `${message.imageDescription || 'Image'} — ${summary}`.slice(0, 240);
+          const imgUrl = message.primaryImageUrl || (Array.isArray(message.imageUrls) ? message.imageUrls[0] : null);
+          if (imgUrl) {
+            try { await this.toolService.xService.postImageToX(avatar, imgUrl, caption); } catch (e) { this.logger.warn?.(`Auto X image post failed: ${e.message}`); }
+          }
+        }
+      }
+    } catch (e) { this.logger.debug?.(`auto X image post skipped: ${e.message}`); }
 
     // Check if the message is from the bot itself
     if (message.author.bot) {
@@ -253,40 +274,55 @@ export class MessageHandler  {
       message.attachments?.some((a) => a.contentType?.startsWith("image/")) ||
       message.embeds?.some((e) => e.image || e.thumbnail);
 
+    let imageDescriptions = [];
     let imageDescription = null;
     let imageUrls = [];
     let primaryImageUrl = null;
-    if (hasImages && this.toolService.aiService?.analyzeImage) {
-      const attachment = message.attachments?.find((a) =>
-        a.contentType?.startsWith("image/")
-      );
+    if (hasImages) {
+      // Collect all candidate image URLs from attachments and embeds
       try {
-        if (attachment) {
-          primaryImageUrl = attachment.url;
-          imageUrls.push(attachment.url);
-          imageDescription = await this.toolService.aiService.analyzeImage(attachment.url);
-        } else if (message.embeds?.length) {
-          // Try to analyze the first embed image if present
-          const embedImg = message.embeds.find(e => e.image?.url)?.image?.url || message.embeds.find(e => e.thumbnail?.url)?.thumbnail?.url;
-          if (embedImg) {
-            primaryImageUrl = embedImg;
-            imageUrls.push(embedImg);
-            imageDescription = await this.toolService.aiService.analyzeImage(embedImg);
+        const attachmentUrls = Array.from(message.attachments?.values?.() || [])
+          .filter(a => a?.contentType?.startsWith('image/'))
+          .map(a => a.url)
+          .filter(Boolean);
+        const embedUrls = (message.embeds || []).map(e => e?.image?.url || e?.thumbnail?.url).filter(Boolean);
+        const allUrls = [...attachmentUrls, ...embedUrls].filter(Boolean);
+        // Deduplicate while preserving order
+        const seen = new Set();
+        imageUrls = allUrls.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
+        primaryImageUrl = imageUrls[0] || null;
+      } catch {}
+
+      // Analyze each image URL if analyzer available, otherwise provide a generic caption
+      if (this.toolService.aiService?.analyzeImage && imageUrls.length) {
+        for (const url of imageUrls) {
+          try {
+            const caption = await this.toolService.aiService.analyzeImage(
+              url,
+              undefined,
+              'Write a concise, neutral caption (<=120 chars) that describes this image for context.'
+            );
+            imageDescriptions.push((caption && String(caption).trim()) || 'Image (no caption).');
+          } catch (e) {
+            this.logger.warn?.(`Image caption failed for ${url}: ${e.message}`);
+            imageDescriptions.push('Image (caption unavailable).');
           }
         }
-        if (imageDescription) {
-          this.logger.info(`Generated image description for message ${message.id}: ${imageDescription}`);
-        } else {
-          imageDescription = "Image analysis failed or returned no description.";
-        }
-      } catch (error) {
-        this.logger.error(`Error analyzing image for message ${message.id}: ${error.message}`);
-        imageDescription = "Image analysis failed.";
+      } else if (hasImages) {
+        // No analyzer; fallback generic
+        imageDescriptions = imageUrls.map(() => 'Image present.');
       }
-    } else if (hasImages) {
-      imageDescription = "Image present but analysis method not available.";
+
+      // Derive a combined one-line description for legacy consumers
+      if (imageDescriptions.length) {
+        imageDescription = imageDescriptions.length === 1
+          ? imageDescriptions[0]
+          : imageDescriptions.map((c, i) => `${i + 1}) ${c}`).join(' | ');
+        this.logger.info(`Generated ${imageDescriptions.length} image caption(s) for message ${message.id}`);
+      }
     }
 
+    message.imageDescriptions = imageDescriptions;
     message.imageDescription = imageDescription;
     message.hasImages = hasImages;
     message.imageUrls = imageUrls;

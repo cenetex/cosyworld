@@ -88,7 +88,14 @@ export class VeoService {
       // Prefer named operation lookups; avoid passing raw objects to SDK methods.
       try {
         if (opName && this.ai?.operations?.getVideosOperation) {
-          return await this.ai.operations.getVideosOperation({ name: opName });
+          // Some SDK versions expect { operation: { name } } instead of { name }
+          try {
+            return await this.ai.operations.getVideosOperation({ operation: { name: opName } });
+          } catch (inner) {
+            // Fallback to alternate signature; include inner error in verbose log
+            this.logger?.info?.(`[VeoService] getVideosOperation alt signature after error: ${inner?.message || inner}`);
+            return await this.ai.operations.getVideosOperation({ name: opName });
+          }
         }
       } catch (e) {
         this.logger?.warn?.(`[VeoService] getVideosOperation error (name=${opName || 'n/a'}): ${e?.message || e}`);

@@ -170,22 +170,10 @@ ${items}
     const channelContextText = messages
       .map(msg => {
         const username = msg.authorUsername || 'User';
-        // Case 1: Message has both text and an image
-        if (msg.content && msg.imageDescription) {
-          return `${username}: ${msg.content} [Image: ${msg.imageDescription}]`;
-        }
-        // Case 2: Message has only text
-        else if (msg.content) {
-          return `${username}: ${msg.content}`;
-        }
-        // Case 3: Message has only an image
-        else if (msg.imageDescription) {
-          return `${username}: [Image: ${msg.imageDescription}]`;
-        }
-        // Case 4: Message has neither (rare, but included for completeness)
-        else {
-          return `${username}: [No content]`;
-        }
+        const descs = Array.isArray(msg.imageDescriptions) ? msg.imageDescriptions : (msg.imageDescription ? [msg.imageDescription] : []);
+        const imageNote = descs.length ? ` [Images: ${descs.join(' | ')}]` : '';
+        if (msg.content) return `${username}: ${msg.content}${imageNote}`;
+        return `${username}:${imageNote || ' [No content]'}`;
       })
       .join('\n');
   

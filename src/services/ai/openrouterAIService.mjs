@@ -237,13 +237,16 @@ export class OpenRouterAIService {
         return options.returnEnvelope ? { text: txt, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : txt;
       }
 
-      if (result.reasoning) { 
-          result.content = '<think>' + result.reasoning + '</think>' + (normalizedContent || '');
-        } else {
-          result.content = normalizedContent;
-      }
+      // Do not inject <think> tags into visible content; keep reasoning separate
+      result.content = normalizedContent;
 
-  const baseText = (String(result.content || '').trim() || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
+      // Final safety scrub to ensure no <think> tags leak
+      const scrub = (s) => {
+        try {
+          return String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        } catch { return String(s || '').trim(); }
+      };
+      const baseText = (scrub(result.content) || '...') + (fallback ? `\n-# [⚠️ Fallback model (${mergedOptions.model}) used.]` : '');
   return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
     } catch (error) {
       this.logger.error('Error while chatting with OpenRouter:', error);
@@ -265,9 +268,12 @@ export class OpenRouterAIService {
             const resp = await this.openai.chat.completions.create({ ...mergedOptions, model: m });
             const choice = resp?.choices?.[0]?.message;
             if (!choice) continue;
-            let content = choice.content;
-            if (choice.reasoning) content = '<think>' + choice.reasoning + '</think>' + content;
-            const baseText = (String(content || '').trim() || '...') + (m !== mergedOptions.model ? `\n-# [⚠️ Fallback model (${m}) used.]` : '');
+            const scrub = (s) => {
+              try { return String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(); }
+              catch { return String(s || '').trim(); }
+            };
+            const content = scrub(choice.content);
+            const baseText = (content || '...') + (m !== mergedOptions.model ? `\n-# [⚠️ Fallback model (${m}) used.]` : '');
             return options.returnEnvelope ? { text: baseText, raw: resp, model: m, provider: 'openrouter', error: null } : baseText;
           } catch (e) {
             const st = e?.response?.status || e?.status;
