@@ -80,29 +80,28 @@ export class VeoService {
     this.recentRequests.push({ operation: 'generate', timestamp: Date.now() });
 
     // Poll until complete with robust fallbacks and timeout
-    const opName = operation?.name || operation?.operation?.name || null;
     const startedAt = Date.now();
     const deadline = startedAt + this.MAX_POLL_MINUTES * 60 * 1000;
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const getOp = async () => {
-      // Try multiple SDK shapes
+  const opName = operation?.name || operation?.operation?.name || null;
+      // Prefer named operation lookups; avoid passing raw objects to SDK methods.
       try {
-        if (this.ai?.operations?.getVideosOperation) {
-          // Try by name if available
-          if (opName) return await this.ai.operations.getVideosOperation({ name: opName });
-          return await this.ai.operations.getVideosOperation({ operation });
+        if (opName && this.ai?.operations?.getVideosOperation) {
+          return await this.ai.operations.getVideosOperation({ name: opName });
         }
       } catch (e) {
-        this.logger?.warn?.(`[VeoService] getVideosOperation error: ${e.message}`);
+        this.logger?.warn?.(`[VeoService] getVideosOperation error (name=${opName || 'n/a'}): ${e?.message || e}`);
       }
       try {
-        if (this.ai?.operations?.getOperation && opName) {
+        if (opName && this.ai?.operations?.getOperation) {
           return await this.ai.operations.getOperation({ name: opName });
         }
       } catch (e) {
-        this.logger?.warn?.(`[VeoService] getOperation error: ${e.message}`);
+        this.logger?.warn?.(`[VeoService] getOperation error (name=${opName || 'n/a'}): ${e?.message || e}`);
       }
-      return operation; // best effort
+      // If we have no name, return the last known operation object and hope it updates in-place.
+      return operation;
     };
 
     // If operation already done, skip loop
