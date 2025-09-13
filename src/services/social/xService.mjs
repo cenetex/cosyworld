@@ -11,7 +11,7 @@
 import { TwitterApi } from 'twitter-api-v2';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { decrypt } from '../../utils/encryption.mjs';
+import { decrypt, encrypt } from '../../utils/encryption.mjs';
 
 class XService {
   constructor({
@@ -116,14 +116,15 @@ class XService {
       clientSecret: this.configService.get('X_CLIENT_SECRET') || process.env.X_CLIENT_SECRET,
     });
     try {
-      const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(auth.refreshToken);
+  const rt = decrypt(auth.refreshToken || '');
+  const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(rt);
       const expiresAt = new Date(Date.now() + ((expiresIn || 7200) * 1000));
       await db.collection('x_auth').updateOne(
         { avatarId: auth.avatarId },
         {
           $set: {
-            accessToken,
-            refreshToken: newRefreshToken,
+    accessToken: encrypt(accessToken),
+    refreshToken: encrypt(newRefreshToken),
             expiresAt,
             updatedAt: new Date(),
           },
@@ -219,6 +220,110 @@ class XService {
       this.logger?.error('Error posting image to X (v2):', err);
       throw new Error('Failed to post image to X');
     }
+  }
+
+  /**
+   * Post an image tweet and return structured details for chaining.
+   * Returns { tweetId, tweetUrl, content } on success.
+   */
+  async postImageToXDetailed(avatar, imageUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
+    if (!auth?.accessToken) {
+      throw new Error('X authorization required. Please connect your account.');
+    }
+
+    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+    const clientV2 = twitterClient.v2;
+
+    // 1. Download image
+    const res = await fetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+
+    // 2. Upload media and post
+    const mediaId = await clientV2.uploadMedia(buffer, {
+      media_category: 'tweet_image',
+      media_type: mimeType,
+    });
+    const tweetContent = String(content || '').trim().slice(0, 280);
+    const tweet = await clientV2.tweet({
+      text: tweetContent,
+      media: { media_ids: [mediaId] }
+    });
+    if (!tweet?.data?.id) throw new Error('Failed to post image to X');
+    const tweetId = tweet.data.id;
+    const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+
+    await db.collection('social_posts').insertOne({
+      avatarId: avatar._id,
+      content: tweetContent,
+      imageUrl,
+      timestamp: new Date(),
+      postedToX: true,
+      tweetId,
+      mediaType: 'image'
+    });
+
+    return { tweetId, tweetUrl, content: tweetContent };
+  }
+
+  /**
+   * Reply with an image to a given tweetId.
+   */
+  async replyWithImageToX(avatar, parentTweetId, imageUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
+    if (!auth?.accessToken) throw new Error('X authorization required. Please connect your account.');
+    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+    const clientV2 = twitterClient.v2;
+
+    const res = await fetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+    const mediaId = await clientV2.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+
+    const replyContent = String(content || '').trim().slice(0, 280);
+    const result = await clientV2.tweet({
+      text: replyContent,
+      media: { media_ids: [mediaId] },
+      reply: { in_reply_to_tweet_id: parentTweetId }
+    });
+    if (!result?.data?.id) throw new Error('Failed to post image reply to X');
+    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'image' });
+    return result.data.id;
+  }
+
+  /**
+   * Reply with a video to a given tweetId.
+   */
+  async replyWithVideoToX(avatar, parentTweetId, videoUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
+    if (!auth?.accessToken) throw new Error('X authorization required. Please connect your account.');
+
+    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const v1Client = twitterClient.v1;
+    const v2Client = twitterClient.v2;
+
+    const res = await fetch(videoUrl);
+    if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const mimeHeader = res.headers.get('content-type') || '';
+    const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+    const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
+
+    const replyContent = String(content || '').trim().slice(0, 280);
+    const result = await v2Client.tweet({
+      text: replyContent,
+      media: { media_ids: [mediaId] },
+      reply: { in_reply_to_tweet_id: parentTweetId }
+    });
+    if (!result?.data?.id) throw new Error('Failed to post video reply to X');
+    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'video' });
+    return result.data.id;
   }
 
   async postVideoToX(avatar, videoUrl, content) {

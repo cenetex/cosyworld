@@ -159,6 +159,34 @@ export class AttackTool extends BasicTool {
                       image: { url: poster.imageUrl },
                     };
                     await channel.send({ embeds: [embed] });
+                    // Optional: auto-post to X for admin account and attach tweet info to encounter
+                    try {
+                      const autoX = String(process.env.X_AUTO_POST_BATTLES || 'false').toLowerCase();
+                      const xsvc = this.configService?.services?.xService;
+                      if (autoX === 'true' && xsvc && poster.imageUrl) {
+                        let admin = null;
+                        try {
+                          const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+                          if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+                            admin = await this.configService.services.avatarService.getAvatarById(envId);
+                          } else {
+                            const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+                            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+                            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+                            admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+                          }
+                        } catch {}
+                        if (admin) {
+                          const locName = loc?.location?.name || 'Unknown Arena';
+                          const text = `⚔️ ${avatar.name} vs ${defender.name} — ${locName}`;
+                          const { tweetId, tweetUrl } = await xsvc.postImageToXDetailed(admin, poster.imageUrl, text);
+                          try {
+                            const enc = encounterService.getEncounter(message.channel.id);
+                            if (enc) { enc._xTweetId = tweetId; enc._xTweetUrl = tweetUrl; }
+                          } catch {}
+                        }
+                      }
+                    } catch (e) { this.logger?.warn?.(`[AttackTool] auto X poster post failed: ${e.message}`); }
                     // Brief discussion after poster
                     const cm = this.conversationManager;
                     if (cm?.sendResponse) {

@@ -1021,7 +1021,7 @@ Message: ${messageContent}`;
       };
   // Capture any video URL we plan to post separately after the embed
   let _videoUrl = null;
-      try {
+  try {
         if (this.battleMediaService || this.battleService?.battleMediaService) {
           const bms = this.battleMediaService || this.battleService?.battleMediaService;
           const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
@@ -1138,6 +1138,52 @@ Message: ${messageContent}`;
   } catch (e) {
     this.logger.warn?.(`[CombatEncounter] posting video link failed: ${e.message}`);
   }
+
+      // Optional: auto-post summary as a reply on X thread
+      try {
+        const autoX = String(process.env.X_AUTO_POST_BATTLES || 'false').toLowerCase();
+        const xsvc = this.configService?.services?.xService;
+        if (autoX === 'true' && xsvc && (encounter._xTweetId || encounter._xTweetUrl)) {
+          let admin = null;
+          try {
+            const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+            if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+              admin = await this.configService.services.avatarService.getAvatarById(envId);
+            } else {
+              const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+              const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+              const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+              admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+            }
+          } catch {}
+          const adminResolved = admin;
+          const parentId = encounter._xTweetId;
+          // Resolve winner/loser refs for message
+          let attRef = null; let defRef = null;
+          try {
+            if (encounter.knockout?.attackerId && encounter.knockout?.defenderId) {
+              attRef = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref || null;
+              defRef = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref || null;
+            }
+          } catch {}
+          const text = (() => {
+            const outcome = encounter.knockout?.result || 'win';
+            if (encounter.knockout && attRef && defRef) {
+              return `Result: ${attRef.name} ${outcome === 'dead' ? 'defeated' : 'knocked out'} ${defRef.name}.`;
+            }
+            return `Battle concluded.`;
+          })();
+          if (adminResolved && parentId) {
+            try {
+              if (_videoUrl) {
+                await xsvc.replyWithVideoToX(adminResolved, parentId, _videoUrl, text);
+              } else if (embed?.image?.url) {
+                await xsvc.replyWithImageToX(adminResolved, parentId, embed.image.url, text);
+              }
+            } catch (e) { this.logger.warn?.(`[CombatEncounter] auto X reply failed: ${e.message}`); }
+          }
+        }
+      } catch (e) { this.logger.debug?.(`[CombatEncounter] auto X summary skipped: ${e.message}`); }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] summary send error: ${e.message}`);
     }

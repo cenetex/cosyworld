@@ -598,6 +598,35 @@ export class AvatarService {
 
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
+
+    // Auto-post new avatars to X when enabled and admin account is linked
+    try {
+      const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
+      if (autoPost === 'true' && doc.imageUrl && this.configService?.services?.xService) {
+        // Basic dedupe: avoid posting if a recent social_posts entry exists for this image
+        const posted = await db.collection('social_posts').findOne({ imageUrl: doc.imageUrl, mediaType: 'image' });
+        if (!posted) {
+          try {
+            // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
+            let admin = null;
+            const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+            if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+              admin = await this.configService.services.avatarService.getAvatarById(envId);
+            } else {
+              const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+              const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+              const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+              admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+            }
+            if (admin) {
+              const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
+              await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
+            }
+          } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
+        }
+      }
+    } catch (e) { this.logger?.debug?.(`[AvatarService] auto X post (avatar) skipped: ${e.message}`); }
+
     return { ...doc, _id: insertedId };
   }
 

@@ -205,16 +205,27 @@ export default class VideoJobService {
         // Optional: auto-post videos to X for admin account with channel summary
         try {
           const autoX = String(process.env.X_AUTO_POST_VIDEOS || 'false').toLowerCase();
-          const adminId = process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || null;
-          if (autoX === 'true' && this.configService?.services?.xService && adminId && job.channelId) {
-            const avatar = await this.configService.services.avatarService.getAvatarById(adminId);
-            if (avatar) {
+          if (autoX === 'true' && this.configService?.services?.xService && job.channelId) {
+            // Resolve admin identity
+            let admin = null;
+            try {
+              const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+              if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+                admin = await this.configService.services.avatarService.getAvatarById(envId);
+              } else {
+                const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+                const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+                const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+                admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+              }
+            } catch {}
+            if (admin) {
               let summary = '';
-              try { summary = await this.configService.services.conversationManager.getChannelSummary(avatar._id, job.channelId); } catch {}
+              try { summary = await this.configService.services.conversationManager.getChannelSummary(admin._id, job.channelId); } catch {}
               if (typeof summary !== 'string') summary = String(summary || '');
               const content = `${job.prompt || 'New clip'} — ${summary}`.slice(0, 240);
               for (const u of uris) {
-                try { await this.configService.services.xService.postVideoToX(avatar, u, content); } catch (e) { this.logger.warn?.(`Auto X video post failed: ${e.message}`); }
+                try { await this.configService.services.xService.postVideoToX(admin, u, content); } catch (e) { this.logger.warn?.(`Auto X video post failed: ${e.message}`); }
               }
             }
           }

@@ -168,17 +168,28 @@ export class MessageHandler  {
     // Optional: Auto-post images to X for admin account with channel summary
     try {
       const autoX = String(process.env.X_AUTO_POST_IMAGES || 'false').toLowerCase();
-      const adminId = process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || null;
-      if (autoX === 'true' && message.hasImages && this.toolService?.xService && adminId) {
-  const avatar = await this.avatarService.getAvatarById(adminId);
-        if (avatar) {
+      if (autoX === 'true' && message.hasImages && this.toolService?.xService) {
+        // Resolve admin identity
+        let admin = null;
+        try {
+          const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+          if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+            admin = await this.avatarService.getAvatarById(envId);
+          } else {
+            const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+            admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+          }
+        } catch {}
+        if (admin) {
           // Compute a short channel summary context
-          let summary = await this.conversationManager.getChannelSummary(avatar._id, message.channel.id);
+          let summary = await this.conversationManager.getChannelSummary(admin._id, message.channel.id);
           if (typeof summary !== 'string') summary = String(summary || '').slice(0, 180);
           const caption = `${message.imageDescription || 'Image'} — ${summary}`.slice(0, 240);
           const imgUrl = message.primaryImageUrl || (Array.isArray(message.imageUrls) ? message.imageUrls[0] : null);
           if (imgUrl) {
-            try { await this.toolService.xService.postImageToX(avatar, imgUrl, caption); } catch (e) { this.logger.warn?.(`Auto X image post failed: ${e.message}`); }
+            try { await this.toolService.xService.postImageToX(admin, imgUrl, caption); } catch (e) { this.logger.warn?.(`Auto X image post failed: ${e.message}`); }
           }
         }
       }

@@ -233,6 +233,26 @@
 				"lint"
 			],
 			"group": "build"
+		},
+		{
+			"label": "lint-all",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"lint"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-web",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build:js"
+			],
+			"group": "build"
 		}
 	]
 }

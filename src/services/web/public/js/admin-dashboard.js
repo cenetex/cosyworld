@@ -88,7 +88,7 @@ async function wireAdminX() {
       if (!targetRes.ok) {
         const err = await targetRes.json().catch(() => ({}));
         hint.classList.remove('hidden');
-        hint.textContent = err.error || 'Admin avatar not configured. Set ADMIN_AVATAR_ID.';
+        hint.textContent = err.error || 'Admin target unavailable.';
         connectBtn?.setAttribute('disabled', 'true');
         return;
       }

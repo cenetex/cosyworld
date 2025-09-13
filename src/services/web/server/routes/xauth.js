@@ -16,8 +16,32 @@ const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 export default function xauthRoutes(services) {
     const router = express.Router();
     const xService = services.xService;
-    const getAdminAvatarId = () => (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+    // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
+    // Fallback uses the default AI chat model name to generate a deterministic id.
+    const getAdminAvatarId = () => {
+        const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+        if (envId) return envId;
+        try {
+            const cfgSvc = services?.configService;
+            const aiCfg = cfgSvc?.getAIConfig ? cfgSvc.getAIConfig(process.env.AI_SERVICE) : null;
+            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+            return `model:${safe}`;
+        } catch {
+            return 'model:default';
+        }
+    };
     const isAdmin = (req) => !!req?.user?.isAdmin;
+    const getCallbackUrl = () => {
+        const envCb = process.env.X_CALLBACK_URL?.trim();
+        if (envCb) return envCb;
+        try {
+            const base = services?.configService?.get('server.publicUrl') || services?.configService?.get('server.baseUrl') || 'http://localhost:3000';
+            return `${base.replace(/\/$/, '')}/api/xauth/callback`;
+        } catch {
+            return 'http://localhost:3000/api/xauth/callback';
+        }
+    };
 
     router.get('/auth-url', async (req, res) => {
         const { avatarId } = req.query;
@@ -122,17 +146,17 @@ export default function xauthRoutes(services) {
             });
     
             // Let the library generate codeChallenge from the codeVerifier.
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(process.env.X_CALLBACK_URL, {
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
                 scope: [
-                    'tweet.read', 
-                    'tweet.write', 
-                    'users.read', 
-                    'follows.write', 
-                    'like.write', 
-                    'block.write', 
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                    'follows.write',
+                    'like.write',
+                    'block.write',
                     'offline.access',
-                    'media.write'
-                ].join(' '),
+                    'media.write',
+                ],
                 state,
             });
     
@@ -163,7 +187,7 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            if (!avatarId) return res.status(400).json({ error: 'ADMIN_AVATAR_ID not configured' });
+            // Always return a deterministic target id, even if env is not set
             return res.json({ avatarId });
         } catch (e) {
             return res.status(500).json({ error: 'Failed to fetch admin target' });
@@ -175,7 +199,6 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            if (!avatarId) return res.status(400).json({ error: 'ADMIN_AVATAR_ID not configured' });
 
             if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
                 return res.status(500).json({ error: 'X integration is not configured on server' });
@@ -198,7 +221,7 @@ export default function xauthRoutes(services) {
                 clientSecret: process.env.X_CLIENT_SECRET,
             });
 
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(process.env.X_CALLBACK_URL, {
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
                 scope: [
                     'tweet.read',
                     'tweet.write',
@@ -208,7 +231,7 @@ export default function xauthRoutes(services) {
                     'block.write',
                     'offline.access',
                     'media.write',
-                ].join(' '),
+                ],
                 state,
             });
 
@@ -255,14 +278,14 @@ export default function xauthRoutes(services) {
             console.log('Token exchange details:', {
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: process.env.X_CALLBACK_URL,
+                redirectUri: getCallbackUrl(),
                 avatarId: storedAuth.avatarId,
             });
 
             const { accessToken, refreshToken, expiresIn } = await client.loginWithOAuth2({
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: process.env.X_CALLBACK_URL,
+                redirectUri: getCallbackUrl(),
             });
 
             const expiresAt = new Date(Date.now() + (expiresIn || DEFAULT_TOKEN_EXPIRY) * 1000);
@@ -430,7 +453,6 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            if (!avatarId) return res.status(400).json({ error: 'ADMIN_AVATAR_ID not configured' });
             const db = await services.databaseService.getDatabase();
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth?.accessToken) return res.json({ authorized: false });
@@ -448,7 +470,6 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            if (!avatarId) return res.status(400).json({ error: 'ADMIN_AVATAR_ID not configured' });
             const db = await services.databaseService.getDatabase();
             const result = await db.collection('x_auth').deleteOne({ avatarId });
             return res.json({ success: true, disconnected: result.deletedCount > 0 });
