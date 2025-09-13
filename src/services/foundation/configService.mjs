@@ -198,7 +198,7 @@ export class ConfigService {
           merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3000';
           merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3000';
         } else {
-          merged.server.port = 3100;
+          merged.server.port = 3000;
           merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3100';
           merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3100';
         }

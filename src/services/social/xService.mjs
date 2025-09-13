@@ -166,10 +166,11 @@ class XService {
 
   async postImageToX(avatar, imageUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) {
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
 
     // Initialize a v2 client with OAuth2 bearer token
     const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
@@ -228,10 +229,11 @@ class XService {
    */
   async postImageToXDetailed(avatar, imageUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) {
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
       throw new Error('X authorization required. Please connect your account.');
     }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
 
     const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
@@ -274,8 +276,9 @@ class XService {
    */
   async replyWithImageToX(avatar, parentTweetId, imageUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) throw new Error('X authorization required. Please connect your account.');
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
@@ -301,8 +304,9 @@ class XService {
    */
   async replyWithVideoToX(avatar, parentTweetId, videoUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) throw new Error('X authorization required. Please connect your account.');
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
+    const auth = await db.collection('x_auth').findOne({ avatarId });
 
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v1Client = twitterClient.v1;
@@ -328,10 +332,11 @@ class XService {
 
   async postVideoToX(avatar, videoUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) {
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
 
     // Initialize clients
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
@@ -373,8 +378,9 @@ class XService {
 
   async getXTimelineAndNotifications(avatar) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth) return { timeline: [], notifications: [], userId: null };
+    const avatarId = avatar._id.toString();
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth || !await this.isXAuthorized(avatarId)) return { timeline: [], notifications: [], userId: null };
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const userData = await v2Client.me();
@@ -399,8 +405,9 @@ class XService {
   // --- X Social Actions ---
   async postToX(avatar, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const tweetContent = content.trim().slice(0, 280);
@@ -414,8 +421,9 @@ class XService {
 
   async replyToX(avatar, tweetId, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const replyContent = content.trim().slice(0, 280);
@@ -427,8 +435,9 @@ class XService {
 
   async quoteToX(avatar, tweetId, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const quoteContent = content.trim().slice(0, 280);
@@ -440,8 +449,9 @@ class XService {
 
   async followOnX(avatar, userId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -451,8 +461,9 @@ class XService {
 
   async likeOnX(avatar, tweetId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -462,8 +473,9 @@ class XService {
 
   async repostOnX(avatar, tweetId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -473,8 +485,9 @@ class XService {
 
   async blockOnX(avatar, userId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();

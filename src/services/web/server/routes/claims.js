@@ -221,6 +221,7 @@ export default function(db) {
 
       const existingClaim = await db.collection('avatar_claims').findOne({ avatarId: objectId });
       if (existingClaim) {
+        console.log('Avatar already claimed:', existingClaim.walletAddress);
         return res.status(409).json({
           error: 'Avatar already claimed',
           claimedBy: existingClaim.walletAddress
@@ -229,12 +230,13 @@ export default function(db) {
 
   const isValidSignature = await verifySignature(message, signature, normalizedWalletAddress);
       if (!isValidSignature) {
+        console.log('Invalid signature for wallet:', normalizedWalletAddress);
         return res.status(401).json({ error: 'Invalid signature' });
       }
 
       // Determine collection policy
       const collKey = avatar?.nft?.collection || avatar?.collection;
-      let policy = 'strictTokenOwner', chain = 'ethereum', provider = '', gateTarget = '';
+      let policy = collKey ? 'strictTokenOwner' : 'free', chain = 'ethereum', provider = '', gateTarget = '';
       if (collKey) {
         const cfg = await db.collection('collection_configs').findOne({ key: collKey });
         if (cfg) {
@@ -245,9 +247,12 @@ export default function(db) {
         }
       }
 
+      console.log('Claim policy for avatar', avatarId, ':', policy, 'collection:', collKey, 'chain:', chain);
+
       // Enforce ownership per policy
       if (policy === 'strictTokenOwner') {
         const ok = await holdsSpecificToken({ walletAddress: normalizedWalletAddress, collectionKey: collKey, tokenId: avatar?.nft?.tokenId, chain });
+        console.log('Ownership check result:', ok, 'tokenId:', avatar?.nft?.tokenId);
         if (!ok) return res.status(403).json({ error: 'Ownership required: not the NFT owner' });
       } else if (policy === 'anyTokenHolder') {
         const ok = await holdsAnyFromCollection({ walletAddress: normalizedWalletAddress, collectionKey: collKey, chain, provider });
@@ -259,10 +264,14 @@ export default function(db) {
         const gateProv = gateCfg?.provider || '';
         const ok = await holdsAnyFromCollection({ walletAddress: normalizedWalletAddress, collectionKey: gateTarget, chain: gateChain, provider: gateProv });
         if (!ok) return res.status(403).json({ error: 'Orb required: hold an orb to claim' });
+      } else if (policy === 'free') {
+        // No ownership check required
+        console.log('Free claim allowed');
       }
 
       const allowance = await checkClaimAllowance(normalizedWalletAddress);
       if (!allowance.allowed) {
+        console.log('Claim limit reached for wallet:', normalizedWalletAddress, allowance);
         return res.status(403).json({ error: 'Claim limit reached', allowance });
       }
 
@@ -280,6 +289,7 @@ export default function(db) {
       // Insert claim with unique constraint handling
       try {
         await db.collection('avatar_claims').insertOne(claim);
+        console.log('Claim inserted successfully for avatar', avatarId);
       } catch (error) {
         if (error.code === 11000) { // Duplicate key error
           return res.status(409).json({ error: 'Avatar already claimed by another wallet' });
@@ -299,6 +309,7 @@ export default function(db) {
       );
 
       const updatedAllowance = await checkClaimAllowance(normalizedWalletAddress);
+      console.log('Claim completed successfully');
       res.status(201).json({
         success: true,
         claim: {

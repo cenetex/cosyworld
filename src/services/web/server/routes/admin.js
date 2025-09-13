@@ -85,7 +85,7 @@ async function saveUserConfig(config) {
   }
 }
 
-function createRouter(db) {
+function createRouter(db, services) {
   const router = express.Router();
   const avatarsCollection = db.collection('avatars');
 
@@ -774,8 +774,52 @@ Hello ${avatar.name}, what's on your mind today?
     }
   }));
 
-  // Add admin routes to main router
-  router.use('/admin', adminRouter);
+  // Get all X accounts with avatar details
+  router.get('/x-accounts', asyncHandler(async (req, res) => {
+    try {
+      const xAuths = await db.collection('x_auth').find({}).toArray();
+
+      // Build a map of avatarId -> avatar
+      const results = [];
+      for (const record of xAuths) {
+        const avatarIdStr = String(record.avatarId || '');
+        let avatar = null;
+        try {
+          const oid = ObjectId.createFromHexString(avatarIdStr);
+          avatar = await db.collection('avatars').findOne({ _id: oid });
+        } catch {
+          // ignore if avatarId isn't an ObjectId
+        }
+        if (!avatar) {
+          // Skip records without a valid avatar
+          continue;
+        }
+
+        const now = Date.now();
+        const expTs = record.expiresAt ? new Date(record.expiresAt).getTime() : 0;
+        const hasToken = !!record.accessToken || !!record.refreshToken;
+        const isValid = hasToken && (!expTs || expTs > now);
+        const xAuth = {
+          authorized: isValid || !!record.profile,
+          expiresAt: record.expiresAt || null,
+          error: record.error || null,
+        };
+
+        // Optionally include a lightweight profile if it's cached on the record
+        const xProfile = record.profile || null;
+
+        results.push({ avatar, xAuth, xProfile });
+      }
+
+      res.json({ xAccounts: results });
+    } catch (error) {
+      console.error('Error in X accounts endpoint:', error);
+      res.status(500).json({ error: 'Failed to fetch X accounts' });
+    }
+  }));
+
+  // Add admin routes to main router (mounted at /api/admin in app.js)
+  router.use('/', adminRouter);
 
   const checkWhitelistStatus = async (guildId) => {
     try {

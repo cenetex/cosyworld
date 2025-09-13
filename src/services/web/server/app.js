@@ -103,7 +103,7 @@ async function initializeApp(services) {
   app.use('/api/admin/collections', ensureAdmin, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads with session; require signed message for writes
-  app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db));
+  app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db, services));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
@@ -169,6 +169,11 @@ async function initializeApp(services) {
     });
     app.get('/admin/collections', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'collections.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/x-accounts', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'x-accounts.html'), (err) => {
         if (err) next(err);
       });
     });
