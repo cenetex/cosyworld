@@ -226,22 +226,42 @@ export class DatabaseService {
     if (!db) return;
 
     try {
-      // Helper to create an index only if a matching key doesn't already exist (any name)
+      // Helper to create an index, tolerant of missing collections
       const safeEnsureIndex = async (collectionName, key, options = {}) => {
+        const coll = db.collection(collectionName);
+        const keyStr = JSON.stringify(key);
         try {
-          const coll = db.collection(collectionName);
-          const existing = await coll.indexes();
-          const keyStr = JSON.stringify(key);
-          const hasEquivalent = existing.some(i => JSON.stringify(i.key) === keyStr);
+          // Some drivers throw NamespaceNotFound when listing indexes of a non-existent collection.
+          // In that case, proceed to createIndex which will implicitly create the collection.
+          let existing = [];
+          try {
+            existing = await coll.indexes();
+          } catch (e) {
+            const msg = String(e?.message || e);
+            if (msg.includes('ns does not exist') || msg.includes('NamespaceNotFound')) {
+              existing = [];
+            } else {
+              throw e;
+            }
+          }
+
+          const hasEquivalent = Array.isArray(existing) && existing.some(i => JSON.stringify(i.key) === keyStr);
           if (hasEquivalent) {
             this.logger.info(`[indexes] ${collectionName} ${keyStr} already exists; skipping`);
             return;
           }
+
           await coll.createIndex(key, { background: true, ...options });
         } catch (e) {
           const msg = String(e.message || e);
-          if (msg.includes('An equivalent index already exists') || msg.includes('Index already exists with a different name')) {
-            this.logger.warn(`[indexes] Skipping existing index on ${collectionName} ${JSON.stringify(key)}: ${msg}`);
+          if (
+            msg.includes('An equivalent index already exists') ||
+            msg.includes('Index already exists with a different name') ||
+            msg.includes('ns does not exist') ||
+            msg.includes('NamespaceNotFound')
+          ) {
+            // Non-fatal; log and continue.
+            this.logger.warn(`[indexes] Non-fatal while ensuring index on ${collectionName} ${keyStr}: ${msg}`);
             return;
           }
           throw e;
