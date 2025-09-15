@@ -11,6 +11,7 @@
   "scripts": {
   "dev": "cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
   "start": "cross-env NODE_ENV=production node src/index.mjs",
+  "serve:prod": "npm run start",
   "build": "npm run clean && npm run build:js && npm run docs",
     "clean": "rimraf dist",
   "build:js": "webpack --mode production --progress --stats=errors-only",
