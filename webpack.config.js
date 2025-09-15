@@ -27,6 +27,8 @@ export default (env, argv) => {
     // 3) Rewrite /js/name.js -> /js/nameCamel.bundle.js (preserve query)
     html = html.replace(/(<script[^>]*\bsrc=["'])(?:\/)?js\/([^"'\?]+)\.js(\?[^"']*)?(["'][^>]*>)/g,
       (m, pre, name, query = '', post) => {
+        // If the src already points to a bundle, leave it unchanged
+        if (name.endsWith('.bundle')) return m;
         const camel = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
         return `${pre}/js/${camel}.bundle.js${query}${post}`;
       });
@@ -43,6 +45,7 @@ export default (env, argv) => {
       entityManagement: './src/services/web/public/js/entity-management.js',
       adminLogin: './src/services/web/public/js/admin-login.js',
       adminDashboard: './src/services/web/public/js/admin-dashboard.js',
+  xAccountManagement: './src/services/web/public/js/x-account-management.js',
   adminCollections: './src/services/web/public/js/admin-collections.js',
   adminSettings: './src/services/web/public/js/admin-settings.js',
       tailwind: './src/tailwind.css'

@@ -137,6 +137,11 @@ async function initializeContainer() {
     console.warn('[container] Failed to set aiService alias:', e.message);
   }
 
+  // Provide late-binding getters early to break circular deps before resolving any dependents
+  container.register({ getMapService: asFunction(() => () => container.resolve('mapService')).singleton() });
+  // Provide late-binding getter for ConversationManager to break circular deps (combat -> CM -> prompt -> tool -> combat)
+  container.register({ getConversationManager: asFunction(() => () => container.resolve('conversationManager')).singleton() });
+
   // Late-binding unifiedAIService if not already registered (after dynamic services loaded)
   try {
     // Always bind unifiedAIService to the best available chat provider, preferring OpenRouter.
@@ -151,7 +156,7 @@ async function initializeContainer() {
       // Overwrite any previous registration to ensure correct provider
       container.register({ unifiedAIService: asValue(unifiedAIService) });
       console.log('[container] Registered unifiedAIService wrapping', wrappedName);
-      // If decisionMaker already instantiated, inject adapter reference
+  // If decisionMaker already instantiated, inject adapter reference
       try {
         if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
           container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
@@ -164,11 +169,6 @@ async function initializeContainer() {
   } catch (e) {
     console.warn('[container] Failed late unifiedAIService init:', e.message);
   }
-
-  // Provide late-binding getter for MapService to break circular deps
-  container.register({ getMapService: asFunction(() => () => container.resolve('mapService')).singleton() });
-  // Provide late-binding getter for ConversationManager to break circular deps (combat -> CM -> prompt -> tool -> combat)
-  container.register({ getConversationManager: asFunction(() => () => container.resolve('conversationManager')).singleton() });
 
   console.log('🔧 registered services:', Object.keys(container.registrations));
 

@@ -50,10 +50,10 @@ export class VeoService {
    * @param {string} params.prompt - Optional text prompt for video generation.
    * @param {{data: string, mimeType: string}[]} params.images - Array of base64-encoded images.
    * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, etc).
-   * @param {string} [params.model] - Veo model to use (default "veo-2.0-generate-001").
+  * @param {string} [params.model] - Veo model to use (default "veo-3.0-generate-001").
    * @returns {Promise<string[]>} - Array of video URIs.
    */
-  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult"  }, model = 'veo-2.0-generate-001' }) {
+  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult"  }, model = 'veo-3.0-generate-001' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!images || images.length === 0) throw new Error('At least one image is required');
 
@@ -133,6 +133,121 @@ export class VeoService {
     }).filter(Boolean);
 
     // Download each video, upload to S3, and collect the S3 URLs
+    const s3Urls = [];
+    const browserHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+    };
+    for (let i = 0; i < uris.length; i++) {
+      const uri = uris[i];
+      try {
+        this.logger.info(`Downloading video from ${uri}`);
+        const buffer = await this.s3Service.downloadImage(uri, browserHeaders);
+        const ext = path.extname(new URL(uri).pathname) || '.mp4';
+        const tempFile = path.join(os.tmpdir(), `veo_video_${Date.now()}_${i}${ext}`);
+        fs.writeFileSync(tempFile, buffer);
+        this.logger.info(`Uploading video to S3: ${tempFile}`);
+        const s3Url = await this.s3Service.uploadImage(tempFile);
+        s3Urls.push(s3Url);
+      } catch (error) {
+        this.logger.error(`Error processing video ${uri}: ${error.message}`);
+      }
+    }
+
+    return s3Urls;
+  }
+
+  /**
+   * Generate videos using Veo 3 with either text-only prompt or image + prompt.
+   * If images are provided, the first image is used as the seed/frame reference; otherwise text-to-video is used.
+   * @param {object} params
+   * @param {string} params.prompt - Required text prompt when no image is provided.
+   * @param {{data: string, mimeType: string}[]} [params.images] - Optional array of base64-encoded images.
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, etc).
+   * @param {string} [params.model] - Veo model to use (default "veo-3.0-generate-001").
+   * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
+   */
+  async generateVideos({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult" }, model = 'veo-3.0-generate-001' }) {
+    if (!this.ai) throw new Error('Veo AI client not initialized');
+    const hasImages = Array.isArray(images) && images.length > 0;
+    if (!hasImages && !prompt) throw new Error('Prompt is required when no image is provided');
+
+    // Enforce rate limits
+    if (!this.checkRateLimit()) {
+      this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
+      return [];
+    }
+
+    // Prepare optional image payload
+    let imageParam;
+    if (hasImages) {
+      const first = images[0];
+      imageParam = {
+        imageBytes: first.data,
+        mimeType: first.mimeType
+      };
+    }
+
+    // Start operation (text-to-video when no image)
+    let operation = await this.ai.models.generateVideos({
+      model,
+      prompt,
+      ...(imageParam ? { image: imageParam } : {}),
+      config
+    });
+    this.recentRequests.push({ operation: 'generate', timestamp: Date.now() });
+
+    // Poll until complete
+    const startedAt = Date.now();
+    const deadline = startedAt + this.MAX_POLL_MINUTES * 60 * 1000;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const getOp = async () => {
+      const opName = operation?.name || operation?.operation?.name || null;
+      try {
+        if (opName && this.ai?.operations?.getVideosOperation) {
+          try {
+            return await this.ai.operations.getVideosOperation({ operation: { name: opName } });
+          } catch (inner) {
+            this.logger?.info?.(`[VeoService] getVideosOperation alt signature after error: ${inner?.message || inner}`);
+            return await this.ai.operations.getVideosOperation({ name: opName });
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[VeoService] getVideosOperation error (name=${opName || 'n/a'}): ${e?.message || e}`);
+      }
+      try {
+        if (opName && this.ai?.operations?.getOperation) {
+          return await this.ai.operations.getOperation({ name: opName });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[VeoService] getOperation error (name=${opName || 'n/a'}): ${e?.message || e}`);
+      }
+      return operation;
+    };
+
+    while (!operation?.done) {
+      if (Date.now() > deadline) {
+        throw new Error('VEO_TIMEOUT: video generation did not complete within allotted time');
+      }
+      await sleep(this.POLL_INTERVAL_MS);
+      operation = await getOp();
+      const pct = operation?.metadata?.progressPercent || operation?.metadata?.progress || null;
+      if (pct != null) this.logger?.info?.(`[VeoService] video generation progress: ${pct}%`);
+    }
+
+    // Extract URIs
+    const vids = operation?.response?.generatedVideos
+      || operation?.response?.videos
+      || operation?.response?.generated_videos
+      || [];
+    const uris = (Array.isArray(vids) ? vids : [vids]).map(gen => {
+      const uri = gen?.video?.uri || gen?.uri || null;
+      return uri ? `${uri}${uri.includes('?') ? '&' : '?'}key=${this.apiKey}` : null;
+    }).filter(Boolean);
+
+    // Download and upload to S3
     const s3Urls = [];
     const browserHeaders = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',

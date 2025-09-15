@@ -83,23 +83,31 @@ export class OpenRouterAIService {
       { role: 'user', content: prompt }
     ];
 
+    const baseSchema = typeof schema === 'object' && schema ? schema : { type: 'object' };
+    const jsonSchemaPayload = {
+      name: baseSchema.title || 'Schema',
+      schema: baseSchema,
+      strict: true,
+    };
     const structuredOptions = {
       model: options.model || this.structured_model,
-      schema,
-      response_format: {
-        type: 'json_schema',
-        json_schema: schema
-      },
-      ...options
+      response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
+      ...options,
     };
 
-    const response = await this.chat(messages, structuredOptions);
-
     try {
+      const response = await this.chat(messages, structuredOptions);
       return typeof response === 'string' ? parseFirstJson(response) : response;
     } catch (err) {
       this.logger.error('Failed to parse structured output from OpenRouter:', err);
-      throw new Error('Structured output was not valid JSON.');
+      // Retry once with json_object to coerce raw JSON without schema validation
+      try {
+        const alt = await this.chat(messages, { ...structuredOptions, response_format: { type: 'json_object' } });
+        return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+      } catch (e2) {
+        this.logger.error('Fallback json_object parse also failed:', e2);
+        throw new Error('Structured output was not valid JSON.');
+      }
     }
   }
 
@@ -111,11 +119,13 @@ export class OpenRouterAIService {
       const mapped = await this.getModel(selectedModel);
       if (mapped) selectedModel = mapped;
     } catch {}
+    // Do not allow options.model to override the normalized model
+    const { model: _omitModel, ...rest } = options || {};
     const mergedOptions = {
+      ...this.defaultCompletionOptions,
       model: selectedModel,
       prompt,
-      ...this.defaultCompletionOptions,
-      ...options,
+      ...rest,
     };
 
     try {
@@ -151,11 +161,12 @@ export class OpenRouterAIService {
       if (mapped) selectedModel = mapped;
     } catch {}
     // Merge with correct precedence: defaults < selected model/messages < caller options
+    const { model: _discardModel, ...rest } = options || {};
     const mergedOptions = {
       ...this.defaultChatOptions,
       model: selectedModel,
       messages: (messages || []).filter(m => m && m.content !== undefined),
-      ...options,
+      ...rest,
     };
 
     // Ensure we always have a concrete model string
@@ -164,15 +175,16 @@ export class OpenRouterAIService {
     }
 
     if (options.schema) {
+      const baseSchema = typeof options.schema === 'object' && options.schema ? options.schema : { type: 'object' };
       mergedOptions.response_format = {
         type: 'json_schema',
-        json_schema: options.schema,
+        json_schema: { name: baseSchema.title || 'Schema', schema: baseSchema, strict: true },
       };
     }
 
     // Verify that the chosen model is available. If not, map or fall back.
     let fallback = false;
-    if (mergedOptions.model !== 'openrouter/auto' && !this.modelIsAvailable(mergedOptions.model)) {
+  if (mergedOptions.model !== 'openrouter/auto' && !this.modelIsAvailable(mergedOptions.model)) {
       this.logger.error('Invalid model provided to chat:', mergedOptions.model);
       const mapped = await this.getModel(mergedOptions.model);
       if (mapped && this.modelIsAvailable(mapped)) {
@@ -297,6 +309,10 @@ export class OpenRouterAIService {
     }
     // Normalize the model name by removing suffixes and applying fixups
     modelName = modelName.replace(/:(online|free)$/i, '').trim();
+    // Map bare Gemini slugs to OpenRouter's provider-qualified Google slugs
+    if (/^gemini[-/]/i.test(modelName)) {
+      modelName = `google/${modelName}`;
+    }
     modelName = this._normalizePreferredModel(modelName);
     try {
       const mapped = this.aiModelService.findClosestModel('openrouter', modelName);
@@ -335,11 +351,10 @@ export class OpenRouterAIService {
       'openai/gpt-4o',
       'openai/gpt-4.1',
       'openai/gpt-4o-mini',
-      'openai/gpt-oss-20b',
-      'openai/gpt-oss-120b',
-      'sao10k/l3.3-euryale-70b',
+      'anthropic/claude-3.7-sonnet',
       'meta-llama/llama-3.3-70b-instruct',
       'mistralai/mixtral-8x7b-instruct',
+      'google/gemini-2.5-pro',
     ];
     const uniq = [...new Set(candidatesRaw)].filter(Boolean);
     // Keep only those present in our registered model list to improve success odds
@@ -393,11 +408,12 @@ export class OpenRouterAIService {
         if (mapped) visionModel = mapped;
       } catch {}
 
+      const { model: _visionModelOmit, ...rest } = options || {};
       const visionOpts = {
         ...this.defaultVisionOptions,
         model: visionModel,
         messages,
-        ...options,
+        ...rest,
       };
 
       let response = await this.openai.chat.completions.create(visionOpts);

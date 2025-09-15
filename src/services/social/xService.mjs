@@ -13,6 +13,21 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
 
+// Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
+function safeDecrypt(value) {
+  try {
+    if (!value) return '';
+    // If value contains our GCM triplet separator, attempt decrypt; else treat as plaintext
+    if (typeof value === 'string' && value.includes(':')) {
+      return decrypt(value);
+    }
+    return String(value);
+  } catch {
+    // If decryption fails (e.g., rotated key), return as-is to allow user to reauth lazily
+    return String(value || '');
+  }
+}
+
 class XService {
   constructor({
     logger,
@@ -116,7 +131,7 @@ class XService {
       clientSecret: this.configService.get('X_CLIENT_SECRET') || process.env.X_CLIENT_SECRET,
     });
     try {
-  const rt = decrypt(auth.refreshToken || '');
+  const rt = safeDecrypt(auth.refreshToken || '');
   const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(rt);
       const expiresAt = new Date(Date.now() + ((expiresIn || 7200) * 1000));
       await db.collection('x_auth').updateOne(
@@ -173,7 +188,7 @@ class XService {
     const auth = await db.collection('x_auth').findOne({ avatarId });
 
     // Initialize a v2 client with OAuth2 bearer token
-    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
     try {
@@ -235,7 +250,7 @@ class XService {
     }
     const auth = await db.collection('x_auth').findOne({ avatarId });
 
-    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
     // 1. Download image
@@ -308,7 +323,7 @@ class XService {
     if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
     const auth = await db.collection('x_auth').findOne({ avatarId });
 
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v1Client = twitterClient.v1;
     const v2Client = twitterClient.v2;
 
@@ -339,7 +354,7 @@ class XService {
     const auth = await db.collection('x_auth').findOne({ avatarId });
 
     // Initialize clients
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v1Client = twitterClient.v1;
     const v2Client = twitterClient.v2;
 
@@ -381,7 +396,7 @@ class XService {
     const avatarId = avatar._id.toString();
     const auth = await db.collection('x_auth').findOne({ avatarId });
     if (!auth || !await this.isXAuthorized(avatarId)) return { timeline: [], notifications: [], userId: null };
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const userData = await v2Client.me();
     const userId = userData.data.id;

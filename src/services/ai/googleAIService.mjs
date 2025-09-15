@@ -51,12 +51,26 @@ export class GoogleAIService {
     };
 
     this.defaultVisionOptions = {
-      model: 'gemini-1.5-vision',
+      model: config.visionModel || 'gemini-2.5-flash',
       temperature: 0.5,
   maxOutputTokens: 400,
     };
 
     console.log(`[${new Date().toISOString()}] Initialized GoogleAIService with default model: ${this.model}`);
+  }
+
+  // Normalize a model id for Google SDK calls (expects bare id like "gemini-2.5-flash")
+  _toApiModelId(modelId) {
+    if (!modelId) return modelId;
+    const id = modelId.replace(/:online$/, '').trim();
+    return id.startsWith('models/') ? id.slice('models/'.length) : id;
+  }
+
+  // Normalize a model id to registry form (with 'models/' prefix) for availability checks
+  _toRegistryModelId(modelId) {
+    if (!modelId) return modelId;
+    const id = modelId.replace(/:online$/, '').trim();
+    return id.startsWith('models/') ? id : `models/${id}`;
   }
 
   async registerSupportedModels() {
@@ -202,18 +216,24 @@ export class GoogleAIService {
   async generateCompletion(prompt, options = {}) {
     if (!this.googleAI) throw new Error("Google AI client not initialized.");
 
-    const modelId = options.model || this.model;
+    let modelId = options.model || this.model;
+    // If provided model isn't in our registry, fallback to a known good model
+    if (!this.modelIsAvailable(modelId)) {
+      console.warn(`[GoogleAIService] Model "${modelId}" not in registry, selecting fallback.`);
+      modelId = await this.selectRandomModel();
+    }
 
-  const { model: _model, ...restOptions } = options;
+  const { model: _model, thinkingConfig, systemInstruction, ...restOptions } = options;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await this.googleAI.getGenerativeModel({ model: modelId })
-          .generateContent({
+        const gen = this.googleAI.getGenerativeModel({ model: this._toApiModelId(modelId), ...(systemInstruction ? { systemInstruction } : {}) });
+        const result = await gen.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
               ...this.defaultCompletionOptions,
               ...restOptions,
+              ...(thinkingConfig ? { thinkingConfig } : {}),
             },
           });
           const text = result.response.text();
@@ -252,8 +272,8 @@ export class GoogleAIService {
       throw new Error("The last message in history must have the role 'user'.");
     }
   
-    const systemMessages = normalizedHistory.filter(msg => msg.role === 'system');
-    const systemInstruction = systemMessages.map(msg => msg.content).join('\n');
+  const systemMessages = normalizedHistory.filter(msg => msg.role === 'system');
+  const computedSystemInstruction = systemMessages.map(msg => msg.content).join('\n');
   
     let chatHistory = normalizedHistory
       .slice(0, -1)
@@ -272,13 +292,14 @@ export class GoogleAIService {
       parts: [{ text: msg.content }]
     }));
   
-    let modelId = options.model || this.model;
-    if (!this.modelIsAvailable(modelId)) {
+  let modelId = options.model || this.model;
+  if (!this.modelIsAvailable(modelId)) {
       console.warn(`Model "${modelId}" not available, selecting fallback.`);
       modelId = await this.selectRandomModel();
     }
   
-    const generativeModel = this.googleAI.getGenerativeModel({ model: modelId });
+    const { thinkingConfig, systemInstruction: userSystemInstruction } = options;
+  const generativeModel = this.googleAI.getGenerativeModel({ model: this._toApiModelId(modelId) });
   
     const generationConfig = {
       temperature: options.temperature ?? 0.7,
@@ -287,17 +308,18 @@ export class GoogleAIService {
       topK: options.topK ?? 40,
       responseMimeType: options.schema ? 'application/json' : 'text/plain',
       ...(options.schema && { responseSchema: options.schema }),
+        ...(thinkingConfig ? { thinkingConfig } : {}),
     };
   
     const chatSession = generativeModel.startChat({
       history: formattedHistory,
       generationConfig,
-      ...(systemInstruction && {
-        systemInstruction: {
-          role: 'system',
-          parts: [{ text: systemInstruction }]
-        }
-      })
+        ...((userSystemInstruction || computedSystemInstruction) && {
+          systemInstruction: {
+            role: 'system',
+            parts: [{ text: userSystemInstruction || computedSystemInstruction }]
+          }
+        })
     });
   
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -347,30 +369,16 @@ export class GoogleAIService {
   }
 
   async selectRandomModel() {
-    if (!this.rawModels || !Array.isArray(this.rawModels)) {
+  if (!this.rawModels || !Array.isArray(this.rawModels)) {
       console.warn('[GoogleAIService] rawModels is not initialized or is not an array.');
       return this.model; // Fallback to default model
     }
-
-    const rarityRanges = [
-      { rarity: 'common', min: 1, max: 12 },
-      { rarity: 'uncommon', min: 13, max: 17 },
-      { rarity: 'rare', min: 18, max: 19 },
-      { rarity: 'legendary', min: 20, max: 20 },
-    ];
-
-    const roll = Math.ceil(Math.random() * 20);
-    const selectedRarity = rarityRanges.find(range => roll >= range.min && roll <= range.max)?.rarity;
-
-    const availableModels = this.rawModels.filter(model => model.rarity === selectedRarity);
-
-    if (availableModels.length > 0) {
-      const randomIndex = Math.floor(Math.random() * availableModels.length);
-      return availableModels[randomIndex].name;
-    }
-
-    console.warn('[GoogleAIService] No models found for selected rarity, falling back to default model.');
-    return this.model;
+  // Prefer models that support generateContent (text/vision)
+  const candidates = this.rawModels.filter(m => (m.supportedGenerationMethods || []).includes('generateContent'));
+  const list = candidates.length ? candidates : this.rawModels;
+  const randomIndex = Math.floor(Math.random() * list.length);
+  // Return API id (strip 'models/' prefix)
+  return this._toApiModelId(list[randomIndex].name);
   }
 
   modelIsAvailable(model) {
@@ -380,8 +388,8 @@ export class GoogleAIService {
     }
 
     if (!model) return false;
-
-    return this.rawModels.some(m => m.name === model.replace(':online', ''));
+  const target = this._toRegistryModelId(model);
+  return this.rawModels.some(m => m.name === target);
   }
   
   async getModel(modelName) {
@@ -465,7 +473,7 @@ export class GoogleAIService {
         attemptPrompt += `\nOnly respond with an image.`;
       }
       try {
-        const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp-image-generation' });
+  const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
         // Only include supported options for image generation
   const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
         const generationConfig = { temperature, maxOutputTokens, topP, topK, ...options };
@@ -557,7 +565,7 @@ export class GoogleAIService {
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const generativeModel = this.googleAI.getGenerativeModel({ model: options.model || 'gemini-2.0-flash-exp-image-generation' });
+  const generativeModel = this.googleAI.getGenerativeModel({ model: options.model || 'gemini-2.5-flash-image-preview' });
         // Remove penalty fields if present (always for image models)
         const generationConfig = { ...this.defaultCompletionOptions, ...options, responseModalities: ['text', 'image'] };
         delete generationConfig.frequencyPenalty;

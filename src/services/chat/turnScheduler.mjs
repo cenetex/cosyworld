@@ -131,7 +131,16 @@ export class TurnScheduler {
   const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
   if (Date.now() < suppressedUntil) return 0;
     // Ensure presence docs exist for avatars in channel
-    const guildId = (await this.discordService.getGuildByChannelId(channelId))?.id;
+    let guildId = null;
+    try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
+    catch (e) {
+      // Missing Access or Unknown Channel – skip quietly for this channel
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('missing access') || msg.includes('unknown channel')) return 0;
+      // Other errors bubble up as a single warning per tick
+      this.logger.warn?.(`[TurnScheduler] getGuildByChannelId failed for ${channelId}: ${e.message}`);
+      return 0;
+    }
     const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
     for (const av of avatars) {
       await this.presenceService.ensurePresence(channelId, `${av._id}`);
@@ -162,7 +171,10 @@ export class TurnScheduler {
   let channel = this.discordService.client.channels.cache.get(channelId);
     if (!channel && this.discordService.client.channels?.fetch) {
       try { channel = await this.discordService.client.channels.fetch(channelId); }
-      catch {}
+      catch (e) {
+        const m = String(e?.message || '').toLowerCase();
+        if (m.includes('missing access') || m.includes('unknown channel')) return 0;
+      }
     }
   if (!channel) return 0;
     for (const r of ranked) {
