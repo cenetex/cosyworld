@@ -41,6 +41,7 @@
               </aside>
 
               <section class="flex-1">
+                <!-- Top header and actions -->
                 <div class="flex items-center justify-between mb-4">
                   <div class="flex items-center gap-2">
                     <h2 class="text-lg font-semibold">Settings</h2>
@@ -57,6 +58,36 @@
                     <button id="exportJson" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Export JSON</button>
                     <button id="refresh" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">Refresh</button>
                   </div>
+                </div>
+
+                <!-- Selected guild summary/actions -->
+                <div id="selectedGuildCard" class="mb-4 hidden">
+                  <div class="flex items-center justify-between p-3 border rounded bg-gray-50">
+                    <div class="flex items-center gap-3">
+                      <img id="selectedGuildIcon" src="" alt="Guild" class="w-8 h-8 rounded bg-gray-200 border" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+                      <div>
+                        <div id="selectedGuildName" class="font-medium">Guild</div>
+                        <div class="text-xs text-gray-500">ID: <span id="selectedGuildId"></span> • <span id="selectedGuildStatus"></span></div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button id="btnAuthorizeGuild" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Authorize</button>
+                      <button id="btnDeauthorizeGuild" class="px-3 py-1 bg-yellow-600 text-white rounded text-sm">Deauthorize</button>
+                      <button id="btnClearGuildCache" class="px-3 py-1 bg-gray-100 rounded text-sm">Clear Cache</button>
+                      <button id="btnDeleteGuild" class="px-3 py-1 bg-red-600 text-white rounded text-sm">Delete Config</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Detected guilds (unauthorized) -->
+                <div id="detectedGuildsSection" class="mb-6 hidden">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-base font-semibold">Detected Servers <span id="detectedCount" class="text-xs text-gray-500"></span></h3>
+                    <div class="flex items-center gap-2">
+                      <button id="refreshDetected" class="px-3 py-1 bg-gray-100 rounded text-sm">Refresh</button>
+                    </div>
+                  </div>
+                  <div id="detectedGuildsContainer" class="grid gap-2"></div>
                 </div>
 
                 <div id="panelPrompts" class="space-y-3">

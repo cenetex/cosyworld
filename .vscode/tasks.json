@@ -292,6 +292,16 @@
 				"$eslint-stylish"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build-web",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build:js"
+			],
+			"group": "build"
 		}
 	]
 }

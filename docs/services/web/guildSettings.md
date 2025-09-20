@@ -48,12 +48,26 @@ The dashboard can display detected but unauthorized guilds. Clicking Authorize c
 - `DELETE /api/guilds/:id` — Delete config
 - `GET /api/guilds/detected` — List detected guilds
 - `POST /api/guilds/:id/clear-cache` — Clear guild cache
+- `POST /api/guilds/:id/authorize` — Mark guild authorized and clear caches
 
 ## Frontend Module
 See `src/services/web/public/js/guild-settings.js` for implementation details of:
 - Loading/storing configs
 - Authorizing detected guilds
 - Building UI for tribe restrictions (default + per-channel)
+
+### Authorizing a New Server
+There are two ways to authorize a server after inviting the bot:
+
+1) From the Admin Dashboard: visit `/admin/guild-settings`, open the Detected Guilds section, and click "Authorize" on the new server. This creates or updates the guild config with `authorized: true` and clears caches so the bot starts responding immediately.
+
+2) Via API: send a POST request to `/api/guilds/<GUILD_ID>/authorize`. Example:
+
+```
+curl -X POST http://localhost:3100/api/guilds/123456789012345678/authorize
+```
+
+If you create a guild with the `POST /api/guilds` endpoint and include `authorized: true`, that will now be honored on creation (even when cloning from a template).
 
 ## Notes
 - UI uses Discord CDN for guild icon preview

@@ -5,7 +5,7 @@
 
 import OpenAI from 'openai';
 import models from '../../models.openrouter.config.mjs';
-import { parseFirstJson } from '../../utils/jsonParse.mjs';
+import { parseFirstJson, parseWithRetries } from '../../utils/jsonParse.mjs';
 
 export class OpenRouterAIService {
   constructor({
@@ -99,14 +99,36 @@ export class OpenRouterAIService {
       const response = await this.chat(messages, structuredOptions);
       return typeof response === 'string' ? parseFirstJson(response) : response;
     } catch (err) {
-      this.logger.error('Failed to parse structured output from OpenRouter:', err);
-      // Retry once with json_object to coerce raw JSON without schema validation
+      // If the error is from the provider (e.g., 400 unsupported response_format), or parsing failed,
+      // fall back to instruction-only JSON with robust parsing.
+      const status = err?.response?.status || err?.status;
+      this.logger?.error?.('Failed to get structured JSON via json_schema, falling back to instruction-only. Status:', status, err?.message);
+
+      // Build concise schema instructions to coerce JSON without relying on response_format
+      const keys = Object.keys(baseSchema?.properties || {});
+      const example = JSON.stringify(Object.fromEntries(keys.map(k => [k, '...'])), null, 2);
+      const instructions = `Respond ONLY with a single valid JSON object. It must match this shape (types can vary as appropriate):\n${example}\nDo not include any extra commentary or markdown.`;
+      const fallbackMessages = [
+        { role: 'system', content: instructions },
+        { role: 'user', content: prompt }
+      ];
+      const withoutRF = { ...options, model: options.model || this.structured_model };
       try {
-        const alt = await this.chat(messages, { ...structuredOptions, response_format: { type: 'json_object' } });
-        return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+        const raw = await parseWithRetries(async () => {
+          const r = await this.chat(fallbackMessages, withoutRF);
+          return typeof r === 'string' ? r : JSON.stringify(r);
+        }, { retries: 2, backoffMs: 600 });
+        return raw;
       } catch (e2) {
-        this.logger.error('Fallback json_object parse also failed:', e2);
-        throw new Error('Structured output was not valid JSON.');
+        this.logger?.warn?.('Instruction-only JSON parse failed, trying json_object:', e2?.message || e2);
+        // Final attempt: json_object (if the provider supports it) without schema
+        try {
+          const alt = await this.chat(messages, { ...withoutRF, response_format: { type: 'json_object' } });
+          return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+        } catch (e3) {
+          this.logger?.error?.('All structured output fallbacks failed:', e3?.message || e3);
+          throw new Error('Structured output was not valid JSON.');
+        }
       }
     }
   }

@@ -166,7 +166,7 @@ export default function(db, client, configService) {
         return res.json(updatedConfig);
       }
 
-      // Otherwise create a new config based on a template
+  // Otherwise create a new config based on a template
 
       // First, check if we have any existing guild configs to use as a template
       const templateGuild = await db.collection('guild_configs').findOne(
@@ -188,7 +188,7 @@ export default function(db, client, configService) {
         newGuildConfig = {
           ...templateGuild,
           guildId: guildData.guildId,
-          guildName: guildData.guildName || `New Guild ${guildData.guildId}`,
+          guildName: guildData.guildName || guildData.name || `New Guild ${guildData.guildId}`,
           _id: undefined, // Remove MongoDB ID so it creates a new one
           updatedAt: new Date(),
           createdAt: new Date()
@@ -219,9 +219,13 @@ export default function(db, client, configService) {
         // Copy summon emoji
         newGuildConfig.summonEmoji = templateGuild.summonEmoji;
         
-        // New guilds start as not authorized by default for safety
-        newGuildConfig.authorized = false;
-        newGuildConfig.whitelisted = false; // For backward compatibility
+        // By default, new guilds are not authorized, but honor client intent if provided
+        if (typeof guildData.authorized === 'boolean') newGuildConfig.authorized = guildData.authorized; else newGuildConfig.authorized = false;
+        if (typeof guildData.whitelisted === 'boolean') newGuildConfig.whitelisted = guildData.whitelisted; else newGuildConfig.whitelisted = false; // Back-compat
+      } else {
+        // No template: still honor provided authorized/whitelisted flags (default to false)
+        if (typeof guildData.authorized !== 'boolean') newGuildConfig.authorized = false;
+        if (typeof guildData.whitelisted !== 'boolean') newGuildConfig.whitelisted = false;
       }
 
       const result = await db.collection('guild_configs').insertOne(newGuildConfig);
@@ -321,18 +325,40 @@ export default function(db, client, configService) {
     }
   }));
 
-  // Add endpoint to clear guild config cache
+  // Add endpoint to clear guild config cache and in-memory Discord authorization cache
   router.post('/:guildId/clear-cache', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.params;
-      // Clear cache in configService if it has a cache
-      if (configService.clearCache) {
+      // Clear config cache entry
+      if (typeof configService.clearCache === 'function') {
         await configService.clearCache(guildId);
       }
-      res.json({ success: true, message: 'Guild config cache cleared' });
+      // Also clear Discord client's authorized guilds cache if present
+      try {
+        if (client && client.authorizedGuilds instanceof Map) {
+          client.authorizedGuilds.delete(guildId);
+        }
+      } catch {}
+      res.json({ success: true, message: 'Guild caches cleared' });
     } catch (error) {
-      console.error('Error clearing guild config cache:', error);
-      res.status(500).json({ error: 'Failed to clear cache' });
+      console.error('Error clearing guild caches:', error);
+      res.status(500).json({ error: 'Failed to clear caches' });
+    }
+  }));
+
+  // Authorize a guild (sets authorized and whitelisted true) then clears caches
+  router.post('/:guildId/authorize', asyncHandler(async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      await configService.updateGuildConfig(guildId, { authorized: true, whitelisted: true, updatedAt: new Date() });
+      // Clear caches so change takes effect immediately
+      try { if (typeof configService.clearCache === 'function') await configService.clearCache(guildId); } catch {}
+      try { if (client && client.authorizedGuilds instanceof Map) client.authorizedGuilds.delete(guildId); } catch {}
+      const updated = await configService.getGuildConfig(guildId, true);
+      res.json({ success: true, message: 'Guild authorized', config: updated });
+    } catch (error) {
+      console.error('Error authorizing guild:', error);
+      res.status(500).json({ error: 'Failed to authorize guild' });
     }
   }));
 

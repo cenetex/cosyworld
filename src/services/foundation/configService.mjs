@@ -62,11 +62,11 @@ export class ConfigService {
   rateLimit: { enabled: process.env.NODE_ENV === 'production', windowMs: 60000, max: 120 }
       },
       prompt: {
-        summon: process.env.SUMMON_PROMPT || "Create a twisted avatar, a servant of dark V.A.L.I.S.",
-  introduction: process.env.INTRODUCTION_PROMPT || "You've just arrived. Introduce yourself.",
-  attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name} with your abilities.",
-  defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack.",
-  breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
+        summon: process.env.SUMMON_PROMPT || "Create an avatar that fits within the following description: ",
+        introduction: process.env.INTRODUCTION_PROMPT || "You've just been summoned for the first time. Introduce yourself.",
+        attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name}, describe how you attack them with your abilities.",
+        defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack, describe what you do to defend yourself.",
+        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
       },
       ai: {
         veo: {
@@ -385,6 +385,20 @@ export class ConfigService {
   async getGuildPrompts(guildId) {
     const guildConfig = await this.getGuildConfig(guildId);
     return guildConfig.prompts;
+  }
+
+  // Clear cached guild configuration(s)
+  async clearCache(guildId = null) {
+    try {
+      if (!this.guildConfigCache) this.guildConfigCache = new Map();
+      if (guildId) {
+        this.guildConfigCache.delete(guildId);
+      } else {
+        this.guildConfigCache.clear();
+      }
+    } catch (e) {
+      this.logger?.warn?.(`ConfigService.clearCache failed: ${e?.message || e}`);
+    }
   }
 
   // Validate critical configurations

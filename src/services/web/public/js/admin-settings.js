@@ -12,9 +12,25 @@ function scopeLabel(source) {
 }
 
 let selectedGuildId = '';
+let guildListData = [];
+let selectedGuildMeta = null; // { id, name, authorized, iconUrl }
+
+function getGuildMetaById(id) {
+  if (!id) return { id: '', name: 'Global Defaults', authorized: true };
+  const idStr = String(id);
+  const found = guildListData.find(g => String(g.id) === idStr || String(g.guildId) === idStr);
+  if (!found) return { id: idStr, name: idStr, authorized: false };
+  return {
+    id: found.guildId || found.id,
+    name: found.guildName || found.name || (found.guildId || found.id),
+    authorized: !!found.authorized,
+    iconUrl: found.iconUrl
+  };
+}
 
 function setActiveGuild(id) {
   selectedGuildId = id || '';
+  selectedGuildMeta = getGuildMetaById(selectedGuildId);
   const list = document.getElementById('guildList');
   if (!list) return;
   Array.from(list.children).forEach(el => {
@@ -26,6 +42,7 @@ function setActiveGuild(id) {
       el.classList.add('bg-gray-200', 'font-medium');
     }
   });
+  updateSelectedGuildCard();
 }
 
 async function loadGuildOptions() {
@@ -51,7 +68,15 @@ async function loadGuildOptions() {
     const res = await fetch('/api/guilds');
     if (res.ok) {
       const guilds = await res.json();
-      for (const g of guilds) {
+      guildListData = guilds.map(g => ({
+        id: g.guildId || g.id,
+        guildId: g.guildId || g.id,
+        name: g.guildName || g.name || (g.guildId || g.id),
+        guildName: g.guildName || g.name || (g.guildId || g.id),
+        authorized: !!g.authorized,
+        iconUrl: g.iconUrl
+      }));
+      for (const g of guildListData) {
         const id = g.guildId || g.id;
         const name = g.guildName || g.name || id;
         list.appendChild(makeItem(id, name));
@@ -59,6 +84,115 @@ async function loadGuildOptions() {
     }
   } catch {}
   setActiveGuild(selectedGuildId);
+}
+
+// Selected guild header card controls
+function updateSelectedGuildCard() {
+  const card = document.getElementById('selectedGuildCard');
+  if (!card) return;
+  if (!selectedGuildId) {
+    card.classList.add('hidden');
+    return;
+  }
+  const meta = selectedGuildMeta || getGuildMetaById(selectedGuildId);
+  card.classList.remove('hidden');
+  const icon = document.getElementById('selectedGuildIcon');
+  const nameEl = document.getElementById('selectedGuildName');
+  const idEl = document.getElementById('selectedGuildId');
+  const statusEl = document.getElementById('selectedGuildStatus');
+  if (icon) icon.src = meta.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
+  if (nameEl) nameEl.textContent = meta.name || 'Guild';
+  if (idEl) idEl.textContent = meta.id || selectedGuildId;
+  if (statusEl) statusEl.textContent = meta.authorized ? 'Authorized' : 'Not authorized';
+  const btnAuth = document.getElementById('btnAuthorizeGuild');
+  const btnDeauth = document.getElementById('btnDeauthorizeGuild');
+  btnAuth?.classList.toggle('hidden', !!meta.authorized);
+  btnDeauth?.classList.toggle('hidden', !meta.authorized);
+}
+
+async function setGuildAuthorized(guildId, value) {
+  if (!guildId) return;
+  if (value) {
+    await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}/authorize`, { method: 'POST' });
+  } else {
+    await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorized: false, whitelisted: false })
+    });
+    await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}/clear-cache`, { method: 'POST' });
+  }
+  await refreshGuildList();
+}
+
+async function clearGuildCache(guildId) {
+  if (!guildId) return;
+  await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}/clear-cache`, { method: 'POST' });
+}
+
+async function deleteGuildConfig(guildId) {
+  if (!guildId) return;
+  if (!confirm('Delete this guild configuration?')) return;
+  await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}`, { method: 'DELETE' });
+  if (selectedGuildId === guildId) {
+    selectedGuildId = '';
+    selectedGuildMeta = null;
+  }
+  await refreshGuildList();
+}
+
+async function refreshGuildList() {
+  const prev = selectedGuildId;
+  await loadGuildOptions();
+  setActiveGuild(prev);
+  await load();
+}
+
+// Detected guilds rendering
+async function loadDetectedGuilds() {
+  const section = document.getElementById('detectedGuildsSection');
+  const countEl = document.getElementById('detectedCount');
+  const container = document.getElementById('detectedGuildsContainer');
+  if (!section || !container) return;
+  try {
+    const list = await fetchJSON('/api/guilds/detected');
+    const items = Array.isArray(list) ? list : [];
+    if (items.length) section.classList.remove('hidden'); else section.classList.add('hidden');
+    if (countEl) countEl.textContent = items.length ? `(${items.length})` : '';
+    container.innerHTML = '';
+    for (const g of items) {
+      const id = g.id || g.guildId;
+      const name = g.name || g.guildName || id;
+      const card = document.createElement('div');
+      card.className = 'flex items-center justify-between p-2 border rounded bg-white';
+      const left = document.createElement('div');
+      left.className = 'flex items-center gap-3';
+      const img = document.createElement('img');
+      img.src = g.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
+      img.className = 'w-8 h-8 rounded bg-gray-200 border';
+      const nameBox = document.createElement('div');
+      nameBox.innerHTML = `<div class="font-medium">${name}</div><div class="text-xs text-gray-500">ID: ${id}</div>`;
+      left.append(img, nameBox);
+      const right = document.createElement('div');
+      right.className = 'flex items-center gap-2';
+      const authBtn = document.createElement('button');
+      authBtn.className = 'px-3 py-1 bg-green-600 text-white rounded text-sm';
+      authBtn.textContent = 'Authorize';
+      authBtn.addEventListener('click', async () => {
+        try {
+          await fetchJSON(`/api/guilds/${encodeURIComponent(id)}/authorize`, { method: 'POST' });
+          await Promise.all([loadDetectedGuilds(), refreshGuildList()]);
+        } catch (e) {
+          alert(e.message || 'Failed to authorize');
+        }
+      });
+      right.appendChild(authBtn);
+      card.append(left, right);
+      container.appendChild(card);
+    }
+  } catch (e) {
+    console.error('Failed to load detected guilds', e);
+  }
 }
 
 function renderSettingRow(item, guildId) {
@@ -301,6 +435,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   // default to Global on first load
   setActiveGuild(selectedGuildId);
   await load();
+  // wire selected guild header buttons
+  document.getElementById('btnAuthorizeGuild')?.addEventListener('click', async () => {
+    if (!selectedGuildId) return;
+    await setGuildAuthorized(selectedGuildId, true);
+    selectedGuildMeta = { ...(selectedGuildMeta || {}), authorized: true };
+    updateSelectedGuildCard();
+  });
+  document.getElementById('btnDeauthorizeGuild')?.addEventListener('click', async () => {
+    if (!selectedGuildId) return;
+    await setGuildAuthorized(selectedGuildId, false);
+    selectedGuildMeta = { ...(selectedGuildMeta || {}), authorized: false };
+    updateSelectedGuildCard();
+  });
+  document.getElementById('btnClearGuildCache')?.addEventListener('click', async () => {
+    if (!selectedGuildId) return;
+    await clearGuildCache(selectedGuildId);
+  });
+  document.getElementById('btnDeleteGuild')?.addEventListener('click', async () => {
+    if (!selectedGuildId) return;
+    await deleteGuildConfig(selectedGuildId);
+  });
+  document.getElementById('refreshDetected')?.addEventListener('click', () => loadDetectedGuilds());
+  // initial detected guilds load
+  loadDetectedGuilds();
   // Tab wiring (default Prompts active)
   const tabPrompts = document.getElementById('tabPrompts');
   const tabSettings = document.getElementById('tabSettings');

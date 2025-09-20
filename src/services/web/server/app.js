@@ -148,10 +148,9 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/guild-settings', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'guild-settings.html'), (err) => {
-        if (err) next(err);
-      });
+    app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
+      // Consolidated into /admin/settings
+      res.redirect('/admin/settings');
     });
     // Backward compat: redirect old Avatar Management to Entity Management
     app.get('/admin/avatar-management', ensureAdmin, (req, res) => {
