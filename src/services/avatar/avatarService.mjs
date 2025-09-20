@@ -14,6 +14,7 @@
 // -------------------------------------------------------
 
 import process from 'process';
+import eventBus from '../../utils/eventBus.mjs';
 import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
@@ -599,7 +600,7 @@ export class AvatarService {
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
 
-    // Auto-post new avatars to X when enabled and admin account is linked
+  // Auto-post new avatars to X when enabled and admin account is linked
     try {
       const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
       if (autoPost === 'true' && doc.imageUrl && this.configService?.services?.xService) {
@@ -620,6 +621,8 @@ export class AvatarService {
             }
             if (admin) {
               const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
+              // Emit unified event (global posting pipeline may consume)
+              try { eventBus.emit('MEDIA.IMAGE.GENERATED', { type: 'image', source: 'avatar.create', avatarId: insertedId, imageUrl: doc.imageUrl, prompt: doc.description, createdAt: new Date() }); } catch {}
               await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }

@@ -11,7 +11,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import { attachUserFromCookie, ensureAuthenticated, ensureAdmin, requireSignedWrite } from './middleware/authCookie.js';
-
+import { validateCsrf, csrfTokenRoute } from './middleware/csrf.js';
+import { adminWriteRateLimit } from './middleware/adminRateLimit.js';
+import { AuditLogService } from '../../foundation/auditLogService.mjs';
+import eventBus from '../../../utils/eventBus.mjs';
 async function initializeApp(services) {
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +41,8 @@ async function initializeApp(services) {
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(attachUserFromCookie);
+  // Attach eventBus & audit to app locals early
+  app.locals.eventBus = eventBus;
     app.use((req, res, next) => {
       logger.info(`Request: ${req.method} ${req.path}`);
       res.setHeader('Cache-Control', 'no-cache');
@@ -98,12 +103,19 @@ async function initializeApp(services) {
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
   app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
+  // Initialize audit service once DB is ready
+  const auditLogService = new AuditLogService({ db, logger });
+  app.locals.auditLogService = auditLogService;
+
+  // CSRF token fetch endpoint (only for authenticated admin sessions)
+  app.get('/api/admin/csrf-token', ensureAdmin, csrfTokenRoute());
+
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
-  app.use('/api/admin/collections', ensureAdmin, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
+  app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads with session; require signed message for writes
-  app.use('/api/admin', ensureAdmin, requireSignedWrite, (await import('./routes/admin.js')).default(db, services));
+  app.use('/api/admin', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.js')).default(db, services));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));

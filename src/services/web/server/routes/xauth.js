@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import { useNonce, issueNonce } from '../middleware/nonceStore.js';
 import crypto from 'crypto';
 import { TwitterApi } from 'twitter-api-v2';
 import { encrypt, decrypt } from '../../../../utils/encryption.mjs';
@@ -43,6 +44,12 @@ export default function xauthRoutes(services) {
         }
     };
 
+    // Issue nonce for client to sign (separate endpoint)
+    router.get('/nonce', (req, res) => {
+        const { nonce, exp } = issueNonce();
+        res.json({ nonce, expiresAt: exp });
+    });
+
     router.get('/auth-url', async (req, res) => {
         const { avatarId } = req.query;
         
@@ -65,6 +72,13 @@ export default function xauthRoutes(services) {
         if (!walletAddress || !signature || !message) {
             return res.status(401).json({ error: 'Missing walletAddress, signature, or message in headers' });
         }
+        // Parse nonce in message (expect JSON with nonce) ensure single-use
+        try {
+            const parsed = JSON.parse(message);
+            if (!parsed?.nonce || !useNonce(parsed.nonce)) {
+                return res.status(400).json({ error: 'Nonce invalid or already used' });
+            }
+        } catch { return res.status(400).json({ error: 'Invalid signed message JSON' }); }
 
         // Ensure X integration config is present
         if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
@@ -173,6 +187,8 @@ export default function xauthRoutes(services) {
             });
     
             console.log('Generated auth URL:', url, { avatarId, state, codeVerifier });
+            // Audit log
+            try { services?.auditLogService?.log?.({ action: 'xauth.request', actor: walletAddress, details: { avatarId, state }, ip: req.ip }); } catch {}
             res.json({ url, state });
         } catch (error) {
             console.error('Auth URL generation failed:', error.message, { avatarId });
@@ -238,6 +254,7 @@ export default function xauthRoutes(services) {
             await db.collection('x_auth_temp').deleteMany({ avatarId });
             await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt });
 
+            try { services?.auditLogService?.log?.({ action: 'xauth.admin.request', actor: req.user?.walletAddress, details: { avatarId, state }, ip: req.ip }); } catch {}
             return res.json({ url, state });
         } catch (error) {
             console.error('Admin auth-url failed:', error);
