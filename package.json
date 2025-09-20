@@ -27,7 +27,9 @@
   "format": "prettier --write .",
   "format:check": "prettier --check .",
   "analyze": "webpack --mode production --profile --json > webpack-stats.json",
-  "smoke:ai": "node scripts/smoke-ai.mjs"
+  "smoke:ai": "node scripts/smoke-ai.mjs",
+  "check:version": "node scripts/check-version-bump.mjs",
+  "prepare": "node scripts/install-git-hooks.mjs"
   },
   "keywords": [
     "discord",

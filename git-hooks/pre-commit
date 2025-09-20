@@ -1,0 +1,10 @@
+#!/bin/sh
+# cosyworld-version-hook
+set -eu
+
+if command -v node >/dev/null 2>&1; then
+  node scripts/check-version-bump.mjs
+else
+  echo "[pre-commit] Node.js is required for the version check." >&2
+  exit 1
+fi
