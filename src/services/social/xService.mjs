@@ -11,7 +11,22 @@
 import { TwitterApi } from 'twitter-api-v2';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { decrypt } from '../../utils/encryption.mjs';
+import { decrypt, encrypt } from '../../utils/encryption.mjs';
+
+// Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
+function safeDecrypt(value) {
+  try {
+    if (!value) return '';
+    // If value contains our GCM triplet separator, attempt decrypt; else treat as plaintext
+    if (typeof value === 'string' && value.includes(':')) {
+      return decrypt(value);
+    }
+    return String(value);
+  } catch {
+    // If decryption fails (e.g., rotated key), return as-is to allow user to reauth lazily
+    return String(value || '');
+  }
+}
 
 class XService {
   constructor({
@@ -55,15 +70,18 @@ class XService {
         throw new Error('No authentication URL returned from server');
       }
       // Open X authentication in a popup window
-      const width = 600;
-      const height = 650;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      window.open(
-        data.url,
-        'xauth_popup',
-        `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
-      );
+      const win = typeof globalThis !== 'undefined' ? (globalThis.window || undefined) : undefined;
+      if (win && typeof win.open === 'function') {
+        const width = 600;
+        const height = 650;
+        const left = win.screen?.width ? (win.screen.width / 2 - width / 2) : 0;
+        const top = win.screen?.height ? (win.screen.height / 2 - height / 2) : 0;
+        win.open(
+          data.url,
+          'xauth_popup',
+          `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
+        );
+      }
       return { success: true, message: 'X authentication initiated' };
     } catch (error) {
       this.logger?.error?.('X auth initiation error:', error);
@@ -113,14 +131,15 @@ class XService {
       clientSecret: this.configService.get('X_CLIENT_SECRET') || process.env.X_CLIENT_SECRET,
     });
     try {
-      const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(auth.refreshToken);
+  const rt = safeDecrypt(auth.refreshToken || '');
+  const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(rt);
       const expiresAt = new Date(Date.now() + ((expiresIn || 7200) * 1000));
       await db.collection('x_auth').updateOne(
         { avatarId: auth.avatarId },
         {
           $set: {
-            accessToken,
-            refreshToken: newRefreshToken,
+    accessToken: encrypt(accessToken),
+    refreshToken: encrypt(newRefreshToken),
             expiresAt,
             updatedAt: new Date(),
           },
@@ -162,13 +181,14 @@ class XService {
 
   async postImageToX(avatar, imageUrl, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) {
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
 
     // Initialize a v2 client with OAuth2 bearer token
-    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
     try {
@@ -218,11 +238,165 @@ class XService {
     }
   }
 
+  /**
+   * Post an image tweet and return structured details for chaining.
+   * Returns { tweetId, tweetUrl, content } on success.
+   */
+  async postImageToXDetailed(avatar, imageUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
+      throw new Error('X authorization required. Please connect your account.');
+    }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+
+  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
+    const clientV2 = twitterClient.v2;
+
+    // 1. Download image
+    const res = await fetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+
+    // 2. Upload media and post
+    const mediaId = await clientV2.uploadMedia(buffer, {
+      media_category: 'tweet_image',
+      media_type: mimeType,
+    });
+    const tweetContent = String(content || '').trim().slice(0, 280);
+    const tweet = await clientV2.tweet({
+      text: tweetContent,
+      media: { media_ids: [mediaId] }
+    });
+    if (!tweet?.data?.id) throw new Error('Failed to post image to X');
+    const tweetId = tweet.data.id;
+    const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+
+    await db.collection('social_posts').insertOne({
+      avatarId: avatar._id,
+      content: tweetContent,
+      imageUrl,
+      timestamp: new Date(),
+      postedToX: true,
+      tweetId,
+      mediaType: 'image'
+    });
+
+    return { tweetId, tweetUrl, content: tweetContent };
+  }
+
+  /**
+   * Reply with an image to a given tweetId.
+   */
+  async replyWithImageToX(avatar, parentTweetId, imageUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+    const clientV2 = twitterClient.v2;
+
+    const res = await fetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+    const mediaId = await clientV2.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+
+    const replyContent = String(content || '').trim().slice(0, 280);
+    const result = await clientV2.tweet({
+      text: replyContent,
+      media: { media_ids: [mediaId] },
+      reply: { in_reply_to_tweet_id: parentTweetId }
+    });
+    if (!result?.data?.id) throw new Error('Failed to post image reply to X');
+    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'image' });
+    return result.data.id;
+  }
+
+  /**
+   * Reply with a video to a given tweetId.
+   */
+  async replyWithVideoToX(avatar, parentTweetId, videoUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
+    const v1Client = twitterClient.v1;
+    const v2Client = twitterClient.v2;
+
+    const res = await fetch(videoUrl);
+    if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const mimeHeader = res.headers.get('content-type') || '';
+    const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+    const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
+
+    const replyContent = String(content || '').trim().slice(0, 280);
+    const result = await v2Client.tweet({
+      text: replyContent,
+      media: { media_ids: [mediaId] },
+      reply: { in_reply_to_tweet_id: parentTweetId }
+    });
+    if (!result?.data?.id) throw new Error('Failed to post video reply to X');
+    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'video' });
+    return result.data.id;
+  }
+
+  async postVideoToX(avatar, videoUrl, content) {
+    const db = await this.databaseService.getDatabase();
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) {
+      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    }
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+
+    // Initialize clients
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
+    const v1Client = twitterClient.v1;
+    const v2Client = twitterClient.v2;
+
+    try {
+      // Download the video
+      const res = await fetch(videoUrl);
+      if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const mimeHeader = res.headers.get('content-type') || '';
+      const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+
+      // Upload media (chunked for video)
+      const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
+
+      // Post tweet with video
+      const tweetContent = String(content || '').trim().slice(0, 280);
+      const tweet = await v2Client.tweet({ text: tweetContent, media: { media_ids: [mediaId] } });
+      if (!tweet?.data?.id) return '-# [ ❌ Failed to post video to X. ]';
+      const tweetId = tweet.data.id;
+      const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+      await db.collection('social_posts').insertOne({
+        avatarId: avatar._id,
+        content: tweetContent,
+        videoUrl,
+        timestamp: new Date(),
+        postedToX: true,
+        tweetId,
+        mediaType: 'video'
+      });
+      return `-# ✨ [ [Posted video to X](${tweetUrl}) ]`;
+    } catch (err) {
+      this.logger?.error('Error posting video to X:', err);
+      throw new Error('Failed to post video to X');
+    }
+  }
+
   async getXTimelineAndNotifications(avatar) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth) return { timeline: [], notifications: [], userId: null };
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const avatarId = avatar._id.toString();
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth || !await this.isXAuthorized(avatarId)) return { timeline: [], notifications: [], userId: null };
+  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const userData = await v2Client.me();
     const userId = userData.data.id;
@@ -246,8 +420,9 @@ class XService {
   // --- X Social Actions ---
   async postToX(avatar, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const tweetContent = content.trim().slice(0, 280);
@@ -261,8 +436,9 @@ class XService {
 
   async replyToX(avatar, tweetId, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const replyContent = content.trim().slice(0, 280);
@@ -274,8 +450,9 @@ class XService {
 
   async quoteToX(avatar, tweetId, content) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const quoteContent = content.trim().slice(0, 280);
@@ -287,8 +464,9 @@ class XService {
 
   async followOnX(avatar, userId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -298,8 +476,9 @@ class XService {
 
   async likeOnX(avatar, tweetId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -309,8 +488,9 @@ class XService {
 
   async repostOnX(avatar, tweetId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
@@ -320,8 +500,9 @@ class XService {
 
   async blockOnX(avatar, userId) {
     const db = await this.databaseService.getDatabase();
-    const auth = await db.collection('x_auth').findOne({ avatarId: avatar._id.toString() });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const avatarId = avatar._id.toString();
+    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();

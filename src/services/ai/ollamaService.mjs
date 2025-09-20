@@ -14,7 +14,7 @@ export class OllamaService {
     this.apiKey = process.env.OLLAMA_API_KEY;
     this.defaultChatOptions = {
       temperature: 0.7,
-      max_tokens: 1000,
+  max_tokens: 2000,
       top_p: 1.0,
       frequency_penalty: 0,
       presence_penalty: 0,
@@ -49,10 +49,11 @@ export class OllamaService {
         console.error('Invalid response from Ollama during chat.');
         return null;
       }
-      return response.message.content.trim();
+  const text = response.message.content.trim();
+  return options.returnEnvelope ? { text, raw: response, model: this.model, provider: 'ollama', error: null } : text;
     } catch (error) {
       console.error('Error while chatting with Ollama:', error);
-      return null;
+  return options.returnEnvelope ? { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'CHAT_ERROR', message: error.message } } : null;
     }
   }
 
@@ -70,10 +71,11 @@ export class OllamaService {
         console.error('Invalid response from Ollama during completion generation.');
         return null;
       }
-      return response.response.trim();
+  const text = response.response.trim();
+  return options.returnEnvelope ? { text, raw: response, model: this.model, provider: 'ollama', error: null } : text;
     } catch (error) {
       console.error('Error while generating completion from Ollama:', error);
-      return null;
+  return options.returnEnvelope ? { text: null, raw: null, model: this.model, provider: 'ollama', error: { code: 'COMPLETION_ERROR', message: error.message } } : null;
     }
   }
 

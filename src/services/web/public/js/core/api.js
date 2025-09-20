@@ -150,7 +150,31 @@ export const TribesAPI = {
    * @param {string} emoji - Tribe emoji
    * @returns {Promise<Object>} - Tribe data
    */
-  getTribeByEmoji: (emoji) => fetchJSON(`${ENDPOINTS.TRIBES}/${emoji}`)
+  getTribeByEmoji: (pathOrEmoji) => {
+    // Allow passing `emoji?query` for pagination
+    if (pathOrEmoji.includes('?')) return fetchJSON(`${ENDPOINTS.TRIBES}/${pathOrEmoji}`);
+    return fetchJSON(`${ENDPOINTS.TRIBES}/${pathOrEmoji}`);
+  }
+};
+
+/**
+ * Collections API methods
+ */
+export const CollectionsAPI = {
+  /**
+   * List collections with counts
+   */
+  list: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return fetchJSON(`${ENDPOINTS.COLLECTIONS}?${q}`);
+  },
+  /**
+   * Get avatars in a collection (cursor-based)
+   */
+  members: (id, params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return fetchJSON(`${ENDPOINTS.COLLECTIONS}/${encodeURIComponent(id)}?${q}`);
+  },
 };
 
 /**

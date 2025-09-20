@@ -43,8 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
       defaultOption.textContent = 'All Models';
       modelSelect.appendChild(defaultOption);
 
+      // Compute model name list from API (supports array or object)
+      const modelNames = Array.isArray(data)
+        ? data.map(m => m?.model).filter(Boolean)
+        : (data && typeof data === 'object')
+          ? Object.keys(data)
+          : [];
+
       // Populate models
-      Object.keys(data).forEach((model) => {
+      modelNames.forEach((model) => {
         const option = document.createElement('option');
         option.value = model;
         option.textContent = model;
@@ -56,12 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
         avatarModelSelect.appendChild(avatarOption);
       });
 
-      // Add filter listeners
-      modelSelect.addEventListener('change', () => {
+      // Preserve current selection if possible
+      if (modelNames.includes(state.currentModelFilter)) {
+        modelSelect.value = state.currentModelFilter;
+      }
+
+      // Add filter listeners (ensure only one listener is attached)
+      modelSelect.onchange = () => {
         state.currentModelFilter = modelSelect.value;
         state.currentPage = 1;
         loadAvatars();
-      });
+      };
     } catch (error) {
       console.error('Error loading models:', error);
 
@@ -98,6 +110,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialization
   loadAvatars();
   setupEventListeners();
+
+  // Helper to produce signed headers for admin writes
+  async function getSignedHeaders(extra) {
+    const mod = await import('./services/wallet.js');
+    return mod.signWriteHeaders(extra);
+  }
 
   // Event Listeners Setup
   function setupEventListeners() {
@@ -192,7 +210,7 @@ uploadButton.addEventListener('click', () => {
   fileInput.click();
 });
 
-fileInput.addEventListener('change', async (e) => {
+  fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
@@ -203,23 +221,28 @@ fileInput.addEventListener('change', async (e) => {
     uploadButton.disabled = true;
     uploadButton.textContent = 'Uploading...';
 
-    const response = await fetch('/api/admin/upload-image', {
-      method: 'POST',
-      body: formData
-    });
+      const headers = await getSignedHeaders({ op: 'upload_image' });
+      const response = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers,
+        body: formData
+      });
 
+    let data;
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
+      let errMsg = `Upload failed (${response.status})`;
+      try { const j = await response.json(); if (j?.error) errMsg += `: ${j.error}`; } catch {}
+      throw new Error(errMsg);
+    } else {
+      data = await response.json();
     }
-
-    const data = await response.json();
     elements.imageUrlInput.value = data.url;
     elements.imagePreview.src = data.url;
     elements.imagePreview.classList.remove('hidden');
     showNotification('Image uploaded successfully');
   } catch (error) {
     console.error('Upload error:', error);
-    showNotification('Failed to upload image', 'error');
+    showNotification(error.message || 'Failed to upload image', 'error');
   } finally {
     uploadButton.disabled = false;
     uploadButton.textContent = 'Upload Image';
@@ -275,11 +298,17 @@ elements.imageUrlInput.addEventListener("input", () => {
     }
   }
 
-  function updatePagination(total, page, limit) {
+  // Unified pagination updater; parameters optional
+  function updatePagination(total = state.totalAvatars, page = state.currentPage, limit = state.pageSize) {
     const start = (page - 1) * limit + 1;
     const end = Math.min(page * limit, total);
-    document.getElementById("paginationInfo").textContent =
-      `Showing ${start}-${end} of ${total} avatars`;
+    if (elements.paginationInfo) {
+      elements.paginationInfo.textContent = `Showing ${start}-${end} of ${total} avatars`;
+    }
+    if (elements.prevPageBtn && elements.nextPageBtn) {
+      elements.prevPageBtn.disabled = page === 1;
+      elements.nextPageBtn.disabled = end >= total;
+    }
   }
 
   function renderAvatars(avatars) {
@@ -329,16 +358,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     });
   }
 
-  function updatePagination() {
-    const start = (state.currentPage - 1) * state.pageSize + 1;
-    const end = Math.min(
-      state.currentPage * state.pageSize,
-      state.totalAvatars,
-    );
-    elements.paginationInfo.textContent = `Showing ${start}-${end} of ${state.totalAvatars} avatars`;
-    elements.prevPageBtn.disabled = state.currentPage === 1;
-    elements.nextPageBtn.disabled = end >= state.totalAvatars;
-  }
+  // (removed duplicate updatePagination definition)
 
   // Modal Functions
   function openNewAvatarModal() {
@@ -401,12 +421,17 @@ elements.imageUrlInput.addEventListener("input", () => {
     elements.saveBtn.textContent = "Saving...";
 
     try {
+      const headers = await getSignedHeaders({ op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId });
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(Object.fromEntries(formData)),
       });
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      if (!response.ok) {
+        let msg = `Save failed (${response.status})`;
+        try { const j = await response.json(); if (j?.error) msg += `: ${j.error}`; } catch {}
+        throw new Error(msg);
+      }
       // Fetch the updated avatar and refresh the modal fields
       let updatedAvatar;
       if (avatarId) {
@@ -425,7 +450,7 @@ elements.imageUrlInput.addEventListener("input", () => {
       loadAvatars();
     } catch (error) {
       console.error("Error saving avatar:", error);
-      showNotification("Failed to save avatar", "error");
+      showNotification(error.message || "Failed to save avatar", "error");
     } finally {
       elements.saveBtn.disabled = false;
       elements.saveBtn.textContent = "Save Changes";
@@ -438,11 +463,33 @@ elements.imageUrlInput.addEventListener("input", () => {
       return;
 
     try {
+      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
       const response = await fetch(`/api/admin/avatars/${avatarId}`, {
         method: "DELETE",
+        headers
       });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       closeModal();
+      loadAvatars();
+      showNotification("Avatar deleted successfully");
+    } catch (error) {
+      console.error("Error deleting avatar:", error);
+      showNotification("Failed to delete avatar", "error");
+    }
+  }
+
+  // Row action delete (confirmation already handled by caller)
+  async function deleteAvatar(avatarId) {
+    if (!avatarId) return;
+    try {
+      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
+      const response = await fetch(`/api/admin/avatars/${avatarId}`, {
+        method: "DELETE",
+        headers
+      });
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      // If modal is open for this avatar, close it
+      if (elements.avatarForm.dataset.avatarId === avatarId) closeModal();
       loadAvatars();
       showNotification("Avatar deleted successfully");
     } catch (error) {

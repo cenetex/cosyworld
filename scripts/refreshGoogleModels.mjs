@@ -10,37 +10,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const capabilityMapping = {
-  'generateContent': 'text',
-  'generateImage': 'image',
-  'generateAudio': 'audio',
-  'generateVideo': 'video',
-};
-
-const defaultModels = [
-  { model: "gemini-2.0-flash", rarity: "uncommon", capabilities: ["text"] },
-  { model: "gemini-2.0-flash-001", rarity: "uncommon", capabilities: ["text"] },
-  { model: "gemini-2.0-pro", rarity: "legendary", capabilities: ["text", "image"] },
-  { model: "gemini-2.0-pro-001", rarity: "legendary", capabilities: ["text", "image"] },
-  { model: "gemini-1.5-pro", rarity: "rare", capabilities: ["text", "audio"] },
-  { model: "gemini-1.5-flash", rarity: "common", capabilities: ["text"] }
-];
-
-const rarityTiers = [
-  { tier: 'legendary', models: ['pro-001', '2.0-pro', 'pro'] },
-  { tier: 'rare', models: ['1.5-pro'] },
-  { tier: 'uncommon', models: ['2.0-flash', 'flash-001'] },
-  { tier: 'common', models: ['1.5-flash', 'flash'] }
-];
-
-function assignRarity(modelId) {
-  for (const { tier, models } of rarityTiers) {
-    if (models.some(sub => modelId.includes(sub))) {
-      return tier;
-    }
-  }
-  return 'uncommon';
-}
+// Note: capabilityMapping/defaultModels/assignRarity were unused and removed to satisfy linting.
 
 async function fetchGoogleModelsFromAPI(apiKey) {
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models';

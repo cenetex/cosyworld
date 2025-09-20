@@ -107,6 +107,14 @@ export class BreedTool extends BasicTool {
       const result = await summonTool.execute(message, { 
         breed: true, attributes: { parents: [avatar1._id, avatar2._id] } }, avatar, context);
       message.content = originalContent;
+      try {
+        await Promise.all([
+          this.avatarService.setLastBredDate(avatar1._id.toString()),
+          this.avatarService.setLastBredDate(avatar2._id.toString())
+        ]);
+      } catch (e) {
+        this.logger?.warn('Failed to record breeding timestamp: ' + e.message);
+      }
       
       return `${result}`;
     } catch (error) {

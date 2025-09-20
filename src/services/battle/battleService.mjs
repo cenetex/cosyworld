@@ -25,20 +25,42 @@ export class BattleService  {
     this.started = false;
   }
 
-  async attack({ message, attacker, defender, services }) {
+  async attack({ message: _message, attacker, defender, services: _services }) {
+    // Block attacks from dead or knocked-out attackers (defense-in-depth)
+    try {
+      const now = Date.now();
+      if (attacker?.status === 'dead' || attacker?.status === 'knocked_out' || (attacker?.knockedOutUntil && now < attacker.knockedOutUntil)) {
+        this.logger?.info?.(`[BattleService] attack blocked: ${attacker?.name || attacker?.id} is KO'd or dead.`);
+        return { result: 'invalid', message: `-# 💤 [ ${attacker?.name || 'Attacker'} cannot act right now. ]` };
+      }
+    } catch {}
     // Get or create stats for attacker and target
     const attackerStats = await this.avatarService.getOrCreateStats(attacker);
     const targetStats = await this.avatarService.getOrCreateStats(defender);
 
     // D&D style attack roll: d20 + strength modifier
-    const strMod = Math.floor((attackerStats.strength - 10) / 2);
+  const strMod = Math.floor((attackerStats.strength - 10) / 2);
     const dexMod = Math.floor((targetStats.dexterity - 10) / 2);
-    const attackRoll = this.diceService.rollDie(20) + strMod;
+    // Advantage if attacker has advantageNextAttack (e.g., from Hide)
+    const rollOnce = () => this.diceService.rollDie(20);
+    let raw1 = rollOnce();
+    let raw2 = null;
+    let usedAdvantage = false;
+    if (attackerStats.advantageNextAttack) {
+      raw2 = rollOnce();
+      usedAdvantage = true;
+    }
+    const rawRoll = raw2 ? Math.max(raw1, raw2) : raw1;
+    const attackRoll = rawRoll + strMod;
     const armorClass = 10 + dexMod + (targetStats.isDefending ? 2 : 0);
 
-    if (attackRoll >= armorClass) {
-      // Damage roll: 1d8 + strength modifier (longsword)
-      const damage = Math.max(1, this.diceService.rollDie(8) + strMod);
+  const isCritical = rawRoll === 20; // natural 20 critical
+
+  if (attackRoll >= armorClass) {
+      // Damage roll: 1d8 + strength modifier; on crit double the dice (not modifier)
+      let damageDice = this.diceService.rollDie(8);
+      if (isCritical) damageDice += this.diceService.rollDie(8);
+      const damage = Math.max(1, damageDice + strMod);
       // Apply damage as a damage counter (modifier)
       await this.statService.createModifier('damage', damage, { avatarId: defender._id });
       targetStats.isDefending = false; // Reset defense stance
@@ -49,31 +71,82 @@ export class BattleService  {
       const currentHp = targetStats.hp - totalDamage;
 
       if (currentHp <= 0) {
-        return await this.handleKnockout({ message, targetAvatar: defender, damage, attacker, services });
+        const ko = await this.handleKnockout({ message: _message, targetAvatar: defender, damage, attacker, services: _services });
+        this.logger?.info?.(`[BattleService] KO/Death: ${attacker.name} → ${defender.name} (${ko.result}) dmg=${damage}`);
+        if (isCritical) ko.critical = true; // propagate critical flag for death videos
+        // Encounter integration
+        try {
+          const ces = _services?.combatEncounterService;
+          if (ces) {
+            const encounter = ces.getEncounter(_message?.channel?.id);
+            if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: { ...ko, damage } });
+          }
+        } catch (e) { this.logger.warn?.(`[BattleService] encounter knockout hook failed: ${e.message}`); }
+        return ko;
       }
 
-      return {
+  const advNote = usedAdvantage ? ' with advantage' : '';
+  const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name}${advNote} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
+      const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
+  const res = {
         result: 'hit',
-        message: `-# ⚔️ [ ${attacker.name} hits ${defender.name} for ${damage} damage! (${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`,
+        critical: isCritical,
+        message: baseMsg + critMsg,
         damage,
         currentHp,
         attackRoll,
-        armorClass
+        armorClass,
+        rawRoll
       };
+  this.logger?.info?.(`[BattleService] Hit: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass} dmg=${damage}${isCritical ? ' CRIT' : ''}`);
+      try {
+        const ces = _services?.combatEncounterService;
+        if (ces) {
+          const encounter = ces.getEncounter(_message?.channel?.id);
+          if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: res });
+        }
+      } catch (e) { this.logger.warn?.(`[BattleService] encounter hit hook failed: ${e.message}`); }
+      // If attacker had advantageNextAttack, consume it and reveal (no longer hidden)
+      if (usedAdvantage) {
+        try {
+          attackerStats.advantageNextAttack = false;
+          attackerStats.isHidden = false;
+          await this.avatarService.updateAvatarStats(attacker, attackerStats);
+        } catch {}
+      }
+      return res;
     } else {
       targetStats.isDefending = false; // Reset defense stance on miss
       await this.avatarService.updateAvatarStats(defender, targetStats);
-      return {
+  const res = {
         result: 'miss',
         message: `-# 🛡️ [ ${attacker.name}'s attack misses ${defender.name}! (${attackRoll} vs AC ${armorClass}) ]`,
         attackRoll,
-        armorClass
+        armorClass,
+        rawRoll
       };
+  this.logger?.info?.(`[BattleService] Miss: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass}`);
+      // Consume advantage even on a miss if it was used (RAW: advantage is consumed by the roll)
+      if (usedAdvantage) {
+        try {
+          attackerStats.advantageNextAttack = false;
+          attackerStats.isHidden = false;
+          await this.avatarService.updateAvatarStats(attacker, attackerStats);
+        } catch {}
+      }
+      try {
+        const ces = _services?.combatEncounterService;
+        if (ces) {
+          const encounter = ces.getEncounter(_message?.channel?.id);
+          if (encounter) ces.handleAttackResult(encounter, { attackerId: attacker.id || attacker._id, defenderId: defender.id || defender._id, result: res });
+        }
+      } catch (e) { this.logger.warn?.(`[BattleService] encounter miss hook failed: ${e.message}`); }
+      return res;
     }
   }
 
-  async handleKnockout({ message, targetAvatar, damage, attacker, services }) {
-    targetAvatar.lives = (targetAvatar.lives || 3) - 1;
+  async handleKnockout({ message: _message, targetAvatar, damage, attacker, services: _services }) {
+  targetAvatar.lives = (targetAvatar.lives || 3) - 1;
     if (targetAvatar.lives <= 0) {
       targetAvatar.status = 'dead';
       targetAvatar.deathTimestamp = Date.now();
@@ -90,7 +163,23 @@ export class BattleService  {
     const newStats = this.statService.generateStatsFromDate(targetAvatar.createdAt);
     newStats.avatarId = targetAvatar._id;
     await this.avatarService.updateAvatarStats(targetAvatar, newStats);
-    await this.avatarService.updateAvatar(targetAvatar);
+  // Set 24h knockout cooldown preventing combat re-entry
+  const now = Date.now();
+  targetAvatar.status = 'knocked_out';
+  targetAvatar.knockedOutUntil = now + 24 * 60 * 60 * 1000; // 24 hours
+  await this.avatarService.updateAvatar(targetAvatar);
+  // Movement: send KO'd avatar to Tavern thread under their current channel
+  try {
+    const discordService = _services?.discordService;
+    const baseChannelId = _message?.channel?.id || targetAvatar.channelId;
+    if (discordService?.getOrCreateThread && baseChannelId && this.mapService?.updateAvatarPosition) {
+      const tavernId = await discordService.getOrCreateThread(baseChannelId, 'tavern');
+      await this.mapService.updateAvatarPosition(targetAvatar, tavernId);
+      this.logger?.info?.(`[BattleService] KO move: ${targetAvatar.name} → Tavern (${tavernId})`);
+    }
+  } catch (e) {
+    this.logger?.warn?.(`[BattleService] KO tavern move failed: ${e.message}`);
+  }
     return {
       result: 'knockout',
       message: `-# 💥 [ ${attacker.name} knocked out ${targetAvatar.name} for ${damage} damage! ${targetAvatar.lives} lives remaining! 💫 ]`
@@ -102,5 +191,46 @@ export class BattleService  {
     stats.isDefending = true;
     await this.avatarService.updateAvatarStats(avatar, stats);
     return `-# 🛡️ [ **${avatar.name}** takes a defensive stance! **AC increased by 2** until next attack. ]`;
+  }
+
+  /**
+   * Hide: Stealth check vs highest passive Perception among visible foes at location.
+   * On success: set isHidden=true and advantageNextAttack=true until next attack.
+   */
+  async hide({ message, avatar }) {
+    const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
+    const others = (locationResult?.avatars || []).filter(a => a._id?.toString() !== avatar._id?.toString());
+    const stats = await this.avatarService.getOrCreateStats(avatar);
+
+    // Compute opposing passive perception = 10 + Wis mod (take highest among others)
+    let highestPassive = 10;
+    for (const o of others) {
+      try {
+        const os = await this.avatarService.getOrCreateStats(o);
+        const wisMod = Math.floor(((os.wisdom || 10) - 10) / 2);
+        highestPassive = Math.max(highestPassive, 10 + wisMod);
+      } catch {}
+    }
+
+    const dexMod = Math.floor(((stats.dexterity || 10) - 10) / 2);
+    const roll = this.diceService.rollDie(20);
+    const stealth = roll + dexMod;
+
+    if (stealth >= highestPassive) {
+      stats.isHidden = true;
+      stats.advantageNextAttack = true;
+      await this.avatarService.updateAvatarStats(avatar, stats);
+      return {
+        result: 'success',
+        message: `-# 🫥 [ ${avatar.name} slips into the shadows (Stealth ${stealth} vs Passive ${highestPassive}). Next attack has advantage. ]`
+      };
+    } else {
+      stats.isHidden = false;
+      await this.avatarService.updateAvatarStats(avatar, stats);
+      return {
+        result: 'fail',
+        message: `-# 👀 [ ${avatar.name} fails to hide (Stealth ${stealth} vs Passive ${highestPassive}). ]`
+      };
+    }
   }
 }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Discord serves as the primary communication platform for Cosyworld, enabling avatar interactions with users through channels, direct messages, and guild-based communities. This document outlines the Discord integration architecture, implementation details, and planned improvements.
+Discord serves as the primary communication platform for Swarm, enabling avatar interactions with users through channels, direct messages, and guild-based communities. This document outlines the Discord integration architecture, implementation details, and planned improvements.
 
 ## Components
 
@@ -213,4 +213,4 @@ Avatars communicate through Discord webhooks, which allow:
 
 ## Conclusion
 
-The Discord integration provides the core communication infrastructure for Cosyworld avatars. By implementing the planned improvements, we can enhance scalability, reliability, and user experience while supporting richer interaction models and better analytics.
+The Discord integration provides the core communication infrastructure for Swarm avatars. By implementing the planned improvements, we can enhance scalability, reliability, and user experience while supporting richer interaction models and better analytics.

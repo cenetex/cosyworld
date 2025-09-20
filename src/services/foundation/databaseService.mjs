@@ -29,8 +29,7 @@ export class DatabaseService {
       return this.db;
     }
 
-    // Check if we're in development mode
-    const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || !process.env.NODE_ENV;
+  // Note: environment is determined via process.env.NODE_ENV when needed.
 
     if (!process.env.MONGO_URI) {
       throw new Error('MongoDB URI not provided in environment variables.');
@@ -139,6 +138,11 @@ export class DatabaseService {
           attachments,
           embeds,
           hasImages: attachments.some(a => a.contentType?.startsWith("image/")) || embeds.some(e => e.image || e.thumbnail),
+          // Persist AI-generated image captions/urls if the message object was enriched upstream
+          imageDescription: message.imageDescription || null,
+          imageDescriptions: Array.isArray(message.imageDescriptions) ? message.imageDescriptions : null,
+          imageUrls: Array.isArray(message.imageUrls) ? message.imageUrls : null,
+          primaryImageUrl: message.primaryImageUrl || null,
           timestamp: message.createdTimestamp,
         };
   
@@ -222,6 +226,48 @@ export class DatabaseService {
     if (!db) return;
 
     try {
+      // Helper to create an index, tolerant of missing collections
+      const safeEnsureIndex = async (collectionName, key, options = {}) => {
+        const coll = db.collection(collectionName);
+        const keyStr = JSON.stringify(key);
+        try {
+          // Some drivers throw NamespaceNotFound when listing indexes of a non-existent collection.
+          // In that case, proceed to createIndex which will implicitly create the collection.
+          let existing = [];
+          try {
+            existing = await coll.indexes();
+          } catch (e) {
+            const msg = String(e?.message || e);
+            if (msg.includes('ns does not exist') || msg.includes('NamespaceNotFound')) {
+              existing = [];
+            } else {
+              throw e;
+            }
+          }
+
+          const hasEquivalent = Array.isArray(existing) && existing.some(i => JSON.stringify(i.key) === keyStr);
+          if (hasEquivalent) {
+            this.logger.info(`[indexes] ${collectionName} ${keyStr} already exists; skipping`);
+            return;
+          }
+
+          await coll.createIndex(key, { background: true, ...options });
+        } catch (e) {
+          const msg = String(e.message || e);
+          if (
+            msg.includes('An equivalent index already exists') ||
+            msg.includes('Index already exists with a different name') ||
+            msg.includes('ns does not exist') ||
+            msg.includes('NamespaceNotFound')
+          ) {
+            // Non-fatal; log and continue.
+            this.logger.warn(`[indexes] Non-fatal while ensuring index on ${collectionName} ${keyStr}: ${msg}`);
+            return;
+          }
+          throw e;
+        }
+      };
+
       await Promise.all([
         db.collection('messages').createIndexes([
           { key: { "author.username": 1 }, background: true },
@@ -230,13 +276,22 @@ export class DatabaseService {
           { key: { messageId: 1 }, unique: true },
           { key: { channelId: 1 }, background: true },
         ]),
+        db.collection('agent_events').createIndexes([
+          { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
+          { key: { hash: 1 }, name: 'agent_events_hash', unique: true, background: true },
+          { key: { type: 1, ts: -1 }, name: 'agent_events_type_ts', background: true }
+        ]),
         db.collection('avatars').createIndexes([
           { key: { name: 1, createdAt: -1 }, background: true },
           { key: { model: 1 }, background: true },
           { key: { emoji: 1 }, background: true },
+          { key: { emoji: 1, _id: -1 }, name: 'avatars_emoji_id_desc', background: true },
+          { key: { 'nft.collection': 1, _id: -1 }, name: 'avatars_nft_collection_id_desc', background: true },
+          { key: { collection: 1, _id: -1 }, name: 'avatars_collection_id_desc', background: true },
           { key: { parents: 1 }, background: true },
           { key: { createdAt: -1 }, background: true },
           { key: { channelId: 1 }, background: true },
+          { key: { agentId: 1 }, name: 'avatars_agent_id', background: true, sparse: true },
           { key: { name: 'text', description: 'text' }, background: true },
         ]),
         db.collection('dungeon_stats').createIndex(
@@ -247,10 +302,10 @@ export class DatabaseService {
           { avatarId: 1, timestamp: -1 },
           { background: true }
         ),
-        db.collection('memories').createIndex(
-          { avatarId: 1, timestamp: -1 },
-          { background: true }
-        ),
+        db.collection('memories').createIndexes([
+          { key: { avatarId: 1, timestamp: -1 }, background: true },
+          { key: { avatarId: 1, ts: -1 }, background: true },
+        ]),
         db.collection('dungeon_log').createIndexes([
           { key: { timestamp: -1 }, background: true },
           { key: { actor: 1 }, background: true },
@@ -260,10 +315,62 @@ export class DatabaseService {
         db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
+        // Presence and scheduling indexes
+        db.collection('presence').createIndexes([
+          { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
+          { key: { channelId: 1, lastTurnAt: -1 }, name: 'presence_lastTurn', background: true },
+          { key: { updatedAt: 1 }, name: 'presence_updatedAt', background: true },
+        ]),
+        db.collection('turn_leases').createIndexes([
+          { key: { channelId: 1, avatarId: 1, tickId: 1 }, unique: true, name: 'leases_unique', background: true },
+          { key: { leaseExpiresAt: 1 }, expireAfterSeconds: 3600, name: 'leases_ttl', background: true },
+        ]),
+        db.collection('channel_ticks').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'ticks_channel', background: true },
+          { key: { lastTickAt: -1 }, name: 'ticks_lastTick', background: true },
+        ]),
+        // Planner collections
+        db.collection('thread_states').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'thread_states_channel', background: true },
+          { key: { lastActivityTs: -1 }, name: 'thread_states_activity', background: true },
+          { key: { updatedAt: -1 }, name: 'thread_states_updated', background: true },
+        ]),
+        db.collection('planner_assignments').createIndexes([
+          { key: { status: 1, type: 1, priority: -1, createdAt: 1 }, name: 'assign_status_type_priority', background: true },
+          { key: { channelId: 1, status: 1 }, name: 'assign_channel_status', background: true },
+          { key: { updatedAt: 1 }, name: 'assign_updated', background: true },
+        ]),
+        db.collection('thread_summaries').createIndexes([
+          { key: { channelId: 1 }, unique: true, name: 'thread_summary_channel', background: true },
+          { key: { updatedAt: -1 }, name: 'thread_summary_updated', background: true },
+        ]),
+  // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
+  (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
+  (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { walletAddress: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { avatarId: 1 }); })(),
       ]);
+      // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
+      try {
+        const presence = db.collection('presence');
+        const idx = await presence.indexes();
+        const hasUpdatedIndex = idx.some(i => i.key && i.key.updatedAt === 1);
+        if (!hasUpdatedIndex) {
+          await presence.createIndex({ updatedAt: 1 }, { expireAfterSeconds: 14 * 24 * 60 * 60, name: 'presence_ttl', background: true });
+        } else {
+          this.logger.info('Presence updatedAt index exists; skipping TTL index to avoid conflict.');
+        }
+      } catch (e) {
+        this.logger.warn(`presence TTL index skipped: ${e.message}`);
+      }
       this.logger.info('Database indexes created successfully');
     } catch (error) {
-      this.logger.error(`Error creating indexes: ${error.message}`);
+      const msg = String(error.message || error);
+      this.logger.error(`Error creating indexes: ${msg}`);
+      if (msg.includes('An equivalent index already exists') || msg.includes('Index already exists with a different name')) {
+        this.logger.warn('Index exists (possibly with a different name); proceeding without failure.');
+        return; // degrade to warning to avoid blocking startup
+      }
       throw error;
     }
   }

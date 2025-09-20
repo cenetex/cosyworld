@@ -15,35 +15,81 @@ const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
 
 export class ConfigService {
-  constructor({ logger }) {
+  constructor({ logger, secretsService } = {}) {
     this.logger = logger;
+    this.secrets = secretsService;
 
     // Initialize global configuration with defaults from environment variables
     this.config = {
+      server: {
+        host: process.env.HOST || '0.0.0.0',
+        // Support separate dev vs prod ports so both can run simultaneously.
+        // Precedence: explicit WEB_PORT (forces both), then environment-specific (DEV_WEB_PORT/PROD_WEB_PORT), then default 3000.
+        port: Number((() => {
+          const isProd = process.env.NODE_ENV === 'production';
+          const explicit = process.env.WEB_PORT || (isProd ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT) : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT));
+          if (explicit) return explicit;
+          // Deterministic separate defaults: prod=3000, dev=3100 so both can run simultaneously
+          return isProd ? 3000 : 3100;
+        })()),
+        baseUrl: process.env.BASE_URL || (() => {
+          const isProd = process.env.NODE_ENV === 'production';
+          const explicit = process.env.WEB_PORT || (isProd ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT) : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT));
+          const p = explicit || (isProd ? 3000 : 3100);
+          return `http://localhost:${p}`;
+        })(),
+        publicUrl: process.env.PUBLIC_URL || process.env.BASE_URL || (() => {
+          const isProd = process.env.NODE_ENV === 'production';
+          const explicit = process.env.WEB_PORT || (isProd ? (process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT) : (process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT));
+          const p = explicit || (isProd ? 3000 : 3100);
+          return `http://localhost:${p}`;
+        })(),
+        cors: {
+          enabled: true,
+          origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s=>s.trim()) : '*',
+          credentials: false
+        },
+        session: {
+          cookieName: 'authToken',
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax'
+        },
+        admin: {
+          enabled: true,
+          loginPath: '/admin/login',
+          gateAll: true
+        },
+  rateLimit: { enabled: process.env.NODE_ENV === 'production', windowMs: 60000, max: 120 }
+      },
       prompt: {
-        summon: process.env.SUMMON_PROMPT || "Create a twisted avatar, a servant of dark V.A.L.I.S.",
-        introduction: process.env.INTRODUCTION_PROMPT || "You've just arrived. Introduce yourself."
+        summon: process.env.SUMMON_PROMPT || "Create an avatar that fits within the following description: ",
+        introduction: process.env.INTRODUCTION_PROMPT || "You've just been summoned for the first time. Introduce yourself.",
+        attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name}, describe how you attack them with your abilities.",
+        defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack, describe what you do to defend yourself.",
+        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
       },
       ai: {
         veo: {
           rateLimit: {
-            perMinute: 2,
-            perDay: 50
+            perMinute: Number(process.env.VEO_RATE_PER_MINUTE || process.env.VEO_PER_MINUTE || 2),
+            perDay: Number(process.env.VEO_RATE_PER_DAY || process.env.VEO_PER_DAY || 50),
+            // Hard global cap to guard against runaway usage; can be overridden via env
+            globalCap: Number(process.env.VEO_GLOBAL_DAILY_CAP || process.env.VEO_GLOBAL_DAILY_LIMIT || 3)
           }
         },
         google: {
-          apiKey: process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
-          model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash-001',
-          decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'gemini-2.0-flash',
-          structuredModel: process.env.GOOGLE_AI_STRUCTURED_MODEL || 'models/gemini-2.0-flash',
-          chatModel: process.env.GOOGLE_AI_CHAT_MODEL || 'gemini-2.0-flash',
-          visionModel: process.env.GOOGLE_AI_VISION_MODEL || 'gemini-2.0-flash-001',
+          apiKey: this.secrets?.get('GOOGLE_API_KEY') || this.secrets?.get('GOOGLE_AI_API_KEY') || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
+          model: process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash',
+          decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'gemini-2.5-flash',
+          structuredModel: process.env.GOOGLE_AI_STRUCTURED_MODEL || 'gemini-2.5-flash',
+          chatModel: process.env.GOOGLE_AI_CHAT_MODEL || 'gemini-2.5-flash',
+          visionModel: process.env.GOOGLE_AI_VISION_MODEL || 'gemini-2.5-flash',
           temperature: 0.7,
           maxTokens: 1000,
           topP: 1.0
         },
         openrouter: {
-          apiKey: process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
+          apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
           model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
           structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'openai/gpt-4o',
@@ -54,7 +100,7 @@ export class ConfigService {
           topP: 1.0
         },
         replicate: {
-          apiToken: process.env.REPLICATE_API_TOKEN,
+          apiToken: this.secrets?.get('REPLICATE_API_TOKEN') || process.env.REPLICATE_API_TOKEN,
           model: process.env.REPLICATE_MODEL,
           lora_weights: process.env.REPLICATE_LORA_WEIGHTS,
           loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER,
@@ -62,7 +108,7 @@ export class ConfigService {
         },
       },
       mongo: {
-        uri: process.env.MONGO_URI,
+        uri: this.secrets?.get('MONGO_URI') || process.env.MONGO_URI,
         dbName: process.env.MONGO_DB_NAME || 'discord-bot',
         collections: {
           avatars: 'avatars',
@@ -74,6 +120,19 @@ export class ConfigService {
     };
 
     this.guildConfigCache = new Map(); // Cache for guild configurations
+  }
+
+  static deepMerge(target, source) {
+    for (const key of Object.keys(source || {})) {
+      const sv = source[key];
+      const tv = target[key];
+      if (sv && typeof sv === 'object' && !Array.isArray(sv)) {
+        target[key] = ConfigService.deepMerge(tv && typeof tv === 'object' ? { ...tv } : {}, sv);
+      } else {
+        target[key] = sv;
+      }
+    }
+    return target;
   }
 
   getAIConfig(service = null) {
@@ -106,25 +165,57 @@ export class ConfigService {
   // Load global configuration from JSON files
   async loadConfig() {
     try {
-      const defaultConfig = JSON.parse(
-        await fs.readFile(path.join(CONFIG_DIR, 'default.config.json'), 'utf8')
-      );
-      let userConfig = {};
+      // 1) Load JSON template defaults first
+      let merged = {};
       try {
-        userConfig = JSON.parse(
-          await fs.readFile(path.join(CONFIG_DIR, 'user.config.json'), 'utf8')
-        );
-      } catch (error) {
-        // If user config doesn't exist, create it with defaults
-        await fs.writeFile(
-          path.join(CONFIG_DIR, 'user.config.json'),
-          JSON.stringify(this.config, null, 2)
-        );
-        userConfig = this.config;
+        const defaultConfig = JSON.parse(await fs.readFile(path.join(CONFIG_DIR, 'default.config.json'), 'utf8'));
+        merged = ConfigService.deepMerge(merged, defaultConfig);
+      } catch {}
+
+      // 2) Merge in the in-code/env-derived defaults so env vars override file defaults
+      merged = ConfigService.deepMerge(merged, this.config);
+
+  // 3) Merge environment-specific overrides file if present
+      //    Looks for services/config/{NODE_ENV}.config.json and services/config/user.config.json
+  const envName = process.env.NODE_ENV || 'development';
+      const candidates = [
+        path.join(CONFIG_DIR, `${envName}.config.json`),
+        path.join(CONFIG_DIR, 'user.config.json')
+      ];
+      for (const file of candidates) {
+        try {
+          const content = await fs.readFile(file, 'utf8');
+          const json = JSON.parse(content);
+          merged = ConfigService.deepMerge(merged, json);
+        } catch {}
       }
 
-      // Merge configs, with user config taking precedence
-      this.config = { ...this.config, ...defaultConfig, ...userConfig };
+      // Finalize: enforce deterministic defaults if not explicitly overridden by env vars
+      const explicitEnvPort = process.env.WEB_PORT || process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT || process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT;
+      if (!explicitEnvPort) {
+        if ((process.env.NODE_ENV || 'development') === 'production') {
+          merged.server.port = 3000;
+          merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3000';
+          merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3000';
+        } else {
+          merged.server.port = 3000;
+          merged.server.baseUrl = merged.server.baseUrl?.replace(/:\d+$/,'') + ':3100';
+          merged.server.publicUrl = merged.server.publicUrl?.replace(/:\d+$/,'') + ':3100';
+        }
+      }
+
+      // Diagnostic logging (temporarily verbose to trace unexpected port values)
+      try {
+        const envPortVars = {
+          WEB_PORT: process.env.WEB_PORT,
+          DEV_WEB_PORT: process.env.DEV_WEB_PORT || process.env.DEVELOPMENT_WEB_PORT,
+          PROD_WEB_PORT: process.env.PROD_WEB_PORT || process.env.PRODUCTION_WEB_PORT,
+          NODE_ENV: process.env.NODE_ENV
+        };
+        this.logger?.info?.(`[config] Final server.port=${merged.server.port} (explicitEnvPort=${explicitEnvPort||'none'}) envVars=${JSON.stringify(envPortVars)}`);
+      } catch {}
+
+  this.config = merged;
     } catch (error) {
       console.error('Error loading config:', error);
     }
@@ -147,12 +238,12 @@ export class ConfigService {
 
   // Get Discord-specific configuration
   getDiscordConfig() {
-    if (!process.env.DISCORD_BOT_TOKEN) {
+    if (!(this.secrets?.get('DISCORD_BOT_TOKEN') || process.env.DISCORD_BOT_TOKEN)) {
       console.warn('DISCORD_BOT_TOKEN not found in environment variables');
     }
     return {
-      botToken: process.env.DISCORD_BOT_TOKEN,
-      clientId: process.env.DISCORD_CLIENT_ID,
+      botToken: this.secrets?.get('DISCORD_BOT_TOKEN') || process.env.DISCORD_BOT_TOKEN,
+      clientId: this.secrets?.get('DISCORD_CLIENT_ID') || process.env.DISCORD_CLIENT_ID,
       webhooks: this.config.webhooks || {}
     };
   }
@@ -165,8 +256,11 @@ export class ConfigService {
       summonerRole: "🔮",
       summonEmoji: "🔮",
       prompts: {
-        summon: this.config.prompt.summon,
-        introduction: this.config.prompt.introduction
+  summon: this.config.prompt.summon,
+  introduction: this.config.prompt.introduction,
+  attack: this.config.prompt.attack,
+  defend: this.config.prompt.defend,
+  breed: this.config.prompt.breed
       },
       toolEmojis: {
         summon: '🔮',
@@ -192,8 +286,11 @@ export class ConfigService {
       ...defaults,
       ...guildConfig,
       prompts: {
-        summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
-        introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction
+  summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
+  introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction,
+  attack: guildConfig?.prompts?.attack || defaults.prompts.attack,
+  defend: guildConfig?.prompts?.defend || defaults.prompts.defend,
+  breed: guildConfig?.prompts?.breed || defaults.prompts.breed
       },
       toolEmojis: {
         ...defaults.toolEmojis,
@@ -288,6 +385,20 @@ export class ConfigService {
   async getGuildPrompts(guildId) {
     const guildConfig = await this.getGuildConfig(guildId);
     return guildConfig.prompts;
+  }
+
+  // Clear cached guild configuration(s)
+  async clearCache(guildId = null) {
+    try {
+      if (!this.guildConfigCache) this.guildConfigCache = new Map();
+      if (guildId) {
+        this.guildConfigCache.delete(guildId);
+      } else {
+        this.guildConfigCache.clear();
+      }
+    } catch (e) {
+      this.logger?.warn?.(`ConfigService.clearCache failed: ${e?.message || e}`);
+    }
   }
 
   // Validate critical configurations

@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import { ObjectId } from 'mongodb';
 import NodeCache from 'node-cache';
 import { thumbnailService } from '../services/thumbnailService.js';
 
@@ -63,9 +64,10 @@ export default function(db) {
     try {
       const { emoji } = req.params;
       const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
-      const skip = Math.max(parseInt(req.query.skip, 10) || 0, 0);
+      const after = req.query.after; // cursor: last _id string
+  const thumbs = String(req.query.thumbs || '0') === '1';
       
-      const cacheKey = `tribe:${emoji}:${skip}:${limit}`;
+  const cacheKey = `tribe:${emoji}:after:${after || 'none'}:limit:${limit}:thumbs:${thumbs?'1':'0'}`;
       const cachedTribe = tribesCache.get(cacheKey);
 
       if (cachedTribe) {
@@ -77,10 +79,17 @@ export default function(db) {
         ? { $or: [ { emoji: { $eq: null } }, { emoji: "" }, { emoji: { $exists: false } } ] }
         : { emoji: emoji };
 
+      const idFilter = after ? { _id: { $lt: (() => { try { return new ObjectId(after); } catch { return null; } })() } } : {};
+      if (idFilter._id && idFilter._id.$lt === null) {
+        return res.status(400).json({ error: 'Invalid cursor' });
+      }
+
       const tribe = await db.collection('avatars').aggregate([
         {
-          $match: matchCondition
+          $match: { ...matchCondition, ...(idFilter._id ? idFilter : {}) }
         },
+        // Deterministic order for pagination by _id desc (timestamp)
+        { $sort: { _id: -1 } },
         {
           $lookup: {
             from: 'messages',
@@ -106,22 +115,25 @@ export default function(db) {
             messageCount: { $ifNull: [{ $arrayElemAt: ['$messageStats.count', 0] }, 0] }
           }
         },
-        { $skip: skip },
         { $limit: limit }
       ]).toArray();
 
-      const tribeWithThumbnails = {
-        emoji,
-        members: await Promise.all(
-          tribe.map(async (member) => ({
-            ...member,
-            thumbnailUrl: await thumbnailService.generateThumbnail(member.imageUrl)
-          }))
-        )
+      await thumbnailService.ensureThumbnailDir();
+      const makeThumb = async (url) => {
+        if (!url) return '/images/default-avatar.svg';
+        try { return await thumbnailService.generateThumbnail(url); } catch { return '/images/default-avatar.svg'; }
       };
+      const members = await Promise.all(
+        tribe.map(async (member) => ({
+          ...member,
+          thumbnailUrl: await makeThumb(member.imageUrl)
+        }))
+      );
 
-      tribesCache.set(cacheKey, tribeWithThumbnails);
-      res.json(tribeWithThumbnails);
+  const nextCursor = members.length === limit ? String(members[members.length - 1]._id) : null;
+  const payload = { emoji, members, nextCursor };
+      tribesCache.set(cacheKey, payload);
+      res.json(payload);
     } catch (error) {
       console.error('[Tribe Details Error]:', error);
       res.status(500).json({ error: 'Failed to fetch tribe details', details: error.message });

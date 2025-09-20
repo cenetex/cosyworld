@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { EventEmitter } from 'events';
+
 
 export class ReflectionService {
   constructor({ avatarService, conversationManager, schedulingService, logger }) {

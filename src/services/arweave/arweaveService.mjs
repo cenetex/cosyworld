@@ -3,8 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import pkg from 'arweave';
-const { Arweave } = pkg;
+// import Arweave only when needed; currently unused to satisfy lint
 
 export class ArweaveService {
     constructor({
@@ -23,8 +22,8 @@ export class ArweaveService {
 
     async getTransactionData(transactionId) {
         try {
-            const transaction = await this.arweave.transactions.get(transactionId);
-            return transaction;
+            const tx = await this.arweave.transactions.get(transactionId);
+            return tx;
         } catch (error) {
             this.logger.error(`Error fetching transaction data: ${error}`);
             throw error;
@@ -44,7 +43,7 @@ export class ArweaveService {
     }
     async getData(transactionId) {
         try {
-            const transaction = await this.arweave.transactions.get(transactionId);
+            const _transaction = await this.arweave.transactions.get(transactionId);
             const data = await this.arweave.transactions.getData(transactionId, { decode: true, string: true });
             return data;
         } catch (error) {
@@ -55,8 +54,8 @@ export class ArweaveService {
 
     async getTransactionStatus(transactionId) {
         try {
-            const status = await this.arweave.transactions.getStatus(transactionId);
-            return status;
+            const s = await this.arweave.transactions.getStatus(transactionId);
+            return s;
         } catch (error) {
             this.logger.error(`Error fetching transaction status: ${error}`);
             throw error;
@@ -85,8 +84,8 @@ export class ArweaveService {
 
     async getTransactionOwner(transactionId) {
         try {
-            const transaction = await this.arweave.transactions.get(transactionId);
-            return transaction.owner;
+            const t = await this.arweave.transactions.get(transactionId);
+            return t.owner;
         } catch (error) {
             this.logger.error(`Error fetching transaction owner: ${error}`);
             throw error;

@@ -48,7 +48,7 @@ export function buildMiniAvatarEmbed(avatar, message = '') {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const randomSentence = sentences[Math.floor(Math.random() * sentences.length)].trim();
 
-  const { firstSentence, rest } = splitDescription(randomSentence);
+  const { firstSentence } = splitDescription(randomSentence);
 
   const embed = new EmbedBuilder()
     .setColor('#00b0f4')
@@ -99,9 +99,9 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
     undefined: 'U' };
   const tier = tierMap[rarity.toLowerCase()] || 'U';
 
-  const { firstSentence, rest } = splitDescription(avatar.short_description || avatar.description || 'No description.');
+  const { firstSentence, rest: _rest } = splitDescription(avatar.short_description || avatar.description || 'No description.');
 
-  const url = options.viewDetailsUrl || `${process.env.BASE_URL}/avatar.html?id=${avatar._id}`;
+  const _url = options.viewDetailsUrl || `${process.env.BASE_URL}/avatar.html?id=${avatar._id}`;
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(`${avatar.emoji || ''} ${avatar.name}`)
@@ -129,15 +129,53 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
   }
 
   if (avatar.traits) {
-    embed.addFields({ name: '🧬 Traits', value: avatar.traits, inline: false });
+    try {
+      let traitStr = '';
+      if (Array.isArray(avatar.traits)) {
+        traitStr = avatar.traits.map(t => {
+          if (typeof t === 'string') return t;
+            if (!t) return '';
+            const k = t.trait_type || t.type || t.key || t.name || 'Trait';
+            const v = t.value || t.val || t.trait || t.name || '';
+            return `${k}: ${v}`;
+        }).filter(Boolean).join('\n');
+      } else if (typeof avatar.traits === 'object') {
+        traitStr = Object.entries(avatar.traits).map(([k,v]) => `${k}: ${v}`).join('\n');
+      } else if (typeof avatar.traits === 'string') {
+        traitStr = avatar.traits;
+      }
+      if (traitStr.length > 1024) traitStr = traitStr.slice(0, 1021) + '...';
+      if (traitStr.trim()) embed.addFields({ name: '🧬 Traits', value: traitStr, inline: false });
+  } catch {
+      // swallow trait formatting errors
+    }
   }
 
-  if (rest) {
-    embed.addFields({ name: 'More Info', value: rest, inline: false });
+  if (avatar.nft) {
+    const nftLines = [];
+    if (avatar.nft.collection) nftLines.push(`Collection: ${avatar.nft.collection}`);
+    if (avatar.nft.tokenId || avatar.nft.mint) nftLines.push(`Token: ${avatar.nft.tokenId || avatar.nft.mint}`);
+    if (avatar.nft.chain) nftLines.push(`Chain: ${avatar.nft.chain}`);
+    const nftVal = nftLines.join('\n') || 'NFT Linked';
+    embed.addFields({ name: '📦 NFT', value: nftVal.slice(0, 1024), inline: true });
   }
 
-  const button = buildViewButton(url);
-  return { embed, components: [button] };
+  if (_rest) {
+    embed.addFields({ name: 'More Info', value: _rest, inline: false });
+  }
+
+  const buttons = [];
+  try {
+    const mint = avatar?.nft?.mint || avatar?.nft?.tokenId || avatar?.nft?.id || avatar?.nft?.originalMint;
+    const chain = (avatar?.nft?.chain || '').toLowerCase();
+    if (chain === 'solana' && mint && typeof mint === 'string') {
+      const meUrl = `https://magiceden.io/item-details/${mint}`;
+      buttons.push(buildViewButton(meUrl, 'Magic Eden'));
+    }
+  } catch { /* ignore */ }
+
+  // Intentionally no fallback internal link per new spec.
+  return { embed, components: buttons };
 }
 
 /**
@@ -147,7 +185,7 @@ export function buildMiniLocationEmbed(location) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = location.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest } = splitDescription(location.description || 'No description.');
+  const { firstSentence } = splitDescription(location.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(location.name)
@@ -183,8 +221,8 @@ export function buildFullLocationEmbed(location, items = [], avatars = []) {
     embed.addFields({ name: 'More Info', value: rest, inline: false });
   }
 
-  const url = `${process.env.BASE_URL}/location.html?id=${location._id}`;
-  const button = buildViewButton(url);
+  const viewUrl = `${process.env.BASE_URL}/location.html?id=${location._id}`;
+  const button = buildViewButton(viewUrl);
   return { embed, components: [button] };
 }
 
@@ -195,7 +233,7 @@ export function buildMiniItemEmbed(item) {
   const rarityColors = { legendary: '#FFD700', rare: '#1E90FF', uncommon: '#32CD32', common: '#A9A9A9', undefined: '#808080' };
   const rarity = item.rarity || 'undefined';
   const color = rarityColors[rarity.toLowerCase()] || '#5865F2';
-  const { firstSentence, rest } = splitDescription(item.description || 'No description.');
+  const { firstSentence } = splitDescription(item.description || 'No description.');
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(item.name)

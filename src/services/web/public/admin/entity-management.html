@@ -1,0 +1,302 @@
+<!--
+  Copyright (c) 2019-2024 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entity Management - Admin Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <!-- Navigation -->
+      <nav class="bg-gray-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
+              </div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Entity Management</a>
+                  <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="flex-grow">
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div class="px-4 py-6 sm:px-0">
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div class="px-4 py-5 sm:px-6 flex items-center justify-between">
+                <div>
+                  <h2 class="text-lg leading-6 font-medium text-gray-900">Entity Management</h2>
+                  <p class="mt-1 max-w-2xl text-sm text-gray-500">Manage avatars, locations, and items</p>
+                </div>
+              </div>
+
+              <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+                <!-- Tabs -->
+                <div class="mb-4 flex gap-2">
+                  <button id="tab-avatars" class="px-3 py-1 rounded bg-gray-200 font-medium">Avatars</button>
+                  <button id="tab-locations" class="px-3 py-1 rounded">Locations</button>
+                  <button id="tab-items" class="px-3 py-1 rounded">Items</button>
+                </div>
+
+                <!-- Avatars Panel -->
+                <section id="panel-avatars" class="space-y-4">
+                  <div class="flex items-center gap-2">
+                    <button id="new-avatar" class="px-3 py-1 bg-green-600 text-white rounded">New Avatar</button>
+                    <input id="avatar-search" type="text" placeholder="Search avatars..." class="px-3 py-1 border rounded" />
+                    <select id="status-filter" class="px-3 py-1 border rounded">
+                      <option value="all">All Status</option>
+                      <option value="alive">Alive</option>
+                      <option value="dead">Dead</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                    <select id="model-filter" class="px-3 py-1 border rounded">
+                      <option value="all">All Models</option>
+                    </select>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avatar</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="avatars-body" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                          <td colspan="7" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">Loading avatars...</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="mt-4 flex justify-between items-center">
+                    <div id="pagination-info" class="text-sm text-gray-500">Showing 1-20 of 0 avatars</div>
+                    <div class="flex space-x-2">
+                      <button id="prev-page" class="px-3 py-1 border rounded bg-white text-gray-700">Previous</button>
+                      <button id="next-page" class="px-3 py-1 border rounded bg-white text-gray-700">Next</button>
+                    </div>
+                  </div>
+
+                  <!-- Reuse avatar edit modal from old page -->
+                  <div id="avatar-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
+                    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900" id="modal-title">Edit Avatar</h3>
+                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                          <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <form id="avatar-form" class="px-6 py-4">
+                        <!-- Same fields as old page -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div class="space-y-4">
+                            <div>
+                              <label for="avatar-name" class="block text-sm font-medium text-gray-700">Name</label>
+                              <input type="text" id="avatar-name" name="name" class="mt-1 block w-full border rounded py-2 px-3" required />
+                            </div>
+                            <div>
+                              <label for="avatar-status" class="block text-sm font-medium text-gray-700">Status</label>
+                              <select id="avatar-status" name="status" class="mt-1 block w-full border rounded py-2 px-3">
+                                <option value="alive">Alive</option>
+                                <option value="dead">Dead</option>
+                                <option value="inactive">Inactive</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label for="avatar-model" class="block text-sm font-medium text-gray-700">AI Model</label>
+                              <select id="avatar-model" name="model" class="mt-1 block w-full border rounded py-2 px-3"></select>
+                            </div>
+                            <div>
+                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700">Emoji</label>
+                              <input type="text" id="avatar-emoji" name="emoji" class="mt-1 block w-full border rounded py-2 px-3" />
+                            </div>
+                          </div>
+                          <div class="space-y-4">
+                            <div>
+                              <label for="avatar-description" class="block text-sm font-medium text-gray-700">Description</label>
+                              <textarea id="avatar-description" name="description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                            </div>
+                            <div>
+                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700">Personality</label>
+                              <textarea id="avatar-personality" name="personality" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                            </div>
+                            <div>
+                              <label for="avatar-image-url" class="block text-sm font-medium text-gray-700">Avatar Image URL</label>
+                              <input type="url" id="avatar-image-url" name="imageUrl" class="mt-1 block w-full border rounded py-2 px-3" />
+                              <img id="avatar-image-preview" src="" alt="Avatar Preview" class="mt-2 h-32 w-32 rounded-full object-cover border hidden" />
+                            </div>
+                          </div>
+                        </div>
+                        <div class="mt-6">
+                          <button type="button" id="preview-prompt" class="inline-flex justify-center py-2 px-4 border border-blue-400 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Preview Prompt</button>
+                          <div id="prompt-preview-container" class="mt-4 p-4 bg-gray-50 rounded-md border hidden">
+                            <h4 class="font-medium text-gray-700 mb-2">Sample Contextual Prompt</h4>
+                            <div id="prompt-preview-content" class="text-sm text-gray-600 whitespace-pre-wrap"></div>
+                          </div>
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-3">
+                          <button type="button" id="delete-avatar" class="hidden inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600">Delete</button>
+                          <button type="button" id="cancel-edit" class="inline-flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white">Cancel</button>
+                          <button type="submit" id="save-avatar" class="inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600">Save Changes</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Locations Panel -->
+                <section id="panel-locations" class="hidden space-y-4">
+                  <div class="flex items-center gap-2">
+                    <button id="new-location" class="px-3 py-1 bg-green-600 text-white rounded">New Location</button>
+                    <input id="location-search" type="text" placeholder="Search locations..." class="px-3 py-1 border rounded" />
+                  </div>
+                  <div id="locations-table" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="locations-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Loading locations...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <!-- Location Edit Modal -->
+                  <div id="location-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900" id="location-modal-title">Edit Location</h3>
+                        <button id="close-location-modal" class="text-gray-400 hover:text-gray-500">✕</button>
+                      </div>
+                      <form id="location-form" class="px-6 py-4">
+                        <div class="space-y-4">
+                          <div>
+                            <label class="block text-sm font-medium">Name</label>
+                            <input id="location-name" class="mt-1 block w-full border rounded py-2 px-3" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Type</label>
+                            <input id="location-type" class="mt-1 block w-full border rounded py-2 px-3" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Image URL</label>
+                            <input id="location-imageUrl" class="mt-1 block w-full border rounded py-2 px-3" />
+                            <img id="location-image-preview" src="" alt="Location Preview" class="mt-3 w-full max-h-80 object-contain border rounded hidden" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Description</label>
+                            <textarea id="location-description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                          </div>
+                        </div>
+                        <div class="mt-6 flex justify-end gap-2">
+                          <button type="button" id="delete-location" class="hidden px-3 py-1 bg-red-600 text-white rounded">Delete</button>
+                          <button type="button" id="cancel-location" class="px-3 py-1 border rounded">Cancel</button>
+                          <button type="submit" id="save-location" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Items Panel -->
+                <section id="panel-items" class="hidden space-y-4">
+                  <div class="flex items-center gap-2">
+                    <button id="new-item" class="px-3 py-1 bg-green-600 text-white rounded">New Item</button>
+                    <input id="item-search" type="text" placeholder="Search items..." class="px-3 py-1 border rounded" />
+                  </div>
+                  <div id="items-table" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rarity</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="items-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Loading items...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <!-- Item Edit Modal -->
+                  <div id="item-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900" id="item-modal-title">Edit Item</h3>
+                        <button id="close-item-modal" class="text-gray-400 hover:text-gray-500">✕</button>
+                      </div>
+                      <form id="item-form" class="px-6 py-4">
+                        <div class="space-y-4">
+                          <div>
+                            <label class="block text-sm font-medium">Name <span class="text-gray-400 text-xs">(max 120 chars)</span></label>
+                            <input id="item-name" maxlength="120" class="mt-1 block w-full border rounded py-2 px-3" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Rarity</label>
+                            <input id="item-rarity" class="mt-1 block w-full border rounded py-2 px-3" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Image URL</label>
+                            <input id="item-imageUrl" class="mt-1 block w-full border rounded py-2 px-3" />
+                            <img id="item-image-preview" src="" alt="Item Preview" class="mt-3 w-full max-h-80 object-contain border rounded hidden" />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium">Description</label>
+                            <textarea id="item-description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                          </div>
+                        </div>
+                        <div class="mt-6 flex justify-end gap-2">
+                          <button type="button" id="delete-item" class="hidden px-3 py-1 bg-red-600 text-white rounded">Delete</button>
+                          <button type="button" id="cancel-item" class="px-3 py-1 border rounded">Cancel</button>
+                          <button type="submit" id="save-item" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="bg-white">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+          <p class="text-center text-sm text-gray-500">RATi Swarm Admin Panel © 2024</p>
+        </div>
+      </footer>
+    </div>
+
+  <script type="module" src="/js/entity-management.js"></script>
+  </body>
+</html>

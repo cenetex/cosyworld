@@ -1,3 +1,4 @@
+import { QuestService } from './questService.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -6,12 +7,14 @@
 export class QuestGeneratorService  {
   constructor({
     aiService,
+    unifiedAIService,
     itemService,
     questService,
     databaseService
   }) {
     
     this.aiService = aiService;
+    this.unifiedAIService = unifiedAIService; // optional adapter
     this.itemService = itemService;
     this.questService = questService;
     this.databaseService = databaseService;
@@ -35,10 +38,12 @@ export class QuestGeneratorService  {
       }
     }`;
 
-    const response = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let response = await ai.chat([
       { role: 'system', content: 'You are a creative quest designer.' },
       { role: 'user', content: prompt }
     ]);
+  if (response && typeof response === 'object' && response.text) response = response.text;
 
     try {
       const questTemplate = JSON.parse(response);

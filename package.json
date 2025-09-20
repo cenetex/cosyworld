@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "AI Avatar Discord bot with persistent memory, turn‑based combat, and Crossmint NFT support",
   "type": "module",
   "private": true,
@@ -9,14 +9,25 @@
     "node": ">=18.18"
   },
   "scripts": {
-    "dev": "DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
-    "start": "cross-env NODE_ENV=production node src/index.mjs",
-    "build": "npm run clean && npm run build:js && npm run build:css && npm run docs && npm run copy-assets",
+  "dev": "cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
+  "start": "cross-env NODE_ENV=production node src/index.mjs",
+  "serve:prod": "npm run start",
+  "build": "npm run clean && npm run build:js && npm run docs",
     "clean": "rimraf dist",
-    "build:js": "webpack --mode production --progress",
-    "build:css": "tailwindcss -i ./src/tailwind.css -o ./dist/css/tailwind.css --minify",
+  "build:js": "webpack --mode production --progress --stats=errors-only",
     "docs": "node scripts/build-docs.mjs",
-    "copy-assets": "node scripts/copy-assets.mjs"
+  "task": "node scripts/task.mjs",
+  "sync:nft": "node scripts/task.mjs sync:collection",
+  "update:models": "node scripts/task.mjs update:models",
+  "backfill:agent-ids": "node scripts/task.mjs backfill:agent-ids",
+  "migrate:agent-blocks": "node scripts/task.mjs migrate:agent-blocks",
+  "migrate:agent-events": "node scripts/task.mjs migrate:agent-events",
+  "test:agent-events": "node scripts/testAgentEvents.mjs",
+  "lint": "eslint .",
+  "format": "prettier --write .",
+  "format:check": "prettier --check .",
+  "analyze": "webpack --mode production --profile --json > webpack-stats.json",
+  "smoke:ai": "node scripts/smoke-ai.mjs"
   },
   "keywords": [
     "discord",
@@ -26,7 +37,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/immanencer/cosyworld8.git"
+    "url": "https://github.com/cenetex/cosyworld.git"
   },
   "author": "Jon Beckwith",
   "license": "MIT",
@@ -42,16 +53,19 @@
     "awilix": "^12.0.5",
     "axios": "^1.8.4",
     "bs58": "^6.0.0",
-    "copy-webpack-plugin": "^13.0.0",
+  "copy-webpack-plugin": "^13.0.0",
     "cors": "^2.8.5",
+  "cookie-parser": "^1.4.6",
     "csv-stringify": "^6.5.2",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+  "express-rate-limit": "^7.5.0",
     "fuse.js": "^7.0.0",
     "globby": "^14.1.0",
+    "js-sha3": "^0.9.3",
     "mongodb": "^6.11.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^1.4.5-lts.2",
     "node-cache": "^5.1.2",
     "ollama": "^0.5.9",
     "openai": "^4.73.0",
@@ -81,6 +95,7 @@
     "rimraf": "^5.0.10",
     "style-loader": "^3.3.4",
     "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1"
+  "webpack-cli": "^6.0.1",
+  "core-js": "^3.38.1"
   }
 }

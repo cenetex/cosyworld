@@ -62,6 +62,7 @@ Welcome to the CosyWorld developer hub. This guide covers everything from high-l
   - [Web API](services/web/webService.md)
   - [Auth](services/web/authService.md)
   - [Thumbnail](services/web/thumbnailService.md)
+  - [Guild Settings](services/web/guildSettings.md)
 - **Social Integrations**
   - [Discord](services/social/discord-integration.md)
   - [X (Twitter)](services/social/x-integration.md)

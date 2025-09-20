@@ -9,6 +9,7 @@
  */
 
 import { AvatarAPI, ClaimsAPI, XAuthAPI } from '../core/api.js';
+import { claimAvatar as claimViaService } from '../services/claimService.js';
 import { state } from '../core/state.js';
 import { showToast } from '../utils/toast.js';
 import { formatDate, shortenAddress, getActionIcon, getTierColorClass, getTier } from '../utils/formatting.js';
@@ -332,42 +333,7 @@ async function disconnectXAuth(avatarId) {
  * Claim an avatar
  * @param {string} avatarId - Avatar ID
  */
-async function claimAvatar(avatarId) {
-  try {
-    if (!state.wallet || !state.wallet.publicKey) {
-      showToast("Please connect your wallet first", { type: 'warning' });
-      return;
-    }
-    
-    showToast("Processing claim...");
-    
-    const response = await fetch(`/api/claims/claim/${avatarId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        walletAddress: state.wallet.publicKey
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      showToast("Avatar claimed successfully!", { type: 'success' });
-      // Close modal and refresh content
-      closeAvatarModal();
-      if (window.loadContent) {
-        window.loadContent();
-      }
-    } else {
-      throw new Error(data.error || "Failed to claim avatar");
-    }
-  } catch (err) {
-    console.error("Claim error:", err);
-    showToast(`Failed to claim avatar: ${err.message}`, { type: 'error' });
-  }
-}
+async function claimAvatar(avatarId) { const r = await claimViaService(avatarId); if (r.success) closeAvatarModal(); }
 
 /**
  * Render avatar details

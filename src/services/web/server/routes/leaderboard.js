@@ -63,7 +63,7 @@ export default function leaderboardRoutes(db) {
   router.get('/', async (req, res) => {
     console.log('Leaderboard request:', req.query);
     try {
-      const { tier, lastMessageCount, lastId, limit: limitStr, includeZeroMessages } = req.query; // Added includeZeroMessages
+  const { tier, lastMessageCount, lastId, limit: limitStr, includeZeroMessages, collection, emoji, claimed } = req.query; // filters
       const limit = Math.min(parseInt(limitStr, 10) || 24, 100);
       const dayAgo = new Date(Date.now() - 1000 * 60 * 60 * 24);
 
@@ -113,7 +113,7 @@ export default function leaderboardRoutes(db) {
         ];
       } else {
         // Original pipeline for only avatars with messages
-        pipeline = [
+  pipeline = [
           {
             $group: {
               _id: { $toLower: '$authorUsername' },
@@ -199,6 +199,41 @@ export default function leaderboardRoutes(db) {
               }
             });
           }
+        }
+
+        // Collection filter (by avatars.nft.collection or avatars.collection)
+        if (collection) {
+          pipeline.push({
+            $match: {
+              $or: [
+                { 'variants.nft.collection': collection },
+                { 'variants.collection': collection }
+              ]
+            }
+          });
+        }
+
+        // Emoji filter
+        if (emoji) {
+          pipeline.push({ $match: { 'variants.emoji': emoji } });
+        }
+
+        // Claimed filter: requires join with avatar_claims
+        if (claimed === 'true' || claimed === 'false') {
+          const mustBeClaimed = claimed === 'true';
+          pipeline.push({
+            $lookup: {
+              from: 'avatar_claims',
+              let: { avatarId: { $arrayElemAt: ['$variants._id', 0] } },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$avatarId', '$$avatarId'] } } },
+                { $limit: 1 }
+              ],
+              as: 'claim'
+            }
+          });
+          pipeline.push({ $addFields: { claimed: { $gt: [{ $size: '$claim' }, 0] } } });
+          pipeline.push({ $match: { claimed: mustBeClaimed } });
         }
 
         // Pagination

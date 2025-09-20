@@ -24,6 +24,7 @@ export class RememberTool extends BasicTool {
    */
   constructor({
     aiService,
+    unifiedAIService,
     memoryService,
     discordService,
     promptService,
@@ -31,7 +32,8 @@ export class RememberTool extends BasicTool {
     logger
   }) {
     super();
-    this.aiService = aiService;
+  this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService; // optional adapter
     this.memoryService = memoryService;
     this.discordService = discordService;
     this.promptService = promptService;
@@ -51,12 +53,13 @@ export class RememberTool extends BasicTool {
   async generateMemory(context, prompt = '') {
     const systemPrompt = "You are a concise memory recorder. Create a single memorable moment or observation based on the context. Keep it under 280 characters. Focus on key events, emotions, or revelations.";
 
-    const response = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let response = await ai.chat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `Context:\n${context}\n${prompt ? `Remember specifically about: ${prompt}` : 'What seems most memorable from this context?'}` }
     ]);
-
-    return response || 'Failed to generate memory';
+  if (response && typeof response === 'object' && response.text) response = response.text;
+  return response || 'Failed to generate memory';
   }
 
   async execute(message, params, avatar) {

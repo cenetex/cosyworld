@@ -11,6 +11,11 @@
 import { state, setLoading } from './state.js';
 import { showToast } from '../utils/toast.js';
 
+// In-memory tab HTML cache and sequence guard
+const TAB_CACHE_TTL = 15000; // 15 seconds
+const tabCache = new Map(); // tab -> { when, html }
+let loadSeq = 0;
+
 /**
  * Initialize content loader
  */
@@ -23,58 +28,43 @@ export function initializeContentLoader() {
  * Load content based on active tab
  */
 export async function loadContent() {
-  const content = document.getElementById("content");
+  const content = document.getElementById('content');
   if (!content) return;
-  
-  // Show loading state
-  content.innerHTML = `
-    <div class="p-8 flex justify-center items-center">
-      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-    </div>
-  `;
-  
+  const tabAtStart = state.activeTab;
+  const seq = ++loadSeq;
+
+  // Cache hit
+  const cached = tabCache.get(tabAtStart);
+  const now = Date.now();
+  if (cached && (now - cached.when) < TAB_CACHE_TTL) {
+    content.innerHTML = cached.html;
+    return;
+  }
+
+  content.innerHTML = `<div class="p-8 flex justify-center items-center"><div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div></div>`;
   setLoading(true);
-  
+
   try {
-    // Dynamically import the appropriate tab module based on active tab
-    switch (state.activeTab) {
-      case "squad":
-        await loadTabContent("squad");
-        break;
-      case "actions":
-        await loadTabContent("actions");
-        break;
-      case "leaderboard":
-        await loadTabContent("leaderboard");
-        break;
-      case "tribes":
-        await loadTabContent("tribes");
-        break;
-      case "social":
-        await loadTabContent("social");
-        break;
-      default:
-        content.innerHTML = `
-          <div class="text-center py-12 text-red-500">
-            Unknown tab: ${state.activeTab}
-          </div>
-        `;
+    await loadTabContent(tabAtStart);
+    if (seq === loadSeq && tabAtStart === state.activeTab) {
+      tabCache.set(tabAtStart, { when: Date.now(), html: content.innerHTML });
     }
   } catch (err) {
-    console.error("Content load error:", err);
-    content.innerHTML = `
-      <div class="text-center py-12 text-red-500">
-        <p>Failed to load content: ${err.message}</p>
-        <button class="mt-4 px-4 py-2 bg-primary-600 text-white rounded" onclick="loadContent()">
-          Retry
-        </button>
-      </div>
-    `;
-    showToast(`Failed to load content: ${err.message}`, { type: 'error' });
+    if (seq !== loadSeq || tabAtStart !== state.activeTab) return; // stale
+    console.error('Content load error:', err);
+    content.innerHTML = `<div class=\"text-center py-12 text-red-500\"><p>Failed to load ${tabAtStart}: ${err.message}</p><button class=\"mt-4 px-4 py-2 bg-primary-600 text-white rounded\" onclick=\"loadContent()\">Retry</button></div>`;
+    showToast(`Failed to load ${tabAtStart}: ${err.message}`, { type: 'error' });
   } finally {
-    setLoading(false);
+    if (seq === loadSeq) setLoading(false);
   }
 }
+
+// Allow other modules to invalidate a specific tab cache (e.g., after claim)
+export function invalidateTabCache(tab) {
+  if (!tab) return;
+  tabCache.delete(tab);
+}
+window.invalidateTabCache = invalidateTabCache;
 
 /**
  * Load content for a specific tab

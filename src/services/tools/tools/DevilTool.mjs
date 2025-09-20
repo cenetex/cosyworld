@@ -6,13 +6,14 @@
 import { BasicTool } from '../BasicTool.mjs';
 
 export class DevilTool extends BasicTool {
-  constructor({ aiService, s3Service, locationService, avatarService, veoService }) {
+  constructor({ aiService, s3Service, locationService, avatarService, veoService, googleAIService = null }) {
     super();
     this.aiService = aiService;
     this.s3Service = s3Service;
     this.locationService = locationService;
     this.avatarService = avatarService;
     this.veoService = veoService;
+    this.googleAIService = googleAIService; // optional fallback for image gen/compose
 
     this.name = 'corrupted whispers';
     this.emoji = '😈';
@@ -60,9 +61,9 @@ export class DevilTool extends BasicTool {
         images.push({ data: buf.toString('base64'), mimeType: 'image/png', label: 'location' });
       }
 
-      // Compose using Gemini if available
-      let imageUrl;
-      if (images.length > 0 && this.aiService?.composeImageWithGemini) {
+  // Compose using primary AI service first, then Google fallback if available
+  let imageUrl;
+  if (images.length > 0 && this.aiService?.composeImageWithGemini) {
         // shuffule images
         images.sort(() => Math.random() - 0.5);
 
@@ -87,9 +88,32 @@ export class DevilTool extends BasicTool {
           only generate a hazy 80s dark cinematic anime style widescreen image:`,
         );
       }
+      // If primary compose failed and Google is available, try Google compose
+      if (!imageUrl && images.length > 0 && this.googleAIService?.composeImageWithGemini) {
+        try {
+          imageUrl = await this.googleAIService.composeImageWithGemini(images,
+            `Generate an image of the simulation based on the following prompt,
+             \n\n${prompt}\n\n 
+            only generate a hazy 80s dark cinematic anime style widescreen image:`,
+          );
+        } catch (e) {
+          this.logger?.warn?.('Google compose fallback failed:', e?.message || e);
+        }
+      }
       // Fallback to standard generation
       if (!imageUrl) {
-        imageUrl = await this.aiService.generateImage(prompt);
+        // Try primary service simple generation first
+        imageUrl = await this.aiService.generateImage(prompt).catch(() => null);
+      }
+      if (!imageUrl && this.googleAIService) {
+        try {
+          // Prefer full-featured Google generation if avatar/location available for richer context
+          imageUrl = await (this.googleAIService.generateImageFull
+            ? this.googleAIService.generateImageFull(prompt, avatar, location, [], { aspectRatio: '16:9' })
+            : this.googleAIService.generateImage(prompt, '16:9'));
+        } catch (e) {
+          this.logger?.warn?.('Google image generation fallback failed:', e?.message || e);
+        }
       }
       if (!imageUrl) return '-# [ ❌ Error: Failed to generate Corrupted Whispers image. ]';
 

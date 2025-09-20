@@ -8,6 +8,7 @@ import { BasicTool } from '../BasicTool.mjs';
 export class SelfieTool extends BasicTool {
   constructor({
     aiService,
+    googleAIService,
     imageProcessingService,
     xService,
     discordService,
@@ -15,10 +16,13 @@ export class SelfieTool extends BasicTool {
     locationService,
     avatarService,
     itemService,
-    databaseService
+  databaseService,
+  logger
   }) {
     super();
+  this.logger = logger || console;
     this.aiService = aiService;
+    this.googleAIService = googleAIService; // optional secondary provider w/ image support
     this.imageProcessingService = imageProcessingService;
     this.xService = xService;
     this.discordService = discordService;
@@ -45,12 +49,21 @@ export class SelfieTool extends BasicTool {
         const buffer = await this.s3Service.downloadImage(avatar.imageUrl);
         images.push({ data: buffer.toString('base64'), mimeType: 'image/png', label: 'avatar' });
       }
-
-      const location = this.locationService.getLocationByChannelId(message.channel.id);
+      // Fetch location (async)
+      let location = null;
+      try {
+        location = await this.locationService.getLocationByChannelId(message.channel.id);
+      } catch (e) {
+        this.logger?.warn?.(`[SelfieTool] Failed to resolve location for channel ${message.channel.id}: ${e.message}`);
+      }
       // Location image (if available)
-      if (location && location.imageUrl) {
-        const buffer = await this.s3Service.downloadImage(avatar.location.imageUrl);
-        images.push({ data: buffer.toString('base64'), mimeType: 'image/png', label: 'location' });
+      if (location?.imageUrl) {
+        try {
+          const buffer = await this.s3Service.downloadImage(location.imageUrl);
+          images.push({ data: buffer.toString('base64'), mimeType: 'image/png', label: 'location' });
+        } catch (e) {
+          this.logger?.warn?.('[SelfieTool] Could not download location image: ' + e.message);
+        }
       }
       // Item image (if avatar has a selected item with imageUrl)
       const item = avatar.inventory?.find(i => i.selected && i.imageUrl) || avatar.inventory?.[0];
@@ -72,37 +85,65 @@ export class SelfieTool extends BasicTool {
 
 
       let imageUrl;
-      if (images.length >= 1 && this.aiService?.composeImageWithGemini) {
-        // Compose a scene using Gemini's image editing
-        const scenePrompt = `
-        You are a master photographer.
-        Take a casual polaroid snapshot in a hazy cyberpunk 80s world, and write a cryptic note on it:
-        
-        Some context on the subjects:
 
-        ${contextPrompt}
+      // Helper to attempt composition with a provider having composeImageWithGemini
+      const tryCompose = async (provider) => {
+        if (!provider?.composeImageWithGemini || images.length === 0) return null;
+        try {
+          const scenePrompt = `You are a master photographer. Create an atmospheric instant-film selfie (polaroid aesthetic) with slight film grain.
+Context Subjects: ${contextPrompt}\nDesired emotional tone: ${prompt}`;
+          return await provider.composeImageWithGemini(
+            images,
+            `Generate a classic polaroid-style candid snapshot of the provided subjects. DO NOT add UI chrome or watermarks. ${scenePrompt}`
+          );
+        } catch (e) {
+          this.logger?.warn?.('[SelfieTool] compose failed: ' + e.message);
+          return null;
+        }
+      };
 
-        The scene is a snapshot of the following elements:
+      // Helper to attempt simple generation
+      const tryGenerate = async (provider) => {
+        if (!provider) return null;
+        try {
+          const genPrompt = `Candid selfie of ${avatar.name} (${avatar.description}). ${prompt}`;
+          // Prefer richer API if available (googleAIService)
+          if (typeof provider.generateImageFull === 'function') {
+            return await provider.generateImageFull(genPrompt, avatar, location, images.slice(0,1), { aspectRatio: '1:1' });
+          }
+          if (typeof provider.generateImage === 'function') {
+            // Heuristic: googleAIService.generateImage expects (prompt, aspectRatio?)
+            if (provider === this.googleAIService) {
+              return await provider.generateImage(genPrompt, '1:1');
+            }
+            return await provider.generateImage(genPrompt, images, { aspectRatio: '1:1' });
+          }
+        } catch (e) {
+          this.logger?.warn?.('[SelfieTool] generateImage failed: ' + e.message);
+        }
+        return null;
+      };
 
-        Your image should emotionally convey the following:
-        
-        ${prompt} 
-        `;
-        const composedBase64 = await this.aiService.composeImageWithGemini(images, `Generate a classic polaroid of the provided image subjects, based on the following prompt (return an image directly, do not respond with text): \n\n${scenePrompt}`);
-        if (composedBase64) {
-          // Optionally upload to your image host, or use as data URL
-          imageUrl = composedBase64;
+      // Attempt with primary provider (compose then generate)
+      imageUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
+      // Attempt with secondary (Google) provider if primary failed
+      if (!imageUrl && this.googleAIService) {
+        imageUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
+      }
+      // Fallback: use avatarService schema image generator to synthesize a variant
+      if (!imageUrl && this.avatarService?.generateAvatarImage) {
+        try {
+          imageUrl = await this.avatarService.generateAvatarImage(`${avatar.name}: ${avatar.description}. ${prompt}`);
+        } catch (e) {
+          this.logger?.warn?.('[SelfieTool] avatarService fallback failed: ' + e.message);
         }
       }
-      // Fallback to previous logic if composition not possible
-      if (!imageUrl) {
-        if (this.aiService) {
-          imageUrl = await this.aiService.generateImage(prompt, avatar);
-        } else {
-          return '-# [ ❌ Error: No image generation service available. ]';
-        }
+      // Final fallback: reuse existing avatar image
+      if (!imageUrl && avatar.imageUrl) {
+        imageUrl = avatar.imageUrl; // Better than total failure
       }
-      if (!imageUrl) return `-# [ ❌ Error: Failed to generate image. ]`;
+
+      if (!imageUrl) return `-# [ ❌ Error: Failed to generate image after all fallbacks. ]`;
 
       let postedToX = false;
       let xResult = '';
@@ -124,7 +165,7 @@ export class SelfieTool extends BasicTool {
   }
 
   getDescription() {
-    return 'Take a snapshot and post it to social media (X or simulated feed).';
+  return 'Take a snapshot and post it to social media (X or simulated feed).';
   }
 
   async getSyntax() {

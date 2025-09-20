@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cosyworld includes a comprehensive integration with X (formerly Twitter) that allows avatars to authenticate, link their X accounts, and interact with the X platform programmatically. This document outlines the end-to-end X authentication and linking lifecycle, including technical details and recommended improvements.
+Swarm includes a comprehensive integration with X (formerly Twitter) that allows avatars to authenticate, link their X accounts, and interact with the X platform programmatically. This document outlines the end-to-end X authentication and linking lifecycle, including technical details and recommended improvements.
 
 ## Authentication Flow
 

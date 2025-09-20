@@ -1,16 +1,60 @@
 
+# Environment and Keys
 .keys/
-
 .env
-node_modules
+.env.*
+rati/keys/*
+*-wallet.json
+
+# Dependencies
+node_modules/
+bun.lock
+
+# Build outputs
+dist/
+build/
+webpack-stats.json
+webpack-stats.txt
+
+# Logs
 *.log
+logs/
+app.log
+discordService.log
+
+# Media files
 images/*
 *.webp
-logs
-*-wallet.json
 attached_assets/*
+
+# Generated files
 src/config/user.config.json
 CLAUDE.md
-rati/keys/*
 .lore-*
-.env.*
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+infra/terraform/terraform.tfvars.json
+infra/terraform/build/*.zip
+infra/terraform/*.auto.tfvars
+infra/terraform/*.auto.tfvars.json
+
+# AWS
+.aws/
+*.pem
+
+# IDE and OS
+.DS_Store
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -50,7 +50,9 @@ export class AIModelService {
    * Check if a model is available for a service.
    */
   modelIsAvailable(serviceName, modelName) {
-    return this.getAllModels(serviceName).some(m => m.model === modelName.replace(':online', ''));
+    if (!modelName) return false;
+    const normalized = String(modelName).replace(':online', '');
+    return this.getAllModels(serviceName).some(m => m.model === normalized);
   }
 
   /**

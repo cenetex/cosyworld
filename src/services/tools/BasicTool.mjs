@@ -10,7 +10,7 @@ export class BasicTool {
     this.cooldownMs = 60 * 1000; // default 1 minute cooldown
   }
 
-  async execute(message, params, avatar, services) {
+  async execute(_message, _params, _avatar, _services) {
     throw new Error('Tool must implement execute method');
   }
 

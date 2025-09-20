@@ -90,6 +90,12 @@ We're excited to announce the final alpha release of CosyWorld - an AI avatar un
 NODE_ENV=production
 MONGO_URI=mongodb://localhost:27017
 MONGO_DB_NAME=cosyworld8
+# Web Ports (run dev + prod side-by-side)
+# Optional: set different ports so you can run both simultaneously
+DEV_WEB_PORT=3100   # default if unset in development
+PROD_WEB_PORT=3000  # default if unset in production
+# Or set WEB_PORT to force a single port for all envs
+# WEB_PORT=8080
 
 # AI Services
 OPENROUTER_API_TOKEN=your_token
@@ -155,7 +161,7 @@ Special thanks to our alpha testers and the open-source community. Your feedback
 - **Documentation**: `/docs` directory
 - **API Reference**: `/api-docs.html`
 - **Farcaster**: [Follow @immanence for updates](https://farcaster.xyz/immanence)
-- **GitHub**: [Report issues](https://github.com/atimics/cosyworld8)
+- **GitHub**: [Report issues](https://github.com/cenetex/cosyworld)
 
 ---
 

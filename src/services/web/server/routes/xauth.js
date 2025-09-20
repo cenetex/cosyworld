@@ -6,7 +6,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import { TwitterApi } from 'twitter-api-v2';
-import { encrypt } from '../../../../utils/encryption.mjs';
+import { encrypt, decrypt } from '../../../../utils/encryption.mjs';
 import { ObjectId } from 'mongodb';
 
 const DEFAULT_TOKEN_EXPIRY = 7200; // 2 hours in seconds
@@ -16,6 +16,32 @@ const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 export default function xauthRoutes(services) {
     const router = express.Router();
     const xService = services.xService;
+    // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
+    // Fallback uses the default AI chat model name to generate a deterministic id.
+    const getAdminAvatarId = () => {
+        const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+        if (envId) return envId;
+        try {
+            const cfgSvc = services?.configService;
+            const aiCfg = cfgSvc?.getAIConfig ? cfgSvc.getAIConfig(process.env.AI_SERVICE) : null;
+            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+            return `model:${safe}`;
+        } catch {
+            return 'model:default';
+        }
+    };
+    const isAdmin = (req) => !!req?.user?.isAdmin;
+    const getCallbackUrl = () => {
+        const envCb = process.env.X_CALLBACK_URL?.trim();
+        if (envCb) return envCb;
+        try {
+            const base = services?.configService?.get('server.publicUrl') || services?.configService?.get('server.baseUrl') || 'http://localhost:3000';
+            return `${base.replace(/\/$/, '')}/api/xauth/callback`;
+        } catch {
+            return 'http://localhost:3000/api/xauth/callback';
+        }
+    };
 
     router.get('/auth-url', async (req, res) => {
         const { avatarId } = req.query;
@@ -120,17 +146,17 @@ export default function xauthRoutes(services) {
             });
     
             // Let the library generate codeChallenge from the codeVerifier.
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(process.env.X_CALLBACK_URL, {
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
                 scope: [
-                    'tweet.read', 
-                    'tweet.write', 
-                    'users.read', 
-                    'follows.write', 
-                    'like.write', 
-                    'block.write', 
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                    'follows.write',
+                    'like.write',
+                    'block.write',
                     'offline.access',
-                    'media.write'
-                ].join(' '),
+                    'media.write',
+                ],
                 state,
             });
     
@@ -153,6 +179,122 @@ export default function xauthRoutes(services) {
             // Return actual error message for debugging
             const msg = error.message || 'Failed to generate authorization URL';
             res.status(500).json({ error: msg });
+        }
+    });
+
+    // Admin-only: get target admin avatar id for UI
+    router.get('/admin/target', async (req, res) => {
+        try {
+            if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+            const avatarId = getAdminAvatarId();
+            // Always return a deterministic target id, even if env is not set
+            return res.json({ avatarId });
+        } catch (e) {
+            return res.status(500).json({ error: 'Failed to fetch admin target' });
+        }
+    });
+
+    // Admin-only OAuth2 init: bypass wallet signature and claim checks
+    router.get('/admin/auth-url', async (req, res) => {
+        try {
+            if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+            const avatarId = getAdminAvatarId();
+
+            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
+                return res.status(500).json({ error: 'X integration is not configured on server' });
+            }
+
+            const db = await services.databaseService.getDatabase();
+
+            // Ensure a base x_auth record exists
+            await db.collection('x_auth').updateOne(
+                { avatarId },
+                { $setOnInsert: { avatarId, createdAt: new Date() }, $set: { updatedAt: new Date() } },
+                { upsert: true }
+            );
+
+            const state = crypto.randomBytes(16).toString('hex');
+            const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
+
+            const client = new TwitterApi({
+                clientId: process.env.X_CLIENT_ID,
+                clientSecret: process.env.X_CLIENT_SECRET,
+            });
+
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
+                scope: [
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                    'follows.write',
+                    'like.write',
+                    'block.write',
+                    'offline.access',
+                    'media.write',
+                ],
+                state,
+            });
+
+            await db.collection('x_auth_temp').deleteMany({ avatarId });
+            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt });
+
+            return res.json({ url, state });
+        } catch (error) {
+            console.error('Admin auth-url failed:', error);
+            return res.status(500).json({ error: 'Failed to generate admin authorization URL' });
+        }
+    });
+
+    // Admin-only: initiate OAuth for a specific avatar (repair/re-authorize)
+    router.get('/admin/auth-url/:avatarId', async (req, res) => {
+        try {
+            if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+            const avatarId = req.params.avatarId;
+
+            if (!avatarId) return res.status(400).json({ error: 'Missing avatarId' });
+
+            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
+                return res.status(500).json({ error: 'X integration is not configured on server' });
+            }
+
+            const db = await services.databaseService.getDatabase();
+
+            // Ensure a base x_auth record exists for this avatar
+            await db.collection('x_auth').updateOne(
+                { avatarId },
+                { $setOnInsert: { avatarId, createdAt: new Date() }, $set: { updatedAt: new Date() } },
+                { upsert: true }
+            );
+
+            const state = crypto.randomBytes(16).toString('hex');
+            const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
+
+            const client = new TwitterApi({
+                clientId: process.env.X_CLIENT_ID,
+                clientSecret: process.env.X_CLIENT_SECRET,
+            });
+
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
+                scope: [
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                    'follows.write',
+                    'like.write',
+                    'block.write',
+                    'offline.access',
+                    'media.write',
+                ],
+                state,
+            });
+
+            await db.collection('x_auth_temp').deleteMany({ avatarId });
+            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt });
+
+            return res.json({ url, state });
+        } catch (error) {
+            console.error('Admin per-avatar auth-url failed:', error);
+            return res.status(500).json({ error: 'Failed to generate authorization URL' });
         }
     });
 
@@ -189,17 +331,28 @@ export default function xauthRoutes(services) {
             console.log('Token exchange details:', {
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: process.env.X_CALLBACK_URL,
+                redirectUri: getCallbackUrl(),
                 avatarId: storedAuth.avatarId,
             });
 
             const { accessToken, refreshToken, expiresIn } = await client.loginWithOAuth2({
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: process.env.X_CALLBACK_URL,
+                redirectUri: getCallbackUrl(),
             });
 
             const expiresAt = new Date(Date.now() + (expiresIn || DEFAULT_TOKEN_EXPIRY) * 1000);
+            // Fetch and store lightweight profile to present in admin UI
+            let profile = null;
+            try {
+                const profileClient = new TwitterApi(accessToken);
+                const me = await profileClient.v2.me({ 'user.fields': 'profile_image_url,username,name' });
+                profile = me?.data || null;
+            } catch (e) {
+                // Non-fatal: proceed without profile if request fails
+                console.warn('xauth profile fetch failed:', e?.message || e);
+            }
+
             await db.collection('x_auth').updateOne(
                 { avatarId: storedAuth.avatarId },
                 {
@@ -208,6 +361,7 @@ export default function xauthRoutes(services) {
                         refreshToken: encrypt(refreshToken),
                         expiresAt,
                         updatedAt: new Date(),
+                        ...(profile ? { profile } : {}),
                     },
                 },
                 { upsert: true }
@@ -259,9 +413,12 @@ export default function xauthRoutes(services) {
                 }
             }
 
-            const client = new TwitterApi(auth.accessToken);
-            await client.v2.me();
-            res.json({ authorized: true, expiresAt: auth.expiresAt });
+            const client = new TwitterApi(decrypt(auth.accessToken));
+            const me = await client.v2.me({
+                'user.fields': ['profile_image_url', 'username', 'name', 'id'].join(',')
+            });
+            const user = me?.data || null;
+            res.json({ authorized: true, expiresAt: auth.expiresAt, profile: user });
         } catch (error) {
             console.error('Status check failed:', error.message, { avatarId });
             if (error.code === 401) {
@@ -276,6 +433,7 @@ export default function xauthRoutes(services) {
         const { avatarId } = req.params;
 
         try {
+            const db = await services.databaseService.getDatabase();
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth) {
                 return res.json({ authorized: false });
@@ -292,7 +450,7 @@ export default function xauthRoutes(services) {
                 }
             }
 
-            const client = new TwitterApi(auth.accessToken);
+            const client = new TwitterApi(decrypt(auth.accessToken));
             await client.v2.me();
             res.json({
                 authorized: now < new Date(auth.expiresAt),
@@ -352,6 +510,37 @@ export default function xauthRoutes(services) {
         } catch (error) {
             console.error('Disconnect failed:', error.message, { avatarId });
             res.status(500).json({ error: 'Failed to disconnect' });
+        }
+    });
+
+    // Admin-only: fetch current profile of admin-linked X account (if any)
+    router.get('/admin/profile', async (req, res) => {
+        try {
+            if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+            const avatarId = getAdminAvatarId();
+            const db = await services.databaseService.getDatabase();
+            const auth = await db.collection('x_auth').findOne({ avatarId });
+            if (!auth?.accessToken) return res.json({ authorized: false });
+            const client = new TwitterApi(decrypt(auth.accessToken));
+            const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });
+            return res.json({ authorized: true, expiresAt: auth.expiresAt, profile: me?.data || null });
+        } catch (e) {
+            console.error('Admin profile fetch failed:', e);
+            return res.status(500).json({ error: 'Failed to fetch profile' });
+        }
+    });
+
+    // Admin-only: disconnect admin-linked X account
+    router.post('/admin/disconnect', async (req, res) => {
+        try {
+            if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+            const avatarId = getAdminAvatarId();
+            const db = await services.databaseService.getDatabase();
+            const result = await db.collection('x_auth').deleteOne({ avatarId });
+            return res.json({ success: true, disconnected: result.deletedCount > 0 });
+        } catch (e) {
+            console.error('Admin disconnect failed:', e);
+            return res.status(500).json({ error: 'Failed to disconnect' });
         }
     });
 

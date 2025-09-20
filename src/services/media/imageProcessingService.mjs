@@ -7,9 +7,10 @@
 // imageProcessingService.mjs
 
 export class ImageProcessingService {
-  constructor(logger, aiService) {
+  constructor(logger, aiService, unifiedAIService) {
     this.logger = logger || console;
     this.aiService = aiService;
+    this.unifiedAIService = unifiedAIService; // optional adapter
   }
 
   /**
@@ -49,7 +50,8 @@ export class ImageProcessingService {
   async getImageDescription(imageBase64, mimeType) {
     try {
       // Use AI service to get a description of the image
-      const response = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let response = await ai.chat([
         {
           role: "system",
           content: "You are an AI that provides concise, detailed descriptions of images. Focus on the main subjects, actions, setting, and important visual elements. Keep descriptions under 100 words."
@@ -62,8 +64,8 @@ export class ImageProcessingService {
           ]
         }
       ]);
-      
-      return response || "No description available";
+  if (response && typeof response === 'object' && response.text) response = response.text;
+  return response || "No description available";
     } catch (error) {
       this.logger.error(`Failed to get image description: ${error.message}`);
       return "Error generating image description";

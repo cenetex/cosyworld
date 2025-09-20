@@ -23,6 +23,16 @@
               <div class="flex-shrink-0">
                 <h1 class="text-xl font-bold">RATi Admin Panel</h1>
               </div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Dashboard</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
+                <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+            <div>
+              <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
             </div>
           </div>
         </div>
@@ -39,6 +49,56 @@
                 <p class="mt-1 max-w-2xl text-sm text-gray-500">
                   Manage various aspects of your application
                 </p>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4" id="admin-stats">
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Avatars</div>
+                    <div class="text-2xl font-semibold" id="stat-avatars">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Items</div>
+                    <div class="text-2xl font-semibold" id="stat-items">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Locations</div>
+                    <div class="text-2xl font-semibold" id="stat-locations">--</div>
+                  </div>
+                  <div class="p-4 bg-gray-50 rounded border">
+                    <div class="text-xs text-gray-500">Memories</div>
+                    <div class="text-2xl font-semibold" id="stat-memories">--</div>
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between bg-gray-50 px-4 py-3 rounded border">
+                  <div>
+                    <div class="text-sm font-medium text-gray-700">Admin login</div>
+                    <div class="text-xs text-gray-500" id="admin-login-status">Connect with Phantom to access admin features</div>
+                  </div>
+                  <div class="wallet-container"></div>
+                </div>
+
+                <!-- Admin X Account Linking -->
+                <div class="mt-4 bg-gray-50 px-4 py-3 rounded border">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <div class="text-sm font-medium text-gray-700">Admin X Account</div>
+                      <div class="text-xs text-gray-500">Link the admin avatar to X (Twitter) to enable auto-posting</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button id="admin-x-connect" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Connect</button>
+                      <button id="admin-x-disconnect" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm hidden">Disconnect</button>
+                    </div>
+                  </div>
+                  <div id="admin-x-profile" class="mt-3 hidden">
+                    <div class="flex items-center gap-3">
+                      <img id="admin-x-avatar" src="" alt="X avatar" class="w-10 h-10 rounded-full border" />
+                      <div>
+                        <div id="admin-x-name" class="text-sm font-medium text-gray-800"></div>
+                        <div id="admin-x-username" class="text-xs text-gray-500"></div>
+                        <div id="admin-x-expiry" class="text-xs text-gray-400"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="admin-x-hint" class="mt-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2 hidden"></div>
+                </div>
               </div>
               <div class="border-t border-gray-200">
                 <div
@@ -49,10 +109,10 @@
                   </dt>
                   <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     <a
-                      href="/admin/guild-settings"
+                      href="/admin/settings"
                       class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                      Discord Guild Settings
+                      Settings
                     </a>
                     <p class="mt-1 text-xs text-gray-500">
                       Configure settings for Discord servers, including summon
@@ -61,22 +121,42 @@
                   </dd>
                 </div>
 
-                <!-- Avatar Management Section -->
+                <!-- X Accounts Management Section -->
                 <div
                   class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
                 >
                   <dt class="text-sm font-medium text-gray-500">
-                    Avatar Management
+                    X Account Management
                   </dt>
                   <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                     <a
-                      href="/admin/avatar-management"
-                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      href="/admin/x-accounts"
+                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                      Manage Avatars
+                      Manage X Accounts
                     </a>
                     <p class="mt-1 text-xs text-gray-500">
-                      View, edit, and manage all avatars in the system
+                      View and manage X (Twitter) accounts linked to avatars
+                    </p>
+                  </dd>
+                </div>
+
+                <!-- Entity Management Section -->
+                <div
+                  class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
+                >
+                  <dt class="text-sm font-medium text-gray-500">
+                    Entity Management
+                  </dt>
+                  <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <a
+                      href="/admin/entity-management"
+                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      Manage Entities
+                    </a>
+                    <p class="mt-1 text-xs text-gray-500">
+                      Manage avatars, locations, and items in one place
                     </p>
                   </dd>
                 </div>
@@ -91,10 +171,20 @@
       <footer class="bg-white">
         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
           <p class="text-center text-sm text-gray-500">
-            ARGOS Admin Panel © 2024
+            RATi Swarm Admin Panel © 2024
           </p>
         </div>
       </footer>
     </div>
+  <script type="module" src="/js/admin-dashboard.js"></script>
+  <script>
+  (function(){
+    const btn = document.getElementById('admin-logout');
+    if (btn) btn.addEventListener('click', async () => {
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+      location.href = '/admin/login';
+    });
+  })();
+  </script>
   </body>
 </html>

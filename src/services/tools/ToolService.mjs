@@ -5,6 +5,7 @@
 
 import { ActionLog } from './ActionLog.mjs';
 import { AttackTool } from './tools/AttackTool.mjs';
+import { ChallengeTool } from './tools/ChallengeTool.mjs';
 import { DefendTool } from './tools/DefendTool.mjs';
 import { MoveTool } from './tools/MoveTool.mjs';
 import { RememberTool } from './tools/RememberTool.mjs';
@@ -17,12 +18,18 @@ import { BreedTool } from './tools/BreedTool.mjs';
 import { OneirocomForumTool as ForumTool } from './tools/ForumTool.mjs';
 import { CooldownService } from './CooldownService.mjs';
 import { SelfieTool } from './tools/SelfieTool.mjs';
+import { SceneCameraTool } from './tools/SceneCameraTool.mjs';
+import { VideoCameraTool } from './tools/VideoCameraTool.mjs';
 import { DevilTool } from './tools/DevilTool.mjs';
+import { HideTool } from './tools/HideTool.mjs';
+import { FleeTool } from './tools/FleeTool.mjs';
+import { PotionTool } from './tools/PotionTool.mjs';
 
 export class ToolService {
   constructor({
     logger,
     aiService,
+  googleAIService,
     imageProcessingService,
     configService,
     cooldownService,
@@ -39,19 +46,26 @@ export class ToolService {
     s3Service,
     locationService,
     battleService,
+  combatEncounterService,
+  battleMediaService,
     xService,
     itemService,
     statService,
     schemaService,
     knowledgeService,
     oneirocomForumService,
-    veoService
+    veoService,
+    videoJobService,
+    presenceService
   }) {
     this.toolServices = {
       logger,
       aiService,
+  googleAIService,
       imageProcessingService,
       battleService,
+  combatEncounterService,
+  battleMediaService,
       locationService,
       configService,
       cooldownService,
@@ -72,7 +86,9 @@ export class ToolService {
       schemaService,
       knowledgeService,
       forumService: oneirocomForumService,
-      veoService
+      veoService,
+      videoJobService,
+      presenceService
     }
 
     this.logger = logger || console;
@@ -102,30 +118,46 @@ export class ToolService {
     const toolClasses = {
       summon: SummonTool,
       breed: BreedTool,
+      // Keep AttackTool for explicit attack command, but move ⚔️ to 'challenge'
       attack: AttackTool,
+      challenge: ChallengeTool,
+  hide: HideTool,
       defend: DefendTool,
+  flee: FleeTool,
       move: MoveTool,
       remember: RememberTool,
       create: CreationTool,
       x: XSocialTool,
       item: ItemTool,
+  potion: PotionTool,
       respond: ThinkTool,
       forum: ForumTool,
-      camera: SelfieTool,
+  selfie: SelfieTool,
+  camera: SceneCameraTool,
+  'video camera': VideoCameraTool,
       devil: DevilTool
     };
 
-    Object.entries(toolClasses).forEach(([name, ToolClass]) => {
+  Object.entries(toolClasses).forEach(([name, ToolClass]) => {
       const tool = new ToolClass(this.toolServices);
       this.tools.set(name, tool);
       if (tool.emoji) this.toolEmojis.set(tool.emoji, name);
     });
 
     // Load emoji mappings from config
-    const configEmojis = this.configService.get('toolEmojis') || {};
+  const configEmojis = this.configService.get('toolEmojis') || {};
     Object.entries(configEmojis).forEach(([emoji, toolName]) => {
       this.toolEmojis.set(emoji, toolName);
     });
+
+  // Ensure ⚔️ maps to 'challenge' by default for neutral initiation
+  this.toolEmojis.set('⚔️', 'challenge');
+  // Map 🧪 to the new potion tool
+  this.toolEmojis.set('🧪', 'potion');
+  // Camera tools emojis
+  this.toolEmojis.set('🤳', 'selfie');
+  this.toolEmojis.set('📷', 'camera');
+  this.toolEmojis.set('🎥', 'video camera');
   }
 
   registerTool(tool) {
@@ -284,7 +316,9 @@ export class ToolService {
    * @param {Object} guildConfig - The guild configuration
    * @returns {Promise<string>} The tool's response
    */
-  async executeTool(toolName, message, params, avatar, guildConfig = {}, context) {
+  // Note: Some callers pass `context` as the 5th argument (omitting guildConfig).
+  // To maintain backward compatibility, accept either 5th or 6th param as context.
+  async executeTool(toolName, message, params, avatar, _guildConfig_or_context = {}, maybeContext) {
     const tool = this.tools.get(toolName);
     if (!tool) {
       return `Tool '${toolName}' not found.`;
@@ -297,8 +331,40 @@ export class ToolService {
       return `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]`;
     }
 
+    // Back-compat: detect where `context` was provided.
+    // If maybeContext is defined, treat it as the true context and disregard guildConfig for now.
+    // If not, assume the 5th arg is actually the context.
+  const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
+
+    // Global gating: KO/dead cannot use tools; in-combat restrict tools
+    try {
+      const now = Date.now();
+      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+        return null; // silent block
+      }
+    } catch {}
+
+    const ces = this.toolServices?.combatEncounterService;
+    const inCombat = (() => {
+      try { return ces?.isInActiveCombat?.(message.channel.id, avatar.id || avatar._id) || false; } catch { return false; }
+    })();
+  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
+  const isItemUse = toolName === 'item' && Array.isArray(params) && params[0] && String(params[0]).toLowerCase() === 'use';
+  if (inCombat && !combatAllowed.has(toolName) && !isItemUse) {
+      return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
+    }
+
     let result;
     try {
+      // Augment context with combatEncounterService if available
+      if (this.toolServices?.combatEncounterService) {
+        context.combatEncounterService = context.combatEncounterService || this.toolServices.combatEncounterService;
+      }
+      if (this.toolServices?.battleMediaService) {
+        context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;
+      }
+      // Provide discordService for downstream actions (e.g., KO movement)
+      if (this.discordService && !context.discordService) context.discordService = this.discordService;
       result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {

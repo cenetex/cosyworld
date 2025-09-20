@@ -20,6 +20,9 @@ export class DiscordService {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
+  // Optional cross-service hooks
+  this.getMapService = services.getMapService || null;
+  this.avatarService = services.avatarService || null;
     
     this.webhookCache = new Map();
     this.client = new Client({
@@ -120,6 +123,98 @@ export class DiscordService {
         } catch (err) {
           this.logger.error('Failed to send error reply: ' + err.message);
         }
+      }
+    });
+
+    // Simple text command: !link to get a one-time code via DM
+    this.client.on('messageCreate', async (message) => {
+      try {
+        if (message.author.bot) return;
+        const content = (message.content || '').trim();
+        if (!content.startsWith('!link')) return;
+  await this.databaseService.getDatabase();
+
+  // Resolve a single public origin and use it for both API and the DM link
+  const rawPublicBase = process.env.PUBLIC_BASE_URL || process.env.API_URL || 'http://0.0.0.0:3000';
+  let publicOrigin = 'http://0.0.0.0:3000';
+  try { publicOrigin = new URL(rawPublicBase).origin; } catch {}
+  const initiateUrl = `${publicOrigin}/api/link/initiate`;
+
+        const res = await fetch(initiateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ discordId: message.author.id, guildId: message.guild?.id })
+        }).then(async r => {
+          // Try to parse JSON even on non-2xx to surface server-provided error
+          const data = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+          if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+          return data;
+        });
+        const code = res?.code;
+        if (!code) throw new Error('Failed to obtain link code from API');
+
+  // Build a fully-qualified link page URL on the same origin
+  const url = `${publicOrigin}/link.html?code=${encodeURIComponent(code)}`;
+        const embed = {
+          title: 'Link your wallet',
+          description: 'Click the button to open a secure page and sign a message to link your wallet to this Discord account. Code expires in 10 minutes.',
+          color: 0x5865f2,
+          fields: [{ name: 'Your code', value: `||${code}||` }]
+        };
+        await message.author.send({ embeds: [embed], components: [{ type: 1, components: [{ type: 2, style: 5, label: 'Open Link Page', url }] }] });
+        if (message.channel?.isTextBased()) await message.reply('I DM’d you a secure link to link your wallet.');
+      } catch (e) {
+        this.logger.error('wallet link command failed: ' + e.message);
+        try {
+          if (message.channel?.isTextBased()) {
+            await message.reply('Sorry, I could not start the wallet link flow. Please try again in a minute.');
+          }
+        } catch {}
+      }
+    });
+
+    // When a thread is created from a message, move the speaking avatar into that thread
+    this.client.on('threadCreate', async (thread) => {
+      try {
+        // Only act on newly created threads under text channels
+        if (!thread || !thread.parentId || !thread.guild) return;
+        const parentId = thread.parentId;
+        // Try to fetch the starter message; if not available, skip
+        let starter = null;
+        try { starter = await thread.fetchStarterMessage(); } catch {}
+        if (!starter) return;
+
+        // We only care about messages sent by our webhook (avatar speech). Webhook messages have webhookId set.
+        if (!starter.webhookId) return;
+
+        // Resolve avatar by the webhook display name within the parent channel
+        const avatarName = starter.author?.username;
+        if (!avatarName) return;
+
+        const db = await this.databaseService.getDatabase();
+        if (!db) return;
+
+        // Find the avatar that last spoke with this name in the parent channel
+        const avatar = await db.collection('avatars').findOne({ name: avatarName, channelId: parentId });
+        if (!avatar) return;
+        if (String(avatar.channelId) === String(thread.id)) return; // already there
+
+        // Move via MapService if available, else update directly
+        try {
+          if (this.getMapService) {
+            await this.getMapService().updateAvatarPosition(avatar, thread.id, avatar.channelId);
+          } else {
+            await db.collection('avatars').updateOne(
+              { _id: avatar._id },
+              { $set: { channelId: thread.id, updatedAt: new Date() } }
+            );
+          }
+          this.logger?.info?.(`Moved avatar '${avatar.name}' to new thread ${thread.id} from message starter.`);
+        } catch (err) {
+          this.logger?.warn?.(`Failed to move avatar '${avatarName}' to thread ${thread.id}: ${err.message}`);
+        }
+      } catch (e) {
+        this.logger?.warn?.(`threadCreate handler failed: ${e.message}`);
       }
     });
   }
@@ -340,7 +435,7 @@ export class DiscordService {
     const components = [];
     try {
       this.db = await this.databaseService.getDatabase();
-      const crossmintData = await this.db.collection('crossmint_dev').findOne({ avatarId: avatar._id, chain: 'base' });
+  await this.db.collection('crossmint_dev').findOne({ avatarId: avatar._id, chain: 'base' });
       // Add button logic if needed (commented out in original)
     } catch (error) {
       this.logger.error(`Failed to fetch crossmint data for avatar ${avatar._id}: ${error.message}`);
@@ -407,6 +502,52 @@ export class DiscordService {
     } catch (error) {
       this.logger.error(`Failed to fetch messages from ${channelId}: ${error.message}`);
       return [];
+    }
+  }
+
+  /**
+   * Ensure a thread with the given name exists under the provided channel.
+   * Returns the thread channel ID. If channelId already refers to a thread, the
+   * thread's parent will be used for creation. Case-insensitive name match.
+   */
+  async getOrCreateThread(channelId, threadName) {
+    try {
+      if (!channelId || !threadName) throw new Error('channelId and threadName are required');
+      const baseChannel = await this.client.channels.fetch(channelId);
+      if (!baseChannel) throw new Error('Base channel not found');
+      const channel = baseChannel.isThread() ? await baseChannel.parent.fetch() : baseChannel;
+      if (!channel?.isTextBased?.() || !channel?.threads) return channelId; // fallback: cannot create, return original
+
+      // Try to find an existing thread by name (case-insensitive) among active and archived
+      const lower = threadName.toLowerCase();
+      try {
+        // Check active threads cache first
+        const existingActive = channel.threads.cache?.find(t => t.name?.toLowerCase() === lower);
+        if (existingActive) return existingActive.id;
+      } catch {}
+      try {
+        // Fetch active threads
+        const active = await channel.threads.fetchActive();
+        const foundActive = active?.threads?.find(t => t.name?.toLowerCase() === lower);
+        if (foundActive) return foundActive.id;
+      } catch {}
+      try {
+        // Fetch archived threads (public)
+        const archived = await channel.threads.fetchArchived({ type: 'public' });
+        const foundArchived = archived?.threads?.find(t => t.name?.toLowerCase() === lower);
+        if (foundArchived) return foundArchived.id;
+      } catch {}
+
+      // Create a new thread
+      const created = await channel.threads.create({
+        name: threadName,
+        autoArchiveDuration: 10080, // 7 days
+        reason: `Auto-created ${threadName} thread`,
+      });
+      return created?.id || channelId;
+    } catch (e) {
+      this.logger?.warn?.(`getOrCreateThread failed for ${channelId}/${threadName}: ${e.message}`);
+      return channelId; // fallback to base
     }
   }
 }

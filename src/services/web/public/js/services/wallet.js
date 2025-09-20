@@ -12,10 +12,41 @@ import { setWallet } from '../core/state.js';
 import { showToast } from '../utils/toast.js';
 import { shortenAddress } from '../utils/formatting.js';
 
+// Lightweight Base58 encoder (Bitcoin alphabet) to avoid bundler/runtime bare specifier issues with 'bs58' in dev mode
+// This mirrors the encoding expected by the server (which uses bs58 to decode signatures)
+const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function encodeBase58(bytes) {
+  if (!bytes || !bytes.length) return '';
+  // Count leading zeros
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  // Clone bytes for mutation
+  const input = Array.from(bytes);
+  const encoded = [];
+  let startAt = zeros;
+  while (startAt < input.length) {
+    let carry = 0;
+    for (let i = startAt; i < input.length; i++) {
+      const val = (input[i] & 0xff) + carry * 256;
+      input[i] = Math.floor(val / 58);
+      carry = val % 58;
+    }
+    encoded.push(B58_ALPHABET[carry]);
+    // Skip leading zeros in input after division
+    while (startAt < input.length && input[startAt] === 0) startAt++;
+  }
+  // Add leading zeros
+  for (let i = 0; i < zeros; i++) encoded.push('1');
+  return encoded.reverse().join('');
+}
+
 /**
  * Initialize wallet functionality
  */
 export function initializeWallet() {
+  // Determine if we should suppress toasts (admin pages)
+  const suppressToasts = location.pathname.startsWith('/admin');
+  window.__walletSuppressToasts = suppressToasts;
   // Check for wallet connect button and inject if missing
   const walletContainer = document.querySelector(".wallet-container");
   if (walletContainer && !walletContainer.querySelector('button')) {
@@ -41,6 +72,16 @@ export function initializeWallet() {
   // Make connectWallet function available globally
   window.connectWallet = connectWallet;
   window.disconnectWallet = disconnectWallet;
+
+  // If on admin pages without a wallet container, provide a floating connect button
+  if (suppressToasts && !walletContainer && !window.state?.wallet?.publicKey && !document.getElementById('wallet-connect-floating')) {
+    const btn = document.createElement('button');
+    btn.id = 'wallet-connect-floating';
+    btn.textContent = 'Connect Wallet';
+    btn.className = 'fixed top-3 right-3 z-50 px-3 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700';
+    btn.addEventListener('click', connectWallet);
+    document.body.appendChild(btn);
+  }
 }
 
 /**
@@ -73,7 +114,7 @@ export async function connectWallet() {
     const provider = window?.phantom?.solana;
     
     if (!provider) {
-      showToast("Please install Phantom wallet", { type: 'warning' });
+  if (!window.__walletSuppressToasts) showToast("Please install Phantom wallet", { type: 'warning' });
       return null;
     }
     
@@ -86,7 +127,7 @@ export async function connectWallet() {
     return connection;
   } catch (error) {
     console.error("Wallet connection error:", error);
-    showToast(`Wallet connection failed: ${error.message}`, { type: 'error' });
+  if (!window.__walletSuppressToasts) showToast(`Wallet connection failed: ${error.message}`, { type: 'error' });
     return null;
   }
 }
@@ -107,15 +148,18 @@ export function disconnectWallet() {
     // Update UI
     updateWalletUI();
     
-    showToast("Wallet disconnected", { type: 'info' });
+  if (!window.__walletSuppressToasts) showToast("Wallet disconnected", { type: 'info' });
     
     // Reload content if needed
     if (window.loadContent) {
       window.loadContent();
     }
+
+  // Notify listeners of disconnect
+  try { window.dispatchEvent(new CustomEvent('wallet:disconnected')); } catch {}
   } catch (error) {
     console.error("Wallet disconnect error:", error);
-    showToast(`Error disconnecting wallet: ${error.message}`, { type: 'error' });
+  if (!window.__walletSuppressToasts) showToast(`Error disconnecting wallet: ${error.message}`, { type: 'error' });
   }
 }
 
@@ -140,12 +184,15 @@ function handleSuccessfulConnection(connection) {
   // Update UI
   updateWalletUI();
   
-  showToast(`Wallet connected: ${shortenAddress(walletData.publicKey)}`, { type: 'success' });
+  if (!window.__walletSuppressToasts) showToast(`Wallet connected: ${shortenAddress(walletData.publicKey)}`, { type: 'success' });
   
   // Reload content if needed
   if (window.loadContent) {
     window.loadContent();
   }
+
+  // Notify listeners of connect
+  try { window.dispatchEvent(new CustomEvent('wallet:connected', { detail: { publicKey: walletData.publicKey } })); } catch {}
 }
 
 /**
@@ -190,4 +237,42 @@ export function updateWalletUI() {
       connectBtn.addEventListener('click', connectWallet);
     }
   }
+}
+
+/**
+ * Sign a write payload with Phantom for server-side verification
+ * Returns headers: { 'X-Wallet-Address', 'X-Message', 'X-Signature' }
+ */
+export async function signWriteHeaders(extra = {}) {
+  const address = window.state?.wallet?.publicKey;
+  const provider = window?.phantom?.solana;
+  if ((!address || !provider)) {
+    // Attempt an on-demand connection (interactive) before failing
+    if (provider?.connect) {
+      try {
+        const connection = await provider.connect();
+        if (connection?.publicKey) {
+          setWallet({ publicKey: connection.publicKey.toString(), isConnected: true });
+        }
+      } catch (e) {
+        throw new Error('Wallet not connected');
+      }
+    } else {
+      throw new Error('Wallet not connected');
+    }
+  }
+  // Re-check after attempted connect
+  const finalAddress = window.state?.wallet?.publicKey;
+  if (!finalAddress) throw new Error('Wallet not connected');
+  const payload = { ts: Date.now(), nonce: Math.random().toString(36).slice(2), ...extra };
+  const msg = JSON.stringify(payload);
+  const encoded = new TextEncoder().encode(msg);
+  const { signature } = await provider.signMessage(encoded, 'utf8');
+  // signature is Uint8Array; convert to base58 string for compact transport
+  const bs58sig = encodeBase58(signature);
+  return {
+    'X-Wallet-Address': finalAddress,
+    'X-Message': msg,
+    'X-Signature': bs58sig
+  };
 }

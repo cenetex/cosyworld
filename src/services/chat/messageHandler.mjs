@@ -4,6 +4,7 @@
  */
 
 import { handleCommands } from "../commands/commandHandler.mjs";
+import { ToolPlannerService } from "../tools/ToolPlannerService.mjs";
 const CONSTRUCTION_ROADBLOCK_EMOJI = '🚧';
 
 /**
@@ -23,6 +24,7 @@ export class MessageHandler  {
     configService,
     spamControlService,
     schedulingService,
+  turnScheduler,
     avatarService,
     decisionMaker,
     conversationManager,
@@ -37,12 +39,16 @@ export class MessageHandler  {
     this.configService = configService;
     this.spamControlService = spamControlService;
     this.schedulingService = schedulingService;
+  this.turnScheduler = turnScheduler;
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.conversationManager = conversationManager;
     this.riskManagerService = riskManagerService;
     this.moderationService = moderationService;
     this.mapService = mapService;
+
+  // Lazy-initialized tool planner; constructed in start() to ensure services are ready
+  this.toolPlanner = null;
 
     this.client = this.discordService.client;
     this.started = false;
@@ -71,6 +77,19 @@ export class MessageHandler  {
     this.logger.info('MessageHandler started.');
 
     await this.moderationService.refreshDynamicRegex();
+
+    // Initialize tool planner
+    try {
+      this.toolPlanner = new ToolPlannerService({
+        logger: this.logger,
+        configService: this.configService,
+        toolService: this.toolService,
+        schedulingService: this.schedulingService,
+      });
+    } catch (e) {
+      this.logger.warn?.(`ToolPlanner init failed: ${e.message}`);
+      this.toolPlanner = null;
+    }
   }
 
   async stop() {
@@ -84,6 +103,11 @@ export class MessageHandler  {
    * @param {Object} message - The Discord message object to process.
    */
   async handleMessage(message) {
+    const corrId = `msg:${message.id}`;
+    return this.logger.withCorrelation ? this.logger.withCorrelation(corrId, () => this._handleMessageInner(message)) : this._handleMessageInner(message);
+  }
+
+  async _handleMessageInner(message) {
 
     if (this.discordService.messageCache) {
       // Check if the message is already cached
@@ -97,8 +121,11 @@ export class MessageHandler  {
       this.logger.debug(`Caching message ${message.id}.`);
     }
 
-    // Persist the message to the database
-    await this.databaseService.saveMessage(message);
+  // Analyze images and enhance message object BEFORE persisting so captions are saved
+  await this.handleImageAnalysis(message);
+
+  // Persist the message to the database (now enriched with image fields)
+  await this.databaseService.saveMessage(message);
 
     const channel = message.channel;
     if (channel && channel.name) {
@@ -136,8 +163,37 @@ export class MessageHandler  {
       return;
     }
 
-    // Analyze images and enhance message object
-    await this.handleImageAnalysis(message);
+    // (Images already analyzed above before save)
+
+    // Optional: Auto-post images to X for admin account with channel summary
+    try {
+      const autoX = String(process.env.X_AUTO_POST_IMAGES || 'false').toLowerCase();
+      if (autoX === 'true' && message.hasImages && this.toolService?.xService) {
+        // Resolve admin identity
+        let admin = null;
+        try {
+          const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+          if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+            admin = await this.avatarService.getAvatarById(envId);
+          } else {
+            const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+            admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+          }
+        } catch {}
+        if (admin) {
+          // Compute a short channel summary context
+          let summary = await this.conversationManager.getChannelSummary(admin._id, message.channel.id);
+          if (typeof summary !== 'string') summary = String(summary || '').slice(0, 180);
+          const caption = `${message.imageDescription || 'Image'} — ${summary}`.slice(0, 240);
+          const imgUrl = message.primaryImageUrl || (Array.isArray(message.imageUrls) ? message.imageUrls[0] : null);
+          if (imgUrl) {
+            try { await this.toolService.xService.postImageToX(admin, imgUrl, caption); } catch (e) { this.logger.warn?.(`Auto X image post failed: ${e.message}`); }
+          }
+        }
+      }
+    } catch (e) { this.logger.debug?.(`auto X image post skipped: ${e.message}`); }
 
     // Check if the message is from the bot itself
     if (message.author.bot) {
@@ -157,13 +213,22 @@ export class MessageHandler  {
       }, avatar, this.conversationManager.getChannelContext(message.channel.id));
     }
 
-    const channelId = message.channel.id;
+  const channelId = message.channel.id;
     const guildId = message.guild.id;
 
     // Mark the channel as active
     await this.databaseService.markChannelActive(channelId, guildId);
 
     // Process the channel (initial pass, e.g., for immediate responses)
+    // Fast-lane: try targeted avatar responses via scheduler leases first
+    try {
+      if (this.turnScheduler) {
+        await this.turnScheduler.onHumanMessage(channelId, message);
+      }
+    } catch (e) {
+      this.logger.warn(`Fast-lane scheduling error: ${e.message}`);
+    }
+
     await this.processChannel(channelId, message);
 
     // Structured moderation: analyze links and assign threat level
@@ -172,7 +237,17 @@ export class MessageHandler  {
     // Structured moderation: backlog moderation if needed
     await this.moderationService.moderateBacklogIfNeeded(message.channel);
 
-    this.logger.debug(`Message processed successfully in channel ${channelId}`);
+    // Agentic tool planning phase (post-response, general chat only)
+    try {
+      if (this.toolPlanner && !message.author.bot) {
+        const context = this.conversationManager.getChannelContext(message.channel.id) || {};
+        await this.toolPlanner.planAndMaybeExecute(message, (await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id)) || (await this.avatarService.summonUserAvatar(message)).avatar, context);
+      }
+    } catch (e) {
+      this.logger.debug?.(`Agentic planner skipped: ${e.message}`);
+    }
+
+  this.logger.debug(`Message processed successfully in channel ${channelId}`);
   }
 
   /**
@@ -210,36 +285,59 @@ export class MessageHandler  {
       message.attachments?.some((a) => a.contentType?.startsWith("image/")) ||
       message.embeds?.some((e) => e.image || e.thumbnail);
 
+    let imageDescriptions = [];
     let imageDescription = null;
-    if (hasImages && this.toolService.aiService?.analyzeImage) {
-      const attachment = message.attachments?.find((a) =>
-        a.contentType?.startsWith("image/")
-      );
+    let imageUrls = [];
+    let primaryImageUrl = null;
+    if (hasImages) {
+      // Collect all candidate image URLs from attachments and embeds
       try {
-        if (attachment) {
-          imageDescription = await this.toolService.aiService.analyzeImage(attachment.url);
-        } else if (message.embeds?.length) {
-          // Try to analyze the first embed image if present
-          const embedImg = message.embeds.find(e => e.image?.url)?.image?.url || message.embeds.find(e => e.thumbnail?.url)?.thumbnail?.url;
-          if (embedImg) {
-            imageDescription = await this.toolService.aiService.analyzeImage(embedImg);
+        const attachmentUrls = Array.from(message.attachments?.values?.() || [])
+          .filter(a => a?.contentType?.startsWith('image/'))
+          .map(a => a.url)
+          .filter(Boolean);
+        const embedUrls = (message.embeds || []).map(e => e?.image?.url || e?.thumbnail?.url).filter(Boolean);
+        const allUrls = [...attachmentUrls, ...embedUrls].filter(Boolean);
+        // Deduplicate while preserving order
+        const seen = new Set();
+        imageUrls = allUrls.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
+        primaryImageUrl = imageUrls[0] || null;
+      } catch {}
+
+      // Analyze each image URL if analyzer available, otherwise provide a generic caption
+      if (this.toolService.aiService?.analyzeImage && imageUrls.length) {
+        for (const url of imageUrls) {
+          try {
+            const caption = await this.toolService.aiService.analyzeImage(
+              url,
+              undefined,
+              'Write a concise, neutral caption (<=120 chars) that describes this image for context.'
+            );
+            imageDescriptions.push((caption && String(caption).trim()) || 'Image (no caption).');
+          } catch (e) {
+            this.logger.warn?.(`Image caption failed for ${url}: ${e.message}`);
+            imageDescriptions.push('Image (caption unavailable).');
           }
         }
-        if (imageDescription) {
-          this.logger.info(`Generated image description for message ${message.id}: ${imageDescription}`);
-        } else {
-          imageDescription = "Image analysis failed or returned no description.";
-        }
-      } catch (error) {
-        this.logger.error(`Error analyzing image for message ${message.id}: ${error.message}`);
-        imageDescription = "Image analysis failed.";
+      } else if (hasImages) {
+        // No analyzer; fallback generic
+        imageDescriptions = imageUrls.map(() => 'Image present.');
       }
-    } else if (hasImages) {
-      imageDescription = "Image present but analysis method not available.";
+
+      // Derive a combined one-line description for legacy consumers
+      if (imageDescriptions.length) {
+        imageDescription = imageDescriptions.length === 1
+          ? imageDescriptions[0]
+          : imageDescriptions.map((c, i) => `${i + 1}) ${c}`).join(' | ');
+        this.logger.info(`Generated ${imageDescriptions.length} image caption(s) for message ${message.id}`);
+      }
     }
 
+    message.imageDescriptions = imageDescriptions;
     message.imageDescription = imageDescription;
     message.hasImages = hasImages;
+    message.imageUrls = imageUrls;
+    message.primaryImageUrl = primaryImageUrl;
   }
 
   /**
@@ -255,13 +353,55 @@ export class MessageHandler  {
         return;
       }
 
-      const eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
+      // If users mention an avatar by name/emoji anywhere in the guild, move that avatar to this channel
+      try {
+        if (message?.content && message.guild?.id) {
+          const globalMentions = await this.avatarService.findMentionedAvatarsInGuild(message.content, message.guild.id, 3);
+          if (globalMentions?.length) {
+            const mapSvc = this.mapService || (this.toolService?.toolServices?.mapService);
+            for (const av of globalMentions) {
+              try {
+                if (String(av.channelId) !== String(channelId) && mapSvc?.updateAvatarPosition) {
+                  await mapSvc.updateAvatarPosition(av, channelId, av.channelId);
+                  this.logger.debug?.(`Moved mentioned avatar ${av.name} to ${channelId}`);
+                }
+              } catch (moveErr) {
+                this.logger.warn?.(`Failed moving mentioned avatar ${av.name}: ${moveErr.message}`);
+              }
+            }
+          }
+        }
+      } catch {}
+
+      let eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
+      // Reorder by priority: in-channel already, then owned by user, then exact name matches
+      try {
+        eligibleAvatars = await this.avatarService.prioritizeAvatarsForMessage(eligibleAvatars, message);
+      } catch {}
       if (!eligibleAvatars || eligibleAvatars.length === 0) {
         this.logger.debug(`No avatars found in channel ${channelId}.`);
         return;
       }
 
-      const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
+      // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness
+      try {
+        if (message?.author && !message.author.bot && typeof message.content === 'string' && message.content.trim()) {
+          const lower = message.content.toLowerCase();
+          const mentioned = eligibleAvatars.find(av => {
+            const name = String(av.name || '').toLowerCase();
+            const emo = String(av.emoji || '').toLowerCase();
+            if (!name && !emo) return false;
+            return (name && lower.includes(name)) || (emo && lower.includes(emo));
+          });
+          if (mentioned && this.decisionMaker?._recordAffinity) {
+            const avId = `${mentioned._id || mentioned.id}`;
+            this.decisionMaker._recordAffinity(channelId, message.author.id, avId);
+            this.logger.debug?.(`Affinity recorded for user ${message.author.id} -> avatar ${avId} in ${channelId}`);
+          }
+        }
+      } catch {}
+
+  const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
         eligibleAvatars,
         message
       ).slice(0, 5);

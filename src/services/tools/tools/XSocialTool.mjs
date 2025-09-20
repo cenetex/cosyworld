@@ -95,8 +95,8 @@ export class XSocialTool extends BasicTool {
                                 result = `❌ Unknown action type: ${action.type}`;
                         }
                         results.push(result);
-                    } catch (error) {
-                        results.push(`❌ ${action.type} failed: ${error.message}`);
+                    } catch {
+                        results.push(`❌ ${action.type} failed.`);
                     }
                 }
                 return results.map(T => `-# [ ${T.replace(/\n/g,``)} ]`).join('\n');
@@ -128,7 +128,7 @@ export class XSocialTool extends BasicTool {
     }
 
     // --- Social Action Generation ---
-    async generateSocialActions(avatar, context, timeline, notifications, userId) {
+    async generateSocialActions(avatar, context, timeline, notifications, _userId) {
         const memories = await this.memoryService.getMemories(avatar._id, 20);
         const systemPrompt = `You are ${avatar.name}\n${avatar.personality}\n\n${avatar.dynamicPrompt}\n`;
         const prompt = `
@@ -147,10 +147,6 @@ Recent Notifications (each tweet has isOwn=true if posted by this avatar, false 
 ${JSON.stringify(notifications)}
 Avoid replying to or quoting tweets where isOwn=true (your own posts).
 Generate a JSON array of actions. Each action must have:
-- "type": one of post, reply, quote, follow, like, repost, block
-- "content": text for post/reply/quote (max 280 chars), always include even if not applicable.
-- "tweetId": the Tweet ID for reply/quote/like/repost, or null if not applicable
-- "userId": the User ID for follow/block, or null if not applicable
 Only output the JSON array, no commentary.`.trim();
         const schema = {
             name: 'rati-x-social-actions',
@@ -172,8 +168,8 @@ Only output the JSON array, no commentary.`.trim();
         };
         try {
             return await this.schemaService.executePipeline({ prompt, schema });
-        } catch (error) {
-            this.logger?.error?.(`Error generating social actions: ${error.message}`);
+        } catch {
+            this.logger?.error?.('Error generating social actions');
             return [];
         }
     }
@@ -189,7 +185,7 @@ Only output the JSON array, no commentary.`.trim();
                 visible: true,
                 info: recentPosts ? `Recent X posts:\n${recentPosts}` : 'No recent posts.'
             };
-        } catch (error) {
+        } catch {
             return { visible: true, info: 'Error fetching timeline.' };
         }
     }

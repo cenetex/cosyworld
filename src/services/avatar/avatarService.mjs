@@ -176,26 +176,27 @@ export class AvatarService {
   
     const guildConfig = await this.configService.getGuildConfig(guildId);
   
-  
-    // 2) then apply your tribe restrictions
+    // Apply avatar tribe restrictions:
+    // - mode === 'permit': permit all EXCEPT listed emojis (blocklist)
+    // - mode === 'forbid': forbid all EXCEPT listed emojis (allowlist)
     const restrictions = guildConfig.avatarTribeRestrictions || {};
     const override = restrictions.channels?.[channelId];
     const mode = override?.mode || restrictions.default?.mode || 'permit';
     const exceptions = override?.emojis || restrictions.default?.emojis || [];
-  
+
     let filtered = avatars.filter(av => av.status !== 'dead' && av.active !== false);
     if (mode === 'permit') {
-      // permit all except listed exceptions
-      filtered = exceptions.length
-        ? filtered.filter(av => exceptions.includes(av.emoji))
-        : filtered;
-    } else {
-      // forbid mode: only allow listed exceptions
+      // Block the listed emojis when in permit mode
       filtered = exceptions.length
         ? filtered.filter(av => !exceptions.includes(av.emoji))
+        : filtered;
+    } else {
+      // Allow only listed emojis when in forbid mode
+      filtered = exceptions.length
+        ? filtered.filter(av => exceptions.includes(av.emoji))
         : [];
     }
-  
+
     return filtered;
   }
 
@@ -264,6 +265,144 @@ export class AvatarService {
     });
 
     return mentioned;
+  }
+
+  /**
+   * Fetch all verified wallet addresses linked to a Discord user.
+   * Uses the discord_wallet_links collection (created by the wallet linking flow).
+   * @param {string} discordId
+   * @returns {Promise<string[]>}
+   */
+  async getLinkedWalletsByDiscordId(discordId) {
+    try {
+      if (!discordId) return [];
+      const db = await this._db();
+      const links = await db.collection('discord_wallet_links')
+        .find({ discordId: String(discordId) })
+        .project({ address: 1 })
+        .toArray();
+      return links.map(l => String(l.address)).filter(Boolean);
+    } catch (err) {
+      this.logger?.warn?.(`getLinkedWalletsByDiscordId failed: ${err?.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get a Set of avatarId strings owned by the provided wallet addresses.
+   * Sources: avatar_claims (primary). Optionally merges x_auth if present.
+   * @param {string[]} walletAddresses
+   * @returns {Promise<Set<string>>}
+   */
+  async getOwnedAvatarIdsByWallets(walletAddresses = []) {
+    const owned = new Set();
+    try {
+      const addId = (id) => { try { if (id) owned.add(String(id)); } catch {} };
+      const db = await this._db();
+      if (walletAddresses.length) {
+        // avatar_claims: { avatarId: ObjectId, walletAddress: string }
+        const claims = await db.collection('avatar_claims')
+          .find({ walletAddress: { $in: walletAddresses } })
+          .project({ avatarId: 1 })
+          .toArray();
+        for (const c of claims) addId(c.avatarId);
+      }
+      return owned;
+    } catch (err) {
+      this.logger?.warn?.(`getOwnedAvatarIdsByWallets failed: ${err?.message}`);
+      return owned;
+    }
+  }
+
+  /**
+   * Resolve owned avatar IDs for a set of Discord user IDs by following wallet links.
+   * @param {string[]} discordIds
+   * @returns {Promise<Set<string>>}
+   */
+  async getOwnedAvatarIdsByDiscordIds(discordIds = []) {
+    try {
+      const wallets = new Set();
+      for (const did of discordIds) {
+        const wl = await this.getLinkedWalletsByDiscordId(did);
+        wl.forEach(w => wallets.add(w));
+      }
+      return await this.getOwnedAvatarIdsByWallets([...wallets]);
+    } catch (err) {
+      this.logger?.warn?.(`getOwnedAvatarIdsByDiscordIds failed: ${err?.message}`);
+      return new Set();
+    }
+  }
+
+  /**
+   * Prioritize avatars for a message with the following precedence:
+   *  1) Avatars already in the channel (caller must supply in-channel list)
+   *  2) Avatars the user owns (via linked wallet → avatar_claims)
+   *  3) Avatars with exact name matches in the message content
+   * Remaining avatars follow in original order.
+   * @param {Array} avatarsInChannel - list of avatar docs in the channel
+   * @param {Object} message - Discord message
+   * @returns {Promise<Array>} prioritized list
+   */
+  async prioritizeAvatarsForMessage(avatarsInChannel, message) {
+    try {
+      const avatars = Array.isArray(avatarsInChannel) ? avatarsInChannel.slice() : [];
+      if (!avatars.length || !message?.author?.id) return avatars;
+
+      // 2) Owned avatars (by linked wallets)
+      const wallets = await this.getLinkedWalletsByDiscordId(message.author.id);
+      const ownedIds = wallets.length ? await this.getOwnedAvatarIdsByWallets(wallets) : new Set();
+      const owned = [];
+      const restAfterOwned = [];
+      for (const av of avatars) {
+        if (ownedIds.has(String(av._id))) owned.push(av); else restAfterOwned.push(av);
+      }
+
+      // 3) Exact name matches (word-boundary match, case-insensitive)
+      const content = String(message.content || '');
+      const exact = [];
+      const remainder = [];
+      const seen = new Set(owned.map(a => String(a._id)));
+      for (const av of restAfterOwned) {
+        const name = String(av.name || '').trim();
+        let isExact = false;
+        if (name) {
+          try {
+            const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const rx = new RegExp(`(^|\\b)${esc}(\\b|$)`, 'i');
+            isExact = rx.test(content);
+          } catch { isExact = content.toLowerCase().includes(name.toLowerCase()); }
+        }
+        if (isExact) { exact.push(av); seen.add(String(av._id)); }
+        else remainder.push(av);
+      }
+
+      // Final order: owned → exact → remainder
+      return [...owned, ...exact, ...remainder];
+    } catch (err) {
+      this.logger?.warn?.(`prioritizeAvatarsForMessage failed: ${err?.message}`);
+      return Array.isArray(avatarsInChannel) ? avatarsInChannel : [];
+    }
+  }
+
+  /**
+   * Find avatars in a guild whose name or emoji are mentioned in the provided content.
+   * Returns up to `limit` avatars, prioritizing exact matches first, then fuzzy.
+   */
+  async findMentionedAvatarsInGuild(content, guildId, limit = 3) {
+    if (!content || !guildId) return [];
+    try {
+      const db = await this._db();
+      // Pull a bounded set of active avatars in the guild
+      const avatars = await db.collection(this.AVATARS_COLLECTION)
+        .find({ guildId, status: { $ne: 'dead' }, active: { $ne: false } }, { projection: { name: 1, emoji: 1, channelId: 1 } })
+        .limit(500)
+        .toArray();
+      const mentioned = Array.from(this.extractMentionedAvatars(content, avatars));
+      return mentioned.slice(0, limit);
+    } catch (err) {
+      this.logger?.warn?.(`findMentionedAvatarsInGuild failed: ${err?.message}`);
+      return [];
+    }
   }
 
   /* -------------------------------------------------- */
@@ -360,7 +499,7 @@ export class AvatarService {
   /*  AI‑ASSISTED GENERATION                             */
   /* -------------------------------------------------- */
 
-  async generateAvatarDetails(userPrompt, guildId = null) {
+  async generateAvatarDetails(userPrompt, _guildId = null) {
     const prompt = `Generate a unique and creative character for a role‑playing game based on this description: "${userPrompt}". Include fields: name, description, personality, emoji, and model (or \"none\").`;
     const schema = {
       name: 'rati-avatar', strict: true,
@@ -403,15 +542,47 @@ export class AvatarService {
     return db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
   }
 
-  async createAvatar({ prompt, summoner, channelId, guildId }) {
-    const details = await this.generateAvatarDetails(prompt, guildId);
+  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
+    let details = null;
+    try {
+      details = await this.generateAvatarDetails(prompt, guildId);
+    } catch (err) {
+      // Harden against upstream structured-output/JSON issues by falling back to a simple heuristic
+      this.logger?.warn?.(`generateAvatarDetails failed: ${err?.message || err}`);
+      try {
+        const fallbackPrompt = [
+          { role: 'system', content: 'You are generating a minimal RPG character. Reply with a single line: Name | One-sentence description | emoji | model (short). No JSON.' },
+          { role: 'user', content: `Create a character for: ${prompt}` }
+        ];
+        const raw = await this.aiService.chat(fallbackPrompt, { max_tokens: 128 });
+        const text = typeof raw === 'object' && raw?.text ? raw.text : String(raw || '');
+        const parts = text.split('|').map(s => s.trim()).filter(Boolean);
+        const [name, description, emoji, model] = [parts[0] || 'Wanderer', parts[1] || 'A curious soul.', parts[2] || '🙂', parts[3] || 'auto'];
+        details = { name, description, personality: parts[1] || 'curious', emoji, model };
+      } catch (e2) {
+        this.logger?.error?.(`Fallback avatar details failed: ${e2?.message || e2}`);
+        return null;
+      }
+    }
     if (!details?.name) return null;
 
     const existing = await this.getAvatarByName(details.name);
-    if (existing) return existing;
+  // If an avatar with this generated name already exists, return it and
+  // flag as existing so callers (e.g. SummonTool) can avoid treating it
+  // as freshly created (prevent duplicate introductions, stat overrides, etc.)
+  if (existing) return { ...existing, _existing: true };
 
-    const imageUrl = await this.generateAvatarImage(details.description);
-    const model = await this.aiService.getModel(details.model);
+    let imageUrl = null;
+    if (imageUrlOverride) {
+      imageUrl = imageUrlOverride;
+    } else {
+      try { imageUrl = await this.generateAvatarImage(details.description); } catch (e) {
+        this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
+        imageUrl = null;
+      }
+    }
+    let model = null;
+    try { model = await this.aiService.getModel(details.model); } catch { model = details.model || 'auto'; }
 
     const doc = {
       ...details,
@@ -427,6 +598,35 @@ export class AvatarService {
 
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
+
+    // Auto-post new avatars to X when enabled and admin account is linked
+    try {
+      const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
+      if (autoPost === 'true' && doc.imageUrl && this.configService?.services?.xService) {
+        // Basic dedupe: avoid posting if a recent social_posts entry exists for this image
+        const posted = await db.collection('social_posts').findOne({ imageUrl: doc.imageUrl, mediaType: 'image' });
+        if (!posted) {
+          try {
+            // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
+            let admin = null;
+            const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+            if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
+              admin = await this.configService.services.avatarService.getAvatarById(envId);
+            } else {
+              const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
+              const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+              const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+              admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+            }
+            if (admin) {
+              const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
+              await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
+            }
+          } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
+        }
+      }
+    } catch (e) { this.logger?.debug?.(`[AvatarService] auto X post (avatar) skipped: ${e.message}`); }
+
     return { ...doc, _id: insertedId };
   }
 
@@ -470,7 +670,18 @@ export class AvatarService {
     const file = await this.generateAvatarImage(avatar.description);
     if (!file) return false;
 
-    const s3Url = await uploadImage(file); // assumed available in scope
+    // Upload via s3Service if available, otherwise return false
+    let s3Url = null;
+    try {
+      if (this.schemaService?.uploadImage) {
+        s3Url = await this.schemaService.uploadImage(file);
+      } else if (this.aiService?.s3Service?.uploadImage) {
+        s3Url = await this.aiService.s3Service.uploadImage(file);
+      }
+    } catch (err) {
+      this.logger?.error(`uploadImage failed: ${err.message}`);
+    }
+    if (!s3Url) return false;
     const res = await db.collection(this.AVATARS_COLLECTION)
       .updateOne({ _id: avatar._id }, { $set: { imageUrl: s3Url, updatedAt: new Date() } });
     return !!res.modifiedCount;
@@ -572,5 +783,101 @@ export class AvatarService {
     if (!ids.length) return [];
     const db = await this._db();
     return db.collection('items').find({ _id: { $in: ids.map(toObjectId) } }).toArray();
+  }
+
+  /* -------------------------------------------------- */
+  /*  BREED TRACKING                                     */
+  /* -------------------------------------------------- */
+
+  async getLastBredDate(avatarId) {
+    try {
+      const db = await this._db();
+      const doc = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { lastBredAt: 1 } }
+      );
+      return doc?.lastBredAt || null;
+    } catch (err) {
+      this.logger.error(`getLastBredDate failed – ${err.message}`);
+      return null;
+    }
+  }
+
+  async setLastBredDate(avatarId, date = new Date()) {
+    try {
+      const db = await this._db();
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { $set: { lastBredAt: date, updatedAt: new Date() } }
+      );
+    } catch (err) {
+      this.logger.error(`setLastBredDate failed – ${err.message}`);
+    }
+  }
+
+  /* -------------------------------------------------- */
+  /*  THOUGHTS MANAGEMENT                                */
+  /* -------------------------------------------------- */
+
+  /**
+   * Get recent thoughts for an avatar
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {number} limit - Maximum number of thoughts to return (default: 10)
+   * @returns {Promise<Array>} Array of thought objects
+   */
+  async getRecentThoughts(avatarId, limit = 10) {
+    try {
+      const db = await this._db();
+      const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { thoughts: 1 } }
+      );
+      
+      if (!avatar?.thoughts) return [];
+      
+      return avatar.thoughts
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
+    } catch (err) {
+      this.logger.error(`getRecentThoughts failed – ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Add a thought to an avatar's thoughts collection
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {string} content - Thought content
+   * @param {string} guildName - Guild name where thought occurred
+   * @returns {Promise<boolean>} Success status
+   */
+  async addThought(avatarId, content, guildName = 'Unknown') {
+    try {
+      const db = await this._db();
+      const thoughtData = {
+        content: content.trim(),
+        timestamp: Date.now(),
+        guildName
+      };
+
+      const result = await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { 
+          $push: { 
+            thoughts: { 
+              $each: [thoughtData], 
+              $position: 0,
+              $slice: 20  // Keep only the most recent 20 thoughts
+            } 
+          },
+          $set: { updatedAt: new Date() }
+        }
+      );
+
+      return result.modifiedCount > 0;
+    } catch (err) {
+      this.logger.error(`addThought failed – ${err.message}`);
+      return false;
+    }
   }
 }

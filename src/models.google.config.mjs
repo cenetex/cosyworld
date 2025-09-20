@@ -383,6 +383,40 @@ export default {
     "maxTemperature": 2
   },
   {
+    "name": "models/gemini-2.5-flash-image-preview",
+    "version": "2.5-preview",
+  "displayName": "Gemini 2.5 Flash Image Preview (Nano Banana)",
+  "description": "Preview image generation-capable model for high quality, multi-modal image outputs. Also referred to as the Nano Banana model.",
+    "inputTokenLimit": 1048576,
+    "outputTokenLimit": 65536,
+    "supportedGenerationMethods": [
+      "generateContent",
+      "countTokens",
+      "bidiGenerateContent"
+    ],
+    "temperature": 1,
+    "topP": 0.95,
+    "topK": 64,
+    "maxTemperature": 2
+  },
+  {
+    "name": "models/gemini-2.5-flash",
+    "version": "2.5",
+    "displayName": "Gemini 2.5 Flash",
+    "description": "Latest Gemini 2.5 Flash for fast, high-quality text and multimodal generation.",
+    "inputTokenLimit": 1048576,
+    "outputTokenLimit": 65536,
+    "supportedGenerationMethods": [
+      "generateContent",
+      "countTokens",
+      "createCachedContent"
+    ],
+    "temperature": 1,
+    "topP": 0.95,
+    "topK": 64,
+    "maxTemperature": 2
+  },
+  {
     "name": "models/gemini-2.0-flash-exp-image-generation",
     "version": "2.0",
     "displayName": "Gemini 2.0 Flash (Image Generation) Experimental",

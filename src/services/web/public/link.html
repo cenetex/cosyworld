@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Link Wallet</title>
+  <link rel="stylesheet" href="/js/../css/tailwind.css" />
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-lg mx-auto p-4">
+    <h1 class="text-xl font-semibold mb-4">Link Wallet</h1>
+    <div id="step1" class="p-4 bg-white border rounded">
+      <label class="text-sm">Code</label>
+      <input id="code" class="border p-2 rounded w-full mb-2" placeholder="Paste code from Discord" />
+      <button id="fetchMsg" class="bg-gray-800 text-white px-3 py-2 rounded">Load Challenge</button>
+      <div id="err" class="text-sm text-red-600 mt-2"></div>
+    </div>
+
+    <div id="step2" class="p-4 bg-white border rounded mt-4 hidden">
+      <div class="text-sm text-gray-700 mb-2">Message to sign:</div>
+      <textarea id="message" rows="6" class="border p-2 rounded w-full font-mono text-xs"></textarea>
+      <div class="mt-3 grid gap-2">
+        <select id="chain" class="border p-2 rounded">
+          <option value="evm">EVM (MetaMask)</option>
+          <option value="solana">Solana (Phantom)</option>
+        </select>
+        <button id="sign" class="bg-indigo-600 text-white px-3 py-2 rounded">Sign and Link</button>
+        <div id="status" class="text-sm text-gray-600"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    async function fetchJSON(url, opts) {
+      const res = await fetch(url, opts);
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+    function normCode(v) {
+      return String(v||'').trim().replace(/\|/g,'').replace(/\s+/g,'');
+    }
+    // Auto-fill code from URL on load
+    (function initFromUrl(){
+      const params = new URLSearchParams(location.search);
+      const urlCode = params.get('code');
+      if (urlCode) document.getElementById('code').value = urlCode;
+    })();
+    document.getElementById('fetchMsg').onclick = async () => {
+      const code = normCode(document.getElementById('code').value);
+      document.getElementById('err').textContent = '';
+      try {
+        const r = await fetchJSON(`/api/link/challenge?code=${encodeURIComponent(code)}`);
+        document.getElementById('message').value = r.message;
+        document.getElementById('step2').classList.remove('hidden');
+      } catch(e) { document.getElementById('err').textContent = e.message; }
+    };
+    async function signEVM(message) {
+      if (!window.ethereum) throw new Error('No EVM wallet found');
+      const [addr] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const sig = await window.ethereum.request({ method: 'personal_sign', params: [message, addr] });
+      return { address: addr, signature: sig };
+    }
+    async function signSolana(message) {
+      const any = window.solana || window.phantom?.solana;
+      if (!any) throw new Error('No Solana wallet found');
+      await any.connect();
+      const enc = new TextEncoder();
+      const msgBytes = enc.encode(message);
+  const signed = await any.signMessage(msgBytes, 'utf8');
+  const bytesToHex = (u8) => Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('');
+  return { address: any.publicKey.toString(), signature: bytesToHex(signed.signature), publicKey: any.publicKey.toString() };
+    }
+    document.getElementById('sign').onclick = async () => {
+  const code = normCode(document.getElementById('code').value);
+      const message = document.getElementById('message').value;
+      const chain = document.getElementById('chain').value;
+      const status = document.getElementById('status');
+      status.textContent = 'Signing...';
+      try {
+        let payload;
+        if (chain === 'solana') {
+          const { address, signature, publicKey } = await signSolana(message);
+          payload = { code, chain: 'solana', address, signature, message, publicKey };
+        } else {
+          const { address, signature } = await signEVM(message);
+          payload = { code, chain: 'evm', address, signature, message };
+        }
+        status.textContent = 'Verifying...';
+        const r = await fetchJSON('/api/link/complete', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+        status.textContent = 'Linked! You can close this tab.';
+      } catch(e) { status.textContent = e.message; }
+    };
+  </script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { BasicTool } from '../BasicTool.mjs';
 export class ThinkTool extends BasicTool {
   constructor({
     aiService,
+    unifiedAIService,
     memoryService,
     discordService,
     promptService,
@@ -18,7 +19,8 @@ export class ThinkTool extends BasicTool {
   }) {
     super();
 
-    this.aiService = aiService;
+  this.aiService = aiService;
+  this.unifiedAIService = unifiedAIService; // optional adapter
     this.memoryService = memoryService;
     this.discordService = discordService;
     this.promptService = promptService;
@@ -65,7 +67,8 @@ export class ThinkTool extends BasicTool {
 
       const reflectionPrompt = `Based on this conversation:\n${context}\n\nLatest narrative:\n${lastNarrative}\nYou are about to respond to the message: "${messageToRespondTo}". Reflect in detail on the context, think carefully about the conversation and analyze its meaning.`;
 
-      const reflection = await this.aiService.chat([
+  const ai = this.unifiedAIService || this.aiService;
+  let reflection = await ai.chat([
         {
           role: 'system',
           content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}`
@@ -83,6 +86,7 @@ export class ThinkTool extends BasicTool {
         presence_penalty: 0.6,
         stream: false
       });
+  if (reflection && typeof reflection === 'object' && reflection.text) reflection = reflection.text;
 
       await this.memoryService.addMemory(avatar._id, reflection);
 

@@ -1,0 +1,124 @@
+<!--
+  Unified Settings (Global + Per-Guild Overrides)
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <nav class="bg-gray-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
+              </div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/avatar-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Avatar Management</a>
+                <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Settings</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="flex-grow">
+        <div class="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div class="bg-white shadow sm:rounded-lg p-4">
+            <div class="flex gap-6">
+              <aside class="w-64">
+                <div class="bg-gray-50 border rounded p-2">
+                  <div class="text-xs uppercase text-gray-500 px-1 mb-2">Scope</div>
+                  <div id="guildList" class="flex flex-col gap-1"></div>
+                </div>
+              </aside>
+
+              <section class="flex-1">
+                <!-- Top header and actions -->
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold">Settings</h2>
+                    <div class="ml-2 inline-flex rounded overflow-hidden border">
+                      <button id="tabPrompts" class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200">Prompts</button>
+                      <button id="tabSettings" class="px-3 py-1 text-sm hover:bg-gray-100">Settings</button>
+                      <button id="tabSecrets" class="px-3 py-1 text-sm hover:bg-gray-100">Secrets</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input id="filterText" type="text" placeholder="Filter keys..." class="px-2 py-1 border rounded text-sm" />
+                    <label class="text-sm text-gray-700 flex items-center gap-1"><input id="onlyOverrides" type="checkbox" /> Overrides only</label>
+                    <button id="exportEnv" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Export .env</button>
+                    <button id="exportJson" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm">Export JSON</button>
+                    <button id="refresh" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm">Refresh</button>
+                  </div>
+                </div>
+
+                <!-- Selected guild summary/actions -->
+                <div id="selectedGuildCard" class="mb-4 hidden">
+                  <div class="flex items-center justify-between p-3 border rounded bg-gray-50">
+                    <div class="flex items-center gap-3">
+                      <img id="selectedGuildIcon" src="" alt="Guild" class="w-8 h-8 rounded bg-gray-200 border" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+                      <div>
+                        <div id="selectedGuildName" class="font-medium">Guild</div>
+                        <div class="text-xs text-gray-500">ID: <span id="selectedGuildId"></span> • <span id="selectedGuildStatus"></span></div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button id="btnAuthorizeGuild" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Authorize</button>
+                      <button id="btnDeauthorizeGuild" class="px-3 py-1 bg-yellow-600 text-white rounded text-sm">Deauthorize</button>
+                      <button id="btnClearGuildCache" class="px-3 py-1 bg-gray-100 rounded text-sm">Clear Cache</button>
+                      <button id="btnDeleteGuild" class="px-3 py-1 bg-red-600 text-white rounded text-sm">Delete Config</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Detected guilds (unauthorized) -->
+                <div id="detectedGuildsSection" class="mb-6 hidden">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-base font-semibold">Detected Servers <span id="detectedCount" class="text-xs text-gray-500"></span></h3>
+                    <div class="flex items-center gap-2">
+                      <button id="refreshDetected" class="px-3 py-1 bg-gray-100 rounded text-sm">Refresh</button>
+                    </div>
+                  </div>
+                  <div id="detectedGuildsContainer" class="grid gap-2"></div>
+                </div>
+
+                <div id="panelPrompts" class="space-y-3">
+                  <h3 class="text-base font-semibold mb-2">Prompts</h3>
+                  <div id="promptsList" class="space-y-3"></div>
+                </div>
+
+                <div id="panelSettings" class="mt-4 hidden">
+                  <h3 class="text-base font-semibold mb-2">Settings</h3>
+                  <div id="settingsList" class="space-y-3"></div>
+                </div>
+
+                <div id="panelSecrets" class="mt-4 hidden">
+                  <h3 class="text-base font-semibold mb-2">Secrets</h3>
+                  <div class="mb-3">
+                    <textarea id="envText" rows="3" class="w-full border rounded p-2 text-sm" placeholder="PASTE .env CONTENT HERE\nOPENROUTER_API_KEY=...\n..."></textarea>
+                    <div class="mt-2 flex gap-2">
+                      <button id="importEnv" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Import .env</button>
+                      <span id="importStatus" class="text-sm text-gray-500"></span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Note: Secret values shown/exported here are masked for safety.</p>
+                  </div>
+                  <div id="secretsList" class="space-y-3"></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="/js/admin-settings.js"></script>
+  </body>
+</html>

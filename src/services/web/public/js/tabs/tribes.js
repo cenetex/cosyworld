@@ -9,7 +9,8 @@
  */
 
 import { TribesAPI } from '../core/api.js';
-import { showToast } from '../utils/toast.js';
+import { setLoading, setError, setEmpty, escapeHtml } from '../utils/dom.js';
+import { generateFallbackAvatar } from '../utils/fallbacks.js';
 
 /**
  * Load tribes tab content
@@ -18,7 +19,18 @@ export async function loadContent() {
   const content = document.getElementById("content");
   if (!content) return;
 
+  setLoading(content, { message: 'Loading tribes' });
+
   try {
+    // Get tribe counts
+    const tribeCounts = await TribesAPI.getCounts();
+
+    if (!tribeCounts || tribeCounts.length === 0) {
+      setEmpty(content, { title: 'No Tribes Found', description: 'No tribes are available at this time.' });
+      return;
+    }
+
+    // Render main tribes view
     content.innerHTML = `
       <div class="max-w-7xl mx-auto px-4">
         <h1 class="text-3xl font-bold mb-6">Tribes</h1>
@@ -26,11 +38,7 @@ export async function loadContent() {
           <p class="text-lg">Tribes are groups of avatars that share the same emoji identifier. Each tribe has its own characteristics and traits.</p>
         </div>
         
-        <div id="tribes-loader" class="flex justify-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-        </div>
-        
-        <div id="tribes-content" class="hidden">
+        <div id="tribes-content">
           <div id="tribes-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
         </div>
         
@@ -55,24 +63,12 @@ export async function loadContent() {
       </div>
     `;
 
-    // Get tribe counts
-    const tribeCounts = await TribesAPI.getCounts();
-    const loader = document.getElementById('tribes-loader');
     const tribesContent = document.getElementById('tribes-content');
     const tribesGrid = document.getElementById('tribes-grid');
     const tribeDetails = document.getElementById('tribe-details');
 
-    if (!tribeCounts || tribeCounts.length === 0) {
-      renderEmptyState(loader);
-      return;
-    }
-
     // Render tribe cards
     renderTribesGrid(tribesGrid, tribeCounts);
-
-    // Hide loader, show content
-    loader.classList.add('hidden');
-    tribesContent.classList.remove('hidden');
 
     // Set up back button handler
     document.getElementById('back-to-tribes').addEventListener('click', () => {
@@ -85,27 +81,11 @@ export async function loadContent() {
 
   } catch (err) {
     console.error("Load Tribes error:", err);
-    content.innerHTML = `
-      <div class="text-center py-12 text-red-500">
-        Failed to load tribes: ${err.message}
-        <button 
-          class="block mx-auto mt-4 px-4 py-2 bg-gray-700 rounded"
-          onclick="loadContent()"
-        >
-          Retry
-        </button>
-      </div>
-    `;
+    setError(content, `Failed to load tribes: ${escapeHtml(err.message)}`, { retryFnName: 'loadContent' });
   }
 }
 
-/**
- * Render empty state when no tribes found
- * @param {HTMLElement} container - Container element
- */
-function renderEmptyState(container) {
-  container.innerHTML = '<div class="text-center text-gray-400">No tribes found</div>';
-}
+// Empty state handled directly with setEmpty
 
 /**
  * Render tribes grid
@@ -116,11 +96,11 @@ function renderTribesGrid(container, tribes) {
   container.innerHTML = tribes.map(tribe => `
     <div 
       class="tribe-card bg-gray-800 rounded-lg p-5 flex flex-col items-center hover:bg-gray-700 transition-colors cursor-pointer"
-      data-emoji="${tribe.emoji}" 
-      onclick="showTribeDetailsContent('${tribe.emoji}')"
+      data-emoji="${escapeHtml(tribe.emoji)}" 
+      onclick="showTribeDetailsContent('${escapeHtml(tribe.emoji)}')"
     >
-      <div class="text-5xl mb-3">${tribe.emoji}</div>
-      <div class="text-xl font-bold">Tribe ${tribe.emoji}</div>
+      <div class="text-5xl mb-3">${escapeHtml(tribe.emoji)}</div>
+      <div class="text-xl font-bold">Tribe ${escapeHtml(tribe.emoji)}</div>
       <div class="text-gray-400 mt-2">
         ${tribe.count} ${tribe.count === 1 ? 'member' : 'members'}
       </div>
@@ -139,6 +119,8 @@ export async function showTribeDetailsContent(emoji) {
     const tribeEmoji = document.getElementById('tribe-emoji');
     const tribeName = document.getElementById('tribe-name');
     const tribeMembers = document.getElementById('tribe-members');
+    let nextCursor = null;
+    const limit = 24;
 
     // Update UI
     tribesContent.classList.add('hidden');
@@ -147,40 +129,73 @@ export async function showTribeDetailsContent(emoji) {
     tribeName.textContent = emoji;
 
     // Show loading state
-    tribeMembers.innerHTML = `
-      <div class="col-span-full flex justify-center py-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-      </div>
-    `;
+    setLoading(tribeMembers, { message: 'Loading tribe members' });
 
-    // Fetch tribe details
-    const tribeData = await TribesAPI.getTribeByEmoji(emoji);
+    async function fetchPage() {
+      const qs = new URLSearchParams({ limit: String(limit), thumbs: '0' });
+      if (nextCursor) qs.set('after', nextCursor);
+      const tribeData = await TribesAPI.getTribeByEmoji(emoji + `?${qs.toString()}`);
+      nextCursor = tribeData?.nextCursor || null;
+      return tribeData?.members || [];
+    }
 
-    if (!tribeData || !tribeData.members || tribeData.members.length === 0) {
-      tribeMembers.innerHTML = `
-        <div class="col-span-full text-center text-gray-400 py-8">
-          No members found for this tribe
-        </div>
-      `;
+    // First page
+    const firstMembers = await fetchPage();
+    if (!firstMembers || firstMembers.length === 0) {
+      setEmpty(tribeMembers, { title: 'No Members Found', description: 'No members found for this tribe' });
       return;
     }
 
-    // Render tribe members with safe name extraction
-    renderTribeMembers(tribeMembers, tribeData.members, emoji);
+    tribeMembers.innerHTML = '';
+    renderTribeMembers(tribeMembers, firstMembers, emoji);
+
+    // Add load more button
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'col-span-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded';
+    loadMoreBtn.textContent = 'Load more';
+    loadMoreBtn.addEventListener('click', async () => {
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = 'Loading...';
+      try {
+        const next = await fetchPage();
+        if (next.length) {
+          renderTribeMembers(tribeMembers, next, emoji);
+          if (nextCursor) {
+            loadMoreBtn.textContent = 'Load more';
+            loadMoreBtn.disabled = false;
+          } else {
+            loadMoreBtn.textContent = 'No more members';
+          }
+        } else {
+          loadMoreBtn.textContent = 'No more members';
+        }
+      } catch (e) {
+        console.error(e);
+        loadMoreBtn.textContent = 'Load more';
+        loadMoreBtn.disabled = false;
+      }
+    });
+    tribeMembers.appendChild(loadMoreBtn);
+
+    // Optional: infinite scroll
+    const sentinel = document.createElement('div');
+    sentinel.className = 'col-span-full h-6';
+    tribeMembers.appendChild(sentinel);
+    const io = new IntersectionObserver(async (entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && !loadMoreBtn.disabled) {
+        loadMoreBtn.click();
+      }
+    }, { rootMargin: '200px' });
+    io.observe(sentinel);
 
   } catch (err) {
     console.error("Show Tribe Details error:", err);
-    document.getElementById('tribe-members').innerHTML = `
-      <div class="col-span-full text-center text-red-500 py-8">
-        Failed to load tribe members: ${err.message}
-        <button 
-          class="block mx-auto mt-4 px-4 py-2 bg-gray-700 rounded"
-          onclick="showTribeDetailsContent('${emoji}')"
-        >
-          Retry
-        </button>
-      </div>
-    `;
+    const tribeMembers = document.getElementById('tribe-members');
+    if (tribeMembers) {
+      setError(tribeMembers, `Failed to load tribe members: ${escapeHtml(err.message)}`, { retryFnName: 'showTribeDetailsContent' });
+      window.showTribeDetailsContent = () => showTribeDetailsContent(emoji); // bind emoji for retry
+    }
   }
 }
 
@@ -191,36 +206,40 @@ export async function showTribeDetailsContent(emoji) {
  * @param {string} emoji - Tribe emoji
  */
 function renderTribeMembers(container, members, emoji) {
-  container.innerHTML = members.map(member => {
-    const safeName = member.name || 'Unknown';
+  const memberCards = members.map(member => {
+    const safeName = escapeHtml(member.name || 'Unknown');
     const initial = safeName.charAt(0).toUpperCase();
+    const imgUrl = member.thumbnailUrl || member.imageUrl;
+    const fallbackSrc = generateFallbackAvatar(initial);
+    
     return `
       <div 
         class="bg-gray-800 p-3 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
         onclick="showAvatarDetails('${member._id}')"
       >
         <div class="flex items-center gap-3">
-          ${member.imageUrl
+          ${imgUrl
             ? `<img 
-                  src="${member.imageUrl}" 
-                  alt="${safeName}" 
-                  class="w-16 h-16 object-cover rounded-full"
-                  onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\'%3E%3Crect fill=\\'%23333\\' width=\\'100\\' height=\\'100\\'/%3E%3Ctext fill=\\'%23FFF\\' x=\\'50\\' y=\\'50\\' font-size=\\'50\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'%3E${initial}%3C/text%3E%3C/svg%3E';">` 
+                src="${imgUrl}" 
+                alt="${safeName}" 
+                class="w-16 h-16 object-cover rounded-full"
+                onerror="this.onerror=null; this.src='${fallbackSrc}';"
+              >` 
             : `<div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center text-2xl font-bold text-white">
-                  ${initial}
+                ${initial}
               </div>` 
           }
-        
           <div class="flex-1 min-w-0">
             <h3 class="text-lg font-semibold truncate">${safeName}</h3>
             <div class="text-xs text-gray-400 mt-1">
               ${member.messageCount || 0} messages
             </div>
           </div>
-        
-          <div class="text-xl">${emoji}</div>
+          <div class="text-xl">${escapeHtml(emoji)}</div>
         </div>
       </div>
     `;
   }).join('');
+  
+  container.insertAdjacentHTML('beforeend', memberCards);
 }
