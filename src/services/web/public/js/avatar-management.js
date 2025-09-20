@@ -3,7 +3,13 @@
  * Licensed under the MIT License.
  */
 
-document.addEventListener("DOMContentLoaded", () => {
+import { apiFetch } from './admin/admin-api.js';
+import { success as toastSuccess, error as toastError, withButtonLoading } from './admin/admin-ui.js';
+import { ensureWallet } from './admin/admin-auth.js';
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Ensure wallet (non-fatal)
+  try { await ensureWallet(); } catch {}
   // State Management
   const state = {
     currentPage: 1,
@@ -111,11 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAvatars();
   setupEventListeners();
 
-  // Helper to produce signed headers for admin writes
-  async function getSignedHeaders(extra) {
-    const mod = await import('./services/wallet.js');
-    return mod.signWriteHeaders(extra);
-  }
+  // Signed headers now imported from admin-auth.js
 
   // Event Listeners Setup
   function setupEventListeners() {
@@ -154,10 +156,10 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.cancelEdit.addEventListener("click", closeModal);
 
     // Preview Prompt button
-    document.getElementById("preview-prompt").addEventListener("click", async () => {
+    document.getElementById("preview-prompt").addEventListener("click", withButtonLoading(document.getElementById("preview-prompt"), async () => {
       const avatarId = elements.avatarForm.dataset.avatarId;
       if (!avatarId) {
-        showNotification("Please save the avatar first to preview prompts", "error");
+        toastError("Save the avatar first to preview prompts");
         return;
       }
       
@@ -168,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
         previewContent.innerHTML = "Loading preview...";
         previewContainer.classList.remove("hidden");
         
-        const response = await fetch(`/api/admin/avatars/${avatarId}/preview-prompt`);
+        const response = await apiFetch(`/api/admin/avatars/${avatarId}/preview-prompt`);
         if (!response.ok) throw new Error(`HTTP error ${response.status}`);
         
         const data = await response.json();
@@ -177,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Error fetching prompt preview:", error);
         previewContent.innerHTML = `Error loading preview: ${error.message}`;
       }
-    });
+    }));
 
     // Close modal with Escape key
     document.addEventListener("keydown", (e) => {
@@ -203,12 +205,12 @@ document.body.appendChild(fileInput);
 // Add upload button next to image URL input
 const uploadButton = document.createElement('button');
 uploadButton.textContent = 'Upload Image';
-uploadButton.className = 'ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600';
+uploadButton.className = 'ml-2 px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700';
 elements.imageUrlInput.parentNode.appendChild(uploadButton);
 
-uploadButton.addEventListener('click', () => {
+uploadButton.addEventListener('click', withButtonLoading(uploadButton, async () => {
   fileInput.click();
-});
+}));
 
   fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -221,12 +223,9 @@ uploadButton.addEventListener('click', () => {
     uploadButton.disabled = true;
     uploadButton.textContent = 'Uploading...';
 
-      const headers = await getSignedHeaders({ op: 'upload_image' });
-      const response = await fetch('/api/admin/upload-image', {
-        method: 'POST',
-        headers,
-        body: formData
-      });
+      const response = await apiFetch('/api/admin/upload-image', { method: 'POST', body: formData, sign: true, signMeta: { op: 'upload_image' }, requireCsrf: true, json: false });
+      // When json:false we receive text; attempt parse
+      let parsed; try { parsed = typeof response === 'string' ? JSON.parse(response) : response; } catch { parsed = null; }
 
     let data;
     if (!response.ok) {
@@ -236,13 +235,14 @@ uploadButton.addEventListener('click', () => {
     } else {
       data = await response.json();
     }
-    elements.imageUrlInput.value = data.url;
-    elements.imagePreview.src = data.url;
+  const finalUrl = (parsed?.url) || (data?.url) || (typeof response === 'object' && response?.url) || '';
+  elements.imageUrlInput.value = finalUrl;
+  elements.imagePreview.src = finalUrl;
     elements.imagePreview.classList.remove('hidden');
-    showNotification('Image uploaded successfully');
+    toastSuccess('Image uploaded successfully');
   } catch (error) {
     console.error('Upload error:', error);
-    showNotification(error.message || 'Failed to upload image', 'error');
+    toastError(error.message || 'Failed to upload image');
   } finally {
     uploadButton.disabled = false;
     uploadButton.textContent = 'Upload Image';
@@ -272,7 +272,7 @@ elements.imageUrlInput.addEventListener("input", () => {
         model: state.currentModelFilter,
       });
 
-      const response = await fetch(`/api/avatars?${params}`);
+      const response = await apiFetch(`/api/avatars?${params}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -373,7 +373,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     try {
       elements.avatarModal.classList.remove("hidden");
       elements.modalTitle.textContent = "Loading Avatar Data...";
-      const response = await fetch(`/api/admin/avatars/${avatarId}`);
+  const response = await apiFetch(`/api/admin/avatars/${avatarId}`);
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       const avatar = await response.json();
       elements.modalTitle.textContent = `Edit Avatar: ${avatar.name}`;
@@ -383,7 +383,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     } catch (error) {
       console.error("Error fetching avatar:", error);
       closeModal();
-      showNotification("Failed to load avatar details", "error");
+      toastError("Failed to load avatar details");
     }
   }
 
@@ -421,12 +421,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     elements.saveBtn.textContent = "Saving...";
 
     try {
-      const headers = await getSignedHeaders({ op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId });
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify(Object.fromEntries(formData)),
-      });
+      const response = await apiFetch(url, { method, body: Object.fromEntries(formData), sign: true, signMeta: { op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId }, requireCsrf: true });
       if (!response.ok) {
         let msg = `Save failed (${response.status})`;
         try { const j = await response.json(); if (j?.error) msg += `: ${j.error}`; } catch {}
@@ -438,19 +433,19 @@ elements.imageUrlInput.addEventListener("input", () => {
         const getRes = await fetch(`/api/admin/avatars/${avatarId}`);
         updatedAvatar = await getRes.json();
         populateForm(updatedAvatar);
-        showNotification("Avatar updated successfully");
+        toastSuccess("Avatar updated successfully");
       } else {
         // For new avatar, close modal and reload list
         closeModal();
         loadAvatars();
-        showNotification("Avatar created successfully");
+        toastSuccess("Avatar created successfully");
         return;
       }
       // Also reload avatars list in the background
       loadAvatars();
     } catch (error) {
       console.error("Error saving avatar:", error);
-      showNotification(error.message || "Failed to save avatar", "error");
+      toastError(error.message || "Failed to save avatar");
     } finally {
       elements.saveBtn.disabled = false;
       elements.saveBtn.textContent = "Save Changes";
@@ -463,18 +458,14 @@ elements.imageUrlInput.addEventListener("input", () => {
       return;
 
     try {
-      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
-      const response = await fetch(`/api/admin/avatars/${avatarId}`, {
-        method: "DELETE",
-        headers
-      });
+      const response = await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true, json: true });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       closeModal();
       loadAvatars();
-      showNotification("Avatar deleted successfully");
+      toastSuccess("Avatar deleted successfully");
     } catch (error) {
       console.error("Error deleting avatar:", error);
-      showNotification("Failed to delete avatar", "error");
+      toastError("Failed to delete avatar");
     }
   }
 
@@ -482,19 +473,15 @@ elements.imageUrlInput.addEventListener("input", () => {
   async function deleteAvatar(avatarId) {
     if (!avatarId) return;
     try {
-      const headers = await getSignedHeaders({ op: 'delete_avatar', id: avatarId });
-      const response = await fetch(`/api/admin/avatars/${avatarId}`, {
-        method: "DELETE",
-        headers
-      });
+      const response = await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true });
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       // If modal is open for this avatar, close it
       if (elements.avatarForm.dataset.avatarId === avatarId) closeModal();
       loadAvatars();
-      showNotification("Avatar deleted successfully");
+      toastSuccess("Avatar deleted successfully");
     } catch (error) {
       console.error("Error deleting avatar:", error);
-      showNotification("Failed to delete avatar", "error");
+      toastError("Failed to delete avatar");
     }
   }
 
@@ -503,16 +490,7 @@ elements.imageUrlInput.addEventListener("input", () => {
   }
 
   // Utility Functions
-  function showNotification(message, type = "success") {
-    const container = document.createElement("div");
-    container.className = "fixed bottom-4 right-4 z-50";
-    const notification = document.createElement("div");
-    notification.className = `p-3 rounded shadow-lg ${type === "success" ? "bg-green-500" : "bg-red-500"} text-white`;
-    notification.textContent = message;
-    container.appendChild(notification);
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 3000);
-  }
+  // Legacy showNotification replaced by toasts (toastSuccess/toastError)
 
   function getStatusColor(status) {
     return (
@@ -559,7 +537,7 @@ elements.imageUrlInput.addEventListener("input", () => {
 
   async function searchAvatars(query) {
     try {
-      const response = await fetch(`/api/avatars/search?name=${encodeURIComponent(query)}`);
+  const response = await apiFetch(`/api/avatars/search?name=${encodeURIComponent(query)}`);
       if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       const data = await response.json();
       const avatars = data.avatars || [];

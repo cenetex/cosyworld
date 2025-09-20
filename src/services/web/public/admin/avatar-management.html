@@ -9,40 +9,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Avatar Management - Admin Dashboard</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
+    <!-- Shared Admin Styles -->
+    <link rel="stylesheet" href="/css/admin-common.css" />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   </head>
   <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col">
-      <!-- Navigation -->
-      <nav class="bg-gray-800 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
-              </div>
-              <div class="ml-10 flex items-baseline space-x-4">
-                <a
-                  href="/admin"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700"
-                  >Dashboard</a
-                >
-                <a
-                  href="/admin/entity-management"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700"
-                  >Entity Management</a>
-                <a
-                  href="/admin/settings"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700"
-                  >Settings</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <!-- Legacy nav replaced at runtime by admin-shell.js -->
+      <nav data-legacy-nav class="hidden"></nav>
 
       <!-- Main Content -->
       <main class="flex-grow">
@@ -361,17 +335,11 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <footer class="bg-white">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <p class="text-center text-sm text-gray-500">
-            RATi Swarm Admin Panel © 2024
-          </p>
-        </div>
-      </footer>
+      <!-- Footer injected by shell -->
     </div>
 
-    <!-- External JavaScript -->
-    <script src="../js/avatar-management.js"></script>
+    <!-- Shared Admin Bootstrap (injects shell + exposes AdminAPI/AdminUI/AdminAuth) -->
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/avatar-management.js"></script>
   </body>
 </html>

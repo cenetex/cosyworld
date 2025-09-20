@@ -4,6 +4,9 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  const api = window.AdminAPI;
+  const ui = window.AdminUI;
+  const auth = window.AdminAuth;
   // DOM Elements
   const elements = {
     xAccountsBody: document.getElementById("x-accounts-body"),
@@ -22,10 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Helper to produce signed headers for admin writes
-  async function getSignedHeaders(extra) {
-    const mod = await import('./services/wallet.js');
-    return mod.signWriteHeaders(extra);
-  }
+  async function getSignedHeaders(extra) { return auth.getSignedHeaders(extra); }
 
   // X Accounts Functions
   async function loadXAccounts() {
@@ -33,11 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
       elements.xAccountsBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Loading X accounts...</td></tr>';
 
       // Fetch all X auth records with avatar details
-      const response = await fetch('/api/admin/x-accounts');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await api.apiFetch('/api/admin/x-accounts');
 
       if (data.error) {
         throw new Error(data.error);
@@ -51,7 +47,8 @@ document.addEventListener("DOMContentLoaded", () => {
         renderXAccounts(xAccounts);
       }
     } catch (error) {
-      console.error("Error loading X accounts:", error);
+  console.error("Error loading X accounts:", error);
+  ui.error(error.message || 'Failed to load X accounts');
       elements.xAccountsBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-red-500">Failed to load X accounts</td></tr>';
     }
   }
@@ -142,19 +139,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupRowEventListeners() {
     document.querySelectorAll(".disconnect-x").forEach((button) => {
-      button.addEventListener("click", () =>
-        disconnectX(button.dataset.avatarId),
-      );
+      button.addEventListener("click", () => disconnectX(button.dataset.avatarId));
     });
     document.querySelectorAll(".connect-x").forEach((button) => {
-      button.addEventListener("click", () =>
-        connectX(button.dataset.avatarId),
-      );
+      button.addEventListener("click", () => connectX(button.dataset.avatarId));
     });
     document.querySelectorAll(".reauthorize-x").forEach((button) => {
-      button.addEventListener("click", () =>
-        reauthorizeX(button.dataset.avatarId),
-      );
+      button.addEventListener("click", () => reauthorizeX(button.dataset.avatarId));
     });
   }
 
@@ -162,35 +153,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!confirm("Are you sure you want to disconnect this X account?")) return;
 
     try {
-      const headers = await getSignedHeaders({ op: 'disconnect_x', avatarId });
-      const response = await fetch(`/api/xauth/disconnect/${avatarId}`, {
-        method: "POST",
-        headers
-      });
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-      loadXAccounts();
-      showNotification("X account disconnected successfully");
+      await api.apiFetch(`/api/xauth/disconnect/${avatarId}`, { method: 'POST', sign: true, signMeta: { op: 'disconnect_x', avatarId }, requireCsrf: true });
+      await loadXAccounts();
+      ui.success('X account disconnected');
     } catch (error) {
       console.error("Error disconnecting X account:", error);
-      showNotification("Failed to disconnect X account", "error");
+      ui.error(error.message || 'Disconnect failed');
     }
   }
 
   async function connectX(avatarId) {
     // For admin purposes, we might need to implement a way to connect
     // This would require wallet signature, so it's complex for admin panel
-    showNotification("Please use the avatar's X connection feature from the main interface", "error");
+    ui.error("Use avatar's main interface to connect new X account");
   }
 
   async function reauthorizeX(avatarId) {
     try {
       // Start admin-permitted OAuth flow for this avatar
-      const res = await fetch(`/api/xauth/admin/auth-url/${avatarId}`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await api.apiFetch(`/api/xauth/admin/auth-url/${avatarId}`);
       const w = 600, h = 650;
       const l = window.screen.width / 2 - w / 2;
       const t = window.screen.height / 2 - h / 2;
@@ -202,31 +183,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
           window.removeEventListener('message', onMsg);
           await loadXAccounts();
-          if (ev.data?.type === 'X_AUTH_SUCCESS') {
-            showNotification('X account re-authorized successfully');
-          } else {
-            showNotification('X re-authorization failed', 'error');
-          }
+          if (ev.data?.type === 'X_AUTH_SUCCESS') ui.success('X account re-authorized');
+          else ui.error('X re-authorization failed');
         }
       };
       window.addEventListener('message', onMsg);
     } catch (e) {
       console.error('Re-authorize failed', e);
-      showNotification(`Failed to re-authorize: ${e.message}`, 'error');
+      ui.error(e.message || 'Re-authorize failed');
     }
   }
 
   // Utility Functions
-  function showNotification(message, type = "success") {
-    const container = document.createElement("div");
-    container.className = "fixed bottom-4 right-4 z-50";
-    const notification = document.createElement("div");
-    notification.className = `p-3 rounded shadow-lg ${type === "success" ? "bg-green-500" : "bg-red-500"} text-white`;
-    notification.textContent = message;
-    container.appendChild(notification);
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 3000);
-  }
+  // Legacy showNotification replaced by AdminUI toasts
 
   function getStatusColor(authorized) {
     return authorized ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
