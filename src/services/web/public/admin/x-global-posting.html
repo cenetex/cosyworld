@@ -56,11 +56,7 @@
                         <option value="shadow">shadow</option>
                       </select>
                     </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Global Avatar ID (optional)</label>
-                      <input type="text" id="cfg-globalAvatarId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="avatarId or leave blank" />
-                      <p class="text-xs text-gray-500 mt-1">Leave blank to use the designated Global X Account (set in X Accounts page)</p>
-                    </div>
+                    <!-- globalAvatarId removed: global account inferred from first auth marked {global:true} or latest auth -->
                     <div>
                       <label class="block text-sm font-medium text-gray-700">Hourly Rate Limit</label>
                       <input type="number" id="cfg-rate-hourly" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="5" />

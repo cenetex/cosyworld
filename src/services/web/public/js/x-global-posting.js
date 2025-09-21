@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const els = {
     enabled: document.getElementById('cfg-enabled'),
     mode: document.getElementById('cfg-mode'),
-    globalAvatarId: document.getElementById('cfg-globalAvatarId'),
     rateHourly: document.getElementById('cfg-rate-hourly'),
     hashtags: document.getElementById('cfg-hashtags'),
     altAutogen: document.getElementById('cfg-altAutogen'),
@@ -62,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function setForm(cfg) {
     els.enabled.value = String(cfg.enabled === undefined ? false : !!cfg.enabled);
     els.mode.value = cfg.mode === 'shadow' ? 'shadow' : 'live';
-    els.globalAvatarId.value = cfg.globalAvatarId || '';
     els.rateHourly.value = cfg?.rate?.hourly || '';
     els.hashtags.value = Array.isArray(cfg.hashtags) ? cfg.hashtags.join(',') : '';
     els.altAutogen.checked = !!(cfg.media && cfg.media.altAutogen);
@@ -73,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = {
       enabled: els.enabled.value === 'true',
       mode: els.mode.value,
-      globalAvatarId: els.globalAvatarId.value.trim() || undefined,
       rate: { hourly: els.rateHourly.value ? Number(els.rateHourly.value) : undefined },
       hashtags,
       media: { altAutogen: !!els.altAutogen.checked },

@@ -818,65 +818,7 @@ Hello ${avatar.name}, what's on your mind today?
     }
   }));
 
-  // ------- Global X Posting Config Endpoints -------
-  router.get('/x-posting/config', asyncHandler(async (req, res) => {
-    try {
-      const doc = await db.collection('x_post_config').findOne({ _id: 'global' }, { projection: { enabled: 1 } });
-      res.json({ config: doc ? { enabled: !!doc.enabled } : { enabled: false } });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  }));
-
-  router.put('/x-posting/config', asyncHandler(async (req, res) => {
-    try {
-      const enabled = !!req.body?.enabled;
-      // Debug logging (non-production) to trace signer & header receipt
-      if (process.env.NODE_ENV !== 'production') {
-        try {
-          const signer = req.signer || null;
-          console.log('[x-posting][PUT /config] incoming', {
-            enabled,
-            hasSigner: !!signer,
-            signerAddr: signer?.walletAddress,
-            signerOp: signer?.payload?.op,
-            tsAgeMs: signer?.payload?.ts ? (Date.now() - signer.payload.ts) : null
-          });
-          if (!signer) {
-            console.log('[x-posting][PUT /config] headers snapshot', {
-              addr: req.get('x-wallet-address'),
-              hasMsg: !!req.get('x-message'),
-              hasSig: !!req.get('x-signature'),
-              csrf: req.get('x-csrf-token') ? 'present' : 'missing'
-            });
-          }
-        } catch (e) { console.warn('[x-posting][PUT /config] debug logging failed', e); }
-      }
-      await db.collection('x_post_config').updateOne({ _id: 'global' }, { $set: { enabled, updatedAt: new Date() } }, { upsert: true });
-      try { if (services?.xService) services.xService._globalPostCfg = null; } catch {}
-      res.json({ config: { enabled } });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  }));
-
-  // Diagnostics: last global post attempt (internal admin debug)
-  router.get('/x-posting/diagnostics/last-attempt', asyncHandler(async (req, res) => {
-    try {
-      const info = services?.xService?._lastGlobalPostAttempt || null;
-      res.json({ lastAttempt: info });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  }));
-
-  // Manual test trigger for global X posting (admin only debug)
-  router.post('/x-posting/test', asyncHandler(async (req, res) => {
-    try {
-      const { mediaUrl, text, type = 'image' } = req.body || {};
-      if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
-      if (!['image','video'].includes(type)) return res.status(400).json({ error: 'type must be image|video' });
-      if (!services?.xService) return res.status(500).json({ error: 'xService unavailable' });
-      const result = await services.xService.postGlobalMediaUpdate({ mediaUrl, text: text || 'Test Post', type });
-      res.json({ ok: true, result });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  }));
+  // (Removed) Global X Posting endpoints deprecated – configuration now implicit via x_auth records.
 
 
   // Add admin routes to main router (mounted at /api/admin in app.js)

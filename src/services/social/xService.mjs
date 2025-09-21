@@ -560,7 +560,7 @@ class XService {
    *   {
    *     _id: 'global',
    *     enabled: true,
-   *     globalAvatarId: <avatarId linked to main X account>,
+  *     (DEPRECATED) globalAvatarId: <removed – global account now inferred automatically>,
    *     media: { altAutogen: true },
    *     rate: { hourly: 5 },
    *     hashtags: ['CosyWorld'],
@@ -589,31 +589,29 @@ class XService {
         return null;
       }
 
-      // Simplified: resolve ONLY the admin-linked account. The admin avatar id is determined
-      // deterministically by config/environment; no more global flag juggling.
+      // Global account selection: prefer record explicitly marked { global: true }, otherwise most recent valid auth.
+      // ADMIN_AVATAR_ID & globalAvatarId are deprecated – automatic inference reduces configuration burden.
       let accessToken = null;
       try {
         const db = await this.databaseService.getDatabase();
-        const adminAvatarId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim() || null;
-        let auth = null;
-        if (adminAvatarId) {
-          auth = await db.collection('x_auth').findOne({ avatarId: adminAvatarId }, { sort: { updatedAt: -1 } });
-        }
+        // 1. Prefer an auth marked global
+        let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+        // 2. Fallback to most recently updated auth record with a token
         if (!auth) {
-          // Fallback: first record acts as admin-linked implicitly (legacy behavior)
-          auth = await db.collection('x_auth').findOne({}, { sort: { updatedAt: -1 } });
-          if (auth) this.logger?.warn?.('[XService][globalPost] Using first available X auth record (no ADMIN_AVATAR_ID set).');
+          auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
         }
         if (auth?.accessToken) {
           accessToken = safeDecrypt(auth.accessToken);
-          this.logger?.debug?.('[XService][globalPost] resolved admin access token', { avatarId: auth.avatarId || null });
+          this.logger?.debug?.('[XService][globalPost] resolved global access token', { avatarId: auth.avatarId || null, global: !!auth.global });
+        } else {
+          this.logger?.warn?.('[XService][globalPost] No global X auth record found (add one via admin panel).');
         }
       } catch (e) {
-        this.logger?.warn?.('[XService][globalPost] admin auth resolution failed: ' + e.message);
+        this.logger?.warn?.('[XService][globalPost] global auth resolution failed: ' + e.message);
       }
       if (!accessToken) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'no_access_token', mediaUrl: opts.mediaUrl };
-        this.logger?.warn?.('[XService][globalPost] No admin-linked X access token found. Authorize an X account (admin flow).');
+        this.logger?.warn?.('[XService][globalPost] No X access token available. Authorize at least one X account.');
         return null;
       }
       const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
