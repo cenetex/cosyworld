@@ -18,6 +18,8 @@ import { MessageHandler } from './services/chat/messageHandler.mjs';
 import { ToolService } from './services/tools/ToolService.mjs';
 import { AIModelService } from './services/ai/aiModelService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
+import { GuildConnectionRepository } from './dal/GuildConnectionRepository.mjs';
+import { publishEvent } from './events/envelope.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
@@ -58,7 +60,14 @@ container.register({
   secretsService: asValue(secretsService),
   configService: asValue(configService),
   // Keep ItemService explicit as an example singleton
-  itemService: asClass(ItemService).singleton()
+  itemService: asClass(ItemService).singleton(),
+  guildConnectionRepository: asClass(GuildConnectionRepository).singleton()
+});
+
+// Provide a lightweight eventPublisher wrapper for services that expect an injected publisher.
+// This can later be expanded (e.g., to add tracing, buffering, or external bus forwarding) without changing dependents.
+container.register({
+  eventPublisher: asFunction(() => ({ publishEvent })).singleton()
 });
 
 // Make the container available for injection under the name 'services'
