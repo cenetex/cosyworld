@@ -41,7 +41,7 @@
         },
         "admin": {
           "type": "object",
-            "required": ["enabled", "loginPath", "gateAll"],
+          "required": ["enabled", "loginPath", "gateAll"],
             "properties": {
               "enabled": {"type": "boolean"},
               "loginPath": {"type": "string"},
