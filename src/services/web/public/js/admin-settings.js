@@ -151,53 +151,18 @@ async function refreshGuildList() {
   await load();
 }
 
-// Detected guilds rendering
-async function loadDetectedGuilds() {
-  const section = document.getElementById('detectedGuildsSection');
-  const countEl = document.getElementById('detectedCount');
-  const container = document.getElementById('detectedGuildsContainer');
-  if (!section || !container) return;
+async function updateDetectedServersCount() {
   try {
-    const list = await fetchJSON('/api/guilds/detected');
-    const items = Array.isArray(list) ? list : [];
-    if (items.length) section.classList.remove('hidden'); else section.classList.add('hidden');
-    if (countEl) countEl.textContent = items.length ? `(${items.length})` : '';
-    container.innerHTML = '';
-    for (const g of items) {
-      const id = g.id || g.guildId;
-      const name = g.name || g.guildName || id;
-      const card = document.createElement('div');
-      card.className = 'flex items-center justify-between p-2 border rounded bg-white';
-      const left = document.createElement('div');
-      left.className = 'flex items-center gap-3';
-      const img = document.createElement('img');
-      img.src = g.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
-      img.className = 'w-8 h-8 rounded bg-gray-200 border';
-      const nameBox = document.createElement('div');
-      nameBox.innerHTML = `<div class="font-medium">${name}</div><div class="text-xs text-gray-500">ID: ${id}</div>`;
-      left.append(img, nameBox);
-      const right = document.createElement('div');
-      right.className = 'flex items-center gap-2';
-      const authBtn = document.createElement('button');
-      authBtn.className = 'px-3 py-1 bg-green-600 text-white rounded text-sm';
-      authBtn.textContent = 'Authorize';
-      authBtn.addEventListener('click', withButtonLoading(authBtn, async () => {
-        try {
-          await fetchJSON(`/api/guilds/${encodeURIComponent(id)}/authorize`, { method: 'POST' });
-          success('Guild authorized');
-          await Promise.all([loadDetectedGuilds(), refreshGuildList()]);
-        } catch (e) {
-          toastError(e.message || 'Failed to authorize');
-        }
-      }));
-      right.appendChild(authBtn);
-      card.append(left, right);
-      container.appendChild(card);
-    }
-  } catch (e) {
-    console.error('Failed to load detected guilds', e);
-  }
+    const res = await fetch('/api/guilds/detected');
+    if (!res.ok) return;
+    const data = await res.json();
+    const count = Array.isArray(data) ? data.length : 0;
+    const span = document.getElementById('detectedServersCount');
+    if (span) span.textContent = count ? `(${count})` : '';
+  } catch {}
 }
+
+// Detected guilds moved to /admin/servers
 
 function renderSettingRow(item, guildId) {
   const wrap = document.createElement('div');
@@ -368,6 +333,7 @@ async function load() {
     secretsList.innerHTML = '';
     secrets.forEach(s => secretsList.appendChild(renderSecretRow(s, guildId)));
   }
+    updateDetectedServersCount();
 }
 
 // Events
@@ -484,9 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await deleteGuildConfig(selectedGuildId);
     success('Guild config deleted');
   }));
-  document.getElementById('refreshDetected')?.addEventListener('click', () => loadDetectedGuilds());
-  // initial detected guilds load
-  loadDetectedGuilds();
+  // detected guilds removed from settings page
   // Tab wiring (default Prompts active)
   const tabPrompts = document.getElementById('tabPrompts');
   const tabSettings = document.getElementById('tabSettings');
@@ -510,4 +474,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabSettings?.addEventListener('click', () => activate(tabSettings));
   tabSecrets?.addEventListener('click', () => activate(tabSecrets));
   activate(tabPrompts);
+
 });

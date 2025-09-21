@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global X Posting - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0"><h1 class="text-xl font-bold">RATi Admin Panel</h1></div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
+                <a href="/admin/x-global-posting" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Global X Posting</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main class="flex-grow">
+        <div class="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div class="px-4 py-6 sm:px-0">
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                <div>
+                  <h2 class="text-lg leading-6 font-medium text-gray-900">Global X Posting Configuration</h2>
+                  <p class="mt-1 max-w-2xl text-sm text-gray-500">Control automatic global media posts</p>
+                </div>
+                <div class="flex space-x-2">
+                  <button id="refresh-config" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Refresh</button>
+                  <button id="test-post" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Test Post</button>
+                </div>
+              </div>
+              <div class="border-t border-gray-200 px-4 py-5 sm:p-6 space-y-6">
+                <form id="global-x-form" class="space-y-6">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Enabled</label>
+                      <select name="enabled" id="cfg-enabled" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Mode</label>
+                      <select name="mode" id="cfg-mode" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <option value="live">live</option>
+                        <option value="shadow">shadow</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Global Avatar ID (optional)</label>
+                      <input type="text" id="cfg-globalAvatarId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="avatarId or leave blank" />
+                      <p class="text-xs text-gray-500 mt-1">Leave blank to use the designated Global X Account (set in X Accounts page)</p>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Hourly Rate Limit</label>
+                      <input type="number" id="cfg-rate-hourly" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="5" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700">Hashtags (comma separated)</label>
+                    <input type="text" id="cfg-hashtags" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="CosyWorld,AnotherTag" />
+                  </div>
+                  <div>
+                    <label class="inline-flex items-center">
+                      <input type="checkbox" id="cfg-altAutogen" class="h-4 w-4 text-indigo-600 border-gray-300 rounded" />
+                      <span class="ml-2 text-sm text-gray-700">Auto-generate alt text for images</span>
+                    </label>
+                  </div>
+                  <div class="flex justify-end space-x-3">
+                    <button type="button" id="save-config" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Save Configuration</button>
+                  </div>
+                </form>
+                <div id="config-status" class="text-xs text-gray-500"></div>
+              </div>
+            </div>
+            <div class="mt-6 bg-white shadow sm:rounded-lg p-4">
+              <h3 class="text-sm font-medium text-gray-900 mb-2">Recent Diagnostics</h3>
+              <pre id="diag-log" class="text-xs bg-gray-50 p-3 rounded border overflow-auto max-h-52">(Use test post to see immediate feedback)</pre>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer class="bg-white"><div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8"><p class="text-center text-sm text-gray-500">RATi Swarm Admin Panel © 2024</p></div></footer>
+    </div>
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/x-global-posting.js"></script>
+  </body>
+</html>

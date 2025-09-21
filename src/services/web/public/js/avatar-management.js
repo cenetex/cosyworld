@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.cancelEdit.addEventListener("click", closeModal);
 
     // Preview Prompt button
-    document.getElementById("preview-prompt").addEventListener("click", withButtonLoading(document.getElementById("preview-prompt"), async () => {
+  document.getElementById("preview-prompt").addEventListener("click", withButtonLoading(document.getElementById("preview-prompt"), async () => {
       const avatarId = elements.avatarForm.dataset.avatarId;
       if (!avatarId) {
         toastError("Save the avatar first to preview prompts");
@@ -170,10 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         previewContent.innerHTML = "Loading preview...";
         previewContainer.classList.remove("hidden");
         
-        const response = await apiFetch(`/api/admin/avatars/${avatarId}/preview-prompt`);
-        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-        
-        const data = await response.json();
+  const data = await apiFetch(`/api/admin/avatars/${avatarId}/preview-prompt`);
         previewContent.innerHTML = data.prompt || "No prompt preview available";
       } catch (error) {
         console.error("Error fetching prompt preview:", error);
@@ -223,19 +220,8 @@ uploadButton.addEventListener('click', withButtonLoading(uploadButton, async () 
     uploadButton.disabled = true;
     uploadButton.textContent = 'Uploading...';
 
-      const response = await apiFetch('/api/admin/upload-image', { method: 'POST', body: formData, sign: true, signMeta: { op: 'upload_image' }, requireCsrf: true, json: false });
-      // When json:false we receive text; attempt parse
-      let parsed; try { parsed = typeof response === 'string' ? JSON.parse(response) : response; } catch { parsed = null; }
-
-    let data;
-    if (!response.ok) {
-      let errMsg = `Upload failed (${response.status})`;
-      try { const j = await response.json(); if (j?.error) errMsg += `: ${j.error}`; } catch {}
-      throw new Error(errMsg);
-    } else {
-      data = await response.json();
-    }
-  const finalUrl = (parsed?.url) || (data?.url) || (typeof response === 'object' && response?.url) || '';
+      const data = await apiFetch('/api/admin/upload-image', { method: 'POST', body: formData, sign: true, signMeta: { op: 'upload_image' }, requireCsrf: true });
+  const finalUrl = data?.url || '';
   elements.imageUrlInput.value = finalUrl;
   elements.imagePreview.src = finalUrl;
     elements.imagePreview.classList.remove('hidden');
@@ -272,11 +258,7 @@ elements.imageUrlInput.addEventListener("input", () => {
         model: state.currentModelFilter,
       });
 
-      const response = await apiFetch(`/api/avatars?${params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiFetch(`/api/avatars?${params}`);
       
       if (data.error) {
         throw new Error(data.error);
@@ -373,9 +355,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     try {
       elements.avatarModal.classList.remove("hidden");
       elements.modalTitle.textContent = "Loading Avatar Data...";
-  const response = await apiFetch(`/api/admin/avatars/${avatarId}`);
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-      const avatar = await response.json();
+    const avatar = await apiFetch(`/api/admin/avatars/${avatarId}`);
       elements.modalTitle.textContent = `Edit Avatar: ${avatar.name}`;
       elements.avatarForm.dataset.avatarId = avatarId;
       elements.deleteAvatarBtn.classList.remove("hidden");
@@ -421,17 +401,11 @@ elements.imageUrlInput.addEventListener("input", () => {
     elements.saveBtn.textContent = "Saving...";
 
     try {
-      const response = await apiFetch(url, { method, body: Object.fromEntries(formData), sign: true, signMeta: { op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId }, requireCsrf: true });
-      if (!response.ok) {
-        let msg = `Save failed (${response.status})`;
-        try { const j = await response.json(); if (j?.error) msg += `: ${j.error}`; } catch {}
-        throw new Error(msg);
-      }
+      await apiFetch(url, { method, body: Object.fromEntries(formData), sign: true, signMeta: { op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId }, requireCsrf: true });
       // Fetch the updated avatar and refresh the modal fields
       let updatedAvatar;
       if (avatarId) {
-        const getRes = await fetch(`/api/admin/avatars/${avatarId}`);
-        updatedAvatar = await getRes.json();
+  updatedAvatar = await apiFetch(`/api/admin/avatars/${avatarId}`);
         populateForm(updatedAvatar);
         toastSuccess("Avatar updated successfully");
       } else {
@@ -458,8 +432,7 @@ elements.imageUrlInput.addEventListener("input", () => {
       return;
 
     try {
-      const response = await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true, json: true });
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true });
       closeModal();
       loadAvatars();
       toastSuccess("Avatar deleted successfully");
@@ -473,8 +446,7 @@ elements.imageUrlInput.addEventListener("input", () => {
   async function deleteAvatar(avatarId) {
     if (!avatarId) return;
     try {
-      const response = await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true });
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+  await apiFetch(`/api/admin/avatars/${avatarId}`, { method: 'DELETE', sign: true, signMeta: { op: 'delete_avatar', id: avatarId }, requireCsrf: true });
       // If modal is open for this avatar, close it
       if (elements.avatarForm.dataset.avatarId === avatarId) closeModal();
       loadAvatars();
@@ -537,9 +509,7 @@ elements.imageUrlInput.addEventListener("input", () => {
 
   async function searchAvatars(query) {
     try {
-  const response = await apiFetch(`/api/avatars/search?name=${encodeURIComponent(query)}`);
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-      const data = await response.json();
+    const data = await apiFetch(`/api/avatars/search?name=${encodeURIComponent(query)}`);
       const avatars = data.avatars || [];
 
       if (avatars.length === 0) {

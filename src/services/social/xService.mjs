@@ -553,6 +553,218 @@ class XService {
     }, intervalMs);
     this.logger?.info?.('[XService] Scheduled X posting enabled');
   }
+
+  /**
+   * Post a media update (image or video) from the GLOBAL account (not per-avatar auth) when enabled.
+   * Primary control now sourced from `x_post_config` collection (document id "global"):
+   *   {
+   *     _id: 'global',
+   *     enabled: true,
+   *     globalAvatarId: <avatarId linked to main X account>,
+   *     media: { altAutogen: true },
+   *     rate: { hourly: 5 },
+   *     hashtags: ['CosyWorld'],
+   *     mode: 'live' | 'shadow'
+   *   }
+   * If the config doc is missing, we fallback to legacy env gating for backward compatibility.
+   * @param {Object} opts
+   * @param {string} opts.mediaUrl - Direct URL to image/video (fetchable over HTTP(S))
+   * @param {string} opts.text - Primary tweet text (will be truncated to 280 chars)
+   * @param {string} [opts.altText] - Optional alt text override (<= 1000 chars)
+   * @param {('image'|'video')} [opts.type='image'] - Media type
+   * @param {Object} [services] - Optional dependency bag { aiService }
+   * @returns {Promise<{tweetId:string,tweetUrl:string} | null>} null when gated/disabled
+   */
+  async postGlobalMediaUpdate(opts = {}, services = {}) {
+    try {
+      this.logger?.debug?.('[XService][globalPost] invoked', {
+        mediaUrl: opts.mediaUrl,
+        type: opts.type || 'image',
+        textLen: opts.text ? String(opts.text).length : 0
+      });
+      const config = await this._loadGlobalPostingConfig();
+      if (!config?.enabled) {
+        this.logger?.debug?.('[XService][globalPost] disabled (no config or enabled=false)');
+        return null;
+      }
+
+      // Resolve access token strictly from DB records (priority order):
+      // 1. global flag record (x_auth.global === true)
+      // 2. config.globalAvatarId mapping
+      // 3. Any single most recently updated x_auth (as a last-ditch fallback)
+      let accessToken = null;
+      try {
+        const db = await this.databaseService.getDatabase();
+        let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+        if (!auth && config.globalAvatarId) {
+          auth = await db.collection('x_auth').findOne({ avatarId: config.globalAvatarId }, { sort: { updatedAt: -1 } });
+        }
+        if (!auth) {
+          auth = await db.collection('x_auth').findOne({}, { sort: { updatedAt: -1 } });
+          if (auth) this.logger?.warn?.('[XService][globalPost] Falling back to most recent x_auth record (no global flag set).');
+        }
+        if (auth?.accessToken) {
+          accessToken = safeDecrypt(auth.accessToken);
+          this.logger?.debug?.('[XService][globalPost] resolved access token from DB', { global: !!auth.global, avatarId: auth.avatarId || null });
+        }
+      } catch (e) {
+        this.logger?.warn?.('[XService][globalPost] auth resolution failed: ' + e.message);
+      }
+      if (!accessToken) {
+        this.logger?.warn?.('[XService][globalPost] No DB access token found. Set one X account as global via /admin/x-accounts.');
+        return null;
+      }
+      const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
+      if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
+        this.logger?.warn?.('[XService][globalPost] Invalid mediaUrl');
+        return null;
+      }
+
+      // Simple hour bucket limiter (in-memory). Good enough for MVP; restart resets window.
+      const now = Date.now();
+      if (!this._globalRate) this._globalRate = { windowStart: now, count: 0 };
+      const hourMs = 3600_000;
+      if (now - this._globalRate.windowStart >= hourMs) {
+        this._globalRate.windowStart = now; this._globalRate.count = 0;
+      }
+  const hourlyCap = 10; // constant cap to protect against runaway posting
+      if (this._globalRate.count >= hourlyCap) {
+        this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
+        return null;
+      }
+      this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
+
+      const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+      const v2 = twitterClient.v2;
+      const isVideo = type === 'video';
+
+      // Fetch media
+      const res = await fetch(mediaUrl);
+      if (!res.ok) throw new Error(`media fetch failed ${res.status}`);
+      const buffer = Buffer.from(await res.arrayBuffer());
+      let mimeType = res.headers.get('content-type')?.split(';')[0]?.trim() || (isVideo ? 'video/mp4' : 'image/png');
+
+      let mediaId;
+      if (isVideo) {
+        // Must use v1 for chunked upload
+        const v1 = twitterClient.v1;
+        mediaId = await v1.uploadMedia(buffer, { mimeType });
+      } else {
+        mediaId = await v2.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+      }
+      if (!mediaId) throw new Error('upload failed');
+
+      // Alt text (images only)
+      let altText = rawAlt;
+      if (!altText && !isVideo && services.aiService?.analyzeImage) {
+        try {
+          altText = await services.aiService.analyzeImage(mediaUrl, mimeType, 'Provide concise accessible alt text (<=240 chars).');
+          if (altText) altText = String(altText).slice(0, 1000);
+        } catch (e) { this.logger?.warn?.(`[XService][globalPost] alt generation failed: ${e.message}`); }
+      }
+      if (altText && !isVideo) {
+        try { await v2.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) }); } catch (e) { this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`); }
+      }
+
+      // Caption generation: if no text provided, attempt AI caption (image/video aware)
+      let baseText = String(text || '').trim();
+      if (!baseText && services.aiService?.analyzeImage && !isVideo) {
+        try {
+          const caption = await services.aiService.analyzeImage(
+            mediaUrl,
+            mimeType,
+            'Write a short, engaging, brand-safe caption (<=160 chars) describing this image. Avoid hashtags except CosyWorld. No quotes.'
+          );
+          if (caption) baseText = String(caption).replace(/[#\n\r]+/g, ' ').trim();
+        } catch (e) { this.logger?.debug?.('[XService][globalPost] caption generation failed: ' + e.message); }
+      }
+      if (!baseText) baseText = '';
+      // Ensure single hashtag #CosyWorld appended (unless already present case-insensitively)
+      if (!/#cosyworld/i.test(baseText)) {
+        baseText = (baseText + ' #CosyWorld').trim();
+      }
+      // Truncate to 280 chars final
+      const tweetText = baseText.slice(0, 280) || ' #CosyWorld';
+      const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
+      const tweet = await v2.tweet(payload);
+      if (!tweet?.data?.id) throw new Error('tweet failed');
+
+      this._globalRate.count++;
+
+      // store basic record
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('social_posts').insertOne({
+          global: true,
+          mediaUrl,
+          mediaType: isVideo ? 'video' : 'image',
+          tweetId: tweet?.data?.id || null,
+          content: tweetText,
+          altText: altText || null,
+          shadow: false,
+          createdAt: new Date(),
+        });
+      } catch (e) { this.logger?.warn?.('[XService][globalPost] db insert failed ' + e.message); }
+
+      // Attempt to derive username from token (extra call). Cache once.
+      if (!this._globalUser) {
+        try { const me = await v2.me(); this._globalUser = me?.data?.username || 'user'; } catch { this._globalUser = 'user'; }
+      }
+      const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
+      this.logger?.info?.('[XService][globalPost] posted media', { tweetUrl });
+      return { tweetId: tweet.data.id, tweetUrl };
+    } catch (err) {
+      this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
+      return null;
+    }
+  }
+
+  /** Load (and cache briefly) the global posting config document */
+  async _loadGlobalPostingConfig(force = false) {
+    try {
+      const ttlMs = 30_000; // 30s cache
+      const now = Date.now();
+      if (!force && this._globalPostCfg && (now - this._globalPostCfg._fetchedAt < ttlMs)) {
+        return this._globalPostCfg.data;
+      }
+      const db = await this.databaseService.getDatabase();
+      const doc = await db.collection('x_post_config').findOne({ _id: 'global' });
+      const normalized = doc || null;
+      this._globalPostCfg = { _fetchedAt: now, data: normalized };
+      return normalized;
+    } catch (e) {
+      this.logger?.warn?.('[XService] load global posting config failed: ' + e.message);
+      return null;
+    }
+  }
+
+  async updateGlobalPostingConfig(patch) {
+    if (!patch || typeof patch !== 'object') throw new Error('patch object required');
+    const db = await this.databaseService.getDatabase();
+    await db.collection('x_post_config').updateOne({ _id: 'global' }, { $set: { ...patch, updatedAt: new Date() } }, { upsert: true });
+    // Invalidate cache
+    this._globalPostCfg = null;
+    return this._loadGlobalPostingConfig(true);
+  }
+
+  /** Attempt to refresh an OAuth2 token for a record that may be marked global or generic */
+  async _maybeRefreshAuth(auth) {
+    if (!auth) return null;
+    try {
+      const expired = auth.expiresAt && (new Date() >= new Date(auth.expiresAt));
+      if (expired && auth.refreshToken) {
+        // Reuse refreshAccessToken logic requires avatarId; if absent (pure global), skip.
+        if (auth.avatarId) {
+          const { accessToken } = await this.refreshAccessToken(auth);
+          return accessToken;
+        }
+      }
+      return safeDecrypt(auth.accessToken || '');
+    } catch (e) {
+      this.logger?.warn?.('[XService][globalPost] token refresh failed: ' + e.message);
+      return null;
+    }
+  }
 }
 
 export { XService };

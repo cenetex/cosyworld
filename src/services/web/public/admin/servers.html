@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servers - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <main class="flex-grow">
+        <div class="max-w-6xl mx-auto py-6 px-4">
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div class="flex items-center gap-3">
+                <h2 class="admin-card-title">Servers</h2>
+                <span class="admin-badge" id="serverCounts">—</span>
+              </div>
+              <div class="admin-toolbar">
+                <button id="btnRefreshAll" class="btn outline">Refresh</button>
+              </div>
+            </div>
+            <p class="text-xs text-gray-600 mb-4">Manage authorized and detected servers. Authorize to enable features; deauthorize or delete to revoke. Cache clearing refreshes config state.</p>
+            <div class="grid md:grid-cols-2 gap-6">
+              <div>
+                <h3 class="text-sm font-semibold mb-2">Authorized</h3>
+                <div id="authorizedList" class="space-y-2"></div>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold mb-2">Detected (Unauthorized)</h3>
+                <div id="detectedList" class="space-y-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/admin-servers.js"></script>
+  </body>
+</html>

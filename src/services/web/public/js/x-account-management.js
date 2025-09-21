@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createXAccountRow(xAccount) {
-    const { avatar, xAuth, xProfile } = xAccount;
+    const { avatar, xAuth, xProfile, xAuthId } = xAccount;
 
     return `
       <tr data-avatar-id="${avatar._id}">
@@ -85,6 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(xAuth.authorized)}">
             ${xAuth.authorized ? 'Connected' : 'Disconnected'}
           </span>
+          ${xAuth.global ? '<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">Global</span>' : ''}
           ${xAuth.error ? `<div class="text-xs text-red-500 mt-1">${xAuth.error}</div>` : ''}
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -93,6 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
           ${xAuth.authorized ? `
             <button data-avatar-id="${avatar._id}" class="reauthorize-x text-indigo-600 hover:text-indigo-900">Re-authorize</button>
+            <button data-avatar-id="${avatar._id}" data-xauth-id="${xAuthId}" class="set-global-x text-green-600 hover:text-green-900 ${xAuth.global ? 'hidden' : ''}">Set Global</button>
             <button data-avatar-id="${avatar._id}" class="disconnect-x text-red-600 hover:text-red-900">Disconnect</button>
           ` : `
             <button data-avatar-id="${avatar._id}" class="connect-x text-blue-600 hover:text-blue-900">Connect</button>
@@ -147,6 +149,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".reauthorize-x").forEach((button) => {
       button.addEventListener("click", () => reauthorizeX(button.dataset.avatarId));
     });
+    document.querySelectorAll('.set-global-x').forEach((button) => {
+      button.addEventListener('click', () => setGlobalX(button.dataset.xauthId));
+    });
   }
 
   async function disconnectX(avatarId) {
@@ -191,6 +196,18 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error('Re-authorize failed', e);
       ui.error(e.message || 'Re-authorize failed');
+    }
+  }
+
+  async function setGlobalX(xAuthId) {
+    if (!xAuthId) return;
+    try {
+      await api.apiFetch('/api/admin/x-posting/global-account', { method: 'POST', sign: true, signMeta: { op: 'set_global_x', xAuthId }, requireCsrf: true, body: JSON.stringify({ xAuthId }), headers: { 'Content-Type': 'application/json' } });
+      ui.success('Global X account set');
+      await loadXAccounts();
+    } catch (e) {
+      console.error('Set global failed', e);
+      ui.error(e.message || 'Set global failed');
     }
   }
 

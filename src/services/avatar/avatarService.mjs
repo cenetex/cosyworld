@@ -567,6 +567,21 @@ export class AvatarService {
     }
     if (!details?.name) return null;
 
+    // Sanitize name: avoid pure numeric / HTTP status or error-looking tokens.
+    try {
+      const orig = details.name.trim();
+      const isHttpCode = /^(?:HTTP_)?(4\d\d|5\d\d)$/.test(orig);
+      const isJustDigits = /^\d{3,}$/.test(orig);
+      if (!orig || isHttpCode || isJustDigits) {
+        const base = 'Wanderer';
+        const suffix = Math.random().toString(36).slice(2,6);
+        details.name = `${base}-${suffix}`;
+        this.logger?.warn?.(`[AvatarService] Renamed generated avatar with invalid/error-like name '${orig}' -> '${details.name}'`);
+      }
+      // Strip any accidental 'Error:' prefixes inserted by malformed upstream responses
+      details.name = details.name.replace(/^Error[:\s-]+/i, '').trim();
+    } catch {}
+
     const existing = await this.getAvatarByName(details.name);
   // If an avatar with this generated name already exists, return it and
   // flag as existing so callers (e.g. SummonTool) can avoid treating it

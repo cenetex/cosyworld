@@ -1,10 +1,17 @@
 import { initializeWallet, signWriteHeaders } from './services/wallet.js'; // initialize still used for wallet readiness
-const polling = window.AdminPolling; // may be undefined very early; bootstrap loads before this
+// Defer grabbing globals until bootstrap ready to avoid race conditions.
+let polling = window.AdminPolling;
+let api = window.AdminAPI;
+let ui = window.AdminUI;
 
-// Integrate with shared AdminAPI/AdminUI (loaded by admin-bootstrap.js)
-// We keep a small adapter so we can still add wallet signature headers for signed writes.
-const api = window.AdminAPI;
-const ui = window.AdminUI;
+function ensureGlobals() {
+  if (!api || !ui) {
+    api = window.AdminAPI;
+    ui = window.AdminUI;
+  }
+  if (!polling) polling = window.AdminPolling;
+  return !!api && !!ui;
+}
 
 // signedApiFetch deprecated in favor of apiFetch({ sign:true })
 
@@ -121,7 +128,11 @@ async function loadConfigs() {
 document.getElementById('cfgForm')?.addEventListener('submit', saveConfig);
 document.getElementById('refresh')?.addEventListener('click', loadConfigs);
 
-document.addEventListener('DOMContentLoaded', () => {
+function initPage() {
+  if (!ensureGlobals()) {
+    // If still not ready, wait for event
+    return;
+  }
   try { initializeWallet(); } catch {}
   loadConfigs();
   const btn = document.getElementById('toggleForm');
@@ -131,8 +142,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (form?.classList.contains('hidden')) form.classList.remove('hidden');
     else form?.classList.add('hidden');
   });
-  // hydrate progress bars on page load
   hydrateProgressBars();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (ensureGlobals()) {
+    initPage();
+  } else {
+    // Wait for bootstrap readiness event
+    const onReady = () => { window.removeEventListener('admin:bootstrapReady', onReady); initPage(); };
+    window.addEventListener('admin:bootstrapReady', onReady);
+  }
 });
 
 // --- Inline card progress bars ---

@@ -777,7 +777,7 @@ Hello ${avatar.name}, what's on your mind today?
   // Get all X accounts with avatar details
   router.get('/x-accounts', asyncHandler(async (req, res) => {
     try {
-      const xAuths = await db.collection('x_auth').find({}).toArray();
+  const xAuths = await db.collection('x_auth').find({}).toArray();
 
       // Build a map of avatarId -> avatar
       const results = [];
@@ -808,13 +808,61 @@ Hello ${avatar.name}, what's on your mind today?
         // Optionally include a lightweight profile if it's cached on the record
         const xProfile = record.profile || null;
 
-        results.push({ avatar, xAuth, xProfile });
+        results.push({ avatar, xAuth: { ...xAuth, global: !!record.global }, xProfile, xAuthId: String(record._id) });
       }
 
       res.json({ xAccounts: results });
     } catch (error) {
       console.error('Error in X accounts endpoint:', error);
       res.status(500).json({ error: 'Failed to fetch X accounts' });
+    }
+  }));
+
+  // ------- Global X Posting Config Endpoints -------
+  router.get('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const doc = await db.collection('x_post_config').findOne({ _id: 'global' }, { projection: { enabled: 1 } });
+      res.json({ config: doc ? { enabled: !!doc.enabled } : { enabled: false } });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  }));
+
+  router.put('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const enabled = !!req.body?.enabled;
+      await db.collection('x_post_config').updateOne({ _id: 'global' }, { $set: { enabled, updatedAt: new Date() } }, { upsert: true });
+      try { if (services?.xService) services.xService._globalPostCfg = null; } catch {}
+      res.json({ config: { enabled } });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  }));
+
+  // Manual test trigger for global X posting (admin only debug)
+  router.post('/x-posting/test', asyncHandler(async (req, res) => {
+    try {
+      const { mediaUrl, text, type = 'image' } = req.body || {};
+      if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
+      if (!['image','video'].includes(type)) return res.status(400).json({ error: 'type must be image|video' });
+      if (!services?.xService) return res.status(500).json({ error: 'xService unavailable' });
+      const result = await services.xService.postGlobalMediaUpdate({ mediaUrl, text: text || 'Test Post', type });
+      res.json({ ok: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  }));
+
+  // Set a specific x_auth record as the global account (no avatar linkage required)
+  router.post('/x-posting/global-account', asyncHandler(async (req, res) => {
+    try {
+      const { xAuthId } = req.body || {};
+      if (!xAuthId) return res.status(400).json({ error: 'xAuthId required' });
+      // Clear existing global flags
+      await db.collection('x_auth').updateMany({ global: true }, { $unset: { global: '' } });
+      // Set new global flag
+      const { ObjectId } = await import('mongodb');
+      const oid = ObjectId.createFromHexString(String(xAuthId));
+      await db.collection('x_auth').updateOne({ _id: oid }, { $set: { global: true, updatedAt: new Date() } });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   }));
 

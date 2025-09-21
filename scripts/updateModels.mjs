@@ -6,6 +6,50 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+// Capability cache to avoid refetching endpoints repeatedly
+const endpointCache = new Map();
+
+async function fetchModelEndpoints(modelId) {
+  if (endpointCache.has(modelId)) return endpointCache.get(modelId);
+  const [author, ...rest] = modelId.split('/');
+  if (!author || !rest.length) return null;
+  const slug = rest.join('/');
+  const url = `https://openrouter.ai/api/v1/models/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/endpoints`;
+  const res = await fetch(url, { headers: { 'HTTP-Referer': 'https://ratimics.com', 'X-Title': 'rativerse' }});
+  if (!res.ok) {
+    endpointCache.set(modelId, null);
+    return null;
+  }
+  try {
+    const json = await res.json();
+    endpointCache.set(modelId, json?.data?.endpoints || []);
+    return endpointCache.get(modelId);
+  } catch { endpointCache.set(modelId, null); return null; }
+}
+
+async function detectCapabilities(modelsList, { parallel = 8 } = {}) {
+  const results = {};
+  const queue = [...modelsList];
+  const workers = Array.from({ length: parallel }).map(async () => {
+    while (queue.length) {
+      const m = queue.shift();
+      try {
+        const endpoints = await fetchModelEndpoints(m.id);
+        const supportsResponseFormat = Array.isArray(endpoints) && endpoints.some(ep => {
+          if (!ep || typeof ep !== 'object') return false;
+          const params = Array.isArray(ep.supported_parameters) ? ep.supported_parameters : [];
+            return params.map(p => String(p || '').toLowerCase()).some(p => p === 'response_format' || p.startsWith('response_format'));
+        });
+        results[m.id] = { supportsResponseFormat };
+      } catch (e) {
+        results[m.id] = { supportsResponseFormat: false, error: e.message };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 // CONFIGURATION OPTIONS
 const CONFIG = {
   rarity: {
@@ -213,6 +257,18 @@ async function updateModelsConfig() {
       return diff !== 0 ? diff : b.cost - a.cost;
     });
     console.info('[INFO] Models sorted by rarity and cost.');
+
+    // Detect capabilities (response_format support) for all valid models before trimming costs
+    console.info('[INFO] Detecting model capabilities (response_format support)...');
+    const capabilities = await detectCapabilities(validModels);
+    const capabilitiesOutPath = path.join(process.cwd(), 'data', 'openrouter-model-capabilities.json');
+    try {
+      await fs.mkdir(path.dirname(capabilitiesOutPath), { recursive: true });
+      await fs.writeFile(capabilitiesOutPath, JSON.stringify({ generatedAt: new Date().toISOString(), capabilities }, null, 2));
+      console.info(`[INFO] Wrote capabilities file: ${capabilitiesOutPath}`);
+    } catch (e) {
+      console.warn(`[WARN] Failed to write capabilities file: ${e.message}`);
+    }
 
     // Remove the cost property before saving final config
     const finalConfig = configModels.map(({ model, rarity }) => ({ model, rarity }));

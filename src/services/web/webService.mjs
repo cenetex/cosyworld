@@ -13,8 +13,9 @@ export class WebService {
     discordService,
     s3Service,
     aiModelService,
-  xService,
-  secretsService
+    xService,
+    secretsService,
+    doginalCollectionService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -23,7 +24,8 @@ export class WebService {
     this.s3Service = s3Service;
     this.aiModelService = aiModelService;
     this.xService = xService;
-  this.secretsService = secretsService;
+    this.secretsService = secretsService;
+    this.doginalCollectionService = doginalCollectionService;
 
     this.started = false;
 
@@ -35,8 +37,9 @@ export class WebService {
       discordService: this.discordService,
       s3Service: this.s3Service,
       aiModelService: this.aiModelService,
-  xService: this.xService,
-  secretsService: this.secretsService,
+      xService: this.xService,
+      secretsService: this.secretsService,
+      doginalCollectionService: this.doginalCollectionService,
     };
   }
 

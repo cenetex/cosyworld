@@ -12,6 +12,7 @@ const NAV_HTML = `
         <a class="nav-link" href="/admin">Dashboard</a>
         <a class="nav-link" href="/admin/entity-management">Entities</a>
         <a class="nav-link" href="/admin/collections">Collections</a>
+  <a class="nav-link" href="/admin/servers">Servers</a>
         <a class="nav-link" href="/admin/x-accounts">X Accounts</a>
         <a class="nav-link" href="/admin/settings">Settings</a>
       </div>
