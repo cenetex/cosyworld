@@ -28,6 +28,7 @@
   "format:check": "prettier --check .",
   "analyze": "webpack --mode production --profile --json > webpack-stats.json",
   "smoke:ai": "node scripts/smoke-ai.mjs",
+  "test:global-x": "node scripts/test-global-x-posting.mjs",
   "check:version": "node scripts/check-version-bump.mjs",
   "prepare": "node scripts/install-git-hooks.mjs"
   },

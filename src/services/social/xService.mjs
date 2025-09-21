@@ -582,10 +582,50 @@ class XService {
         type: opts.type || 'image',
         textLen: opts.text ? String(opts.text).length : 0
       });
-      const config = await this._loadGlobalPostingConfig();
-      if (!config?.enabled) {
+      // Initialize metrics bucket lazily (in-memory only). If process restarts, counters reset.
+      if (!this._globalPostMetrics) {
+        this._globalPostMetrics = {
+          attempts: 0,
+          posted: 0,
+          last: null,
+          reasons: {
+            posted: 0,
+            disabled: 0,
+            no_access_token: 0,
+            invalid_media_url: 0,
+            hourly_cap: 0,
+            error: 0
+          }
+        };
+      }
+      const _bump = (reason, meta = {}) => {
+        try {
+          this._globalPostMetrics.attempts++;
+          if (reason === 'posted') this._globalPostMetrics.posted++;
+          if (this._globalPostMetrics.reasons[reason] !== undefined) {
+            this._globalPostMetrics.reasons[reason]++;
+          }
+          this._globalPostMetrics.last = { at: Date.now(), reason, ...meta };
+        } catch {}
+      };
+      let config = await this._loadGlobalPostingConfig();
+      // Fallback enablement: if no config doc exists, treat as enabled unless X_GLOBAL_POST_ENABLED explicitly set false/0.
+      let enabled;
+      if (!config) {
+        const rawFlag = (process.env.X_GLOBAL_POST_ENABLED || '').trim().toLowerCase();
+        enabled = rawFlag ? !['false','0','off','disabled'].includes(rawFlag) : true; // default enabled when absent
+        config = { enabled };
+        if (enabled) {
+          this.logger?.debug?.('[XService][globalPost] proceeding with implicit enabled (no config doc; using env/default)');
+        } else {
+          this.logger?.debug?.('[XService][globalPost] disabled via X_GLOBAL_POST_ENABLED env override');
+        }
+      } else {
+        enabled = !!config.enabled;
+      }
+      if (!enabled) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
-        this.logger?.debug?.('[XService][globalPost] disabled (no config or enabled=false)');
+        _bump('disabled', { mediaUrl: opts.mediaUrl });
         return null;
       }
 
@@ -612,12 +652,14 @@ class XService {
       if (!accessToken) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'no_access_token', mediaUrl: opts.mediaUrl };
         this.logger?.warn?.('[XService][globalPost] No X access token available. Authorize at least one X account.');
+        _bump('no_access_token', { mediaUrl: opts.mediaUrl });
         return null;
       }
       const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
       if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'invalid_media_url', mediaUrl };
         this.logger?.warn?.('[XService][globalPost] Invalid mediaUrl');
+        _bump('invalid_media_url', { mediaUrl });
         return null;
       }
 
@@ -628,10 +670,16 @@ class XService {
       if (now - this._globalRate.windowStart >= hourMs) {
         this._globalRate.windowStart = now; this._globalRate.count = 0;
       }
-  const hourlyCap = 10; // constant cap to protect against runaway posting
+  const hourlyCap = (() => {
+        const envCap = Number(process.env.X_GLOBAL_POST_HOURLY_CAP);
+        if (!Number.isNaN(envCap) && envCap > 0) return envCap;
+        if (config?.rate?.hourly && Number(config.rate.hourly) > 0) return Number(config.rate.hourly);
+        return 10; // default
+      })();
       if (this._globalRate.count >= hourlyCap) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'hourly_cap', mediaUrl };
         this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
+        _bump('hourly_cap', { mediaUrl, hourlyCap });
         return null;
       }
       this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
@@ -729,6 +777,7 @@ class XService {
       const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };
       this.logger?.info?.('[XService][globalPost] posted media', { tweetUrl });
+      _bump('posted', { tweetId: tweet.data.id, tweetUrl, mediaUrl });
       return { tweetId: tweet.data.id, tweetUrl };
     } catch (err) {
       // If we got here due to diagnostics already logged, avoid duplicate generic noise
@@ -736,6 +785,7 @@ class XService {
         this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
       }
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
+      try { this._globalPostMetrics && this._globalPostMetrics.reasons && this._globalPostMetrics.reasons.error !== undefined && (this._globalPostMetrics.reasons.error++); } catch {}
       return null;
     }
   }
@@ -785,6 +835,19 @@ class XService {
       this.logger?.warn?.('[XService][globalPost] token refresh failed: ' + e.message);
       return null;
     }
+  }
+
+  /** Return a shallow snapshot of in-memory global posting metrics */
+  getGlobalPostingMetrics() {
+    const m = this._globalPostMetrics || null;
+    if (!m) return { initialized: false };
+    return {
+      initialized: true,
+      attempts: m.attempts,
+      posted: m.posted,
+      reasons: { ...m.reasons },
+      last: m.last ? { ...m.last } : null
+    };
   }
 }
 
