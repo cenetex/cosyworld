@@ -72,6 +72,16 @@ Recommended generic subscriber logs JSON lines with keys: `event`, `id`, `type`,
 | `ai.breaker.open` | Circuit breaker tripped | `provider`, `failureRate`, `recentFailures` |
 | `ai.breaker.half_open` | Trial state entered | `provider` |
 | `ai.breaker.closed` | Breaker reset | `provider` |
+| `combat.attack.attempt` | Attack roll initiated | `attackerId`,`defenderId`,`rawRoll`,`attackRoll`,`armorClass`,`advantageUsed`,`channelId` |
+| `combat.attack.hit` | Attack succeeded | `attackerId`,`defenderId`,`damage`,`critical`,`attackRoll`,`armorClass`,`currentHp`,`rawRoll`,`channelId` |
+| `combat.attack.miss` | Attack failed to meet AC | `attackerId`,`defenderId`,`attackRoll`,`armorClass`,`rawRoll`,`channelId` |
+| `combat.knockout` | Defender reduced to 0 HP but has lives remaining | `attackerId`,`defenderId`,`damage`,`livesRemaining`,`critical?`,`channelId` |
+| `combat.death` | Defender exhausted all lives | `attackerId`,`defenderId`,`damage?`,`channelId` |
+| `combat.flee.attempt` | Combatant attempts to flee | `avatarId`,`channelId` |
+| `combat.flee.success` | Combatant fled; encounter ends | `avatarId`,`roll`,`dc`,`channelId` |
+| `combat.flee.fail` | Flee attempt failed; turn advances | `avatarId`,`roll`,`dc`,`channelId` |
+| `combat.hide.success` | Hide (stealth) succeeded (grants advantage) | `avatarId`,`channelId` |
+| `combat.hide.fail` | Hide attempt failed | `avatarId`,`channelId` |
 
 ## Testing Guidance
 - Unit test: ensure `publishEvent` returns frozen envelope and emits on both specific and `*` channels.
@@ -81,3 +91,4 @@ Recommended generic subscriber logs JSON lines with keys: `event`, `id`, `type`,
 - Integrate into `updateConnectedGuilds` (fire `guild.connected` per new/updated guild once diff logic added).
 - Instrument AI service after circuit breaker implementation.
 - Add outbox persistence once cross-process scaling begins.
+- Add narrative listener (`combat.narrative.request` / internal triggers) to produce AI flavor responses decoupled from combat core.
