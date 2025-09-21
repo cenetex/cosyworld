@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../../../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -20,7 +21,7 @@ export default function xauthRoutes(services) {
     // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
     // Fallback uses the default AI chat model name to generate a deterministic id.
     const getAdminAvatarId = () => {
-        const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+    const envId = resolveAdminAvatarId();
         if (envId) return envId;
         try {
             const cfgSvc = services?.configService;
