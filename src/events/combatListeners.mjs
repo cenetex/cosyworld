@@ -90,11 +90,52 @@ export function registerCombatListeners({ combatEncounterService, logger = conso
   listeners.push(['combat.knockout', safe(applyAttackLike)]);
   listeners.push(['combat.death', safe(applyAttackLike)]);
 
+  // Flee events: on success end encounter; on fail advance turn (after blockers)
+  listeners.push(['combat.flee.success', safe(async (evt) => {
+    const enc = getEncounterFromEvent(evt);
+    if (!enc || enc.state !== 'active') return;
+    try { enc.lastActionAt = Date.now(); enc.lastAction = { result: 'flee.success', actorId: evt.payload?.avatarId }; } catch {}
+    // End encounter (consistent with handleFlee)
+    try { enc.fleerId = evt.payload?.avatarId; combatEncounterService.endEncounter(enc, { reason: 'flee' }); } catch {}
+  })]);
+  listeners.push(['combat.flee.fail', safe(async (evt) => {
+    const enc = getEncounterFromEvent(evt);
+    if (!enc || enc.state !== 'active') return;
+    const actorId = evt.payload?.avatarId;
+    try { enc.lastActionAt = Date.now(); enc.lastAction = { result: 'flee.fail', actorId }; } catch {}
+    try {
+      const currentId = combatEncounterService.getCurrentTurnAvatarId(enc);
+      if (currentId && currentId === actorId) {
+        await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
+        combatEncounterService.nextTurn(enc);
+      }
+    } catch {}
+    try { combatEncounterService.evaluateEnd(enc); } catch {}
+  })]);
+
+  // Hide events: simply advance turn if actor was current (success or fail) and record lastAction
+  const hideHandler = async (evt) => {
+    const enc = getEncounterFromEvent(evt);
+    if (!enc || enc.state !== 'active') return;
+    const actorId = evt.payload?.avatarId;
+    try { enc.lastActionAt = Date.now(); enc.lastAction = { result: evt.type === 'combat.hide.success' ? 'hide.success' : 'hide.fail', actorId }; } catch {}
+    try {
+      const currentId = combatEncounterService.getCurrentTurnAvatarId(enc);
+      if (currentId && currentId === actorId) {
+        await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
+        combatEncounterService.nextTurn(enc);
+      }
+    } catch {}
+    try { combatEncounterService.evaluateEnd(enc); } catch {}
+  };
+  listeners.push(['combat.hide.success', safe(hideHandler)]);
+  listeners.push(['combat.hide.fail', safe(hideHandler)]);
+
   for (const [evt, handler] of listeners) {
     eventBus.on(evt, handler);
   }
 
-  logger.info('[combatListeners] registered handlers for attack/miss/knockout/death');
+  logger.info('[combatListeners] registered handlers for attack/miss/knockout/death/flee/hide');
 
   return () => {
     for (const [evt, handler] of listeners) eventBus.off(evt, handler);
