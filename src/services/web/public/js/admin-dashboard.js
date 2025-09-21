@@ -1,4 +1,4 @@
-import { initializeWallet, connectWallet } from './services/wallet.js';
+import { initializeWallet, connectWallet, signWriteHeaders } from './services/wallet.js';
 
 async function fetchStats() {
   try {
@@ -70,106 +70,229 @@ function init() {
   fetchStats();
   ensureAdminSession();
   wirePhantomLogin();
+  wireGlobalXToggle();
+  // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
+  // wireGlobalXToggle removed (global X posting page & toggle deprecated)
   wireAdminX();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Wait for both DOM ready and admin bootstrap readiness (so window.AdminAPI is present)
+function onReady(fn){
+  if (document.readyState === 'complete' || document.readyState === 'interactive') { setTimeout(fn,0); }
+  else document.addEventListener('DOMContentLoaded', fn);
+}
+let _bootstrapReady = false;
+window.addEventListener('admin:bootstrapReady', () => { _bootstrapReady = true; });
+onReady(() => {
+  // If bootstrap not yet ready, poll briefly
+  const start = Date.now();
+  (function waitBootstrap(){
+    if (_bootstrapReady || (window.AdminAPI && window.AdminAuth)) return init();
+    if (Date.now() - start > 3000) { // 3s timeout
+      console.warn('[admin-dashboard] bootstrap not detected; continuing anyway');
+      return init();
+    }
+    setTimeout(waitBootstrap, 50);
+  })();
+});
 
 async function wireAdminX() {
   const connectBtn = document.getElementById('admin-x-connect');
   const disconnectBtn = document.getElementById('admin-x-disconnect');
-  const profileBox = document.getElementById('admin-x-profile');
-  const hint = document.getElementById('admin-x-hint');
+  // Refresh profile button removed (auto-refresh via connect/disconnect events)
+  const hint = document.getElementById('global-x-hint');
+  const profileWrapper = document.getElementById('x-profile-wrapper');
+  // Removed account pill & global badge (single implicit global account)
 
-  // Helper to refresh status/profile
+  function showHint(msg, kind='warn') {
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.classList.remove('hidden');
+    hint.classList.remove('bg-green-50','text-green-700','border-green-200','bg-yellow-50','text-yellow-700','border-yellow-200','bg-red-50','text-red-700','border-red-200');
+    if (kind === 'ok') hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
+    else if (kind === 'error') hint.classList.add('bg-red-50','text-red-700','border','border-red-200');
+    else hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
+  }
+
+  function hideHint() { hint?.classList.add('hidden'); }
+
+  async function fetchJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json();
+  }
+
+  // Simplified: we only need the admin target, which implicitly is the global account
+
   async function refresh() {
     try {
-      const targetRes = await fetch('/api/xauth/admin/target');
-      if (!targetRes.ok) {
-        const err = await targetRes.json().catch(() => ({}));
-        hint.classList.remove('hidden');
-        hint.textContent = err.error || 'Admin target unavailable.';
-        connectBtn?.setAttribute('disabled', 'true');
-        return;
+      hideHint();
+      let targetAvatarId = null;
+      try {
+        const t = await fetchJson('/api/xauth/admin/target');
+        targetAvatarId = t.avatarId;
+      } catch {}
+      let status = null;
+      let targetMeta = null;
+      if (targetAvatarId) {
+        try { status = await fetchJson(`/api/xauth/status/${targetAvatarId}`); } catch {}
       }
-      const { avatarId } = await targetRes.json();
-      const statusRes = await fetch(`/api/xauth/status/${avatarId}`);
-      const status = await statusRes.json();
-      if (status.authorized) {
-        connectBtn?.classList.add('hidden');
-        disconnectBtn?.classList.remove('hidden');
-        profileBox?.classList.remove('hidden');
+      // Fetch target meta (may include stored profile) for fallback
+      try { targetMeta = await fetchJson('/api/xauth/admin/target'); } catch {}
+      if (status && !status.profile && targetMeta?.profile) {
+        status.profile = targetMeta.profile; // Enrich missing profile
+      }
+      // Final fallback: direct admin profile fetch if still missing
+      if ((!status || !status.profile) && targetAvatarId) {
+        try {
+          const ap = await fetchJson('/api/xauth/admin/profile');
+          if (ap?.authorized && ap.profile) {
+            if (!status) status = { authorized: true, expiresAt: ap.expiresAt, profile: ap.profile };
+            else if (!status.profile) status.profile = ap.profile;
+          }
+        } catch {}
+      }
+      // No secondary search: only admin target matters now
+
+      if (status?.authorized) {
+  connectBtn?.classList.add('hidden');
+  disconnectBtn?.classList.remove('hidden');
+        profileWrapper?.classList.remove('hidden');
         const p = status.profile || {};
         const img = document.getElementById('admin-x-avatar');
         const name = document.getElementById('admin-x-name');
         const user = document.getElementById('admin-x-username');
         const exp = document.getElementById('admin-x-expiry');
-        if (img && p.profile_image_url) img.src = p.profile_image_url;
-        if (name) name.textContent = p.name || 'Unknown';
+        if (img) {
+          const placeholder = '/images/x-placeholder.svg';
+          if (p.profile_image_url) {
+            img.src = p.profile_image_url;
+            img.onerror = () => { img.src = placeholder; };
+          } else {
+            img.src = placeholder;
+          }
+        }
+        if (name) name.textContent = p.name || (p.username ? p.username : 'X Account');
         if (user) user.textContent = p.username ? `@${p.username}` : '';
         if (exp && status.expiresAt) exp.textContent = `Token expires: ${new Date(status.expiresAt).toLocaleString()}`;
-        hint.classList.add('hidden');
+        // Badge/pill removed
+        hideHint();
       } else {
-        connectBtn?.classList.remove('hidden');
-        disconnectBtn?.classList.add('hidden');
-        profileBox?.classList.add('hidden');
+  disconnectBtn?.classList.add('hidden');
+  connectBtn?.classList.remove('hidden');
+        profileWrapper?.classList.add('hidden');
+        showHint('No authorized X account. Connect to enable auto posting.');
       }
     } catch (e) {
-      hint.classList.remove('hidden');
-      hint.textContent = `Failed to load X status: ${e.message}`;
+      showHint('Failed to load X status: ' + e.message, 'error');
     }
   }
 
-  if (connectBtn) {
-    connectBtn.addEventListener('click', async () => {
-      try {
-        connectBtn.disabled = true;
-        const res = await fetch('/api/xauth/admin/auth-url');
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
+  connectBtn?.addEventListener('click', async () => {
+    try {
+      connectBtn.disabled = true;
+      hideHint();
+      const res = await fetch('/api/xauth/admin/auth-url');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const w = 600, h = 650; const l = window.screen.width/2 - w/2; const t = window.screen.height/2 - h/2;
+      const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
+      if (!popup) throw new Error('Popup blocked');
+      window.addEventListener('message', async function onMsg(ev) {
+        if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
+          window.removeEventListener('message', onMsg);
+          await refresh();
         }
-        const data = await res.json();
-        const w = 600, h = 650;
-        const l = window.screen.width / 2 - w / 2;
-        const t = window.screen.height / 2 - h / 2;
-        const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
-        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          throw new Error('Popup blocked. Please allow popups.');
-        }
-        window.addEventListener('message', async function onMsg(ev) {
-          if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
-            window.removeEventListener('message', onMsg);
-            await refresh();
-          }
-        });
-      } catch (e) {
-        hint.classList.remove('hidden');
-        hint.textContent = `Failed to start auth: ${e.message}`;
-      } finally {
-        connectBtn.disabled = false;
-      }
-    });
-  }
+      });
+    } catch (e) { showHint('Failed to start auth: ' + e.message, 'error'); } finally { connectBtn.disabled = false; }
+  });
 
-  if (disconnectBtn) {
-    disconnectBtn.addEventListener('click', async () => {
-      try {
-        disconnectBtn.disabled = true;
-        const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
-        }
-        await refresh();
-      } catch (e) {
-        hint.classList.remove('hidden');
-        hint.textContent = `Failed to disconnect: ${e.message}`;
-      } finally {
-        disconnectBtn.disabled = false;
-      }
-    });
-  }
+  disconnectBtn?.addEventListener('click', async () => {
+    try {
+      disconnectBtn.disabled = true; hideHint();
+      const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      await refresh();
+    } catch (e) { showHint('Failed to disconnect: ' + e.message, 'error'); } finally { disconnectBtn.disabled = false; }
+  });
+
+  // Manual profile refresh removed: profile auto-updates after auth actions.
+
+  // Set Global workflow removed
 
   await refresh();
 }
+
+// Minimal API helper for signed writes. Previously this returned an empty object
+// if the AdminAuth bootstrap hadn't finished yet, which caused authenticated
+// PUTs to fail with "Signed message required". We now attempt a direct wallet
+// signature using signWriteHeaders as a fallback so the toggle works even if
+// AdminAuth isn't fully initialized yet.
+async function getSignedHeaders(meta = {}) {
+  if (window.AdminAuth?.getSignedHeaders) return window.AdminAuth.getSignedHeaders(meta);
+  try {
+    return await signWriteHeaders(meta);
+  } catch (e) {
+    console.warn('[admin-dashboard] fallback signWriteHeaders failed', e);
+    return {};
+  }
+}
+
+async function fetchCsrfToken() {
+  try {
+    const r = await fetch('/api/admin/csrf-token');
+    if (!r.ok) return '';
+    const j = await r.json();
+    return j.csrfToken || '';
+  } catch { return ''; }
+}
+
+// Lightweight inline implementation of global X enable toggle using /api/admin/x-posting/config
+function wireGlobalXToggle() {
+  const toggle = document.getElementById('global-x-enabled');
+  const pill = document.getElementById('global-x-state-pill');
+  if (!toggle || !pill) return;
+
+  const setPill = (enabled) => {
+    pill.textContent = enabled ? 'ENABLED' : 'DISABLED';
+    pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700');
+  };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/x-posting/config');
+      if (!r.ok) throw new Error('' + r.status);
+      const data = await r.json();
+      const enabled = !!data?.config?.enabled;
+      toggle.checked = enabled;
+      setPill(enabled);
+    } catch (e) {
+      setPill(false);
+    }
+  }
+
+  let saveTimer = null;
+  toggle.addEventListener('change', async () => {
+    // Debounce rapid flips
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        const csrf = await fetchCsrfToken();
+        const headers = { 'Content-Type': 'application/json', 'x-csrf-token': csrf };
+        const body = JSON.stringify({ enabled: toggle.checked });
+        const r = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body });
+        if (!r.ok) throw new Error('Save failed');
+        const j = await r.json().catch(()=>({}));
+        setPill(!!j?.config?.enabled);
+      } catch (e) {
+        // revert UI state on failure
+        toggle.checked = !toggle.checked;
+        setPill(toggle.checked);
+      }
+    }, 150);
+  });
+
+  load();
+}
+

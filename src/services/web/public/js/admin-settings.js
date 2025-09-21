@@ -1,8 +1,11 @@
+// Refactored to use shared AdminAPI/AdminUI wrappers
+// NOTE: Converted previously absolute /js/admin/* imports to relative paths for bundler compatibility
+import { apiFetch, safeApi } from './admin/admin-api.js';
+import { success, error as toastError, withButtonLoading } from './admin/admin-ui.js';
+
 async function fetchJSON(url, opts) {
-  const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  // Backward compatibility shim (will migrate all calls to apiFetch gradually)
+  return apiFetch(url, { json: true, ...(opts||{}), requireCsrf: !!(opts && opts.method && opts.method !== 'GET') });
 }
 
 function scopeLabel(source) {
@@ -113,7 +116,7 @@ function updateSelectedGuildCard() {
 async function setGuildAuthorized(guildId, value) {
   if (!guildId) return;
   if (value) {
-    await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}/authorize`, { method: 'POST' });
+  await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}/authorize`, { method: 'POST' });
   } else {
     await fetchJSON(`/api/guilds/${encodeURIComponent(guildId)}`, {
       method: 'PATCH',
@@ -148,52 +151,18 @@ async function refreshGuildList() {
   await load();
 }
 
-// Detected guilds rendering
-async function loadDetectedGuilds() {
-  const section = document.getElementById('detectedGuildsSection');
-  const countEl = document.getElementById('detectedCount');
-  const container = document.getElementById('detectedGuildsContainer');
-  if (!section || !container) return;
+async function updateDetectedServersCount() {
   try {
-    const list = await fetchJSON('/api/guilds/detected');
-    const items = Array.isArray(list) ? list : [];
-    if (items.length) section.classList.remove('hidden'); else section.classList.add('hidden');
-    if (countEl) countEl.textContent = items.length ? `(${items.length})` : '';
-    container.innerHTML = '';
-    for (const g of items) {
-      const id = g.id || g.guildId;
-      const name = g.name || g.guildName || id;
-      const card = document.createElement('div');
-      card.className = 'flex items-center justify-between p-2 border rounded bg-white';
-      const left = document.createElement('div');
-      left.className = 'flex items-center gap-3';
-      const img = document.createElement('img');
-      img.src = g.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
-      img.className = 'w-8 h-8 rounded bg-gray-200 border';
-      const nameBox = document.createElement('div');
-      nameBox.innerHTML = `<div class="font-medium">${name}</div><div class="text-xs text-gray-500">ID: ${id}</div>`;
-      left.append(img, nameBox);
-      const right = document.createElement('div');
-      right.className = 'flex items-center gap-2';
-      const authBtn = document.createElement('button');
-      authBtn.className = 'px-3 py-1 bg-green-600 text-white rounded text-sm';
-      authBtn.textContent = 'Authorize';
-      authBtn.addEventListener('click', async () => {
-        try {
-          await fetchJSON(`/api/guilds/${encodeURIComponent(id)}/authorize`, { method: 'POST' });
-          await Promise.all([loadDetectedGuilds(), refreshGuildList()]);
-        } catch (e) {
-          alert(e.message || 'Failed to authorize');
-        }
-      });
-      right.appendChild(authBtn);
-      card.append(left, right);
-      container.appendChild(card);
-    }
-  } catch (e) {
-    console.error('Failed to load detected guilds', e);
-  }
+    const res = await fetch('/api/guilds/detected');
+    if (!res.ok) return;
+    const data = await res.json();
+    const count = Array.isArray(data) ? data.length : 0;
+    const span = document.getElementById('detectedServersCount');
+    if (span) span.textContent = count ? `(${count})` : '';
+  } catch {}
 }
+
+// Detected guilds moved to /admin/servers
 
 function renderSettingRow(item, guildId) {
   const wrap = document.createElement('div');
@@ -210,23 +179,29 @@ function renderSettingRow(item, guildId) {
     </div>
   `;
   const [input, setBtn, clearBtn] = wrap.querySelectorAll('input,button');
-  setBtn.addEventListener('click', async () => {
+  setBtn.addEventListener('click', withButtonLoading(setBtn, async () => {
     const value = input.value.trim();
     if (!value) return;
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/settings/set/${encodeURIComponent(item.key)}${qs}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    });
-    input.value = '';
-    await load();
-  });
-  clearBtn.addEventListener('click', async () => {
+    try {
+      await fetchJSON(`/api/settings/set/${encodeURIComponent(item.key)}${qs}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      });
+      input.value = '';
+      success('Setting updated');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to set'); }
+  }));
+  clearBtn.addEventListener('click', withButtonLoading(clearBtn, async () => {
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/settings/clear/${encodeURIComponent(item.key)}${qs}`, { method: 'POST' });
-    await load();
-  });
+    try {
+      await fetchJSON(`/api/settings/clear/${encodeURIComponent(item.key)}${qs}`, { method: 'POST' });
+      success('Cleared');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to clear'); }
+  }));
   return wrap;
 }
 
@@ -245,23 +220,29 @@ function renderSecretRow(item, guildId) {
     </div>
   `;
   const [input, setBtn, clearBtn] = wrap.querySelectorAll('input,button');
-  setBtn.addEventListener('click', async () => {
+  setBtn.addEventListener('click', withButtonLoading(setBtn, async () => {
     const value = input.value.trim();
     if (!value) return;
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/secrets/${encodeURIComponent(item.key)}${qs}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    });
-    input.value = '';
-    await load();
-  });
-  clearBtn.addEventListener('click', async () => {
+    try {
+      await fetchJSON(`/api/secrets/${encodeURIComponent(item.key)}${qs}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      });
+      input.value = '';
+      success('Secret updated');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to set secret'); }
+  }));
+  clearBtn.addEventListener('click', withButtonLoading(clearBtn, async () => {
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/secrets/${encodeURIComponent(item.key)}/rotate${qs}`, { method: 'POST' });
-    await load();
-  });
+    try {
+      await fetchJSON(`/api/secrets/${encodeURIComponent(item.key)}/rotate${qs}`, { method: 'POST' });
+      success('Secret rotated');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to rotate secret'); }
+  }));
   return wrap;
 }
 
@@ -279,23 +260,29 @@ function renderPromptRow(item, guildId) {
   `;
   const [textarea, setBtn, clearBtn] = wrap.querySelectorAll('textarea,button');
   textarea.value = (item.value ?? '').toString();
-  setBtn.addEventListener('click', async () => {
+  setBtn.addEventListener('click', withButtonLoading(setBtn, async () => {
     const value = textarea.value.trim();
     if (!value) return;
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/settings/set/${encodeURIComponent(item.key)}${qs}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    });
-    textarea.value = '';
-    await load();
-  });
-  clearBtn.addEventListener('click', async () => {
+    try {
+      await fetchJSON(`/api/settings/set/${encodeURIComponent(item.key)}${qs}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      });
+      textarea.value = '';
+      success('Prompt updated');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to set prompt'); }
+  }));
+  clearBtn.addEventListener('click', withButtonLoading(clearBtn, async () => {
     const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    await fetchJSON(`/api/settings/clear/${encodeURIComponent(item.key)}${qs}`, { method: 'POST' });
-    await load();
-  });
+    try {
+      await fetchJSON(`/api/settings/clear/${encodeURIComponent(item.key)}${qs}`, { method: 'POST' });
+      success('Cleared');
+      await load();
+    } catch (e) { toastError(e.message || 'Failed to clear prompt'); }
+  }));
   return wrap;
 }
 
@@ -346,12 +333,13 @@ async function load() {
     secretsList.innerHTML = '';
     secrets.forEach(s => secretsList.appendChild(renderSecretRow(s, guildId)));
   }
+    updateDetectedServersCount();
 }
 
 // Events
 document.getElementById('refresh')?.addEventListener('click', load);
 
-document.getElementById('importEnv')?.addEventListener('click', async () => {
+document.getElementById('importEnv')?.addEventListener('click', withButtonLoading(document.getElementById('importEnv'), async () => {
   const ta = document.getElementById('envText');
   const status = document.getElementById('importStatus');
   const guildId = selectedGuildId || '';
@@ -364,12 +352,14 @@ document.getElementById('importEnv')?.addEventListener('click', async () => {
       body: JSON.stringify({ envText: ta.value || '' })
     });
     status.textContent = 'Imported';
+    success('Secrets imported');
     ta.value = '';
     await load();
   } catch (e) {
     status.textContent = e.message;
+    toastError(e.message || 'Import failed');
   }
-});
+}));
 
 // Filters
 document.getElementById('filterText')?.addEventListener('input', () => load());
@@ -436,29 +426,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   setActiveGuild(selectedGuildId);
   await load();
   // wire selected guild header buttons
-  document.getElementById('btnAuthorizeGuild')?.addEventListener('click', async () => {
+  document.getElementById('btnAuthorizeGuild')?.addEventListener('click', withButtonLoading(document.getElementById('btnAuthorizeGuild'), async () => {
     if (!selectedGuildId) return;
     await setGuildAuthorized(selectedGuildId, true);
     selectedGuildMeta = { ...(selectedGuildMeta || {}), authorized: true };
     updateSelectedGuildCard();
-  });
-  document.getElementById('btnDeauthorizeGuild')?.addEventListener('click', async () => {
+    success('Guild authorized');
+  }));
+  document.getElementById('btnDeauthorizeGuild')?.addEventListener('click', withButtonLoading(document.getElementById('btnDeauthorizeGuild'), async () => {
     if (!selectedGuildId) return;
     await setGuildAuthorized(selectedGuildId, false);
     selectedGuildMeta = { ...(selectedGuildMeta || {}), authorized: false };
     updateSelectedGuildCard();
-  });
-  document.getElementById('btnClearGuildCache')?.addEventListener('click', async () => {
+    success('Guild deauthorized');
+  }));
+  document.getElementById('btnClearGuildCache')?.addEventListener('click', withButtonLoading(document.getElementById('btnClearGuildCache'), async () => {
     if (!selectedGuildId) return;
     await clearGuildCache(selectedGuildId);
-  });
-  document.getElementById('btnDeleteGuild')?.addEventListener('click', async () => {
+    success('Cache cleared');
+  }));
+  document.getElementById('btnDeleteGuild')?.addEventListener('click', withButtonLoading(document.getElementById('btnDeleteGuild'), async () => {
     if (!selectedGuildId) return;
     await deleteGuildConfig(selectedGuildId);
-  });
-  document.getElementById('refreshDetected')?.addEventListener('click', () => loadDetectedGuilds());
-  // initial detected guilds load
-  loadDetectedGuilds();
+    success('Guild config deleted');
+  }));
+  // detected guilds removed from settings page
   // Tab wiring (default Prompts active)
   const tabPrompts = document.getElementById('tabPrompts');
   const tabSettings = document.getElementById('tabSettings');
@@ -482,4 +474,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabSettings?.addEventListener('click', () => activate(tabSettings));
   tabSecrets?.addEventListener('click', () => activate(tabSecrets));
   activate(tabPrompts);
+
 });

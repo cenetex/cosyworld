@@ -102,6 +102,29 @@ export class VideoCameraTool extends BasicTool {
       }
       if (!imageUrl) return '-# [ ❌ Error: Failed to capture scene keyframe. ]';
 
+      // FEATURE: Schedule follow-up chatter from other avatars in the scene after keyframe generation.
+      try {
+        setTimeout(async () => {
+          try {
+            const convoMgr = this.configService?.services?.conversationManager;
+            const discord = this.discordService;
+            if (!convoMgr || !discord) return;
+            const channel = await discord.getChannelById?.(channelId) || message.channel;
+            if (!channel) return;
+            for (const av of list) {
+              if (!av || (avatar && String(av._id) === String(avatar._id))) continue;
+              try {
+                await convoMgr.sendResponse(channel, av, null, { overrideCooldown: true, cascadeDepth: 1 });
+              } catch (e) {
+                this.logger?.debug?.(`[VideoCamera] follow-up response failed for ${av.name}: ${e.message}`);
+              }
+            }
+          } catch (inner) {
+            this.logger?.debug?.('[VideoCamera] follow-up scheduling error: ' + (inner?.message || inner));
+          }
+        }, 2000);
+      } catch {}
+
       // 2) Inline video generation using VeoService (like BattleMediaService)
       if (!this.veoService) {
         return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;

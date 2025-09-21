@@ -8,6 +8,7 @@ import path from 'path';
 import { request } from 'https';
 import { request as httpRequest } from 'http';
 import { UploadService } from '../media/uploadService.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 export class S3Service {
   constructor({ logger }) {
@@ -66,6 +67,18 @@ export class S3Service {
         }
         this.logger.info(`Upload Successful via UploadService! status=${status}`);
         this.logger.info(`Image URL: ${finalUrl}`);
+        try {
+          // Emit media event for downstream global poster (type inferred from extension)
+          const isVideo = /\.mp4$/i.test(finalUrl);
+          eventBus.emit(isVideo ? 'MEDIA.VIDEO.GENERATED' : 'MEDIA.IMAGE.GENERATED', {
+            type: isVideo ? 'video' : 'image',
+            source: 'uploadService',
+            imageUrl: !isVideo ? finalUrl : undefined,
+            videoUrl: isVideo ? finalUrl : undefined,
+            prompt: null,
+            createdAt: new Date()
+          });
+        } catch (e) { this.logger?.warn?.('[S3Service] emit MEDIA event failed: ' + e.message); }
         return finalUrl;
       }
 

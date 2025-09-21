@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -115,7 +116,7 @@ export class ChallengeTool extends BasicTool {
                 if (autoX === 'true' && xsvc && poster.imageUrl) {
                   let admin = null;
                   try {
-                    const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+                    const envId = resolveAdminAvatarId();
                     if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
                       admin = await this.configService.services.avatarService.getAvatarById(envId);
                     } else {

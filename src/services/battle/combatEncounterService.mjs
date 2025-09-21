@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 /**
  * CombatEncounterService
  * Manages turn-based D&D style combat encounters (initiative, turn order, state) for AI + tool driven actions.
@@ -1146,7 +1147,7 @@ Message: ${messageContent}`;
         if (autoX === 'true' && xsvc && (encounter._xTweetId || encounter._xTweetUrl)) {
           let admin = null;
           try {
-            const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+            const envId = resolveAdminAvatarId();
             if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
               admin = await this.configService.services.avatarService.getAvatarById(envId);
             } else {

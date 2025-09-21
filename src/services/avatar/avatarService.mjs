@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -14,6 +15,7 @@
 // -------------------------------------------------------
 
 import process from 'process';
+import eventBus from '../../utils/eventBus.mjs';
 import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
@@ -566,6 +568,21 @@ export class AvatarService {
     }
     if (!details?.name) return null;
 
+    // Sanitize name: avoid pure numeric / HTTP status or error-looking tokens.
+    try {
+      const orig = details.name.trim();
+      const isHttpCode = /^(?:HTTP_)?(4\d\d|5\d\d)$/.test(orig);
+      const isJustDigits = /^\d{3,}$/.test(orig);
+      if (!orig || isHttpCode || isJustDigits) {
+        const base = 'Wanderer';
+        const suffix = Math.random().toString(36).slice(2,6);
+        details.name = `${base}-${suffix}`;
+        this.logger?.warn?.(`[AvatarService] Renamed generated avatar with invalid/error-like name '${orig}' -> '${details.name}'`);
+      }
+      // Strip any accidental 'Error:' prefixes inserted by malformed upstream responses
+      details.name = details.name.replace(/^Error[:\s-]+/i, '').trim();
+    } catch {}
+
     const existing = await this.getAvatarByName(details.name);
   // If an avatar with this generated name already exists, return it and
   // flag as existing so callers (e.g. SummonTool) can avoid treating it
@@ -599,7 +616,7 @@ export class AvatarService {
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
 
-    // Auto-post new avatars to X when enabled and admin account is linked
+  // Auto-post new avatars to X when enabled and admin account is linked
     try {
       const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
       if (autoPost === 'true' && doc.imageUrl && this.configService?.services?.xService) {
@@ -609,7 +626,7 @@ export class AvatarService {
           try {
             // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
             let admin = null;
-            const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+            const envId = resolveAdminAvatarId();
             if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
               admin = await this.configService.services.avatarService.getAvatarById(envId);
             } else {
@@ -620,6 +637,8 @@ export class AvatarService {
             }
             if (admin) {
               const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
+              // Emit unified event (global posting pipeline may consume)
+              try { eventBus.emit('MEDIA.IMAGE.GENERATED', { type: 'image', source: 'avatar.create', avatarId: insertedId, imageUrl: doc.imageUrl, prompt: doc.description, createdAt: new Date() }); } catch {}
               await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }

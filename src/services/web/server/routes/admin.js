@@ -777,7 +777,7 @@ Hello ${avatar.name}, what's on your mind today?
   // Get all X accounts with avatar details
   router.get('/x-accounts', asyncHandler(async (req, res) => {
     try {
-      const xAuths = await db.collection('x_auth').find({}).toArray();
+  const xAuths = await db.collection('x_auth').find({}).toArray();
 
       // Build a map of avatarId -> avatar
       const results = [];
@@ -808,7 +808,7 @@ Hello ${avatar.name}, what's on your mind today?
         // Optionally include a lightweight profile if it's cached on the record
         const xProfile = record.profile || null;
 
-        results.push({ avatar, xAuth, xProfile });
+        results.push({ avatar, xAuth: { ...xAuth, global: !!record.global }, xProfile, xAuthId: String(record._id) });
       }
 
       res.json({ xAccounts: results });
@@ -817,6 +817,89 @@ Hello ${avatar.name}, what's on your mind today?
       res.status(500).json({ error: 'Failed to fetch X accounts' });
     }
   }));
+
+  // === Global X Posting (re-introduced lightweight endpoints for dashboard toggle & config) ===
+  // Config is stored in collection `x_post_config` with _id 'global'. XService handles gating.
+  router.get('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Attempt to resolve the implied global X account & include cached profile for UI convenience
+      let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+      if (!auth) {
+        auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
+      }
+      let profile = auth?.profile || null;
+      // If profile missing or stale (older than 6h) attempt refresh via service (best-effort)
+      const sixHrs = 6 * 60 * 60 * 1000;
+      const force = req.query.force === '1';
+      const stale = !profile || !profile.cachedAt || (Date.now() - new Date(profile.cachedAt).getTime()) > sixHrs;
+      if ((stale || force) && services.xService?.fetchAndCacheGlobalProfile) {
+        try { profile = await services.xService.fetchAndCacheGlobalProfile(force); } catch {}
+      }
+      res.json({
+        config: cfg || { enabled: false, mode: 'live' },
+        profile: profile || null,
+        resolvedAccount: auth ? { avatarId: auth.avatarId || null, hasProfile: !!profile } : null,
+        refreshed: (stale || force) && !!profile
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load config' });
+    }
+  }));
+
+  router.put('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Only allow specific fields
+      const patch = {};
+      if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+      if (body.mode && ['live','shadow'].includes(body.mode)) patch.mode = body.mode;
+      if (body.rate && typeof body.rate === 'object') {
+        const r = {};
+        if (body.rate.hourly && Number(body.rate.hourly) > 0) r.hourly = Number(body.rate.hourly);
+        if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
+      }
+      if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
+      if (body.media && typeof body.media === 'object') {
+        patch.media = { altAutogen: !!body.media.altAutogen };
+      }
+      const updated = await services.xService.updateGlobalPostingConfig(patch);
+      res.json({ config: updated });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save config' });
+    }
+  }));
+
+  router.post('/x-posting/test', asyncHandler(async (req, res) => {
+    try {
+      const { mediaUrl, text, type } = req.body || {};
+      if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
+      const result = await services.xService.postGlobalMediaUpdate({ mediaUrl, text, type });
+      res.json({ attempted: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Test post failed' });
+    }
+  }));
+
+  // Metrics & diagnostics for global X posting
+  router.get('/x-posting/metrics', asyncHandler(async (req, res) => {
+    try {
+      const metrics = services.xService.getGlobalPostingMetrics();
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Determine presence of a usable auth record (without exposing tokens)
+      let auth = await db.collection('x_auth').findOne({ global: true }, { projection: { accessToken: 0, refreshToken: 0 } });
+      if (!auth) auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { projection: { accessToken: 0, refreshToken: 0 } });
+      const envFlags = {
+        X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED || undefined,
+        X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP || undefined,
+        DEBUG_GLOBAL_X: process.env.DEBUG_GLOBAL_X || undefined
+      };
+      res.json({ metrics, config: cfg || null, authPresent: !!auth, authProfile: auth?.profile || null, envFlags });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load metrics' });
+    }
+  }));
+
 
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);

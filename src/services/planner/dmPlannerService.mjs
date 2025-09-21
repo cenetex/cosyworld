@@ -70,7 +70,8 @@ export default class DMPlannerService {
       seen.add(key);
       return true;
     });
-    const n = unique.length ? await this.assignmentQueueService.enqueue(unique) : 0;
+    // Use enqueueUnique to avoid re-adding identical pending assignments across rapid rounds
+    const n = unique.length ? await this.assignmentQueueService.enqueueUnique(unique) : 0;
     if (n > 0) this.logger.info?.(`[DMPlanner] Enqueued ${n} assignments for ${states.length} threads.`);
     return n;
   }

@@ -26,6 +26,7 @@ import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
+import DoginalCollectionService from './services/doge/doginalCollectionService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -95,12 +96,14 @@ async function initializeContainer() {
   webService: asClass(WebService).singleton(),
   embeddingService: asClass(EmbeddingService).singleton(),
   memoryScheduler: asClass(MemoryScheduler).singleton(),
+  doginalCollectionService: asClass(DoginalCollectionService).singleton(),
   });
 
   // Dynamically register remaining services
-  const servicePaths = await globby('./services/**/*.mjs', {
+  const servicePaths = await globby(['./services/**/*.mjs'], {
     cwd: __dirname,
     absolute: true,
+    followSymbolicLinks: true,
   });
 
   for (const file of servicePaths) {
@@ -127,7 +130,9 @@ async function initializeContainer() {
   // while still allowing Google to be used separately for media generation fallback.
   try {
     if (container.registrations.openrouterAIService) {
-      container.register({ aiService: asValue(container.resolve('openrouterAIService')) });
+      const openrouterAIService = container.resolve('openrouterAIService');
+      if (openrouterAIService?.ready) await openrouterAIService.ready;
+      container.register({ aiService: asValue(openrouterAIService) });
     } else if (container.registrations.ollamaAIService) {
       container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
     } else if (container.registrations.googleAIService) {
@@ -152,6 +157,7 @@ async function initializeContainer() {
     }
     if (wrappedName) {
       const base = container.resolve(wrappedName);
+      if (wrappedName === 'openrouterAIService' && base?.ready) await base.ready;
       unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
       // Overwrite any previous registration to ensure correct provider
       container.register({ unifiedAIService: asValue(unifiedAIService) });

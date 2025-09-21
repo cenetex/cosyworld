@@ -9,7 +9,7 @@
     "node": ">=18.18"
   },
   "scripts": {
-  "dev": "cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon --watch src --exec node src/index.mjs",
+  "dev": "WEB_PORT=3001 cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon src/index.mjs",
   "start": "cross-env NODE_ENV=production node src/index.mjs",
   "serve:prod": "npm run start",
   "build": "npm run clean && npm run build:js && npm run docs",
@@ -27,7 +27,10 @@
   "format": "prettier --write .",
   "format:check": "prettier --check .",
   "analyze": "webpack --mode production --profile --json > webpack-stats.json",
-  "smoke:ai": "node scripts/smoke-ai.mjs"
+  "smoke:ai": "node scripts/smoke-ai.mjs",
+  "test:global-x": "node scripts/test-global-x-posting.mjs",
+  "check:version": "node scripts/check-version-bump.mjs",
+  "prepare": "node scripts/install-git-hooks.mjs"
   },
   "keywords": [
     "discord",
