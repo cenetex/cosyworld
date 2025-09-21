@@ -1,4 +1,4 @@
-import { initializeWallet, connectWallet } from './services/wallet.js';
+import { initializeWallet, connectWallet, signWriteHeaders } from './services/wallet.js';
 
 async function fetchStats() {
   try {
@@ -75,16 +75,33 @@ function init() {
   wireAdminX();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Wait for both DOM ready and admin bootstrap readiness (so window.AdminAPI is present)
+function onReady(fn){
+  if (document.readyState === 'complete' || document.readyState === 'interactive') { setTimeout(fn,0); }
+  else document.addEventListener('DOMContentLoaded', fn);
+}
+let _bootstrapReady = false;
+window.addEventListener('admin:bootstrapReady', () => { _bootstrapReady = true; });
+onReady(() => {
+  // If bootstrap not yet ready, poll briefly
+  const start = Date.now();
+  (function waitBootstrap(){
+    if (_bootstrapReady || (window.AdminAPI && window.AdminAuth)) return init();
+    if (Date.now() - start > 3000) { // 3s timeout
+      console.warn('[admin-dashboard] bootstrap not detected; continuing anyway');
+      return init();
+    }
+    setTimeout(waitBootstrap, 50);
+  })();
+});
 
 async function wireAdminX() {
   const connectBtn = document.getElementById('admin-x-connect');
   const disconnectBtn = document.getElementById('admin-x-disconnect');
-  const setGlobalBtn = document.getElementById('admin-x-set-global');
-  const hint = document.getElementById('admin-x-hint');
+  // Refresh profile button removed (auto-refresh via connect/disconnect events)
+  const hint = document.getElementById('global-x-hint');
   const profileWrapper = document.getElementById('x-profile-wrapper');
-  const accountPill = document.getElementById('global-x-account-pill');
-  const globalBadge = document.getElementById('admin-x-global-badge');
+  // Removed account pill & global badge (single implicit global account)
 
   function showHint(msg, kind='warn') {
     if (!hint) return;
@@ -104,15 +121,7 @@ async function wireAdminX() {
     return r.json();
   }
 
-  async function findGlobalAuth() {
-    try {
-      const data = await fetchJson('/api/admin/x-accounts');
-      const accounts = data.xAccounts || [];
-      const globals = accounts.filter(a => a?.xAuth?.global);
-      if (globals.length) return globals[0];
-      return accounts.find(a => a.xAuth?.accessToken) || null;
-    } catch { return null; }
-  }
+  // Simplified: we only need the admin target, which implicitly is the global account
 
   async function refresh() {
     try {
@@ -123,21 +132,30 @@ async function wireAdminX() {
         targetAvatarId = t.avatarId;
       } catch {}
       let status = null;
+      let targetMeta = null;
       if (targetAvatarId) {
         try { status = await fetchJson(`/api/xauth/status/${targetAvatarId}`); } catch {}
       }
-      if (!status || !status.authorized) {
-        const globalAcc = await findGlobalAuth();
-        if (globalAcc) {
-          targetAvatarId = globalAcc.avatar?._id || globalAcc.avatarId || targetAvatarId;
-          status = { authorized: !!globalAcc.xAuth?.accessToken, profile: globalAcc.xProfile || globalAcc.xAuth?.profile, expiresAt: globalAcc.xAuth?.expiresAt, global: !!globalAcc.xAuth?.global };
-        }
+      // Fetch target meta (may include stored profile) for fallback
+      try { targetMeta = await fetchJson('/api/xauth/admin/target'); } catch {}
+      if (status && !status.profile && targetMeta?.profile) {
+        status.profile = targetMeta.profile; // Enrich missing profile
       }
+      // Final fallback: direct admin profile fetch if still missing
+      if ((!status || !status.profile) && targetAvatarId) {
+        try {
+          const ap = await fetchJson('/api/xauth/admin/profile');
+          if (ap?.authorized && ap.profile) {
+            if (!status) status = { authorized: true, expiresAt: ap.expiresAt, profile: ap.profile };
+            else if (!status.profile) status.profile = ap.profile;
+          }
+        } catch {}
+      }
+      // No secondary search: only admin target matters now
 
       if (status?.authorized) {
-        connectBtn?.classList.add('hidden');
-        disconnectBtn?.classList.remove('hidden');
-        setGlobalBtn?.classList.remove('hidden');
+  connectBtn?.classList.add('hidden');
+  disconnectBtn?.classList.remove('hidden');
         profileWrapper?.classList.remove('hidden');
         const p = status.profile || {};
         const img = document.getElementById('admin-x-avatar');
@@ -145,29 +163,24 @@ async function wireAdminX() {
         const user = document.getElementById('admin-x-username');
         const exp = document.getElementById('admin-x-expiry');
         if (img) {
+          const placeholder = '/images/x-placeholder.svg';
           if (p.profile_image_url) {
             img.src = p.profile_image_url;
-            img.onerror = () => { img.src = '/images/x-placeholder.png'; };
+            img.onerror = () => { img.src = placeholder; };
           } else {
-            img.src = '/images/x-placeholder.png';
+            img.src = placeholder;
           }
         }
         if (name) name.textContent = p.name || (p.username ? p.username : 'X Account');
         if (user) user.textContent = p.username ? `@${p.username}` : '';
         if (exp && status.expiresAt) exp.textContent = `Token expires: ${new Date(status.expiresAt).toLocaleString()}`;
-        if (globalBadge) globalBadge.classList.toggle('hidden', !status.global);
-        if (accountPill) {
-          accountPill.classList.remove('hidden');
-          accountPill.textContent = status.global ? 'GLOBAL ACCOUNT' : 'ACCOUNT CONNECTED';
-          accountPill.className = 'text-xs px-2 py-0.5 rounded ' + (status.global ? 'bg-indigo-600 text-white' : 'bg-green-600 text-white');
-        }
+        // Badge/pill removed
+        hideHint();
       } else {
-        disconnectBtn?.classList.add('hidden');
-        setGlobalBtn?.classList.add('hidden');
-        connectBtn?.classList.remove('hidden');
+  disconnectBtn?.classList.add('hidden');
+  connectBtn?.classList.remove('hidden');
         profileWrapper?.classList.add('hidden');
-        if (accountPill) accountPill.classList.add('hidden');
-        showHint('No authorized X account. Connect and then mark it Global to enable posting.');
+        showHint('No authorized X account. Connect to enable auto posting.');
       }
     } catch (e) {
       showHint('Failed to load X status: ' + e.message, 'error');
@@ -203,30 +216,26 @@ async function wireAdminX() {
     } catch (e) { showHint('Failed to disconnect: ' + e.message, 'error'); } finally { disconnectBtn.disabled = false; }
   });
 
-  setGlobalBtn?.addEventListener('click', async () => {
-    try {
-      setGlobalBtn.disabled = true; hideHint();
-      // We need the chosen avatarId; attempt to locate via global or first authorized account list
-      const accounts = await (await fetch('/api/admin/x-accounts')).json().catch(()=>({xAccounts:[]}));
-      const acc = (accounts.xAccounts||[]).find(a => a.xAuth?.accessToken);
-      if (!acc) throw new Error('No authorized account to mark global');
-      const avatarId = acc.avatar?._id || acc.avatarId;
-      const headers = { 'Content-Type': 'application/json' };
-      const res = await fetch('/api/admin/x-accounts/set-global', { method: 'POST', headers, body: JSON.stringify({ avatarId }) });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-      showHint('Account marked as global.', 'ok');
-      await refresh();
-    } catch (e) { showHint('Failed to set global: ' + e.message, 'error'); } finally { setGlobalBtn.disabled = false; }
-  });
+  // Manual profile refresh removed: profile auto-updates after auth actions.
+
+  // Set Global workflow removed
 
   await refresh();
 }
 
-// Minimal API helper for signed writes (fallbacks to unsigned in dev)
+// Minimal API helper for signed writes. Previously this returned an empty object
+// if the AdminAuth bootstrap hadn't finished yet, which caused authenticated
+// PUTs to fail with "Signed message required". We now attempt a direct wallet
+// signature using signWriteHeaders as a fallback so the toggle works even if
+// AdminAuth isn't fully initialized yet.
 async function getSignedHeaders(meta = {}) {
   if (window.AdminAuth?.getSignedHeaders) return window.AdminAuth.getSignedHeaders(meta);
-  return {};
+  try {
+    return await signWriteHeaders(meta);
+  } catch (e) {
+    console.warn('[admin-dashboard] fallback signWriteHeaders failed', e);
+    return {};
+  }
 }
 
 async function fetchCsrfToken() {
@@ -240,10 +249,9 @@ async function fetchCsrfToken() {
 
 function wireGlobalXToggle() {
   const enabledEl = document.getElementById('global-x-enabled');
-  const saveBtn = document.getElementById('global-x-save');
   const pill = document.getElementById('global-x-state-pill');
   const hint = document.getElementById('global-x-hint');
-  if (!enabledEl || !saveBtn) return; // not present
+  if (!enabledEl) return; // not present
 
   async function load() {
     try {
@@ -267,46 +275,59 @@ function wireGlobalXToggle() {
     pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700');
   }
 
-  enabledEl.addEventListener('change', updatePill);
-  saveBtn.addEventListener('click', async () => {
+  let pendingTimer = null;
+  let lastValue = null;
+
+  async function persist(value) {
     try {
-      saveBtn.disabled = true;
       hint.classList.add('hidden');
       hint.textContent = '';
-      // Ensure wallet is connected & signing available
       if (!window.state?.wallet?.publicKey) {
         hint.classList.remove('hidden');
         hint.textContent = 'Connect wallet first (top right) to authorize change.';
         return;
       }
       let signedHeaders;
-      try {
-        signedHeaders = await getSignedHeaders({ op: 'toggle_global_posting' });
-      } catch (e) {
+      try { signedHeaders = await getSignedHeaders({ op: 'toggle_global_posting' }); } catch (e) {
         hint.classList.remove('hidden');
         hint.textContent = 'Signature rejected or wallet not connected: ' + e.message;
         return;
       }
+      if (!signedHeaders || !signedHeaders['X-Wallet-Address']) {
+        hint.classList.remove('hidden');
+        hint.textContent = 'Auto-save failed: missing signed headers (reconnect wallet & retry).';
+        return;
+      }
       const headers = { 'Content-Type': 'application/json', ...signedHeaders, 'x-csrf-token': await fetchCsrfToken() };
-      const res = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body: JSON.stringify({ enabled: enabledEl.checked }) });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      const res = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body: JSON.stringify({ enabled: value }) });
+      let data = {}; try { data = await res.json(); } catch {}
+      if (!res.ok || data.error) {
+        const serverMsg = data.error || `HTTP ${res.status}`;
+        if (/csrf/i.test(serverMsg)) throw new Error('CSRF token invalid or missing (refresh page and retry)');
+        if (/Signed message required/i.test(serverMsg)) throw new Error('Signed message required (reconnect wallet & approve signature)');
+        throw new Error(serverMsg);
+      }
       updatePill();
       hint.classList.remove('hidden');
       hint.classList.remove('bg-yellow-50','text-yellow-700','border-yellow-200');
       hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
-      hint.textContent = 'Saved at ' + new Date().toLocaleTimeString();
+      hint.textContent = 'Saved';
+      setTimeout(() => { if (hint.textContent === 'Saved') hint.classList.add('hidden'); }, 2000);
     } catch (e) {
       hint.classList.remove('hidden');
       hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
-      if (/Signed message required/i.test(e.message)) {
-        hint.textContent = 'Save failed: Signed message required. Reconnect wallet and approve the signature prompt.';
-      } else {
-        hint.textContent = 'Save failed: ' + e.message;
-      }
-    } finally {
-      saveBtn.disabled = false;
+      hint.textContent = 'Auto-save failed: ' + e.message;
     }
+  }
+
+  enabledEl.addEventListener('change', () => {
+    updatePill();
+    const val = enabledEl.checked;
+    if (val === lastValue) return; // no change
+    lastValue = val;
+    if (pendingTimer) clearTimeout(pendingTimer);
+    // Debounce rapid flips (300ms)
+    pendingTimer = setTimeout(() => persist(val), 300);
   });
 
   load();

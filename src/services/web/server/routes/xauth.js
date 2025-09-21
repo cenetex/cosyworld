@@ -198,13 +198,26 @@ export default function xauthRoutes(services) {
         }
     });
 
-    // Admin-only: get target admin avatar id for UI
+    // Admin-only: get admin-linked X account details (lightweight, cached)
     router.get('/admin/target', async (req, res) => {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-            const avatarId = getAdminAvatarId();
-            // Always return a deterministic target id, even if env is not set
-            return res.json({ avatarId });
+            // Simple in-memory cache on services scope
+            if (!services._adminTargetCache) services._adminTargetCache = { data: null, exp: 0 };
+            const now = Date.now();
+            if (services._adminTargetCache.exp > now && services._adminTargetCache.data) {
+                return res.json({ ...services._adminTargetCache.data, cached: true });
+            }
+            const db = await services.databaseService.getDatabase();
+            const adminId = getAdminAvatarId();
+            let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { sort: { updatedAt: -1 } });
+            if (!auth) auth = await db.collection('x_auth').findOne({}, { sort: { updatedAt: -1 } });
+            const payload = { avatarId: auth?.avatarId || adminId };
+            // Provide profile if present (do not call X API here to avoid rate cost)
+            if (auth?.profile) payload.profile = auth.profile;
+            if (auth?.expiresAt) payload.expiresAt = auth.expiresAt;
+            services._adminTargetCache = { data: payload, exp: now + 30_000 }; // 30s cache
+            return res.json(payload);
         } catch (e) {
             return res.status(500).json({ error: 'Failed to fetch admin target' });
         }
@@ -370,6 +383,8 @@ export default function xauthRoutes(services) {
                 console.warn('xauth profile fetch failed:', e?.message || e);
             }
 
+            const adminId = getAdminAvatarId();
+            const isAdminAvatar = storedAuth.avatarId === adminId;
             await db.collection('x_auth').updateOne(
                 { avatarId: storedAuth.avatarId },
                 {
@@ -379,6 +394,7 @@ export default function xauthRoutes(services) {
                         expiresAt,
                         updatedAt: new Date(),
                         ...(profile ? { profile } : {}),
+                        // global flag removed – implicit single admin account
                     },
                 },
                 { upsert: true }
@@ -430,7 +446,14 @@ export default function xauthRoutes(services) {
             }
 
             const db = await services.databaseService.getDatabase();
-            const auth = await db.collection('x_auth').findOne({ avatarId });
+            let auth = await db.collection('x_auth').findOne({ avatarId });
+            if (!auth) {
+                // Fallback: if avatarId looks like deterministic admin id, try global flagged record
+                const globalAuth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+                if (globalAuth) {
+                    auth = globalAuth;
+                }
+            }
             if (!auth) {
                 services._xStatusCache.delete(key);
                 return res.json({ authorized: false });
@@ -440,7 +463,7 @@ export default function xauthRoutes(services) {
             if (now >= new Date(auth.expiresAt) && auth.refreshToken) {
                 try {
                     const { expiresAt } = await xService.refreshAccessToken(auth);
-                    const data = { authorized: true, expiresAt };
+                    const data = { authorized: true, expiresAt, profile: auth.profile || null };
                     services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
                     return res.json(data);
                 } catch (error) {
@@ -453,6 +476,10 @@ export default function xauthRoutes(services) {
             // Serve from cache if still fresh
             const cached = services._xStatusCache.get(key);
             if (cached && cached.expires > nowMs) {
+                // Merge stored profile if missing in cached data
+                if (!cached.data.profile && auth.profile) {
+                    cached.data.profile = auth.profile;
+                }
                 return res.json({ ...cached.data, cached: true });
             }
 
@@ -460,7 +487,11 @@ export default function xauthRoutes(services) {
                 const client = new TwitterApi(decrypt(auth.accessToken));
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
                 const user = me?.data || null;
-                const data = { authorized: true, expiresAt: auth.expiresAt, profile: user };
+                const mergedProfile = user || auth.profile || null;
+                if (!mergedProfile && process.env.NODE_ENV !== 'production') {
+                    console.warn('[xauth][status] No profile available after fetch & merge', { avatarId, hasUser: !!user, hasStored: !!auth.profile });
+                }
+                const data = { authorized: true, expiresAt: auth.expiresAt, profile: mergedProfile };
                 services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
                 return res.json(data);
             } catch (error) {
@@ -470,7 +501,9 @@ export default function xauthRoutes(services) {
                     const current = services._xStatusBackoff.get(key) || 0;
                     const next = Math.max(current, nowMs) + 30_000; // 30s backoff
                     services._xStatusBackoff.set(key, next);
-                    const fallback = cached ? { ...cached.data, rateLimited: true } : { authorized: true, expiresAt: auth.expiresAt, rateLimited: true };
+                    const fallbackBase = cached ? { ...cached.data } : { authorized: true, expiresAt: auth.expiresAt };
+                    if (!fallbackBase.profile && auth.profile) fallbackBase.profile = auth.profile;
+                    const fallback = { ...fallbackBase, rateLimited: true };
                     services._xStatusCache.set(key, { data: fallback, expires: nowMs + 15_000 });
                     return res.json(fallback);
                 }
@@ -581,9 +614,43 @@ export default function xauthRoutes(services) {
             const db = await services.databaseService.getDatabase();
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth?.accessToken) return res.json({ authorized: false });
+
+            // If previous call recently hit rate limit, short‑circuit (simple backoff 60s)
+            const now = Date.now();
+            if (auth.profileRateLimitedAt && (now - auth.profileRateLimitedAt < 60_000)) {
+                return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
+            }
+
             const client = new TwitterApi(decrypt(auth.accessToken));
-            const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });
-            return res.json({ authorized: true, expiresAt: auth.expiresAt, profile: me?.data || null });
+            let profile = null;
+            try {
+                const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });
+                profile = me?.data || null;
+            } catch (apiErr) {
+                const code = apiErr?.code || apiErr?.status;
+                if (code === 429) {
+                    // Store rate limit stamp and return cached profile instead of 500
+                    try {
+                        await db.collection('x_auth').updateOne({ avatarId }, { $set: { profileRateLimitedAt: new Date() } });
+                    } catch {}
+                    return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
+                }
+                throw apiErr;
+            }
+
+            if (profile) {
+                try {
+                    await db.collection('x_auth').updateOne(
+                        { avatarId },
+                        { $set: { profile, updatedAt: new Date(), profileRateLimitedAt: null } }
+                    );
+                } catch (e) {
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn('[xauth][admin/profile] failed to persist profile', e.message);
+                    }
+                }
+            }
+            return res.json({ authorized: true, expiresAt: auth.expiresAt, profile, rateLimited: false });
         } catch (e) {
             console.error('Admin profile fetch failed:', e);
             return res.status(500).json({ error: 'Failed to fetch profile' });

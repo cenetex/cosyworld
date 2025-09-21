@@ -117,6 +117,33 @@ export class SceneCameraTool extends BasicTool {
       }
 
       if (!imageUrl) return '-# [ ❌ Error: Failed to capture scene. ]';
+      // FEATURE: After successfully generating an image, trigger lightweight follow-up responses
+      // from avatars included in the scene (excluding the invoking avatar which already "spoke").
+      // This creates more lively interaction after a camera snapshot.
+      try {
+        // Defer reactions slightly so the original snapshot post appears first.
+        setTimeout(async () => {
+          try {
+            // Fetch fresh list to avoid stale references; reuse previously selected list for determinism
+            const convoMgr = this.configService?.services?.conversationManager;
+            const discord = this.discordService;
+            if (!convoMgr || !discord) return;
+            const channel = await discord.getChannelById?.(channelId) || message.channel;
+            if (!channel) return;
+            for (const av of list) {
+              if (!av || (avatar && String(av._id) === String(avatar._id))) continue;
+              // Best-effort ensure model; ignore cooldown for immediate chatter
+              try {
+                await convoMgr.sendResponse(channel, av, null, { overrideCooldown: true, cascadeDepth: 1 });
+              } catch (e) {
+                this.logger?.debug?.(`[SceneCamera] follow-up response failed for ${av.name}: ${e.message}`);
+              }
+            }
+          } catch (inner) {
+            this.logger?.debug?.('[SceneCamera] follow-up scheduling error: ' + (inner?.message || inner));
+          }
+        }, 1500);
+      } catch {}
       return `-# [ ${this.emoji} [Scene](${imageUrl}) ]`;
     } catch (err) {
       return `-# [ ❌ Error: ${err?.message || err} ]`;

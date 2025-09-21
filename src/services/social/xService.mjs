@@ -584,38 +584,41 @@ class XService {
       });
       const config = await this._loadGlobalPostingConfig();
       if (!config?.enabled) {
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
         this.logger?.debug?.('[XService][globalPost] disabled (no config or enabled=false)');
         return null;
       }
 
-      // Resolve access token strictly from DB records (priority order):
-      // 1. global flag record (x_auth.global === true)
-      // 2. config.globalAvatarId mapping
-      // 3. Any single most recently updated x_auth (as a last-ditch fallback)
+      // Simplified: resolve ONLY the admin-linked account. The admin avatar id is determined
+      // deterministically by config/environment; no more global flag juggling.
       let accessToken = null;
       try {
         const db = await this.databaseService.getDatabase();
-        let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
-        if (!auth && config.globalAvatarId) {
-          auth = await db.collection('x_auth').findOne({ avatarId: config.globalAvatarId }, { sort: { updatedAt: -1 } });
+        const adminAvatarId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim() || null;
+        let auth = null;
+        if (adminAvatarId) {
+          auth = await db.collection('x_auth').findOne({ avatarId: adminAvatarId }, { sort: { updatedAt: -1 } });
         }
         if (!auth) {
+          // Fallback: first record acts as admin-linked implicitly (legacy behavior)
           auth = await db.collection('x_auth').findOne({}, { sort: { updatedAt: -1 } });
-          if (auth) this.logger?.warn?.('[XService][globalPost] Falling back to most recent x_auth record (no global flag set).');
+          if (auth) this.logger?.warn?.('[XService][globalPost] Using first available X auth record (no ADMIN_AVATAR_ID set).');
         }
         if (auth?.accessToken) {
           accessToken = safeDecrypt(auth.accessToken);
-          this.logger?.debug?.('[XService][globalPost] resolved access token from DB', { global: !!auth.global, avatarId: auth.avatarId || null });
+          this.logger?.debug?.('[XService][globalPost] resolved admin access token', { avatarId: auth.avatarId || null });
         }
       } catch (e) {
-        this.logger?.warn?.('[XService][globalPost] auth resolution failed: ' + e.message);
+        this.logger?.warn?.('[XService][globalPost] admin auth resolution failed: ' + e.message);
       }
       if (!accessToken) {
-        this.logger?.warn?.('[XService][globalPost] No DB access token found. Set one X account as global via /admin/x-accounts.');
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'no_access_token', mediaUrl: opts.mediaUrl };
+        this.logger?.warn?.('[XService][globalPost] No admin-linked X access token found. Authorize an X account (admin flow).');
         return null;
       }
       const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
       if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'invalid_media_url', mediaUrl };
         this.logger?.warn?.('[XService][globalPost] Invalid mediaUrl');
         return null;
       }
@@ -629,6 +632,7 @@ class XService {
       }
   const hourlyCap = 10; // constant cap to protect against runaway posting
       if (this._globalRate.count >= hourlyCap) {
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'hourly_cap', mediaUrl };
         this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
         return null;
       }
@@ -686,7 +690,21 @@ class XService {
       // Truncate to 280 chars final
       const tweetText = baseText.slice(0, 280) || ' #CosyWorld';
       const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
-      const tweet = await v2.tweet(payload);
+      let tweet;
+      try {
+        tweet = await v2.tweet(payload);
+      } catch (apiErr) {
+        // Capture common auth failures distinctly for operator visibility
+        const code = apiErr?.code || apiErr?.data?.errors?.[0]?.code;
+        if (code === 401 || apiErr?.status === 401) {
+          this.logger?.error?.('[XService][globalPost] 401 Unauthorized when posting. Most likely causes: revoked token, missing tweet.write scope, or application reset. Re-authorize the global X account.', { hint: 'Re-run admin Connect flow and mark as Global.' });
+        } else if (code === 215 || (apiErr?.data?.errors || []).some(e => e?.code === 215)) {
+          this.logger?.error?.('[XService][globalPost] Auth error (code 215: Bad Authentication data). Token invalid or malformed.', { hint: 'Delete x_auth record and re-authorize.' });
+        } else {
+          this.logger?.error?.('[XService][globalPost] tweet API call failed', apiErr?.message || apiErr);
+        }
+        throw apiErr;
+      }
       if (!tweet?.data?.id) throw new Error('tweet failed');
 
       this._globalRate.count++;
@@ -711,10 +729,15 @@ class XService {
         try { const me = await v2.me(); this._globalUser = me?.data?.username || 'user'; } catch { this._globalUser = 'user'; }
       }
       const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
+      this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };
       this.logger?.info?.('[XService][globalPost] posted media', { tweetUrl });
       return { tweetId: tweet.data.id, tweetUrl };
     } catch (err) {
-      this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
+      // If we got here due to diagnostics already logged, avoid duplicate generic noise
+      if (!(err?.code === 401 || err?.code === 215 || (err?.data?.errors||[]).some(e=>e.code===215))) {
+        this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
+      }
+      this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
       return null;
     }
   }

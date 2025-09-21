@@ -199,17 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function setGlobalX(xAuthId) {
-    if (!xAuthId) return;
-    try {
-      await api.apiFetch('/api/admin/x-posting/global-account', { method: 'POST', sign: true, signMeta: { op: 'set_global_x', xAuthId }, requireCsrf: true, body: JSON.stringify({ xAuthId }), headers: { 'Content-Type': 'application/json' } });
-      ui.success('Global X account set');
-      await loadXAccounts();
-    } catch (e) {
-      console.error('Set global failed', e);
-      ui.error(e.message || 'Set global failed');
-    }
-  }
 
   // Utility Functions
   // Legacy showNotification replaced by AdminUI toasts
