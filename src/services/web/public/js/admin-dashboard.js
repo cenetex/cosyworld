@@ -71,7 +71,7 @@ function init() {
   ensureAdminSession();
   wirePhantomLogin();
   // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
-  wireGlobalXToggle();
+  // wireGlobalXToggle removed (global X posting page & toggle deprecated)
   wireAdminX();
 }
 
@@ -247,88 +247,3 @@ async function fetchCsrfToken() {
   } catch { return ''; }
 }
 
-function wireGlobalXToggle() {
-  const enabledEl = document.getElementById('global-x-enabled');
-  const pill = document.getElementById('global-x-state-pill');
-  const hint = document.getElementById('global-x-hint');
-  if (!enabledEl) return; // not present
-
-  async function load() {
-    try {
-      pill.textContent = '...';
-      const res = await fetch('/api/admin/x-posting/config');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const enabled = !!data?.config?.enabled;
-      enabledEl.checked = enabled;
-      updatePill();
-    } catch (e) {
-      hint.classList.remove('hidden');
-      hint.textContent = 'Failed to load global posting config: ' + e.message;
-      pill.textContent = 'error';
-    }
-  }
-
-  function updatePill() {
-    const enabled = enabledEl.checked;
-    pill.textContent = enabled ? 'ON' : 'OFF';
-    pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700');
-  }
-
-  let pendingTimer = null;
-  let lastValue = null;
-
-  async function persist(value) {
-    try {
-      hint.classList.add('hidden');
-      hint.textContent = '';
-      if (!window.state?.wallet?.publicKey) {
-        hint.classList.remove('hidden');
-        hint.textContent = 'Connect wallet first (top right) to authorize change.';
-        return;
-      }
-      let signedHeaders;
-      try { signedHeaders = await getSignedHeaders({ op: 'toggle_global_posting' }); } catch (e) {
-        hint.classList.remove('hidden');
-        hint.textContent = 'Signature rejected or wallet not connected: ' + e.message;
-        return;
-      }
-      if (!signedHeaders || !signedHeaders['X-Wallet-Address']) {
-        hint.classList.remove('hidden');
-        hint.textContent = 'Auto-save failed: missing signed headers (reconnect wallet & retry).';
-        return;
-      }
-      const headers = { 'Content-Type': 'application/json', ...signedHeaders, 'x-csrf-token': await fetchCsrfToken() };
-      const res = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body: JSON.stringify({ enabled: value }) });
-      let data = {}; try { data = await res.json(); } catch {}
-      if (!res.ok || data.error) {
-        const serverMsg = data.error || `HTTP ${res.status}`;
-        if (/csrf/i.test(serverMsg)) throw new Error('CSRF token invalid or missing (refresh page and retry)');
-        if (/Signed message required/i.test(serverMsg)) throw new Error('Signed message required (reconnect wallet & approve signature)');
-        throw new Error(serverMsg);
-      }
-      updatePill();
-      hint.classList.remove('hidden');
-      hint.classList.remove('bg-yellow-50','text-yellow-700','border-yellow-200');
-      hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
-      hint.textContent = 'Saved';
-      setTimeout(() => { if (hint.textContent === 'Saved') hint.classList.add('hidden'); }, 2000);
-    } catch (e) {
-      hint.classList.remove('hidden');
-      hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
-      hint.textContent = 'Auto-save failed: ' + e.message;
-    }
-  }
-
-  enabledEl.addEventListener('change', () => {
-    updatePill();
-    const val = enabledEl.checked;
-    if (val === lastValue) return; // no change
-    lastValue = val;
-    if (pendingTimer) clearTimeout(pendingTimer);
-    // Debounce rapid flips (300ms)
-    pendingTimer = setTimeout(() => persist(val), 300);
-  });
-
-  load();
-}
