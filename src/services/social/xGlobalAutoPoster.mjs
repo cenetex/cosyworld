@@ -13,6 +13,9 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
     try {
       if (!payload?.imageUrl) return;
       logger?.debug?.('[XGlobalAutoPoster] received MEDIA.IMAGE.GENERATED', { imageUrl: payload.imageUrl });
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        logger?.info?.('[XGlobalAutoPoster][diag] image event payload', { keys: Object.keys(payload||{}) });
+      }
       await xService.postGlobalMediaUpdate({ mediaUrl: payload.imageUrl, type: 'image' }, { aiService });
     } catch (e) {
       logger?.warn?.(`[XGlobalAutoPoster] image post failed: ${e.message}`);
@@ -23,6 +26,9 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
     try {
       if (!payload?.videoUrl) return;
       logger?.debug?.('[XGlobalAutoPoster] received MEDIA.VIDEO.GENERATED', { videoUrl: payload.videoUrl });
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        logger?.info?.('[XGlobalAutoPoster][diag] video event payload', { keys: Object.keys(payload||{}) });
+      }
       await xService.postGlobalMediaUpdate({ mediaUrl: payload.videoUrl, type: 'video' }, { aiService });
     } catch (e) {
       logger?.warn?.(`[XGlobalAutoPoster] video post failed: ${e.message}`);

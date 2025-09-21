@@ -582,6 +582,15 @@ class XService {
         type: opts.type || 'image',
         textLen: opts.text ? String(opts.text).length : 0
       });
+      // Early trace of environment + minimal opts for support diagnostics
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        this.logger?.info?.('[XService][globalPost][diag] envFlags', {
+          X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED,
+          X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP,
+          hasAIService: !!services.aiService,
+          hasAnalyzeImage: !!services.aiService?.analyzeImage
+        });
+      }
       // Initialize metrics bucket lazily (in-memory only). If process restarts, counters reset.
       if (!this._globalPostMetrics) {
         this._globalPostMetrics = {
@@ -623,6 +632,9 @@ class XService {
       } else {
         enabled = !!config.enabled;
       }
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        this.logger?.info?.('[XService][globalPost][diag] loadedConfig', { enabled, configKeys: Object.keys(config || {}) });
+      }
       if (!enabled) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
         _bump('disabled', { mediaUrl: opts.mediaUrl });
@@ -643,6 +655,9 @@ class XService {
         if (auth?.accessToken) {
           accessToken = safeDecrypt(auth.accessToken);
           this.logger?.debug?.('[XService][globalPost] resolved global access token', { avatarId: auth.avatarId || null, global: !!auth.global });
+          if (process.env.DEBUG_GLOBAL_X === '1') {
+            this.logger?.info?.('[XService][globalPost][diag] authRecord', { hasRefresh: !!auth.refreshToken, expiresAt: auth.expiresAt, profileCached: !!auth.profile });
+          }
         } else {
           this.logger?.warn?.('[XService][globalPost] No global X auth record found (add one via admin panel).');
         }
@@ -681,6 +696,9 @@ class XService {
         this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
         _bump('hourly_cap', { mediaUrl, hourlyCap });
         return null;
+      }
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        this.logger?.info?.('[XService][globalPost][diag] proceeding', { mediaUrl, isVideo: type === 'video', hourlyCount: this._globalRate.count });
       }
       this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
 
@@ -752,6 +770,9 @@ class XService {
         throw apiErr;
       }
       if (!tweet?.data?.id) throw new Error('tweet failed');
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        this.logger?.info?.('[XService][globalPost][diag] tweetSuccess', { tweetId: tweet.data.id });
+      }
 
       this._globalRate.count++;
 
@@ -783,6 +804,9 @@ class XService {
       // If we got here due to diagnostics already logged, avoid duplicate generic noise
       if (!(err?.code === 401 || err?.code === 215 || (err?.data?.errors||[]).some(e=>e.code===215))) {
         this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
+      }
+      if (process.env.DEBUG_GLOBAL_X === '1') {
+        this.logger?.error?.('[XService][globalPost][diag] exception', { message: err?.message, stack: err?.stack });
       }
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
       try { this._globalPostMetrics && this._globalPostMetrics.reasons && this._globalPostMetrics.reasons.error !== undefined && (this._globalPostMetrics.reasons.error++); } catch {}
@@ -848,6 +872,54 @@ class XService {
       reasons: { ...m.reasons },
       last: m.last ? { ...m.last } : null
     };
+  }
+
+  /**
+   * Fetch (and cache) the profile for the implicit global X auth record.
+   * Caching policy: refresh if missing or cache older than 6h unless force=true.
+   * Returns the cached profile object or null if unavailable / auth missing.
+   */
+  async fetchAndCacheGlobalProfile(force = false) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      // Resolve the candidate global auth in the same way postGlobalMediaUpdate does.
+      let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+      if (!auth) {
+        auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
+      }
+      if (!auth || !auth.accessToken) return null;
+      const existing = auth.profile || null;
+      const now = Date.now();
+      const staleMs = 6 * 60 * 60 * 1000; // 6 hours
+      if (!force && existing && existing.cachedAt) {
+        const age = now - new Date(existing.cachedAt).getTime();
+        if (age < staleMs) return existing; // fresh enough
+      }
+      // Build client with decrypted token
+      const token = safeDecrypt(auth.accessToken);
+      if (!token) return existing; // fallback to existing if decrypt failed
+      try {
+        const client = new TwitterApi({ accessToken: token.trim() });
+        const me = await client.v2.me({ 'user.fields': 'name,username,profile_image_url' });
+        const data = me?.data;
+        if (!data) return existing;
+        const profile = {
+          id: data.id,
+            name: data.name,
+          username: data.username,
+          profile_image_url: data.profile_image_url,
+          cachedAt: new Date()
+        };
+        await db.collection('x_auth').updateOne({ _id: auth._id }, { $set: { profile } });
+        return profile;
+      } catch (e) {
+        this.logger?.warn?.('[XService] fetch global profile failed: ' + e.message);
+        return existing;
+      }
+    } catch (err) {
+      this.logger?.warn?.('[XService] fetchAndCacheGlobalProfile error: ' + (err?.message || err));
+      return null;
+    }
   }
 }
 

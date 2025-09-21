@@ -4,6 +4,16 @@
  * This avoids real network calls by monkey-patching fetch & TwitterApi.
  * Run with: `node scripts/test-global-x-posting.mjs`
  */
+// NOTE: We must define the TwitterApi shim BEFORE importing the service so that the service uses it.
+class MockV2 {
+  async uploadMedia() { return 'media123'; }
+  async tweet() { return { data: { id: 'tweet123' } }; }
+  async createMediaMetadata() { return true; }
+  async me() { return { data: { username: 'mockuser' } }; }
+}
+class MockV1 { async uploadMedia() { return 'media123'; } }
+class TwitterApiShim { constructor() { return { v2: new MockV2(), v1: new MockV1() }; } }
+global.TwitterApi = TwitterApiShim;
 import XService from '../src/services/social/xService.mjs';
 
 // --- Mocks ---
@@ -20,37 +30,7 @@ global.fetch = async (url) => {
 };
 
 // Minimal internal factory to mimic TwitterApi API surface used by XService
-function makeTwitterClientMock() {
-  return {
-    v2: {
-      uploadMedia: async () => 'media123',
-      tweet: async () => ({ data: { id: 'tweet123' } }),
-      createMediaMetadata: async () => true,
-      me: async () => ({ data: { username: 'mockuser' } })
-    },
-    v1: {
-      uploadMedia: async () => 'media123'
-    }
-  };
-}
-
-class TestXService extends XService {
-  // Override internal creation by wrapping postGlobalMediaUpdate after super
-  constructor(deps) { super(deps); }
-  // Monkey patch inside method usage by temporarily replacing global TwitterApi reference pattern.
-  // Simpler: override a helper the service implicitly relies on (none exists), so we intercept directly by shadowing TwitterApi variable through closure rebind.
-  _makeTwitterClient() { return makeTwitterClientMock(); }
-  // Wrap original method to inject our mock
-  async postGlobalMediaUpdate(opts = {}, services = {}) {
-    const original = global.TwitterApi;
-    try {
-      global.TwitterApi = function() { return this._makeTwitterClient(); }.bind(this);
-      return await super.postGlobalMediaUpdate(opts, services);
-    } finally {
-      global.TwitterApi = original;
-    }
-  }
-}
+class TestXService extends XService {}
 
 // Fake database service
 const fakeDbState = {
@@ -82,12 +62,15 @@ const configService = { get: () => null };
 async function main() {
   const svc = new TestXService({ logger, databaseService, configService });
   // 1. Successful post
+  console.log('TEST: posting valid media');
   await svc.postGlobalMediaUpdate({ mediaUrl: 'https://example.com/image.png', text: 'Hello world' });
-  // 2. Invalid media URL
-  await svc.postGlobalMediaUpdate({ mediaUrl: 'notaurl', text: 'X' });
-  // 3. Hourly cap reached simulation
+  // 2. Hourly cap reached simulation (set cap to 1, second valid post should be capped)
   process.env.X_GLOBAL_POST_HOURLY_CAP = '1';
-  await svc.postGlobalMediaUpdate({ mediaUrl: 'https://example.com/image2.png', text: 'Second should cap' });
+  console.log('TEST: posting second valid media (should cap)');
+  await svc.postGlobalMediaUpdate({ mediaUrl: 'https://example.com/image2.png', text: 'Should cap' });
+  // 3. Invalid media URL
+  console.log('TEST: posting invalid media url');
+  await svc.postGlobalMediaUpdate({ mediaUrl: 'notaurl', text: 'X' });
   const metrics = svc.getGlobalPostingMetrics();
   console.log('\nGlobal Posting Metrics Snapshot:', JSON.stringify(metrics, null, 2));
   console.log('Social posts stored:', fakeDbState.social_posts.length);

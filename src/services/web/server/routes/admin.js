@@ -818,7 +818,56 @@ Hello ${avatar.name}, what's on your mind today?
     }
   }));
 
-  // (Removed) Global X Posting endpoints deprecated – configuration now implicit via x_auth records.
+  // === Global X Posting (re-introduced lightweight endpoints for dashboard toggle & config) ===
+  // Config is stored in collection `x_post_config` with _id 'global'. XService handles gating.
+  router.get('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Attempt to resolve the implied global X account & include cached profile for UI convenience
+      let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+      if (!auth) {
+        auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
+      }
+      const profile = auth?.profile || null;
+      res.json({ config: cfg || { enabled: false, mode: 'live' }, profile, resolvedAccount: auth ? { avatarId: auth.avatarId || null, hasProfile: !!profile } : null });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load config' });
+    }
+  }));
+
+  router.put('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Only allow specific fields
+      const patch = {};
+      if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+      if (body.mode && ['live','shadow'].includes(body.mode)) patch.mode = body.mode;
+      if (body.rate && typeof body.rate === 'object') {
+        const r = {};
+        if (body.rate.hourly && Number(body.rate.hourly) > 0) r.hourly = Number(body.rate.hourly);
+        if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
+      }
+      if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
+      if (body.media && typeof body.media === 'object') {
+        patch.media = { altAutogen: !!body.media.altAutogen };
+      }
+      const updated = await services.xService.updateGlobalPostingConfig(patch);
+      res.json({ config: updated });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save config' });
+    }
+  }));
+
+  router.post('/x-posting/test', asyncHandler(async (req, res) => {
+    try {
+      const { mediaUrl, text, type } = req.body || {};
+      if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
+      const result = await services.xService.postGlobalMediaUpdate({ mediaUrl, text, type });
+      res.json({ attempted: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Test post failed' });
+    }
+  }));
 
 
   // Add admin routes to main router (mounted at /api/admin in app.js)

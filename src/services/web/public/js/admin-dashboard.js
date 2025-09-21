@@ -70,6 +70,7 @@ function init() {
   fetchStats();
   ensureAdminSession();
   wirePhantomLogin();
+  wireGlobalXToggle();
   // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
   // wireGlobalXToggle removed (global X posting page & toggle deprecated)
   wireAdminX();
@@ -245,5 +246,53 @@ async function fetchCsrfToken() {
     const j = await r.json();
     return j.csrfToken || '';
   } catch { return ''; }
+}
+
+// Lightweight inline implementation of global X enable toggle using /api/admin/x-posting/config
+function wireGlobalXToggle() {
+  const toggle = document.getElementById('global-x-enabled');
+  const pill = document.getElementById('global-x-state-pill');
+  if (!toggle || !pill) return;
+
+  const setPill = (enabled) => {
+    pill.textContent = enabled ? 'ENABLED' : 'DISABLED';
+    pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700');
+  };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/x-posting/config');
+      if (!r.ok) throw new Error('' + r.status);
+      const data = await r.json();
+      const enabled = !!data?.config?.enabled;
+      toggle.checked = enabled;
+      setPill(enabled);
+    } catch (e) {
+      setPill(false);
+    }
+  }
+
+  let saveTimer = null;
+  toggle.addEventListener('change', async () => {
+    // Debounce rapid flips
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        const csrf = await fetchCsrfToken();
+        const headers = { 'Content-Type': 'application/json', 'x-csrf-token': csrf };
+        const body = JSON.stringify({ enabled: toggle.checked });
+        const r = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body });
+        if (!r.ok) throw new Error('Save failed');
+        const j = await r.json().catch(()=>({}));
+        setPill(!!j?.config?.enabled);
+      } catch (e) {
+        // revert UI state on failure
+        toggle.checked = !toggle.checked;
+        setPill(toggle.checked);
+      }
+    }, 150);
+  });
+
+  load();
 }
 
