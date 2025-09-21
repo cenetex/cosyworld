@@ -411,38 +411,81 @@ export default function xauthRoutes(services) {
 
     router.get('/status/:avatarId', async (req, res) => {
         const { avatarId } = req.params;
-
         try {
+            // Lazy init caches on services scope
+            if (!services._xStatusCache) {
+                services._xStatusCache = new Map(); // key -> { data, expires }
+                services._xStatusBackoff = new Map(); // key -> nextAllowedTs
+            }
+            const cacheTtlMs = 60_000; // 1 minute cache for profile
+            const key = avatarId;
+            const nowMs = Date.now();
+            const backoffUntil = services._xStatusBackoff.get(key) || 0;
+            if (nowMs < backoffUntil) {
+                const c = services._xStatusCache.get(key);
+                if (c && c.expires > nowMs) {
+                    return res.json({ ...c.data, cached: true, backoff: true });
+                }
+                return res.json({ authorized: false, backoff: true });
+            }
+
             const db = await services.databaseService.getDatabase();
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth) {
+                services._xStatusCache.delete(key);
                 return res.json({ authorized: false });
             }
 
             const now = new Date();
             if (now >= new Date(auth.expiresAt) && auth.refreshToken) {
                 try {
-                    // Use xService for token refresh
                     const { expiresAt } = await xService.refreshAccessToken(auth);
-                    return res.json({ authorized: true, expiresAt });
+                    const data = { authorized: true, expiresAt };
+                    services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
+                    return res.json(data);
                 } catch (error) {
-                    return res.json({ authorized: false, error: 'Token refresh failed', requiresReauth: true });
+                    const data = { authorized: false, error: 'Token refresh failed', requiresReauth: true };
+                    services._xStatusCache.set(key, { data, expires: nowMs + 10_000 });
+                    return res.json(data);
                 }
             }
 
-            const client = new TwitterApi(decrypt(auth.accessToken));
-            const me = await client.v2.me({
-                'user.fields': ['profile_image_url', 'username', 'name', 'id'].join(',')
-            });
-            const user = me?.data || null;
-            res.json({ authorized: true, expiresAt: auth.expiresAt, profile: user });
-        } catch (error) {
-            console.error('Status check failed:', error.message, { avatarId });
-            if (error.code === 401) {
-                await db.collection('x_auth').deleteOne({ avatarId });
-                return res.json({ authorized: false, error: 'Token invalid', requiresReauth: true });
+            // Serve from cache if still fresh
+            const cached = services._xStatusCache.get(key);
+            if (cached && cached.expires > nowMs) {
+                return res.json({ ...cached.data, cached: true });
             }
-            res.status(500).json({ error: 'Status check failed' });
+
+            try {
+                const client = new TwitterApi(decrypt(auth.accessToken));
+                const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
+                const user = me?.data || null;
+                const data = { authorized: true, expiresAt: auth.expiresAt, profile: user };
+                services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
+                return res.json(data);
+            } catch (error) {
+                console.error('Status check failed:', error.message, { avatarId });
+                // Apply exponential-ish backoff for 429 specifically
+                if (error.code === 429) {
+                    const current = services._xStatusBackoff.get(key) || 0;
+                    const next = Math.max(current, nowMs) + 30_000; // 30s backoff
+                    services._xStatusBackoff.set(key, next);
+                    const fallback = cached ? { ...cached.data, rateLimited: true } : { authorized: true, expiresAt: auth.expiresAt, rateLimited: true };
+                    services._xStatusCache.set(key, { data: fallback, expires: nowMs + 15_000 });
+                    return res.json(fallback);
+                }
+                if (error.code === 401) {
+                    await db.collection('x_auth').deleteOne({ avatarId });
+                    services._xStatusCache.delete(key);
+                    return res.json({ authorized: false, error: 'Token invalid', requiresReauth: true });
+                }
+                const data = { authorized: false, error: 'Status check failed' };
+                services._xStatusCache.set(key, { data, expires: nowMs + 10_000 });
+                return res.status(500).json(data);
+            }
+        } catch (outer) {
+            console.error('Status route fatal error:', outer.message, { avatarId });
+            return res.status(500).json({ error: 'Status route fatal error' });
         }
     });
 

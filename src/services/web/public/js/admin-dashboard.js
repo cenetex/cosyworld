@@ -70,8 +70,9 @@ function init() {
   fetchStats();
   ensureAdminSession();
   wirePhantomLogin();
-  wireAdminX();
+  // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
   wireGlobalXToggle();
+  wireAdminX();
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -79,133 +80,145 @@ document.addEventListener('DOMContentLoaded', init);
 async function wireAdminX() {
   const connectBtn = document.getElementById('admin-x-connect');
   const disconnectBtn = document.getElementById('admin-x-disconnect');
-  const profileBox = document.getElementById('admin-x-profile');
+  const setGlobalBtn = document.getElementById('admin-x-set-global');
   const hint = document.getElementById('admin-x-hint');
+  const profileWrapper = document.getElementById('x-profile-wrapper');
+  const accountPill = document.getElementById('global-x-account-pill');
+  const globalBadge = document.getElementById('admin-x-global-badge');
 
-  // Helper to refresh status/profile
+  function showHint(msg, kind='warn') {
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.classList.remove('hidden');
+    hint.classList.remove('bg-green-50','text-green-700','border-green-200','bg-yellow-50','text-yellow-700','border-yellow-200','bg-red-50','text-red-700','border-red-200');
+    if (kind === 'ok') hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
+    else if (kind === 'error') hint.classList.add('bg-red-50','text-red-700','border','border-red-200');
+    else hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
+  }
+
+  function hideHint() { hint?.classList.add('hidden'); }
+
+  async function fetchJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json();
+  }
+
+  async function findGlobalAuth() {
+    try {
+      const data = await fetchJson('/api/admin/x-accounts');
+      const accounts = data.xAccounts || [];
+      const globals = accounts.filter(a => a?.xAuth?.global);
+      if (globals.length) return globals[0];
+      return accounts.find(a => a.xAuth?.accessToken) || null;
+    } catch { return null; }
+  }
+
   async function refresh() {
     try {
-      // Step 1: fetch deterministic admin avatar target
+      hideHint();
       let targetAvatarId = null;
       try {
-        const targetRes = await fetch('/api/xauth/admin/target');
-        if (targetRes.ok) {
-          const t = await targetRes.json();
-          targetAvatarId = t.avatarId;
-        }
+        const t = await fetchJson('/api/xauth/admin/target');
+        targetAvatarId = t.avatarId;
       } catch {}
-
-      // Step 2: if target avatarId is synthetic (model:*) or lacks auth, try to discover a global x_auth record
-      let discoveredStatus = null;
-      async function fetchStatus(aid) {
-        const r = await fetch(`/api/xauth/status/${aid}`);
-        return r.ok ? await r.json() : { authorized: false };
-      }
-
+      let status = null;
       if (targetAvatarId) {
-        discoveredStatus = await fetchStatus(targetAvatarId);
+        try { status = await fetchJson(`/api/xauth/status/${targetAvatarId}`); } catch {}
+      }
+      if (!status || !status.authorized) {
+        const globalAcc = await findGlobalAuth();
+        if (globalAcc) {
+          targetAvatarId = globalAcc.avatar?._id || globalAcc.avatarId || targetAvatarId;
+          status = { authorized: !!globalAcc.xAuth?.accessToken, profile: globalAcc.xProfile || globalAcc.xAuth?.profile, expiresAt: globalAcc.xAuth?.expiresAt, global: !!globalAcc.xAuth?.global };
+        }
       }
 
-      if ((!targetAvatarId || !discoveredStatus?.authorized) ) {
-        // Query admin x-accounts to find a global flagged record with profile
-        try {
-          const r = await fetch('/api/admin/x-accounts');
-          if (r.ok) {
-            const j = await r.json();
-            const globals = (j.xAccounts || []).filter(a => a?.xAuth?.global);
-            if (globals.length) {
-              // Prefer one with profile cached
-              globals.sort((a,b) => (b.xProfile ? 1:0) - (a.xProfile ? 1:0));
-              const g = globals[0];
-              targetAvatarId = g.avatar?._id || targetAvatarId;
-              if (!g.xProfile && targetAvatarId) {
-                discoveredStatus = await fetchStatus(targetAvatarId);
-              } else {
-                discoveredStatus = { authorized: !!g.xAuth?.authorized, profile: g.xProfile, expiresAt: g.xAuth?.expiresAt };
-              }
-            }
-          }
-        } catch {}
-      }
-
-      const status = discoveredStatus || { authorized: false };
-      if (status.authorized) {
+      if (status?.authorized) {
         connectBtn?.classList.add('hidden');
         disconnectBtn?.classList.remove('hidden');
-        profileBox?.classList.remove('hidden');
+        setGlobalBtn?.classList.remove('hidden');
+        profileWrapper?.classList.remove('hidden');
         const p = status.profile || {};
         const img = document.getElementById('admin-x-avatar');
         const name = document.getElementById('admin-x-name');
         const user = document.getElementById('admin-x-username');
         const exp = document.getElementById('admin-x-expiry');
-        if (img && p.profile_image_url) img.src = p.profile_image_url;
-        if (name) name.textContent = p.name || 'Unknown';
+        if (img) {
+          if (p.profile_image_url) {
+            img.src = p.profile_image_url;
+            img.onerror = () => { img.src = '/images/x-placeholder.png'; };
+          } else {
+            img.src = '/images/x-placeholder.png';
+          }
+        }
+        if (name) name.textContent = p.name || (p.username ? p.username : 'X Account');
         if (user) user.textContent = p.username ? `@${p.username}` : '';
         if (exp && status.expiresAt) exp.textContent = `Token expires: ${new Date(status.expiresAt).toLocaleString()}`;
-        hint.classList.add('hidden');
+        if (globalBadge) globalBadge.classList.toggle('hidden', !status.global);
+        if (accountPill) {
+          accountPill.classList.remove('hidden');
+          accountPill.textContent = status.global ? 'GLOBAL ACCOUNT' : 'ACCOUNT CONNECTED';
+          accountPill.className = 'text-xs px-2 py-0.5 rounded ' + (status.global ? 'bg-indigo-600 text-white' : 'bg-green-600 text-white');
+        }
       } else {
-        connectBtn?.classList.remove('hidden');
         disconnectBtn?.classList.add('hidden');
-        profileBox?.classList.add('hidden');
-        hint.classList.remove('hidden');
-        hint.textContent = 'No authorized global X account. Use X Accounts -> Set Global or connect here.';
+        setGlobalBtn?.classList.add('hidden');
+        connectBtn?.classList.remove('hidden');
+        profileWrapper?.classList.add('hidden');
+        if (accountPill) accountPill.classList.add('hidden');
+        showHint('No authorized X account. Connect and then mark it Global to enable posting.');
       }
     } catch (e) {
-      hint.classList.remove('hidden');
-      hint.textContent = `Failed to load X status: ${e.message}`;
+      showHint('Failed to load X status: ' + e.message, 'error');
     }
   }
 
-  if (connectBtn) {
-    connectBtn.addEventListener('click', async () => {
-      try {
-        connectBtn.disabled = true;
-        const res = await fetch('/api/xauth/admin/auth-url');
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
+  connectBtn?.addEventListener('click', async () => {
+    try {
+      connectBtn.disabled = true;
+      hideHint();
+      const res = await fetch('/api/xauth/admin/auth-url');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const w = 600, h = 650; const l = window.screen.width/2 - w/2; const t = window.screen.height/2 - h/2;
+      const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
+      if (!popup) throw new Error('Popup blocked');
+      window.addEventListener('message', async function onMsg(ev) {
+        if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
+          window.removeEventListener('message', onMsg);
+          await refresh();
         }
-        const data = await res.json();
-        const w = 600, h = 650;
-        const l = window.screen.width / 2 - w / 2;
-        const t = window.screen.height / 2 - h / 2;
-        const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
-        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          throw new Error('Popup blocked. Please allow popups.');
-        }
-        window.addEventListener('message', async function onMsg(ev) {
-          if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
-            window.removeEventListener('message', onMsg);
-            await refresh();
-          }
-        });
-      } catch (e) {
-        hint.classList.remove('hidden');
-        hint.textContent = `Failed to start auth: ${e.message}`;
-      } finally {
-        connectBtn.disabled = false;
-      }
-    });
-  }
+      });
+    } catch (e) { showHint('Failed to start auth: ' + e.message, 'error'); } finally { connectBtn.disabled = false; }
+  });
 
-  if (disconnectBtn) {
-    disconnectBtn.addEventListener('click', async () => {
-      try {
-        disconnectBtn.disabled = true;
-        const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
-        }
-        await refresh();
-      } catch (e) {
-        hint.classList.remove('hidden');
-        hint.textContent = `Failed to disconnect: ${e.message}`;
-      } finally {
-        disconnectBtn.disabled = false;
-      }
-    });
-  }
+  disconnectBtn?.addEventListener('click', async () => {
+    try {
+      disconnectBtn.disabled = true; hideHint();
+      const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      await refresh();
+    } catch (e) { showHint('Failed to disconnect: ' + e.message, 'error'); } finally { disconnectBtn.disabled = false; }
+  });
+
+  setGlobalBtn?.addEventListener('click', async () => {
+    try {
+      setGlobalBtn.disabled = true; hideHint();
+      // We need the chosen avatarId; attempt to locate via global or first authorized account list
+      const accounts = await (await fetch('/api/admin/x-accounts')).json().catch(()=>({xAccounts:[]}));
+      const acc = (accounts.xAccounts||[]).find(a => a.xAuth?.accessToken);
+      if (!acc) throw new Error('No authorized account to mark global');
+      const avatarId = acc.avatar?._id || acc.avatarId;
+      const headers = { 'Content-Type': 'application/json' };
+      const res = await fetch('/api/admin/x-accounts/set-global', { method: 'POST', headers, body: JSON.stringify({ avatarId }) });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      showHint('Account marked as global.', 'ok');
+      await refresh();
+    } catch (e) { showHint('Failed to set global: ' + e.message, 'error'); } finally { setGlobalBtn.disabled = false; }
+  });
 
   await refresh();
 }
