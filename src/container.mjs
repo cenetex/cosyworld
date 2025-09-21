@@ -20,6 +20,7 @@ import { AIModelService } from './services/ai/aiModelService.mjs';
 import { ItemService } from './services/item/itemService.mjs';
 import { GuildConnectionRepository } from './dal/GuildConnectionRepository.mjs';
 import { publishEvent } from './events/envelope.mjs';
+import { CombatNarrativeService } from './services/combat/CombatNarrativeService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
@@ -69,6 +70,9 @@ container.register({
 container.register({
   eventPublisher: asFunction(() => ({ publishEvent })).singleton()
 });
+
+// Register narrative service early so it can attach listeners after combat services load
+container.register({ combatNarrativeService: asClass(CombatNarrativeService).singleton() });
 
 // Make the container available for injection under the name 'services'
 container.register({ services: asValue(container) });
@@ -186,6 +190,17 @@ async function initializeContainer() {
   }
 
   console.log('🔧 registered services:', Object.keys(container.registrations));
+
+  // Start combat narrative listeners (defer until after services are registered so dependencies resolve)
+  try {
+    if (container.registrations.combatNarrativeService) {
+      const narr = container.resolve('combatNarrativeService');
+      narr.start();
+      console.log('[container] CombatNarrativeService started.');
+    }
+  } catch (e) {
+    console.warn('[container] Failed to start CombatNarrativeService:', e.message);
+  }
 
   // Late bind s3Service into optional googleAIService
   try {
