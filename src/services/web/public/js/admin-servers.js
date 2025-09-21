@@ -41,10 +41,24 @@ function renderGuildCard(g) {
   const actions = card.querySelector('[data-actions]');
   if (authorized) {
     actions.innerHTML = `
-      <button class="btn outline text-xs w-auto" data-act="deauth">Deauthorize</button>
-      <button class="btn outline text-xs w-auto" data-act="cache">Cache</button>
-      <button class="btn danger text-xs w-auto" data-act="delete">Delete</button>`;
+      <div class="flex flex-col gap-1 w-full">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <select class="text-xs border rounded px-1 py-0.5 bg-white" data-x-image>
+            <option value="">Image Account: Auto</option>
+          </select>
+          <select class="text-xs border rounded px-1 py-0.5 bg-white" data-x-video>
+            <option value="">Video Account: Auto</option>
+          </select>
+          <button class="btn outline text-xs w-auto" data-act="save-x" title="Save X account overrides">Save</button>
+        </div>
+        <div class="flex flex-row flex-wrap gap-1">
+          <button class="btn outline text-xs w-auto" data-act="deauth">Deauthorize</button>
+          <button class="btn outline text-xs w-auto" data-act="cache">Cache</button>
+          <button class="btn danger text-xs w-auto" data-act="delete">Delete</button>
+        </div>
+      </div>`;
     bindAuthorizedActions(card, g);
+    hydrateXSelectors(card, g);
   } else {
     actions.innerHTML = `<button class="btn text-xs w-auto" data-act="authorize" style="--btn-bg:#059669; --btn-bg-hover:#047857; --btn-border:#059669;">Authorize</button>`;
     bindDetectedActions(card, g);
@@ -119,6 +133,24 @@ function bindAuthorizedActions(card, g) {
     catch (err) { ui.error(err.message||'Failed'); }
     finally { btn.textContent=original; btn.disabled=false; }
   });
+  // Save X overrides
+  const saveBtn = card.querySelector('[data-act="save-x"]');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async (e) => {
+      const btn = e.currentTarget; const original = btn.textContent; btn.textContent='…'; btn.disabled=true;
+      try {
+        const imageSel = card.querySelector('[data-x-image]');
+        const videoSel = card.querySelector('[data-x-video]');
+        const body = {
+          imageAuthId: imageSel?.value || null,
+          videoAuthId: videoSel?.value || null
+        };
+        await apiWrap(`/api/guilds/${encodeURIComponent(id)}/x-accounts`, { method:'PUT', body: JSON.stringify(body) });
+        ui.success('X account overrides saved');
+      } catch (err) { ui.error(err.message||'Failed to save X accounts'); }
+      finally { btn.textContent=original; btn.disabled=false; }
+    });
+  }
 }
 
 function bindDetectedActions(card, g) {
@@ -137,3 +169,44 @@ window.addEventListener('admin:bootstrapReady', () => loadAll());
 if (document.readyState !== 'loading') loadAll(); else document.addEventListener('DOMContentLoaded', loadAll);
 
 document.getElementById('btnRefreshAll')?.addEventListener('click', loadAll);
+
+// --- X account selectors hydration ---
+let _xAccountCache = null;
+async function loadXAccountOptions() {
+  if (_xAccountCache) return _xAccountCache;
+  try {
+    const res = await apiWrap('/api/admin/x-accounts');
+    const list = (res?.xAccounts || []).map(r => ({
+      id: r.xAuthId,
+      name: r.avatar?.name || r.xProfile?.username || 'unknown',
+      hasVideoCreds: !!r.xAuth?.authorized && !!r.xProfile && !!r.xAuth?.global ? !!r.xAuth?.authorized : !!r.xProfile, // heuristic
+      global: !!r.xAuth?.global
+    }));
+    _xAccountCache = list;
+    return list;
+  } catch (e) { ui.error('Failed to load X accounts'); return []; }
+}
+
+async function hydrateXSelectors(card, g) {
+  const imgSel = card.querySelector('[data-x-image]');
+  const vidSel = card.querySelector('[data-x-video]');
+  if (!imgSel || !vidSel) return;
+  // Load current overrides
+  let current = null;
+  try { current = await apiWrap(`/api/guilds/${encodeURIComponent(g.guildId||g.id)}/x-accounts`); } catch {}
+  const currentImg = current?.xAccounts?.imageAuthId || '';
+  const currentVid = current?.xAccounts?.videoAuthId || '';
+  const opts = await loadXAccountOptions();
+  for (const acct of opts) {
+    const opt1 = document.createElement('option');
+    opt1.value = acct.id; opt1.textContent = `${acct.name}${acct.global ? ' (global)' : ''}`; if (acct.id === currentImg) opt1.selected = true; imgSel.appendChild(opt1);
+    const opt2 = document.createElement('option');
+    opt2.value = acct.id; opt2.textContent = `${acct.name}${acct.global ? ' (global)' : ''}${acct.hasVideoCreds ? '' : ' *'}`; if (acct.id === currentVid) opt2.selected = true; vidSel.appendChild(opt2);
+  }
+  if (currentImg && ![...imgSel.options].some(o=>o.value===currentImg)) {
+    const orphan = document.createElement('option'); orphan.value=currentImg; orphan.textContent=`(missing) ${currentImg}`; orphan.selected=true; imgSel.appendChild(orphan);
+  }
+  if (currentVid && ![...vidSel.options].some(o=>o.value===currentVid)) {
+    const orphan = document.createElement('option'); orphan.value=currentVid; orphan.textContent=`(missing) ${currentVid}`; orphan.selected=true; vidSel.appendChild(orphan);
+  }
+}

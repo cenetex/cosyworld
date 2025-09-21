@@ -9,6 +9,7 @@
  */
 
 import { TwitterApi } from 'twitter-api-v2';
+import { ObjectId } from 'mongodb';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
@@ -577,6 +578,11 @@ class XService {
    */
   async postGlobalMediaUpdate(opts = {}, services = {}) {
     try {
+      // Info-level invocation trace for operator visibility even without DEBUG_GLOBAL_X
+      this.logger?.info?.('[XService][globalPost] attempt', {
+        mediaUrl: opts.mediaUrl,
+        type: opts.type || 'image'
+      });
       this.logger?.debug?.('[XService][globalPost] invoked', {
         mediaUrl: opts.mediaUrl,
         type: opts.type || 'image',
@@ -603,7 +609,9 @@ class XService {
             no_access_token: 0,
             invalid_media_url: 0,
             hourly_cap: 0,
-            error: 0
+            unsupported_video: 0,
+            error: 0,
+            guild_override: 0
           }
         };
       }
@@ -636,33 +644,67 @@ class XService {
         this.logger?.info?.('[XService][globalPost][diag] loadedConfig', { enabled, configKeys: Object.keys(config || {}) });
       }
       if (!enabled) {
+        this.logger?.info?.('[XService][globalPost] skip: disabled', { mediaUrl: opts.mediaUrl });
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
         _bump('disabled', { mediaUrl: opts.mediaUrl });
         return null;
       }
 
-      // Global account selection: prefer record explicitly marked { global: true }, otherwise most recent valid auth.
+      // Account selection order (if guildId provided):
+      // 1. Per-guild override (xAccounts.imageAuthId / xAccounts.videoAuthId)
+      // 2. Global-marked account (x_auth.global = true)
+      // 3. Most recently updated generic auth record
       // ADMIN_AVATAR_ID & globalAvatarId are deprecated – automatic inference reduces configuration burden.
       let accessToken = null;
+      let authRecord = null;
+      const guildId = opts.guildId || null;
       try {
         const db = await this.databaseService.getDatabase();
-        // 1. Prefer an auth marked global
-        let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
-        // 2. Fallback to most recently updated auth record with a token
-        if (!auth) {
-          auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
-        }
-        if (auth?.accessToken) {
-          accessToken = safeDecrypt(auth.accessToken);
-          this.logger?.debug?.('[XService][globalPost] resolved global access token', { avatarId: auth.avatarId || null, global: !!auth.global });
-          if (process.env.DEBUG_GLOBAL_X === '1') {
-            this.logger?.info?.('[XService][globalPost][diag] authRecord', { hasRefresh: !!auth.refreshToken, expiresAt: auth.expiresAt, profileCached: !!auth.profile });
+        let overrideAuthId = null;
+        if (guildId) {
+          try {
+            const guildCfg = await db.collection('guild_configs').findOne({ guildId });
+            const isVideoType = (opts.type === 'video');
+            overrideAuthId = guildCfg?.xAccounts && (isVideoType ? guildCfg.xAccounts.videoAuthId : guildCfg.xAccounts.imageAuthId) || null;
+            if (overrideAuthId) {
+              try {
+                const oid = ObjectId.createFromHexString(String(overrideAuthId));
+                const rec = await db.collection('x_auth').findOne({ _id: oid });
+                if (rec?.accessToken) {
+                  authRecord = rec;
+                  accessToken = safeDecrypt(rec.accessToken);
+                  this.logger?.info?.('[XService][globalPost] using per-guild override account', { guildId, overrideAuthId, isVideoType });
+                }
+              } catch (oidErr) {
+                this.logger?.warn?.('[XService][globalPost] invalid overrideAuthId for guild ' + guildId + ': ' + oidErr.message);
+              }
+            }
+          } catch (gErr) {
+            this.logger?.warn?.('[XService][globalPost] guild override lookup failed: ' + gErr.message);
           }
-        } else {
-          this.logger?.warn?.('[XService][globalPost] No global X auth record found (add one via admin panel).');
+        }
+        if (!authRecord) {
+          // 1. Prefer an auth marked global
+          authRecord = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+        }
+        if (!authRecord) {
+          // 2. Fallback to most recently updated auth record with a token
+          authRecord = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
+        }
+        if (authRecord?.accessToken) {
+          if (!accessToken) accessToken = safeDecrypt(authRecord.accessToken);
+          this.logger?.debug?.('[XService][globalPost] resolved access token', { avatarId: authRecord.avatarId || null, global: !!authRecord.global, guildOverride: !!guildId && !!overrideAuthId });
+          if (process.env.DEBUG_GLOBAL_X === '1') {
+            this.logger?.info?.('[XService][globalPost][diag] authRecord', { hasRefresh: !!authRecord.refreshToken, expiresAt: authRecord.expiresAt, profileCached: !!authRecord.profile, guildOverride: !!guildId });
+          }
+          if (guildId && overrideAuthId) {
+            try { this._globalPostMetrics.reasons.guild_override++; } catch {}
+          }
+        } else if (!accessToken) {
+          this.logger?.warn?.('[XService][globalPost] No X auth record found (global or override).');
         }
       } catch (e) {
-        this.logger?.warn?.('[XService][globalPost] global auth resolution failed: ' + e.message);
+        this.logger?.warn?.('[XService][globalPost] auth resolution failed: ' + e.message);
       }
       if (!accessToken) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'no_access_token', mediaUrl: opts.mediaUrl };
@@ -702,9 +744,46 @@ class XService {
       }
       this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
 
-      const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-      const v2 = twitterClient.v2;
+  const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+  const v2 = twitterClient.v2;
+
+      // Pre-flight validation: ensure token still valid; if 401 and we can refresh, attempt once.
+      let refreshed = false;
+      try {
+        await v2.me();
+      } catch (preErr) {
+        const unauthorized = preErr?.code === 401 || preErr?.status === 401 || /401/.test(preErr?.message || '');
+        if (unauthorized && authRecord?.refreshToken && authRecord?.avatarId) {
+          if (process.env.DEBUG_GLOBAL_X === '1') this.logger?.info?.('[XService][globalPost][diag] preflight unauthorized -> refresh attempt');
+          try {
+            const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
+            accessToken = newToken;
+            refreshed = true;
+          } catch (rErr) {
+            this.logger?.warn?.('[XService][globalPost] preflight token refresh failed: ' + rErr.message);
+          }
+        }
+      }
+      // If refreshed, rebuild clients
+      let workingClient = twitterClient;
+      if (refreshed) {
+        workingClient = new TwitterApi({ accessToken: accessToken.trim() });
+      }
+      const v2Active = workingClient.v2;
       const isVideo = type === 'video';
+
+      // If attempting video with an OAuth2 PKCE token (no accessSecret present) we may hit v1 media upload auth limitations.
+      if (isVideo && authRecord && !authRecord.accessSecret) {
+        // If guild override was attempted, note explicitly
+        if (guildId) {
+          this.logger?.info?.('[XService][globalPost] skip: unsupported video for guild override (OAuth2 bearer; need OAuth1)', { mediaUrl, guildId });
+        } else {
+          this.logger?.info?.('[XService][globalPost] skip: unsupported video with OAuth2 bearer token (no accessSecret)', { mediaUrl });
+        }
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'unsupported_video', mediaUrl, guildId: guildId || null };
+        try { this._globalPostMetrics.reasons.unsupported_video++; } catch {}
+        return null;
+      }
 
       // Fetch media
       const res = await fetch(mediaUrl);
@@ -713,12 +792,27 @@ class XService {
       let mimeType = res.headers.get('content-type')?.split(';')[0]?.trim() || (isVideo ? 'video/mp4' : 'image/png');
 
       let mediaId;
-      if (isVideo) {
-        // Must use v1 for chunked upload
-        const v1 = twitterClient.v1;
-        mediaId = await v1.uploadMedia(buffer, { mimeType });
-      } else {
-        mediaId = await v2.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+      try {
+        if (isVideo) {
+          const v1 = workingClient.v1;
+          this.logger?.debug?.('[XService][globalPost] uploading video media');
+          mediaId = await v1.uploadMedia(buffer, { mimeType });
+        } else {
+          this.logger?.debug?.('[XService][globalPost] uploading image media');
+          mediaId = await v2Active.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+        }
+      } catch (uploadErr) {
+        const code = uploadErr?.code || uploadErr?.data?.errors?.[0]?.code;
+        if (code === 215) {
+          this.logger?.error?.('[XService][globalPost] media upload auth error (code 215). Likely unsupported auth method for this media type.', { hint: 'Use OAuth1.0a credentials for video or restrict to images.' });
+          try {
+            const db = await this.databaseService.getDatabase();
+            await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'media_upload_bad_auth', lastErrorAt: new Date() } });
+          } catch {}
+        } else {
+          this.logger?.error?.('[XService][globalPost] media upload failed', uploadErr?.message || uploadErr);
+        }
+        throw uploadErr;
       }
       if (!mediaId) throw new Error('upload failed');
 
@@ -731,7 +825,7 @@ class XService {
         } catch (e) { this.logger?.warn?.(`[XService][globalPost] alt generation failed: ${e.message}`); }
       }
       if (altText && !isVideo) {
-        try { await v2.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) }); } catch (e) { this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`); }
+  try { await v2Active.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) }); } catch (e) { this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`); }
       }
 
       // Caption generation: if no text provided, attempt AI caption (image/video aware)
@@ -755,19 +849,48 @@ class XService {
       const tweetText = baseText.slice(0, 280) || ' #CosyWorld';
       const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
       let tweet;
+      const sendTweet = async () => {
+        const postClient = new TwitterApi({ accessToken: accessToken.trim() }).v2;
+        return postClient.tweet(payload);
+      };
       try {
-        tweet = await v2.tweet(payload);
+        tweet = await sendTweet();
       } catch (apiErr) {
         // Capture common auth failures distinctly for operator visibility
         const code = apiErr?.code || apiErr?.data?.errors?.[0]?.code;
         if (code === 401 || apiErr?.status === 401) {
-          this.logger?.error?.('[XService][globalPost] 401 Unauthorized when posting. Most likely causes: revoked token, missing tweet.write scope, or application reset. Re-authorize the global X account.', { hint: 'Re-run admin Connect flow and mark as Global.' });
+          if (!refreshed && authRecord?.refreshToken && authRecord?.avatarId) {
+            this.logger?.warn?.('[XService][globalPost] 401 on tweet -> attempting refresh+retry');
+            try {
+              const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
+              accessToken = newToken;
+              tweet = await sendTweet();
+            } catch (retryErr) {
+              this.logger?.error?.('[XService][globalPost] retry after refresh failed: ' + (retryErr?.message || retryErr));
+              this.logger?.error?.('[XService][globalPost] 401 Unauthorized when posting. Re-authorize the global X account.', { hint: 'Re-run admin Connect flow and mark as Global.' });
+              try {
+                const db = await this.databaseService.getDatabase();
+                await db.collection('x_auth').updateOne({ _id: authRecord._id }, { $set: { error: 'unauthorized', lastErrorAt: new Date() } });
+              } catch {}
+              throw apiErr;
+            }
+          } else {
+            this.logger?.error?.('[XService][globalPost] 401 Unauthorized when posting. Most likely causes: revoked token, missing tweet.write scope, or application reset. Re-authorize the global X account.', { hint: 'Re-run admin Connect flow and mark as Global.' });
+            try {
+              const db = await this.databaseService.getDatabase();
+              await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'unauthorized', lastErrorAt: new Date() } });
+            } catch {}
+          }
         } else if (code === 215 || (apiErr?.data?.errors || []).some(e => e?.code === 215)) {
           this.logger?.error?.('[XService][globalPost] Auth error (code 215: Bad Authentication data). Token invalid or malformed.', { hint: 'Delete x_auth record and re-authorize.' });
+          try {
+            const db = await this.databaseService.getDatabase();
+            await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'bad_auth_data', lastErrorAt: new Date() } });
+          } catch {}
         } else {
           this.logger?.error?.('[XService][globalPost] tweet API call failed', apiErr?.message || apiErr);
         }
-        throw apiErr;
+        if (!tweet) throw apiErr;
       }
       if (!tweet?.data?.id) throw new Error('tweet failed');
       if (process.env.DEBUG_GLOBAL_X === '1') {
@@ -793,7 +916,7 @@ class XService {
 
       // Attempt to derive username from token (extra call). Cache once.
       if (!this._globalUser) {
-        try { const me = await v2.me(); this._globalUser = me?.data?.username || 'user'; } catch { this._globalUser = 'user'; }
+        try { const me = await v2Active.me(); this._globalUser = me?.data?.username || 'user'; } catch { this._globalUser = 'user'; }
       }
       const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };

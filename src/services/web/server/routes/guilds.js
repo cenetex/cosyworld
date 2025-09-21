@@ -362,5 +362,58 @@ export default function(db, client, configService) {
     }
   }));
 
+  // === Per-Guild X Account Overrides ===
+  // Lightweight listing of X accounts for selection (id, avatar name, flags)
+  router.get('/:guildId/x-accounts/options', asyncHandler(async (req, res) => {
+    try {
+      const xAuths = await db.collection('x_auth').find({ accessToken: { $exists: true, $ne: null } }).project({ accessToken: 0, refreshToken: 0 }).toArray();
+      const results = [];
+      for (const rec of xAuths) {
+        let avatar = null;
+        if (rec.avatarId) {
+          try { avatar = await db.collection('avatars').findOne({ _id: rec.avatarId }); } catch {}
+        }
+        results.push({
+          id: String(rec._id),
+          avatarName: avatar?.name || rec.avatarId || 'unknown',
+          global: !!rec.global,
+          hasVideoCreds: !!rec.accessSecret, // heuristic: OAuth1 presence
+          updatedAt: rec.updatedAt || rec.createdAt || null
+        });
+      }
+      res.json({ xAccounts: results });
+    } catch (e) {
+      console.error('x-accounts options error:', e);
+      res.status(500).json({ error: 'Failed to list X accounts' });
+    }
+  }));
+
+  // Get current per-guild X account overrides
+  router.get('/:guildId/x-accounts', asyncHandler(async (req, res) => {
+    const { guildId } = req.params;
+    try {
+      const cfg = await db.collection('guild_configs').findOne({ guildId });
+      res.json({ guildId, xAccounts: cfg?.xAccounts || { imageAuthId: null, videoAuthId: null } });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to load xAccounts' });
+    }
+  }));
+
+  // Update per-guild X account overrides
+  router.put('/:guildId/x-accounts', asyncHandler(async (req, res) => {
+    const { guildId } = req.params;
+    const body = req.body || {};
+    try {
+      const patch = { xAccounts: {} };
+      if (body.imageAuthId !== undefined) patch.xAccounts.imageAuthId = body.imageAuthId || null;
+      if (body.videoAuthId !== undefined) patch.xAccounts.videoAuthId = body.videoAuthId || null;
+      await configService.updateGuildConfig(guildId, patch);
+      const updated = await configService.getGuildConfig(guildId, true);
+      res.json({ guildId, xAccounts: updated.xAccounts || { imageAuthId: null, videoAuthId: null } });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to save xAccounts' });
+    }
+  }));
+
   return router;
 }

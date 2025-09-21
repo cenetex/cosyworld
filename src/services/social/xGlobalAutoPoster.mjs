@@ -12,11 +12,12 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
   const imageHandler = async (payload) => {
     try {
       if (!payload?.imageUrl) return;
-      logger?.debug?.('[XGlobalAutoPoster] received MEDIA.IMAGE.GENERATED', { imageUrl: payload.imageUrl });
+      // Elevate to info so operators always see that the event was captured (even without DEBUG flag)
+      logger?.info?.('[XGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { imageUrl: payload.imageUrl });
       if (process.env.DEBUG_GLOBAL_X === '1') {
         logger?.info?.('[XGlobalAutoPoster][diag] image event payload', { keys: Object.keys(payload||{}) });
       }
-      await xService.postGlobalMediaUpdate({ mediaUrl: payload.imageUrl, type: 'image' }, { aiService });
+  await xService.postGlobalMediaUpdate({ mediaUrl: payload.imageUrl, type: 'image', guildId: payload.guildId || payload.serverId || null }, { aiService });
     } catch (e) {
       logger?.warn?.(`[XGlobalAutoPoster] image post failed: ${e.message}`);
     }
@@ -25,11 +26,11 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
   const videoHandler = async (payload) => {
     try {
       if (!payload?.videoUrl) return;
-      logger?.debug?.('[XGlobalAutoPoster] received MEDIA.VIDEO.GENERATED', { videoUrl: payload.videoUrl });
+      logger?.info?.('[XGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { videoUrl: payload.videoUrl });
       if (process.env.DEBUG_GLOBAL_X === '1') {
         logger?.info?.('[XGlobalAutoPoster][diag] video event payload', { keys: Object.keys(payload||{}) });
       }
-      await xService.postGlobalMediaUpdate({ mediaUrl: payload.videoUrl, type: 'video' }, { aiService });
+  await xService.postGlobalMediaUpdate({ mediaUrl: payload.videoUrl, type: 'video', guildId: payload.guildId || payload.serverId || null }, { aiService });
     } catch (e) {
       logger?.warn?.(`[XGlobalAutoPoster] video post failed: ${e.message}`);
     }

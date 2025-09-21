@@ -828,8 +828,20 @@ Hello ${avatar.name}, what's on your mind today?
       if (!auth) {
         auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
       }
-      const profile = auth?.profile || null;
-      res.json({ config: cfg || { enabled: false, mode: 'live' }, profile, resolvedAccount: auth ? { avatarId: auth.avatarId || null, hasProfile: !!profile } : null });
+      let profile = auth?.profile || null;
+      // If profile missing or stale (older than 6h) attempt refresh via service (best-effort)
+      const sixHrs = 6 * 60 * 60 * 1000;
+      const force = req.query.force === '1';
+      const stale = !profile || !profile.cachedAt || (Date.now() - new Date(profile.cachedAt).getTime()) > sixHrs;
+      if ((stale || force) && services.xService?.fetchAndCacheGlobalProfile) {
+        try { profile = await services.xService.fetchAndCacheGlobalProfile(force); } catch {}
+      }
+      res.json({
+        config: cfg || { enabled: false, mode: 'live' },
+        profile: profile || null,
+        resolvedAccount: auth ? { avatarId: auth.avatarId || null, hasProfile: !!profile } : null,
+        refreshed: (stale || force) && !!profile
+      });
     } catch (e) {
       res.status(500).json({ error: e.message || 'Failed to load config' });
     }
@@ -866,6 +878,25 @@ Hello ${avatar.name}, what's on your mind today?
       res.json({ attempted: true, result });
     } catch (e) {
       res.status(500).json({ error: e.message || 'Test post failed' });
+    }
+  }));
+
+  // Metrics & diagnostics for global X posting
+  router.get('/x-posting/metrics', asyncHandler(async (req, res) => {
+    try {
+      const metrics = services.xService.getGlobalPostingMetrics();
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Determine presence of a usable auth record (without exposing tokens)
+      let auth = await db.collection('x_auth').findOne({ global: true }, { projection: { accessToken: 0, refreshToken: 0 } });
+      if (!auth) auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { projection: { accessToken: 0, refreshToken: 0 } });
+      const envFlags = {
+        X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED || undefined,
+        X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP || undefined,
+        DEBUG_GLOBAL_X: process.env.DEBUG_GLOBAL_X || undefined
+      };
+      res.json({ metrics, config: cfg || null, authPresent: !!auth, authProfile: auth?.profile || null, envFlags });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load metrics' });
     }
   }));
 
