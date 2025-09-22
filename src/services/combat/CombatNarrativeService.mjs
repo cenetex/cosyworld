@@ -34,7 +34,13 @@ export class CombatNarrativeService {
       'combat.flee.success',
       'combat.flee.fail',
       'combat.hide.success',
-      'combat.hide.fail'
+      'combat.hide.fail',
+      // narrative request phases emitted by CombatEncounterService
+      'combat.narrative.request.pre_combat',
+      'combat.narrative.request.post_round',
+      'combat.narrative.request.round_planning',
+      'combat.narrative.request.commentary',
+      'combat.narrative.request.inter_turn'
     ];
     for (const t of types) {
       const h = (evt) => this._handle(evt).catch(e => this.logger.warn(`[CombatNarrative] handler error ${t}: ${e.message}`));
@@ -62,7 +68,10 @@ export class CombatNarrativeService {
     try {
       const channelId = evt?.payload?.channelId;
       if (!channelId || !this.conversationManager?.sendResponse) return;
-      if (!this._shouldPost(channelId)) return;
+      // Narrative request events are always allowed to attempt posting (they already gate frequency in encounter pacing),
+      // but still respect min gap + random chance for organic feel EXCEPT planning & pre_combat which we want reliably.
+      const isRequest = evt.type.startsWith('combat.narrative.request.');
+      if (!isRequest && !this._shouldPost(channelId)) return;
       const encounter = this.combatEncounterService?.getEncounter(channelId) || null;
       if (!encounter || encounter.state !== 'active') return;
 
@@ -70,6 +79,37 @@ export class CombatNarrativeService {
       const { attackerId, defenderId, avatarId } = evt.payload || {};
       let speakerId = null;
       switch (evt.type) {
+        // Narrative request phases
+        case 'combat.narrative.request.pre_combat': {
+          // Pick up to first combatant (stable) to utter a line
+          speakerId = encounter.initiativeOrder[0];
+          break;
+        }
+        case 'combat.narrative.request.post_round': {
+          // Prefer a random alive combatant who hasn't spoken recently
+          const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
+          if (alive.length) speakerId = alive[Math.floor(Math.random() * alive.length)]?.avatarId;
+          break;
+        }
+        case 'combat.narrative.request.round_planning': {
+          // Allow two quick planning utterances; handled by posting twice below
+          speakerId = null; // handled specially
+          break;
+        }
+        case 'combat.narrative.request.commentary': {
+          // Mirror old commentary: prefer defender of last action else attacker
+          const ctx = encounter.lastAction;
+          if (ctx) speakerId = ctx.defenderId || ctx.attackerId;
+          break;
+        }
+        case 'combat.narrative.request.inter_turn': {
+          // Next in initiative order after current turn
+          const currentId = this.combatEncounterService?.getCurrentTurnAvatarId(encounter);
+          const order = encounter.initiativeOrder || [];
+          const idx = order.indexOf(currentId);
+          if (idx >= 0) speakerId = order[(idx + 1) % order.length];
+          break;
+        }
         case 'combat.attack.hit':
         case 'combat.attack.miss':
           speakerId = defenderId || attackerId; break;
@@ -84,6 +124,19 @@ export class CombatNarrativeService {
         default:
           speakerId = attackerId || defenderId || avatarId || null;
       }
+      // Special multi-speaker handling for planning phase
+      if (evt.type === 'combat.narrative.request.round_planning') {
+        const alive = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
+        const limit = Math.min(2, alive.length);
+        const chosen = alive.slice(0, limit);
+        let channel = null; try { channel = this.combatEncounterService?._getChannel(encounter); } catch {}
+        if (!channel) return;
+        for (const c of chosen) {
+          try { await this.conversationManager.sendResponse(channel, c.ref, null, { overrideCooldown: true }); } catch {}
+        }
+        return;
+      }
+
       const combatant = speakerId ? this.combatEncounterService?.getCombatant(encounter, speakerId) : null;
       const speaker = combatant?.ref || null;
       if (!speaker) return;

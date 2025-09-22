@@ -82,6 +82,11 @@ Recommended generic subscriber logs JSON lines with keys: `event`, `id`, `type`,
 | `combat.flee.fail` | Flee attempt failed; turn advances | `avatarId`,`roll`,`dc`,`channelId` |
 | `combat.hide.success` | Hide (stealth) succeeded (grants advantage) | `avatarId`,`channelId` |
 | `combat.hide.fail` | Hide attempt failed | `avatarId`,`channelId` |
+| `combat.narrative.request.pre_combat` | Request pre-combat chatter after initiative | `channelId` |
+| `combat.narrative.request.post_round` | Request post-round discussion at round wrap | `channelId`,`round` |
+| `combat.narrative.request.round_planning` | Request brief planning phase chatter | `channelId`,`round` |
+| `combat.narrative.request.commentary` | Generic commentary opportunity mid-turn | `channelId` |
+| `combat.narrative.request.inter_turn` | Inter-turn chatter between turn pacing | `channelId` |
 
 ## Testing Guidance
 - Unit test: ensure `publishEvent` returns frozen envelope and emits on both specific and `*` channels.
@@ -91,4 +96,4 @@ Recommended generic subscriber logs JSON lines with keys: `event`, `id`, `type`,
 - Integrate into `updateConnectedGuilds` (fire `guild.connected` per new/updated guild once diff logic added).
 - Instrument AI service after circuit breaker implementation.
 - Add outbox persistence once cross-process scaling begins.
-- Add narrative listener (`combat.narrative.request` / internal triggers) to produce AI flavor responses decoupled from combat core.
+- Expand narrative listener (now implemented) with adaptive heuristics and future persona-based weighting.
