@@ -14,6 +14,7 @@ import { ObjectId } from 'mongodb';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
+import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
 
 export class DiscordService {
   constructor(services) {
@@ -23,6 +24,8 @@ export class DiscordService {
   // Optional cross-service hooks
   this.getMapService = services.getMapService || null;
   this.avatarService = services.avatarService || null;
+    // Repositories
+    this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
     this.webhookCache = new Map();
     this.client = new Client({
@@ -73,9 +76,7 @@ export class DiscordService {
     this.client.on('guildDelete', async guild => {
       try {
         this.logger.info(`Left guild: ${guild.name} (${guild.id})`);
-        this.db = await this.databaseService.getDatabase();
-        if (!this.db) return;
-        await this.db.collection('connected_guilds').deleteOne({ id: guild.id });
+        await this.guildConnectionRepository.removeConnectedGuild(guild.id);
       } catch (error) {
         this.logger.error(`Failed to remove guild ${guild.id} from database: ${error.message}`);
       }
@@ -237,14 +238,7 @@ export class DiscordService {
       }));
       this.logger.info(`Updating ${connectedGuilds.length} connected guilds`);
       if (connectedGuilds.length > 0) {
-        const bulkOps = connectedGuilds.map(guild => ({
-          updateOne: {
-            filter: { id: guild.id },
-            update: { $set: guild },
-            upsert: true,
-          },
-        }));
-        await this.db.collection('connected_guilds').bulkWrite(bulkOps);
+        await this.guildConnectionRepository.upsertConnectedGuilds(connectedGuilds);
       }
     } catch (error) {
       this.logger.error('Error updating connected guilds: ' + error.message);
@@ -269,14 +263,7 @@ export class DiscordService {
       }));
       this.logger.info(`Updating ${allGuilds.length} detected guilds from Discord client's cache`);
       if (allGuilds.length > 0) {
-        const bulkOps = allGuilds.map(guild => ({
-          updateOne: {
-            filter: { id: guild.id },
-            update: { $set: guild },
-            upsert: true,
-          },
-        }));
-        await this.db.collection('detected_guilds').bulkWrite(bulkOps);
+        await this.guildConnectionRepository.upsertDetectedGuilds(allGuilds);
       }
     } catch (error) {
       this.logger.error('Error updating detected guilds: ' + error.message);

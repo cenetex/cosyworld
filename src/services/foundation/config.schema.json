@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cosyworld.local/schema/config.json",
+  "title": "CosyworldRuntimeConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["server", "prompt", "ai", "mongo"],
+  "properties": {
+    "server": {
+      "type": "object",
+      "required": ["host", "port", "baseUrl", "publicUrl", "cors", "session", "admin", "rateLimit"],
+      "properties": {
+        "host": {"type": "string"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "baseUrl": {"type": "string"},
+        "publicUrl": {"type": "string"},
+        "cors": {
+          "type": "object",
+          "required": ["enabled", "origin", "credentials"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "origin": {
+              "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "string"}}
+              ]
+            },
+            "credentials": {"type": "boolean"}
+          },
+          "additionalProperties": false
+        },
+        "session": {
+          "type": "object",
+          "required": ["cookieName", "secure", "sameSite"],
+          "properties": {
+            "cookieName": {"type": "string"},
+            "secure": {"type": "boolean"},
+            "sameSite": {"type": "string"}
+          },
+          "additionalProperties": false
+        },
+        "admin": {
+          "type": "object",
+          "required": ["enabled", "loginPath", "gateAll"],
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "loginPath": {"type": "string"},
+              "gateAll": {"type": "boolean"}
+            },
+            "additionalProperties": false
+        },
+        "rateLimit": {
+          "type": "object",
+          "required": ["enabled", "windowMs", "max"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "windowMs": {"type": "integer", "minimum": 1},
+            "max": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "prompt": {
+      "type": "object",
+      "required": ["summon", "introduction", "attack", "defend", "breed"],
+      "properties": {
+        "summon": {"type": "string"},
+        "introduction": {"type": "string"},
+        "attack": {"type": "string"},
+        "defend": {"type": "string"},
+        "breed": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "veo": {
+          "type": "object",
+          "properties": {
+            "rateLimit": {
+              "type": "object",
+              "properties": {
+                "perMinute": {"type": "integer", "minimum": 0},
+                "perDay": {"type": "integer", "minimum": 0},
+                "globalCap": {"type": "integer", "minimum": 0}
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": true
+        },
+        "google": {
+          "type": "object",
+          "properties": {
+            "apiKey": {"type": ["string", "null"], "minLength": 0},
+            "model": {"type": "string"},
+            "decisionMakerModel": {"type": "string"},
+            "structuredModel": {"type": "string"},
+            "chatModel": {"type": "string"},
+            "visionModel": {"type": "string"},
+            "temperature": {"type": "number"},
+            "maxTokens": {"type": "integer", "minimum": 1},
+            "topP": {"type": "number"}
+          },
+          "additionalProperties": true
+        },
+        "openrouter": {
+          "type": "object",
+          "properties": {
+            "apiKey": {"type": ["string", "null"], "minLength": 0},
+            "model": {"type": "string"},
+            "decisionMakerModel": {"type": "string"},
+            "structuredModel": {"type": "string"},
+            "chatModel": {"type": "string"},
+            "visionModel": {"type": "string"},
+            "temperature": {"type": "number"},
+            "maxTokens": {"type": "integer", "minimum": 1},
+            "topP": {"type": "number"}
+          },
+          "additionalProperties": true
+        },
+        "replicate": {
+          "type": "object",
+          "properties": {
+            "apiToken": {"type": ["string", "null"]},
+            "model": {"type": ["string", "null"]},
+            "lora_weights": {"type": ["string", "null"]},
+            "loraTriggerWord": {"type": ["string", "null"]},
+            "style": {"type": "string"}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "mongo": {
+      "type": "object",
+      "required": ["dbName", "collections"],
+      "properties": {
+        "uri": {"type": ["string", "null"]},
+        "dbName": {"type": "string"},
+        "collections": {
+          "type": "object",
+          "required": ["avatars", "imageUrls", "guildConfigs"],
+          "properties": {
+            "avatars": {"type": "string"},
+            "imageUrls": {"type": "string"},
+            "guildConfigs": {"type": "string"}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "webhooks": {"type": "object"}
+  }
+}
