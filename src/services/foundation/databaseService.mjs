@@ -255,6 +255,10 @@ export class DatabaseService {
         db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
+        db.collection('bot_accounts').createIndex({ avatarId: 1, platform: 1 }, { unique: true }),
+        db.collection('forecaster_auth').createIndex({ avatarId: 1 }, { unique: true }),
+        db.collection('matrix_auth').createIndex({ avatarId: 1 }, { unique: true }),
+        db.collection('rooms').createIndex({ locationId: 1 }),
       ]);
       this.logger.info('Database indexes created successfully');
     } catch (error) {

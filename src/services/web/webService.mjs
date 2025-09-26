@@ -8,7 +8,10 @@ export class WebService {
     discordService,
     s3Service,
     aiModelService,
-    xService
+    xService,
+    forecasterService,
+    matrixService,
+    botAccountService
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -17,6 +20,9 @@ export class WebService {
     this.s3Service = s3Service;
     this.aiModelService = aiModelService;
     this.xService = xService;
+    this.forecasterService = forecasterService;
+    this.matrixService = matrixService;
+    this.botAccountService = botAccountService;
 
     this.started = false;
 
@@ -29,6 +35,9 @@ export class WebService {
       s3Service: this.s3Service,
       aiModelService: this.aiModelService,
       xService: this.xService,
+      forecasterService: this.forecasterService,
+      matrixService: this.matrixService,
+      botAccountService: this.botAccountService,
     };
   }
 

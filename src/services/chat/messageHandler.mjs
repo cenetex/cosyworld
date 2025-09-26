@@ -1,4 +1,5 @@
 import { handleCommands } from "../commands/commandHandler.mjs";
+import { isDiscordServiceEnabled } from "../../utils/discordUtils.mjs";
 const CONSTRUCTION_ROADBLOCK_EMOJI = '🚧';
 
 /**
@@ -39,7 +40,7 @@ export class MessageHandler  {
     this.moderationService = moderationService;
     this.mapService = mapService;
 
-    this.client = this.discordService.client;
+    this.client = isDiscordServiceEnabled(this.discordService) ? this.discordService.client : null;
     this.started = false;
 
     /**
@@ -61,6 +62,17 @@ export class MessageHandler  {
       this.logger.warn("MessageHandler is already started.");
       return;
     }
+    if (!isDiscordServiceEnabled(this.discordService)) {
+      this.logger.info('MessageHandler start skipped because Discord is disabled.');
+      return;
+    }
+
+    if (!this.discordService?.client) {
+      this.logger.warn('MessageHandler cannot start without an active Discord client.');
+      return;
+    }
+
+    this.client = this.discordService.client;
     this.started = true;
     this.client.on('messageCreate', (message) => this.handleMessage(message));
     this.logger.info('MessageHandler started.');
@@ -79,6 +91,11 @@ export class MessageHandler  {
    * @param {Object} message - The Discord message object to process.
    */
   async handleMessage(message) {
+
+    if (!isDiscordServiceEnabled(this.discordService)) {
+      this.logger.debug('Discord disabled; message handling skipped.');
+      return;
+    }
 
     if (this.discordService.messageCache) {
       // Check if the message is already cached
@@ -176,6 +193,10 @@ export class MessageHandler  {
    * @returns {Promise<boolean>} True if authorized, false otherwise.
    */
   async isGuildAuthorized(message) {
+    if (!isDiscordServiceEnabled(this.discordService)) {
+      return false;
+    }
+
     if (!message.guild) return false;
     try {
       const guildId = message.guild.id;

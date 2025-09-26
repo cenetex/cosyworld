@@ -1,4 +1,5 @@
 import { container } from './container.mjs';
+import { isDiscordServiceEnabled } from './utils/discordUtils.mjs';
 
 async function main() {
   const logger = container.resolve('logger');
@@ -19,23 +20,28 @@ async function main() {
     config.db = await db.getDatabase(); // your system relies on this
 
 
-    await db.createIndexes();
-    logger.log('[startup] Database indexes created');
-
-    // Step 4: Initialize core services
+    // Step 3: Initialize core services
     const toolService = container.resolve('toolService');
     await toolService.initialize();
     logger.log('[startup] ToolService initialized');
 
-    // Step 5: Launch Discord bot
-    const discord = container.resolve('discordService');
-    await discord.login();
-    logger.log('[startup] Discord bot logged in');
+    // Step 5: Launch Discord bot if configured
+    let discord;
+    try {
+      discord = container.resolve('discordService');
+    } catch {}
+    const discordEnabled = isDiscordServiceEnabled(discord);
 
-    // Start the MessageHandler
-    const messageHandler = container.resolve('messageHandler');
-    await messageHandler.start();
-    logger.log('[startup] MessageHandler started');
+    if (discord && discordEnabled) {
+      await discord.login();
+      logger.log('[startup] Discord bot logged in');
+      // Start the MessageHandler only when Discord is active
+      const messageHandler = container.resolve('messageHandler');
+      await messageHandler.start();
+      logger.log('[startup] MessageHandler started');
+    } else {
+      logger.log('[startup] Discord service disabled');
+    }
 
 
     // Start the Web Service

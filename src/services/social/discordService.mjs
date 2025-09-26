@@ -15,7 +15,14 @@ export class DiscordService {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
-    
+
+    const discordConfig = this.configService.getDiscordConfig();
+    this.enabled = Boolean(discordConfig?.botToken);
+
+    if (!this.enabled) {
+      this.logger.info('DiscordService initialized without a bot token; running in disabled mode.');
+    }
+
     this.webhookCache = new Map();
     this.client = new Client({
       intents: [
@@ -32,6 +39,10 @@ export class DiscordService {
   }
 
   async login() {
+    if (!this.isEnabled()) {
+      this.logger.info('Discord login skipped because the service is disabled.');
+      return;
+    }
     const discordConfig = this.configService.getDiscordConfig();
     if (!discordConfig?.botToken) {
       this.logger.error('Discord bot token not configured.');
@@ -39,6 +50,10 @@ export class DiscordService {
     }
     await this.client.login(discordConfig.botToken);
     this.logger.info('Discord client logged in');
+  }
+
+  isEnabled() {
+    return this.enabled;
   }
 
   async shutdown() {
@@ -49,6 +64,11 @@ export class DiscordService {
   }
 
   setupEventListeners() {
+    if (!this.isEnabled()) {
+      this.logger.debug?.('Discord service disabled; skipping event listener registration.');
+      return;
+    }
+
     this.client.once('ready', async () => {
       this.logger.info(`Bot is ready as ${this.client.user.tag}`);
       await this.updateConnectedGuilds();

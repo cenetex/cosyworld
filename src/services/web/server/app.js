@@ -3,6 +3,7 @@ import cors from 'cors';
 import process from 'process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { shouldRegisterDiscordRoutes } from '../../../utils/discordUtils.mjs';
 
 async function initializeApp(services) {
   try {
@@ -44,13 +45,19 @@ async function initializeApp(services) {
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
     app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));
+    app.use('/api/accounts', (await import('./routes/accounts.js')).default(services));
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db));
     app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
-    app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
+    if (shouldRegisterDiscordRoutes(services)) {
+      app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
+    } else {
+      logger.info('Discord disabled; skipping /api/guilds route');
+    }
     app.use('/api/admin', (await import('./routes/admin.js')).default(db));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
     app.use('/api/models', (await import('./routes/models.js')).default(db));
+    app.use('/api/rooms', (await import('./routes/rooms.js')).default(db));
 
     // Custom route
     app.post('/api/claims/renounce', async (req, res) => {
@@ -109,7 +116,9 @@ async function initializeApp(services) {
       logger.info('Shutting down...');
       server.close();
       await services.databaseService.close();
-      if (services.discordService.client) await services.discordService.client.destroy();
+      if (shouldRegisterDiscordRoutes(services) && services.discordService?.client) {
+        await services.discordService.client.destroy();
+      }
       process.exit(0);
     });
 

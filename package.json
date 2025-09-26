@@ -16,7 +16,9 @@
     "build:js": "webpack --mode production --progress",
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./dist/css/tailwind.css --minify",
     "docs": "node scripts/build-docs.mjs",
-    "copy-assets": "node scripts/copy-assets.mjs"
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "test": "node --test",
+    "test:coverage": "node scripts/run-tests-with-coverage.mjs"
   },
   "keywords": [
     "discord",

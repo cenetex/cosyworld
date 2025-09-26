@@ -44,9 +44,10 @@ We're excited to announce the final alpha release of CosyWorld - an AI avatar un
 - **Custom Abilities**: Dynamic narrative generation for unique actions
 
 ### Platform Integration
-- **Discord Bot**: Full integration with channels, threads, and reactions
-- **Web Interface**: Modern UI with wallet integration and avatar management
-- **X (Twitter)**: OAuth integration for social media posting
+- **Discord Bot**: Optional integration controlled via `DISCORD_BOT_TOKEN`
+- **Forecaster & Matrix**: Preliminary services for additional social platforms
+- **Web Interface**: Attach Discord, X, Forecaster, or Matrix accounts to any avatar
+- **Rooms API**: View rooms for locations through the web API
 - **API Access**: RESTful API with Swagger documentation
 
 ---
