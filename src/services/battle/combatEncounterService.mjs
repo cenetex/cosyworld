@@ -381,6 +381,8 @@ export class CombatEncounterService {
       try {
         const currentId = this.getCurrentTurnAvatarId(encounter);
         const current = this.getCombatant(encounter, currentId);
+        // Reset defending state at the start of their new turn
+        if (current) current.isDefending = false;
         const now = Date.now();
         const isKO = !current || (current.currentHp || 0) <= 0 || current.conditions?.includes('unconscious') || current.ref?.status === 'dead' || (current.ref?.status === 'knocked_out') || (current.ref?.knockedOutUntil && now < current.ref.knockedOutUntil);
         if (isKO) {
@@ -1176,6 +1178,94 @@ Message: ${messageContent}`;
       ]);
     } catch {}
   }
+
+  /** Get the avatarId whose turn it is, or null */
+  getCurrentTurnAvatarId(encounter) {
+    try {
+      if (!encounter) return null;
+      const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+      if (order.length === 0) return null;
+      const idx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
+      const id = order[idx];
+      return this._normalizeId(id);
+    } catch { return null; }
+  }
+
+  /** Find a combatant by avatarId (string or object with id/_id) */
+  getCombatant(encounter, avatarId) {
+    try {
+      if (!encounter) return null;
+      const id = this._normalizeId(avatarId);
+      const list = Array.isArray(encounter.combatants) ? encounter.combatants : [];
+      return list.find(c => this._normalizeId(c.avatarId) === id) || null;
+    } catch { return null; }
+  }
+
+  /** Advance to the next turn; handle round wrap and narrative pacing hooks */
+  async nextTurn(encounter) {
+    try {
+      if (!encounter || encounter.state !== 'active') return;
+      const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+      if (order.length === 0) return;
+      const prevIdx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
+      const nextIdx = (prevIdx + 1) % order.length;
+      const roundWrap = nextIdx === 0;
+      if (roundWrap) {
+        // New round
+        encounter.round = Math.max(1, Number(encounter.round) || 1) + 1;
+        // Reset chatter cadence for the new round
+        try {
+          encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+          encounter.chatter.spokenThisRound = new Set();
+          encounter.chatter.lastSpeakerId = null;
+        } catch {}
+        // Emit post-round narrative request and optional planning
+        try { this._publish('combat.narrative.request.post_round', { channelId: encounter.channelId, round: encounter.round - 1 }); } catch {}
+        if (this.enableRoundPlanning) {
+          try { this._publish('combat.narrative.request.round_planning', { channelId: encounter.channelId, round: encounter.round }); } catch {}
+        }
+      }
+      // Apply index and announce turn
+      encounter.currentTurnIndex = nextIdx;
+      try { await this._announceTurn(encounter); } catch {}
+      // Schedule start (pacing + timers + auto-act)
+      this._scheduleTurnStart(encounter, { roundWrap });
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] nextTurn error: ${e.message}`);
+    }
+  }
+
+  /** Called when the turn timer elapses without action */
+  async _onTurnTimeout(encounter) {
+    try {
+      if (!encounter || encounter.state !== 'active') return;
+      const currentId = this.getCurrentTurnAvatarId(encounter);
+      const actor = this.getCombatant(encounter, currentId);
+      if (!actor) {
+        this.logger.info?.(`[CombatEncounter] turn timed out; advancing (no actor found)`);
+        await this.nextTurn(encounter);
+        return;
+      }
+      const mode = this._getCombatModeFor(actor);
+      if (mode === 'auto') {
+        // Try to perform the planned action immediately
+        await this._maybeAutoAct(encounter, currentId);
+        return; // _maybeAutoAct will advance as needed
+      }
+      // Manual mode: default to defend and advance
+      try {
+        if (this.battleService?.defend) {
+          const msg = await this.battleService.defend({ avatar: actor.ref });
+          actor.isDefending = true;
+          await this._postAsWebhook(encounter, actor.ref, `${actor.name} used defend 🛡️\n${msg}`);
+        }
+      } catch {}
+      await this.nextTurn(encounter);
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] onTurnTimeout error: ${e.message}`);
+    }
+  }
 }
+
 
 export default CombatEncounterService;
