@@ -198,6 +198,9 @@ export class CombatEncounterService {
       initiativeOrder: [], // array of avatarId
       currentTurnIndex: 0,
       round: 0,
+      // Heartbeats to help recover from stalls
+      lastTurnStartAt: null,
+      lastTimerArmedAt: null,
       lastHostileAt: null,
       lastActionAt: null,
       lastAction: null,
@@ -250,6 +253,8 @@ export class CombatEncounterService {
     try { await encounter.posterBlocker?.promise; } catch {}
     // Emit narrative request for pre-combat chatter instead of direct conversation calls
     try { this._publish('combat.narrative.request.pre_combat', { channelId: encounter.channelId }); } catch (e) { this.logger.warn?.(`[CombatEncounter] pre-combat narrative request failed: ${e.message}`); }
+    // Announce first turn immediately for clarity
+    try { await this._announceTurn(encounter); } catch {}
     // kick off first turn using pacing logic
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
     this._scheduleTurnStart(encounter, { roundWrap: false });
@@ -357,6 +362,7 @@ export class CombatEncounterService {
     // clear previous timer
   if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
     encounter.timers.turn = setTimeout(() => this._onTurnTimeout(encounter), this.turnTimeoutMs);
+    try { encounter.lastTimerArmedAt = Date.now(); } catch {}
   }
 
   /** Schedule start of turn with pacing and optional commentary */
@@ -383,6 +389,7 @@ export class CombatEncounterService {
         const current = this.getCombatant(encounter, currentId);
         // Reset defending state at the start of their new turn
         if (current) current.isDefending = false;
+        try { encounter.lastTurnStartAt = Date.now(); } catch {}
         const now = Date.now();
         const isKO = !current || (current.currentHp || 0) <= 0 || current.conditions?.includes('unconscious') || current.ref?.status === 'dead' || (current.ref?.status === 'knocked_out') || (current.ref?.knockedOutUntil && now < current.ref.knockedOutUntil);
         if (isKO) {
@@ -857,6 +864,26 @@ Message: ${messageContent}`;
   this._clearTimers(enc);
         this.encounters.delete(channelId);
         this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${channelId} reason=${ended ? 'ended' : 'stale'}`);
+        continue;
+      }
+      // Watchdog: if active but no turn timer armed and it's been a while, force a timeout to advance.
+      if (!ended && enc.state === 'active') {
+        try {
+          const refTs = Math.max(
+            enc.lastActionAt || 0,
+            enc.lastTurnStartAt || 0,
+            enc.startedAt || 0
+          );
+          const since = now - refTs;
+          const sinceArm = enc.lastTimerArmedAt ? (now - enc.lastTimerArmedAt) : Infinity;
+          const threshold = this.turnTimeoutMs * 2;
+          const needsNudge = (!enc.timers?.turn && since > threshold) || (sinceArm > threshold);
+          if (needsNudge) {
+            this.logger.warn?.(`[CombatEncounter][${channelId}] watchdog advancing turn (since=${since}ms, sinceArm=${sinceArm}ms)`);
+            // Try to trigger the timeout path which handles action/advance consistently
+            void this._onTurnTimeout(enc);
+          }
+        } catch {}
       }
     }
   }
