@@ -1,4 +1,5 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
+import { publishEvent } from '../../events/envelope.mjs';
 /**
  * CombatEncounterService
  * Manages turn-based D&D style combat encounters (initiative, turn order, state) for AI + tool driven actions.
@@ -48,8 +49,17 @@ export class CombatEncounterService {
   this.posterWaitTimeoutMs = Number(process.env.COMBAT_POSTER_WAIT_TIMEOUT_MS || 15_000);
   }
 
-  // Removed in-channel AI chat builders; combat now delegates speaking to ConversationManager
+  /** Internal helper to publish standardized combat narrative request events */
+  _publish(type, payload = {}) {
+    try {
+      publishEvent({ type, payload, source: 'combatEncounterService' });
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] publish failed for ${type}: ${e.message}`);
+    }
+  }
 
+  // Removed in-channel AI chat builders; combat now delegates speaking to ConversationManager
+  
   /** Helper: compute DEX modifier from stats, defaulting to 10 */
   _dexModFromStats(stats) {
     const dex = Number(stats?.dexterity ?? 10);
@@ -188,17 +198,20 @@ export class CombatEncounterService {
       initiativeOrder: [], // array of avatarId
       currentTurnIndex: 0,
       round: 0,
+      // Heartbeats to help recover from stalls
+      lastTurnStartAt: null,
+      lastTimerArmedAt: null,
       lastHostileAt: null,
-  lastActionAt: null,
-  lastAction: null,
-  // Chatter tracking to avoid repetitive speakers
-  chatter: { spokenThisRound: new Set(), lastSpeakerId: null },
+      lastActionAt: null,
+      lastAction: null,
+      // Chatter tracking to avoid repetitive speakers
+      chatter: { spokenThisRound: new Set(), lastSpeakerId: null },
       timers: {},
-  knockout: null,
-  knockoutMedia: null,
-  // Media/turn sequencing controls
-  turnAdvanceBlockers: [], // array of Promises to await before advancing to next turn
-  manualActionCount: 0, // increments during manual/command-driven actions to pause auto-act
+      knockout: null,
+      knockoutMedia: null,
+      // Media/turn sequencing controls
+      turnAdvanceBlockers: [], // array of Promises to await before advancing to next turn
+      manualActionCount: 0, // increments during manual/command-driven actions to pause auto-act
       posterBlocker: (() => {
         let resolve;
         const p = new Promise(res => { resolve = res; });
@@ -208,136 +221,44 @@ export class CombatEncounterService {
       })(),
       sourceMessageId: sourceMessage?.id || null
     };
-  this.encounters.set(channelId, encounter);
-  this.logger?.info?.(`[CombatEncounter][${channelId}] created: ${combatants.length} combatant(s), state=pending`);
-  return encounter;
+    this.encounters.set(channelId, encounter);
+    this.logger?.info?.(`[CombatEncounter][${channelId}] created: ${combatants.length} combatant(s), state=pending`);
+    return encounter;
   }
 
   /** Rolls initiative for all combatants (d20 + DEX mod if stats available) */
   async rollInitiative(encounter) {
     for (const c of encounter.combatants) {
       try {
-    const stats = await this.avatarService.getOrCreateStats(c.ref);
-    const dexMod = this._dexModFromStats(stats);
+        const stats = await this.avatarService.getOrCreateStats(c.ref);
+        const dexMod = this._dexModFromStats(stats);
         const roll = this.diceService.rollDie(20);
         c.initiative = roll + dexMod;
-    c.armorClass = 10 + dexMod; // base AC for now
+        c.armorClass = 10 + dexMod; // base AC for now
       } catch (e) {
         c.initiative = this.diceService.rollDie(20);
         this.logger.warn?.(`[CombatEncounter] Failed stats for ${c.name}: ${e.message}`);
       }
     }
-  this._rebuildInitiativeOrder(encounter, { preserveCurrent: false });
+    this._rebuildInitiativeOrder(encounter, { preserveCurrent: false });
     encounter.state = 'active';
     encounter.startedAt = Date.now();
-  encounter.round = 1;
-  encounter.currentTurnIndex = 0;
-  // Reset chatter tracking for new combat
-  encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
-  encounter.chatter.spokenThisRound = new Set();
-  encounter.chatter.lastSpeakerId = null;
-  // Wait for fight poster phase (if any) before initiative and chatter for clean ordering
-  try { await encounter.posterBlocker?.promise; } catch {}
-  // Skip the old 'Combat Initiated' embed. Go straight to brief chatter before first turn.
-  await this._preCombatChatter(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] pre-combat chatter failed: ${e.message}`));
-  // kick off first turn using pacing logic
-  this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
-  this._scheduleTurnStart(encounter, { roundWrap: false });
-    return encounter;
-  }
-
-  /** Returns the combatant object for avatarId within encounter */
-  getCombatant(encounter, avatarId) {
-  const want = this._normalizeId(avatarId);
-  return encounter.combatants.find(c => this._normalizeId(c.avatarId) === want) || null;
-  }
-
-  /** Returns avatarId whose turn it is */
-  getCurrentTurnAvatarId(encounter) {
-    return encounter.initiativeOrder[encounter.currentTurnIndex] || null;
-  }
-
-  /** Advances to next turn, incrementing round when wrapping */
-  async nextTurn(encounter) {
-    if (encounter.state !== 'active') return;
-    encounter.currentTurnIndex += 1;
-    if (encounter.currentTurnIndex >= encounter.initiativeOrder.length) {
-      encounter.currentTurnIndex = 0;
-      encounter.round += 1;
-      if (encounter.round > 3) {
-        this.endEncounter(encounter, { reason: 'round_limit' });
-        return;
-      }
-      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] round wrap -> round=${encounter.round}`);
-      // New round: reset chatter tracking
-      try {
-        encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
-        encounter.chatter.spokenThisRound = new Set();
-        encounter.chatter.lastSpeakerId = null;
-      } catch {}
-      await this._postRoundDiscussion(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] round discussion failed: ${e.message}`));
-      if (this.enableRoundPlanning) {
-        await this._roundPlanningPhase(encounter);
-      }
-      this._scheduleTurnStart(encounter, { roundWrap: true });
-      return;
-    }
-    // If the next combatant is KO'd, skip ahead until a valid one or round wraps
-    try {
-      let safety = encounter.initiativeOrder.length;
-      while (safety-- > 0) {
-        const cid = this.getCurrentTurnAvatarId(encounter);
-        const c = this.getCombatant(encounter, cid);
-        const now = Date.now();
-        const isKO = !c || (c.currentHp || 0) <= 0 || c.conditions?.includes('unconscious') || c.ref?.status === 'dead' || c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil);
-        if (!isKO) break;
-        encounter.currentTurnIndex += 1;
-        if (encounter.currentTurnIndex >= encounter.initiativeOrder.length) {
-          encounter.currentTurnIndex = 0;
-          encounter.round += 1;
-          if (encounter.round > 3) {
-            this.endEncounter(encounter, { reason: 'round_limit' });
-            return;
-          }
-      await this._postRoundDiscussion(encounter).catch(e=>this.logger.warn?.(`[CombatEncounter] round discussion failed: ${e.message}`));
-          if (this.enableRoundPlanning) {
-            await this._roundPlanningPhase(encounter);
-          }
-          this._scheduleTurnStart(encounter, { roundWrap: true });
-          return;
-        }
-      }
-    } catch {}
+    encounter.round = 1;
+    encounter.currentTurnIndex = 0;
+    // Reset chatter tracking for new combat
+    encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+    encounter.chatter.spokenThisRound = new Set();
+    encounter.chatter.lastSpeakerId = null;
+    // Wait for fight poster phase (if any) before initiative narrative for clean ordering
+    try { await encounter.posterBlocker?.promise; } catch {}
+    // Emit narrative request for pre-combat chatter instead of direct conversation calls
+    try { this._publish('combat.narrative.request.pre_combat', { channelId: encounter.channelId }); } catch (e) { this.logger.warn?.(`[CombatEncounter] pre-combat narrative request failed: ${e.message}`); }
+    // Announce first turn immediately for clarity
+    try { await this._announceTurn(encounter); } catch {}
+    // kick off first turn using pacing logic
+    this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
     this._scheduleTurnStart(encounter, { roundWrap: false });
-  }
-
-  /** Auto action if turn times out (simple defend / dodge) */
-  async _onTurnTimeout(encounter) {
-    const avatarId = this.getCurrentTurnAvatarId(encounter);
-    if (!avatarId) return;
-    const combatant = this.getCombatant(encounter, avatarId);
-    if (!combatant) return;
-    // If combatant is KO'd or dead, just advance turn without acting
-    try {
-      const now = Date.now();
-      const isKO = (combatant.currentHp || 0) <= 0 || combatant.conditions?.includes('unconscious') || combatant.ref?.status === 'dead' || (combatant.ref?.status === 'knocked_out') || (combatant.ref?.knockedOutUntil && now < combatant.ref.knockedOutUntil);
-      if (isKO) {
-        this.logger.info?.(`[CombatEncounter] timeout on KO'd combatant ${combatant.name}; skipping action`);
-        await this.nextTurn(encounter);
-        return;
-      }
-    } catch {}
-    // Auto-defend (set defending state) using battleService if available
-    try {
-      combatant.isDefending = true;
-      if (this.battleService) {
-        // Apply to stats so AC is actually affected on subsequent attacks
-        await this.battleService.defend({ avatar: combatant.ref });
-      }
-    } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] auto-defend failed: ${e.message}`);
-    }
-  await this.nextTurn(encounter);
+    return encounter;
   }
 
   /** Determine combat mode for a combatant ('auto' or 'manual') */
@@ -353,17 +274,15 @@ export class CombatEncounterService {
     if (encounter.timers.auto) clearTimeout(encounter.timers.auto);
     const currentId = this.getCurrentTurnAvatarId(encounter);
     const combatant = this.getCombatant(encounter, currentId);
-  if (!combatant) return;
-    // If a manual action is currently in progress (e.g., user command + poster/media), don't auto-act yet
+    if (!combatant) return;
     if ((encounter.manualActionCount || 0) > 0) {
       this.logger.info?.(`[CombatEncounter] manual action in progress; delaying auto-act for ${this.autoActDelayMs}ms`);
       encounter.timers.auto = setTimeout(() => this._scheduleAutoAct(encounter), this.autoActDelayMs);
       return;
     }
     if (this._getCombatModeFor(combatant) !== 'auto') return; // manual: do not auto-act
-    // Schedule with small delay to allow UI/embeds to post first
-  this.logger.info?.(`[CombatEncounter] scheduling auto-act for ${combatant.name} in ${this.autoActDelayMs}ms (turn of ${combatant.avatarId})`);
-  encounter.timers.auto = setTimeout(() => this._maybeAutoAct(encounter, currentId).catch(e=>this.logger.warn?.(`[CombatEncounter] auto-act error: ${e.message}`)), this.autoActDelayMs);
+    this.logger.info?.(`[CombatEncounter] scheduling auto-act for ${combatant.name} in ${this.autoActDelayMs}ms (turn of ${combatant.avatarId})`);
+    encounter.timers.auto = setTimeout(() => this._maybeAutoAct(encounter, currentId).catch(e=>this.logger.warn?.(`[CombatEncounter] auto-act error: ${e.message}`)), this.autoActDelayMs);
   }
 
   /** If it's still the same combatant's turn, pick and execute an AI action */
@@ -374,7 +293,6 @@ export class CombatEncounterService {
     const actor = this.getCombatant(encounter, currentId);
     if (!actor) return;
     if (this._getCombatModeFor(actor) !== 'auto') return;
-    // If actor is KO'd or dead, skip auto-act and advance turn
     try {
       const now = Date.now();
       const isKO = (actor.currentHp || 0) <= 0 || actor.conditions?.includes('unconscious') || actor.ref?.status === 'dead' || (actor.ref?.status === 'knocked_out') || (actor.ref?.knockedOutUntil && now < actor.ref.knockedOutUntil);
@@ -384,32 +302,24 @@ export class CombatEncounterService {
         return;
       }
     } catch {}
-  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
-
-    // Choose action: simple heuristic (low HP -> defend; else attack)
+    this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
     const hp = Math.max(0, actor.currentHp || 0);
     const maxHp = Math.max(1, actor.maxHp || 10);
     const low = hp / maxHp <= 0.3;
-  let didAct = false;
-  const post = async (content) => this._postAsWebhook(encounter, actor.ref, content);
-
-  // Pre-register a turn-advance blocker so handleAttackResult waits for any media we generate
-  const latch = this._preRegisterTurnAdvanceBlocker(encounter.channelId);
-  try {
+    let didAct = false;
+    const post = async (content) => this._postAsWebhook(encounter, actor.ref, content);
+    const latch = this._preRegisterTurnAdvanceBlocker(encounter.channelId);
+    try {
       if (low && this.battleService?.defend) {
         const msg = await this.battleService.defend({ avatar: actor.ref });
-        actor.isDefending = true; // reflect in encounter for status UI
-  await post(`${actor.name} used defend 🛡️\n${msg}`);
-  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-defends (low HP).`);
+        actor.isDefending = true;
+        await post(`${actor.name} used defend 🛡️\n${msg}`);
+        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-defends (low HP).`);
         didAct = true;
-        // Advance turn after defend
-    // Resolve latch immediately; no media to wait for
-    try { latch.resolve(); } catch {}
-    await this.nextTurn(encounter);
+        try { latch.resolve(); } catch {}
+        await this.nextTurn(encounter);
         return;
       }
-
-      // Attack some other conscious combatant (exclude KO'd/dead/unconscious/knocked_out)
       const now = Date.now();
       const targets = encounter.combatants.filter(c => {
         if (this._normalizeId(c.avatarId) === this._normalizeId(actor.avatarId)) return false;
@@ -422,27 +332,25 @@ export class CombatEncounterService {
       const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
       if (target && this.battleService?.attack) {
         const messageShim = { channel: { id: encounter.channelId } };
-  const services = { combatEncounterService: this, battleMediaService: this.battleMediaService || this.battleService?.battleMediaService, discordService: this.discordService };
+        const services = { combatEncounterService: this, battleMediaService: this.battleMediaService || this.battleService?.battleMediaService, discordService: this.discordService };
         const res = await this.battleService.attack({ message: messageShim, attacker: actor.ref, defender: target.ref, services });
         if (res?.message) {
           await post(`${actor.name} used attack ⚔️\n${res.message}`);
         }
-  // No per-action media; resolve latch immediately
-  try { latch.resolve(); } catch {}
-  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-attacks ${target.name}.`);
-        didAct = true; // turn advancement handled via handleAttackResult in battleService
+        try { latch.resolve(); } catch {}
+        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-attacks ${target.name}.`);
+        didAct = true; // turn advancement handled by handleAttackResult
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] auto action failed: ${e.message}`);
     } finally {
-      // If nothing happened (e.g., no targets), fall back to defend and advance
-    if (!didAct) {
+      if (!didAct) {
         try {
-      let msg = '';
-      if (this.battleService?.defend) msg = await this.battleService.defend({ avatar: actor.ref });
+          let msg = '';
+          if (this.battleService?.defend) msg = await this.battleService.defend({ avatar: actor.ref });
           actor.isDefending = true;
-  await post(`${actor.name} used defend 🛡️\n${msg}`);
-  this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} fallback defend (no target).`);
+          await post(`${actor.name} used defend 🛡️\n${msg}`);
+          this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} fallback defend (no target).`);
         } catch {}
         try { latch.resolve(); } catch {}
         await this.nextTurn(encounter);
@@ -454,6 +362,7 @@ export class CombatEncounterService {
     // clear previous timer
   if (encounter.timers.turn) clearTimeout(encounter.timers.turn);
     encounter.timers.turn = setTimeout(() => this._onTurnTimeout(encounter), this.turnTimeoutMs);
+    try { encounter.lastTimerArmedAt = Date.now(); } catch {}
   }
 
   /** Schedule start of turn with pacing and optional commentary */
@@ -478,6 +387,9 @@ export class CombatEncounterService {
       try {
         const currentId = this.getCurrentTurnAvatarId(encounter);
         const current = this.getCombatant(encounter, currentId);
+        // Reset defending state at the start of their new turn
+        if (current) current.isDefending = false;
+        try { encounter.lastTurnStartAt = Date.now(); } catch {}
         const now = Date.now();
         const isKO = !current || (current.currentHp || 0) <= 0 || current.conditions?.includes('unconscious') || current.ref?.status === 'dead' || (current.ref?.status === 'knocked_out') || (current.ref?.knockedOutUntil && now < current.ref.knockedOutUntil);
         if (isKO) {
@@ -488,12 +400,9 @@ export class CombatEncounterService {
           return;
         }
       } catch (e) { this.logger.warn?.(`[CombatEncounter] KO skip check failed: ${e.message}`); }
-      // Optional commentary and inter-turn chatter (no per-turn embed)
-      try { await this._maybePostCommentary(encounter); } catch (e) { this.logger.warn?.(`[CombatEncounter] commentary error: ${e.message}`); }
-      // Some older instances may not have this method; guard to avoid noisy TypeErrors
-      if (typeof this._postInterTurnChatter === 'function') {
-        try { await this._postInterTurnChatter(encounter); } catch (e) { this.logger.warn?.(`[CombatEncounter] inter-turn chatter error: ${e.message}`); }
-      }
+      // Emit narrative requests for commentary & inter-turn chatter instead of direct calls
+      try { this._publish('combat.narrative.request.commentary', { channelId: encounter.channelId }); } catch {}
+      try { this._publish('combat.narrative.request.inter_turn', { channelId: encounter.channelId }); } catch {}
       // Start timers
       this._scheduleTurnTimeout(encounter);
       this._scheduleAutoAct(encounter);
@@ -832,6 +741,7 @@ Message: ${messageContent}`;
 
   /** Generate a short in-character commentary line between actions */
   async _maybePostCommentary(encounter) {
+    // DEPRECATED: retained temporarily for backward compatibility; replaced by combat.narrative.request.commentary events
     if (!this.enableCommentary) return;
     if (Math.random() > this.commentaryChance) return;
   const conversationManager = this.getConversationManager?.();
@@ -876,6 +786,7 @@ Message: ${messageContent}`;
    * Brief pre-combat chatter: give each combatant a chance to speak once after initiative.
    */
   async _preCombatChatter(encounter) {
+    // DEPRECATED: replaced by combat.narrative.request.pre_combat event
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -897,6 +808,7 @@ Message: ${messageContent}`;
    * Post-round discussion: after each full round, let 2 participants speak to extend pacing.
    */
   async _postRoundDiscussion(encounter) {
+    // DEPRECATED: replaced by combat.narrative.request.post_round event
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -919,6 +831,7 @@ Message: ${messageContent}`;
    * Brief per-round planning: ask each avatar for a one-liner intent, then have a DM narrator summarize the setup.
    */
   async _roundPlanningPhase(encounter) {
+  // DEPRECATED: replaced by combat.narrative.request.round_planning event
   const conversationManager = this.getConversationManager?.();
   if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -951,6 +864,26 @@ Message: ${messageContent}`;
   this._clearTimers(enc);
         this.encounters.delete(channelId);
         this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${channelId} reason=${ended ? 'ended' : 'stale'}`);
+        continue;
+      }
+      // Watchdog: if active but no turn timer armed and it's been a while, force a timeout to advance.
+      if (!ended && enc.state === 'active') {
+        try {
+          const refTs = Math.max(
+            enc.lastActionAt || 0,
+            enc.lastTurnStartAt || 0,
+            enc.startedAt || 0
+          );
+          const since = now - refTs;
+          const sinceArm = enc.lastTimerArmedAt ? (now - enc.lastTimerArmedAt) : Infinity;
+          const threshold = this.turnTimeoutMs * 2;
+          const needsNudge = (!enc.timers?.turn && since > threshold) || (sinceArm > threshold);
+          if (needsNudge) {
+            this.logger.warn?.(`[CombatEncounter][${channelId}] watchdog advancing turn (since=${since}ms, sinceArm=${sinceArm}ms)`);
+            // Try to trigger the timeout path which handles action/advance consistently
+            void this._onTurnTimeout(enc);
+          }
+        } catch {}
       }
     }
   }
@@ -966,6 +899,7 @@ Message: ${messageContent}`;
 
   /** Inter-turn chatter allowing other avatars to chime in between turns */
   async _postInterTurnChatter(encounter) {
+    // DEPRECATED: replaced by combat.narrative.request.inter_turn event
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -1271,6 +1205,94 @@ Message: ${messageContent}`;
       ]);
     } catch {}
   }
+
+  /** Get the avatarId whose turn it is, or null */
+  getCurrentTurnAvatarId(encounter) {
+    try {
+      if (!encounter) return null;
+      const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+      if (order.length === 0) return null;
+      const idx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
+      const id = order[idx];
+      return this._normalizeId(id);
+    } catch { return null; }
+  }
+
+  /** Find a combatant by avatarId (string or object with id/_id) */
+  getCombatant(encounter, avatarId) {
+    try {
+      if (!encounter) return null;
+      const id = this._normalizeId(avatarId);
+      const list = Array.isArray(encounter.combatants) ? encounter.combatants : [];
+      return list.find(c => this._normalizeId(c.avatarId) === id) || null;
+    } catch { return null; }
+  }
+
+  /** Advance to the next turn; handle round wrap and narrative pacing hooks */
+  async nextTurn(encounter) {
+    try {
+      if (!encounter || encounter.state !== 'active') return;
+      const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+      if (order.length === 0) return;
+      const prevIdx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
+      const nextIdx = (prevIdx + 1) % order.length;
+      const roundWrap = nextIdx === 0;
+      if (roundWrap) {
+        // New round
+        encounter.round = Math.max(1, Number(encounter.round) || 1) + 1;
+        // Reset chatter cadence for the new round
+        try {
+          encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
+          encounter.chatter.spokenThisRound = new Set();
+          encounter.chatter.lastSpeakerId = null;
+        } catch {}
+        // Emit post-round narrative request and optional planning
+        try { this._publish('combat.narrative.request.post_round', { channelId: encounter.channelId, round: encounter.round - 1 }); } catch {}
+        if (this.enableRoundPlanning) {
+          try { this._publish('combat.narrative.request.round_planning', { channelId: encounter.channelId, round: encounter.round }); } catch {}
+        }
+      }
+      // Apply index and announce turn
+      encounter.currentTurnIndex = nextIdx;
+      try { await this._announceTurn(encounter); } catch {}
+      // Schedule start (pacing + timers + auto-act)
+      this._scheduleTurnStart(encounter, { roundWrap });
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] nextTurn error: ${e.message}`);
+    }
+  }
+
+  /** Called when the turn timer elapses without action */
+  async _onTurnTimeout(encounter) {
+    try {
+      if (!encounter || encounter.state !== 'active') return;
+      const currentId = this.getCurrentTurnAvatarId(encounter);
+      const actor = this.getCombatant(encounter, currentId);
+      if (!actor) {
+        this.logger.info?.(`[CombatEncounter] turn timed out; advancing (no actor found)`);
+        await this.nextTurn(encounter);
+        return;
+      }
+      const mode = this._getCombatModeFor(actor);
+      if (mode === 'auto') {
+        // Try to perform the planned action immediately
+        await this._maybeAutoAct(encounter, currentId);
+        return; // _maybeAutoAct will advance as needed
+      }
+      // Manual mode: default to defend and advance
+      try {
+        if (this.battleService?.defend) {
+          const msg = await this.battleService.defend({ avatar: actor.ref });
+          actor.isDefending = true;
+          await this._postAsWebhook(encounter, actor.ref, `${actor.name} used defend 🛡️\n${msg}`);
+        }
+      } catch {}
+      await this.nextTurn(encounter);
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] onTurnTimeout error: ${e.message}`);
+    }
+  }
 }
+
 
 export default CombatEncounterService;
