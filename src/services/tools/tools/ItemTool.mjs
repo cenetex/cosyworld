@@ -35,6 +35,27 @@ export class ItemTool extends BasicTool {
     this.replyNotification = true;
   }
 
+  /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['use', 'craft', 'take', 'drop', 'store', 'potion'],
+          description: 'The item action to perform'
+        },
+        target: {
+          type: 'string',
+          description: 'Item name or additional parameters (for take, drop, craft actions)'
+        }
+      },
+      required: ['action']
+    };
+  }
+
   async postItemDetails(channelId, item) {
     await this.discordService.sendAsWebhook(channelId, item.imageUrl, item);
     await this.discordService.sendAsWebhook(channelId, `**${item.name}**\n\n${item.description}`, item);

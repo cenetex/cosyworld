@@ -23,6 +23,8 @@ import { publishEvent } from './events/envelope.mjs';
 import { CombatNarrativeService } from './services/combat/CombatNarrativeService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import { ResponseCoordinator } from './services/chat/responseCoordinator.mjs';
+import { ToolSchemaGenerator } from './services/tools/toolSchemaGenerator.mjs';
+import { ToolExecutor } from './services/tools/toolExecutor.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
@@ -105,6 +107,8 @@ async function initializeContainer() {
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
     toolService: asClass(ToolService).singleton(),
+    toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),
+    toolExecutor: asClass(ToolExecutor).singleton(),
     discordService: asClass(DiscordService).singleton(),
     responseCoordinator: asClass(ResponseCoordinator).singleton(),
     messageHandler: asClass(MessageHandler).singleton(),

@@ -21,7 +21,9 @@ export class ConversationManager  {
     knowledgeService,
     mapService,
   toolService,
-  presenceService
+  presenceService,
+  toolSchemaGenerator,
+  toolExecutor
   }) {
     this.toolService = toolService;
     this.logger = logger || console;
@@ -36,6 +38,8 @@ export class ConversationManager  {
     this.knowledgeService = knowledgeService;
     this.mapService = mapService;
   this.presenceService = presenceService; // optional; used for bot->bot mention cascades
+  this.toolSchemaGenerator = toolSchemaGenerator; // Phase 2: LLM tool calling
+  this.toolExecutor = toolExecutor; // Phase 2: Tool execution loop
 
     this.GLOBAL_NARRATIVE_COOLDOWN = 60 * 60 * 1000; // 1 hour
     this.lastGlobalNarrativeTime = 0;
@@ -44,6 +48,9 @@ export class ConversationManager  {
     this.MAX_RESPONSES_PER_MESSAGE = 2;
     this.channelResponders = new Map();
     this.requiredPermissions = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'ManageWebhooks'];
+    
+    // Phase 2: Tool calling configuration
+    this.enableToolCalling = String(process.env.ENABLE_LLM_TOOL_CALLING || 'false').toLowerCase() === 'true';
   }
 
   /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
@@ -417,9 +424,63 @@ export class ConversationManager  {
       }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
-  this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown}`);
-  let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId });
+  this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
+  
+  // Phase 2: Include tool schemas if enabled
+  const chatOptions = { model: avatar.model, max_tokens: 256, corrId };
+  if (this.enableToolCalling && this.toolSchemaGenerator) {
+    try {
+      const toolSchemas = await this.toolSchemaGenerator.generateSchemas();
+      if (toolSchemas.length > 0) {
+        chatOptions.tools = toolSchemas;
+        chatOptions.tool_choice = 'auto'; // Let model decide
+        this.logger.debug?.(`[AI][sendResponse][${corrId}] Enabled ${toolSchemas.length} tools for LLM`);
+      }
+    } catch (error) {
+      this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to generate tool schemas: ${error.message}`);
+    }
+  }
+  
+  let result = await ai.chat(chatMessages, chatOptions);
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
+      
+      // Phase 2: Handle tool calls if present
+      if (this.enableToolCalling && result && typeof result === 'object' && result.tool_calls && result.tool_calls.length > 0) {
+        this.logger.info?.(`[AI][sendResponse][${corrId}] Model requested ${result.tool_calls.length} tool call(s)`);
+        
+        try {
+          // Execute tools
+          const toolResults = await this.toolExecutor.executeToolCalls(
+            result.tool_calls,
+            { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
+            avatar
+          );
+          
+          this.logger.info?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
+          
+          // Add tool results to conversation
+          if (result.content) {
+            chatMessages.push({ role: 'assistant', content: result.content, tool_calls: result.tool_calls });
+          } else {
+            chatMessages.push({ role: 'assistant', content: '', tool_calls: result.tool_calls });
+          }
+          
+          const toolMessages = this.toolExecutor.formatResultsForLLM(toolResults);
+          chatMessages.push(...toolMessages);
+          
+          // Get final response incorporating tool results
+          const finalResult = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId: `${corrId}-final` });
+          result = finalResult;
+          
+          if (finalResult && typeof finalResult === 'object' && finalResult.reasoning) {
+            resultReasoning = `${resultReasoning}\n${finalResult.reasoning}`.trim();
+          }
+        } catch (toolError) {
+          this.logger.error?.(`[AI][sendResponse][${corrId}] Tool execution failed: ${toolError.message}`);
+          // Fall through to use original response
+        }
+      }
+      
       // Log non-string/atypical shapes for diagnostics
       try {
         if (result && typeof result !== 'string') {

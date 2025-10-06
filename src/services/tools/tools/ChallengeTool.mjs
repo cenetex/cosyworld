@@ -33,6 +33,22 @@ export class ChallengeTool extends BasicTool {
     this.cooldownMs = 10 * 1000; // 10s to make initiating snappy
   }
 
+  /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        target: {
+          type: 'string',
+          description: 'The name of the avatar to challenge to a duel'
+        }
+      },
+      required: ['target']
+    };
+  }
+
   async execute(message, params, avatar, services) {
     // Block initiating combat if actor cannot enter (KO/dead/knockout or flee cooldown)
     try {

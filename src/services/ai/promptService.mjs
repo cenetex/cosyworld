@@ -54,6 +54,13 @@ export class PromptService  {
       location = null;
     }
 
+    // Phase 2: Add tool context if LLM tool calling is enabled
+    let toolContext = '';
+    const enableToolCalling = String(process.env.ENABLE_LLM_TOOL_CALLING || 'false').toLowerCase() === 'true';
+    if (enableToolCalling && this.toolService) {
+      toolContext = await this._getToolContext(avatar, location);
+    }
+
     return `
 You are ${avatar.name}.
 ${avatar.personality}
@@ -61,7 +68,57 @@ ${avatar.dynamicPersonality}
 ${lastNarrative ? lastNarrative.content : ''}
 ${latestThought ? `Latest thought: ${latestThought}` : ''}
 ${location ? `Location: ${location.name} - ${location.description}` : ''}
+${toolContext}
   `.trim();
+  }
+
+  /**
+   * Generate tool context for system prompt (Phase 2: Agentic tool calling)
+   * @private
+   */
+  async _getToolContext(avatar, location) {
+    try {
+      const tools = [];
+      for (const [name, tool] of this.toolService.tools) {
+        const emoji = tool.emoji || '';
+        const desc = tool.getDescription ? tool.getDescription() : tool.description || name;
+        tools.push(`${emoji} ${name}: ${desc}`);
+      }
+      
+      if (tools.length === 0) return '';
+      
+      // Get current situation context
+      const nearbyAvatars = location ? await this._getNearbyAvatars(location.channelId) : [];
+      const stats = avatar.hp !== undefined ? `HP: ${avatar.hp}/${avatar.maxHp || 100}` : '';
+      
+      return `
+
+AVAILABLE ACTIONS:
+${tools.join('\n')}
+
+CURRENT SITUATION:
+${stats ? `Status: ${stats}` : ''}
+${nearbyAvatars.length > 0 ? `Nearby: ${nearbyAvatars.join(', ')}` : ''}
+
+You can use these actions when appropriate to achieve your goals. Consider the situation and act autonomously.`;
+    } catch (error) {
+      this.logger?.warn?.(`Failed to generate tool context: ${error.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Get nearby avatars in the same location
+   * @private
+   */
+  async _getNearbyAvatars(channelId) {
+    try {
+      const locationResult = await this.mapService.getLocationAndAvatars(channelId);
+      if (!locationResult || !Array.isArray(locationResult.avatars)) return [];
+      return locationResult.avatars.map(a => a.name).filter(Boolean);
+    } catch {
+      return [];
+    }
   }
 
   /**

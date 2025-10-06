@@ -58,6 +58,22 @@ export class AttackTool extends BasicTool {
   this.deathVideoChance = Math.max(0, Math.min(1, parseFloat(env('BATTLE_VIDEO_DEATH_CHANCE', '1')) || 1));
   }
 
+  /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        target: {
+          type: 'string',
+          description: 'The name of the avatar to attack'
+        }
+      },
+      required: ['target']
+    };
+  }
+
   async execute(message, params, avatar, services) {
     // Disallow actions from KO'd or dead actors
     try {

@@ -34,6 +34,22 @@ export class MoveTool extends BasicTool {
   }
 
   /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        destination: {
+          type: 'string',
+          description: 'The name of the location to move to (will be created if it doesn\'t exist)'
+        }
+      },
+      required: ['destination']
+    };
+  }
+
+  /**
    * Executes the move command.
    * @param {Object} message - The original Discord message.
    * @param {string[]} params - The command parameters (location name, etc.).
