@@ -155,49 +155,48 @@ Attempts to acquire an exclusive response lock.
 
 ### TurnScheduler
 
-Two paths:
-- **Legacy**: Original multi-avatar selection with leases
-- **Coordinator**: Calls `responseCoordinator.coordinateResponse()` with ambient context
+All responses are now coordinated through the ResponseCoordinator:
 
 ```javascript
-// In onChannelTick
-if (this.USE_COORDINATOR && this.responseCoordinator) {
-  return this.onChannelTickWithCoordinator(channelId, budgetAllowed);
+// In onChannelTick - uses coordinator for ambient ticks
+async onChannelTick(channelId, budgetAllowed = 1) {
+  // ... coordinator-based implementation
 }
-// Otherwise: legacy path
+
+// In onHumanMessage - uses coordinator for human messages
+async onHumanMessage(channelId, message) {
+  // ... coordinator-based implementation
+}
 ```
 
 ### MessageHandler
 
-Two paths:
-- **Legacy**: DecisionMaker selects 5 avatars, parallel `shouldRespond()` checks
-- **Coordinator**: Single coordinated response
+All channel message processing now uses the unified coordinator:
 
 ```javascript
 // In processChannel
-if (this.USE_COORDINATOR && this.responseCoordinator) {
-  await this.responseCoordinator.coordinateResponse(channel, message, context);
-  return;
-}
-// Otherwise: legacy path
+await this.responseCoordinator.coordinateResponse(channel, message, {
+  guildId: message.guild.id,
+  avatars: eligibleAvatars
+});
 ```
 
-## Migration Strategy
+## Migration History
 
-### Phase 1: Gradual Enablement (Current)
-- Feature flag off by default
-- Both paths coexist
-- Test with `UNIFIED_RESPONSE_COORDINATOR=true`
+### Phase 1: Gradual Enablement (Completed)
+- Feature flag controlled rollout
+- Both paths coexisted for testing
+- Validated with `UNIFIED_RESPONSE_COORDINATOR=true`
 
-### Phase 2: Default On (After Testing)
-- Change default to `true`
-- Monitor for issues
-- Keep legacy path for emergency rollback
+### Phase 2: Default On (Completed)
+- System confirmed working in production
+- Legacy paths retained for reference
 
-### Phase 3: Deprecation (Future)
-- Remove legacy paths from TurnScheduler and MessageHandler
-- Simplify codebase
-- Remove feature flags
+### Phase 3: Deprecation (Completed)
+- Removed legacy paths from TurnScheduler and MessageHandler
+- Simplified codebase
+- Removed feature flags
+- `DecisionMaker.selectAvatarsToConsider()` marked as deprecated
 
 ## Benefits
 
