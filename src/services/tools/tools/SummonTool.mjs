@@ -3,7 +3,6 @@
  * Licensed under the MIT License.
  */
 
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { BasicTool } from '../BasicTool.mjs';
 
 export class SummonTool extends BasicTool {
@@ -14,7 +13,6 @@ export class SummonTool extends BasicTool {
     configService,
     databaseService,
     aiService,
-    doginalCollectionService,
     unifiedAIService,
     statService,
     presenceService,
@@ -27,7 +25,6 @@ export class SummonTool extends BasicTool {
     this.configService = configService;
     this.databaseService = databaseService;
     this.aiService = aiService;
-    this.doginalCollectionService = doginalCollectionService;
     this.unifiedAIService = unifiedAIService;
     this.statService = statService;
     this.presenceService = presenceService;
@@ -172,9 +169,6 @@ export class SummonTool extends BasicTool {
       }
 
       const breed = Boolean(params.breed);
-
-      const doginalHandled = await this.tryDoginalSummon({ message, content, breed });
-      if (doginalHandled) return doginalHandled;
 
       // Check summon limit (bypass for specific user ID, e.g., admin)
       const canSummon = message.author.id === '1175877613017895032' || (await this.checkDailySummonLimit(message.author.id));
@@ -332,278 +326,5 @@ export class SummonTool extends BasicTool {
       await this.discordService.reactToMessage(message, '❌');
       return `-# [ ❌ Error: Failed to summon: ${error.message} ]`;
     }
-  }
-
-  async tryDoginalSummon({ message, content, breed }) {
-    if (!this.doginalCollectionService) return null;
-    const trimmed = (content || '').trim();
-    if (!trimmed) return null;
-    if (!/doginal|doge/i.test(trimmed)) return null;
-
-    try {
-      const tokens = trimmed.split(/\s+/).filter(Boolean);
-      if (!tokens.length) return null;
-
-      let collection = null;
-      let remainderTokens = [];
-      for (let i = tokens.length; i > 0; i--) {
-        const candidate = tokens.slice(0, i).join(' ');
-        collection = await this.doginalCollectionService.getCollection(candidate);
-        if (collection) {
-          remainderTokens = tokens.slice(i);
-          break;
-        }
-      }
-
-      if (!collection) return null;
-
-      const remainder = remainderTokens.join(' ').trim();
-      let inscriptionNumber = null;
-      let inscriptionId = null;
-      if (remainder) {
-        const numberMatch = remainder.match(/#?\s*(\d{1,7})/);
-        if (numberMatch) {
-          inscriptionNumber = parseInt(numberMatch[1], 10);
-        } else {
-          const idMatch = remainder.match(/([a-z0-9_-]{8,})/i);
-          if (idMatch) inscriptionId = idMatch[1];
-        }
-      }
-
-      const { token } = await this.doginalCollectionService.summonToken({
-        collection: collection.slug,
-        inscriptionNumber,
-        inscriptionId,
-      });
-
-      const title = token.name || `${collection.name} #${token.inscriptionNumber ?? token.inscriptionId ?? ''}`.trim();
-      const imageUrl = this.resolveDoginalImageUrl(token);
-      const embed = new EmbedBuilder()
-        .setColor('#F7931A')
-        .setTitle(title)
-        .setDescription(this.formatDoginalTraits(token.traits) || 'A legendary Doginal companion, freshly summoned!')
-        .setFooter({ text: `${collection.name} • Dogecoin Inscription`, iconURL: imageUrl || undefined });
-
-      if (imageUrl) {
-        embed.setThumbnail(imageUrl);
-        embed.setImage(imageUrl);
-      }
-      if (token.inscriptionNumber != null) {
-        embed.addFields({ name: 'Inscription #', value: `#${token.inscriptionNumber}`, inline: true });
-      }
-      if (token.inscriptionId) {
-        embed.addFields({ name: 'Inscription ID', value: token.inscriptionId, inline: true });
-      }
-      if (Number.isFinite(token.rarity)) {
-        embed.addFields({ name: 'Rarity Score', value: token.rarity.toFixed(2), inline: true });
-      }
-      if (token.lastKnownOwner) {
-        embed.addFields({ name: 'Last Known Owner', value: token.lastKnownOwner, inline: false });
-      }
-
-      const components = this.buildDoginalLinkComponents(collection, token);
-
-      await this.discordService.sendEmbedAsWebhook(
-        message.channel.id,
-        embed,
-        title,
-        imageUrl || undefined,
-        components
-      );
-      await this.discordService.reactToMessage(message, token.emoji || '🐕');
-
-      return `-# ${this.emoji} [ ${title} bounds in from the Doginal Kennel. ]`;
-    } catch (error) {
-      const status = error?.status || error?.response?.status;
-      const msg = status === 404
-        ? 'Could not find that Doginal inscription. Try another number?'
-        : 'Failed to summon a Doginal companion just now. The kennel door is stuck.';
-      this.logger?.warn?.(`[DoginalSummon] failed: ${error?.message || error}`);
-      await this.discordService.replyToMessage(message, msg);
-      return `-# [ ❌ Doginal summon failed${status === 404 ? ': not found' : ''}. ]`;
-    }
-  }
-
-  formatDoginalTraits(traits) {
-    if (!traits) return '';
-    try {
-      if (Array.isArray(traits)) {
-        return traits.map(t => {
-          if (!t) return '';
-          if (typeof t === 'string') return t;
-          const key = t.trait_type || t.type || t.name || 'Trait';
-          const val = t.value || t.trait || t.val || '';
-          return `${key}: ${val}`;
-        }).filter(Boolean).join('\n');
-      }
-      if (typeof traits === 'object') {
-        return Object.entries(traits).map(([k, v]) => `${k}: ${v}`).join('\n');
-      }
-      if (typeof traits === 'string') return traits;
-    } catch (err) {
-      this.logger?.warn?.(`[DoginalSummon] trait formatting failed: ${err.message}`);
-    }
-    return '';
-  }
-
-  buildDoginalLinkComponents(collection, token) {
-    const dogeLabsUrl = this.resolveDoginalDogeLabsUrl(collection, token);
-    if (!dogeLabsUrl) return [];
-
-    const button = new ButtonBuilder()
-      .setLabel('View on Doge Labs')
-      .setStyle(ButtonStyle.Link)
-      .setURL(dogeLabsUrl);
-
-    return [new ActionRowBuilder().addComponents(button)];
-  }
-
-  resolveDoginalDogeLabsUrl(collection, token) {
-    const directUrl = this.extractDogeLabsUrl([
-      token?.detailsUrl,
-      token?.metadata?.detailsUrl,
-      token?.links,
-      token?.metadata?.links,
-      collection?.links,
-      collection?.metadata?.links,
-    ]);
-    if (directUrl) return directUrl;
-
-    const slug = this.normalizeSlug(collection?.slug);
-    if (!slug) return null;
-
-    const candidateIds = [
-      token?.dogeLabsId,
-      token?.metadata?.dogeLabsId,
-      token?.metadata?.ordinalId,
-      token?.metadata?.inscriptionId,
-      token?.metadata?.inscription?.id,
-      token?.metadata?.ordinal?.id,
-      token?.metadata?.id,
-      token?.ordinalId,
-      token?.inscriptionOrdinalId,
-      token?.metadata?.ordinalsId,
-    ];
-
-    for (const raw of candidateIds) {
-      const id = this.normalizeOrdinalId(raw);
-      if (id) {
-        return `https://doge-labs.com/collectible/${slug}/${id}`;
-      }
-    }
-
-    return null;
-  }
-
-  extractDogeLabsUrl(values) {
-    const list = Array.isArray(values) ? values : [values];
-    for (const value of list) {
-      if (!value) continue;
-      if (typeof value === 'string') {
-        if (this.isDogeLabsUrl(value)) return value.trim();
-      } else if (Array.isArray(value)) {
-        const nested = this.extractDogeLabsUrl(value);
-        if (nested) return nested;
-      } else if (typeof value === 'object') {
-        const url = value.url || value.href || value.link || null;
-        if (this.isDogeLabsUrl(url)) return url.trim();
-      }
-    }
-    return null;
-  }
-
-  isDogeLabsUrl(url) {
-    if (!url || typeof url !== 'string') return false;
-    const trimmed = url.trim();
-    try {
-      const parsed = new URL(trimmed);
-      if (!/^(?:www\.)?doge-labs\.com$/i.test(parsed.hostname)) return false;
-      const parts = parsed.pathname.split('/').filter(Boolean);
-      if (parts.length < 3) return false;
-      if (parts[0].toLowerCase() !== 'collectible') return false;
-      const candidateId = parts[2];
-      return /^[0-9a-f]{64}i\d+$/i.test(candidateId);
-    } catch {
-      return false;
-    }
-  }
-
-  normalizeSlug(slug) {
-    if (!slug || typeof slug !== 'string') return null;
-    return slug.trim().toLowerCase();
-  }
-
-  normalizeOrdinalId(value) {
-    if (!value || typeof value !== 'string') return null;
-    const trimmed = value.trim();
-    if (/^[0-9a-f]{64}i\d+$/i.test(trimmed)) {
-      return trimmed.toLowerCase();
-    }
-    return null;
-  }
-
-  resolveDoginalImageUrl(token) {
-    const candidates = [];
-
-    const pushCandidate = (value) => {
-      if (!value) return;
-      if (typeof value === 'string') {
-        candidates.push(value.trim());
-        return;
-      }
-      if (typeof value === 'object') {
-        const maybe = [
-          value.cdnUrl,
-          value.sourceUrl,
-          value.url,
-          value.uri,
-          value.href,
-          value.src,
-          value.original,
-        ];
-        for (const entry of maybe) {
-          if (typeof entry === 'string') candidates.push(entry.trim());
-        }
-      }
-    };
-
-    pushCandidate(token?.image);
-    pushCandidate(token?.image?.fallback);
-    pushCandidate(token?.cdnUrl);
-    pushCandidate(token?.metadata?.cdnUrl);
-    pushCandidate(token?.metadata?.image);
-    pushCandidate(token?.metadata?.image_url);
-    pushCandidate(token?.metadata?.imageUrl);
-    pushCandidate(token?.metadata?.media);
-    pushCandidate(token?.metadata?.media?.image);
-    pushCandidate(token?.metadata?.media?.url);
-    pushCandidate(token?.metadata?.media?.uri);
-    pushCandidate(token?.metadata?.content?.file);
-    pushCandidate(token?.metadata?.content?.url);
-    pushCandidate(token?.metadata?.content?.uri);
-
-    for (const candidate of candidates) {
-      if (!candidate) continue;
-      const normalized = this.normalizeImageUrl(candidate);
-      if (normalized) return normalized;
-    }
-
-    return null;
-  }
-
-  normalizeImageUrl(url) {
-    if (!url || typeof url !== 'string') return null;
-    const trimmed = url.trim();
-    if (!trimmed) return null;
-
-    if (/^ipfs:\/\//i.test(trimmed)) {
-      return trimmed.replace(/^ipfs:\/\//i, 'https://ipfs.io/ipfs/');
-    }
-
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-
-    return null;
   }
 }

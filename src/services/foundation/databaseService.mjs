@@ -349,14 +349,6 @@ export class DatabaseService {
   (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
   (async () => { await safeEnsureIndex('avatar_claims', { walletAddress: 1 }); })(),
   (async () => { await safeEnsureIndex('avatar_claims', { avatarId: 1 }); })(),
-  (async () => { await safeEnsureIndex('doge_collections', { slug: 1 }, { unique: true }); })(),
-  (async () => { await safeEnsureIndex('doge_collections', { aliases: 1 }); })(),
-  (async () => { await safeEnsureIndex('doge_tokens', { collectionSlug: 1, inscriptionId: 1 }, { unique: true }); })(),
-  (async () => { await safeEnsureIndex('doge_tokens', { collectionSlug: 1, inscriptionNumber: 1 }, { unique: true, sparse: true }); })(),
-  (async () => { await safeEnsureIndex('doge_tokens', { lastKnownOwner: 1 }); })(),
-  (async () => { await safeEnsureIndex('doge_wallet_links', { userId: 1 }); })(),
-  (async () => { await safeEnsureIndex('doge_wallet_links', { walletAddress: 1 }, { unique: true }); })(),
-  (async () => { await safeEnsureIndex('doge_ingestion_jobs', { collectionSlug: 1, runAt: -1 }); })(),
       ]);
       // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
       try {

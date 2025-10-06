@@ -33,7 +33,6 @@ import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
-import DoginalCollectionService from './services/doge/doginalCollectionService.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -116,8 +115,7 @@ async function initializeContainer() {
     messageHandler: asClass(MessageHandler).singleton(),
   webService: asClass(WebService).singleton(),
   embeddingService: asClass(EmbeddingService).singleton(),
-  memoryScheduler: asClass(MemoryScheduler).singleton(),
-  doginalCollectionService: asClass(DoginalCollectionService).singleton(),
+  memoryScheduler: asClass(MemoryScheduler).singleton()
   });
 
   // Dynamically register remaining services

@@ -15,7 +15,6 @@ export class WebService {
     aiModelService,
     xService,
     secretsService,
-    doginalCollectionService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -25,7 +24,6 @@ export class WebService {
     this.aiModelService = aiModelService;
     this.xService = xService;
     this.secretsService = secretsService;
-    this.doginalCollectionService = doginalCollectionService;
 
     this.started = false;
 
@@ -39,7 +37,6 @@ export class WebService {
       aiModelService: this.aiModelService,
       xService: this.xService,
       secretsService: this.secretsService,
-      doginalCollectionService: this.doginalCollectionService,
     };
   }
 

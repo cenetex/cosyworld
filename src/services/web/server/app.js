@@ -107,7 +107,6 @@ async function initializeApp(services) {
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db));
     app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
-    app.use('/api/doge', (await import('./routes/doge.js')).default(services));
   app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
   // Initialize audit service once DB is ready
