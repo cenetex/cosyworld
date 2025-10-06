@@ -202,6 +202,19 @@ export class DecisionMaker  {
       avatar.id = `${avatar._id.toString()}`;
     }
 
+    // CRITICAL: Never respond to own messages (prevents self-conversation loops)
+    if (triggerMessage && triggerMessage.author?.bot) {
+      const isSelf = triggerMessage.author.username === avatar.name ||
+        triggerMessage.author.id === avatar._id?.toString() ||
+        triggerMessage.author.id === avatar.id ||
+        (triggerMessage.author.username.includes(avatar.name) && (!avatar.emoji || triggerMessage.author.username.includes(avatar.emoji)));
+      
+      if (isSelf) {
+        this.logger.debug?.(`[DecisionMaker] ${avatar.name} skipping own message`);
+        return false;
+      }
+    }
+
     // Force response if avatar explicitly mentioned in the triggering message
     if (triggerMessage && this._isMentioned(triggerMessage, avatar)) {
       this._updateAttention(avatar.id, 30);
