@@ -23,7 +23,8 @@ export class ConversationManager  {
   toolService,
   presenceService,
   toolSchemaGenerator,
-  toolExecutor
+  toolExecutor,
+  toolDecisionService
   }) {
     this.toolService = toolService;
     this.logger = logger || console;
@@ -40,6 +41,7 @@ export class ConversationManager  {
   this.presenceService = presenceService; // optional; used for bot->bot mention cascades
   this.toolSchemaGenerator = toolSchemaGenerator; // Phase 2: LLM tool calling
   this.toolExecutor = toolExecutor; // Phase 2: Tool execution loop
+  this.toolDecisionService = toolDecisionService; // Phase 2: Universal tool decisions
 
     this.GLOBAL_NARRATIVE_COOLDOWN = 60 * 60 * 1000; // 1 hour
     this.lastGlobalNarrativeTime = 0;
@@ -51,6 +53,7 @@ export class ConversationManager  {
     
     // Phase 2: Tool calling configuration
     this.enableToolCalling = String(process.env.ENABLE_LLM_TOOL_CALLING || 'false').toLowerCase() === 'true';
+    this.useMetaPrompting = String(process.env.TOOL_USE_META_PROMPTING || 'true').toLowerCase() === 'true';
   }
 
   /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
@@ -426,60 +429,89 @@ export class ConversationManager  {
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
   this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
   
-  // Phase 2: Include tool schemas if enabled
-  const chatOptions = { model: avatar.model, max_tokens: 256, corrId };
-  if (this.enableToolCalling && this.toolSchemaGenerator) {
+  // Phase 2: Tool calling with universal meta-prompting approach
+  let toolCalls = [];
+  if (this.enableToolCalling && this.toolSchemaGenerator && this.toolDecisionService) {
     try {
+      // Get available tools
       const toolSchemas = await this.toolSchemaGenerator.generateSchemas();
-      if (toolSchemas.length > 0) {
-        chatOptions.tools = toolSchemas;
-        chatOptions.tool_choice = 'auto'; // Let model decide
-        this.logger.debug?.(`[AI][sendResponse][${corrId}] Enabled ${toolSchemas.length} tools for LLM`);
+      
+      if (toolSchemas.length > 0 && this.useMetaPrompting) {
+        // Universal approach: Use meta-prompting to decide tools (works with ANY model)
+        const availableTools = this.toolDecisionService.formatToolsForDecision(toolSchemas);
+        
+        // Build situation context
+        const situation = await this._buildSituationContext(avatar, channel);
+        
+        // Ask decision service what tools to use
+        const decisions = await this.toolDecisionService.decideTools({
+          avatar,
+          messages: channelHistory || [],
+          situation,
+          availableTools
+        });
+        
+        if (decisions.length > 0) {
+          this.logger.info?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
+          
+          // Convert decisions to tool_calls format
+          toolCalls = decisions.map((decision, idx) => ({
+            id: `meta_${corrId}_${idx}`,
+            type: 'function',
+            function: {
+              name: decision.toolName,
+              arguments: JSON.stringify(decision.arguments)
+            }
+          }));
+        }
+      } else if (toolSchemas.length > 0) {
+        // Native function calling approach (only for compatible models)
+        const supportsTools = this._modelSupportsTools(avatar.model);
+        
+        if (supportsTools) {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Using native function calling for ${avatar.model}`);
+          // Will be handled by model's native tool calling below
+        }
       }
     } catch (error) {
-      this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to generate tool schemas: ${error.message}`);
+      this.logger.warn?.(`[AI][sendResponse][${corrId}] Tool decision failed: ${error.message}`);
+    }
+  }
+  
+  // Build chat options
+  const chatOptions = { model: avatar.model, max_tokens: 256, corrId };
+  
+  // Execute tools if meta-prompting decided on any
+  if (toolCalls.length > 0) {
+    this.logger.info?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} tool(s) before response`);
+    
+    try {
+      const toolResults = await this.toolExecutor.executeToolCalls(
+        toolCalls,
+        { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
+        avatar
+      );
+      
+      this.logger.info?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
+      
+      // Add tool execution context to the conversation
+      const toolSummary = toolResults.map(r => 
+        `${r.toolName}: ${r.success ? r.result : `Error: ${r.error}`}`
+      ).join('\n');
+      
+      // Inject tool results into the conversation
+      chatMessages.push({
+        role: 'user',
+        content: `[System: You just performed these actions:\n${toolSummary}\n\nNow respond naturally, incorporating what just happened.]`
+      });
+      
+    } catch (toolError) {
+      this.logger.error?.(`[AI][sendResponse][${corrId}] Tool execution failed: ${toolError.message}`);
     }
   }
   
   let result = await ai.chat(chatMessages, chatOptions);
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
-      
-      // Phase 2: Handle tool calls if present
-      if (this.enableToolCalling && result && typeof result === 'object' && result.tool_calls && result.tool_calls.length > 0) {
-        this.logger.info?.(`[AI][sendResponse][${corrId}] Model requested ${result.tool_calls.length} tool call(s)`);
-        
-        try {
-          // Execute tools
-          const toolResults = await this.toolExecutor.executeToolCalls(
-            result.tool_calls,
-            { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
-            avatar
-          );
-          
-          this.logger.info?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
-          
-          // Add tool results to conversation
-          if (result.content) {
-            chatMessages.push({ role: 'assistant', content: result.content, tool_calls: result.tool_calls });
-          } else {
-            chatMessages.push({ role: 'assistant', content: '', tool_calls: result.tool_calls });
-          }
-          
-          const toolMessages = this.toolExecutor.formatResultsForLLM(toolResults);
-          chatMessages.push(...toolMessages);
-          
-          // Get final response incorporating tool results
-          const finalResult = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId: `${corrId}-final` });
-          result = finalResult;
-          
-          if (finalResult && typeof finalResult === 'object' && finalResult.reasoning) {
-            resultReasoning = `${resultReasoning}\n${finalResult.reasoning}`.trim();
-          }
-        } catch (toolError) {
-          this.logger.error?.(`[AI][sendResponse][${corrId}] Tool execution failed: ${toolError.message}`);
-          // Fall through to use original response
-        }
-      }
       
       // Log non-string/atypical shapes for diagnostics
       try {
@@ -693,5 +725,95 @@ export class ConversationManager  {
         this.logger.debug?.(`mention cascade send failed for ${target.name}: ${e.message}`);
       }
     }
+  }
+
+  /**
+   * Build situation context for tool decision making
+   * @private
+   */
+  async _buildSituationContext(avatar, channel) {
+    const situation = {};
+    
+    try {
+      // Get location
+      const locationResult = await this.mapService.getLocationAndAvatars(channel.id);
+      if (locationResult?.location) {
+        situation.location = locationResult.location.name;
+      }
+      
+      // Get nearby avatars
+      if (locationResult?.avatars) {
+        situation.nearbyAvatars = locationResult.avatars
+          .filter(a => a._id !== avatar._id)
+          .map(a => a.name);
+      }
+      
+      // Get avatar stats
+      if (avatar.hp !== undefined) {
+        situation.hp = avatar.hp;
+        situation.maxHp = avatar.maxHp || 100;
+      }
+      
+      // Check combat status
+      situation.inCombat = avatar.status === 'in_combat' || avatar.combatState;
+      
+    } catch (error) {
+      this.logger.debug?.(`Failed to build situation context: ${error.message}`);
+    }
+    
+    return situation;
+  }
+
+  /**
+   * Check if a model supports function/tool calling
+   * @private
+   */
+  _modelSupportsTools(modelName) {
+    if (!modelName) return false;
+    
+    const modelLower = String(modelName).toLowerCase();
+    
+    // Known models that support function calling
+    const supportedPatterns = [
+      /gpt-4/,                          // GPT-4 family
+      /gpt-3\.5-turbo/,                 // GPT-3.5-turbo
+      /claude-3/,                       // Claude 3 family (all variants)
+      /claude-sonnet/,                  // Claude Sonnet
+      /claude-opus/,                    // Claude Opus
+      /gemini.*pro/,                    // Gemini Pro models
+      /gemini.*flash/,                  // Gemini Flash models
+      /gemini-2/,                       // Gemini 2.0+
+      /mistral.*large/,                 // Mistral Large
+      /mistral.*medium/,                // Mistral Medium
+      /command-r/,                      // Cohere Command R
+      /qwen.*coder/,                    // Qwen Coder models
+      /deepseek.*coder/,                // DeepSeek Coder models
+      /yi-.*-chat/,                     // Yi Chat models
+    ];
+    
+    // Check if model matches any supported pattern
+    for (const pattern of supportedPatterns) {
+      if (pattern.test(modelLower)) {
+        return true;
+      }
+    }
+    
+    // Models that explicitly don't support tools
+    const unsupportedPatterns = [
+      /hermes/,                         // Hermes models have issues
+      /llama-2/,                        // Llama 2 doesn't support tools
+      /vicuna/,                         // Vicuna doesn't support tools
+      /alpaca/,                         // Alpaca doesn't support tools
+      /-instruct$/,                     // Many -instruct variants don't support tools
+    ];
+    
+    for (const pattern of unsupportedPatterns) {
+      if (pattern.test(modelLower)) {
+        return false;
+      }
+    }
+    
+    // Default to false for unknown models to be safe
+    return false;
   }
 }

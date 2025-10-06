@@ -25,6 +25,7 @@ import { GoogleAIService } from './services/ai/googleAIService.mjs';
 import { ResponseCoordinator } from './services/chat/responseCoordinator.mjs';
 import { ToolSchemaGenerator } from './services/tools/toolSchemaGenerator.mjs';
 import { ToolExecutor } from './services/tools/toolExecutor.mjs';
+import { ToolDecisionService } from './services/tools/toolDecisionService.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
@@ -108,6 +109,7 @@ async function initializeContainer() {
     aiModelService: asClass(AIModelService).singleton(),
     toolService: asClass(ToolService).singleton(),
     toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),
+    toolDecisionService: asClass(ToolDecisionService).singleton(),
     toolExecutor: asClass(ToolExecutor).singleton(),
     discordService: asClass(DiscordService).singleton(),
     responseCoordinator: asClass(ResponseCoordinator).singleton(),
