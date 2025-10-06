@@ -32,6 +32,7 @@ export class MessageHandler  {
     riskManagerService,
     moderationService,
     mapService,
+    responseCoordinator,
   }) {
     this.logger = logger || console;
     this.toolService = toolService;
@@ -47,6 +48,10 @@ export class MessageHandler  {
     this.riskManagerService = riskManagerService;
     this.moderationService = moderationService;
     this.mapService = mapService;
+    this.responseCoordinator = responseCoordinator;
+
+    // Feature flag for unified coordinator
+    this.USE_COORDINATOR = String(process.env.UNIFIED_RESPONSE_COORDINATOR || 'false').toLowerCase() === 'true';
 
   // Lazy-initialized tool planner; constructed in start() to ensure services are ready
   this.toolPlanner = null;
@@ -402,6 +407,16 @@ export class MessageHandler  {
         }
       } catch {}
 
+      // Use ResponseCoordinator if enabled
+      if (this.USE_COORDINATOR && this.responseCoordinator) {
+        await this.responseCoordinator.coordinateResponse(channel, message, {
+          guildId: message.guild.id,
+          avatars: eligibleAvatars
+        });
+        return;
+      }
+
+      // Legacy path (original implementation)
   const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
         eligibleAvatars,
         message

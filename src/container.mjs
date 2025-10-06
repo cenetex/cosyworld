@@ -22,6 +22,7 @@ import { GuildConnectionRepository } from './dal/GuildConnectionRepository.mjs';
 import { publishEvent } from './events/envelope.mjs';
 import { CombatNarrativeService } from './services/combat/CombatNarrativeService.mjs';
 import { GoogleAIService } from './services/ai/googleAIService.mjs';
+import { ResponseCoordinator } from './services/chat/responseCoordinator.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
@@ -105,6 +106,7 @@ async function initializeContainer() {
     aiModelService: asClass(AIModelService).singleton(),
     toolService: asClass(ToolService).singleton(),
     discordService: asClass(DiscordService).singleton(),
+    responseCoordinator: asClass(ResponseCoordinator).singleton(),
     messageHandler: asClass(MessageHandler).singleton(),
   webService: asClass(WebService).singleton(),
   embeddingService: asClass(EmbeddingService).singleton(),

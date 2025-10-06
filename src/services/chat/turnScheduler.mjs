@@ -1,5 +1,5 @@
 export class TurnScheduler {
-  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService }) {
+  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
@@ -7,6 +7,11 @@ export class TurnScheduler {
     this.discordService = discordService;
     this.conversationManager = conversationManager;
     this.avatarService = avatarService;
+    this.responseCoordinator = responseCoordinator;
+    
+    // Feature flag for unified coordinator
+    this.USE_COORDINATOR = String(process.env.UNIFIED_RESPONSE_COORDINATOR || 'false').toLowerCase() === 'true';
+    
   // Default: 1 hour ticks with ±5 minutes jitter
   this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
   this.JITTER_MS = Number(process.env.CHANNEL_TICK_JITTER_MS || 300000);
@@ -130,6 +135,13 @@ export class TurnScheduler {
   async onChannelTick(channelId, budgetAllowed = Infinity) {
   const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
   if (Date.now() < suppressedUntil) return 0;
+    
+    // Use ResponseCoordinator if enabled
+    if (this.USE_COORDINATOR && this.responseCoordinator) {
+      return this.onChannelTickWithCoordinator(channelId, budgetAllowed);
+    }
+    
+    // Legacy path (original implementation)
     // Ensure presence docs exist for avatars in channel
     let guildId = null;
     try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
@@ -198,7 +210,60 @@ export class TurnScheduler {
     return taken;
   }
 
+  /**
+   * New coordinated channel tick using ResponseCoordinator
+   */
+  async onChannelTickWithCoordinator(channelId, budgetAllowed = Infinity) {
+    try {
+      let guildId = null;
+      try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
+      catch (e) {
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('missing access') || msg.includes('unknown channel')) return 0;
+        this.logger.warn?.(`[TurnScheduler] getGuildByChannelId failed for ${channelId}: ${e.message}`);
+        return 0;
+      }
+
+      const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
+      for (const av of avatars) {
+        await this.presenceService.ensurePresence(channelId, `${av._id}`);
+      }
+
+      let channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel && this.discordService.client.channels?.fetch) {
+        try { channel = await this.discordService.client.channels.fetch(channelId); }
+        catch (e) {
+          const m = String(e?.message || '').toLowerCase();
+          if (m.includes('missing access') || m.includes('unknown channel')) return 0;
+        }
+      }
+      if (!channel) return 0;
+
+      // Use coordinator with ambient context
+      const responses = await this.responseCoordinator.coordinateResponse(channel, null, {
+        triggerType: 'ambient',
+        guildId,
+        avatars,
+        budgetAllowed
+      });
+
+      return responses.length;
+    } catch (e) {
+      this.logger.warn(`[TurnScheduler] onChannelTickWithCoordinator failed for ${channelId}: ${e.message}`);
+      return 0;
+    }
+  }
+
   async onHumanMessage(channelId, message) {
+    // Start suppression window for ambient chatter
+    this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
+    
+    // Use ResponseCoordinator if enabled
+    if (this.USE_COORDINATOR && this.responseCoordinator) {
+      return this.onHumanMessageWithCoordinator(channelId, message);
+    }
+    
+    // Legacy path (original implementation)
     const guildId = message.guild?.id;
     const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
     const tickId = await this.currentTickId(channelId);
@@ -209,8 +274,6 @@ export class TurnScheduler {
     }
 
   let usedResponses = 0;
-  // Start suppression window for ambient chatter
-  this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
     // Priority: freshly summoned avatars with guaranteed turns
     try {
       const c = await this.presenceService.col();
@@ -283,6 +346,61 @@ export class TurnScheduler {
       }
     }
     return usedResponses > 0;
+  }
+
+  /**
+   * New coordinated human message handling using ResponseCoordinator
+   */
+  async onHumanMessageWithCoordinator(channelId, message) {
+    try {
+      const guildId = message.guild?.id;
+      const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
+      
+      // Ensure presence for all avatars
+      for (const av of avatars) {
+        await this.presenceService.ensurePresence(channelId, `${av._id}`);
+      }
+
+      // Record mentions for presence tracking
+      const content = (message.content || '').toLowerCase();
+      for (const av of avatars) {
+        const name = String(av.name || '').toLowerCase();
+        const emoji = String(av.emoji || '').toLowerCase();
+        if ((name && content.includes(name)) || (emoji && content.includes(emoji))) {
+          await this.presenceService.recordMention(channelId, `${av._id}`);
+          
+          // Grant priority turn if none pending
+          try {
+            const c = await this.presenceService.col();
+            const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+            if (!doc?.newSummonTurnsRemaining) {
+              await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+            }
+          } catch (e) {
+            this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
+          }
+        }
+      }
+
+      let channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel && this.discordService.client.channels?.fetch) {
+        try { channel = await this.discordService.client.channels.fetch(channelId); }
+        catch {}
+      }
+      if (!channel) return false;
+
+      // Use coordinator for response
+      const responses = await this.responseCoordinator.coordinateResponse(channel, message, {
+        guildId,
+        avatars,
+        overrideCooldown: true
+      });
+
+      return responses.length > 0;
+    } catch (e) {
+      this.logger.error(`[TurnScheduler] onHumanMessageWithCoordinator failed: ${e.message}`);
+      return false;
+    }
   }
 }
 

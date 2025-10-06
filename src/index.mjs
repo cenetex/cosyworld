@@ -63,6 +63,18 @@ async function main() {
       logger.warn(`[startup] TurnScheduler not started: ${e.message}`);
     }
 
+    // Start ResponseCoordinator maintenance
+    try {
+      const responseCoordinator = container.resolve('responseCoordinator');
+      const schedulingService = container.resolve('schedulingService');
+      if (responseCoordinator && schedulingService) {
+        responseCoordinator.startMaintenance(schedulingService);
+        logger.log('[startup] ResponseCoordinator maintenance started');
+      }
+    } catch (e) {
+      logger.warn(`[startup] ResponseCoordinator maintenance not started: ${e.message}`);
+    }
+
     // Step 5: Launch Discord bot
     const discord = container.resolve('discordService');
     await discord.login();
