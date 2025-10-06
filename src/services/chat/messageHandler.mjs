@@ -50,9 +50,6 @@ export class MessageHandler  {
     this.mapService = mapService;
     this.responseCoordinator = responseCoordinator;
 
-    // Feature flag for unified coordinator
-    this.USE_COORDINATOR = String(process.env.UNIFIED_RESPONSE_COORDINATOR || 'false').toLowerCase() === 'true';
-
   // Lazy-initialized tool planner; constructed in start() to ensure services are ready
   this.toolPlanner = null;
 
@@ -407,28 +404,11 @@ export class MessageHandler  {
         }
       } catch {}
 
-      // Use ResponseCoordinator if enabled
-      if (this.USE_COORDINATOR && this.responseCoordinator) {
-        await this.responseCoordinator.coordinateResponse(channel, message, {
-          guildId: message.guild.id,
-          avatars: eligibleAvatars
-        });
-        return;
-      }
-
-      // Legacy path (original implementation)
-  const avatarsToConsider = this.decisionMaker.selectAvatarsToConsider(
-        eligibleAvatars,
-        message
-      ).slice(0, 5);
-      await Promise.all(
-        avatarsToConsider.map(async (avatar) => {
-          const shouldRespond = await this.decisionMaker.shouldRespond(channel, avatar, message);
-          if (shouldRespond) {
-            await this.conversationManager.sendResponse(channel, avatar);
-          }
-        })
-      );
+      // Use ResponseCoordinator for all responses
+      await this.responseCoordinator.coordinateResponse(channel, message, {
+        guildId: message.guild.id,
+        avatars: eligibleAvatars
+      });
     } catch (error) {
       this.logger.error(`Error processing channel ${channelId}: ${error.message}`);
       throw error;

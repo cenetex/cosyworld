@@ -129,6 +129,7 @@ export class DecisionMaker  {
   }
 
   /**
+   * @deprecated This method is no longer used. Response coordination is now handled by ResponseCoordinator.
    * Selects a subset of avatars to consider for responding to a message.
    * @param {Array} avatars - List of all avatars in the channel.
    * @param {Object} message - The Discord message object.
