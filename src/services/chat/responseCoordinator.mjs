@@ -255,16 +255,46 @@ export class ResponseCoordinator {
     // PRIORITY 5: Presence-based scoring (for ambient or when no clear speaker)
     const ranked = await this.rankByPresence(channelId, eligibleAvatars);
     
-    // For ambient triggers, use top scorer
+    // For ambient triggers, ensure conversational diversity
     if (trigger.type === 'ambient') {
-      if (ranked.length > 0) {
-        const top = ranked[0];
-        // Check cooldowns
-        if (!this.presenceService.cooldownActive(top.presenceDoc)) {
-          this.logger.info?.(`[ResponseCoordinator] Ambient top scorer: ${top.avatar.name}`);
-          return [top.avatar];
+      // Get last speaker in channel to avoid consecutive ambient responses from same avatar
+      const lastSpeaker = await this.getLastChannelSpeaker(channel);
+      const lastSpeakerId = lastSpeaker ? `${lastSpeaker.author.id || lastSpeaker.author.username}` : null;
+      
+      // Filter out the avatar who just spoke (creates natural back-and-forth)
+      const eligibleForAmbient = ranked.filter(r => {
+        const avatarId = `${r.avatar._id || r.avatar.id}`;
+        const avatarName = r.avatar.name;
+        
+        // Skip if this avatar was the last speaker
+        if (lastSpeakerId && (avatarId === lastSpeakerId || avatarName === lastSpeaker?.author.username)) {
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - was last speaker (ambient diversity)`);
+          return false;
         }
+        
+        // Skip if on cooldown
+        if (this.presenceService.cooldownActive(r.presenceDoc)) {
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - on cooldown`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      if (eligibleForAmbient.length > 0) {
+        const selected = eligibleForAmbient[0];
+        this.logger.info?.(`[ResponseCoordinator] Ambient selected: ${selected.avatar.name} (score: ${selected.score.toFixed(2)})`);
+        return [selected.avatar];
       }
+      
+      // If all avatars filtered out, allow last speaker but only if score is high enough
+      if (ranked.length > 0 && ranked[0].score > 0.5) {
+        const fallback = ranked[0];
+        this.logger.warn?.(`[ResponseCoordinator] Ambient fallback: ${fallback.avatar.name} (all others filtered)`);
+        return [fallback.avatar];
+      }
+      
+      this.logger.debug?.(`[ResponseCoordinator] No eligible avatars for ambient response`);
       return [];
     }
 
@@ -426,6 +456,29 @@ export class ResponseCoordinator {
       await locks.deleteOne({ _id: lockId });
     } catch (e) {
       this.logger.warn?.(`[ResponseCoordinator] Lock release error: ${e.message}`);
+    }
+  }
+
+  /**
+   * Get the last speaker in a channel (for ambient diversity)
+   * @param {Object} channel - Discord channel object
+   * @returns {Promise<Object|null>} Last message or null
+   */
+  async getLastChannelSpeaker(channel) {
+    try {
+      const messages = await channel.messages.fetch({ limit: 10 });
+      
+      // Find the most recent bot message (avatar speech)
+      for (const msg of messages.values()) {
+        if (msg.author.bot || msg.webhookId) {
+          return msg;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      this.logger.warn?.(`[ResponseCoordinator] getLastChannelSpeaker error: ${e.message}`);
+      return null;
     }
   }
 
