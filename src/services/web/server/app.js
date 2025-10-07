@@ -50,11 +50,24 @@ async function initializeApp(services) {
       next();
     });
 
-    // Gate all /admin paths behind wallet login (except the login page itself)
-  app.use('/admin', (req, res, next) => {
+    // Gate all /admin paths behind wallet login (except the login page itself and setup)
+  app.use('/admin', async (req, res, next) => {
       const p = req.path || '';
       // Allow the login page without auth
       if (p === '/login' || p === '/login.html') return next();
+      
+      // Check if setup is complete - allow /admin/setup if not
+      if (p === '/setup' || p === '/setup.html' || p.startsWith('/setup/')) {
+        try {
+          const setupStatus = await services.setupStatusService.getSetupStatus();
+          if (!setupStatus.setupComplete) {
+            return next(); // Allow access to setup page if not configured
+          }
+        } catch (e) {
+          logger?.error?.('[Admin Auth] Setup status check failed:', e);
+        }
+      }
+      
       if (req.user) return next();
       if (req.accepts('html')) return res.redirect('/admin/login');
       return res.status(401).json({ error: 'Unauthorized' });
@@ -94,6 +107,9 @@ async function initializeApp(services) {
     try {
       registerXGlobalAutoPoster({ xService: services.xService, aiService: services.openRouterAIService || services.aiService, logger });
     } catch (e) { logger?.warn?.('[init] xGlobalAutoPoster registration failed: ' + e.message); }
+
+    // Setup routes (must be registered before auth checks)
+    app.use('/api/setup', (await import('./routes/setup.js')).default(services));
 
     // Routes
     app.get('/test', (req, res) => res.json({ message: 'Test route working' }));
@@ -161,7 +177,23 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin', ensureAuthenticated, (req, res, next) => {
+    app.get('/admin/setup', async (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'setup.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin', ensureAuthenticated, async (req, res, next) => {
+      // Redirect to setup if not complete
+      try {
+        const setupStatus = await services.setupStatusService.getSetupStatus();
+        const missing = await services.setupStatusService.getMissingConfiguration();
+        if (!setupStatus.setupComplete || missing.length > 0) {
+          return res.redirect('/admin/setup');
+        }
+      } catch (e) {
+        logger?.error?.('[Admin] Setup check failed:', e);
+      }
+      
       res.sendFile(path.join(staticDir, 'admin', 'index.html'), (err) => {
         if (err) next(err);
       });

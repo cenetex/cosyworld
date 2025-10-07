@@ -15,19 +15,21 @@ export class SecretsService {
   constructor({ logger } = {}) {
     this.logger = logger || console;
     const key = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
-    // In production, refuse to boot without a strong key
+    
+    // In production, warn but allow startup so wizard can run
     if (process.env.NODE_ENV === 'production') {
       if (!key || key.length < 16) {
-        const msg = '[secrets] Missing or weak ENCRYPTION_KEY/APP_SECRET in production. Set a strong 32+ character key.';
-        this.logger?.error?.(msg);
-        throw new Error(msg);
+        const msg = '[secrets] ⚠️  Weak or missing ENCRYPTION_KEY. Please complete setup wizard to secure your secrets.';
+        this.logger?.warn?.(msg);
+        // Don't throw - let the wizard handle configuration
       }
     } else if (!key || key.length < 16) {
       this.logger.warn('[secrets] Weak or missing ENCRYPTION_KEY; using a dev fallback. Do NOT use this in production.');
     }
+    
     // normalize key to 32 bytes
     this.key = crypto.createHash('sha256').update(key || 'dev-secret').digest();
-  this.cache = new Map(); // in-memory encrypted store { compositeKey -> encB64 }
+    this.cache = new Map(); // in-memory encrypted store { compositeKey -> encB64 }
     this.db = null;
     this.collection = null;
   }

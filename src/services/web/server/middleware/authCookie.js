@@ -1,12 +1,16 @@
 import crypto from 'crypto';
 
 const rawSecret = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
-if (process.env.NODE_ENV === 'production') {
-  if (!rawSecret || rawSecret.length < 16) {
-    throw new Error('ENCRYPTION_KEY/APP_SECRET must be set to a strong value in production');
-  }
+
+// In production, warn but don't crash if key is weak
+// The configuration wizard will ensure a strong key is set
+if (process.env.NODE_ENV === 'production' && (!rawSecret || rawSecret.length < 16)) {
+  console.warn('⚠️  WARNING: ENCRYPTION_KEY/APP_SECRET is weak or missing');
+  console.warn('⚠️  Please complete the configuration wizard to set a strong key');
+  console.warn('⚠️  Using temporary key - authentication will not persist across restarts');
 }
-const secret = rawSecret || 'dev-secret';
+
+const secret = rawSecret || crypto.randomBytes(32).toString('hex');
 
 function b64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');

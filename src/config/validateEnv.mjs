@@ -24,7 +24,8 @@ export function validateEnv(logger = console) {
     }
   }
   if (errors.length) {
-    logger.error('[config] Environment validation failed:', errors);
+    // Changed from error to warning - let the wizard handle configuration
+    logger.warn('[config] Environment validation warnings (configuration wizard will help):', errors);
   } else {
     logger.info('[config] Environment validation passed.');
   }

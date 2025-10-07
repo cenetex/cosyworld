@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration Management - CosyWorld Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <style>
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .config-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .config-card h3 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .config-card .icon {
+      font-size: 24px;
+    }
+
+    .config-field {
+      margin-bottom: 15px;
+    }
+
+    .config-field label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .config-field .value {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .config-field input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .config-field input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .config-field .masked {
+      font-family: 'Monaco', 'Courier New', monospace;
+      color: #666;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      flex: 1;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-edit {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-edit:hover {
+      background: #5568d3;
+    }
+
+    .btn-save {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: #059669;
+    }
+
+    .btn-cancel {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    .btn-cancel:hover {
+      background: #e0e0e0;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-configured {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-missing {
+      background: #fee;
+      color: #991b1b;
+    }
+
+    .status-optional {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .alert {
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .alert-success {
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      color: #065f46;
+    }
+
+    .alert-error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #991b1b;
+    }
+
+    .alert-info {
+      background: #dbeafe;
+      border: 1px solid #93c5fd;
+      color: #1e40af;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .modal-close:hover {
+      color: #333;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: #667eea;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <header class="admin-header">
+      <h1>⚙️ Configuration Management</h1>
+      <p>Manage your application configuration and secrets</p>
+    </header>
+
+    <main class="admin-content">
+      <div id="alertContainer"></div>
+
+      <div class="action-bar">
+        <button class="btn-action btn-primary" onclick="refreshConfig()">🔄 Refresh</button>
+        <button class="btn-action btn-secondary" onclick="showExportModal()">📤 Export</button>
+        <button class="btn-action btn-secondary" onclick="showImportModal()">📥 Import</button>
+        <button class="btn-action btn-secondary" onclick="testConnections()">🔍 Test Connections</button>
+      </div>
+
+      <div class="config-grid" id="configGrid">
+        <!-- Config cards will be injected here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal" id="exportModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Export Configuration</h2>
+        <button class="modal-close" onclick="closeModal('exportModal')">×</button>
+      </div>
+      <div class="alert alert-info">
+        Secrets will be masked in the export for security. Use the backup feature for full exports.
+      </div>
+      <textarea id="exportText" readonly></textarea>
+      <div class="button-group" style="margin-top: 15px; display: flex; gap: 10px;">
+        <button class="btn-action btn-primary" onclick="copyExport()">📋 Copy to Clipboard</button>
+        <button class="btn-action btn-secondary" onclick="downloadExport()">💾 Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal" id="importModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Import Configuration</h2>
+        <button class="modal-close" onclick="closeModal('importModal')">×</button>
+      </div>
+      <div class="alert alert-info">
+        Paste your .env file contents below. Existing values will be overwritten.
+      </div>
+      <textarea id="importText" placeholder="MONGO_URI=mongodb://...&#10;DISCORD_BOT_TOKEN=..."></textarea>
+      <div class="button-group" style="margin-top: 15px; display: flex; gap: 10px;">
+        <button class="btn-action btn-primary" onclick="importConfig()">📥 Import</button>
+        <button class="btn-action btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let configData = {};
+
+    async function fetchJSON(url, options = {}) {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(error.error || response.statusText);
+      }
+      return response.json();
+    }
+
+    function showAlert(message, type = 'info') {
+      const container = document.getElementById('alertContainer');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.textContent = message;
+      container.appendChild(alert);
+      
+      setTimeout(() => {
+        alert.remove();
+      }, 5000);
+    }
+
+    async function refreshConfig() {
+      try {
+        const secrets = await fetchJSON('/api/secrets');
+        configData = organizeSecrets(secrets.items);
+        renderConfig();
+        showAlert('Configuration refreshed successfully', 'success');
+      } catch (error) {
+        showAlert('Failed to load configuration: ' + error.message, 'error');
+      }
+    }
+
+    function organizeSecrets(items) {
+      const config = {
+        encryption: { items: [] },
+        mongo: { items: [] },
+        discord: { items: [] },
+        ai: { items: [] },
+        services: { items: [] },
+        other: { items: [] }
+      };
+
+      for (const item of items) {
+        if (item.key.includes('ENCRYPTION') || item.key.includes('SECRET_KEY')) {
+          config.encryption.items.push(item);
+        } else if (item.key.includes('MONGO')) {
+          config.mongo.items.push(item);
+        } else if (item.key.includes('DISCORD')) {
+          config.discord.items.push(item);
+        } else if (item.key.includes('OPENROUTER') || item.key.includes('GOOGLE') || item.key.includes('AI')) {
+          config.ai.items.push(item);
+        } else if (item.key.includes('REPLICATE') || item.key.includes('S3') || item.key.includes('CROSSMINT') || item.key.includes('X_') || item.key.includes('HELIUS')) {
+          config.services.items.push(item);
+        } else {
+          config.other.items.push(item);
+        }
+      }
+
+      return config;
+    }
+
+    function renderConfig() {
+      const grid = document.getElementById('configGrid');
+      grid.innerHTML = '';
+
+      const sections = [
+        { key: 'encryption', icon: '🔐', title: 'Security & Encryption' },
+        { key: 'mongo', icon: '🗄️', title: 'Database' },
+        { key: 'discord', icon: '🤖', title: 'Discord Bot' },
+        { key: 'ai', icon: '🧠', title: 'AI Services' },
+        { key: 'services', icon: '⚙️', title: 'Optional Services' },
+        { key: 'other', icon: '📦', title: 'Other Settings' }
+      ];
+
+      for (const section of sections) {
+        const data = configData[section.key];
+        if (!data || data.items.length === 0) continue;
+
+        const card = createConfigCard(section, data.items);
+        grid.appendChild(card);
+      }
+    }
+
+    function createConfigCard(section, items) {
+      const card = document.createElement('div');
+      card.className = 'config-card';
+      
+      const status = items.length > 0 ? 'configured' : 'missing';
+      const statusText = items.length > 0 ? `${items.length} item(s)` : 'Not configured';
+      
+      card.innerHTML = `
+        <h3>
+          <span class="icon">${section.icon}</span>
+          ${section.title}
+          <span class="status-badge status-${status}">${statusText}</span>
+        </h3>
+        <div class="fields"></div>
+      `;
+
+      const fieldsContainer = card.querySelector('.fields');
+      
+      for (const item of items) {
+        const field = createConfigField(item);
+        fieldsContainer.appendChild(field);
+      }
+
+      return card;
+    }
+
+    function createConfigField(item) {
+      const field = document.createElement('div');
+      field.className = 'config-field';
+      field.dataset.key = item.key;
+      
+      field.innerHTML = `
+        <label>${item.key} <span style="font-size: 10px; color: #999;">(${item.source})</span></label>
+        <div class="value">
+          <div class="masked">${item.value || '(not set)'}</div>
+          <button class="btn-small btn-edit" onclick="editField('${item.key}')">Edit</button>
+        </div>
+      `;
+
+      return field;
+    }
+
+    function editField(key) {
+      const field = document.querySelector(`[data-key="${key}"]`);
+      const valueDiv = field.querySelector('.value');
+      
+      valueDiv.innerHTML = `
+        <input type="text" id="input-${key}" placeholder="Enter new value">
+        <button class="btn-small btn-save" onclick="saveField('${key}')">Save</button>
+        <button class="btn-small btn-cancel" onclick="cancelEdit('${key}')">Cancel</button>
+      `;
+      
+      document.getElementById(`input-${key}`).focus();
+    }
+
+    async function saveField(key) {
+      const input = document.getElementById(`input-${key}`);
+      const value = input.value.trim();
+      
+      if (!value) {
+        showAlert('Value cannot be empty', 'error');
+        return;
+      }
+
+      try {
+        await fetchJSON(`/api/secrets/${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value })
+        });
+        
+        showAlert(`${key} updated successfully`, 'success');
+        await refreshConfig();
+      } catch (error) {
+        showAlert(`Failed to update ${key}: ` + error.message, 'error');
+      }
+    }
+
+    function cancelEdit(key) {
+      refreshConfig();
+    }
+
+    function showExportModal() {
+      const modal = document.getElementById('exportModal');
+      const textarea = document.getElementById('exportText');
+      
+      const lines = [];
+      for (const [section, data] of Object.entries(configData)) {
+        if (data.items.length === 0) continue;
+        
+        lines.push(`# ${section.toUpperCase()}`);
+        for (const item of data.items) {
+          lines.push(`${item.key}=${item.value || ''}`);
+        }
+        lines.push('');
+      }
+      
+      textarea.value = lines.join('\n');
+      modal.classList.add('active');
+    }
+
+    function showImportModal() {
+      const modal = document.getElementById('importModal');
+      modal.classList.add('active');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    async function importConfig() {
+      const textarea = document.getElementById('importText');
+      const envText = textarea.value.trim();
+      
+      if (!envText) {
+        showAlert('Please paste configuration to import', 'error');
+        return;
+      }
+
+      try {
+        const result = await fetchJSON('/api/secrets/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ envText })
+        });
+        
+        showAlert(`Successfully imported ${result.imported} configuration items`, 'success');
+        closeModal('importModal');
+        await refreshConfig();
+      } catch (error) {
+        showAlert('Import failed: ' + error.message, 'error');
+      }
+    }
+
+    function copyExport() {
+      const textarea = document.getElementById('exportText');
+      textarea.select();
+      document.execCommand('copy');
+      showAlert('Configuration copied to clipboard', 'success');
+    }
+
+    function downloadExport() {
+      const textarea = document.getElementById('exportText');
+      const blob = new Blob([textarea.value], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cosyworld-config.env';
+      a.click();
+      URL.revokeObjectURL(url);
+      showAlert('Configuration downloaded', 'success');
+    }
+
+    async function testConnections() {
+      showAlert('Testing connections... (not yet implemented)', 'info');
+      // TODO: Implement connection testing
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshConfig();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosyWorld Configuration Wizard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .wizard-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 800px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .wizard-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .wizard-header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .wizard-header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: white;
+      transition: width 0.3s ease;
+    }
+
+    .wizard-content {
+      padding: 40px;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step h2 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .step p {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .label-optional {
+      color: #999;
+      font-weight: normal;
+      font-size: 12px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+      font-family: 'Monaco', 'Courier New', monospace;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+
+    .hint a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .hint a:hover {
+      text-decoration: underline;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      flex: 1;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-generate {
+      background: #10b981;
+      color: white;
+      padding: 8px 16px;
+      font-size: 12px;
+    }
+
+    .btn-generate:hover {
+      background: #059669;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .alert {
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .alert-error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+    }
+
+    .alert-success {
+      background: #efe;
+      border: 1px solid #cfc;
+      color: #3c3;
+    }
+
+    .alert-warning {
+      background: #fffbf0;
+      border: 1px solid #ffeaa0;
+      color: #996;
+    }
+
+    .validation-errors {
+      list-style: none;
+      padding: 0;
+    }
+
+    .validation-errors li {
+      padding: 5px 0;
+    }
+
+    .validation-errors li:before {
+      content: "⚠️ ";
+      margin-right: 5px;
+    }
+
+    .section-group {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .section-group h3 {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .import-area {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .success-screen {
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    .success-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .input-with-button {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .input-with-button input {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="wizard-container">
+    <div class="wizard-header">
+      <h1>🔧 CosyWorld Setup Wizard</h1>
+      <p>Let's configure your application in a few simple steps</p>
+    </div>
+    
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+    </div>
+
+    <div class="wizard-content">
+      <!-- Step 1: Welcome & Import -->
+      <div class="step active" data-step="1">
+        <h2>Welcome to CosyWorld!</h2>
+        <p>This wizard will help you set up all the necessary configuration for your application. You can import an existing .env file or start fresh.</p>
+        
+        <div class="import-area">
+          <h3>Import Existing Configuration (Optional)</h3>
+          <p class="hint" style="margin-bottom: 15px;">If you have an existing .env file, paste its contents here to pre-fill the wizard:</p>
+          <textarea id="importEnv" placeholder="MONGO_URI=mongodb://...&#10;DISCORD_BOT_TOKEN=...&#10;..."></textarea>
+          <button class="btn-primary" onclick="importEnv()" style="margin-top: 10px;">Import .env File</button>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-primary" onclick="nextStep()">Start Fresh →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Encryption -->
+      <div class="step" data-step="2">
+        <h2>🔐 Security & Encryption</h2>
+        <p>First, let's set up encryption for your sensitive data. We'll generate a secure encryption key.</p>
+        
+        <div id="alert-step2" class="alert alert-warning">
+          <strong>Important:</strong> The encryption key will be used to secure all your secrets. Keep it safe and don't lose it!
+        </div>
+
+        <div class="form-group">
+          <label>Encryption Key (32+ characters)</label>
+          <div class="input-with-button">
+            <input type="text" id="encryptionKey" required minlength="32" readonly>
+            <button class="btn-generate" onclick="generateKey()">🔄 Generate</button>
+          </div>
+          <p class="hint">A secure random key has been generated for you. Click Generate to create a new one.</p>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" onclick="validateAndNext('encryption')">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Database -->
+      <div class="step" data-step="3">
+        <h2>🗄️ Database Configuration</h2>
+        <p>Connect to your MongoDB database where all data will be stored.</p>
+        
+        <div id="alert-step3"></div>
+
+        <div class="form-group">
+          <label>MongoDB Connection URI</label>
+          <input type="text" id="mongoUri" placeholder="mongodb+srv://username:password@cluster.mongodb.net/" required>
+          <p class="hint">Get your connection string from <a href="https://cloud.mongodb.com" target="_blank">MongoDB Atlas</a> or your self-hosted MongoDB instance.</p>
+        </div>
+
+        <div class="form-group">
+          <label>Database Name</label>
+          <input type="text" id="mongoDbName" value="cosyworld8" required>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" onclick="validateAndNext('mongo')">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Discord -->
+      <div class="step" data-step="4">
+        <h2>🤖 Discord Bot</h2>
+        <p>Configure your Discord bot credentials to connect to Discord servers.</p>
+        
+        <div id="alert-step4"></div>
+
+        <div class="form-group">
+          <label>Discord Bot Token</label>
+          <input type="password" id="discordBotToken" required>
+          <p class="hint">Create a bot at <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a> and copy the token.</p>
+        </div>
+
+        <div class="form-group">
+          <label>Discord Client ID</label>
+          <input type="text" id="discordClientId" required>
+          <p class="hint">Find this in the OAuth2 section of your Discord application.</p>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" onclick="validateAndNext('discord')">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 5: AI Services -->
+      <div class="step" data-step="5">
+        <h2>🤖 AI Services</h2>
+        <p>Configure at least one AI service. You can add more later.</p>
+        
+        <div id="alert-step5"></div>
+
+        <div class="form-group">
+          <label>Default AI Service</label>
+          <select id="aiService">
+            <option value="openrouter">OpenRouter (Recommended)</option>
+            <option value="google">Google AI (Gemini)</option>
+          </select>
+        </div>
+
+        <div class="section-group" id="openrouterSection">
+          <h3>🌐 OpenRouter</h3>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="openrouterApiKey">
+            <p class="hint">Get your API key from <a href="https://openrouter.ai/keys" target="_blank">OpenRouter</a>.</p>
+          </div>
+          <div class="form-group">
+            <label>Default Model</label>
+            <input type="text" id="openrouterModel" value="google/gemini-2.5-pro">
+            <p class="hint">See available models at <a href="https://openrouter.ai/models" target="_blank">OpenRouter Models</a>.</p>
+          </div>
+        </div>
+
+        <div class="section-group" id="googleSection">
+          <h3>🔷 Google AI (Gemini)</h3>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="googleApiKey">
+            <p class="hint">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>.</p>
+          </div>
+          <div class="form-group">
+            <label>Default Model</label>
+            <input type="text" id="googleModel" value="gemini-2.5-flash">
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" onclick="validateAndNext('ai')">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Optional Services -->
+      <div class="step" data-step="6">
+        <h2>⚙️ Optional Integrations</h2>
+        <p>Configure additional services (you can skip this and add them later).</p>
+        
+        <div id="alert-step6"></div>
+
+        <div class="section-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableReplicate" onchange="toggleSection('replicate')">
+            <label for="enableReplicate" style="margin: 0;">Replicate (Image Generation)</label>
+          </div>
+          <div id="replicateFields" style="display: none; margin-top: 15px;">
+            <div class="form-group">
+              <label>API Token</label>
+              <input type="password" id="replicateToken">
+            </div>
+          </div>
+        </div>
+
+        <div class="section-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableS3" onchange="toggleSection('s3')">
+            <label for="enableS3" style="margin: 0;">S3/CloudFront (File Storage)</label>
+          </div>
+          <div id="s3Fields" style="display: none; margin-top: 15px;">
+            <div class="form-group">
+              <label>API Endpoint</label>
+              <input type="text" id="s3Endpoint">
+            </div>
+            <div class="form-group">
+              <label>API Key</label>
+              <input type="password" id="s3ApiKey">
+            </div>
+          </div>
+        </div>
+
+        <div class="section-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableTwitter" onchange="toggleSection('twitter')">
+            <label for="enableTwitter" style="margin: 0;">X/Twitter Integration</label>
+          </div>
+          <div id="twitterFields" style="display: none; margin-top: 15px;">
+            <div class="form-group">
+              <label>Client ID</label>
+              <input type="text" id="xClientId">
+            </div>
+            <div class="form-group">
+              <label>Client Secret</label>
+              <input type="password" id="xClientSecret">
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" onclick="nextStep()">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 7: Review & Save -->
+      <div class="step" data-step="7">
+        <h2>✅ Review & Save</h2>
+        <p>Review your configuration and save it to complete the setup.</p>
+        
+        <div id="alert-step7"></div>
+
+        <div class="section-group">
+          <h3>Configuration Summary</h3>
+          <div id="configSummary"></div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-secondary" onclick="prevStep()">← Back</button>
+          <button class="btn-primary" id="saveBtn" onclick="saveConfiguration()">💾 Save Configuration</button>
+        </div>
+      </div>
+
+      <!-- Step 8: Success -->
+      <div class="step" data-step="8">
+        <div class="success-screen">
+          <div class="success-icon">🎉</div>
+          <h2>Configuration Complete!</h2>
+          <p style="margin: 20px 0;">Your application has been configured successfully.</p>
+          
+          <div class="alert alert-success">
+            <strong>Next Steps:</strong><br>
+            1. Restart your application<br>
+            2. The main service will start automatically<br>
+            3. Access the admin panel to manage your settings
+          </div>
+
+          <button class="btn-primary" onclick="window.location.reload()">🔄 Restart Wizard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="wizard.js"></script>
+</body>
+</html>

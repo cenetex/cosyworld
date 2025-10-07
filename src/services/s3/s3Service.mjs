@@ -19,6 +19,7 @@ export class S3Service {
     this.S3_API_ENDPOINT = process.env.S3_API_ENDPOINT;
     this.CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN;
     this.USE_UPLOAD_API = !!process.env.UPLOAD_API_BASE_URL;
+    this.configured = false;
 
     // Initialize new upload flow if enabled
     if (this.USE_UPLOAD_API) {
@@ -27,19 +28,30 @@ export class S3Service {
         apiBaseUrl: process.env.UPLOAD_API_BASE_URL,
         cdnDomain: this.CLOUDFRONT_DOMAIN,
       });
+      this.configured = true;
       // Only CDN is required for returning URLs; S3_API_* not needed
       if (!this.CLOUDFRONT_DOMAIN) {
         this.logger?.warn?.('[S3Service] CLOUDFRONT_DOMAIN missing; cdnUrl will be null (UploadService still works)');
       }
+    } else if (this.S3_API_KEY && this.S3_API_ENDPOINT && this.CLOUDFRONT_DOMAIN) {
+      // Legacy path configured
+      this.configured = true;
     } else {
-      // Legacy path requires these
-      if (!this.S3_API_KEY || !this.S3_API_ENDPOINT || !this.CLOUDFRONT_DOMAIN) {
-        throw new Error('Missing one or more required environment variables (S3_API_KEY, S3_API_ENDPOINT, CLOUDFRONT_DOMAIN)');
-      }
+      // Not configured - warn but don't throw
+      // This allows the app to start and run the configuration wizard
+      this.logger?.warn?.('[S3Service] ⚠️  Not configured. S3 uploads will not work until configuration is complete.');
+      this.logger?.warn?.('[S3Service] Missing: S3_API_KEY, S3_API_ENDPOINT, or CLOUDFRONT_DOMAIN');
+      this.logger?.warn?.('[S3Service] Please complete the setup wizard to enable S3 functionality.');
     }
   }
 
   async uploadImage(filePath) {
+    // Check if service is configured
+    if (!this.configured) {
+      this.logger?.warn?.('[S3Service] Upload attempted but service not configured. Please complete setup wizard.');
+      return null;
+    }
+
     try {
       // Check if file exists
       if (!fs.existsSync(filePath)) {
@@ -205,5 +217,17 @@ export class S3Service {
       this.logger?.error('Error:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Health check for S3Service
+   * Returns success even if not configured (to allow wizard to run)
+   */
+  async ping() {
+    if (!this.configured) {
+      this.logger?.warn?.('[S3Service] Ping: Service not configured (optional service)');
+      return { ok: true, configured: false, message: 'S3Service not configured - optional service' };
+    }
+    return { ok: true, configured: true, message: 'S3Service ready' };
   }
 }

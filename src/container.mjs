@@ -33,11 +33,15 @@ import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
+import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
 // Setup __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Ensure encryption key exists before anything else loads
+// This allows the app to start even without pre-configuration
+ensureEncryptionKey();
 
 export const container = createContainer({
   injectionMode: InjectionMode.PROXY,

@@ -4,6 +4,37 @@
  */
 
 import { container, containerReady } from './container.mjs';
+import { ConfigWizardService } from './services/foundation/configWizardService.mjs';
+
+async function checkConfiguration() {
+  const logger = container.resolve('logger');
+  const secretsService = container.resolve('secretsService');
+  const configService = container.resolve('configService');
+  
+  const wizard = new ConfigWizardService({ 
+    logger, 
+    secretsService, 
+    configService 
+  });
+  
+  const status = await wizard.checkConfigurationStatus();
+  
+  if (!status.configured) {
+    logger.warn('[startup] Configuration incomplete or missing');
+    logger.warn(`[startup] ${status.details}`);
+    logger.info('[startup] Launching configuration wizard...');
+    
+    await wizard.start();
+    
+    // Keep the process alive
+    return new Promise(() => {
+      // Never resolves - wizard mode
+    });
+  }
+  
+  logger.info('[startup] Configuration check passed ✓');
+  return true;
+}
 
 async function main() {
   // Ensure container finished async initialization
@@ -11,9 +42,27 @@ async function main() {
   const logger = container.resolve('logger');
 
   try {
+    // Check if configuration is complete FIRST before any service initialization
+    const configured = await checkConfiguration();
+    if (!configured) {
+      // Wizard is running, exit main startup
+      return;
+    }
+    
+    // Now that we're configured, initialize services
+    // Note: Some services (like S3) are optional and may not be fully configured
     for (const name of ['veoService','crossmintService','s3Service', 'aiModelService']) {
-      try { await container.resolve(name)?.ping?.(); logger.info(`✓ ${name}`); }
-      catch(e) { logger.error(`✗ ${name}: ${e.message}`); process.exit(1); }
+      try { 
+        const result = await container.resolve(name)?.ping?.(); 
+        if (result?.configured === false) {
+          logger.warn(`⚠️  ${name}: ${result.message || 'Not configured (optional)'}`);
+        } else {
+          logger.info(`✓ ${name}`);
+        }
+      }
+      catch(e) { 
+        logger.warn(`⚠️  ${name}: ${e.message} (may need configuration)`);
+      }
     }
     
     // Step 1: Connect to database

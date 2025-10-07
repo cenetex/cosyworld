@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosyWorld8 Setup</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .setup-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 800px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .setup-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .setup-header h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .setup-header p {
+      opacity: 0.9;
+      font-size: 16px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #4ade80;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .setup-content {
+      padding: 40px;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-title {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #1f2937;
+    }
+
+    .step-description {
+      color: #6b7280;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: monospace;
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 6px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .btn-container {
+      display: flex;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #d1d5db;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-generate {
+      padding: 8px 16px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .btn-generate:hover {
+      background: #059669;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .alert-warning {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      color: #92400e;
+    }
+
+    .alert-info {
+      background: #dbeafe;
+      border: 1px solid #60a5fa;
+      color: #1e40af;
+    }
+
+    .alert-success {
+      background: #d1fae5;
+      border: 1px solid #34d399;
+      color: #065f46;
+    }
+
+    .alert-error {
+      background: #fee2e2;
+      border: 1px solid #f87171;
+      color: #991b1b;
+    }
+
+    .wallet-card {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .wallet-card.connected {
+      border-color: #10b981;
+      background: #d1fae5;
+    }
+
+    .wallet-address {
+      font-family: monospace;
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .config-preview {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .config-preview h4 {
+      margin-bottom: 12px;
+      color: #374151;
+    }
+
+    .config-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 13px;
+    }
+
+    .config-item:last-child {
+      border-bottom: none;
+    }
+
+    .config-key {
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .config-status {
+      color: #10b981;
+    }
+
+    .config-status.missing {
+      color: #ef4444;
+    }
+
+    .optional-section {
+      border: 2px dashed #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .optional-section h4 {
+      margin-bottom: 16px;
+      color: #6b7280;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-container">
+    <div class="setup-header">
+      <h1>🌍 CosyWorld8 Setup</h1>
+      <p>Configure your application in a few simple steps</p>
+    </div>
+    
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressBar"></div>
+    </div>
+
+    <div class="setup-content">
+      <!-- Step 1: Welcome & Admin Wallet -->
+      <div class="step active" id="step1">
+        <h2 class="step-title">Welcome! Let's Set Up Your Admin Wallet</h2>
+        <p class="step-description">
+          Connect your Phantom wallet to authenticate as the application administrator.
+          This wallet will have full access to all configuration and management features.
+        </p>
+
+        <div class="wallet-card" id="walletCard">
+          <p><strong>Phantom Wallet Status:</strong></p>
+          <p id="walletStatus">Not connected</p>
+          <div class="wallet-address" id="walletAddress"></div>
+        </div>
+
+        <button class="btn btn-primary" id="connectWalletBtn">
+          Connect Phantom Wallet
+        </button>
+
+        <div class="alert alert-info" style="margin-top: 20px;">
+          <strong>What is this?</strong><br>
+          Phantom is a Solana wallet that provides secure authentication using cryptographic signatures.
+          You'll need to install the <a href="https://phantom.app/" target="_blank">Phantom browser extension</a> first.
+        </div>
+      </div>
+
+      <!-- Step 2: Encryption Keys -->
+      <div class="step" id="step2">
+        <h2 class="step-title">Encryption Keys</h2>
+        <p class="step-description">
+          Secure your application with strong encryption keys. These protect sensitive data in your database.
+        </p>
+
+        <div class="form-group">
+          <label for="encryptionKey">Encryption Key *</label>
+          <textarea id="encryptionKey" placeholder="Auto-generated 64-character hex key" rows="2"></textarea>
+          <small>Used to encrypt secrets in MongoDB (AES-256-GCM)</small>
+          <button class="btn-generate" onclick="generateKey('encryptionKey')">Generate Secure Key</button>
+        </div>
+
+        <div class="form-group">
+          <label for="serverSecretKey">Server Secret Key *</label>
+          <textarea id="serverSecretKey" placeholder="Auto-generated 64-character hex key" rows="2"></textarea>
+          <small>Used for session management and JWT signing</small>
+          <button class="btn-generate" onclick="generateKey('serverSecretKey')">Generate Secure Key</button>
+        </div>
+
+        <div class="alert alert-warning">
+          <strong>Important:</strong> Store these keys securely! They cannot be recovered if lost.
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 3: MongoDB Configuration -->
+      <div class="step" id="step3">
+        <h2 class="step-title">MongoDB Database</h2>
+        <p class="step-description">
+          Connect to your MongoDB database. All application data will be stored here.
+        </p>
+
+        <div class="form-group">
+          <label for="mongoUri">MongoDB Connection URI *</label>
+          <textarea id="mongoUri" placeholder="mongodb://localhost:27017" rows="2"></textarea>
+          <small>MongoDB connection string (e.g., mongodb+srv://user:pass@cluster.mongodb.net)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="mongoDbName">Database Name</label>
+          <input type="text" id="mongoDbName" value="cosyworld8" placeholder="cosyworld8">
+          <small>Default: cosyworld8</small>
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Discord Configuration -->
+      <div class="step" id="step4">
+        <h2 class="step-title">Discord Bot Configuration</h2>
+        <p class="step-description">
+          Configure your Discord bot to enable social interactions.
+        </p>
+
+        <div class="form-group">
+          <label for="discordBotToken">Discord Bot Token *</label>
+          <input type="password" id="discordBotToken" placeholder="Your Discord bot token">
+          <small>Get this from the <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></small>
+        </div>
+
+        <div class="form-group">
+          <label for="discordClientId">Discord Client ID *</label>
+          <input type="text" id="discordClientId" placeholder="Your Discord application client ID">
+          <small>Found in your Discord application settings</small>
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 5: AI Service Configuration -->
+      <div class="step" id="step5">
+        <h2 class="step-title">AI Service Configuration</h2>
+        <p class="step-description">
+          Choose your AI provider and configure API access.
+        </p>
+
+        <div class="form-group">
+          <label for="aiService">AI Service Provider</label>
+          <select id="aiService" onchange="toggleAIConfig()">
+            <option value="openrouter">OpenRouter (Recommended)</option>
+            <option value="google">Google AI (Gemini)</option>
+          </select>
+        </div>
+
+        <!-- OpenRouter Config -->
+        <div id="openrouterConfig">
+          <div class="form-group">
+            <label for="openrouterApiKey">OpenRouter API Key *</label>
+            <input type="password" id="openrouterApiKey" placeholder="sk-or-v1-...">
+            <small>Get your API key from <a href="https://openrouter.ai/keys" target="_blank">OpenRouter</a></small>
+          </div>
+
+          <div class="form-group">
+            <label for="openrouterModel">Default Model</label>
+            <input type="text" id="openrouterModel" value="google/gemini-2.0-flash-exp:free" placeholder="google/gemini-2.0-flash-exp:free">
+            <small>Model ID from OpenRouter catalog</small>
+          </div>
+        </div>
+
+        <!-- Google AI Config -->
+        <div id="googleConfig" class="hidden">
+          <div class="form-group">
+            <label for="googleApiKey">Google AI API Key *</label>
+            <input type="password" id="googleApiKey" placeholder="AIza...">
+            <small>Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></small>
+          </div>
+
+          <div class="form-group">
+            <label for="googleModel">Model</label>
+            <input type="text" id="googleModel" value="gemini-2.0-flash-exp" placeholder="gemini-2.0-flash-exp">
+          </div>
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Optional Services -->
+      <div class="step" id="step6">
+        <h2 class="step-title">Optional Services</h2>
+        <p class="step-description">
+          Configure additional services (can be set up later).
+        </p>
+
+        <!-- S3 Storage -->
+        <div class="optional-section">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableS3" onchange="toggleOptional('s3')">
+            <label for="enableS3"><strong>S3-Compatible Storage (for image uploads)</strong></label>
+          </div>
+          <div id="s3Config" class="hidden">
+            <div class="form-group">
+              <label for="s3Endpoint">S3 API Endpoint</label>
+              <input type="text" id="s3Endpoint" placeholder="https://s3.amazonaws.com">
+            </div>
+            <div class="form-group">
+              <label for="s3ApiKey">S3 API Key</label>
+              <input type="password" id="s3ApiKey">
+            </div>
+            <div class="form-group">
+              <label for="cloudfrontDomain">CloudFront Domain (optional)</label>
+              <input type="text" id="cloudfrontDomain" placeholder="https://cdn.example.com">
+            </div>
+          </div>
+        </div>
+
+        <!-- Twitter/X Integration -->
+        <div class="optional-section">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableTwitter" onchange="toggleOptional('twitter')">
+            <label for="enableTwitter"><strong>Twitter/X Integration</strong></label>
+          </div>
+          <div id="twitterConfig" class="hidden">
+            <div class="form-group">
+              <label for="xClientId">X Client ID</label>
+              <input type="text" id="xClientId">
+            </div>
+            <div class="form-group">
+              <label for="xClientSecret">X Client Secret</label>
+              <input type="password" id="xClientSecret">
+            </div>
+          </div>
+        </div>
+
+        <!-- Replicate -->
+        <div class="optional-section">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableReplicate" onchange="toggleOptional('replicate')">
+            <label for="enableReplicate"><strong>Replicate (AI Image Generation)</strong></label>
+          </div>
+          <div id="replicateConfig" class="hidden">
+            <div class="form-group">
+              <label for="replicateToken">Replicate API Token</label>
+              <input type="password" id="replicateToken">
+            </div>
+          </div>
+        </div>
+
+        <!-- Helius (Solana NFTs) -->
+        <div class="optional-section">
+          <div class="checkbox-group">
+            <input type="checkbox" id="enableHelius" onchange="toggleOptional('helius')">
+            <label for="enableHelius"><strong>Helius (Solana NFT Support)</strong></label>
+          </div>
+          <div id="heliusConfig" class="hidden">
+            <div class="form-group">
+              <label for="heliusApiKey">Helius API Key</label>
+              <input type="password" id="heliusApiKey">
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" onclick="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 7: Review & Complete -->
+      <div class="step" id="step7">
+        <h2 class="step-title">Review Configuration</h2>
+        <p class="step-description">
+          Review your settings before completing the setup.
+        </p>
+
+        <div class="config-preview" id="configPreview">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="alert alert-success">
+          <strong>Ready to go!</strong><br>
+          Click "Complete Setup" to save your configuration and start the application.
+          You'll need to restart the server after setup completes.
+        </div>
+
+        <div class="btn-container">
+          <button class="btn btn-secondary" onclick="prevStep()">Back</button>
+          <button class="btn btn-primary" id="completeBtn" onclick="completeSetup()">Complete Setup</button>
+        </div>
+
+        <div id="completionStatus" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    const totalSteps = 7;
+    let walletConnected = false;
+    let adminWallet = null;
+    let adminSignature = null;
+    let adminMessage = null;
+
+    // Update progress bar
+    function updateProgress() {
+      const progress = (currentStep / totalSteps) * 100;
+      document.getElementById('progressBar').style.width = progress + '%';
+    }
+
+    // Navigate steps
+    function nextStep() {
+      if (currentStep < totalSteps) {
+        if (!validateCurrentStep()) return;
+        
+        document.getElementById(`step${currentStep}`).classList.remove('active');
+        currentStep++;
+        document.getElementById(`step${currentStep}`).classList.add('active');
+        updateProgress();
+
+        if (currentStep === 7) {
+          showConfigPreview();
+        }
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 1) {
+        document.getElementById(`step${currentStep}`).classList.remove('active');
+        currentStep--;
+        document.getElementById(`step${currentStep}`).classList.add('active');
+        updateProgress();
+      }
+    }
+
+    // Validation
+    function validateCurrentStep() {
+      if (currentStep === 1) {
+        if (!walletConnected) {
+          alert('Please connect your Phantom wallet first');
+          return false;
+        }
+      } else if (currentStep === 2) {
+        if (!document.getElementById('encryptionKey').value) {
+          alert('Please generate an encryption key');
+          return false;
+        }
+      } else if (currentStep === 3) {
+        if (!document.getElementById('mongoUri').value) {
+          alert('Please enter your MongoDB connection URI');
+          return false;
+        }
+      } else if (currentStep === 4) {
+        if (!document.getElementById('discordBotToken').value || !document.getElementById('discordClientId').value) {
+          alert('Please enter your Discord bot credentials');
+          return false;
+        }
+      } else if (currentStep === 5) {
+        const aiService = document.getElementById('aiService').value;
+        if (aiService === 'openrouter' && !document.getElementById('openrouterApiKey').value) {
+          alert('Please enter your OpenRouter API key');
+          return false;
+        } else if (aiService === 'google' && !document.getElementById('googleApiKey').value) {
+          alert('Please enter your Google AI API key');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Connect Phantom Wallet
+    document.getElementById('connectWalletBtn').addEventListener('click', async () => {
+      try {
+        if (!window.solana || !window.solana.isPhantom) {
+          alert('Phantom wallet not found! Please install the Phantom browser extension.');
+          window.open('https://phantom.app/', '_blank');
+          return;
+        }
+
+        const resp = await window.solana.connect();
+        adminWallet = resp.publicKey.toString();
+        
+        // Sign authentication message
+        const message = `Authenticate as CosyWorld8 admin: ${Date.now()}`;
+        const encodedMessage = new TextEncoder().encode(message);
+        const signedMessage = await window.solana.signMessage(encodedMessage, 'utf8');
+        
+        adminSignature = btoa(String.fromCharCode(...signedMessage.signature));
+        adminMessage = message;
+        
+        walletConnected = true;
+        
+        document.getElementById('walletStatus').textContent = 'Connected ✅';
+        document.getElementById('walletAddress').textContent = adminWallet;
+        document.getElementById('walletCard').classList.add('connected');
+        document.getElementById('connectWalletBtn').textContent = 'Wallet Connected';
+        document.getElementById('connectWalletBtn').disabled = true;
+      } catch (err) {
+        console.error('Phantom connection error:', err);
+        alert('Failed to connect wallet: ' + err.message);
+      }
+    });
+
+    // Generate encryption key
+    function generateKey(fieldId) {
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const hex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+      document.getElementById(fieldId).value = hex;
+    }
+
+    // Auto-generate keys on load
+    window.addEventListener('load', () => {
+      generateKey('encryptionKey');
+      generateKey('serverSecretKey');
+      updateProgress();
+    });
+
+    // Toggle AI config
+    function toggleAIConfig() {
+      const service = document.getElementById('aiService').value;
+      document.getElementById('openrouterConfig').classList.toggle('hidden', service !== 'openrouter');
+      document.getElementById('googleConfig').classList.toggle('hidden', service !== 'google');
+    }
+
+    // Toggle optional services
+    function toggleOptional(service) {
+      const checkbox = document.getElementById(`enable${service.charAt(0).toUpperCase() + service.slice(1)}`);
+      const config = document.getElementById(`${service}Config`);
+      config.classList.toggle('hidden', !checkbox.checked);
+    }
+
+    // Show configuration preview
+    function showConfigPreview() {
+      const preview = document.getElementById('configPreview');
+      const config = gatherConfiguration();
+      
+      let html = '<h4>Configuration Summary</h4>';
+      
+      html += '<div class="config-item"><span class="config-key">Admin Wallet:</span><span class="config-status">' + adminWallet + '</span></div>';
+      html += '<div class="config-item"><span class="config-key">Encryption Key:</span><span class="config-status">✓ Set</span></div>';
+      html += '<div class="config-item"><span class="config-key">MongoDB:</span><span class="config-status">✓ Configured</span></div>';
+      html += '<div class="config-item"><span class="config-key">Discord Bot:</span><span class="config-status">✓ Configured</span></div>';
+      html += '<div class="config-item"><span class="config-key">AI Service:</span><span class="config-status">' + config.ai.service + '</span></div>';
+      
+      if (document.getElementById('enableS3').checked) {
+        html += '<div class="config-item"><span class="config-key">S3 Storage:</span><span class="config-status">✓ Enabled</span></div>';
+      }
+      if (document.getElementById('enableTwitter').checked) {
+        html += '<div class="config-item"><span class="config-key">Twitter/X:</span><span class="config-status">✓ Enabled</span></div>';
+      }
+      if (document.getElementById('enableReplicate').checked) {
+        html += '<div class="config-item"><span class="config-key">Replicate:</span><span class="config-status">✓ Enabled</span></div>';
+      }
+      if (document.getElementById('enableHelius').checked) {
+        html += '<div class="config-item"><span class="config-key">Helius:</span><span class="config-status">✓ Enabled</span></div>';
+      }
+      
+      preview.innerHTML = html;
+    }
+
+    // Gather all configuration
+    function gatherConfiguration() {
+      const aiService = document.getElementById('aiService').value;
+      
+      const config = {
+        encryption: {
+          key: document.getElementById('encryptionKey').value,
+          serverKey: document.getElementById('serverSecretKey').value
+        },
+        mongo: {
+          uri: document.getElementById('mongoUri').value,
+          dbName: document.getElementById('mongoDbName').value || 'cosyworld8'
+        },
+        discord: {
+          botToken: document.getElementById('discordBotToken').value,
+          clientId: document.getElementById('discordClientId').value
+        },
+        ai: {
+          service: aiService
+        },
+        optional: {}
+      };
+
+      if (aiService === 'openrouter') {
+        config.ai.openrouter = {
+          apiKey: document.getElementById('openrouterApiKey').value,
+          model: document.getElementById('openrouterModel').value || 'google/gemini-2.0-flash-exp:free'
+        };
+      } else {
+        config.ai.google = {
+          apiKey: document.getElementById('googleApiKey').value,
+          model: document.getElementById('googleModel').value || 'gemini-2.0-flash-exp'
+        };
+      }
+
+      if (document.getElementById('enableS3').checked) {
+        config.optional.s3 = {
+          endpoint: document.getElementById('s3Endpoint').value,
+          apiKey: document.getElementById('s3ApiKey').value,
+          cloudfrontDomain: document.getElementById('cloudfrontDomain').value
+        };
+      }
+
+      if (document.getElementById('enableTwitter').checked) {
+        config.optional.twitter = {
+          clientId: document.getElementById('xClientId').value,
+          clientSecret: document.getElementById('xClientSecret').value
+        };
+      }
+
+      if (document.getElementById('enableReplicate').checked) {
+        config.optional.replicate = {
+          apiToken: document.getElementById('replicateToken').value
+        };
+      }
+
+      if (document.getElementById('enableHelius').checked) {
+        config.optional.helius = {
+          apiKey: document.getElementById('heliusApiKey').value
+        };
+      }
+
+      return config;
+    }
+
+    // Complete setup
+    async function completeSetup() {
+      const btn = document.getElementById('completeBtn');
+      const status = document.getElementById('completionStatus');
+      
+      btn.disabled = true;
+      btn.textContent = 'Saving Configuration...';
+      status.className = 'alert alert-info';
+      status.textContent = 'Saving configuration to database...';
+      status.classList.remove('hidden');
+
+      try {
+        const config = gatherConfiguration();
+        
+        const response = await fetch('/api/setup/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            config,
+            adminWallet,
+            signature: adminSignature,
+            message: adminMessage
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Setup failed');
+        }
+
+        status.className = 'alert alert-success';
+        status.innerHTML = '<strong>Setup Complete!</strong><br>' + 
+                          'Configuration has been saved successfully.<br>' +
+                          'Please restart the application to apply changes.<br><br>' +
+                          '<strong>Next steps:</strong><br>' +
+                          '1. Stop the server (Ctrl+C)<br>' +
+                          '2. Start it again with: npm start<br>' +
+                          '3. Login to the admin panel at /admin';
+
+        btn.textContent = 'Setup Complete ✓';
+      } catch (error) {
+        console.error('Setup error:', error);
+        status.className = 'alert alert-error';
+        status.innerHTML = '<strong>Setup Failed!</strong><br>' + error.message;
+        btn.disabled = false;
+        btn.textContent = 'Try Again';
+      }
+    }
+
+    // Check if setup is already complete on page load
+    window.addEventListener('load', async () => {
+      try {
+        const response = await fetch('/api/setup/status');
+        const status = await response.json();
+        
+        if (status.setupComplete && status.missingConfig.length === 0) {
+          // Setup already complete, redirect
+          window.location.href = '/admin';
+        }
+      } catch (error) {
+        console.error('Setup status check failed:', error);
+      }
+    });
+  </script>
+</body>
+</html>
