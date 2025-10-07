@@ -30,7 +30,10 @@
   "smoke:ai": "node scripts/smoke-ai.mjs",
   "test:global-x": "node scripts/test-global-x-posting.mjs",
   "check:version": "node scripts/check-version-bump.mjs",
-  "prepare": "node scripts/install-git-hooks.mjs"
+  "prepare": "node scripts/install-git-hooks.mjs",
+  "deploy:setup-db": "node scripts/create-indexes.js",
+  "deploy:verify": "node scripts/verify-phase2-deployment.js",
+  "deploy:prepare": "npm run lint && npm run build:js && npm run deploy:setup-db && npm run deploy:verify"
   },
   "keywords": [
     "discord",
