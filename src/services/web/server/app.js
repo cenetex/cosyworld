@@ -68,6 +68,19 @@ async function initializeApp(services) {
         }
       }
       
+      // For root /admin path, check setup status first
+      if (p === '/' || p === '') {
+        try {
+          const setupStatus = await services.setupStatusService.getSetupStatus();
+          const missing = await services.setupStatusService.getMissingConfiguration();
+          if (!setupStatus.setupComplete || missing.length > 0) {
+            return res.redirect('/admin/setup');
+          }
+        } catch (e) {
+          logger?.error?.('[Admin Auth] Setup status check failed:', e);
+        }
+      }
+      
       if (req.user) return next();
       if (req.accepts('html')) return res.redirect('/admin/login');
       return res.status(401).json({ error: 'Unauthorized' });
@@ -171,7 +184,18 @@ async function initializeApp(services) {
     });
 
     // Admin pages (serve clean URLs for static admin HTML)
-    app.get('/admin/login', (req, res, next) => {
+    app.get('/admin/login', async (req, res, next) => {
+      // Check if setup is complete first
+      try {
+        const setupStatus = await services.setupStatusService.getSetupStatus();
+        const missing = await services.setupStatusService.getMissingConfiguration();
+        if (!setupStatus.setupComplete || missing.length > 0) {
+          return res.redirect('/admin/setup');
+        }
+      } catch (e) {
+        logger?.error?.('[Admin] Setup check failed:', e);
+      }
+      
       if (req.user) return res.redirect('/admin');
       res.sendFile(path.join(staticDir, 'admin', 'login.html'), (err) => {
         if (err) next(err);
@@ -182,8 +206,8 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin', ensureAuthenticated, async (req, res, next) => {
-      // Redirect to setup if not complete
+    app.get('/admin', async (req, res, next) => {
+      // Check if setup is complete first, before requiring authentication
       try {
         const setupStatus = await services.setupStatusService.getSetupStatus();
         const missing = await services.setupStatusService.getMissingConfiguration();
@@ -192,6 +216,12 @@ async function initializeApp(services) {
         }
       } catch (e) {
         logger?.error?.('[Admin] Setup check failed:', e);
+      }
+      
+      // Setup is complete, now require authentication
+      if (!req.user) {
+        if (req.accepts('html')) return res.redirect('/admin/login');
+        return res.status(401).json({ error: 'Unauthorized' });
       }
       
       res.sendFile(path.join(staticDir, 'admin', 'index.html'), (err) => {

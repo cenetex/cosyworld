@@ -558,30 +558,58 @@ export class AvatarService {
         ];
         const raw = await this.aiService.chat(fallbackPrompt, { max_tokens: 128 });
         const text = typeof raw === 'object' && raw?.text ? raw.text : String(raw || '');
+        
+        // Check if the response is an error message or empty
+        if (!text || text.includes('No response') || text.includes('⚠️') || text.includes('[Error') || text.trim().length < 3) {
+          this.logger?.error?.(`Fallback avatar details failed: AI returned error or empty response: "${text}"`);
+          return null;
+        }
+        
         const parts = text.split('|').map(s => s.trim()).filter(Boolean);
         const [name, description, emoji, model] = [parts[0] || 'Wanderer', parts[1] || 'A curious soul.', parts[2] || '🙂', parts[3] || 'auto'];
+        
+        // Validate that we got actual content, not error messages
+        if (!name || name.includes('No response') || name.includes('⚠️') || name.includes('[') || name.length < 2) {
+          this.logger?.error?.(`Fallback avatar details failed: Invalid name generated: "${name}"`);
+          return null;
+        }
+        
         details = { name, description, personality: parts[1] || 'curious', emoji, model };
       } catch (e2) {
         this.logger?.error?.(`Fallback avatar details failed: ${e2?.message || e2}`);
         return null;
       }
     }
-    if (!details?.name) return null;
+    if (!details?.name) {
+      this.logger?.warn?.('[AvatarService] Cannot create avatar: no valid details generated');
+      return null;
+    }
 
     // Sanitize name: avoid pure numeric / HTTP status or error-looking tokens.
     try {
       const orig = details.name.trim();
       const isHttpCode = /^(?:HTTP_)?(4\d\d|5\d\d)$/.test(orig);
       const isJustDigits = /^\d{3,}$/.test(orig);
-      if (!orig || isHttpCode || isJustDigits) {
-        const base = 'Wanderer';
-        const suffix = Math.random().toString(36).slice(2,6);
-        details.name = `${base}-${suffix}`;
-        this.logger?.warn?.(`[AvatarService] Renamed generated avatar with invalid/error-like name '${orig}' -> '${details.name}'`);
+      const hasErrorMarkers = /⚠️|\[Error|No response|failed|invalid/i.test(orig);
+      const hasMarkdown = /^-#|^#/.test(orig);
+      
+      if (!orig || isHttpCode || isJustDigits || hasErrorMarkers || hasMarkdown) {
+        this.logger?.error?.(`[AvatarService] Cannot create avatar: invalid/error-like name detected: '${orig}'`);
+        return null;
       }
+      
       // Strip any accidental 'Error:' prefixes inserted by malformed upstream responses
       details.name = details.name.replace(/^Error[:\s-]+/i, '').trim();
-    } catch {}
+      
+      // Final validation: name must be reasonable length
+      if (details.name.length < 2 || details.name.length > 50) {
+        this.logger?.error?.(`[AvatarService] Cannot create avatar: name length invalid (${details.name.length}): '${details.name}'`);
+        return null;
+      }
+    } catch (e) {
+      this.logger?.error?.(`[AvatarService] Name sanitization failed: ${e?.message || e}`);
+      return null;
+    }
 
     const existing = await this.getAvatarByName(details.name);
   // If an avatar with this generated name already exists, return it and

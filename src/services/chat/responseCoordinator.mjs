@@ -257,18 +257,27 @@ export class ResponseCoordinator {
     
     // For ambient triggers, ensure conversational diversity
     if (trigger.type === 'ambient') {
-      // Get last speaker in channel to avoid consecutive ambient responses from same avatar
-      const lastSpeaker = await this.getLastChannelSpeaker(channel);
-      const lastSpeakerId = lastSpeaker ? `${lastSpeaker.author.id || lastSpeaker.author.username}` : null;
+      // Get last 3 speakers in channel to avoid consecutive ambient responses from same avatar
+      const recentSpeakers = await this.getRecentChannelSpeakers(channel, 3);
+      const recentSpeakerIds = recentSpeakers.map(msg => {
+        const speakerId = msg.author.id || msg.author.username;
+        return `${speakerId}`;
+      });
       
-      // Filter out the avatar who just spoke (creates natural back-and-forth)
+      this.logger.debug?.(`[ResponseCoordinator] Recent speakers: ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
+      
+      // Filter out avatars who spoke in the last 3 messages (creates natural back-and-forth)
       const eligibleForAmbient = ranked.filter(r => {
         const avatarId = `${r.avatar._id || r.avatar.id}`;
         const avatarName = r.avatar.name;
         
-        // Skip if this avatar was the last speaker
-        if (lastSpeakerId && (avatarId === lastSpeakerId || avatarName === lastSpeaker?.author.username)) {
-          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - was last speaker (ambient diversity)`);
+        // Skip if this avatar was one of the recent speakers
+        const wasRecentSpeaker = recentSpeakerIds.some(speakerId => 
+          speakerId === avatarId || speakerId === avatarName
+        );
+        
+        if (wasRecentSpeaker) {
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - was recent speaker (ambient diversity)`);
           return false;
         }
         
@@ -287,10 +296,21 @@ export class ResponseCoordinator {
         return [selected.avatar];
       }
       
-      // If all avatars filtered out, allow last speaker but only if score is high enough
+      // If all avatars filtered out, allow a recent speaker but only if score is high enough
+      // AND they weren't the very last speaker (most recent message)
       if (ranked.length > 0 && ranked[0].score > 0.5) {
         const fallback = ranked[0];
-        this.logger.warn?.(`[ResponseCoordinator] Ambient fallback: ${fallback.avatar.name} (all others filtered)`);
+        const avatarId = `${fallback.avatar._id || fallback.avatar.id}`;
+        const avatarName = fallback.avatar.name;
+        
+        // Don't allow the immediate last speaker
+        const lastSpeakerId = recentSpeakerIds.length > 0 ? recentSpeakerIds[0] : null;
+        if (lastSpeakerId && (lastSpeakerId === avatarId || lastSpeakerId === avatarName)) {
+          this.logger.debug?.(`[ResponseCoordinator] No ambient response - would repeat last speaker`);
+          return [];
+        }
+        
+        this.logger.warn?.(`[ResponseCoordinator] Ambient fallback: ${avatarName} (score: ${fallback.score.toFixed(2)})`);
         return [fallback.avatar];
       }
       
@@ -479,6 +499,31 @@ export class ResponseCoordinator {
     } catch (e) {
       this.logger.warn?.(`[ResponseCoordinator] getLastChannelSpeaker error: ${e.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Get recent speakers in a channel (improved diversity checking)
+   * @param {Object} channel - Discord channel object
+   * @param {number} limit - Number of recent speakers to return
+   * @returns {Promise<Array>} Array of recent messages from bot avatars
+   */
+  async getRecentChannelSpeakers(channel, limit = 3) {
+    try {
+      const messages = await channel.messages.fetch({ limit: 20 });
+      const botMessages = [];
+      
+      // Find recent bot messages (avatar speech)
+      for (const msg of messages.values()) {
+        if ((msg.author.bot || msg.webhookId) && botMessages.length < limit) {
+          botMessages.push(msg);
+        }
+      }
+      
+      return botMessages;
+    } catch (e) {
+      this.logger.warn?.(`[ResponseCoordinator] getRecentChannelSpeakers error: ${e.message}`);
+      return [];
     }
   }
 

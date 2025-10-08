@@ -355,6 +355,10 @@
           Connect Phantom Wallet
         </button>
 
+        <div class="btn-container" id="step1Buttons" style="display: none; margin-top: 20px;">
+          <button class="btn btn-primary" onclick="nextStep()" style="width: 100%;">Continue to Setup</button>
+        </div>
+
         <div class="alert alert-info" style="margin-top: 20px;">
           <strong>What is this?</strong><br>
           Phantom is a Solana wallet that provides secure authentication using cryptographic signatures.
@@ -702,6 +706,9 @@
         document.getElementById('walletCard').classList.add('connected');
         document.getElementById('connectWalletBtn').textContent = 'Wallet Connected';
         document.getElementById('connectWalletBtn').disabled = true;
+        
+        // Show the Next button
+        document.getElementById('step1Buttons').style.display = 'flex';
       } catch (err) {
         console.error('Phantom connection error:', err);
         alert('Failed to connect wallet: ' + err.message);
@@ -890,11 +897,108 @@
         if (status.setupComplete && status.missingConfig.length === 0) {
           // Setup already complete, redirect
           window.location.href = '/admin';
+          return;
         }
+        
+        // Load existing configuration to pre-fill form
+        await loadExistingConfig();
       } catch (error) {
         console.error('Setup status check failed:', error);
       }
     });
+    
+    // Load existing configuration from environment/database
+    async function loadExistingConfig() {
+      try {
+        const response = await fetch('/api/setup/config');
+        if (!response.ok) return;
+        
+        const config = await response.json();
+        
+        // Pre-fill encryption keys (if they exist)
+        if (config.encryption?.hasKey && config.encryption?.keyLength > 0) {
+          // Keep auto-generated values, user can see they're set
+          console.log('Encryption key already set');
+        }
+        
+        // Pre-fill MongoDB
+        if (config.mongo?.uri) {
+          // Show masked URI but allow editing
+          document.getElementById('mongoUri').placeholder = 'Currently set: ' + config.mongo.uri;
+        }
+        if (config.mongo?.dbName) {
+          document.getElementById('mongoDbName').value = config.mongo.dbName;
+        }
+        
+        // Pre-fill Discord
+        if (config.discord?.botToken) {
+          document.getElementById('discordBotToken').placeholder = 'Currently set: ' + config.discord.botToken;
+        }
+        if (config.discord?.clientId) {
+          document.getElementById('discordClientId').value = config.discord.clientId;
+        }
+        
+        // Pre-fill AI Service
+        if (config.ai?.service) {
+          document.getElementById('aiService').value = config.ai.service;
+          toggleAIConfig();
+        }
+        
+        // Pre-fill OpenRouter
+        if (config.ai?.openrouter?.apiKey) {
+          document.getElementById('openrouterApiKey').placeholder = 'Currently set: ' + config.ai.openrouter.apiKey;
+        }
+        if (config.ai?.openrouter?.model) {
+          document.getElementById('openrouterModel').value = config.ai.openrouter.model;
+        }
+        
+        // Pre-fill Google AI
+        if (config.ai?.google?.apiKey) {
+          document.getElementById('googleApiKey').placeholder = 'Currently set: ' + config.ai.google.apiKey;
+        }
+        if (config.ai?.google?.model) {
+          document.getElementById('googleModel').value = config.ai.google.model;
+        }
+        
+        // Pre-fill optional services
+        if (config.optional?.s3?.configured) {
+          document.getElementById('enableS3').checked = true;
+          toggleOptional('s3');
+          if (config.optional.s3.endpoint) {
+            document.getElementById('s3Endpoint').value = config.optional.s3.endpoint;
+          }
+          document.getElementById('s3ApiKey').placeholder = 'Currently set (masked)';
+          if (config.optional.s3.cloudfrontDomain) {
+            document.getElementById('cloudfrontDomain').value = config.optional.s3.cloudfrontDomain;
+          }
+        }
+        
+        if (config.optional?.twitter?.configured) {
+          document.getElementById('enableTwitter').checked = true;
+          toggleOptional('twitter');
+          if (config.optional.twitter.clientId) {
+            document.getElementById('xClientId').value = config.optional.twitter.clientId;
+          }
+          document.getElementById('xClientSecret').placeholder = 'Currently set (masked)';
+        }
+        
+        if (config.optional?.replicate?.configured) {
+          document.getElementById('enableReplicate').checked = true;
+          toggleOptional('replicate');
+          document.getElementById('replicateToken').placeholder = 'Currently set (masked)';
+        }
+        
+        if (config.optional?.helius?.configured) {
+          document.getElementById('enableHelius').checked = true;
+          toggleOptional('helius');
+          document.getElementById('heliusApiKey').placeholder = 'Currently set (masked)';
+        }
+        
+        console.log('Loaded existing configuration');
+      } catch (error) {
+        console.error('Failed to load existing config:', error);
+      }
+    }
   </script>
 </body>
 </html>

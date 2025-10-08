@@ -44,7 +44,7 @@ export default function createSetupRouter(services) {
    */
   router.get('/config', async (req, res) => {
     try {
-      const maskValue = (v) => {
+      const maskSecret = (v) => {
         if (!v || v.length < 12) return '***';
         return v.substring(0, 8) + '***' + v.substring(v.length - 4);
       };
@@ -55,33 +55,50 @@ export default function createSetupRouter(services) {
           keyLength: process.env.ENCRYPTION_KEY?.length || 0
         },
         mongo: {
-          uri: process.env.MONGO_URI ? maskValue(process.env.MONGO_URI) : null,
+          uri: process.env.MONGO_URI ? maskSecret(process.env.MONGO_URI) : null,
           dbName: process.env.MONGO_DB_NAME || 'cosyworld8',
           configured: !!process.env.MONGO_URI
         },
         discord: {
-          botToken: process.env.DISCORD_BOT_TOKEN ? maskValue(process.env.DISCORD_BOT_TOKEN) : null,
-          clientId: process.env.DISCORD_CLIENT_ID || null,
+          botToken: process.env.DISCORD_BOT_TOKEN ? maskSecret(process.env.DISCORD_BOT_TOKEN) : null,
+          clientId: process.env.DISCORD_CLIENT_ID || null, // Not a secret
           configured: !!(process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_CLIENT_ID)
         },
         ai: {
           service: process.env.AI_SERVICE || 'openrouter',
           openrouter: {
-            apiKey: process.env.OPENROUTER_API_KEY ? maskValue(process.env.OPENROUTER_API_KEY) : null,
-            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+            apiKey: process.env.OPENROUTER_API_KEY ? maskSecret(process.env.OPENROUTER_API_KEY) : null,
+            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free', // Not a secret
+            chatModel: process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || null,
+            visionModel: process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || null,
+            structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || null,
             configured: !!process.env.OPENROUTER_API_KEY
           },
           google: {
-            apiKey: (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) ? maskValue(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : null,
-            model: process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash',
+            apiKey: (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) ? maskSecret(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : null,
+            model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash-exp', // Not a secret
             configured: !!(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY)
           }
         },
         optional: {
-          replicate: { configured: !!process.env.REPLICATE_API_TOKEN },
-          s3: { configured: !!(process.env.S3_API_ENDPOINT && process.env.S3_API_KEY) },
-          twitter: { configured: !!(process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET) },
-          helius: { configured: !!process.env.HELIUS_API_KEY }
+          replicate: { 
+            configured: !!process.env.REPLICATE_API_TOKEN,
+            model: process.env.REPLICATE_MODEL || null
+          },
+          s3: { 
+            configured: !!(process.env.S3_API_ENDPOINT && process.env.S3_API_KEY),
+            endpoint: process.env.S3_API_ENDPOINT || null,
+            uploadBaseUrl: process.env.UPLOAD_API_BASE_URL || null,
+            cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN || null
+          },
+          twitter: { 
+            configured: !!(process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET),
+            clientId: process.env.X_CLIENT_ID || null,
+            callbackUrl: process.env.X_CALLBACK_URL || 'http://localhost:3000/api/xauth/callback'
+          },
+          helius: { 
+            configured: !!process.env.HELIUS_API_KEY 
+          }
         }
       };
 
@@ -122,7 +139,9 @@ export default function createSetupRouter(services) {
       // Verify the signature
       const publicKey = bs58.decode(wallet);
       const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = bs58.decode(signature);
+      
+      // Signature comes as base64 from frontend
+      const signatureBytes = Buffer.from(signature, 'base64');
 
       const valid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKey);
 
@@ -153,7 +172,10 @@ export default function createSetupRouter(services) {
 
       const publicKey = bs58.decode(adminWallet);
       const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = bs58.decode(signature);
+      
+      // Signature comes as base64 from frontend
+      const signatureBytes = Buffer.from(signature, 'base64');
+      
       const valid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKey);
 
       if (!valid) {
@@ -201,7 +223,10 @@ export default function createSetupRouter(services) {
       // Verify signature
       const publicKey = bs58.decode(adminWallet);
       const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = bs58.decode(signature);
+      
+      // Signature comes as base64 from frontend
+      const signatureBytes = Buffer.from(signature, 'base64');
+      
       const valid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKey);
 
       if (!valid) {
@@ -243,7 +268,10 @@ export default function createSetupRouter(services) {
       // Verify signature
       const publicKey = bs58.decode(adminWallet);
       const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = bs58.decode(signature);
+      
+      // Signature comes as base64 from frontend
+      const signatureBytes = Buffer.from(signature, 'base64');
+      
       const valid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKey);
 
       if (!valid) {

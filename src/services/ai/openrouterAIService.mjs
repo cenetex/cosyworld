@@ -330,8 +330,21 @@ export class OpenRouterAIService {
         if (!normalizedContent && !result.reasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
         this.logger.info(JSON.stringify(result, null, 2));
-        const txt = '\n-# [⚠️ No response from OpenRouter]';
-        return options.returnEnvelope ? { text: txt, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : txt;
+        
+        // Return error envelope or throw instead of returning placeholder text
+        // This prevents error messages from being treated as valid content
+        if (options.returnEnvelope) {
+          return { 
+            text: '', 
+            raw: response, 
+            model: mergedOptions.model, 
+            provider: 'openrouter', 
+            error: { code: 'NO_CONTENT', message: 'No response content from OpenRouter' } 
+          };
+        }
+        
+        // For non-envelope mode, throw an error so callers know the request failed
+        throw new Error('No response content from OpenRouter');
       }
 
       // Do not inject <think> tags into visible content; keep reasoning separate

@@ -11,7 +11,9 @@ export class ChannelManager {
     schedulingService,
     locationService,
     mapService,
-    conversationManager
+    conversationManager,
+    turnScheduler,
+    responseCoordinator
   }) {
     this.databaseService = databaseService;
     this.discordService = discordService;
@@ -19,6 +21,8 @@ export class ChannelManager {
     this.locationService = locationService;
     this.mapService = mapService;
     this.conversationManager = conversationManager;
+    this.turnScheduler = turnScheduler;
+    this.responseCoordinator = responseCoordinator;
     this.logger = logger || console;
     
     
@@ -44,6 +48,23 @@ export class ChannelManager {
   async triggerAmbientResponses() {
     this.logger.info('[ChannelManager] Triggering ambient responses');
     
+    // DEPRECATED: This method is being phased out in favor of TurnScheduler
+    // which uses ResponseCoordinator for better diversity and turn-taking.
+    // For now, delegate to TurnScheduler if available.
+    
+    if (this.turnScheduler) {
+      this.logger.info('[ChannelManager] Delegating to TurnScheduler for ambient responses');
+      try {
+        await this.turnScheduler.tickAll();
+      } catch (e) {
+        this.logger.error('[ChannelManager] TurnScheduler.tickAll failed:', e);
+      }
+      return;
+    }
+    
+    // Fallback: Legacy ambient response (not recommended - bypasses ResponseCoordinator)
+    this.logger.warn('[ChannelManager] Using legacy ambient response (TurnScheduler not available)');
+    
     const activeChannels = await this.getMostRecentActiveChannels(3);
     for (const channel of activeChannels) {
       // Ensure location exists
@@ -55,11 +76,24 @@ export class ChannelManager {
         await this.locationService.generateLocationSummary(channel.id, channelHistory);
       }
 
-      // Handle avatar responses
-      const avatars = (await this.mapService.getLocationAndAvatars(channel.id)).avatars;
-      const selected = avatars.sort(() => Math.random() - 0.5).slice(0, 2);
-      for (const avatar of selected) {
-        await this.conversationManager.sendResponse(channel, avatar);
+      // LEGACY: Use ResponseCoordinator if available to maintain diversity
+      if (this.responseCoordinator) {
+        try {
+          await this.responseCoordinator.coordinateResponse(channel, null, {
+            triggerType: 'ambient',
+            guildId: channel.guild?.id
+          });
+        } catch (e) {
+          this.logger.error(`[ChannelManager] ResponseCoordinator failed for ${channel.id}:`, e);
+        }
+      } else {
+        // Double-legacy fallback (really shouldn't happen)
+        this.logger.warn('[ChannelManager] No ResponseCoordinator - using direct sendResponse (may cause duplicates)');
+        const avatars = (await this.mapService.getLocationAndAvatars(channel.id)).avatars;
+        const selected = avatars.sort(() => Math.random() - 0.5).slice(0, 1); // Only select 1 to reduce duplicates
+        for (const avatar of selected) {
+          await this.conversationManager.sendResponse(channel, avatar);
+        }
       }
     }
   }
