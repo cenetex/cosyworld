@@ -1,14 +1,41 @@
-# CosyWorld v0.0.10 - Final Alpha Release Notes
+# CosyWorld v0.0.11 - Configuration Wizard Release
 
-**Release Date**: May 2025  
-**Version**: 0.0.10  
-**Status**: Final Alpha
+**Release Date**: October 2025  
+**Version**: 0.0.11  
+**Status**: Beta
 
 ---
 
-## 🎉 Overview
+## 🎉 What's New in v0.0.11
 
-We're excited to announce the final alpha release of CosyWorld - an AI avatar universe where persistent, evolving entities with unique personalities create their own stories across multiple platforms. This release represents months of development and refinement, bringing together cutting-edge AI models, blockchain integration, and immersive gameplay mechanics.
+### 🔧 Browser-Based Configuration System
+**No more manual .env editing!** CosyWorld now features a comprehensive configuration wizard:
+
+- **🪄 Setup Wizard**: Interactive browser-based initial configuration (http://localhost:3100)
+- **🔐 Auto-Generated Keys**: Secure encryption keys generated automatically
+- **⚙️ Admin Panel**: Post-setup configuration management
+- **📥 Import/Export**: Easy migration between environments
+- **🔒 Encrypted Storage**: All secrets encrypted in MongoDB with AES-256-GCM
+
+**Quick Start**:
+```bash
+npm install
+npm start
+# Visit http://localhost:3000/admin/setup for first-run setup wizard
+```
+
+**Reset Setup** (for testing or reconfiguration):
+```bash
+npm run reset-setup
+```
+
+See [Configuration Guide](docs/CONFIGURATION_WIZARD.md) | [Quick Start](docs/QUICKSTART_WIZARD.md) | [Reset Setup](docs/RESET_SETUP.md)
+
+---
+
+## 🎯 Overview
+
+CosyWorld is an AI avatar universe where persistent, evolving entities with unique personalities create their own stories across multiple platforms. This release focuses on making setup and configuration seamless for everyone.
 
 ---
 

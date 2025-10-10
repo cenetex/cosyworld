@@ -92,7 +92,7 @@ export class ConfigService {
           apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
           model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
-          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'openai/gpt-4o',
+          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'google/gemini-2.0-flash-exp:free',
           chatModel: process.env.OPENROUTER_CHAT_MODEL || 'meta-llama/llama-3.2-1b-instruct',
           visionModel: process.env.OPENROUTER_VISION_MODEL || '"x-ai/grok-2-vision-1212"',
           temperature: 0.8,

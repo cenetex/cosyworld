@@ -51,7 +51,7 @@ export class OpenRouterAIService {
     // Resolve defaults from ConfigService (note: align with keys defined in ConfigService)
     const orCfg = this.configService?.config?.ai?.openrouter || {};
     this.model = orCfg.model || 'openai/gpt-4o-mini';
-    this.structured_model = orCfg.structuredModel || 'openai/gpt-4o';
+    this.structured_model = orCfg.structuredModel || 'google/gemini-2.0-flash-exp:free';
     this.apiKey = this.configService.config.ai.openrouter.apiKey;
     this.baseURL = 'https://openrouter.ai/api/v1';
     this.defaultHeaders = {
@@ -158,12 +158,28 @@ export class OpenRouterAIService {
           const key = String(structuredOptions.model || '').toLowerCase();
           const supported = this._modelSupportCache.get(key);
           if (supported === true) {
-            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is cached as supporting response_format but returned 400 – possible schema incompatibility or provider regression.`);
+            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is cached as supporting response_format but returned 400 – likely doesn't support json_schema type, only json_object. Falling back.`);
           } else if (supported === false) {
             this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is NOT marked as supporting response_format; falling back immediately.`);
           }
         }
       } catch {}
+
+      // For 400 errors, try json_object format immediately as many models support it but not json_schema
+      if (parsed.status === 400) {
+        this.logger?.info?.('[OpenRouter][StructuredOutput] Attempting json_object fallback for 400 error');
+        try {
+          const withoutRF = { ...options, model: options.model || this.structured_model };
+          const alt = await this.chat(messages, { ...withoutRF, response_format: { type: 'json_object' } });
+          if (!alt) {
+            throw new Error('Chat returned null/empty response with json_object format');
+          }
+          return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+        } catch (e2) {
+          this.logger?.warn?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', parseProviderError(e2));
+          // Continue to instruction-only fallback below
+        }
+      }
 
   // Build concise schema instructions to coerce JSON without relying on response_format
   const schemaKeys = Object.keys(baseSchema?.properties || {});
@@ -177,21 +193,14 @@ export class OpenRouterAIService {
       try {
         const raw = await parseWithRetries(async () => {
           const r = await this.chat(fallbackMessages, withoutRF);
+          if (!r) throw new Error('Chat returned null/empty response');
           return typeof r === 'string' ? r : JSON.stringify(r);
         }, { retries: 2, backoffMs: 600 });
         return raw;
       } catch (e2) {
         const p2 = parseProviderError(e2);
-        this.logger?.warn?.('[OpenRouter][StructuredOutput] instruction-only parse failed, trying json_object', p2);
-        // Final attempt: json_object (if the provider supports it) without schema
-        try {
-          const alt = await this.chat(messages, { ...withoutRF, response_format: { type: 'json_object' } });
-          return typeof alt === 'string' ? parseFirstJson(alt) : alt;
-        } catch (e3) {
-          const p3 = parseProviderError(e3);
-          this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p3);
-          throw new Error('Structured output was not valid JSON.');
-        }
+        this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p2);
+        throw new Error(`Structured output generation failed after all attempts: ${p2.userMessage || p2.providerMessage || 'Unable to generate valid JSON'}`);
       }
     }
   }
@@ -327,7 +336,9 @@ export class OpenRouterAIService {
               .trim();
           } catch {}
         }
-        if (!normalizedContent && !result.reasoning) {
+        // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
+        const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
+        if (!normalizedContent && !hasReasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
         this.logger.info(JSON.stringify(result, null, 2));
         
@@ -345,6 +356,26 @@ export class OpenRouterAIService {
         
         // For non-envelope mode, throw an error so callers know the request failed
         throw new Error('No response content from OpenRouter');
+      }
+      
+      // Special case: reasoning exists but content is empty (e.g., GPT-5 reasoning models)
+      // This typically indicates an incomplete response where the model only provided internal reasoning
+      if (!normalizedContent && hasReasoning) {
+        this.logger.warn('Model returned reasoning but no content. This may indicate an incomplete response.');
+        this.logger.info(JSON.stringify(result, null, 2));
+        
+        if (options.returnEnvelope) {
+          return { 
+            text: '', 
+            raw: response, 
+            model: mergedOptions.model, 
+            provider: 'openrouter', 
+            error: { code: 'NO_CONTENT', message: 'Model returned reasoning but no text content' } 
+          };
+        }
+        
+        // Throw to trigger retry logic or fallback handling
+        throw new Error('Model returned reasoning but no text content');
       }
 
       // Do not inject <think> tags into visible content; keep reasoning separate
