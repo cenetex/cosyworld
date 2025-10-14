@@ -33,9 +33,21 @@ export class ResponseCoordinator {
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
-    this.RESPONSE_LOCK_TTL_MS = 5000; // 5 seconds
+    this.RESPONSE_LOCK_TTL_MS = Number(process.env.RESPONSE_LOCK_TTL_MS || 5000);
     this.STICKY_AFFINITY_EXCLUSIVE = String(process.env.STICKY_AFFINITY_EXCLUSIVE || 'true').toLowerCase() === 'true';
     this.TURN_BASED_MODE = String(process.env.TURN_BASED_MODE || 'true').toLowerCase() === 'true';
+    
+    // Cache for recent speakers to reduce Discord API calls
+    this.recentSpeakersCache = new Map(); // channelId -> { speakers: [], at: timestamp }
+    this.SPEAKER_CACHE_TTL = Number(process.env.SPEAKER_CACHE_TTL_MS || 60000); // 1 minute default
+    
+    // Cache statistics for monitoring
+    this.cacheStats = {
+      hits: 0,
+      misses: 0,
+      totalRequests: 0,
+      lastReset: Date.now()
+    };
   }
 
   async col(name) {
@@ -207,48 +219,64 @@ export class ResponseCoordinator {
 
     // PRIORITY 2: Sticky affinity (user has been talking to specific avatar)
     if (message && !message.author.bot && this.STICKY_AFFINITY_EXCLUSIVE) {
-      const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, message.author.id);
-      if (stickyAvatarId) {
-        const stickyAvatar = eligibleAvatars.find(
-          av => `${av._id || av.id}` === `${stickyAvatarId}`
-        );
-        if (stickyAvatar) {
-          // Check if sticky avatar should respond
-          const shouldRespond = await this.decisionMaker.shouldRespond(channel, stickyAvatar, message);
-          if (shouldRespond) {
-            this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name}`);
-            return [stickyAvatar];
+      try {
+        const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, message.author.id);
+        if (stickyAvatarId) {
+          const stickyAvatar = eligibleAvatars.find(
+            av => `${av._id || av.id}` === `${stickyAvatarId}`
+          );
+          if (stickyAvatar) {
+            // Check if sticky avatar should respond
+            const shouldRespond = await this.decisionMaker.shouldRespond(channel, stickyAvatar, message);
+            if (shouldRespond) {
+              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name}`);
+              return [stickyAvatar];
+            }
           }
         }
+      } catch (e) {
+        this.logger.warn?.(`[ResponseCoordinator] Sticky affinity check failed: ${e.message}`);
       }
     }
 
     // PRIORITY 3: Direct mention by name/emoji
     if (message && message.content) {
-      const mentionedAvatars = this.findMentionedAvatars(message.content, eligibleAvatars);
-      if (mentionedAvatars.length > 0) {
-        // Take first mentioned avatar
-        const mentioned = mentionedAvatars[0];
-        
-        // Record sticky affinity for future
-        if (!message.author.bot && this.decisionMaker._recordAffinity) {
-          this.decisionMaker._recordAffinity(channelId, message.author.id, mentioned._id || mentioned.id);
+      try {
+        const mentionedAvatars = this.findMentionedAvatars(message.content, eligibleAvatars);
+        if (mentionedAvatars.length > 0) {
+          // Take first mentioned avatar
+          const mentioned = mentionedAvatars[0];
+          
+          // Record sticky affinity for future
+          if (!message.author.bot && this.decisionMaker._recordAffinity) {
+            try {
+              this.decisionMaker._recordAffinity(channelId, message.author.id, mentioned._id || mentioned.id);
+            } catch (e) {
+              this.logger.debug?.(`[ResponseCoordinator] Failed to record affinity: ${e.message}`);
+            }
+          }
+          
+          this.logger.info?.(`[ResponseCoordinator] Direct mention: ${mentioned.name}`);
+          return [mentioned];
         }
-        
-        this.logger.info?.(`[ResponseCoordinator] Direct mention: ${mentioned.name}`);
-        return [mentioned];
+      } catch (e) {
+        this.logger.warn?.(`[ResponseCoordinator] Mention detection failed: ${e.message}`);
       }
     }
 
     // PRIORITY 4: Turn-based selection (active speaker)
     if (this.TURN_BASED_MODE && message) {
-      const activeSpeaker = await this.getActiveSpeaker(channelId, eligibleAvatars);
-      if (activeSpeaker) {
-        const shouldRespond = await this.decisionMaker.shouldRespond(channel, activeSpeaker, message);
-        if (shouldRespond) {
-          this.logger.info?.(`[ResponseCoordinator] Active speaker: ${activeSpeaker.name}`);
-          return [activeSpeaker];
+      try {
+        const activeSpeaker = await this.getActiveSpeaker(channelId, eligibleAvatars);
+        if (activeSpeaker) {
+          const shouldRespond = await this.decisionMaker.shouldRespond(channel, activeSpeaker, message);
+          if (shouldRespond) {
+            this.logger.info?.(`[ResponseCoordinator] Active speaker: ${activeSpeaker.name}`);
+            return [activeSpeaker];
+          }
         }
+      } catch (e) {
+        this.logger.warn?.(`[ResponseCoordinator] Turn-based selection failed: ${e.message}`);
       }
     }
 
@@ -456,22 +484,92 @@ export class ResponseCoordinator {
     }
   }
 
+  /**
+   * Normalize a value to a lowercase trimmed string for case-insensitive comparison.
+   * Handles null, undefined, numbers, and other types safely.
+   * 
+   * @param {*} value - Value to normalize (string, number, boolean, etc.)
+   * @returns {string} Normalized lowercase string, or empty string if value is null/undefined
+   * 
+   * @example
+   * normalizeAlias('MyAvatar')  // 'myavatar'
+   * normalizeAlias('  HERO  ')  // 'hero'
+   * normalizeAlias(null)        // ''
+   * normalizeAlias(123)         // '123'
+   */
   normalizeAlias(value) {
     if (!value && value !== 0) return '';
     return String(value).trim().toLowerCase();
   }
 
+  /**
+   * Strip emoji characters from a string while preserving regular text.
+   * Handles both standard Unicode emojis and extended pictographic characters.
+   * 
+   * @param {*} value - String to process (coerced to string if not already)
+   * @returns {string} String with emojis removed and whitespace normalized
+   * 
+   * @example
+   * stripEmojis('Hero 🔥⚔️')           // 'Hero'
+   * stripEmojis('Dragon   🐉  Fire')  // 'Dragon Fire'
+   * stripEmojis('NoEmojis')            // 'NoEmojis'
+   * 
+   * @performance
+   * Uses Unicode property escapes for accurate emoji detection.
+   * Falls back to basic ranges for older Node versions.
+   */
   stripEmojis(value) {
     if (!value && value !== 0) return '';
     const str = String(value);
     try {
-      return str.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
+      // Modern approach: Use Unicode property escapes for comprehensive emoji removal
+      return str
+        .replace(/\p{Extended_Pictographic}/gu, '')  // Extended pictographic emojis
+        .replace(/\p{Emoji_Presentation}/gu, '')     // Emoji presentation characters
+        .replace(/\s+/g, ' ')
+        .trim();
     } catch {
-      // Fallback range for environments without Unicode property escapes
-      return str.replace(/[\u{1F300}-\u{1FAFF}]/gu, '').replace(/\s+/g, ' ').trim();
+      // Fallback for environments without Unicode property escapes
+      return str
+        .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')  // Emoticons, symbols, pictographs
+        .replace(/[\u{2600}-\u{26FF}]/gu, '')    // Miscellaneous symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, '')    // Dingbats
+        .replace(/[\u{1F900}-\u{1F9FF}]/gu, '')  // Supplemental symbols and pictographs
+        .replace(/[\u{1F600}-\u{1F64F}]/gu, '')  // Emoticons
+        .replace(/[\u{1F680}-\u{1F6FF}]/gu, '')  // Transport and map symbols
+        .replace(/[\u{2300}-\u{23FF}]/gu, '')    // Miscellaneous technical
+        .replace(/[\u{FE00}-\u{FE0F}]/gu, '')    // Variation selectors
+        .replace(/\s+/g, ' ')
+        .trim();
     }
   }
 
+  /**
+   * Extract all possible identifier aliases from a Discord message for speaker matching.
+   * Includes author ID, username, display name, nicknames, and webhook ID.
+   * All values are normalized (lowercase, trimmed) for consistent comparison.
+   * 
+   * @param {Object} message - Discord message object (from discord.js)
+   * @param {Object} message.author - Message author object
+   * @param {string} message.author.id - Discord user ID
+   * @param {string} [message.author.username] - Discord username
+   * @param {string} [message.author.globalName] - Global display name
+   * @param {string} [message.author.displayName] - User's display name
+   * @param {Object} [message.member] - Guild member object (if in guild)
+   * @param {string} [message.member.nickname] - Server nickname
+   * @param {string} [message.webhookId] - Webhook ID (for bot messages)
+   * @returns {Array<string>} Array of normalized alias strings
+   * 
+   * @example
+   * // For webhook message from "Hero ⚔️"
+   * extractSpeakerAliases(msg)
+   * // Returns: ['webhook_id', 'hero ⚔️', 'hero', ...]
+   * 
+   * @example
+   * // For user message
+   * extractSpeakerAliases(msg)
+   * // Returns: ['user_id', 'username', 'displayname', 'nickname', ...]
+   */
   extractSpeakerAliases(message) {
     const aliases = new Set();
     if (!message) return aliases;
@@ -495,6 +593,34 @@ export class ResponseCoordinator {
     return Array.from(aliases);
   }
 
+  /**
+   * Generate all possible identifier aliases for an avatar for matching purposes.
+   * Includes avatar ID, name, display name, emoji combinations, and custom aliases.
+   * All values are normalized for case-insensitive comparison.
+   * 
+   * @param {Object} avatar - Avatar object from database
+   * @param {string|ObjectId} avatar._id - MongoDB ObjectId
+   * @param {string} [avatar.id] - Alternative ID field
+   * @param {string} avatar.name - Avatar name
+   * @param {string} [avatar.emoji] - Avatar emoji (e.g., '⚔️', '🔥')
+   * @param {string} [avatar.displayName] - Display name if different from name
+   * @param {Array<string>} [avatar.aliases] - Custom aliases array
+   * @returns {Array<string>} Array of normalized alias strings
+   * 
+   * @example
+   * getAvatarAliases({ 
+   *   _id: '507f1f77bcf86cd799439011',
+   *   name: 'Fire Dragon',
+   *   emoji: '🔥',
+   *   aliases: ['Pyro', 'Inferno']
+   * })
+   * // Returns: ['507f1f77bcf86cd799439011', 'fire dragon', 'firedragon', 
+   * //           'fire dragon🔥', '🔥fire dragon', 'pyro', 'inferno', ...]
+   * 
+   * @performance
+   * Typical return: 5-10 aliases per avatar
+   * Used frequently in ambient speaker filtering
+   */
   getAvatarAliases(avatar) {
     const aliases = new Set();
     if (!avatar) return Array.from(aliases);
@@ -595,23 +721,42 @@ export class ResponseCoordinator {
 
   /**
    * Get recent speakers in a channel (improved diversity checking)
+   * Uses in-memory cache to reduce Discord API calls
    * @param {Object} channel - Discord channel object
    * @param {number} limit - Number of recent speakers to return
    * @returns {Promise<Array>} Array of recent messages from bot avatars
    */
   async getRecentChannelSpeakers(channel, limit = 3) {
     try {
+      this.cacheStats.totalRequests++;
+      
+      // Check cache first
+      const cached = this.recentSpeakersCache.get(channel.id);
+      if (cached && Date.now() - cached.at < this.SPEAKER_CACHE_TTL) {
+        this.cacheStats.hits++;
+        this.logger.debug?.(`[ResponseCoordinator] Using cached speakers for ${channel.id} (hit rate: ${this.getCacheHitRate().toFixed(1)}%)`);
+        return cached.speakers.slice(0, limit);
+      }
+      
+      this.cacheStats.misses++;
+      
       const messages = await channel.messages.fetch({ limit: 20 });
       const botMessages = [];
       
-      // Find recent bot messages (avatar speech)
+      // Find recent bot messages (avatar speech) - cache more than we need
       for (const msg of messages.values()) {
-        if ((msg.author.bot || msg.webhookId) && botMessages.length < limit) {
+        if ((msg.author.bot || msg.webhookId) && botMessages.length < 10) {
           botMessages.push(msg);
         }
       }
       
-      return botMessages;
+      // Update cache
+      this.recentSpeakersCache.set(channel.id, { 
+        speakers: botMessages, 
+        at: Date.now() 
+      });
+      
+      return botMessages.slice(0, limit);
     } catch (e) {
       this.logger.warn?.(`[ResponseCoordinator] getRecentChannelSpeakers error: ${e.message}`);
       return [];
@@ -633,6 +778,63 @@ export class ResponseCoordinator {
     } catch (e) {
       this.logger.warn?.(`[ResponseCoordinator] Lock cleanup error: ${e.message}`);
     }
+  }
+
+  /**
+   * Clean up expired speaker cache entries to prevent memory growth
+   */
+  cleanupExpiredSpeakerCache() {
+    const now = Date.now();
+    let removed = 0;
+    
+    for (const [channelId, cached] of this.recentSpeakersCache.entries()) {
+      if (now - cached.at > this.SPEAKER_CACHE_TTL) {
+        this.recentSpeakersCache.delete(channelId);
+        removed++;
+      }
+    }
+    
+    if (removed > 0) {
+      this.logger.debug?.(`[ResponseCoordinator] Cleaned ${removed} expired speaker cache entries`);
+    }
+    
+    return removed;
+  }
+
+  /**
+   * Get cache hit rate as a percentage
+   * @returns {number} Hit rate percentage (0-100)
+   */
+  getCacheHitRate() {
+    if (this.cacheStats.totalRequests === 0) return 0;
+    return (this.cacheStats.hits / this.cacheStats.totalRequests) * 100;
+  }
+
+  /**
+   * Get detailed cache statistics for monitoring
+   * @returns {Object} Cache statistics
+   */
+  getCacheStats() {
+    return {
+      ...this.cacheStats,
+      hitRate: this.getCacheHitRate(),
+      cacheSize: this.recentSpeakersCache.size,
+      uptime: Date.now() - this.cacheStats.lastReset
+    };
+  }
+
+  /**
+   * Reset cache statistics (useful for monitoring windows)
+   */
+  resetCacheStats() {
+    const oldStats = { ...this.cacheStats };
+    this.cacheStats = {
+      hits: 0,
+      misses: 0,
+      totalRequests: 0,
+      lastReset: Date.now()
+    };
+    return oldStats;
   }
 
   /**
@@ -735,6 +937,13 @@ export class ResponseCoordinator {
         5 * 60 * 1000
       );
     }
+
+    // Clean up expired speaker cache every 2 minutes
+    schedulingService.addTask(
+      'speaker-cache-cleanup',
+      () => this.cleanupExpiredSpeakerCache(),
+      2 * 60 * 1000
+    );
 
     this.logger.info('[ResponseCoordinator] Maintenance tasks started');
   }
