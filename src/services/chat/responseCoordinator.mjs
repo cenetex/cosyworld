@@ -312,7 +312,20 @@ export class ResponseCoordinator {
         return [fallback.avatar];
       }
       
-      this.logger.debug?.(`[ResponseCoordinator] No eligible avatars for ambient response`);
+      // Lower threshold fallback for edge cases (score > 0.3)
+      if (ranked.length > 0 && ranked[0].score > 0.3) {
+        const fallback = ranked[0];
+        const avatarAliases = this.getAvatarAliases(fallback.avatar);
+        const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
+
+        // Don't allow the immediate last speaker
+        if (!wasLastSpeaker) {
+          this.logger.info?.(`[ResponseCoordinator] Ambient low-score fallback: ${fallback.avatar.name} (score: ${fallback.score.toFixed(2)})`);
+          return [fallback.avatar];
+        }
+      }
+      
+      this.logger.warn?.(`[ResponseCoordinator] No eligible avatars for ambient (${ranked.length} total, best score: ${ranked[0]?.score?.toFixed(2) || 'N/A'})`);
       return [];
     }
 
@@ -408,9 +421,21 @@ export class ResponseCoordinator {
   async rankByPresence(channelId, avatars) {
     try {
       const c = await this.presenceService.col();
+      // Optimized query with projection - only fetch fields needed for scoring
       const presenceDocs = await c.find({
         channelId,
         avatarId: { $in: avatars.map(av => `${av._id || av.id}`) }
+      }, {
+        projection: {
+          avatarId: 1,
+          lastTurnAt: 1,
+          lastSummonedAt: 1,
+          lastMentionedAt: 1,
+          state: 1,
+          topicTags: 1,
+          priorityPins: 1,
+          fatigue: 1
+        }
       }).toArray();
 
       const ranked = [];
@@ -701,6 +726,15 @@ export class ResponseCoordinator {
       () => this.cleanupExpiredLocks(),
       60 * 1000
     );
+
+    // Clean up expired affinity records every 5 minutes
+    if (this.decisionMaker?.cleanupExpiredAffinity) {
+      schedulingService.addTask(
+        'decision-maker-affinity-cleanup',
+        () => this.decisionMaker.cleanupExpiredAffinity(),
+        5 * 60 * 1000
+      );
+    }
 
     this.logger.info('[ResponseCoordinator] Maintenance tasks started');
   }

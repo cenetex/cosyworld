@@ -434,4 +434,27 @@ export class DecisionMaker  {
     this.currentMode = this.mindModes[Math.floor(Math.random() * this.mindModes.length)];
   }
 
+  /**
+   * Clean up expired affinity records to prevent memory leaks.
+   * Should be called periodically (e.g., every 5 minutes).
+   * @returns {number} Number of records removed
+   */
+  cleanupExpiredAffinity() {
+    const now = Date.now();
+    let removed = 0;
+    
+    for (const [key, rec] of this.userAffinity.entries()) {
+      if (now > rec.until) {
+        this.userAffinity.delete(key);
+        removed++;
+      }
+    }
+    
+    if (removed > 0) {
+      this.logger.debug?.(`[DecisionMaker] Cleaned ${removed} expired affinity records`);
+    }
+    
+    return removed;
+  }
+
 }

@@ -173,50 +173,6 @@ export class TurnScheduler {
     }
   }
 
-  /**
-   * New coordinated channel tick using ResponseCoordinator
-   */
-  async onChannelTickWithCoordinator(channelId, budgetAllowed = Infinity) {
-    try {
-      let guildId = null;
-      try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
-      catch (e) {
-        const msg = String(e?.message || '').toLowerCase();
-        if (msg.includes('missing access') || msg.includes('unknown channel')) return 0;
-        this.logger.warn?.(`[TurnScheduler] getGuildByChannelId failed for ${channelId}: ${e.message}`);
-        return 0;
-      }
-
-      const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
-      for (const av of avatars) {
-        await this.presenceService.ensurePresence(channelId, `${av._id}`);
-      }
-
-      let channel = this.discordService.client.channels.cache.get(channelId);
-      if (!channel && this.discordService.client.channels?.fetch) {
-        try { channel = await this.discordService.client.channels.fetch(channelId); }
-        catch (e) {
-          const m = String(e?.message || '').toLowerCase();
-          if (m.includes('missing access') || m.includes('unknown channel')) return 0;
-        }
-      }
-      if (!channel) return 0;
-
-      // Use coordinator with ambient context
-      const responses = await this.responseCoordinator.coordinateResponse(channel, null, {
-        triggerType: 'ambient',
-        guildId,
-        avatars,
-        budgetAllowed
-      });
-
-      return responses.length;
-    } catch (e) {
-      this.logger.warn(`[TurnScheduler] onChannelTickWithCoordinator failed for ${channelId}: ${e.message}`);
-      return 0;
-    }
-  }
-
   async onHumanMessage(channelId, message) {
     // Start suppression window for ambient chatter
     this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
