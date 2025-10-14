@@ -259,31 +259,30 @@ export class ResponseCoordinator {
     if (trigger.type === 'ambient') {
       // Get last 3 speakers in channel to avoid consecutive ambient responses from same avatar
       const recentSpeakers = await this.getRecentChannelSpeakers(channel, 3);
-      const recentSpeakerIds = recentSpeakers.map(msg => {
-        const speakerId = msg.author.id || msg.author.username;
-        return `${speakerId}`;
-      });
-      
+      const recentSpeakerAliases = new Set();
+      for (const msg of recentSpeakers) {
+        for (const alias of this.extractSpeakerAliases(msg)) {
+          recentSpeakerAliases.add(alias);
+        }
+      }
+
+      const lastSpeakerAliasSet = recentSpeakers.length > 0 ? new Set(this.extractSpeakerAliases(recentSpeakers[0])) : new Set();
+
       this.logger.debug?.(`[ResponseCoordinator] Recent speakers: ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
       
       // Filter out avatars who spoke in the last 3 messages (creates natural back-and-forth)
       const eligibleForAmbient = ranked.filter(r => {
-        const avatarId = `${r.avatar._id || r.avatar.id}`;
-        const avatarName = r.avatar.name;
-        
-        // Skip if this avatar was one of the recent speakers
-        const wasRecentSpeaker = recentSpeakerIds.some(speakerId => 
-          speakerId === avatarId || speakerId === avatarName
-        );
+        const avatarAliases = this.getAvatarAliases(r.avatar);
+        const wasRecentSpeaker = avatarAliases.some(alias => recentSpeakerAliases.has(alias));
         
         if (wasRecentSpeaker) {
-          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - was recent speaker (ambient diversity)`);
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - was recent speaker (ambient diversity)`);
           return false;
         }
         
         // Skip if on cooldown
         if (this.presenceService.cooldownActive(r.presenceDoc)) {
-          this.logger.debug?.(`[ResponseCoordinator] Skipping ${avatarName} - on cooldown`);
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - on cooldown`);
           return false;
         }
         
@@ -300,17 +299,16 @@ export class ResponseCoordinator {
       // AND they weren't the very last speaker (most recent message)
       if (ranked.length > 0 && ranked[0].score > 0.5) {
         const fallback = ranked[0];
-        const avatarId = `${fallback.avatar._id || fallback.avatar.id}`;
-        const avatarName = fallback.avatar.name;
-        
+        const avatarAliases = this.getAvatarAliases(fallback.avatar);
+        const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
+
         // Don't allow the immediate last speaker
-        const lastSpeakerId = recentSpeakerIds.length > 0 ? recentSpeakerIds[0] : null;
-        if (lastSpeakerId && (lastSpeakerId === avatarId || lastSpeakerId === avatarName)) {
+        if (wasLastSpeaker) {
           this.logger.debug?.(`[ResponseCoordinator] No ambient response - would repeat last speaker`);
           return [];
         }
         
-        this.logger.warn?.(`[ResponseCoordinator] Ambient fallback: ${avatarName} (score: ${fallback.score.toFixed(2)})`);
+        this.logger.warn?.(`[ResponseCoordinator] Ambient fallback: ${fallback.avatar.name} (score: ${fallback.score.toFixed(2)})`);
         return [fallback.avatar];
       }
       
@@ -431,6 +429,74 @@ export class ResponseCoordinator {
       this.logger.warn?.(`[ResponseCoordinator] rankByPresence error: ${e.message}`);
       return avatars.map(av => ({ avatar: av, presenceDoc: null, score: 0 }));
     }
+  }
+
+  normalizeAlias(value) {
+    if (!value && value !== 0) return '';
+    return String(value).trim().toLowerCase();
+  }
+
+  stripEmojis(value) {
+    if (!value && value !== 0) return '';
+    const str = String(value);
+    try {
+      return str.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
+    } catch {
+      // Fallback range for environments without Unicode property escapes
+      return str.replace(/[\u{1F300}-\u{1FAFF}]/gu, '').replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  extractSpeakerAliases(message) {
+    const aliases = new Set();
+    if (!message) return aliases;
+
+    const add = (val) => {
+      const normalized = this.normalizeAlias(val);
+      if (normalized) aliases.add(normalized);
+    };
+
+    const author = message.author || {};
+    add(author.id);
+    add(author.username);
+    add(author.globalName);
+    add(author.displayName);
+    add(this.stripEmojis(author.username));
+    add(this.stripEmojis(author.globalName));
+    add(message.member?.nickname);
+    add(this.stripEmojis(message.member?.nickname));
+    add(message.webhookId);
+
+    return Array.from(aliases);
+  }
+
+  getAvatarAliases(avatar) {
+    const aliases = new Set();
+    if (!avatar) return Array.from(aliases);
+
+    const add = (val) => {
+      const normalized = this.normalizeAlias(val);
+      if (normalized) aliases.add(normalized);
+    };
+
+    const id = avatar._id || avatar.id;
+    add(id);
+    add(avatar.name);
+    add(this.stripEmojis(avatar.name));
+    if (avatar.emoji) {
+      add(`${avatar.name || ''}${avatar.emoji}`);
+      add(`${avatar.emoji}${avatar.name || ''}`);
+    }
+    add(avatar.displayName);
+    add(this.stripEmojis(avatar.displayName));
+    if (Array.isArray(avatar.aliases)) {
+      for (const alias of avatar.aliases) {
+        add(alias);
+        add(this.stripEmojis(alias));
+      }
+    }
+
+    return Array.from(aliases);
   }
 
   /**
