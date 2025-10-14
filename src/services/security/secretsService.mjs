@@ -80,7 +80,9 @@ export class SecretsService {
   encrypt(plain) {
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', this.key, iv);
-    const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+    // Stringify objects/arrays, convert primitives to string
+    const stringValue = typeof plain === 'object' ? JSON.stringify(plain) : String(plain);
+    const enc = Buffer.concat([cipher.update(stringValue, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, enc]).toString('base64'); // [IV(12)|TAG(16)|DATA]
   }
@@ -93,7 +95,12 @@ export class SecretsService {
     const decipher = crypto.createDecipheriv('aes-256-gcm', this.key, iv);
     decipher.setAuthTag(tag);
     const dec = Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
-    return dec;
+    // Try to parse as JSON, otherwise return as string
+    try {
+      return JSON.parse(dec);
+    } catch {
+      return dec;
+    }
   }
 
   _ck(name, scope = 'global', guildId = null) {
@@ -112,6 +119,7 @@ export class SecretsService {
     const scope = guildId ? 'guild' : 'global';
     const enc = this.encrypt(value);
     this.cache.set(this._ck(name, scope, guildId), enc);
+    this.logger.info(`[secrets] set() called for key="${name}", scope="${scope}", cached=true, hasCollection=${!!this.collection}`);
     // Persist if DB bound
     if (this.collection) {
       const filter = { key: name, scope, guildId: guildId || null };
@@ -119,8 +127,15 @@ export class SecretsService {
         filter,
         { $set: { key: name, scope, guildId: guildId || null, value: enc, updatedAt: new Date() } },
         { upsert: true }
-      ).then(() => true).catch((e) => { this.logger.error('[secrets] set persist failed:', e.message); return false; });
+      ).then(() => {
+        this.logger.info(`[secrets] set() persisted to DB for key="${name}"`);
+        return true;
+      }).catch((e) => { 
+        this.logger.error('[secrets] set persist failed:', e.message); 
+        return false; 
+      });
     }
+    this.logger.warn(`[secrets] set() for key="${name}" - no collection bound, only cached!`);
     return true;
   }
 
@@ -136,6 +151,7 @@ export class SecretsService {
   }
 
   async getAsync(name, { envFallback = true, guildId = null } = {}) {
+    this.logger.info(`[secrets] getAsync() called for key="${name}", guildId=${guildId}, hasCollection=${!!this.collection}`);
     // Prefer guild override
     let enc = this.cache.get(this._ck(name, 'guild', guildId));
     if (!enc && this.collection && guildId) {
@@ -144,6 +160,7 @@ export class SecretsService {
         if (doc?.value) {
           enc = doc.value;
           this.cache.set(this._ck(name, 'guild', guildId), enc);
+          this.logger.info(`[secrets] getAsync() loaded guild secret from DB for key="${name}"`);
         }
       } catch (e) {
         this.logger.error('[secrets] getAsync guild query failed:', e.message);
@@ -152,12 +169,16 @@ export class SecretsService {
     // Fallback to global
     if (!enc) {
       enc = this.cache.get(this._ck(name, 'global'));
+      this.logger.info(`[secrets] getAsync() cache check for key="${name}": ${enc ? 'FOUND' : 'NOT FOUND'}`);
       if (!enc && this.collection) {
+        this.logger.info(`[secrets] getAsync() querying DB for key="${name}"`);
         try {
           const doc = await this.collection.findOne({ key: name, $or: [{ scope: 'global' }, { scope: { $exists: false } }] });
+          this.logger.info(`[secrets] getAsync() DB query result for key="${name}": ${doc ? 'FOUND' : 'NOT FOUND'}`);
           if (doc?.value) {
             enc = doc.value;
             this.cache.set(this._ck(name, 'global'), enc);
+            this.logger.info(`[secrets] getAsync() loaded global secret from DB for key="${name}"`);
           }
         } catch (e) {
           this.logger.error('[secrets] getAsync global query failed:', e.message);
@@ -165,7 +186,11 @@ export class SecretsService {
       }
     }
     if (enc) {
-      try { return this.decrypt(enc); } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
+      try { 
+        const decrypted = this.decrypt(enc);
+        this.logger.info(`[secrets] getAsync() returning decrypted value for key="${name}"`);
+        return decrypted;
+      } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
     }
     if (envFallback) return process.env[name];
     return undefined;

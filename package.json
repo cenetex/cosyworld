@@ -77,7 +77,7 @@
     "globby": "^14.1.0",
     "js-sha3": "^0.9.3",
     "mongodb": "^6.11.0",
-    "multer": "^1.4.5-lts.2",
+    "multer": "^1.4.7",
     "node-cache": "^5.1.2",
     "ollama": "^0.5.9",
     "openai": "^4.73.0",

@@ -13,19 +13,106 @@ let configData = {
 };
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  generateKey();
+document.addEventListener('DOMContentLoaded', async () => {
   updateProgress();
   
-  // Check current configuration status
-  fetch('/api/wizard/status')
-    .then(r => r.json())
-    .then(data => {
-      if (data.configured) {
-        showAlert('step1', 'success', 'Application is already configured! You can proceed to update settings or start fresh.');
-      }
-    })
-    .catch(err => console.error('Status check failed:', err));
+  // Load existing configuration from server
+  try {
+    const response = await fetch('/api/wizard/config');
+    const existingConfig = await response.json();
+    
+    // Map server config to wizard configData structure
+    configData = {
+      encryption: {
+        key: existingConfig.encryption?.hasKey ? '' : '' // Will be populated or generated
+      },
+      mongo: {
+        uri: '', // Will be populated if exists
+        dbName: existingConfig.mongo?.dbName || 'cosyworld8'
+      },
+      discord: {
+        botToken: '',
+        clientId: existingConfig.discord?.clientId || ''
+      },
+      ai: {
+        service: existingConfig.ai?.service || 'openrouter',
+        openrouter: {
+          apiKey: '',
+          model: existingConfig.ai?.openrouter?.model || 'google/gemini-2.5-pro'
+        },
+        google: {
+          apiKey: '',
+          model: existingConfig.ai?.google?.model || 'gemini-2.5-flash'
+        }
+      },
+      optional: {}
+    };
+    
+    // If encryption key doesn't exist, generate one
+    if (!existingConfig.encryption?.hasKey) {
+      await generateKey();
+    } else {
+      // Key exists but is masked, show placeholder and remove required
+      const encKeyField = document.getElementById('encryptionKey');
+      encKeyField.placeholder = 'Encryption key already configured';
+      encKeyField.setAttribute('data-existing', 'true');
+      encKeyField.removeAttribute('required');
+    }
+    
+    // Populate non-secret fields (like clientId, dbName, models)
+    if (existingConfig.mongo?.dbName) {
+      document.getElementById('mongoDbName').value = existingConfig.mongo.dbName;
+    }
+    if (existingConfig.discord?.clientId) {
+      document.getElementById('discordClientId').value = existingConfig.discord.clientId;
+    }
+    if (existingConfig.ai?.service) {
+      document.getElementById('aiService').value = existingConfig.ai.service;
+    }
+    if (existingConfig.ai?.openrouter?.model) {
+      document.getElementById('openrouterModel').value = existingConfig.ai.openrouter.model;
+    }
+    if (existingConfig.ai?.google?.model) {
+      document.getElementById('googleModel').value = existingConfig.ai.google.model;
+    }
+    
+    // For masked secrets, show placeholders to indicate they exist
+    // Also remove 'required' attribute to allow keeping existing values
+    if (existingConfig.mongo?.uri && existingConfig.mongo.configured) {
+      const mongoUriField = document.getElementById('mongoUri');
+      mongoUriField.placeholder = 'Already configured - leave empty to keep existing';
+      mongoUriField.setAttribute('data-existing', 'true');
+      mongoUriField.removeAttribute('required');
+    }
+    if (existingConfig.discord?.botToken && existingConfig.discord.configured) {
+      const discordTokenField = document.getElementById('discordBotToken');
+      discordTokenField.placeholder = 'Already configured - leave empty to keep existing';
+      discordTokenField.setAttribute('data-existing', 'true');
+      discordTokenField.removeAttribute('required');
+    }
+    if (existingConfig.ai?.openrouter?.apiKey && existingConfig.ai.openrouter.configured) {
+      const openrouterKeyField = document.getElementById('openrouterApiKey');
+      openrouterKeyField.placeholder = 'Already configured - leave empty to keep existing';
+      openrouterKeyField.setAttribute('data-existing', 'true');
+      openrouterKeyField.removeAttribute('required');
+    }
+    if (existingConfig.ai?.google?.apiKey && existingConfig.ai.google.configured) {
+      const googleKeyField = document.getElementById('googleApiKey');
+      googleKeyField.placeholder = 'Already configured - leave empty to keep existing';
+      googleKeyField.setAttribute('data-existing', 'true');
+      googleKeyField.removeAttribute('required');
+    }
+    
+    // Show status message
+    const status = await fetch('/api/wizard/status').then(r => r.json());
+    if (status.configured) {
+      showAlert('step1', 'success', 'Application is already configured! Fields with existing values are marked. Leave them empty to keep current values.');
+    }
+  } catch (err) {
+    console.error('Failed to load existing config:', err);
+    // Fallback: generate new key if loading fails
+    await generateKey();
+  }
 });
 
 function updateProgress() {
@@ -64,23 +151,26 @@ async function validateAndNext(section) {
   
   switch (section) {
     case 'encryption':
+      const encKeyField = document.getElementById('encryptionKey');
       data = {
-        key: document.getElementById('encryptionKey').value
+        key: encKeyField.value || (encKeyField.getAttribute('data-existing') ? 'KEEP_EXISTING' : '')
       };
       configData.encryption = data;
       break;
       
     case 'mongo':
+      const mongoUriField = document.getElementById('mongoUri');
       data = {
-        uri: document.getElementById('mongoUri').value,
+        uri: mongoUriField.value || (mongoUriField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
         dbName: document.getElementById('mongoDbName').value
       };
       configData.mongo = data;
       break;
       
     case 'discord':
+      const discordTokenField = document.getElementById('discordBotToken');
       data = {
-        botToken: document.getElementById('discordBotToken').value,
+        botToken: discordTokenField.value || (discordTokenField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
         clientId: document.getElementById('discordClientId').value
       };
       configData.discord = data;
@@ -88,14 +178,17 @@ async function validateAndNext(section) {
       
     case 'ai':
       const service = document.getElementById('aiService').value;
+      const openrouterKeyField = document.getElementById('openrouterApiKey');
+      const googleKeyField = document.getElementById('googleApiKey');
+      
       data = {
         service: service,
         openrouter: {
-          apiKey: document.getElementById('openrouterApiKey').value,
+          apiKey: openrouterKeyField.value || (openrouterKeyField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
           model: document.getElementById('openrouterModel').value
         },
         google: {
-          apiKey: document.getElementById('googleApiKey').value,
+          apiKey: googleKeyField.value || (googleKeyField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
           model: document.getElementById('googleModel').value
         }
       };

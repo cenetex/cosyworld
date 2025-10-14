@@ -100,6 +100,7 @@ import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
+import { XService } from './services/social/xService.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
@@ -385,6 +386,7 @@ async function initializeContainer() {
   container.register({
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
+    xService: asClass(XService).singleton(),
     toolService: asClass(ToolService).singleton(),
     toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),
     toolDecisionService: asClass(ToolDecisionService).singleton(),

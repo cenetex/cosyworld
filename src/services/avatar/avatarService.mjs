@@ -666,7 +666,19 @@ export class AvatarService {
             if (admin) {
               const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
               // Emit unified event (global posting pipeline may consume)
-              try { eventBus.emit('MEDIA.IMAGE.GENERATED', { type: 'image', source: 'avatar.create', avatarId: insertedId, imageUrl: doc.imageUrl, prompt: doc.description, createdAt: new Date() }); } catch {}
+              try { 
+                eventBus.emit('MEDIA.IMAGE.GENERATED', { 
+                  type: 'image', 
+                  source: 'avatar.create', 
+                  avatarId: insertedId, 
+                  imageUrl: doc.imageUrl, 
+                  prompt: doc.description, 
+                  avatarName: doc.name,
+                  avatarEmoji: doc.emoji,
+                  context: content, // Pre-formatted introduction text
+                  createdAt: new Date() 
+                }); 
+              } catch {}
               await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }

@@ -17,7 +17,16 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
       if (process.env.DEBUG_GLOBAL_X === '1') {
         logger?.info?.('[XGlobalAutoPoster][diag] image event payload', { keys: Object.keys(payload||{}) });
       }
-  await xService.postGlobalMediaUpdate({ mediaUrl: payload.imageUrl, type: 'image', guildId: payload.guildId || payload.serverId || null }, { aiService });
+      
+      // Pass through context from the event (e.g., avatar introduction, location description)
+      const text = payload.context || payload.prompt || null;
+      
+      await xService.postGlobalMediaUpdate({ 
+        mediaUrl: payload.imageUrl, 
+        type: 'image', 
+        text,
+        guildId: payload.guildId || payload.serverId || null 
+      }, { aiService });
     } catch (e) {
       logger?.warn?.(`[XGlobalAutoPoster] image post failed: ${e.message}`);
     }

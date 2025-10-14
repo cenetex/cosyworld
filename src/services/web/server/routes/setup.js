@@ -182,6 +182,23 @@ export default function createSetupRouter(services) {
         return res.status(401).json({ error: 'Invalid admin wallet signature' });
       }
 
+      // If an admin wallet is already registered and it's different, block completion
+      try {
+        const status = await setupStatusService.getSetupStatus();
+        // Prefer DB-registered admin wallet; fallback to secrets/env
+        const secretsAdmin = await secretsService.getAsync?.('ADMIN_WALLET').catch?.(() => undefined) || null;
+        const envAdmin = process.env.ADMIN_WALLET || null;
+        const knownAdmin = status.adminWallet || secretsAdmin || envAdmin || null;
+        if (knownAdmin && knownAdmin !== adminWallet) {
+          return res.status(403).json({ 
+            error: 'Setup is already registered to a different admin wallet. Please log in with the registered admin wallet to continue.',
+            code: 'ADMIN_WALLET_CONFLICT'
+          });
+        }
+      } catch (e) {
+        logger?.warn?.('[Setup API] Admin wallet pre-check failed:', e?.message || e);
+      }
+
       // Save configuration
       await saveConfiguration(config, secretsService, logger);
 
@@ -192,7 +209,9 @@ export default function createSetupRouter(services) {
 
       res.json({ 
         success: true, 
-        message: 'Configuration saved successfully. Please restart the application.' 
+        message: 'Configuration saved successfully! You can now use the application.',
+        requiresRestart: false,
+        redirectTo: '/admin'
       });
     } catch (error) {
       logger?.error?.('[Setup API] Setup completion failed:', error);
@@ -303,65 +322,65 @@ export default function createSetupRouter(services) {
 async function saveConfiguration(config, secretsService, logger) {
   // Build environment variables
   const envVars = {
-    // Core
-    ENCRYPTION_KEY: config.encryption?.key,
-    SERVER_SECRET_KEY: config.encryption?.serverKey || crypto.randomBytes(32).toString('hex'),
+    // Core - keep existing values if KEEP_EXISTING is specified
+    ENCRYPTION_KEY: config.encryption?.key === 'KEEP_EXISTING' ? process.env.ENCRYPTION_KEY : (config.encryption?.key || process.env.ENCRYPTION_KEY),
+    SERVER_SECRET_KEY: config.encryption?.serverKey === 'KEEP_EXISTING' ? process.env.SERVER_SECRET_KEY : (config.encryption?.serverKey || process.env.SERVER_SECRET_KEY || crypto.randomBytes(32).toString('hex')),
     
     // MongoDB
-    MONGO_URI: config.mongo?.uri,
+    MONGO_URI: config.mongo?.uri === 'KEEP_EXISTING' ? process.env.MONGO_URI : (config.mongo?.uri || process.env.MONGO_URI),
     MONGO_DB_NAME: config.mongo?.dbName || 'cosyworld8',
     
     // Discord
-    DISCORD_BOT_TOKEN: config.discord?.botToken,
-    DISCORD_CLIENT_ID: config.discord?.clientId,
+    DISCORD_BOT_TOKEN: config.discord?.botToken === 'KEEP_EXISTING' ? process.env.DISCORD_BOT_TOKEN : (config.discord?.botToken || process.env.DISCORD_BOT_TOKEN),
+    DISCORD_CLIENT_ID: config.discord?.clientId || process.env.DISCORD_CLIENT_ID,
     
     // AI Service
     AI_SERVICE: config.ai?.service || 'openrouter',
     
     // OpenRouter
-    ...(config.ai?.openrouter?.apiKey && {
-      OPENROUTER_API_KEY: config.ai.openrouter.apiKey,
-      OPENROUTER_MODEL: config.ai.openrouter.model || 'google/gemini-2.5-pro',
-      OPENROUTER_CHAT_MODEL: config.ai.openrouter.chatModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
-      OPENROUTER_VISION_MODEL: config.ai.openrouter.visionModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
-      OPENROUTER_STRUCTURED_MODEL: config.ai.openrouter.structuredModel || config.ai.openrouter.model || 'google/gemini-2.5-pro'
+    ...(((config.ai?.openrouter?.apiKey && config.ai.openrouter.apiKey !== 'KEEP_EXISTING') || (config.ai?.openrouter?.apiKey === 'KEEP_EXISTING' && process.env.OPENROUTER_API_KEY) || process.env.OPENROUTER_API_KEY) && {
+      OPENROUTER_API_KEY: config.ai?.openrouter?.apiKey === 'KEEP_EXISTING' ? process.env.OPENROUTER_API_KEY : (config.ai?.openrouter?.apiKey || process.env.OPENROUTER_API_KEY),
+      OPENROUTER_MODEL: config.ai?.openrouter?.model || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+      OPENROUTER_CHAT_MODEL: config.ai?.openrouter?.chatModel || config.ai?.openrouter?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+      OPENROUTER_VISION_MODEL: config.ai?.openrouter?.visionModel || config.ai?.openrouter?.model || process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
+      OPENROUTER_STRUCTURED_MODEL: config.ai?.openrouter?.structuredModel || config.ai?.openrouter?.model || process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro'
     }),
     
     // Google AI
-    ...(config.ai?.google?.apiKey && {
-      GOOGLE_API_KEY: config.ai.google.apiKey,
-      GOOGLE_AI_MODEL: config.ai.google.model || 'gemini-2.5-flash'
+    ...(((config.ai?.google?.apiKey && config.ai.google.apiKey !== 'KEEP_EXISTING') || (config.ai?.google?.apiKey === 'KEEP_EXISTING' && (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY)) || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) && {
+      GOOGLE_API_KEY: config.ai?.google?.apiKey === 'KEEP_EXISTING' ? (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : (config.ai?.google?.apiKey || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY),
+      GOOGLE_AI_MODEL: config.ai?.google?.model || process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash'
     }),
     
     // Optional services
     ...(config.optional?.replicate?.apiToken && {
-      REPLICATE_API_TOKEN: config.optional.replicate.apiToken,
-      REPLICATE_MODEL: config.optional.replicate.model || ''
+      REPLICATE_API_TOKEN: config.optional.replicate.apiToken === 'KEEP_EXISTING' ? process.env.REPLICATE_API_TOKEN : config.optional.replicate.apiToken,
+      REPLICATE_MODEL: config.optional.replicate.model || process.env.REPLICATE_MODEL || ''
     }),
     
     ...(config.optional?.s3?.endpoint && {
       S3_API_ENDPOINT: config.optional.s3.endpoint,
-      S3_API_KEY: config.optional.s3.apiKey || '',
-      UPLOAD_API_BASE_URL: config.optional.s3.uploadBaseUrl || '',
-      CLOUDFRONT_DOMAIN: config.optional.s3.cloudfrontDomain || ''
+      S3_API_KEY: config.optional.s3.apiKey === 'KEEP_EXISTING' ? process.env.S3_API_KEY : (config.optional.s3.apiKey || process.env.S3_API_KEY || ''),
+      UPLOAD_API_BASE_URL: config.optional.s3.uploadBaseUrl || process.env.UPLOAD_API_BASE_URL || '',
+      CLOUDFRONT_DOMAIN: config.optional.s3.cloudfrontDomain || process.env.CLOUDFRONT_DOMAIN || ''
     }),
     
     ...(config.optional?.twitter?.clientId && {
       X_CLIENT_ID: config.optional.twitter.clientId,
-      X_CLIENT_SECRET: config.optional.twitter.clientSecret || '',
-      X_CALLBACK_URL: config.optional.twitter.callbackUrl || 'http://localhost:3000/api/xauth/callback'
+      X_CLIENT_SECRET: config.optional.twitter.clientSecret === 'KEEP_EXISTING' ? process.env.X_CLIENT_SECRET : (config.optional.twitter.clientSecret || process.env.X_CLIENT_SECRET || ''),
+      X_CALLBACK_URL: config.optional.twitter.callbackUrl || process.env.X_CALLBACK_URL || 'http://localhost:3000/api/xauth/callback'
     }),
     
     ...(config.optional?.helius?.apiKey && {
-      HELIUS_API_KEY: config.optional.helius.apiKey,
+      HELIUS_API_KEY: config.optional.helius.apiKey === 'KEEP_EXISTING' ? process.env.HELIUS_API_KEY : config.optional.helius.apiKey,
       NFT_API_PROVIDER: 'helius',
       NFT_CHAIN: 'solana'
     }),
     
     // App settings
     NODE_ENV: config.nodeEnv || process.env.NODE_ENV || 'production',
-    BASE_URL: config.baseUrl || 'http://localhost:3000',
-    PUBLIC_URL: config.publicUrl || config.baseUrl || 'http://localhost:3000'
+    BASE_URL: config.baseUrl || process.env.BASE_URL || 'http://localhost:3000',
+    PUBLIC_URL: config.publicUrl || config.baseUrl || process.env.PUBLIC_URL || 'http://localhost:3000'
   };
 
   // Save to secrets service

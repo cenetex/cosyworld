@@ -74,6 +74,7 @@ function init() {
   // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
   // wireGlobalXToggle removed (global X posting page & toggle deprecated)
   wireAdminX();
+  wireOAuth1Form();
 }
 
 // Wait for both DOM ready and admin bootstrap readiness (so window.AdminAPI is present)
@@ -294,5 +295,129 @@ function wireGlobalXToggle() {
   });
 
   load();
+}
+
+function wireOAuth1Form() {
+  const toggleBtn = document.getElementById('oauth1-toggle');
+  const form = document.getElementById('oauth1-form');
+  const saveBtn = document.getElementById('oauth1-save');
+  const testBtn = document.getElementById('oauth1-test');
+  const status = document.getElementById('oauth1-status');
+  
+  const apiKeyInput = document.getElementById('oauth1-api-key');
+  const apiSecretInput = document.getElementById('oauth1-api-secret');
+  const accessTokenInput = document.getElementById('oauth1-access-token');
+  const accessTokenSecretInput = document.getElementById('oauth1-access-token-secret');
+  
+  function showStatus(msg, type = 'info') {
+    if (!status) return;
+    status.textContent = msg;
+    status.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-blue-600');
+    if (type === 'success') status.classList.add('text-green-600');
+    else if (type === 'error') status.classList.add('text-red-600');
+    else status.classList.add('text-blue-600');
+  }
+  
+  // Toggle form visibility
+  toggleBtn?.addEventListener('click', () => {
+    const isHidden = form?.classList.contains('hidden');
+    if (isHidden) {
+      form?.classList.remove('hidden');
+      toggleBtn.textContent = 'Hide';
+      loadCredentials();
+    } else {
+      form?.classList.add('hidden');
+      toggleBtn.textContent = 'Show';
+    }
+  });
+  
+  // Load existing credentials
+  async function loadCredentials() {
+    try {
+      const res = await fetch('/api/admin/x-oauth1');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.apiKey) apiKeyInput.value = data.apiKey;
+      if (data.accessToken) accessTokenInput.value = data.accessToken;
+      // Secrets are not returned for security, show placeholder
+      if (data.hasApiSecret) apiSecretInput.placeholder = '••••••••••••';
+      if (data.hasAccessTokenSecret) accessTokenSecretInput.placeholder = '••••••••••••';
+      showStatus('Credentials loaded', 'success');
+    } catch (e) {
+      showStatus('Failed to load credentials: ' + e.message, 'error');
+    }
+  }
+  
+  // Save credentials
+  saveBtn?.addEventListener('click', async () => {
+    try {
+      saveBtn.disabled = true;
+      showStatus('Saving...', 'info');
+      
+      const payload = {
+        apiKey: apiKeyInput?.value?.trim() || '',
+        apiSecret: apiSecretInput?.value?.trim() || '',
+        accessToken: accessTokenInput?.value?.trim() || '',
+        accessTokenSecret: accessTokenSecretInput?.value?.trim() || '',
+      };
+      
+      console.log('[OAuth1] Saving credentials:', {
+        hasApiKey: !!payload.apiKey,
+        hasApiSecret: !!payload.apiSecret,
+        hasAccessToken: !!payload.accessToken,
+        hasAccessTokenSecret: !!payload.accessTokenSecret,
+        apiKeyPreview: payload.apiKey?.substring(0, 10) + '...',
+        accessTokenPreview: payload.accessToken?.substring(0, 10) + '...'
+      });
+      
+      const headers = await signWriteHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      const res = await fetch('/api/admin/x-oauth1', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      
+      const responseData = await res.json();
+      console.log('[OAuth1] Save response:', responseData);
+      
+      if (!res.ok) {
+        throw new Error(responseData.error || `HTTP ${res.status}`);
+      }
+      
+      showStatus('Credentials saved successfully!', 'success');
+      // Clear password fields for security
+      if (apiSecretInput.value) apiSecretInput.value = '';
+      if (accessTokenSecretInput.value) accessTokenSecretInput.value = '';
+      await loadCredentials();
+    } catch (e) {
+      showStatus('Save failed: ' + e.message, 'error');
+      console.error('[OAuth1] Save error:', e);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+  
+  // Test upload
+  testBtn?.addEventListener('click', async () => {
+    try {
+      testBtn.disabled = true;
+      showStatus('Testing upload...', 'info');
+      
+      const res = await fetch('/api/admin/x-oauth1/test');
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      
+      showStatus(`Test successful! ${data.message || 'Upload works'}`, 'success');
+    } catch (e) {
+      showStatus('Test failed: ' + e.message, 'error');
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
 }
 

@@ -68,22 +68,17 @@ async function initializeApp(services) {
         }
       }
       
-      // For root /admin path, check setup status first
-      if (p === '/' || p === '') {
-        try {
-          const setupStatus = await services.setupStatusService.getSetupStatus();
-          const missing = await services.setupStatusService.getMissingConfiguration();
-          if (!setupStatus.setupComplete || missing.length > 0) {
-            return res.redirect('/admin/setup');
-          }
-        } catch (e) {
-          logger?.error?.('[Admin Auth] Setup status check failed:', e);
-        }
+      // Check authentication first
+      if (!req.user) {
+        if (req.accepts('html')) return res.redirect('/admin/login');
+        return res.status(401).json({ error: 'Unauthorized' });
       }
       
-      if (req.user) return next();
-      if (req.accepts('html')) return res.redirect('/admin/login');
-      return res.status(401).json({ error: 'Unauthorized' });
+      // Defer root-path setup decisions to the /admin route handler
+      // (so we can implement login-first if setup is incomplete)
+
+      // User is authenticated and setup is complete (or not root path)
+      next();
     });
 
     // Static files (optional, only if needed)
@@ -149,8 +144,14 @@ async function initializeApp(services) {
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
   // /api/admin/video-jobs removed: inline video generation active
-  // Admin API: allow reads with session; require signed message for writes
-  app.use('/api/admin', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.js')).default(db, services));
+  // Admin API: allow reads (GET) with session; require signed message for writes (POST/PUT/PATCH/DELETE)
+  app.use('/api/admin', ensureAdmin, validateCsrf, (req, res, next) => {
+    const method = (req.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      return adminWriteRateLimit(req, res, () => requireSignedWrite(req, res, next));
+    }
+    next();
+  }, (await import('./routes/admin.js')).default(db, services));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
@@ -185,18 +186,16 @@ async function initializeApp(services) {
 
     // Admin pages (serve clean URLs for static admin HTML)
     app.get('/admin/login', async (req, res, next) => {
-      // Check if setup is complete first
+      // Do not block login with setup status. Login must always be available.
       try {
-        const setupStatus = await services.setupStatusService.getSetupStatus();
-        const missing = await services.setupStatusService.getMissingConfiguration();
-        if (!setupStatus.setupComplete || missing.length > 0) {
-          return res.redirect('/admin/setup');
+        if (req.user) {
+          // If already authenticated, go to admin root (which will handle setup redirect if needed)
+          return res.redirect('/admin');
         }
       } catch (e) {
-        logger?.error?.('[Admin] Setup check failed:', e);
+        logger?.error?.('[Admin] Login route error:', e);
       }
-      
-      if (req.user) return res.redirect('/admin');
+
       res.sendFile(path.join(staticDir, 'admin', 'login.html'), (err) => {
         if (err) next(err);
       });
@@ -207,26 +206,36 @@ async function initializeApp(services) {
       });
     });
     app.get('/admin', async (req, res, next) => {
-      // Check if setup is complete first, before requiring authentication
       try {
         const setupStatus = await services.setupStatusService.getSetupStatus();
-        const missing = await services.setupStatusService.getMissingConfiguration();
-        if (!setupStatus.setupComplete || missing.length > 0) {
+
+        // If setup isn't complete, require a fresh login first, then go to setup
+        if (!setupStatus.setupComplete) {
+          if (!req.user) {
+            if (req.accepts('html')) return res.redirect('/admin/login');
+            return res.status(401).json({ error: 'Unauthorized' });
+          }
+          // Logged-in user, take them to setup to register admin wallet
           return res.redirect('/admin/setup');
         }
+
+        // Setup complete path: now require authentication to view admin UI
+        if (!req.user) {
+          if (req.accepts('html')) return res.redirect('/admin/login');
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        res.sendFile(path.join(staticDir, 'admin', 'index.html'), (err) => {
+          if (err) next(err);
+        });
       } catch (e) {
         logger?.error?.('[Admin] Setup check failed:', e);
+        if (!req.user) {
+          if (req.accepts('html')) return res.redirect('/admin/login');
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+        return res.redirect('/admin/setup');
       }
-      
-      // Setup is complete, now require authentication
-      if (!req.user) {
-        if (req.accepts('html')) return res.redirect('/admin/login');
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      
-      res.sendFile(path.join(staticDir, 'admin', 'index.html'), (err) => {
-        if (err) next(err);
-      });
     });
     app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
       // Consolidated into /admin/settings

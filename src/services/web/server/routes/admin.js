@@ -823,23 +823,22 @@ Hello ${avatar.name}, what's on your mind today?
   router.get('/x-posting/config', asyncHandler(async (req, res) => {
     try {
       const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
-      // Attempt to resolve the implied global X account & include cached profile for UI convenience
-      let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
-      if (!auth) {
-        auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
-      }
+      // Resolve the admin's X auth record ONLY - never return a random user's account
+      const adminId = (process.env.ADMIN_AVATAR_ID || 'model:' + ((process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default').toLowerCase().replace(/[^a-z0-9_-]+/g, '_')));
+      let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { sort: { updatedAt: -1 } });
+      
       let profile = auth?.profile || null;
       // If profile missing or stale (older than 6h) attempt refresh via service (best-effort)
       const sixHrs = 6 * 60 * 60 * 1000;
       const force = req.query.force === '1';
       const stale = !profile || !profile.cachedAt || (Date.now() - new Date(profile.cachedAt).getTime()) > sixHrs;
-      if ((stale || force) && services.xService?.fetchAndCacheGlobalProfile) {
+      if ((stale || force) && auth && services.xService?.fetchAndCacheGlobalProfile) {
         try { profile = await services.xService.fetchAndCacheGlobalProfile(force); } catch {}
       }
       res.json({
         config: cfg || { enabled: false, mode: 'live' },
         profile: profile || null,
-        resolvedAccount: auth ? { avatarId: auth.avatarId || null, hasProfile: !!profile } : null,
+        resolvedAccount: auth ? { avatarId: auth.avatarId || adminId, hasProfile: !!profile, connected: !!auth.accessToken } : { avatarId: adminId, hasProfile: false, connected: false },
         refreshed: (stale || force) && !!profile
       });
     } catch (e) {
@@ -886,9 +885,10 @@ Hello ${avatar.name}, what's on your mind today?
     try {
       const metrics = services.xService.getGlobalPostingMetrics();
       const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
-      // Determine presence of a usable auth record (without exposing tokens)
-      let auth = await db.collection('x_auth').findOne({ global: true }, { projection: { accessToken: 0, refreshToken: 0 } });
-      if (!auth) auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { projection: { accessToken: 0, refreshToken: 0 } });
+      // Determine presence of a usable admin auth record ONLY (never return random user data)
+      const adminId = (process.env.ADMIN_AVATAR_ID || 'model:' + ((process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default').toLowerCase().replace(/[^a-z0-9_-]+/g, '_')));
+      let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { projection: { accessToken: 0, refreshToken: 0 } });
+      
       const envFlags = {
         X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED || undefined,
         X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP || undefined,
@@ -903,6 +903,87 @@ Hello ${avatar.name}, what's on your mind today?
 
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);
+
+  // OAuth 1.0a credentials management
+  router.get('/x-oauth1', asyncHandler(async (req, res) => {
+    const { secretsService } = services;
+    const creds = await secretsService.getAsync('x_oauth1_creds');
+    
+    if (!creds) {
+      return res.json({ hasCredentials: false });
+    }
+    
+    // Return non-secret fields and flags for secret fields
+    res.json({
+      apiKey: creds.apiKey || null,
+      hasApiSecret: !!creds.apiSecret,
+      accessToken: creds.accessToken || null,
+      hasAccessTokenSecret: !!creds.accessTokenSecret,
+      hasCredentials: true
+    });
+  }));
+
+  router.post('/x-oauth1', asyncHandler(async (req, res) => {
+    const { apiKey, apiSecret, accessToken, accessTokenSecret } = req.body;
+    const { secretsService } = services;
+    
+    console.log('[admin] Saving OAuth 1.0a credentials:', {
+      hasApiKey: !!apiKey,
+      hasApiSecret: !!apiSecret,
+      hasAccessToken: !!accessToken,
+      hasAccessTokenSecret: !!accessTokenSecret,
+      apiKeyLength: apiKey?.length,
+      apiSecretLength: apiSecret?.length,
+      accessTokenLength: accessToken?.length,
+      accessTokenSecretLength: accessTokenSecret?.length
+    });
+    
+    // Get existing credentials
+    const existing = await secretsService.getAsync('x_oauth1_creds') || {};
+    
+    // Update with new values (preserve existing if new value is null/undefined/empty)
+    const updated = {
+      apiKey: apiKey?.trim() || existing.apiKey || null,
+      apiSecret: apiSecret?.trim() || existing.apiSecret || null,
+      accessToken: accessToken?.trim() || existing.accessToken || null,
+      accessTokenSecret: accessTokenSecret?.trim() || existing.accessTokenSecret || null
+    };
+    
+    console.log('[admin] Updated credentials:', {
+      hasApiKey: !!updated.apiKey,
+      hasApiSecret: !!updated.apiSecret,
+      hasAccessToken: !!updated.accessToken,
+      hasAccessTokenSecret: !!updated.accessTokenSecret
+    });
+    
+    await secretsService.set('x_oauth1_creds', updated);
+    
+    res.json({ 
+      success: true,
+      message: 'OAuth 1.0a credentials saved',
+      saved: {
+        apiKey: !!updated.apiKey,
+        apiSecret: !!updated.apiSecret,
+        accessToken: !!updated.accessToken,
+        accessTokenSecret: !!updated.accessTokenSecret
+      }
+    });
+  }));
+
+  router.get('/x-oauth1/test', asyncHandler(async (req, res) => {
+    const { xService } = services;
+    
+    try {
+      // Test if credentials work by attempting to verify credentials
+      const result = await xService.testOAuth1Upload();
+      res.json({ success: true, message: result.message });
+    } catch (error) {
+      res.status(400).json({ 
+        success: false, 
+        error: error.message || 'Test failed'
+      });
+    }
+  }));
 
   const checkWhitelistStatus = async (guildId) => {
     try {

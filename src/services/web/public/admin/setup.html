@@ -652,28 +652,48 @@
           return false;
         }
       } else if (currentStep === 2) {
-        if (!document.getElementById('encryptionKey').value) {
+        const encKeyField = document.getElementById('encryptionKey');
+        const hasExisting = encKeyField.placeholder && encKeyField.placeholder.includes('Currently set');
+        if (!encKeyField.value && !hasExisting) {
           alert('Please generate an encryption key');
           return false;
         }
       } else if (currentStep === 3) {
-        if (!document.getElementById('mongoUri').value) {
+        const mongoUriField = document.getElementById('mongoUri');
+        const hasExisting = mongoUriField.placeholder && mongoUriField.placeholder.includes('Currently set');
+        if (!mongoUriField.value && !hasExisting) {
           alert('Please enter your MongoDB connection URI');
           return false;
         }
       } else if (currentStep === 4) {
-        if (!document.getElementById('discordBotToken').value || !document.getElementById('discordClientId').value) {
-          alert('Please enter your Discord bot credentials');
+        const discordTokenField = document.getElementById('discordBotToken');
+        const discordClientField = document.getElementById('discordClientId');
+        const hasTokenExisting = discordTokenField.placeholder && discordTokenField.placeholder.includes('Currently set');
+        
+        if (!discordTokenField.value && !hasTokenExisting) {
+          alert('Please enter your Discord bot token');
+          return false;
+        }
+        if (!discordClientField.value) {
+          alert('Please enter your Discord client ID');
           return false;
         }
       } else if (currentStep === 5) {
         const aiService = document.getElementById('aiService').value;
-        if (aiService === 'openrouter' && !document.getElementById('openrouterApiKey').value) {
-          alert('Please enter your OpenRouter API key');
-          return false;
-        } else if (aiService === 'google' && !document.getElementById('googleApiKey').value) {
-          alert('Please enter your Google AI API key');
-          return false;
+        if (aiService === 'openrouter') {
+          const openrouterKeyField = document.getElementById('openrouterApiKey');
+          const hasExisting = openrouterKeyField.placeholder && openrouterKeyField.placeholder.includes('Currently set');
+          if (!openrouterKeyField.value && !hasExisting) {
+            alert('Please enter your OpenRouter API key');
+            return false;
+          }
+        } else if (aiService === 'google') {
+          const googleKeyField = document.getElementById('googleApiKey');
+          const hasExisting = googleKeyField.placeholder && googleKeyField.placeholder.includes('Currently set');
+          if (!googleKeyField.value && !hasExisting) {
+            alert('Please enter your Google AI API key');
+            return false;
+          }
         }
       }
       return true;
@@ -777,17 +797,28 @@
     function gatherConfiguration() {
       const aiService = document.getElementById('aiService').value;
       
+      // Helper to check if field should use existing value
+      const getValue = (fieldId) => {
+        const field = document.getElementById(fieldId);
+        const value = field.value.trim();
+        // If field is empty and has placeholder indicating existing value, use KEEP_EXISTING
+        if (!value && field.placeholder && field.placeholder.includes('Currently set')) {
+          return 'KEEP_EXISTING';
+        }
+        return value;
+      };
+      
       const config = {
         encryption: {
-          key: document.getElementById('encryptionKey').value,
-          serverKey: document.getElementById('serverSecretKey').value
+          key: getValue('encryptionKey'),
+          serverKey: getValue('serverSecretKey')
         },
         mongo: {
-          uri: document.getElementById('mongoUri').value,
+          uri: getValue('mongoUri'),
           dbName: document.getElementById('mongoDbName').value || 'cosyworld8'
         },
         discord: {
-          botToken: document.getElementById('discordBotToken').value,
+          botToken: getValue('discordBotToken'),
           clientId: document.getElementById('discordClientId').value
         },
         ai: {
@@ -798,12 +829,12 @@
 
       if (aiService === 'openrouter') {
         config.ai.openrouter = {
-          apiKey: document.getElementById('openrouterApiKey').value,
+          apiKey: getValue('openrouterApiKey'),
           model: document.getElementById('openrouterModel').value || 'google/gemini-2.0-flash-exp:free'
         };
       } else {
         config.ai.google = {
-          apiKey: document.getElementById('googleApiKey').value,
+          apiKey: getValue('googleApiKey'),
           model: document.getElementById('googleModel').value || 'gemini-2.0-flash-exp'
         };
       }
@@ -811,7 +842,7 @@
       if (document.getElementById('enableS3').checked) {
         config.optional.s3 = {
           endpoint: document.getElementById('s3Endpoint').value,
-          apiKey: document.getElementById('s3ApiKey').value,
+          apiKey: getValue('s3ApiKey'),
           cloudfrontDomain: document.getElementById('cloudfrontDomain').value
         };
       }
@@ -819,19 +850,19 @@
       if (document.getElementById('enableTwitter').checked) {
         config.optional.twitter = {
           clientId: document.getElementById('xClientId').value,
-          clientSecret: document.getElementById('xClientSecret').value
+          clientSecret: getValue('xClientSecret')
         };
       }
 
       if (document.getElementById('enableReplicate').checked) {
         config.optional.replicate = {
-          apiToken: document.getElementById('replicateToken').value
+          apiToken: getValue('replicateToken')
         };
       }
 
       if (document.getElementById('enableHelius').checked) {
         config.optional.helius = {
-          apiKey: document.getElementById('heliusApiKey').value
+          apiKey: getValue('heliusApiKey')
         };
       }
 
@@ -871,14 +902,15 @@
 
         status.className = 'alert alert-success';
         status.innerHTML = '<strong>Setup Complete!</strong><br>' + 
-                          'Configuration has been saved successfully.<br>' +
-                          'Please restart the application to apply changes.<br><br>' +
-                          '<strong>Next steps:</strong><br>' +
-                          '1. Stop the server (Ctrl+C)<br>' +
-                          '2. Start it again with: npm start<br>' +
-                          '3. Login to the admin panel at /admin';
+                          result.message + '<br><br>' +
+                          'Redirecting to admin panel...';
 
         btn.textContent = 'Setup Complete ✓';
+        
+        // Redirect to admin panel after 2 seconds
+        setTimeout(() => {
+          window.location.href = result.redirectTo || '/admin';
+        }, 2000);
       } catch (error) {
         console.error('Setup error:', error);
         status.className = 'alert alert-error';

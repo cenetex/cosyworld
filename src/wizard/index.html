@@ -531,16 +531,17 @@
         <div class="success-screen">
           <div class="success-icon">🎉</div>
           <h2>Configuration Complete!</h2>
-          <p style="margin: 20px 0;">Your application has been configured successfully.</p>
+          <p style="margin: 20px 0;">Your application has been configured successfully and is ready to use!</p>
           
           <div class="alert alert-success">
-            <strong>Next Steps:</strong><br>
-            1. Restart your application<br>
-            2. The main service will start automatically<br>
-            3. Access the admin panel to manage your settings
+            <strong>✓ Configuration saved</strong><br>
+            <strong>✓ Setup marked as complete</strong><br>
+            <strong>✓ All services ready</strong><br><br>
+            You can now close this window and use your application.
           </div>
 
-          <button class="btn-primary" onclick="window.location.reload()">🔄 Restart Wizard</button>
+          <button class="btn-primary" onclick="window.close()">Close Window</button>
+          <button class="btn-secondary" onclick="window.location.href='http://localhost:3000/admin'" style="margin-top: 10px;">Go to Admin Panel</button>
         </div>
       </div>
     </div>

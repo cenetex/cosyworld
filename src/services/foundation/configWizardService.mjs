@@ -19,10 +19,11 @@ const __dirname = path.dirname(__filename);
  * and secrets securely.
  */
 export class ConfigWizardService {
-  constructor({ logger, secretsService, configService } = {}) {
+  constructor({ logger, secretsService, configService, setupStatusService } = {}) {
     this.logger = logger || console;
     this.secrets = secretsService;
     this.config = configService;
+    this.setupStatus = setupStatusService;
     this.server = null;
     this.wizardPort = 3100;
   }
@@ -178,9 +179,22 @@ export class ConfigWizardService {
         // Save to secrets service and environment
         await this._saveConfiguration(config);
 
+        // Mark setup as complete (if we have setupStatus service)
+        if (this.setupStatus) {
+          try {
+            // Use admin wallet from config or environment
+            const adminWallet = config.admin?.wallet || process.env.ADMIN_WALLET || 'system';
+            await this.setupStatus.markSetupComplete(adminWallet);
+            this.logger.info('[wizard] Setup marked as complete');
+          } catch (err) {
+            this.logger.warn('[wizard] Could not mark setup complete:', err.message);
+          }
+        }
+
         res.json({ 
           success: true, 
-          message: 'Configuration saved successfully. Please restart the application.' 
+          message: 'Configuration saved successfully! You can now use the application.',
+          requiresRestart: false
         });
       } catch (error) {
         this.logger.error('[wizard] Save failed:', error);
@@ -266,16 +280,28 @@ export class ConfigWizardService {
 
     switch (section) {
       case 'encryption':
-        if (!data.key || data.key.length < 32) {
+        // Allow KEEP_EXISTING if key already exists
+        if (data.key === 'KEEP_EXISTING') {
+          if (!process.env.ENCRYPTION_KEY) {
+            errors.push('Cannot keep existing encryption key - none found');
+          }
+        } else if (!data.key || data.key.length < 32) {
           errors.push('Encryption key must be at least 32 characters');
         }
         break;
 
       case 'mongo':
-        if (!data.uri) {
-          errors.push('MongoDB URI is required');
-        } else if (!data.uri.startsWith('mongodb://') && !data.uri.startsWith('mongodb+srv://')) {
-          errors.push('MongoDB URI must start with mongodb:// or mongodb+srv://');
+        // Allow KEEP_EXISTING for URI if it already exists
+        if (data.uri === 'KEEP_EXISTING') {
+          if (!process.env.MONGO_URI) {
+            errors.push('Cannot keep existing MongoDB URI - none found');
+          }
+        } else {
+          if (!data.uri) {
+            errors.push('MongoDB URI is required');
+          } else if (!data.uri.startsWith('mongodb://') && !data.uri.startsWith('mongodb+srv://')) {
+            errors.push('MongoDB URI must start with mongodb:// or mongodb+srv://');
+          }
         }
         if (!data.dbName) {
           errors.push('Database name is required');
@@ -283,16 +309,27 @@ export class ConfigWizardService {
         break;
 
       case 'discord':
-        if (!data.botToken) {
+        // Allow KEEP_EXISTING for bot token if it already exists
+        if (data.botToken === 'KEEP_EXISTING') {
+          if (!process.env.DISCORD_BOT_TOKEN) {
+            errors.push('Cannot keep existing Discord bot token - none found');
+          }
+        } else if (!data.botToken) {
           errors.push('Discord bot token is required');
         }
+        
         if (!data.clientId) {
           errors.push('Discord client ID is required');
         }
         break;
 
       case 'ai':
-        if (!data.openrouter?.apiKey && !data.google?.apiKey) {
+        const hasExistingOpenRouter = data.openrouter?.apiKey === 'KEEP_EXISTING' && process.env.OPENROUTER_API_KEY;
+        const hasNewOpenRouter = data.openrouter?.apiKey && data.openrouter.apiKey !== 'KEEP_EXISTING';
+        const hasExistingGoogle = data.google?.apiKey === 'KEEP_EXISTING' && (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY);
+        const hasNewGoogle = data.google?.apiKey && data.google.apiKey !== 'KEEP_EXISTING';
+        
+        if (!hasExistingOpenRouter && !hasNewOpenRouter && !hasExistingGoogle && !hasNewGoogle) {
           errors.push('At least one AI provider API key is required');
         }
         break;
@@ -327,35 +364,35 @@ export class ConfigWizardService {
   async _saveConfiguration(config) {
     const fs = await import('fs/promises');
     
-    // Build environment variables
+    // Build environment variables, keeping existing values when KEEP_EXISTING is specified
     const envVars = {
       // Core
-      ENCRYPTION_KEY: config.encryption.key,
-      SERVER_SECRET_KEY: config.encryption.serverKey || crypto.randomBytes(32).toString('hex'),
+      ENCRYPTION_KEY: config.encryption.key === 'KEEP_EXISTING' ? process.env.ENCRYPTION_KEY : config.encryption.key,
+      SERVER_SECRET_KEY: config.encryption.serverKey || process.env.SERVER_SECRET_KEY || crypto.randomBytes(32).toString('hex'),
       
       // MongoDB
-      MONGO_URI: config.mongo.uri,
+      MONGO_URI: config.mongo.uri === 'KEEP_EXISTING' ? process.env.MONGO_URI : config.mongo.uri,
       MONGO_DB_NAME: config.mongo.dbName,
       
       // Discord
-      DISCORD_BOT_TOKEN: config.discord.botToken,
+      DISCORD_BOT_TOKEN: config.discord.botToken === 'KEEP_EXISTING' ? process.env.DISCORD_BOT_TOKEN : config.discord.botToken,
       DISCORD_CLIENT_ID: config.discord.clientId,
       
       // AI Service
       AI_SERVICE: config.ai.service || 'openrouter',
       
       // OpenRouter
-      ...(config.ai.openrouter?.apiKey && {
-        OPENROUTER_API_KEY: config.ai.openrouter.apiKey,
+      ...(((config.ai.openrouter?.apiKey && config.ai.openrouter.apiKey !== 'KEEP_EXISTING') || (config.ai.openrouter?.apiKey === 'KEEP_EXISTING' && process.env.OPENROUTER_API_KEY)) && {
+        OPENROUTER_API_KEY: config.ai.openrouter.apiKey === 'KEEP_EXISTING' ? process.env.OPENROUTER_API_KEY : config.ai.openrouter.apiKey,
         OPENROUTER_MODEL: config.ai.openrouter.model || 'google/gemini-2.5-pro',
-        OPENROUTER_CHAT_MODEL: config.ai.openrouter.chatModel || 'google/gemini-2.5-pro',
-        OPENROUTER_VISION_MODEL: config.ai.openrouter.visionModel || 'google/gemini-2.5-pro',
-        OPENROUTER_STRUCTURED_MODEL: config.ai.openrouter.structuredModel || 'google/gemini-2.5-pro'
+        OPENROUTER_CHAT_MODEL: config.ai.openrouter.chatModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
+        OPENROUTER_VISION_MODEL: config.ai.openrouter.visionModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
+        OPENROUTER_STRUCTURED_MODEL: config.ai.openrouter.structuredModel || config.ai.openrouter.model || 'google/gemini-2.5-pro'
       }),
       
       // Google AI
-      ...(config.ai.google?.apiKey && {
-        GOOGLE_API_KEY: config.ai.google.apiKey,
+      ...(((config.ai.google?.apiKey && config.ai.google.apiKey !== 'KEEP_EXISTING') || (config.ai.google?.apiKey === 'KEEP_EXISTING' && (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY))) && {
+        GOOGLE_API_KEY: config.ai.google.apiKey === 'KEEP_EXISTING' ? (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : config.ai.google.apiKey,
         GOOGLE_AI_MODEL: config.ai.google.model || 'gemini-2.5-flash'
       }),
       

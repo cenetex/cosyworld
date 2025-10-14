@@ -34,10 +34,12 @@ class XService {
     logger,
     databaseService,
     configService,
+    secretsService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
     this.configService = configService;
+    this.secretsService = secretsService;
   }
 
   // --- Client-side methods (for browser, can be static or moved elsewhere if needed) ---
@@ -789,31 +791,125 @@ class XService {
       const res = await fetch(mediaUrl);
       if (!res.ok) throw new Error(`media fetch failed ${res.status}`);
       const buffer = Buffer.from(await res.arrayBuffer());
-      let mimeType = res.headers.get('content-type')?.split(';')[0]?.trim() || (isVideo ? 'video/mp4' : 'image/png');
+      const contentType = res.headers.get('content-type');
+      let mimeType = contentType?.split(';')[0]?.trim();
+      
+      // Ensure mimeType has a valid fallback
+      if (!mimeType) {
+        mimeType = isVideo ? 'video/mp4' : 'image/png';
+        this.logger?.warn?.('[XService][globalPost] no content-type header, using fallback', { mimeType, mediaUrl });
+      }
 
+      // Use proper v2 chunked upload: INIT -> APPEND -> FINALIZE (-> STATUS if needed)
+      // CRITICAL: X's upload endpoints work differently based on auth type:
+      // - OAuth 2.0 bearer tokens: Only work with twitter-api-v2 library's convenience methods (NOT raw API calls)
+      // - OAuth 1.0a: Works with both library methods and raw API calls
+      // The library handles the OAuth2 -> internal conversion magic
+      
+      // Try OAuth 1.0a first if available (required for media upload)
+      const oauth1Creds = await this._getOAuth1Credentials();
       let mediaId;
-      try {
-        if (isVideo) {
-          const v1 = workingClient.v1;
-          this.logger?.debug?.('[XService][globalPost] uploading video media');
-          mediaId = await v1.uploadMedia(buffer, { mimeType });
-        } else {
-          this.logger?.debug?.('[XService][globalPost] uploading image media');
-          mediaId = await v2Active.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
+      let useOAuth1 = false;
+      let oauth1Client = null;
+      
+      if (oauth1Creds) {
+        this.logger?.debug?.('[XService][globalPost] using OAuth 1.0a credentials for upload');
+        useOAuth1 = true;
+        try {
+          oauth1Client = new TwitterApi({
+            appKey: oauth1Creds.apiKey,
+            appSecret: oauth1Creds.apiSecret,
+            accessToken: oauth1Creds.accessToken,
+            accessSecret: oauth1Creds.accessTokenSecret
+          });
+          
+          mediaId = await oauth1Client.v1.uploadMedia(buffer, { mimeType });
+          this.logger?.debug?.('[XService][globalPost] OAuth 1.0a upload success', { mediaId });
+        } catch (oauth1Err) {
+          this.logger?.error?.('[XService][globalPost] OAuth 1.0a upload failed', {
+            message: oauth1Err?.message,
+            code: oauth1Err?.code
+          });
+          throw oauth1Err;
         }
-      } catch (uploadErr) {
-        const code = uploadErr?.code || uploadErr?.data?.errors?.[0]?.code;
+      } else {
+        // Fallback to OAuth 2.0 (will likely fail for media upload)
+        this.logger?.warn?.('[XService][globalPost] No OAuth 1.0a credentials found, trying OAuth 2.0 (may fail)');
+        try {
+        // IMPORTANT: Must pass accessToken as an object { accessToken } not a string
+        const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+        const clientV2 = twitterClient.v2;
+        
+        if (isVideo) {
+          this.logger?.debug?.('[XService][globalPost] uploading video via library v1', { mimeType, bufferSize: buffer.length });
+          mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
+        } else {
+          this.logger?.debug?.('[XService][globalPost] uploading image via library v2', { mimeType, bufferSize: buffer.length });
+          // Use the same pattern as postImageToX which works with OAuth2
+          mediaId = await clientV2.uploadMedia(buffer, {
+            media_category: 'tweet_image',
+            media_type: mimeType,
+          });
+        }
+        this.logger?.debug?.('[XService][globalPost] upload success', { mediaId });
+        } catch (uploadErr) {
+          // Log detailed error information for debugging
+          this.logger?.error?.('[XService][globalPost] media upload error details', {
+          message: uploadErr?.message,
+          code: uploadErr?.code,
+          status: uploadErr?.status,
+          data: uploadErr?.data,
+          errors: uploadErr?.data?.errors,
+          type: uploadErr?.type,
+          stack: uploadErr?.stack?.split('\n')[0]
+        });
+        
+        const code = uploadErr?.code || uploadErr?.status || uploadErr?.data?.errors?.[0]?.code;
         if (code === 215) {
           this.logger?.error?.('[XService][globalPost] media upload auth error (code 215). Likely unsupported auth method for this media type.', { hint: 'Use OAuth1.0a credentials for video or restrict to images.' });
           try {
             const db = await this.databaseService.getDatabase();
             await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'media_upload_bad_auth', lastErrorAt: new Date() } });
           } catch {}
+        } else if (code === 401) {
+          // Unauthorized during media upload. Most common cause: missing media.write scope or revoked token.
+          this.logger?.error?.('[XService][globalPost] media upload 401 Unauthorized. Likely causes: missing media.write scope or revoked/expired token.', { hint: 'Re-authorize admin X account via /admin (Connect) to grant media.write scope.' });
+          // Persist a hint for admin UIs
+          try {
+            const db = await this.databaseService.getDatabase();
+            await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'unauthorized_media_upload', lastErrorAt: new Date() } });
+          } catch {}
+          // Attempt a one-time refresh + retry if we have a refreshToken (PKCE OAuth2) and avatarId present
+          if (authRecord?.refreshToken && authRecord?.avatarId) {
+            try {
+              const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
+              accessToken = newToken;
+              this.logger?.debug?.('[XService][globalPost] retrying media upload after refresh');
+              const retryTwitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+              const retryClientV2 = retryTwitterClient.v2;
+              if (isVideo) {
+                mediaId = await retryTwitterClient.v1.uploadMedia(buffer, { mimeType });
+              } else {
+                // Use v2 for images, same as postImageToX
+                mediaId = await retryClientV2.uploadMedia(buffer, {
+                  media_category: 'tweet_image',
+                  media_type: mimeType,
+                });
+              }
+            } catch (retryErr) {
+              this.logger?.error?.('[XService][globalPost] media upload retry failed after refresh', retryErr?.message || retryErr);
+              throw retryErr;
+            }
+          } else {
+            throw uploadErr;
+          }
         } else {
           this.logger?.error?.('[XService][globalPost] media upload failed', uploadErr?.message || uploadErr);
         }
         throw uploadErr;
+        }
       }
+      
       if (!mediaId) throw new Error('upload failed');
 
       // Alt text (images only)
@@ -825,7 +921,13 @@ class XService {
         } catch (e) { this.logger?.warn?.(`[XService][globalPost] alt generation failed: ${e.message}`); }
       }
       if (altText && !isVideo) {
-  try { await v2Active.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) }); } catch (e) { this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`); }
+        try {
+          // Use OAuth 1.0a client if available, otherwise OAuth 2.0
+          const metadataClient = useOAuth1 && oauth1Client ? oauth1Client.v2 : v2Active;
+          await metadataClient.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) });
+        } catch (e) {
+          this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`);
+        }
       }
 
       // Caption generation: if no text provided, attempt AI caption (image/video aware)
@@ -835,11 +937,31 @@ class XService {
           const caption = await services.aiService.analyzeImage(
             mediaUrl,
             mimeType,
-            'Write a short, engaging, brand-safe caption (<=160 chars) describing this image. Avoid hashtags except CosyWorld. No quotes.'
+            'Analyze this image and create an engaging tweet (max 250 chars). Focus on what makes it interesting, unique, or worth sharing. Use a conversational, authentic tone. Avoid generic descriptions. No quotes or extra hashtags.'
           );
           if (caption) baseText = String(caption).replace(/[#\n\r]+/g, ' ').trim();
-        } catch (e) { this.logger?.debug?.('[XService][globalPost] caption generation failed: ' + e.message); }
+        } catch (e) { 
+          this.logger?.warn?.('[XService][globalPost] caption generation failed: ' + e.message);
+          // Fallback to simple text if AI fails
+          if (!baseText) baseText = '';
+        }
       }
+      
+      // If we have text but it looks like a simple description, enhance it with AI
+      if (baseText && baseText.length < 100 && services.aiService?.analyzeImage && !isVideo) {
+        try {
+          this.logger?.debug?.('[XService][globalPost] enhancing short text with AI analysis');
+          const enhancement = await services.aiService.analyzeImage(
+            mediaUrl,
+            mimeType,
+            `The image context is: "${baseText}". Create an engaging tweet (max 250 chars) that expands on this context. Make it interesting and share-worthy. Use a natural, conversational tone. No extra hashtags or quotes.`
+          );
+          if (enhancement) baseText = String(enhancement).replace(/[#\n\r]+/g, ' ').trim();
+        } catch (e) {
+          this.logger?.debug?.('[XService][globalPost] text enhancement failed, using original: ' + e.message);
+        }
+      }
+      
       if (!baseText) baseText = '';
       // Ensure single hashtag #CosyWorld appended (unless already present case-insensitively)
       if (!/#cosyworld/i.test(baseText)) {
@@ -850,8 +972,15 @@ class XService {
       const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
       let tweet;
       const sendTweet = async () => {
-        const postClient = new TwitterApi({ accessToken: accessToken.trim() }).v2;
-        return postClient.tweet(payload);
+        // Use OAuth 1.0a client if we have it, otherwise fall back to OAuth 2.0
+        if (useOAuth1 && oauth1Client) {
+          this.logger?.debug?.('[XService][globalPost] posting tweet with OAuth 1.0a');
+          return oauth1Client.v2.tweet(payload);
+        } else {
+          this.logger?.debug?.('[XService][globalPost] posting tweet with OAuth 2.0');
+          const postClient = new TwitterApi({ accessToken: accessToken.trim() }).v2;
+          return postClient.tweet(payload);
+        }
       };
       try {
         tweet = await sendTweet();
@@ -934,6 +1063,73 @@ class XService {
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
       try { this._globalPostMetrics && this._globalPostMetrics.reasons && this._globalPostMetrics.reasons.error !== undefined && (this._globalPostMetrics.reasons.error++); } catch {}
       return null;
+    }
+  }
+
+  /** Get OAuth 1.0a credentials from secrets service */
+  async _getOAuth1Credentials() {
+    try {
+      this.logger?.debug?.('[XService] Attempting to load OAuth 1.0a credentials from secretsService');
+      
+      if (!this.secretsService) {
+        this.logger?.error?.('[XService] secretsService is not available!');
+        return null;
+      }
+      
+      const creds = await this.secretsService.getAsync('x_oauth1_creds');
+      this.logger?.info?.('[XService] Retrieved credentials:', { 
+        hasCreds: !!creds,
+        credsType: typeof creds,
+        credsKeys: creds ? Object.keys(creds) : [],
+        hasApiKey: !!creds?.apiKey,
+        hasApiSecret: !!creds?.apiSecret,
+        hasAccessToken: !!creds?.accessToken,
+        hasAccessTokenSecret: !!creds?.accessTokenSecret,
+        apiKeyLength: creds?.apiKey?.length,
+        apiSecretLength: creds?.apiSecret?.length,
+        accessTokenLength: creds?.accessToken?.length,
+        accessTokenSecretLength: creds?.accessTokenSecret?.length
+      });
+      
+      if (!creds || !creds.apiKey || !creds.apiSecret || !creds.accessToken || !creds.accessTokenSecret) {
+        this.logger?.warn?.('[XService] OAuth 1.0a credentials incomplete or missing');
+        return null;
+      }
+      return {
+        apiKey: creds.apiKey,
+        apiSecret: creds.apiSecret,
+        accessToken: creds.accessToken,
+        accessTokenSecret: creds.accessTokenSecret
+      };
+    } catch (e) {
+      this.logger?.warn?.('[XService] Failed to load OAuth 1.0a credentials: ' + e.message);
+      return null;
+    }
+  }
+
+  /** Test OAuth 1.0a credentials by attempting a simple API call */
+  async testOAuth1Upload() {
+    const creds = await this._getOAuth1Credentials();
+    if (!creds) {
+      throw new Error('No OAuth 1.0a credentials configured. Please add them in the admin panel.');
+    }
+
+    try {
+      const client = new TwitterApi({
+        appKey: creds.apiKey,
+        appSecret: creds.apiSecret,
+        accessToken: creds.accessToken,
+        accessSecret: creds.accessTokenSecret
+      });
+
+      // Test by verifying credentials
+      const me = await client.v1.verifyCredentials();
+      return {
+        success: true,
+        message: `OAuth 1.0a credentials verified for @${me.screen_name}`
+      };
+    } catch (e) {
+      throw new Error(`OAuth 1.0a test failed: ${e.message}`);
     }
   }
 

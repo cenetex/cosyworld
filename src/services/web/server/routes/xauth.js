@@ -211,12 +211,14 @@ export default function xauthRoutes(services) {
             }
             const db = await services.databaseService.getDatabase();
             const adminId = getAdminAvatarId();
+            // ONLY return the admin's own X auth record - never fall back to a random user's account
             let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { sort: { updatedAt: -1 } });
-            if (!auth) auth = await db.collection('x_auth').findOne({}, { sort: { updatedAt: -1 } });
-            const payload = { avatarId: auth?.avatarId || adminId };
+            
+            const payload = { avatarId: adminId };
             // Provide profile if present (do not call X API here to avoid rate cost)
             if (auth?.profile) payload.profile = auth.profile;
             if (auth?.expiresAt) payload.expiresAt = auth.expiresAt;
+            if (auth?.accessToken) payload.connected = true;
             services._adminTargetCache = { data: payload, exp: now + 30_000 }; // 30s cache
             return res.json(payload);
         } catch (e) {
@@ -395,7 +397,8 @@ export default function xauthRoutes(services) {
                         expiresAt,
                         updatedAt: new Date(),
                         ...(profile ? { profile } : {}),
-                        // global flag removed – implicit single admin account
+                        // Mark admin account as global so globalPost can find it
+                        ...(isAdminAvatar ? { global: true } : {}),
                     },
                 },
                 { upsert: true }

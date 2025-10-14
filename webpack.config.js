@@ -48,6 +48,7 @@ export default (env, argv) => {
   xAccountManagement: './src/services/web/public/js/x-account-management.js',
   adminCollections: './src/services/web/public/js/admin-collections.js',
   adminSettings: './src/services/web/public/js/admin-settings.js',
+      'admin/adminBootstrap': './src/services/web/public/js/admin/admin-bootstrap.js',
       tailwind: './src/tailwind.css'
     },
     output: {
@@ -113,6 +114,7 @@ export default (env, argv) => {
           { from: path.resolve(__dirname, 'src/services/web/public/rati.html'), to: path.resolve(__dirname, 'dist/rati.html') },
           { from: path.resolve(__dirname, 'src/services/web/public/rati.js'), to: path.resolve(__dirname, 'dist/rati.js') },
           { from: path.resolve(__dirname, 'src/services/web/public/css/tribe-styles.css'), to: path.resolve(__dirname, 'dist/css/tribe-styles.css') },
+          { from: path.resolve(__dirname, 'src/services/web/public/css/admin-common.css'), to: path.resolve(__dirname, 'dist/css/admin-common.css') },
           { from: path.resolve(__dirname, 'src/services/web/public/images'), to: path.resolve(__dirname, 'dist/images') },
           { from: path.resolve(__dirname, 'src/services/web/public/thumbnails'), to: path.resolve(__dirname, 'dist/thumbnails'), noErrorOnMissing: true }
         ]
