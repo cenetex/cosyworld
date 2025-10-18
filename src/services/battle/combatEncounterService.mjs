@@ -15,6 +15,7 @@ const COMBAT_CONSTANTS = {
   DEFAULT_MAX_ENCOUNTERS_PER_GUILD: 5,
   DEFAULT_STALE_ENCOUNTER_MS: 60 * 60 * 1000, // 1 hour
   DEFAULT_IDLE_END_ROUNDS: 3,
+  DEFAULT_MAX_ROUNDS: 3, // Maximum rounds before combat ends
   
   // Media Generation
   DEFAULT_MEDIA_WAIT_TIMEOUT_MS: 45_000,
@@ -697,72 +698,53 @@ export class CombatEncounterService {
     }
     
     this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
-    const hp = Math.max(0, actor.currentHp || 0);
-    const maxHp = Math.max(1, actor.maxHp || COMBAT_CONSTANTS.DEFAULT_HP);
-    const low = hp / maxHp <= COMBAT_CONSTANTS.LOW_HP_THRESHOLD;
-    let didAct = false;
-    const post = async (content) => this._postAsWebhook(encounter, actor.ref, content);
-    const latch = this._preRegisterTurnAdvanceBlocker(encounter.channelId);
+    
+    // SIMPLIFIED AUTO-ACT: Just trigger AI response with tool decision system
+    // The ToolDecisionService will decide what action to take based on combat state
     try {
-      if (low && this.battleService?.defend) {
-        const msg = await this.battleService.defend({ avatar: actor.ref });
-        actor.isDefending = true;
-        await post(`${actor.name} used defend 🛡️\n${msg}`);
-        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-defends (low HP).`);
-        didAct = true;
-        try { latch.resolve(); } catch {}
+      const channel = await this.discordService?.getChannel?.(encounter.channelId);
+      if (!channel) {
+        this.logger.warn?.(`[CombatEncounter] auto-act: channel ${encounter.channelId} not found`);
         await this.nextTurn(encounter);
         return;
       }
-      const targets = encounter.combatants.filter(c => {
-        if (this._normalizeId(c.avatarId) === this._normalizeId(actor.avatarId)) return false;
-        return !this._isKnockedOut(c);
+      
+      const conversationManager = this.getConversationManager?.();
+      if (!conversationManager) {
+        this.logger.warn?.('[CombatEncounter] auto-act: no ConversationManager available');
+        await this.nextTurn(encounter);
+        return;
+      }
+      
+      // Trigger AI response - the tool decision system will choose the appropriate action
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Prompting ${actor.name} to act via AI`);
+      
+      await conversationManager.sendResponse(channel, actor.ref, null, {
+        overrideCooldown: true,
+        context: {
+          inCombat: true,
+          currentTurn: true,
+          encounter: {
+            channelId: encounter.channelId,
+            round: encounter.round,
+            combatants: encounter.combatants.map(c => ({
+              name: c.name,
+              hp: c.currentHp,
+              maxHp: c.maxHp,
+              isDefending: c.isDefending,
+              isKnockedOut: this._isKnockedOut(c)
+            }))
+          }
+        }
       });
       
-      // If no valid targets remain, encounter should end
-      if (targets.length === 0) {
-        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] No valid targets for ${actor.name}; evaluating end`);
-        if (!this.evaluateEnd(encounter)) {
-          // If evaluateEnd didn't end it, defend and advance turn
-          if (this.battleService?.defend) {
-            const msg = await this.battleService.defend({ avatar: actor.ref });
-            actor.isDefending = true;
-            await post(`${actor.name} used defend 🛡️\n${msg}`);
-          }
-          try { latch.resolve(); } catch {}
-          await this.nextTurn(encounter);
-        } else {
-          try { latch.resolve(); } catch {}
-        }
-        return;
-      }
+      // Turn advancement will be handled by the tool execution (attack/defend/etc)
+      // No need to call nextTurn here - the tool will handle it
       
-      const target = targets[Math.floor(Math.random() * targets.length)];
-      if (target && this.battleService?.attack) {
-        const messageShim = { channel: { id: encounter.channelId } };
-        const services = { combatEncounterService: this, battleMediaService: this.battleMediaService || this.battleService?.battleMediaService, discordService: this.discordService };
-        const res = await this.battleService.attack({ message: messageShim, attacker: actor.ref, defender: target.ref, services });
-        if (res?.message) {
-          await post(`${actor.name} used attack ⚔️\n${res.message}`);
-        }
-        try { latch.resolve(); } catch {}
-        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} auto-attacks ${target.name}.`);
-        didAct = true; // turn advancement handled by handleAttackResult
-      }
     } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] auto action failed: ${e.message}`);
-    } finally {
-      if (!didAct) {
-        try {
-          let msg = '';
-          if (this.battleService?.defend) msg = await this.battleService.defend({ avatar: actor.ref });
-          actor.isDefending = true;
-          await post(`${actor.name} used defend 🛡️\n${msg}`);
-          this.logger.info?.(`[CombatEncounter][${encounter.channelId}] ${actor.name} fallback defend (no target).`);
-        } catch {}
-        try { latch.resolve(); } catch {}
-        await this.nextTurn(encounter);
-      }
+      this.logger.warn?.(`[CombatEncounter] auto-act failed: ${e.message}`);
+      // Fallback: just advance turn on error
+      await this.nextTurn(encounter);
     }
   }
 
@@ -848,6 +830,15 @@ export class CombatEncounterService {
   /** Called after each action to see if combat should end (e.g., one side remains, idle) */
   evaluateEnd(encounter) {
     if (encounter.state !== 'active') return false;
+    
+    // Maximum rounds limit - END COMBAT AFTER 3 ROUNDS
+    const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
+    if (encounter.round >= maxRounds) {
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Max rounds (${maxRounds}) reached - ending combat`);
+      this.endEncounter(encounter, { reason: 'max_rounds' });
+      return true;
+    }
+    
     // Basic rule: if <=1 conscious combatant remains
     const alive = encounter.combatants.filter(c => !this._isKnockedOut(c));
     if (alive.length <= 1) {
@@ -1827,6 +1818,7 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       single_combatant: 'Only one fighter remains — the battle is decided.',
       all_defending: 'Everyone turtled up — the clash fizzles out.',
       idle: 'No hostilities for a while — the fight winds down.',
+      max_rounds: 'The battle reaches its climax after 3 intense rounds!',
       round_limit: 'Time is up — the duel concludes after the final exchange.',
       capacity_reclaim: 'This encounter ended to make room for a new one.',
       flee: 'A fighter fled — the duel ends.',
@@ -2035,6 +2027,14 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       if (roundWrap) {
         // New round
         encounter.round = Math.max(1, Number(encounter.round) || 1) + 1;
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Starting round ${encounter.round}`);
+        
+        // Check if max rounds reached
+        if (this.evaluateEnd(encounter)) {
+          this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Combat ended at start of round ${encounter.round}`);
+          return;
+        }
+        
         // Reset chatter cadence for the new round
         try {
           encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
