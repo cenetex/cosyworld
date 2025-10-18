@@ -71,13 +71,18 @@ export function registerCombatListeners({ combatEncounterService, logger = conso
     // Early end evaluation
     try { if (evt.type === 'combat.knockout' || evt.type === 'combat.death') { if (combatEncounterService.evaluateEnd(enc)) return; } } catch {}
 
-    // Advance turn if attacker was current turn
+    // Advance turn if attacker was current turn and not already advancing (prevent race condition)
     try {
       const currentId = combatEncounterService.getCurrentTurnAvatarId(enc);
-      if (currentId && currentId === attId) {
-        // Wait blockers before advancing
-        try { await combatEncounterService._awaitTurnAdvanceBlockers?.(enc); } catch {}
-        combatEncounterService.nextTurn(enc);
+      if (currentId && currentId === attId && !enc._advancingTurn) {
+        enc._advancingTurn = true; // Set mutex flag
+        try {
+          // Wait blockers before advancing
+          await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
+          combatEncounterService.nextTurn(enc);
+        } finally {
+          enc._advancingTurn = false; // Release mutex flag
+        }
       }
     } catch {}
 
@@ -105,9 +110,14 @@ export function registerCombatListeners({ combatEncounterService, logger = conso
     try { enc.lastActionAt = Date.now(); enc.lastAction = { result: 'flee.fail', actorId }; } catch {}
     try {
       const currentId = combatEncounterService.getCurrentTurnAvatarId(enc);
-      if (currentId && currentId === actorId) {
-        await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
-        combatEncounterService.nextTurn(enc);
+      if (currentId && currentId === actorId && !enc._advancingTurn) {
+        enc._advancingTurn = true; // Set mutex flag
+        try {
+          await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
+          combatEncounterService.nextTurn(enc);
+        } finally {
+          enc._advancingTurn = false; // Release mutex flag
+        }
       }
     } catch {}
     try { combatEncounterService.evaluateEnd(enc); } catch {}
@@ -121,9 +131,14 @@ export function registerCombatListeners({ combatEncounterService, logger = conso
     try { enc.lastActionAt = Date.now(); enc.lastAction = { result: evt.type === 'combat.hide.success' ? 'hide.success' : 'hide.fail', actorId }; } catch {}
     try {
       const currentId = combatEncounterService.getCurrentTurnAvatarId(enc);
-      if (currentId && currentId === actorId) {
-        await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
-        combatEncounterService.nextTurn(enc);
+      if (currentId && currentId === actorId && !enc._advancingTurn) {
+        enc._advancingTurn = true; // Set mutex flag
+        try {
+          await combatEncounterService._awaitTurnAdvanceBlockers?.(enc);
+          combatEncounterService.nextTurn(enc);
+        } finally {
+          enc._advancingTurn = false; // Release mutex flag
+        }
       }
     } catch {}
     try { combatEncounterService.evaluateEnd(enc); } catch {}

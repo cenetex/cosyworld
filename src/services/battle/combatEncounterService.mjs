@@ -30,7 +30,7 @@ export class CombatEncounterService {
   this.enableTurnEnforcement = true;
   this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || 5);
   this.staleEncounterMs = 60 * 60 * 1000; // 1 hour
-  this.cleanupInterval = setInterval(() => this.cleanupStaleEncounters(), 60 * 1000).unref?.() || null;
+  this._initCleanupInterval();
 
   // Auto-acting controls
   this.autoActDelayMs = Number(process.env.COMBAT_AUTO_ACT_DELAY_MS || 1500);
@@ -58,12 +58,36 @@ export class CombatEncounterService {
     }
   }
 
+  /** Initialize cleanup interval (safe to call multiple times) */
+  _initCleanupInterval() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleEncounters();
+    }, 60 * 1000);
+    if (this.cleanupInterval.unref) {
+      this.cleanupInterval.unref();
+    }
+  }
+
   // Removed in-channel AI chat builders; combat now delegates speaking to ConversationManager
   
   /** Helper: compute DEX modifier from stats, defaulting to 10 */
   _dexModFromStats(stats) {
     const dex = Number(stats?.dexterity ?? 10);
     return Math.floor((dex - 10) / 2);
+  }
+
+  /** Helper: check if a combatant is knocked out or dead */
+  _isKnockedOut(combatant) {
+    if (!combatant) return true;
+    const now = Date.now();
+    return (combatant.currentHp || 0) <= 0 ||
+           combatant.conditions?.includes('unconscious') ||
+           combatant.ref?.status === 'dead' ||
+           combatant.ref?.status === 'knocked_out' ||
+           (combatant.ref?.knockedOutUntil && now < combatant.ref.knockedOutUntil);
   }
 
   /** Public: is avatar an active combatant in channel's encounter */
@@ -78,13 +102,33 @@ export class CombatEncounterService {
   /** Public: can avatar enter combat (blocks KO/death & KO cooldown & flee cooldown) */
   canEnterCombat(avatar) {
     try {
+      if (!avatar) {
+        this.logger.debug?.('[CombatEncounter] canEnterCombat: avatar is null');
+        return false;
+      }
+      
       const now = Date.now();
-      if (!avatar) return false;
-      if (avatar.status === 'dead' || avatar.status === 'knocked_out') return false;
-      if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) return false;
-      if (avatar.combatCooldownUntil && now < avatar.combatCooldownUntil) return false;
+      
+      if (avatar.status === 'dead' || avatar.status === 'knocked_out') {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} has status ${avatar.status}`);
+        return false;
+      }
+      
+      if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} on KO cooldown until ${new Date(avatar.knockedOutUntil)}`);
+        return false;
+      }
+      
+      if (avatar.combatCooldownUntil && now < avatar.combatCooldownUntil) {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} on flee cooldown until ${new Date(avatar.combatCooldownUntil)}`);
+        return false;
+      }
+      
       return true;
-    } catch { return false; }
+    } catch (error) {
+      this.logger.warn?.(`[CombatEncounter] canEnterCombat error: ${error.message}`);
+      return false;
+    }
   }
 
   /** Helper: rebuild initiative order; optionally preserve current turn avatar when inserting */
@@ -126,14 +170,14 @@ export class CombatEncounterService {
 
   /** Helper: post content via webhook as an actor if supported */
   async _postAsWebhook(encounter, actorRef, content) {
-    if (!content) return;
+    if (!content || !actorRef) return;
     try {
       if (this.discordService?.sendAsWebhook) {
         // Ensure actorRef has a valid name property
         const validActorRef = {
-          name: String(actorRef?.name || 'Unknown Actor'),
-          imageUrl: actorRef?.imageUrl || actorRef?.image || '',
-          emoji: actorRef?.emoji || ''
+          name: String(actorRef.name || actorRef.username || 'Unknown Actor'),
+          imageUrl: actorRef.imageUrl || actorRef.image || actorRef.avatarUrl || '',
+          emoji: actorRef.emoji || ''
         };
         await this.discordService.sendAsWebhook(encounter.channelId, content, validActorRef);
       }
@@ -300,9 +344,8 @@ export class CombatEncounterService {
     if (!actor) return;
     if (this._getCombatModeFor(actor) !== 'auto') return;
     try {
-      const now = Date.now();
-      const isKO = (actor.currentHp || 0) <= 0 || actor.conditions?.includes('unconscious') || actor.ref?.status === 'dead' || (actor.ref?.status === 'knocked_out') || (actor.ref?.knockedOutUntil && now < actor.ref.knockedOutUntil);
-      if (isKO) {
+      // Check if actor is knocked out using centralized helper
+      if (this._isKnockedOut(actor)) {
         this.logger.info?.(`[CombatEncounter] auto-act skip for KO'd combatant ${actor.name}`);
         await this.nextTurn(encounter);
         return;
@@ -326,14 +369,9 @@ export class CombatEncounterService {
         await this.nextTurn(encounter);
         return;
       }
-      const now = Date.now();
       const targets = encounter.combatants.filter(c => {
         if (this._normalizeId(c.avatarId) === this._normalizeId(actor.avatarId)) return false;
-        const hpOk = (c.currentHp || 0) > 0;
-        const notUnconscious = !(c.conditions?.includes('unconscious'));
-        const notDead = c.ref?.status !== 'dead';
-        const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
-        return hpOk && notUnconscious && notDead && notKO;
+        return !this._isKnockedOut(c);
       });
       const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
       if (target && this.battleService?.attack) {
@@ -396,9 +434,7 @@ export class CombatEncounterService {
         // Reset defending state at the start of their new turn
         if (current) current.isDefending = false;
         try { encounter.lastTurnStartAt = Date.now(); } catch {}
-        const now = Date.now();
-        const isKO = !current || (current.currentHp || 0) <= 0 || current.conditions?.includes('unconscious') || current.ref?.status === 'dead' || (current.ref?.status === 'knocked_out') || (current.ref?.knockedOutUntil && now < current.ref.knockedOutUntil);
-        if (isKO) {
+        if (this._isKnockedOut(current)) {
           this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId}`);
           if (this.evaluateEnd(encounter)) return;
           // Avoid tight recursion: advance on next tick
@@ -430,14 +466,7 @@ export class CombatEncounterService {
   evaluateEnd(encounter) {
     if (encounter.state !== 'active') return false;
     // Basic rule: if <=1 conscious combatant remains
-    const now = Date.now();
-    const alive = encounter.combatants.filter(c => {
-      const hpOk = (c.currentHp || 0) > 0;
-      const notUnconscious = !(c.conditions?.includes('unconscious'));
-      const notDead = c.ref?.status !== 'dead';
-      const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
-      return hpOk && notUnconscious && notDead && notKO;
-    });
+    const alive = encounter.combatants.filter(c => !this._isKnockedOut(c));
     if (alive.length <= 1) {
       this.endEncounter(encounter, { reason: 'single_combatant' });
       return true;
@@ -578,7 +607,7 @@ export class CombatEncounterService {
     const c = this.getCombatant(encounter, avatarId);
     if (!c) return;
     c.currentHp = Math.max(0, (c.currentHp ?? 0) - amount);
-    if (c.currentHp === 0) {
+    if (c.currentHp === 0 && !c.conditions.includes('unconscious')) {
       c.conditions.push('unconscious');
     }
   }
@@ -600,10 +629,13 @@ export class CombatEncounterService {
     if (!encounter || encounter.state !== 'active') return;
     const attId = this._normalizeId(attackerId);
     const defId = this._normalizeId(defenderId);
+    
+    // Apply damage and state changes
     if (result?.damage && (result.result === 'hit' || result.result === 'knockout' || result.result === 'dead')) {
       this.applyDamage(encounter, defId, result.damage);
       this.markHostile(encounter);
     }
+    
     if (result?.result === 'knockout' || result?.result === 'dead') {
       try { encounter.knockout = { attackerId: attId, defenderId: defId, result: result?.result }; } catch {}
       // Force KO state in encounter immediately for end checks and target selection
@@ -615,6 +647,7 @@ export class CombatEncounterService {
         }
       } catch {}
     }
+    
     // Record last action context for pacing & commentary
     try {
       const attacker = this.getCombatant(encounter, attId);
@@ -640,11 +673,22 @@ export class CombatEncounterService {
       return;
     }
     
-    // Advance turn only if attacker was current turn and encounter is still active
-    if (encounter.state === 'active' && this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId) {
-      // Wait for any registered media/blockers to finish (with timeout) before moving to next turn
-      try { await this._awaitTurnAdvanceBlockers(encounter); } catch {}
-      this.nextTurn(encounter);
+    // Only advance turn if attacker was current turn AND we haven't already started advancing
+    // Mutex flag prevents race condition with combatListeners
+    if (encounter.state === 'active' && 
+        this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId &&
+        !encounter._advancingTurn) {
+      
+      encounter._advancingTurn = true; // 🔒 Set mutex flag
+      try {
+        // Wait for any registered media/blockers to finish (with timeout) before moving to next turn
+        await this._awaitTurnAdvanceBlockers(encounter);
+        await this.nextTurn(encounter);
+      } catch (error) {
+        this.logger.error?.(`[CombatEncounter][${encounter.channelId}] Turn advancement error: ${error.message}`);
+      } finally {
+        encounter._advancingTurn = false; // 🔓 Release mutex flag
+      }
     }
   }
 
@@ -897,7 +941,10 @@ Message: ${messageContent}`;
 
   /** Explicit destroy for graceful shutdown */
   destroy() {
-    if (this.cleanupInterval) clearInterval(this.cleanupInterval);
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
     for (const enc of this.encounters.values()) {
   this._clearTimers(enc);
     }
