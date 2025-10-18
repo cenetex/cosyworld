@@ -204,12 +204,14 @@ export class AttackTool extends BasicTool {
                         }
                       }
                     } catch (e) { this.logger?.warn?.(`[AttackTool] auto X poster post failed: ${e.message}`); }
-                    // Brief discussion after poster
-                    const cm = this.conversationManager;
-                    if (cm?.sendResponse) {
-                      try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
-                      try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
-                    }
+                    
+                    // DISABLED: Brief discussion after poster causes spam
+                    // Combat flow should be: poster -> initiative -> turn-based actions only
+                    // const cm = this.conversationManager;
+                    // if (cm?.sendResponse) {
+                    //   try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
+                    //   try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
+                    // }
                   }
                 }
               }

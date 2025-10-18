@@ -554,9 +554,11 @@ export class CombatEncounterService {
     encounter.chatter.lastSpeakerId = null;
     // Wait for fight poster phase (if any) before initiative narrative for clean ordering
     try { await encounter.posterBlocker?.promise; } catch {}
-    // Emit narrative request for pre-combat chatter instead of direct conversation calls
-    try { this._publish('combat.narrative.request.pre_combat', { channelId: encounter.channelId }); } catch (e) { this.logger.warn?.(`[CombatEncounter] pre-combat narrative request failed: ${e.message}`); }
-    // Announce first turn immediately for clarity
+    
+    // DISABLED: Pre-combat narrative causes spam - only show fight poster
+    // try { this._publish('combat.narrative.request.pre_combat', { channelId: encounter.channelId }); } catch (e) { this.logger.warn?.(`[CombatEncounter] pre-combat narrative request failed: ${e.message}`); }
+    
+    // Announce first turn immediately for clarity (disabled - see _announceTurn)
     try { await this._announceTurn(encounter); } catch {}
     // kick off first turn using pacing logic
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
@@ -788,9 +790,11 @@ export class CombatEncounterService {
           return;
         }
       } catch (e) { this.logger.warn?.(`[CombatEncounter] KO skip check failed: ${e.message}`); }
-      // Emit narrative requests for commentary & inter-turn chatter instead of direct calls
-      try { this._publish('combat.narrative.request.commentary', { channelId: encounter.channelId }); } catch {}
-      try { this._publish('combat.narrative.request.inter_turn', { channelId: encounter.channelId }); } catch {}
+      
+      // DISABLED: Narrative requests cause too much spam during combat
+      // Only trigger the AI action for the current turn
+      // try { this._publish('combat.narrative.request.commentary', { channelId: encounter.channelId }); } catch {}
+      // try { this._publish('combat.narrative.request.inter_turn', { channelId: encounter.channelId }); } catch {}
       
       // CRITICAL FIX: Trigger immediate AI response for combat turn
       // All combatants are AI agents, so immediately prompt for action instead of waiting for timeout
@@ -1250,9 +1254,14 @@ Message: ${messageContent}`;
   /** Initiative embed intentionally removed */
 
   /** Post an embed for each new turn */
-  async _announceTurn(encounter) {
-  if (!this.discordService?.client) return;
-  const channel = this._getChannel(encounter);
+  async _announceTurn(_encounter) {
+    // DISABLED: Turn announcements are now disabled to reduce spam
+    // Only combat start and combat summary embeds are shown
+    return;
+    
+    /* Original implementation kept for reference
+    if (!this.discordService?.client) return;
+    const channel = this._getChannel(encounter);
     if (!channel?.send) return;
     if (encounter.state !== 'active') return;
     
@@ -1265,17 +1274,18 @@ Message: ${messageContent}`;
     const currentId = this.getCurrentTurnAvatarId(encounter);
     const current = this.getCombatant(encounter, currentId);
     if (!current) return;
-  const status = encounter.combatants.map(c => `${this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' '} ${c.name}: ${c.currentHp}/${c.maxHp} HP${c.isDefending ? ' 🛡️' : ''}`).join('\n');
+    const status = encounter.combatants.map(c => `${this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' '} ${c.name}: ${c.currentHp}/${c.maxHp} HP${c.isDefending ? ' 🛡️' : ''}`).join('\n');
     const mode = this._getCombatModeFor(current);
     // Try pull location name for flavor
     const embed = {
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-  description: `${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
+      description: `${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
       fields: [ { name: 'Status', value: status.slice(0, 1024) } ],
       color: 0x00AD2F,
       footer: { text: '30s turn timer • act with narrative or commands' }
     };
     try { await channel.send({ embeds: [embed] }); } catch (e) { this.logger.warn?.(`[CombatEncounter] send turn embed failed: ${e.message}`); }
+    */
   }
 
   /** Generate a short in-character commentary line between actions */
@@ -2041,11 +2051,12 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
           encounter.chatter.spokenThisRound = new Set();
           encounter.chatter.lastSpeakerId = null;
         } catch {}
-        // Emit post-round narrative request and optional planning
-        try { this._publish('combat.narrative.request.post_round', { channelId: encounter.channelId, round: encounter.round - 1 }); } catch {}
-        if (this.enableRoundPlanning) {
-          try { this._publish('combat.narrative.request.round_planning', { channelId: encounter.channelId, round: encounter.round }); } catch {}
-        }
+        
+        // DISABLED: Narrative requests cause spam - only show combat start and summary
+        // try { this._publish('combat.narrative.request.post_round', { channelId: encounter.channelId, round: encounter.round - 1 }); } catch {}
+        // if (this.enableRoundPlanning) {
+        //   try { this._publish('combat.narrative.request.round_planning', { channelId: encounter.channelId, round: encounter.round }); } catch {}
+        // }
       }
       // Apply index and announce turn
       encounter.currentTurnIndex = nextIdx;
