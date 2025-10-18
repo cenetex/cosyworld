@@ -1,5 +1,41 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { publishEvent } from '../../events/envelope.mjs';
+
+/**
+ * Combat system constants - extracted from magic numbers for maintainability
+ */
+const COMBAT_CONSTANTS = {
+  // Turn Management
+  DEFAULT_TURN_TIMEOUT_MS: 30_000,
+  DEFAULT_AUTO_ACT_DELAY_MS: 1500,
+  DEFAULT_MIN_TURN_GAP_MS: 4000,
+  DEFAULT_ROUND_COOLDOWN_MS: 3000,
+  
+  // Encounter Management
+  DEFAULT_MAX_ENCOUNTERS_PER_GUILD: 5,
+  DEFAULT_STALE_ENCOUNTER_MS: 60 * 60 * 1000, // 1 hour
+  DEFAULT_IDLE_END_ROUNDS: 3,
+  
+  // Media Generation
+  DEFAULT_MEDIA_WAIT_TIMEOUT_MS: 45_000,
+  DEFAULT_POSTER_WAIT_TIMEOUT_MS: 15_000,
+  DEFAULT_ROUND_PLANNING_TIMEOUT_MS: 3500,
+  
+  // Cooldowns
+  KNOCKOUT_COOLDOWN_MS: 24 * 60 * 60 * 1000, // 24 hours
+  FLEE_COOLDOWN_MS: 24 * 60 * 60 * 1000, // 24 hours
+  
+  // Combat Mechanics
+  LOW_HP_THRESHOLD: 0.3,
+  DEFEND_AC_BONUS: 2,
+  DEFAULT_AC: 10,
+  DEFAULT_HP: 10,
+  DEFAULT_DEX: 10,
+  
+  // Cleanup
+  CLEANUP_INTERVAL_MS: 60 * 1000,
+};
+
 /**
  * CombatEncounterService
  * Manages turn-based D&D style combat encounters (initiative, turn order, state) for AI + tool driven actions.
@@ -24,29 +60,32 @@ export class CombatEncounterService {
     // channelId -> encounter object
     this.encounters = new Map();
 
-    // Configurable knobs (could move to configService later)
-  this.turnTimeoutMs = 30_000; // default AI / auto resolution window
-  this.idleEndRounds = 3; // end if no hostile action for N rounds
+    // Configurable knobs (using COMBAT_CONSTANTS for defaults)
+  this.turnTimeoutMs = Number(process.env.COMBAT_TURN_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_TURN_TIMEOUT_MS);
+  this.idleEndRounds = Number(process.env.COMBAT_IDLE_END_ROUNDS || COMBAT_CONSTANTS.DEFAULT_IDLE_END_ROUNDS);
   this.enableTurnEnforcement = true;
-  this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || 5);
-  this.staleEncounterMs = 60 * 60 * 1000; // 1 hour
+  this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || COMBAT_CONSTANTS.DEFAULT_MAX_ENCOUNTERS_PER_GUILD);
+  this.staleEncounterMs = Number(process.env.COMBAT_STALE_ENCOUNTER_MS || COMBAT_CONSTANTS.DEFAULT_STALE_ENCOUNTER_MS);
   this._initCleanupInterval();
 
   // Auto-acting controls
-  this.autoActDelayMs = Number(process.env.COMBAT_AUTO_ACT_DELAY_MS || 1500);
+  this.autoActDelayMs = Number(process.env.COMBAT_AUTO_ACT_DELAY_MS || COMBAT_CONSTANTS.DEFAULT_AUTO_ACT_DELAY_MS);
   this.defaultCombatMode = (process.env.COMBAT_MODE_DEFAULT || 'auto').toLowerCase(); // 'auto' or 'manual'
 
   // Pacing & commentary controls
-  this.minTurnGapMs = Number(process.env.COMBAT_MIN_TURN_GAP_MS || 4000); // ensure at least this gap between actions
-  this.roundCooldownMs = Number(process.env.COMBAT_ROUND_COOLDOWN_MS || 3000); // extra pause when round wraps
+  this.minTurnGapMs = Number(process.env.COMBAT_MIN_TURN_GAP_MS || COMBAT_CONSTANTS.DEFAULT_MIN_TURN_GAP_MS);
+  this.roundCooldownMs = Number(process.env.COMBAT_ROUND_COOLDOWN_MS || COMBAT_CONSTANTS.DEFAULT_ROUND_COOLDOWN_MS);
   this.enableCommentary = (process.env.COMBAT_COMMENTARY_ENABLED || 'true') === 'true';
   this.commentaryChance = Math.max(0, Math.min(1, parseFloat(process.env.COMBAT_COMMENTARY_CHANCE || '0.65')));
   // Round planning & narration
   this.enableRoundPlanning = (process.env.COMBAT_ROUND_PLANNING_ENABLED || 'true') === 'true';
-  this.roundPlanningTimeoutMs = Number(process.env.COMBAT_ROUND_PLANNING_TIMEOUT_MS || 3500);
+  this.roundPlanningTimeoutMs = Number(process.env.COMBAT_ROUND_PLANNING_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_ROUND_PLANNING_TIMEOUT_MS);
   // Turn sequencing & media gating
-  this.mediaWaitTimeoutMs = Number(process.env.COMBAT_MEDIA_WAIT_TIMEOUT_MS || 45_000);
-  this.posterWaitTimeoutMs = Number(process.env.COMBAT_POSTER_WAIT_TIMEOUT_MS || 15_000);
+  this.mediaWaitTimeoutMs = Number(process.env.COMBAT_MEDIA_WAIT_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_MEDIA_WAIT_TIMEOUT_MS);
+  this.posterWaitTimeoutMs = Number(process.env.COMBAT_POSTER_WAIT_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_POSTER_WAIT_TIMEOUT_MS);
+  
+  // Feature flags for migration to event-driven architecture
+  this.useEventDrivenTurnAdvancement = (process.env.COMBAT_EVENT_DRIVEN || 'false').toLowerCase() === 'true';
   }
 
   /** Internal helper to publish standardized combat narrative request events */
@@ -65,7 +104,7 @@ export class CombatEncounterService {
     }
     this.cleanupInterval = setInterval(() => {
       this.cleanupStaleEncounters();
-    }, 60 * 1000);
+    }, COMBAT_CONSTANTS.CLEANUP_INTERVAL_MS);
     if (this.cleanupInterval.unref) {
       this.cleanupInterval.unref();
     }
@@ -75,8 +114,8 @@ export class CombatEncounterService {
   
   /** Helper: compute DEX modifier from stats, defaulting to 10 */
   _dexModFromStats(stats) {
-    const dex = Number(stats?.dexterity ?? 10);
-    return Math.floor((dex - 10) / 2);
+    const dex = Number(stats?.dexterity ?? COMBAT_CONSTANTS.DEFAULT_DEX);
+    return Math.floor((dex - COMBAT_CONSTANTS.DEFAULT_DEX) / 2);
   }
 
   /** Helper: check if a combatant is knocked out or dead */
@@ -88,6 +127,65 @@ export class CombatEncounterService {
            combatant.ref?.status === 'dead' ||
            combatant.ref?.status === 'knocked_out' ||
            (combatant.ref?.knockedOutUntil && now < combatant.ref.knockedOutUntil);
+  }
+
+  /**
+   * Validate encounter state integrity before critical operations
+   * @param {Object} encounter - The encounter to validate
+   * @param {string} operation - Name of the operation (for logging)
+   * @returns {boolean} - True if valid, false otherwise
+   */
+  _validateEncounter(encounter, operation = 'unknown') {
+    const errors = [];
+    
+    if (!encounter) {
+      errors.push('Encounter is null or undefined');
+    } else {
+      // Required fields
+      if (!encounter.channelId) {
+        errors.push('Missing channelId');
+      }
+      if (!Array.isArray(encounter.combatants)) {
+        errors.push('Invalid combatants (not an array)');
+      }
+      if (!Array.isArray(encounter.initiativeOrder)) {
+        errors.push('Invalid initiativeOrder (not an array)');
+      }
+      
+      // State-specific validation
+      if (encounter.state === 'active') {
+        if (encounter.initiativeOrder.length === 0) {
+          errors.push('Active encounter with empty initiative order');
+        }
+        if (!encounter.startedAt) {
+          errors.push('Active encounter without startedAt timestamp');
+        }
+        if (typeof encounter.currentTurnIndex !== 'number') {
+          errors.push('Active encounter without valid currentTurnIndex');
+        }
+        if (encounter.round < 1) {
+          errors.push('Active encounter with invalid round number');
+        }
+      }
+      
+      // Combatant validation
+      if (Array.isArray(encounter.combatants)) {
+        encounter.combatants.forEach((c, i) => {
+          if (!c.avatarId) errors.push(`Combatant ${i} missing avatarId`);
+          if (!c.name) errors.push(`Combatant ${i} missing name`);
+          if (!c.ref) errors.push(`Combatant ${i} missing ref`);
+        });
+      }
+    }
+    
+    if (errors.length > 0) {
+      this.logger.error?.(
+        `[CombatEncounter] Validation failed for operation '${operation}': ${errors.join(', ')}`
+      );
+      return false;
+    }
+    
+    return true;
   }
 
   /** Public: is avatar an active combatant in channel's encounter */
@@ -228,9 +326,9 @@ export class CombatEncounterService {
       name: a.name,
       ref: a,
       initiative: null,
-      currentHp: a.currentHp ?? a.hp ?? a.health ??  (a.stats?.hp || 10),
-      maxHp: a.stats?.hp || a.hp ||  a.maxHp || 10,
-      armorClass: 10, // will be updated after stats fetch if available
+      currentHp: a.currentHp ?? a.hp ?? a.health ??  (a.stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP),
+      maxHp: a.stats?.hp || a.hp ||  a.maxHp || COMBAT_CONSTANTS.DEFAULT_HP,
+      armorClass: COMBAT_CONSTANTS.DEFAULT_AC, // will be updated after stats fetch if available
       hasActed: false,
       isDefending: false,
       conditions: [],
@@ -278,18 +376,33 @@ export class CombatEncounterService {
 
   /** Rolls initiative for all combatants (d20 + DEX mod if stats available) */
   async rollInitiative(encounter) {
-    for (const c of encounter.combatants) {
-      try {
-        const stats = await this.avatarService.getOrCreateStats(c.ref);
+    // Fetch all stats in parallel for better performance
+    const statsPromises = encounter.combatants.map(c => 
+      this.avatarService.getOrCreateStats(c.ref)
+        .catch(e => {
+          this.logger.warn?.(`[CombatEncounter] Failed stats for ${c.name}: ${e.message}`);
+          return null;
+        })
+    );
+    
+    const allStats = await Promise.all(statsPromises);
+    
+    // Apply stats and roll initiative for each combatant
+    encounter.combatants.forEach((c, i) => {
+      const stats = allStats[i];
+      const roll = this.diceService.rollDie(20);
+      
+      if (stats) {
         const dexMod = this._dexModFromStats(stats);
-        const roll = this.diceService.rollDie(20);
         c.initiative = roll + dexMod;
-        c.armorClass = 10 + dexMod; // base AC for now
-      } catch (e) {
-        c.initiative = this.diceService.rollDie(20);
-        this.logger.warn?.(`[CombatEncounter] Failed stats for ${c.name}: ${e.message}`);
+        c.armorClass = COMBAT_CONSTANTS.DEFAULT_AC + dexMod;
+      } else {
+        // Fallback for missing stats
+        c.initiative = roll;
+        c.armorClass = COMBAT_CONSTANTS.DEFAULT_AC;
       }
-    }
+    });
+    
     this._rebuildInitiativeOrder(encounter, { preserveCurrent: false });
     encounter.state = 'active';
     encounter.startedAt = Date.now();
@@ -337,12 +450,41 @@ export class CombatEncounterService {
 
   /** If it's still the same combatant's turn, pick and execute an AI action */
   async _maybeAutoAct(encounter, plannedAvatarId) {
-    if (!encounter || encounter.state !== 'active') return;
+    // Comprehensive null safety guards
+    if (!encounter || encounter.state !== 'active') {
+      this.logger.debug?.('[CombatEncounter] _maybeAutoAct: invalid encounter or not active');
+      return;
+    }
+    
     const currentId = this.getCurrentTurnAvatarId(encounter);
-    if (currentId !== plannedAvatarId) return; // turn changed
+    if (!currentId) {
+      this.logger.warn?.('[CombatEncounter] _maybeAutoAct: no current turn avatar');
+      return;
+    }
+    
+    if (currentId !== plannedAvatarId) {
+      this.logger.debug?.('[CombatEncounter] _maybeAutoAct: turn changed, skipping');
+      return; // turn changed
+    }
+    
     const actor = this.getCombatant(encounter, currentId);
-    if (!actor) return;
-    if (this._getCombatModeFor(actor) !== 'auto') return;
+    if (!actor) {
+      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: no combatant found for ${currentId}, advancing turn`);
+      await this.nextTurn(encounter);
+      return;
+    }
+    
+    if (!actor.ref) {
+      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: combatant ${actor.name} missing ref, advancing turn`);
+      await this.nextTurn(encounter);
+      return;
+    }
+    
+    if (this._getCombatModeFor(actor) !== 'auto') {
+      this.logger.debug?.(`[CombatEncounter] _maybeAutoAct: ${actor.name} is in manual mode`);
+      return;
+    }
+    
     try {
       // Check if actor is knocked out using centralized helper
       if (this._isKnockedOut(actor)) {
@@ -350,11 +492,14 @@ export class CombatEncounterService {
         await this.nextTurn(encounter);
         return;
       }
-    } catch {}
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: KO check failed for ${actor.name}: ${e.message}`);
+    }
+    
     this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
     const hp = Math.max(0, actor.currentHp || 0);
-    const maxHp = Math.max(1, actor.maxHp || 10);
-    const low = hp / maxHp <= 0.3;
+    const maxHp = Math.max(1, actor.maxHp || COMBAT_CONSTANTS.DEFAULT_HP);
+    const low = hp / maxHp <= COMBAT_CONSTANTS.LOW_HP_THRESHOLD;
     let didAct = false;
     const post = async (content) => this._postAsWebhook(encounter, actor.ref, content);
     const latch = this._preRegisterTurnAdvanceBlocker(encounter.channelId);
@@ -567,7 +712,7 @@ export class CombatEncounterService {
   const dexMod = this._dexModFromStats(stats);
     const initiative = this.diceService.rollDie(20) + dexMod;
     const armorClass = 10 + dexMod;
-  const combatant = { avatarId: aid, name: avatar.name, ref: avatar, initiative, currentHp: stats?.hp || 10, maxHp: stats?.hp || 10, armorClass, hasActed: false, isDefending: false, conditions: [], side: 'neutral' };
+  const combatant = { avatarId: aid, name: avatar.name, ref: avatar, initiative, currentHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP, maxHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP, armorClass, hasActed: false, isDefending: false, conditions: [], side: 'neutral' };
     encounter.combatants.push(combatant);
     // Rebuild initiative order and keep current turn index referencing correct avatar
   this._rebuildInitiativeOrder(encounter, { preserveCurrent: true });
@@ -618,19 +763,96 @@ export class CombatEncounterService {
       const c = this.getCombatant(encounter, avatarId);
       if (!c || typeof amount !== 'number' || amount <= 0) return 0;
       const before = Math.max(0, c.currentHp || 0);
-      const maxHp = Math.max(1, c.maxHp || c.ref?.stats?.hp || 10);
+      const maxHp = Math.max(1, c.maxHp || c.ref?.stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP);
       c.currentHp = Math.min(maxHp, before + amount);
       return c.currentHp - before;
     } catch { return 0; }
   }
 
+  /**
+   * Apply attack state changes without turn advancement (used by event-driven architecture)
+   * @private
+   */
+  _applyAttackState(encounter, { attackerId, defenderId, result }) {
+    try {
+      const attId = this._normalizeId(attackerId);
+      const defId = this._normalizeId(defenderId);
+      
+      // Apply damage
+      if (result?.damage && (result.result === 'hit' || result.result === 'knockout' || result.result === 'dead')) {
+        this.applyDamage(encounter, defId, result.damage);
+        this.markHostile(encounter);
+      }
+      
+      // Apply knockout state
+      if (result?.result === 'knockout' || result?.result === 'dead') {
+        try {
+          encounter.knockout = { attackerId: attId, defenderId: defId, result: result?.result };
+          const def = this.getCombatant(encounter, defId);
+          if (def) {
+            def.currentHp = 0;
+            if (!def.conditions?.includes('unconscious')) {
+              def.conditions = [...(def.conditions || []), 'unconscious'];
+            }
+          }
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to apply KO state: ${e.message}`);
+        }
+      }
+      
+      // Record last action
+      try {
+        const attacker = this.getCombatant(encounter, attId);
+        const defender = this.getCombatant(encounter, defId);
+        encounter.lastAction = {
+          attackerId: attId,
+          attackerName: attacker?.name,
+          defenderId: defId,
+          defenderName: defender?.name,
+          result: result?.result,
+          damage: result?.damage || 0,
+          attackRoll: result?.attackRoll,
+          armorClass: result?.armorClass,
+          critical: !!result?.critical,
+        };
+        encounter.lastActionAt = Date.now();
+      } catch (e) {
+        this.logger.warn?.(`[CombatEncounter] Failed to record last action: ${e.message}`);
+      }
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] _applyAttackState error: ${e.message}`);
+    }
+  }
+
   /** Central handler after an attack result for turn advancement & damage application */
   async handleAttackResult(encounter, { attackerId, defenderId, result }) {
-    if (!encounter || encounter.state !== 'active') return;
+    // Validate encounter
+    if (!encounter) {
+      this.logger.warn?.('[CombatEncounter] handleAttackResult: null encounter');
+      return;
+    }
+    
+    if (encounter.state !== 'active') {
+      this.logger.debug?.('[CombatEncounter] handleAttackResult: encounter not active');
+      return;
+    }
+    
     const attId = this._normalizeId(attackerId);
     const defId = this._normalizeId(defenderId);
     
-    // Apply damage and state changes
+    if (!attId || !defId) {
+      this.logger.warn?.('[CombatEncounter] handleAttackResult: invalid attacker or defender ID');
+      return;
+    }
+    
+    // If using event-driven architecture, only apply state changes (let events handle turn advancement)
+    if (this.useEventDrivenTurnAdvancement) {
+      this.logger.debug?.('[CombatEncounter] handleAttackResult: using event-driven mode, skipping direct turn advancement');
+      this._applyAttackState(encounter, { attackerId: attId, defenderId: defId, result });
+      return;
+    }
+    
+    // Legacy path: apply damage and state changes directly
     if (result?.damage && (result.result === 'hit' || result.result === 'knockout' || result.result === 'dead')) {
       this.applyDamage(encounter, defId, result.damage);
       this.markHostile(encounter);
@@ -793,6 +1015,10 @@ Message: ${messageContent}`;
   /** Generate a short in-character commentary line between actions */
   async _maybePostCommentary(encounter) {
     // DEPRECATED: retained temporarily for backward compatibility; replaced by combat.narrative.request.commentary events
+    this.logger.warn?.(
+      '[CombatEncounter] _maybePostCommentary is DEPRECATED and will be removed in v2.0. ' +
+      'Use combat.narrative.request.commentary events instead.'
+    );
     if (!this.enableCommentary) return;
     if (Math.random() > this.commentaryChance) return;
   const conversationManager = this.getConversationManager?.();
@@ -838,6 +1064,10 @@ Message: ${messageContent}`;
    */
   async _preCombatChatter(encounter) {
     // DEPRECATED: replaced by combat.narrative.request.pre_combat event
+    this.logger.warn?.(
+      '[CombatEncounter] _preCombatChatter is DEPRECATED and will be removed in v2.0. ' +
+      'Use combat.narrative.request.pre_combat events instead.'
+    );
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -860,6 +1090,10 @@ Message: ${messageContent}`;
    */
   async _postRoundDiscussion(encounter) {
     // DEPRECATED: replaced by combat.narrative.request.post_round event
+    this.logger.warn?.(
+      '[CombatEncounter] _postRoundDiscussion is DEPRECATED and will be removed in v2.0. ' +
+      'Use combat.narrative.request.post_round events instead.'
+    );
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -883,6 +1117,10 @@ Message: ${messageContent}`;
    */
   async _roundPlanningPhase(encounter) {
   // DEPRECATED: replaced by combat.narrative.request.round_planning event
+  this.logger.warn?.(
+    '[CombatEncounter] _roundPlanningPhase is DEPRECATED and will be removed in v2.0. ' +
+    'Use combat.narrative.request.round_planning events instead.'
+  );
   const conversationManager = this.getConversationManager?.();
   if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -954,6 +1192,10 @@ Message: ${messageContent}`;
   /** Inter-turn chatter allowing other avatars to chime in between turns */
   async _postInterTurnChatter(encounter) {
     // DEPRECATED: replaced by combat.narrative.request.inter_turn event
+    this.logger.warn?.(
+      '[CombatEncounter] _postInterTurnChatter is DEPRECATED and will be removed in v2.0. ' +
+      'Use combat.narrative.request.inter_turn events instead.'
+    );
     const conversationManager = this.getConversationManager?.();
     if (!this.discordService?.client || !conversationManager?.sendResponse) return;
     try {
@@ -1285,9 +1527,22 @@ Message: ${messageContent}`;
   /** Advance to the next turn; handle round wrap and narrative pacing hooks */
   async nextTurn(encounter) {
     try {
-      if (!encounter || encounter.state !== 'active') return;
+      // Validate encounter before advancing
+      if (!this._validateEncounter(encounter, 'nextTurn')) {
+        this.logger.error?.('[CombatEncounter] Cannot advance turn: invalid encounter state');
+        return;
+      }
+      
+      if (encounter.state !== 'active') {
+        this.logger.debug?.('[CombatEncounter] nextTurn: encounter not active');
+        return;
+      }
+      
       const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
-      if (order.length === 0) return;
+      if (order.length === 0) {
+        this.logger.warn?.('[CombatEncounter] nextTurn: empty initiative order');
+        return;
+      }
       const prevIdx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
       const nextIdx = (prevIdx + 1) % order.length;
       const roundWrap = nextIdx === 0;
@@ -1319,14 +1574,36 @@ Message: ${messageContent}`;
   /** Called when the turn timer elapses without action */
   async _onTurnTimeout(encounter) {
     try {
-      if (!encounter || encounter.state !== 'active') return;
+      // Validate encounter
+      if (!encounter) {
+        this.logger.warn?.('[CombatEncounter] _onTurnTimeout: null encounter');
+        return;
+      }
+      
+      if (encounter.state !== 'active') {
+        this.logger.debug?.('[CombatEncounter] _onTurnTimeout: encounter not active');
+        return;
+      }
+      
       const currentId = this.getCurrentTurnAvatarId(encounter);
+      if (!currentId) {
+        this.logger.warn?.('[CombatEncounter] _onTurnTimeout: no current turn avatar');
+        return;
+      }
+      
       const actor = this.getCombatant(encounter, currentId);
       if (!actor) {
-        this.logger.info?.(`[CombatEncounter] turn timed out; advancing (no actor found)`);
+        this.logger.info?.(`[CombatEncounter] turn timed out; advancing (no actor found for ${currentId})`);
         await this.nextTurn(encounter);
         return;
       }
+      
+      if (!actor.ref) {
+        this.logger.warn?.(`[CombatEncounter] _onTurnTimeout: actor ${actor.name} missing ref`);
+        await this.nextTurn(encounter);
+        return;
+      }
+      
       const mode = this._getCombatModeFor(actor);
       if (mode === 'auto') {
         // Try to perform the planned action immediately
