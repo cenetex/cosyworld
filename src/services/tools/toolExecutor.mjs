@@ -65,11 +65,29 @@ export class ToolExecutor {
 
       this.logger.info?.(`[ToolExecutor] Tool ${toolName} executed successfully`);
       
+      // Handle null/undefined/empty results:
+      // - null means intentional silence (e.g., out of turn, already KO'd)
+      // - Return formatted message for other cases
+      let formattedResult;
+      if (result === null || result === undefined) {
+        // Silent execution - don't show anything to user
+        formattedResult = null;
+      } else if (typeof result === 'string' && result.trim().length === 0) {
+        // Empty string - treat as silent
+        formattedResult = null;
+      } else if (typeof result === 'string') {
+        // String result - use as-is if properly formatted, otherwise format it
+        formattedResult = result.trim().startsWith('-#') ? result : `-# [ ${result} ]`;
+      } else {
+        // Non-string result - format as JSON in brackets
+        formattedResult = `-# [ ${JSON.stringify(result)} ]`;
+      }
+      
       return {
         toolCallId,
         toolName,
         success: true,
-        result: result || 'Tool executed successfully',
+        result: formattedResult,
         error: null
       };
     } catch (error) {
@@ -178,14 +196,16 @@ export class ToolExecutor {
    * @returns {Array} Formatted messages for LLM context
    */
   formatResultsForLLM(results) {
-    return results.map(result => ({
-      role: 'tool',
-      tool_call_id: result.toolCallId,
-      name: result.toolName,
-      content: result.success 
-        ? (typeof result.result === 'string' ? result.result : JSON.stringify(result.result))
-        : `Error: ${result.error}`
-    }));
+    return results
+      .filter(result => result.result !== null && result.result !== undefined) // Skip silent executions
+      .map(result => ({
+        role: 'tool',
+        tool_call_id: result.toolCallId,
+        name: result.toolName,
+        content: result.success 
+          ? (typeof result.result === 'string' ? result.result : JSON.stringify(result.result))
+          : `Error: ${result.error}`
+      }));
   }
 
   /**

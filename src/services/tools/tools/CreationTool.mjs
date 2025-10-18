@@ -27,8 +27,12 @@ export class CreationTool extends BasicTool {
       }
       const prompt = this.buildPrompt(message, command, params);
       const narrative = await this.generateNarrative(prompt);
-      this.cache.set(cacheKey, narrative);
-      return narrative;
+      // Format the narrative properly if it's not already formatted
+      const formatted = narrative.trim().startsWith('-#') 
+        ? narrative 
+        : `-# [ ${narrative} ]`;
+      this.cache.set(cacheKey, formatted);
+      return formatted;
     } catch (error) {
       this.logger?.error('Error in CreationTool:', error);
       return `-# [ ❌ Error: Failed to generate narrative: ${error.message} ]`;
