@@ -1264,6 +1264,13 @@ Message: ${messageContent}`;
   const channel = this._getChannel(encounter);
     if (!channel?.send) return;
     if (encounter.state !== 'active') return;
+    
+    // Skip turn announcements for round 1 - they're redundant and spammy
+    if (encounter.round === 1) {
+      this.logger.debug?.(`[CombatEncounter] skipping round 1 turn announcement`);
+      return;
+    }
+    
     const currentId = this.getCurrentTurnAvatarId(encounter);
     const current = this.getCombatant(encounter, currentId);
     if (!current) return;
@@ -1573,8 +1580,70 @@ Message: ${messageContent}`;
     try {
       const channel = this._getChannel(encounter);
       if (!channel?.send) return;
+      
+      // Sync combatant HP from actual avatar refs to get current state
+      for (const c of encounter.combatants) {
+        if (c.ref) {
+          try {
+            const freshStats = await this.avatarService?.getOrCreateStats?.(c.ref);
+            if (freshStats?.hp) {
+              c.maxHp = freshStats.hp;
+              // Only update currentHp if ref has a valid value
+              if (typeof c.ref.currentHp === 'number') {
+                c.currentHp = c.ref.currentHp;
+              } else if (typeof c.ref.hp === 'number') {
+                c.currentHp = c.ref.hp;
+              }
+            }
+          } catch (e) {
+            this.logger.debug?.(`[CombatEncounter] HP sync failed for ${c.name}: ${e.message}`);
+          }
+        }
+      }
+      
       const status = encounter.combatants.map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`).join('\n');
-      const friendlyReason = this._formatEndReason?.(encounter) || 'The encounter concludes.';
+      
+      // Generate AI summary of the battle
+      let friendlyReason = this._formatEndReason?.(encounter) || 'The encounter concludes.';
+      if (this.unifiedAIService?.chat) {
+        try {
+          const combatLog = [];
+          if (encounter.lastAction) {
+            const action = encounter.lastAction;
+            combatLog.push(`${action.attackerName} ${action.result === 'hit' ? 'hit' : action.result === 'miss' ? 'missed' : action.result} ${action.defenderName}${action.damage ? ` for ${action.damage} damage` : ''}`);
+          }
+          if (encounter.knockout) {
+            const attacker = this.getCombatant(encounter, encounter.knockout.attackerId);
+            const defender = this.getCombatant(encounter, encounter.knockout.defenderId);
+            combatLog.push(`${attacker?.name || 'Fighter'} ${encounter.knockout.result === 'dead' ? 'defeated' : 'knocked out'} ${defender?.name || 'opponent'}`);
+          }
+          
+          const prompt = `Summarize this battle in 1-2 dramatic sentences (max 200 chars). Be concise and exciting.
+
+Combatants: ${encounter.combatants.map(c => `${c.name} (${c.currentHp}/${c.maxHp} HP)`).join(', ')}
+Rounds: ${encounter.round}
+Outcome: ${encounter.endReason || 'concluded'}
+${combatLog.length > 0 ? `Key moments: ${combatLog.join('; ')}` : ''}
+
+Write a brief, punchy summary with dramatic flair. No quotes.`;
+          
+          const response = await this.unifiedAIService.chat({
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.8,
+            maxTokens: 100
+          });
+          
+          if (response?.content) {
+            const summary = String(response.content).trim().replace(/^["']|["']$/g, '').slice(0, 400);
+            if (summary.length > 10) {
+              friendlyReason = summary;
+            }
+          }
+        } catch (e) {
+          this.logger.debug?.(`[CombatEncounter] AI summary generation failed: ${e.message}`);
+        }
+      }
+      
       const embed = {
         title: 'Combat Summary',
         description: friendlyReason,
