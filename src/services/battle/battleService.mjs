@@ -7,6 +7,18 @@
 // Centralizes all combat mechanics (attack, defend, knockout, etc.)
 import { publishEvent as basePublishEvent } from '../../events/envelope.mjs';
 
+/**
+ * Battle system constants for consistency with CombatEncounterService
+ */
+const BATTLE_CONSTANTS = {
+  DEFAULT_AC: 10,
+  DEFAULT_DEX: 10,
+  DEFEND_AC_BONUS: 2,
+  KNOCKOUT_COOLDOWN_MS: 24 * 60 * 60 * 1000, // 24 hours
+  BASE_ABILITY_SCORE: 10,
+  ABILITY_MOD_DIVISOR: 2,
+};
+
 export class BattleService  {
   constructor({
     avatarService,
@@ -55,8 +67,8 @@ export class BattleService  {
     const attackerStats = await this.avatarService.getOrCreateStats(attacker);
     const targetStats = await this.avatarService.getOrCreateStats(defender);
 
-    const strMod = Math.floor((attackerStats.strength - 10) / 2);
-    const dexMod = Math.floor((targetStats.dexterity - 10) / 2);
+    const strMod = Math.floor((attackerStats.strength - BATTLE_CONSTANTS.BASE_ABILITY_SCORE) / BATTLE_CONSTANTS.ABILITY_MOD_DIVISOR);
+    const dexMod = Math.floor((targetStats.dexterity - BATTLE_CONSTANTS.BASE_ABILITY_SCORE) / BATTLE_CONSTANTS.ABILITY_MOD_DIVISOR);
     const rollOnce = () => this.diceService.rollDie(20);
     let raw1 = rollOnce();
     let raw2 = null;
@@ -67,7 +79,7 @@ export class BattleService  {
     }
     const rawRoll = raw2 ? Math.max(raw1, raw2) : raw1;
     const attackRoll = rawRoll + strMod;
-    const armorClass = 10 + dexMod + (targetStats.isDefending ? 2 : 0);
+    const armorClass = BATTLE_CONSTANTS.DEFAULT_AC + dexMod + (targetStats.isDefending ? BATTLE_CONSTANTS.DEFEND_AC_BONUS : 0);
   publish?.({ type: 'combat.attack.attempt', source: 'BattleService', corrId, payload: { attackerId: attacker._id || attacker.id, defenderId: defender._id || defender.id, rawRoll, attackRoll, armorClass, advantageUsed: usedAdvantage, channelId } });
 
     const isCritical = rawRoll === 20;
@@ -128,7 +140,7 @@ export class BattleService  {
     await this.avatarService.updateAvatarStats(targetAvatar, newStats);
     const now = Date.now();
     targetAvatar.status = 'knocked_out';
-    targetAvatar.knockedOutUntil = now + 24 * 60 * 60 * 1000;
+    targetAvatar.knockedOutUntil = now + BATTLE_CONSTANTS.KNOCKOUT_COOLDOWN_MS;
     await this.avatarService.updateAvatar(targetAvatar);
     try {
       const discordService = _services?.discordService;
@@ -160,16 +172,16 @@ export class BattleService  {
     const stats = await this.avatarService.getOrCreateStats(avatar);
 
     // Compute opposing passive perception = 10 + Wis mod (take highest among others)
-    let highestPassive = 10;
+    let highestPassive = BATTLE_CONSTANTS.DEFAULT_AC;
     for (const o of others) {
       try {
         const os = await this.avatarService.getOrCreateStats(o);
-        const wisMod = Math.floor(((os.wisdom || 10) - 10) / 2);
-        highestPassive = Math.max(highestPassive, 10 + wisMod);
+        const wisMod = Math.floor(((os.wisdom || BATTLE_CONSTANTS.BASE_ABILITY_SCORE) - BATTLE_CONSTANTS.BASE_ABILITY_SCORE) / BATTLE_CONSTANTS.ABILITY_MOD_DIVISOR);
+        highestPassive = Math.max(highestPassive, BATTLE_CONSTANTS.DEFAULT_AC + wisMod);
       } catch {}
     }
 
-    const dexMod = Math.floor(((stats.dexterity || 10) - 10) / 2);
+    const dexMod = Math.floor(((stats.dexterity || BATTLE_CONSTANTS.BASE_ABILITY_SCORE) - BATTLE_CONSTANTS.BASE_ABILITY_SCORE) / BATTLE_CONSTANTS.ABILITY_MOD_DIVISOR);
     const roll = this.diceService.rollDie(20);
     const stealth = roll + dexMod;
 

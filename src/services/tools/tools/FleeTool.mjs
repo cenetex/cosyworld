@@ -43,61 +43,77 @@ export class FleeTool extends BasicTool {
       if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
         return null;
       }
+      
+      // Get combat encounter service
       const ces = services?.combatEncounterService || this.combatEncounterService;
-      if (!ces) return `-# [ ❌ Combat system unavailable. ]`;
+      if (!ces) {
+        this.logger?.warn?.('[FleeTool] Combat system unavailable');
+        return `-# [ ❌ Combat system unavailable. ]`;
+      }
+      
+      // Get active encounter
       const encounter = ces.getEncounter(message.channel.id);
-      if (!encounter || encounter.state !== 'active') return `-# [ Not in combat. ]`;
-      if (!ces.isTurn(encounter, avatar.id || avatar._id)) {
+      if (!encounter || encounter.state !== 'active') {
+        return `-# [ Not in combat. ]`;
+      }
+      
+      // Check if it's the avatar's turn
+      const avatarId = avatar.id || avatar._id;
+      if (!ces.isTurn(encounter, avatarId)) {
         // Silent out-of-turn handling
         return null;
       }
+      
+      // Emit flee attempt event
       const publish = (evt) => {
-        try { (services?.eventPublisher?.publishEvent || basePublishEvent)(evt); } catch {}
+        try { 
+          (services?.eventPublisher?.publishEvent || basePublishEvent)(evt); 
+        } catch (e) {
+          this.logger?.warn?.(`[FleeTool] Event publish failed: ${e.message}`);
+        }
       };
+      
       const channelId = message.channel.id;
       const corrId = message.id;
-      const actorId = avatar.id || avatar._id;
-      publish({ type: 'combat.flee.attempt', source: 'FleeTool', corrId, payload: { avatarId: actorId, channelId } });
+      publish({ 
+        type: 'combat.flee.attempt', 
+        source: 'FleeTool', 
+        corrId, 
+        payload: { avatarId, channelId } 
+      });
 
-      // Re-implement core flee logic (duplicated minimal subset of handleFlee to avoid direct dependency effects)
-      // Dex check vs highest enemy passive Perception (10 + Dex mod)
-      let success = false; let dc = 10; let roll = 0;
-      try {
-        const enemies = encounter.combatants.filter(c => (c.currentHp || 0) > 0 && (c.avatarId !== actorId));
-        for (const e of enemies) {
-          try {
-            const stats = await this.avatarService.getOrCreateStats(e.ref);
-            const mod = Math.floor(((stats.dexterity || 10) - 10) / 2);
-            dc = Math.max(dc, 10 + mod);
-          } catch {}
-        }
-        const aStats = await this.avatarService.getOrCreateStats(avatar);
-        roll = this.diceService.rollDie(20) + Math.floor(((aStats.dexterity || 10) - 10) / 2);
-        success = roll >= dc;
-      } catch {}
-
-      if (success) {
-        try {
-          avatar.combatCooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
-          await this.avatarService.updateAvatar(avatar);
-        } catch {}
-        // Move to Tavern
-        try {
-          const tavernId = await this.discordService?.getOrCreateThread?.(channelId, 'tavern');
-          if (tavernId && this.mapService?.updateAvatarPosition) {
-            await this.mapService.updateAvatarPosition(avatar, tavernId);
-          }
-        } catch (e) { this.logger?.warn?.(`[FleeTool] movement failed: ${e.message}`); }
-        publish({ type: 'combat.flee.success', source: 'FleeTool', corrId, payload: { avatarId: actorId, roll, dc, channelId } });
-        const msg = `-# 🏃 [ ${avatar.name} flees to the Tavern! The duel ends. ]`;
-        try { if (this.discordService?.sendAsWebhook) await this.discordService.sendAsWebhook(channelId, msg, avatar); } catch {}
-        return msg;
+      // Delegate to CombatEncounterService.handleFlee for consistent logic
+      this.logger?.info?.(`[FleeTool] ${avatar.name} attempting to flee in ${channelId}`);
+      const result = await ces.handleFlee(encounter, avatarId);
+      
+      // Emit success/fail events
+      if (result.success) {
+        publish({ 
+          type: 'combat.flee.success', 
+          source: 'FleeTool', 
+          corrId, 
+          payload: { avatarId, channelId } 
+        });
       } else {
-        publish({ type: 'combat.flee.fail', source: 'FleeTool', corrId, payload: { avatarId: actorId, roll, dc, channelId } });
-        const msg = `-# 🏃 [ ${avatar.name} fails to escape! ]`;
-        try { if (this.discordService?.sendAsWebhook) await this.discordService.sendAsWebhook(channelId, msg, avatar); } catch {}
-        return msg;
+        publish({ 
+          type: 'combat.flee.fail', 
+          source: 'FleeTool', 
+          corrId, 
+          payload: { avatarId, channelId } 
+        });
       }
+      
+      // Post message via webhook if available
+      if (result.message && this.discordService?.sendAsWebhook) {
+        try {
+          await this.discordService.sendAsWebhook(channelId, result.message, avatar);
+        } catch (e) {
+          this.logger?.warn?.(`[FleeTool] Webhook send failed: ${e.message}`);
+        }
+      }
+      
+      return result.message;
+      
     } catch (error) {
       this.logger?.error?.(`[FleeTool] error: ${error.message}`);
       return `-# [ ❌ Error: Failed to flee: ${error.message} ]`;

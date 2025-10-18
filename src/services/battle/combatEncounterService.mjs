@@ -34,7 +34,112 @@ const COMBAT_CONSTANTS = {
   
   // Cleanup
   CLEANUP_INTERVAL_MS: 60 * 1000,
+  
+  // Rate Limiting
+  DEFAULT_MAX_ACTIONS_PER_MINUTE: 10,
+  RATE_LIMIT_WINDOW_MS: 60 * 1000,
 };
+
+/**
+ * Rate limiter for combat actions to prevent spam
+ */
+class CombatRateLimiter {
+  constructor(maxActionsPerMinute = COMBAT_CONSTANTS.DEFAULT_MAX_ACTIONS_PER_MINUTE) {
+    this.actions = new Map(); // avatarId -> [timestamps]
+    this.maxActions = maxActionsPerMinute;
+    this.windowMs = COMBAT_CONSTANTS.RATE_LIMIT_WINDOW_MS;
+    this.cleanupInterval = null;
+    
+    // Cleanup old entries every minute
+    this.cleanupInterval = setInterval(() => {
+      this._cleanup();
+    }, this.windowMs);
+    
+    if (this.cleanupInterval.unref) {
+      this.cleanupInterval.unref();
+    }
+  }
+
+  /**
+   * Check if an avatar can perform a combat action
+   * @param {string} avatarId - The avatar ID
+   * @returns {boolean} - True if action is allowed, false if rate limited
+   */
+  canAct(avatarId) {
+    if (!avatarId) return false;
+    
+    const now = Date.now();
+    const actions = this.actions.get(avatarId) || [];
+    
+    // Remove actions outside the time window
+    const recentActions = actions.filter(timestamp => now - timestamp < this.windowMs);
+    
+    if (recentActions.length >= this.maxActions) {
+      return false; // Rate limited
+    }
+    
+    // Record this action
+    recentActions.push(now);
+    this.actions.set(avatarId, recentActions);
+    
+    return true;
+  }
+
+  /**
+   * Get remaining actions for an avatar in current window
+   * @param {string} avatarId - The avatar ID
+   * @returns {number} - Number of remaining actions allowed
+   */
+  getRemainingActions(avatarId) {
+    if (!avatarId) return 0;
+    
+    const now = Date.now();
+    const actions = this.actions.get(avatarId) || [];
+    const recentActions = actions.filter(timestamp => now - timestamp < this.windowMs);
+    
+    return Math.max(0, this.maxActions - recentActions.length);
+  }
+
+  /**
+   * Reset rate limit for an avatar
+   * @param {string} avatarId - The avatar ID
+   */
+  reset(avatarId) {
+    if (avatarId) {
+      this.actions.delete(avatarId);
+    }
+  }
+
+  /**
+   * Clean up old entries from memory
+   * @private
+   */
+  _cleanup() {
+    const now = Date.now();
+    const threshold = now - this.windowMs;
+    
+    for (const [avatarId, actions] of this.actions.entries()) {
+      const recentActions = actions.filter(timestamp => timestamp > threshold);
+      
+      if (recentActions.length === 0) {
+        this.actions.delete(avatarId);
+      } else {
+        this.actions.set(avatarId, recentActions);
+      }
+    }
+  }
+
+  /**
+   * Destroy the rate limiter and cleanup resources
+   */
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.actions.clear();
+  }
+}
 
 /**
  * CombatEncounterService
@@ -59,6 +164,8 @@ export class CombatEncounterService {
 
     // channelId -> encounter object
     this.encounters = new Map();
+    // Sorted list of encounters by age for efficient cleanup: [{channelId, createdAt}]
+    this.encountersByAge = [];
 
     // Configurable knobs (using COMBAT_CONSTANTS for defaults)
   this.turnTimeoutMs = Number(process.env.COMBAT_TURN_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_TURN_TIMEOUT_MS);
@@ -67,6 +174,11 @@ export class CombatEncounterService {
   this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || COMBAT_CONSTANTS.DEFAULT_MAX_ENCOUNTERS_PER_GUILD);
   this.staleEncounterMs = Number(process.env.COMBAT_STALE_ENCOUNTER_MS || COMBAT_CONSTANTS.DEFAULT_STALE_ENCOUNTER_MS);
   this._initCleanupInterval();
+
+  // Rate limiting for combat actions
+  const maxActionsPerMin = Number(process.env.COMBAT_MAX_ACTIONS_PER_MINUTE || COMBAT_CONSTANTS.DEFAULT_MAX_ACTIONS_PER_MINUTE);
+  this.rateLimiter = new CombatRateLimiter(maxActionsPerMin);
+  this.enableRateLimiting = (process.env.COMBAT_RATE_LIMITING_ENABLED || 'true').toLowerCase() === 'true';
 
   // Auto-acting controls
   this.autoActDelayMs = Number(process.env.COMBAT_AUTO_ACT_DELAY_MS || COMBAT_CONSTANTS.DEFAULT_AUTO_ACT_DELAY_MS);
@@ -370,8 +482,35 @@ export class CombatEncounterService {
       sourceMessageId: sourceMessage?.id || null
     };
     this.encounters.set(channelId, encounter);
+    
+    // Insert into sorted list by age for efficient cleanup
+    this._insertEncounterByAge(channelId, encounter.createdAt);
+    
     this.logger?.info?.(`[CombatEncounter][${channelId}] created: ${combatants.length} combatant(s), state=pending`);
     return encounter;
+  }
+
+  /**
+   * Insert encounter into sorted age list (binary search for insertion point)
+   * @private
+   */
+  _insertEncounterByAge(channelId, createdAt) {
+    const entry = { channelId, createdAt };
+    
+    // Binary search for insertion point
+    let left = 0;
+    let right = this.encountersByAge.length;
+    
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      if (this.encountersByAge[mid].createdAt < createdAt) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+    
+    this.encountersByAge.splice(left, 0, entry);
   }
 
   /** Rolls initiative for all combatants (d20 + DEX mod if stats available) */
@@ -694,6 +833,10 @@ export class CombatEncounterService {
       const winner = alive.length === 1 ? alive[0].name : null;
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ended: reason=${encounter.endReason}${winner ? ` winner=${winner}` : ''}`);
     } catch {}
+    
+    // Mark for cleanup by removing from encounters map (age list will be cleaned up later)
+    // We don't remove from age list immediately to avoid O(n) search during combat
+    
     // Optionally persist summary later
   this._persistEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] persist failed: ${e.message}`));
   this._sendSummary(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] summary send failed: ${e.message}`));
@@ -868,6 +1011,10 @@ export class CombatEncounterService {
           if (!def.conditions?.includes('unconscious')) def.conditions = [...(def.conditions || []), 'unconscious'];
         }
       } catch {}
+      
+      // Generate knockout/death media asynchronously (non-blocking)
+      this._generateKnockoutMediaAsync(encounter, attId, defId, result)
+        .catch(e => this.logger.warn?.(`[CombatEncounter] Async knockout media generation failed: ${e.message}`));
     }
     
     // Record last action context for pacing & commentary
@@ -1143,20 +1290,47 @@ Message: ${messageContent}`;
     }
   }
 
-  /** Remove stale / ended encounters from memory */
+  /** Remove stale / ended encounters from memory (optimized with sorted list) */
   cleanupStaleEncounters() {
     const now = Date.now();
-    for (const [channelId, enc] of this.encounters.entries()) {
-      const ended = enc.state === 'ended';
-      const stale = !ended && enc.startedAt && (now - enc.startedAt > this.staleEncounterMs);
-      if (ended || stale) {
-  this._clearTimers(enc);
-        this.encounters.delete(channelId);
-        this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${channelId} reason=${ended ? 'ended' : 'stale'}`);
+    const threshold = this.staleEncounterMs;
+    
+    // Clean from oldest until we hit a fresh encounter (early exit optimization)
+    let cleanedCount = 0;
+    while (this.encountersByAge.length > 0) {
+      const oldest = this.encountersByAge[0];
+      const enc = this.encounters.get(oldest.channelId);
+      
+      // If encounter doesn't exist in map, remove from age list
+      if (!enc) {
+        this.encountersByAge.shift();
+        cleanedCount++;
         continue;
       }
-      // Watchdog: if active but no turn timer armed and it's been a while, force a timeout to advance.
-      if (!ended && enc.state === 'active') {
+      
+      const ended = enc.state === 'ended';
+      const stale = !ended && enc.startedAt && (now - enc.startedAt > threshold);
+      
+      if (ended || stale) {
+        this._clearTimers(enc);
+        this.encounters.delete(oldest.channelId);
+        this.encountersByAge.shift();
+        cleanedCount++;
+        this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${oldest.channelId} reason=${ended ? 'ended' : 'stale'}`);
+      } else {
+        // Once we hit a non-stale encounter, all remaining are newer
+        break;
+      }
+    }
+    
+    if (cleanedCount > 0) {
+      this.logger.info?.(`[CombatEncounter] Cleanup: removed ${cleanedCount} encounter(s), ${this.encounters.size} active`);
+    }
+    
+    // Watchdog pass: check all active encounters for stalled timers
+    // This is less frequent now since cleanup is faster
+    for (const [channelId, enc] of this.encounters.entries()) {
+      if (enc.state === 'active') {
         try {
           const refTs = Math.max(
             enc.lastActionAt || 0,
@@ -1165,14 +1339,16 @@ Message: ${messageContent}`;
           );
           const since = now - refTs;
           const sinceArm = enc.lastTimerArmedAt ? (now - enc.lastTimerArmedAt) : Infinity;
-          const threshold = this.turnTimeoutMs * 2;
-          const needsNudge = (!enc.timers?.turn && since > threshold) || (sinceArm > threshold);
+          const watchdogThreshold = this.turnTimeoutMs * 2;
+          const needsNudge = (!enc.timers?.turn && since > watchdogThreshold) || (sinceArm > watchdogThreshold);
           if (needsNudge) {
             this.logger.warn?.(`[CombatEncounter][${channelId}] watchdog advancing turn (since=${since}ms, sinceArm=${sinceArm}ms)`);
             // Try to trigger the timeout path which handles action/advance consistently
             void this._onTurnTimeout(enc);
           }
-        } catch {}
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Watchdog check failed for ${channelId}: ${e.message}`);
+        }
       }
     }
   }
@@ -1187,6 +1363,40 @@ Message: ${messageContent}`;
   this._clearTimers(enc);
     }
     this.encounters.clear();
+    
+    // Cleanup rate limiter
+    if (this.rateLimiter) {
+      this.rateLimiter.destroy();
+      this.rateLimiter = null;
+    }
+  }
+
+  /**
+   * Check if an avatar can perform a combat action (rate limiting)
+   * @param {string} avatarId - The avatar ID
+   * @returns {Object} - { allowed: boolean, remaining: number, message?: string }
+   */
+  checkCombatActionAllowed(avatarId) {
+    if (!this.enableRateLimiting || !this.rateLimiter) {
+      return { allowed: true, remaining: Infinity };
+    }
+    
+    if (!avatarId) {
+      return { allowed: false, remaining: 0, message: 'Invalid avatar ID' };
+    }
+    
+    const allowed = this.rateLimiter.canAct(avatarId);
+    const remaining = this.rateLimiter.getRemainingActions(avatarId);
+    
+    if (!allowed) {
+      return {
+        allowed: false,
+        remaining: 0,
+        message: `-# ⏱️ [ Slow down! You've performed too many combat actions recently. Try again in a moment. ]`
+      };
+    }
+    
+    return { allowed: true, remaining };
   }
 
   /** Inter-turn chatter allowing other avatars to chime in between turns */
@@ -1476,6 +1686,92 @@ Message: ${messageContent}`;
     try {
       enc.knockoutMedia = media || null;
     } catch {}
+  }
+
+  /**
+   * Generate knockout/death media asynchronously without blocking turn advancement
+   * Posts media as a follow-up message when ready
+   * @private
+   */
+  async _generateKnockoutMediaAsync(encounter, attackerId, defenderId, result) {
+    try {
+      if (!this.battleMediaService && !this.battleService?.battleMediaService) {
+        this.logger.debug?.('[CombatEncounter] No media service available for knockout media');
+        return;
+      }
+
+      const bms = this.battleMediaService || this.battleService?.battleMediaService;
+      const attacker = this.getCombatant(encounter, attackerId)?.ref;
+      const defender = this.getCombatant(encounter, defenderId)?.ref;
+      
+      if (!attacker || !defender) {
+        this.logger.warn?.('[CombatEncounter] Cannot generate knockout media: missing attacker or defender');
+        return;
+      }
+
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Generating knockout media async for ${attacker.name} vs ${defender.name}`);
+
+      // Get location for context
+      let location = null;
+      try {
+        const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId);
+        location = loc?.location;
+      } catch (e) {
+        this.logger.debug?.(`[CombatEncounter] Could not fetch location: ${e.message}`);
+      }
+
+      // Generate media (may take 10-45 seconds)
+      let media = null;
+      try {
+        media = await bms.generateSummaryMedia({
+          winner: attacker,
+          loser: defender,
+          outcome: result?.result || 'knockout',
+          location
+        });
+      } catch (e) {
+        this.logger.warn?.(`[CombatEncounter] Knockout media generation failed: ${e.message}`);
+        
+        // Fallback to fight poster
+        if (bms?.generateFightPoster) {
+          try {
+            const poster = await bms.generateFightPoster({ attacker, defender, location });
+            if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
+          } catch (e2) {
+            this.logger.warn?.(`[CombatEncounter] Fight poster fallback failed: ${e2.message}`);
+          }
+        }
+      }
+
+      // Store media for summary
+      if (media) {
+        encounter.knockoutMedia = media;
+        
+        // Post media as follow-up message
+        try {
+          const channel = this._getChannel(encounter);
+          if (channel?.send) {
+            if (media.videoUrl) {
+              await channel.send({ content: `🎬 Finishing move: ${media.videoUrl}` });
+            } else if (media.imageUrl) {
+              await channel.send({ 
+                embeds: [{ 
+                  title: '💥 Knockout!',
+                  image: { url: media.imageUrl },
+                  color: 0xFF0000
+                }] 
+              });
+            }
+            this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Posted knockout media`);
+          }
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to post knockout media: ${e.message}`);
+        }
+      }
+      
+    } catch (error) {
+      this.logger.error?.(`[CombatEncounter] _generateKnockoutMediaAsync error: ${error.message}`);
+    }
   }
 
   /** Create a deferred blocker that can be resolved later; useful to pre-register before attack */
