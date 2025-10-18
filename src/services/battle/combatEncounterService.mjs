@@ -588,6 +588,60 @@ export class CombatEncounterService {
   }
 
   /** If it's still the same combatant's turn, pick and execute an AI action */
+  /**
+   * Trigger immediate AI action for the current combatant's turn
+   * This eliminates the 30-60s wait for watchdog timeout by immediately prompting the AI
+   */
+  async _triggerImmediateAIAction(encounter, combatant) {
+    try {
+      if (!encounter || !combatant || !combatant.ref) {
+        this.logger?.warn?.('[CombatEncounter] _triggerImmediateAIAction: invalid inputs');
+        return;
+      }
+      
+      // Get the ConversationManager to trigger AI response
+      const conversationManager = this.getConversationManager?.();
+      if (!conversationManager) {
+        this.logger?.debug?.('[CombatEncounter] _triggerImmediateAIAction: no ConversationManager available');
+        return;
+      }
+      
+      // Get the Discord channel
+      const channel = await this.discordService?.getChannel?.(encounter.channelId);
+      if (!channel) {
+        this.logger?.warn?.(`[CombatEncounter] _triggerImmediateAIAction: channel ${encounter.channelId} not found`);
+        return;
+      }
+      
+      // Trigger AI response for this avatar immediately
+      // The AI will use its tools (attack, defend, hide, etc.) based on the combat state
+      this.logger?.info?.(
+        `[CombatEncounter][${encounter.channelId}] Prompting ${combatant.name} for immediate action`
+      );
+      
+      await conversationManager.sendResponse(channel, combatant.ref, null, {
+        overrideCooldown: true,
+        context: {
+          inCombat: true,
+          currentTurn: true,
+          encounter: {
+            channelId: encounter.channelId,
+            round: encounter.round,
+            combatants: encounter.combatants.map(c => ({
+              name: c.name,
+              hp: c.currentHp,
+              maxHp: c.maxHp,
+              isDefending: c.isDefending
+            }))
+          }
+        }
+      });
+      
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] _triggerImmediateAIAction error: ${e.message}`);
+    }
+  }
+
   async _maybeAutoAct(encounter, plannedAvatarId) {
     // Comprehensive null safety guards
     if (!encounter || encounter.state !== 'active') {
@@ -729,7 +783,26 @@ export class CombatEncounterService {
       // Emit narrative requests for commentary & inter-turn chatter instead of direct calls
       try { this._publish('combat.narrative.request.commentary', { channelId: encounter.channelId }); } catch {}
       try { this._publish('combat.narrative.request.inter_turn', { channelId: encounter.channelId }); } catch {}
-      // Start timers
+      
+      // CRITICAL FIX: Trigger immediate AI response for combat turn
+      // All combatants are AI agents, so immediately prompt for action instead of waiting for timeout
+      try {
+        const currentId = this.getCurrentTurnAvatarId(encounter);
+        const current = this.getCombatant(encounter, currentId);
+        if (current?.ref) {
+          this.logger?.info?.(
+            `[CombatEncounter][${encounter.channelId}] Triggering immediate AI response for ${current.name}'s turn`
+          );
+          // Use ConversationManager to generate immediate AI response for this avatar
+          this._triggerImmediateAIAction(encounter, current).catch(e => {
+            this.logger?.warn?.(`[CombatEncounter] Immediate AI action failed for ${current.name}: ${e.message}`);
+          });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[CombatEncounter] Failed to trigger immediate AI action: ${e.message}`);
+      }
+      
+      // Start timers (fallback if AI doesn't respond)
       this._scheduleTurnTimeout(encounter);
       this._scheduleAutoAct(encounter);
     };
@@ -796,7 +869,7 @@ export class CombatEncounterService {
       if (roll >= dc) {
         // Success: set 24h flee cooldown and move to Tavern thread
         try {
-          actor.ref.combatCooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
+          actor.ref.combatCooldownUntil = Date.now() + COMBAT_CONSTANTS.FLEE_COOLDOWN_MS;
           await this.avatarService.updateAvatar(actor.ref);
         } catch {}
         try {
@@ -806,10 +879,32 @@ export class CombatEncounterService {
             this.logger?.info?.(`[Location][${encounter.channelId}] ${actor.name} → Tavern (${tavernId})`);
           }
         } catch (e) { this.logger?.warn?.(`[CombatEncounter] flee movement failed: ${e.message}`); }
-        // End encounter due to flee
-        try { encounter.fleerId = this._normalizeId(actor.avatarId); } catch {}
-        this.endEncounter(encounter, { reason: 'flee' });
-        return { success: true, message: `-# 🏃 [ ${actor.name} flees to the Tavern! The duel ends. ]` };
+        
+        // CRITICAL FIX: Remove from turn order to prevent ghost attacks
+        encounter.turnOrder = (encounter.turnOrder || []).filter(
+          id => this._normalizeId(id) !== this._normalizeId(avatarId)
+        );
+        
+        // Remove from combatants array
+        this.removeCombatant(encounter, avatarId);
+        
+        // Check if combat should end (only 1 or fewer combatants remain)
+        const activeCombatants = encounter.combatants.filter(c => (c.currentHp || 0) > 0);
+        if (activeCombatants.length <= 1) {
+          this.logger?.info?.(
+            `[CombatEncounter][${encounter.channelId}] Combat ending - only ${activeCombatants.length} combatant(s) remain after flee`
+          );
+          try { encounter.fleerId = this._normalizeId(actor.avatarId); } catch {}
+          this.endEncounter(encounter, { reason: 'flee' });
+          return { success: true, message: `-# 🏃 [ ${actor.name} flees to the Tavern! The duel ends. ]` };
+        }
+        
+        // Continue combat with remaining participants
+        this.logger?.info?.(
+          `[CombatEncounter][${encounter.channelId}] ${actor.name} fled, ${activeCombatants.length} combatants remain`
+        );
+        await this.nextTurn(encounter);
+        return { success: true, message: `-# 🏃 [ ${actor.name} flees to the Tavern! ]` };
       }
       // Failure: consume turn
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] flee failed for ${actor.name}`);

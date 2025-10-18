@@ -790,6 +790,13 @@ export class AvatarService {
     const stats = this.statService.generateStatsFromDate(new Date());
     const prompt = `Stats: ${JSON.stringify(stats)}\n\n${summonPrompt}`;
     const avatar = await this.createAvatar({ prompt, summoner: summonerId, channelId });
+    
+    // Handle case where avatar creation failed
+    if (!avatar) {
+      this.logger?.error?.('[AvatarService] Failed to create avatar - createAvatar returned null');
+      return { avatar: null, new: false };
+    }
+    
     avatar.stats = stats;
     return { avatar, new: true };
   }

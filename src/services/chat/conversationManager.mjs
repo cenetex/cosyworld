@@ -49,6 +49,10 @@ export class ConversationManager  {
     this.CHANNEL_COOLDOWN = 5 * 1000; // 5 seconds
     this.MAX_RESPONSES_PER_MESSAGE = 2;
     this.channelResponders = new Map();
+    
+    // In-memory cache for channel summaries to reduce expensive AI calls during combat
+    this.summaryCacheMap = new Map(); // key: `${avatarId}:${channelId}` -> { summary, timestamp, lastMessageId }
+    this.SUMMARY_CACHE_TTL_MS = 60 * 1000; // 60 seconds - summaries are fresh enough for combat
     this.requiredPermissions = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'ManageWebhooks'];
     
     // Phase 2: Tool calling configuration
@@ -263,6 +267,16 @@ export class ConversationManager  {
   }
 
   async getChannelSummary(avatarId, channelId) {
+    // Check in-memory cache first (critical for combat performance)
+    const cacheKey = `${avatarId}:${channelId}`;
+    const cached = this.summaryCacheMap.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp < this.SUMMARY_CACHE_TTL_MS)) {
+      this.logger?.debug?.(`[ConversationManager] Using cached summary for ${cacheKey} (age: ${Math.floor((now - cached.timestamp) / 1000)}s)`);
+      return cached.summary;
+    }
+    
     this.db = await this.databaseService.getDatabase();
     if (!this.db) {
       this.logger.error('DB not initialized. Cannot fetch channel summary.');
@@ -278,7 +292,15 @@ export class ConversationManager  {
         .find({ channelId, timestamp: { $gt: lastUpdated } })
         .sort({ timestamp: 1 })
         .toArray();
-      if (messagesToSummarize.length < 50) return summaryDoc.summary;
+      if (messagesToSummarize.length < 50) {
+        // Cache the existing summary
+        this.summaryCacheMap.set(cacheKey, {
+          summary: summaryDoc.summary,
+          timestamp: now,
+          lastMessageId: summaryDoc.lastMessageId
+        });
+        return summaryDoc.summary;
+      }
     } else {
       messagesToSummarize = await messagesCollection
         .find({ channelId })
@@ -340,6 +362,14 @@ export class ConversationManager  {
     } else {
       await summariesCollection.insertOne({ avatarId, channelId, summary, lastUpdated, lastMessageId });
     }
+    
+    // Cache the newly generated summary (reuse cacheKey from top of function)
+    this.summaryCacheMap.set(cacheKey, {
+      summary,
+      timestamp: Date.now(),
+      lastMessageId
+    });
+    
     return summary;
   }
 
