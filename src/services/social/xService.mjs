@@ -940,7 +940,12 @@ class XService {
         try {
           // Use OAuth 1.0a client if available, otherwise OAuth 2.0
           const metadataClient = useOAuth1 && oauth1Client ? oauth1Client.v2 : v2Active;
-          await metadataClient.createMediaMetadata(mediaId, { alt_text: altText.slice(0, 1000) });
+          // Twitter API requires alt_text to be wrapped in an object with a 'text' property
+          await metadataClient.createMediaMetadata(mediaId, { 
+            alt_text: { 
+              text: altText.slice(0, 1000) 
+            } 
+          });
         } catch (e) {
           this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`);
         }

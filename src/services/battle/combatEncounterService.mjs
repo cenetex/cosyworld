@@ -689,6 +689,13 @@ export class CombatEncounterService {
       this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: KO check failed for ${actor.name}: ${e.message}`);
     }
     
+    // Check if encounter should end before taking any action
+    // This prevents post-knockout attacks when the previous action KO'd the last opponent
+    if (this.evaluateEnd(encounter)) {
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act cancelled: encounter ended`);
+      return;
+    }
+    
     this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
     const hp = Math.max(0, actor.currentHp || 0);
     const maxHp = Math.max(1, actor.maxHp || COMBAT_CONSTANTS.DEFAULT_HP);
@@ -711,7 +718,26 @@ export class CombatEncounterService {
         if (this._normalizeId(c.avatarId) === this._normalizeId(actor.avatarId)) return false;
         return !this._isKnockedOut(c);
       });
-      const target = targets[Math.floor(Math.random() * Math.max(1, targets.length))];
+      
+      // If no valid targets remain, encounter should end
+      if (targets.length === 0) {
+        this.logger.info?.(`[CombatEncounter][${encounter.channelId}] No valid targets for ${actor.name}; evaluating end`);
+        if (!this.evaluateEnd(encounter)) {
+          // If evaluateEnd didn't end it, defend and advance turn
+          if (this.battleService?.defend) {
+            const msg = await this.battleService.defend({ avatar: actor.ref });
+            actor.isDefending = true;
+            await post(`${actor.name} used defend 🛡️\n${msg}`);
+          }
+          try { latch.resolve(); } catch {}
+          await this.nextTurn(encounter);
+        } else {
+          try { latch.resolve(); } catch {}
+        }
+        return;
+      }
+      
+      const target = targets[Math.floor(Math.random() * targets.length)];
       if (target && this.battleService?.attack) {
         const messageShim = { channel: { id: encounter.channelId } };
         const services = { combatEncounterService: this, battleMediaService: this.battleMediaService || this.battleService?.battleMediaService, discordService: this.discordService };
