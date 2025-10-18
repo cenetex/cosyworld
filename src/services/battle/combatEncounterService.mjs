@@ -610,7 +610,7 @@ export class CombatEncounterService {
       }
       
       // Get the Discord channel
-      const channel = await this.discordService?.getChannel?.(encounter.channelId);
+      const channel = this._getChannel(encounter);
       if (!channel) {
         this.logger?.warn?.(`[CombatEncounter] _triggerImmediateAIAction: channel ${encounter.channelId} not found`);
         return;
@@ -704,7 +704,7 @@ export class CombatEncounterService {
     // SIMPLIFIED AUTO-ACT: Just trigger AI response with tool decision system
     // The ToolDecisionService will decide what action to take based on combat state
     try {
-      const channel = await this.discordService?.getChannel?.(encounter.channelId);
+      const channel = this._getChannel(encounter);
       if (!channel) {
         this.logger.warn?.(`[CombatEncounter] auto-act: channel ${encounter.channelId} not found`);
         await this.nextTurn(encounter);
@@ -814,9 +814,9 @@ export class CombatEncounterService {
         this.logger?.warn?.(`[CombatEncounter] Failed to trigger immediate AI action: ${e.message}`);
       }
       
-      // Start timers (fallback if AI doesn't respond)
+      // Start turn timeout timer only (fallback if AI doesn't respond)
+      // NOTE: _scheduleAutoAct() removed to prevent duplicate AI calls
       this._scheduleTurnTimeout(encounter);
-      this._scheduleAutoAct(encounter);
     };
     if (delay > 0) {
       this.logger.info?.(`[CombatEncounter] delaying next turn by ${delay}ms (roundWrap=${roundWrap})`);
