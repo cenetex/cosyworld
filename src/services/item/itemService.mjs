@@ -287,7 +287,15 @@ export class ItemService {
       if (systemAck) {
         try { await this.discordService.sendAsWebhook(channelId, systemAck, avatar); } catch {}
       }
-      await this.discordService.sendAsWebhook(channelId, resp || `The ${item.name} glows faintly.`, item);
+      
+      // Create a valid avatar-like object for the item
+      const itemAsAvatar = {
+        name: String(item.name || 'Unknown Item'),
+        imageUrl: item.imageUrl || item.image || '',
+        emoji: item.emoji || '✨'
+      };
+      
+      await this.discordService.sendAsWebhook(channelId, resp || `The ${item.name} glows faintly.`, itemAsAvatar);
 
       return `-# [ ${item.name} used by ${avatar.name} in ${channel.name}. ]`;
     }

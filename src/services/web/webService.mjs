@@ -13,6 +13,9 @@ export class WebService {
     discordService,
     s3Service,
     aiModelService,
+    // Provide AI services for downstream consumers (global X poster needs analyzeImage)
+    aiService,
+    openrouterAIService,
     xService,
     secretsService,
     setupStatusService,
@@ -23,6 +26,8 @@ export class WebService {
     this.discordService = discordService;
     this.s3Service = s3Service;
     this.aiModelService = aiModelService;
+    this.aiService = aiService;
+    this.openrouterAIService = openrouterAIService;
     this.xService = xService;
     this.secretsService = secretsService;
     this.setupStatusService = setupStatusService;
@@ -37,6 +42,11 @@ export class WebService {
       discordService: this.discordService,
       s3Service: this.s3Service,
       aiModelService: this.aiModelService,
+      // Expose both alias and concrete provider; keep a camelCase alias for backward compat
+      aiService: this.aiService || this.openrouterAIService,
+      openrouterAIService: this.openrouterAIService,
+      // Back-compat for modules referencing openRouterAIService (note the capital R)
+      openRouterAIService: this.openrouterAIService,
       xService: this.xService,
       secretsService: this.secretsService,
       setupStatusService: this.setupStatusService,

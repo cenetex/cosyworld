@@ -272,7 +272,10 @@ export class DiscordService {
 
   validateAvatar(avatar) {
     if (!avatar || typeof avatar !== 'object') throw new Error('Avatar must be a valid object');
-    if (!avatar.name || typeof avatar.name !== 'string') throw new Error('Avatar name is required and must be a string');
+    if (!avatar.name || typeof avatar.name !== 'string') {
+      this.logger.error('Invalid avatar object:', { avatar, avatarType: typeof avatar, hasName: !!avatar?.name, nameType: typeof avatar?.name });
+      throw new Error('Avatar name is required and must be a string');
+    }
   }
 
   async getOrCreateWebhook(channel) {
@@ -372,9 +375,19 @@ export class DiscordService {
     }
     try {
       const { embed, components } = buildMiniLocationEmbed(location, items, avatars);
+      
+      // Validate location data before sending
+      if (!location || !location.name) {
+        this.logger.warn('Location missing name, using fallback');
+      }
+      
       await this.sendEmbedAsWebhook(channelId, embed, 'Location Update', this.client.user.displayAvatarURL(), components);
     } catch (error) {
-      this.logger.error(`Failed to send location embed to ${channelId}: ${error.message}`);
+      this.logger.error(`Failed to send location embed to ${channelId}: ${error.message}`, {
+        locationName: location?.name,
+        errorStack: error.stack
+      });
+      throw error;
     }
   }
 

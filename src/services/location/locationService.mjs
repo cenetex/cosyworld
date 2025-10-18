@@ -273,10 +273,16 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       };
 
       // Post the location image as a webhook
-      await this.discordService.sendAsWebhook(thread.id, locationImage, locationDocument);
+      const locationAsAvatar = {
+        name: String(locationDocument.name || 'New Location'),
+        imageUrl: locationDocument.imageUrl || '',
+        emoji: '📍'
+      };
+      
+      await this.discordService.sendAsWebhook(thread.id, locationImage, locationAsAvatar);
 
       // Post the evocative description as a webhook
-      await this.discordService.sendAsWebhook(thread.id, locationDescription, locationDocument);
+      await this.discordService.sendAsWebhook(thread.id, locationDescription, locationAsAvatar);
 
       // Validate location schema
       const schemaValidator = new SchemaValidator();
@@ -333,7 +339,7 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       let locationName = channel.name;
 
   const ai4 = this.unifiedAIService || this.aiService;
-  const cleanLocationName = await ai4.chat(
+  let cleanLocationName = await ai4.chat(
         [
           { role: 'system', content: 'You are an expert editor.' },
           {
@@ -343,6 +349,14 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         ],
         { model: STRUCTURED_MODEL }
       ).catch(() => locationName.slice(0, 80));
+  
+  // Ensure cleanLocationName is a string
+  if (cleanLocationName && typeof cleanLocationName === 'object' && cleanLocationName.text) {
+    cleanLocationName = cleanLocationName.text;
+  }
+  if (typeof cleanLocationName !== 'string' || !cleanLocationName) {
+    cleanLocationName = locationName.slice(0, 80);
+  }
 
   let description = await ai4.chat(
         [
@@ -372,8 +386,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
 
       await this.discordService.sendLocationEmbed(location, [], [], channelId);
       await this.discordService.sendAsWebhook(channelId, description, {
-        name: cleanLocationName,
-        imageUrl
+        name: String(cleanLocationName || 'Unknown Location'),
+        imageUrl: imageUrl || ''
       });
     }
     return location;
@@ -463,8 +477,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       this.discordService.sendLocationEmbed(location, items, avatars, locationId);
       await this.discordService.sendAsWebhook(locationId, summary, {
         id: locationId,
-        name: location.name,
-        imageUrl: location.imageUrl
+        name: String(location.name || 'Unknown Location'),
+        imageUrl: location.imageUrl || ''
       });
 
       await this.db.collection('locations').updateOne(

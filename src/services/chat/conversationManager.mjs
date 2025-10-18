@@ -499,6 +499,33 @@ export class ConversationManager  {
         `${r.toolName}: ${r.success ? r.result : `Error: ${r.error}`}`
       ).join('\n');
       
+      // Post tool results to the channel so they're visible
+      // Note: Some tools (like attack/flee in combat) already post via webhook internally,
+      // so we filter to avoid double-posting. We only post for tools that return pure status messages.
+      const toolsWithInternalPosting = new Set(['attack', 'flee', 'defend']);
+      
+      for (const toolResult of toolResults) {
+        // Skip tools that handle their own posting
+        if (toolsWithInternalPosting.has(toolResult.toolName)) {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Skipping ${toolResult.toolName} (posts internally)`);
+          continue;
+        }
+        
+        if (toolResult.success && toolResult.result && typeof toolResult.result === 'string' && toolResult.result.trim()) {
+          try {
+            // Only post results that contain visible content (not just system messages for internal use)
+            // Skip empty results, nulls, or system-only messages
+            const resultText = toolResult.result.trim();
+            if (resultText && resultText !== 'null' && !resultText.startsWith('[System:')) {
+              await this.discordService.sendAsWebhook(channel.id, resultText, avatar);
+              this.logger.info?.(`[AI][sendResponse][${corrId}] Posted ${toolResult.toolName} result to channel`);
+            }
+          } catch (postError) {
+            this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to post ${toolResult.toolName} result: ${postError.message}`);
+          }
+        }
+      }
+      
       // Inject tool results into the conversation
       chatMessages.push({
         role: 'user',

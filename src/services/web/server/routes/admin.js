@@ -856,6 +856,7 @@ Hello ${avatar.name}, what's on your mind today?
       if (body.rate && typeof body.rate === 'object') {
         const r = {};
         if (body.rate.hourly && Number(body.rate.hourly) > 0) r.hourly = Number(body.rate.hourly);
+        if (body.rate.minIntervalSec && Number(body.rate.minIntervalSec) > 0) r.minIntervalSec = Number(body.rate.minIntervalSec);
         if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
       }
       if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
@@ -892,6 +893,7 @@ Hello ${avatar.name}, what's on your mind today?
       const envFlags = {
         X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED || undefined,
         X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP || undefined,
+        X_GLOBAL_POST_MIN_INTERVAL_SEC: process.env.X_GLOBAL_POST_MIN_INTERVAL_SEC || undefined,
         DEBUG_GLOBAL_X: process.env.DEBUG_GLOBAL_X || undefined
       };
       res.json({ metrics, config: cfg || null, authPresent: !!auth, authProfile: auth?.profile || null, envFlags });

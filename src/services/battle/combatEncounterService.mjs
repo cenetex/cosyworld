@@ -129,7 +129,13 @@ export class CombatEncounterService {
     if (!content) return;
     try {
       if (this.discordService?.sendAsWebhook) {
-        await this.discordService.sendAsWebhook(encounter.channelId, content, actorRef);
+        // Ensure actorRef has a valid name property
+        const validActorRef = {
+          name: String(actorRef?.name || 'Unknown Actor'),
+          imageUrl: actorRef?.imageUrl || actorRef?.image || '',
+          emoji: actorRef?.emoji || ''
+        };
+        await this.discordService.sendAsWebhook(encounter.channelId, content, validActorRef);
       }
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] webhook post failed: ${e.message}`);
@@ -626,19 +632,20 @@ export class CombatEncounterService {
       };
       encounter.lastActionAt = Date.now();
     } catch {}
-    // If KO/death occurred, evaluate end immediately before advancing
-    try {
-      if (result?.result === 'knockout' || result?.result === 'dead') {
-        if (this.evaluateEnd(encounter)) return;
-      }
-    } catch {}
-    // Advance turn only if attacker was current turn
-    if (this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId) {
+    
+    // Check if encounter should end BEFORE advancing turn or doing anything else
+    // This is critical to prevent post-knockout attacks
+    if (this.evaluateEnd(encounter)) {
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Encounter ended; skipping turn advancement`);
+      return;
+    }
+    
+    // Advance turn only if attacker was current turn and encounter is still active
+    if (encounter.state === 'active' && this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === attId) {
       // Wait for any registered media/blockers to finish (with timeout) before moving to next turn
       try { await this._awaitTurnAdvanceBlockers(encounter); } catch {}
       this.nextTurn(encounter);
     }
-    this.evaluateEnd(encounter);
   }
 
   /** Persist encounter summary (best-effort) */

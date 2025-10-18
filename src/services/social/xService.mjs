@@ -595,6 +595,7 @@ class XService {
         this.logger?.info?.('[XService][globalPost][diag] envFlags', {
           X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED,
           X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP,
+          X_GLOBAL_POST_MIN_INTERVAL_SEC: process.env.X_GLOBAL_POST_MIN_INTERVAL_SEC,
           hasAIService: !!services.aiService,
           hasAnalyzeImage: !!services.aiService?.analyzeImage
         });
@@ -611,6 +612,7 @@ class XService {
             no_access_token: 0,
             invalid_media_url: 0,
             hourly_cap: 0,
+            min_interval: 0,
             unsupported_video: 0,
             error: 0,
             guild_override: 0
@@ -735,6 +737,20 @@ class XService {
         if (config?.rate?.hourly && Number(config.rate.hourly) > 0) return Number(config.rate.hourly);
         return 10; // default
       })();
+      // Enforce a minimum time between successful posts to avoid burst rate limits
+      const minIntervalSec = (() => {
+        const envSec = Number(process.env.X_GLOBAL_POST_MIN_INTERVAL_SEC);
+        if (!Number.isNaN(envSec) && envSec > 0) return envSec;
+        if (config?.rate?.minIntervalSec && Number(config.rate.minIntervalSec) > 0) return Number(config.rate.minIntervalSec);
+        return 180; // default to 3 minutes
+      })();
+      if (this._globalRate.lastPostedAt && (now - this._globalRate.lastPostedAt) < (minIntervalSec * 1000)) {
+        const nextInMs = (minIntervalSec * 1000) - (now - this._globalRate.lastPostedAt);
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'min_interval', mediaUrl, waitMs: nextInMs };
+        this.logger?.info?.(`[XService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s before next post`);
+        _bump('min_interval', { mediaUrl, minIntervalSec });
+        return null;
+      }
       if (this._globalRate.count >= hourlyCap) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'hourly_cap', mediaUrl };
         this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
@@ -1027,6 +1043,7 @@ class XService {
       }
 
       this._globalRate.count++;
+  try { this._globalRate.lastPostedAt = Date.now(); } catch {}
 
       // store basic record
       try {
