@@ -309,6 +309,9 @@ export class PromptAssembler {
       FOCUS: focusText,
       MEMORY: this.RECALL_SHADOW ? MEMORY : MEMORY, 
       RECALL: this.RECALL_SHADOW ? [] : pickedSnippets,
+      IDENTITY_REMINDER: pickedSnippets.length > 0 || MEMORY.length > 0 
+        ? 'REMEMBER: Stay fully in character. The above context informs your response, but you remain yourself.' 
+        : null,
       CONSTRAINTS: constraintsText,
       TASK: taskText,
       OUTPUT_SCHEMA: outputSchema
