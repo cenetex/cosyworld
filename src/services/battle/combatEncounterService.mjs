@@ -934,7 +934,12 @@ One-liner (no quotes):`;
         if (result.critical) actionMessage += ` 🎯 **CRITICAL HIT**`;
         if (result.result === 'knockout') actionMessage += ` 💀 **KNOCKOUT**`;
         if (result.result === 'dead') actionMessage += ` ☠️ **DEATH**`;
-        actionMessage += ` (${isSuccess ? 'HIT' : 'MISS'})]`;
+        // Add roll vs AC stats
+        if (result.attackRoll !== undefined && result.armorClass !== undefined) {
+          actionMessage += ` (${isSuccess ? 'HIT' : 'MISS'}: ${result.attackRoll} vs AC ${result.armorClass})]`;
+        } else {
+          actionMessage += ` (${isSuccess ? 'HIT' : 'MISS'})]`;
+        }
       } else if (action.type === 'defend') {
         actionMessage += ' takes a defensive stance 🛡️]';
       }
@@ -1908,6 +1913,21 @@ Generate the video prompt now:`
           this.logger?.info?.(`[CombatEncounter] Added ${secondCombatant.name} as reference image`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download ${secondCombatant.name} image: ${e.message}`);
+        }
+      }
+      
+      // Add location image as third reference (for environment/setting)
+      if (s3Service && loc?.location?.imageUrl && referenceImages.length < 3) {
+        try {
+          const buffer = await s3Service.downloadImage(loc.location.imageUrl);
+          referenceImages.push({
+            data: buffer.toString('base64'),
+            mimeType: 'image/png',
+            referenceType: 'style' // Use as style reference for environment
+          });
+          this.logger?.info?.(`[CombatEncounter] Added location "${locationName}" as reference image`);
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to download location image: ${e.message}`);
         }
       }
       
