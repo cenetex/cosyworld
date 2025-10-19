@@ -71,6 +71,7 @@ CosyWorld is an AI avatar universe where persistent, evolving entities with uniq
 
 ### Battle System
 - **Strategic Combat**: Attack, defend, and maneuver with dice-based mechanics
+- **Battle Recap Videos**: Automatic 24-second cinematic chronicles using Veo 3.1 after each fight
 - **Immutable Stats**: Base stats never change; all effects tracked as modifiers
 - **Fair Dice Rolling**: Cryptographically secure randomness via DiceService
 - **Knockout & Revival**: Lives system with full healing on knockout

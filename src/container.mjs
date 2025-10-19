@@ -446,6 +446,8 @@ async function initializeContainer() {
   container.register({ getMapService: asFunction(() => () => container.resolve('mapService')).singleton() });
   // Provide late-binding getter for ConversationManager to break circular deps (combat -> CM -> prompt -> tool -> combat)
   container.register({ getConversationManager: asFunction(() => () => container.resolve('conversationManager')).singleton() });
+  // Provide late-binding getter for CombatEncounterService to break circular deps (discord -> combat -> map -> discord)
+  container.register({ getCombatEncounterService: asFunction(() => () => container.resolve('combatEncounterService')).singleton() });
 
   // Late-binding unifiedAIService if not already registered (after dynamic services loaded)
   try {

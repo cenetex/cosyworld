@@ -153,23 +153,21 @@ export class ChallengeTool extends BasicTool {
                   }
                 }
               } catch (e) { this.logger?.warn?.(`[ChallengeTool] auto X poster post failed: ${e.message}`); }
-              // Brief in-character chatter
-              const cm = this.conversationManager;
-              if (cm?.sendResponse) {
-                try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
-                try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
-              }
+              
+              // NO ConversationManager chatter here - combat system handles dialogue autonomously
+              // Old code was causing spam by triggering full AI responses with tool execution
             }
           }
         }
       } catch (e) {
-        this.logger?.warn?.(`[ChallengeTool] poster/chatter failed: ${e.message}`);
+        this.logger?.warn?.(`[ChallengeTool] poster generation failed: ${e.message}`);
       } finally {
         try { ces.endManualAction(message.channel.id); } catch {}
         try { const enc = ces.getEncounter(message.channel.id); enc?.posterBlocker?.resolve?.(); } catch {}
       }
 
-      // Start encounter (initiative + chatter + timers)
+      // Start encounter (initiative roll + turn system)
+      // NO ConversationManager chatter - combat system handles all actions
       try { await ces.rollInitiative(ces.getEncounter(message.channel.id)); } catch {}
       return null; // no extra text
     } catch (error) {

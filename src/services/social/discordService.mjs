@@ -21,8 +21,9 @@ export class DiscordService {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
-  // Optional cross-service hooks
+  // Optional cross-service hooks (late-binding to avoid circular deps)
   this.getMapService = services.getMapService || null;
+  this.getCombatEncounterService = services.getCombatEncounterService || null;
   this.avatarService = services.avatarService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
@@ -99,6 +100,45 @@ export class DiscordService {
         }
         
         const { customId } = interaction;
+        
+        // Handle battle video generation button
+        if (customId.startsWith('generate_battle_video_')) {
+          const channelId = customId.replace('generate_battle_video_', '');
+          
+          try {
+            await interaction.deferUpdate(); // Acknowledge the button click
+            
+            // Check if combat encounter service is available (late-binding to avoid circular deps)
+            const combatEncounterService = this.getCombatEncounterService?.();
+            if (!combatEncounterService) {
+              await interaction.followUp({ content: '❌ Combat system not available', flags: 64 });
+              return;
+            }
+            
+            // Generate videos with live status updates
+            const result = await combatEncounterService.generateBattleRecapVideos(
+              channelId,
+              interaction.message.id
+            );
+            
+            if (!result.success) {
+              this.logger.warn?.(`[DiscordService] Battle video generation failed: ${result.error}`);
+            }
+            
+          } catch (error) {
+            this.logger.error?.(`[DiscordService] Battle video button error: ${error.message}`);
+            try {
+              await interaction.followUp({ 
+                content: `❌ Failed to generate battle videos: ${error.message}`, 
+                flags: 64 
+              });
+            } catch {}
+          }
+          
+          return; // Exit early after handling
+        }
+        
+        // Handle existing view_full_ buttons
         if (!customId.startsWith('view_full_')) return;
 
         await interaction.deferReply({ flags: 64 });

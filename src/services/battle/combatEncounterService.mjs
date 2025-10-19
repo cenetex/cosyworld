@@ -1,5 +1,6 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { publishEvent } from '../../events/envelope.mjs';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability
@@ -164,10 +165,14 @@ export class CombatEncounterService {
   this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
     this.veoService = veoService || null; // For battle recap videos
 
-    // channelId -> encounter object
+    // channelId -> encounter object (active encounters)
     this.encounters = new Map();
     // Sorted list of encounters by age for efficient cleanup: [{channelId, createdAt}]
     this.encountersByAge = [];
+    
+    // channelId -> completed encounter object (for video generation after combat ends)
+    // Stores battleRecap data for 24 hours after combat completion
+    this.completedEncounters = new Map();
 
     // Configurable knobs (using COMBAT_CONSTANTS for defaults)
   this.turnTimeoutMs = Number(process.env.COMBAT_TURN_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_TURN_TIMEOUT_MS);
@@ -556,8 +561,8 @@ export class CombatEncounterService {
     // Wait for fight poster phase (if any) before initiative narrative for clean ordering
     try { await encounter.posterBlocker?.promise; } catch {}
     
-    // DISABLED: Pre-combat narrative causes spam - only show fight poster
-    // try { this._publish('combat.narrative.request.pre_combat', { channelId: encounter.channelId }); } catch (e) { this.logger.warn?.(`[CombatEncounter] pre-combat narrative request failed: ${e.message}`); }
+    // Pre-combat dialogue: let each combatant say something before the fight starts
+    await this._postPreCombatDialogue(encounter);
     
     // Announce first turn immediately for clarity (disabled - see _announceTurn)
     try { await this._announceTurn(encounter); } catch {}
@@ -598,7 +603,9 @@ export class CombatEncounterService {
       const result = await this._executeCombatAction(action, combatant, encounter);
       
       // 3. Generate combat dialogue (AI one-liner)
+      this.logger?.info?.(`[CombatEncounter] Generating dialogue for ${combatant.name} (action: ${action.type})`);
       const dialogue = await this._generateCombatDialogue(combatant, action, result);
+      this.logger?.info?.(`[CombatEncounter] Dialogue generated: "${dialogue}"`);
       
       // 4. Post to Discord
       await this._postCombatAction(encounter, combatant, action, result, dialogue);
@@ -683,7 +690,11 @@ export class CombatEncounterService {
    * Generate combat dialogue using AI (short one-liner)
    */
   async _generateCombatDialogue(combatant, action, result) {
-    if (!this.unifiedAIService?.generateCompletion) return '';
+    // Always generate dialogue - use fallbacks if AI unavailable
+    if (!this.unifiedAIService?.chat) {
+      this.logger?.info?.('[CombatEncounter] AI service unavailable, using fallback dialogue');
+      return this._getFallbackDialogue(combatant, action, result);
+    }
     
     try {
       const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${combatant.name}.
@@ -694,15 +705,209 @@ ${result?.critical ? 'CRITICAL HIT!' : ''}
 
 One-liner (no quotes):`;
       
-      const response = await this.unifiedAIService.generateCompletion(prompt, {
+      const messages = [
+        { role: 'system', content: 'You are a combat narrator. Generate SHORT one-liners (max 15 words) that characters say during battle. Return ONLY the dialogue, no quotes or narration.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      const response = await this.unifiedAIService.chat(messages, {
         temperature: 0.9,
         max_tokens: 30
       });
       
-      return (response?.text || response || '').trim();
+      const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes if any
+      if (dialogue) {
+        this.logger?.info?.(`[CombatEncounter] AI generated dialogue for ${combatant.name}: "${dialogue}"`);
+        return dialogue;
+      } else {
+        this.logger?.info?.(`[CombatEncounter] AI returned empty dialogue, using fallback`);
+        return this._getFallbackDialogue(combatant, action, result);
+      }
     } catch (e) {
-      this.logger?.warn?.(`[CombatEncounter] Dialogue generation failed: ${e.message}`);
-      return '';
+      this.logger?.warn?.(`[CombatEncounter] Dialogue generation failed: ${e.message}, using fallback`);
+      return this._getFallbackDialogue(combatant, action, result);
+    }
+  }
+
+  /**
+   * Get fallback dialogue when AI is unavailable
+   * @private
+   */
+  _getFallbackDialogue(combatant, action, result) {
+    const attackPhrases = [
+      "Take this!",
+      "Here's my answer!",
+      "Feel my wrath!",
+      "You won't escape me!",
+      "This ends now!",
+      "My blade finds its mark!",
+      "Victory will be mine!",
+      "Prepare yourself!"
+    ];
+    
+    const criticalPhrases = [
+      "A perfect strike!",
+      "Witness my true power!",
+      "This is my moment!",
+      "Incredible!",
+      "Did you see that?!"
+    ];
+    
+    const knockoutPhrases = [
+      "It's over!",
+      "Rest now.",
+      "You fought well.",
+      "The battle is won!",
+      "Victory is mine!"
+    ];
+    
+    const missPhrases = [
+      "Curses!",
+      "Not this time...",
+      "I'll get you next time!",
+      "Missed!",
+      "Drat!"
+    ];
+    
+    const defendPhrases = [
+      "Come at me!",
+      "I'm ready for you.",
+      "Try to break through this!",
+      "Defense is key.",
+      "I won't fall so easily!"
+    ];
+    
+    let dialogue = "Let's do this!";
+    
+    if (action.type === 'defend') {
+      dialogue = defendPhrases[Math.floor(Math.random() * defendPhrases.length)];
+    } else if (action.type === 'attack' && result) {
+      if (result.result === 'knockout') {
+        dialogue = knockoutPhrases[Math.floor(Math.random() * knockoutPhrases.length)];
+      } else if (result.critical) {
+        dialogue = criticalPhrases[Math.floor(Math.random() * criticalPhrases.length)];
+      } else if (result.result === 'miss') {
+        dialogue = missPhrases[Math.floor(Math.random() * missPhrases.length)];
+      } else if (result.result === 'hit') {
+        dialogue = attackPhrases[Math.floor(Math.random() * attackPhrases.length)];
+      }
+    }
+    
+    this.logger?.info?.(`[CombatEncounter] Fallback dialogue for ${combatant.name}: "${dialogue}"`);
+    return dialogue;
+  }
+
+  /**
+   * Post pre-combat dialogue from each combatant
+   * Called after initiative is rolled but before first turn
+   * @private
+   */
+  async _postPreCombatDialogue(encounter) {
+    try {
+      if (!this.unifiedAIService?.chat) {
+        this.logger?.info?.('[CombatEncounter] AI service unavailable for pre-combat dialogue');
+        return;
+      }
+
+      const channel = this._getChannel(encounter);
+      if (!channel) {
+        this.logger?.warn?.('[CombatEncounter] No channel for pre-combat dialogue');
+        return;
+      }
+
+      // Let each combatant speak in initiative order (max 4 to avoid spam)
+      const speakers = encounter.combatants.slice(0, 4);
+      
+      for (const combatant of speakers) {
+        try {
+          // Generate pre-combat taunt/challenge
+          const opponents = encounter.combatants
+            .filter(c => c.avatarId !== combatant.avatarId)
+            .map(c => c.name)
+            .join(', ');
+
+          const messages = [
+            { 
+              role: 'system', 
+              content: `You are ${combatant.name}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.` 
+            },
+            { 
+              role: 'user', 
+              content: `You're about to fight ${opponents}. Say something intimidating, confident, or challenging before combat begins.` 
+            }
+          ];
+
+          const response = await this.unifiedAIService.chat(messages, {
+            temperature: 0.95,
+            max_tokens: 40
+          });
+
+          const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
+          
+          if (dialogue) {
+            this.logger?.info?.(`[CombatEncounter] Pre-combat dialogue for ${combatant.name}: "${dialogue}"`);
+            await this._postAsWebhook(encounter, combatant.ref, dialogue);
+            
+            // Small delay between speakers for pacing
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        } catch (e) {
+          this.logger?.warn?.(`[CombatEncounter] Failed to generate pre-combat dialogue for ${combatant.name}: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      this.logger?.error?.(`[CombatEncounter] Pre-combat dialogue error: ${e.message}`);
+    }
+  }
+
+  /**
+   * Post victory dialogue from the winner
+   * Called after combat summary is posted
+   * @private
+   */
+  async _postVictoryDialogue(encounter, winner) {
+    try {
+      if (!this.unifiedAIService?.chat) {
+        this.logger?.info?.('[CombatEncounter] AI service unavailable for victory dialogue');
+        return;
+      }
+
+      const channel = this._getChannel(encounter);
+      if (!channel) {
+        this.logger?.warn?.('[CombatEncounter] No channel for victory dialogue');
+        return;
+      }
+
+      // Get opponents' names
+      const opponents = encounter.combatants
+        .filter(c => c.avatarId !== winner.avatarId)
+        .map(c => c.name)
+        .join(', ');
+
+      const messages = [
+        { 
+          role: 'system', 
+          content: `You are ${winner.name}, the victor of this battle. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.` 
+        },
+        { 
+          role: 'user', 
+          content: `You just defeated ${opponents} in combat. Your current HP: ${winner.currentHp}/${winner.maxHp}. Say something victorious, confident, or gracious in victory.` 
+        }
+      ];
+
+      const response = await this.unifiedAIService.chat(messages, {
+        temperature: 0.95,
+        max_tokens: 50
+      });
+
+      const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
+      
+      if (dialogue) {
+        this.logger?.info?.(`[CombatEncounter] Victory dialogue for ${winner.name}: "${dialogue}"`);
+        await this._postAsWebhook(encounter, winner.ref, dialogue);
+      }
+    } catch (e) {
+      this.logger?.error?.(`[CombatEncounter] Victory dialogue error: ${e.message}`);
     }
   }
 
@@ -712,24 +917,65 @@ One-liner (no quotes):`;
   async _postCombatAction(encounter, combatant, action, result, dialogue) {
     try {
       const channel = this._getChannel(encounter);
-      if (!channel) return;
-      
-      let message = `**${combatant.name}**`;
-      
-      if (action.type === 'attack' && result) {
-        message += ` ${result.result === 'hit' ? 'strikes' : 'attacks'} **${action.target.name}**`;
-        if (result.damage) message += ` for **${result.damage} damage**!`;
-        if (result.critical) message += ` 🎯 **CRITICAL HIT!**`;
-        if (result.result === 'knockout') message += ` 💀 **KNOCKOUT!**`;
-      } else if (action.type === 'defend') {
-        message += ' takes a defensive stance 🛡️';
+      if (!channel) {
+        this.logger?.warn?.('[CombatEncounter] No channel found for posting action');
+        return;
       }
       
-      if (dialogue) message += `\n_"${dialogue}"_`;
+      // Post action as main bot (cosychat) with subtle formatting
+      let actionMessage = `-# [**${combatant.name}**`;
       
-      await this._postAsWebhook(encounter, combatant.ref, message);
+      if (action.type === 'attack' && result) {
+        const isSuccess = ['hit', 'knockout', 'dead'].includes(result.result);
+        actionMessage += ` ${isSuccess ? 'strikes' : 'attacks'} **${action.target.name}**`;
+        if (result.damage) actionMessage += ` for **${result.damage} damage**`;
+        if (result.critical) actionMessage += ` 🎯 **CRITICAL HIT**`;
+        if (result.result === 'knockout') actionMessage += ` 💀 **KNOCKOUT**`;
+        if (result.result === 'dead') actionMessage += ` ☠️ **DEATH**`;
+        actionMessage += ` (${isSuccess ? 'HIT' : 'MISS'})]`;
+      } else if (action.type === 'defend') {
+        actionMessage += ' takes a defensive stance 🛡️]';
+      }
+      
+      // Post action as main bot
+      this.logger?.info?.(`[CombatEncounter] Posting action: ${actionMessage}`);
+      await channel.send({ content: actionMessage });
+      
+      // Then post dialogue as the avatar (if any)
+      if (dialogue) {
+        this.logger?.info?.(`[CombatEncounter] Posting dialogue for ${combatant.name}: "${dialogue}"`);
+        await this._postAvatarDialogue(encounter, combatant, dialogue);
+      } else {
+        this.logger?.warn?.(`[CombatEncounter] No dialogue to post for ${combatant.name}`);
+      }
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] Failed to post action: ${e.message}`);
+    }
+  }
+
+  /**
+   * Post avatar dialogue as a webhook message
+   * @param {object} encounter - Combat encounter
+   * @param {object} combatant - Combatant who is speaking
+   * @param {string} dialogue - What they say
+   */
+  async _postAvatarDialogue(encounter, combatant, dialogue) {
+    try {
+      if (!dialogue) {
+        this.logger?.debug?.('[CombatEncounter] No dialogue to post');
+        return;
+      }
+      
+      const channel = this._getChannel(encounter);
+      if (!channel) {
+        this.logger?.warn?.('[CombatEncounter] No channel found for dialogue');
+        return;
+      }
+      
+      this.logger?.debug?.(`[CombatEncounter] Posting dialogue for ${combatant.name}: "${dialogue}"`);
+      await this._postAsWebhook(encounter, combatant.ref, dialogue);
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] Failed to post dialogue: ${e.message}`);
     }
   }
 
@@ -899,13 +1145,24 @@ One-liner (no quotes):`;
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ended: reason=${encounter.endReason}${winner ? ` winner=${winner}` : ''}`);
     } catch {}
     
+    // Store completed encounter for video generation (24 hours retention)
+    // Only store if we have battle recap data
+    if (encounter.battleRecap && encounter.battleRecap.rounds && encounter.battleRecap.rounds.length > 0) {
+      this.completedEncounters.set(encounter.channelId, {
+        channelId: encounter.channelId,
+        battleRecap: encounter.battleRecap,
+        combatants: encounter.combatants,
+        endedAt: encounter.endedAt,
+        endReason: encounter.endReason
+      });
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Saved to completedEncounters for video generation`);
+    }
+    
     // Mark for cleanup by removing from encounters map (age list will be cleaned up later)
     // We don't remove from age list immediately to avoid O(n) search during combat
     
-    // Generate battle recap videos asynchronously (non-blocking)
-    this._generateAndPostBattleRecap(encounter).catch(e => 
-      this.logger.warn?.(`[CombatEncounter] Battle recap generation failed: ${e.message}`)
-    );
+    // DO NOT auto-generate battle recap videos - wait for user button click
+    // Videos are generated on-demand via generateBattleRecapVideos() method
     
     // Optionally persist summary later
   this._persistEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] persist failed: ${e.message}`));
@@ -1242,9 +1499,13 @@ One-liner (no quotes):`;
 
   /**
    * Generate a single 8-second video for one round of combat
+   * @param {object} encounter - Combat encounter
+   * @param {object} roundData - Round data with actions
+   * @param {string} locationName - Location description
+   * @param {string[]} referenceImages - Optional array of reference image URLs to use (for first round)
    * @private
    */
-  async _generateRoundRecapVideo(encounter, roundData, locationName) {
+  async _generateRoundRecapVideo(encounter, roundData, locationName, referenceImages = null) {
     try {
       // Build a narrative description of the round's actions
       const actions = roundData.actions || [];
@@ -1253,20 +1514,22 @@ One-liner (no quotes):`;
         return null;
       }
       
-      // Collect reference images from combatants in this round
-      const referenceImages = [];
-      const seenImages = new Set();
-      
-      for (const action of actions) {
-        if (action.attackerImage && !seenImages.has(action.attackerImage)) {
-          referenceImages.push(action.attackerImage);
-          seenImages.add(action.attackerImage);
+      // If no reference images provided, collect from this round only
+      if (!referenceImages) {
+        referenceImages = [];
+        const seenImages = new Set();
+        
+        for (const action of actions) {
+          if (action.attackerImage && !seenImages.has(action.attackerImage)) {
+            referenceImages.push(action.attackerImage);
+            seenImages.add(action.attackerImage);
+          }
+          if (action.defenderImage && !seenImages.has(action.defenderImage) && referenceImages.length < 3) {
+            referenceImages.push(action.defenderImage);
+            seenImages.add(action.defenderImage);
+          }
+          if (referenceImages.length >= 3) break; // Veo 3.1 max is 3 reference images
         }
-        if (action.defenderImage && !seenImages.has(action.defenderImage) && referenceImages.length < 3) {
-          referenceImages.push(action.defenderImage);
-          seenImages.add(action.defenderImage);
-        }
-        if (referenceImages.length >= 3) break; // Veo 3.1 max is 3 reference images
       }
       
       // Generate cinematic prompt using LLM
@@ -1287,12 +1550,17 @@ Requirements:
 - Focus on the choreography and flow of combat
 - Do NOT include dialogue or narration, only visual description`;
       
-      const response = await this.unifiedAIService.generateCompletion(prompt, {
+      const messages = [
+        { role: 'system', content: 'You are a cinematic battle scene director. Generate vivid visual descriptions for fantasy combat videos.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      const response = await this.unifiedAIService.chat(messages, {
         temperature: 0.8,
         max_tokens: 350
       });
       
-      const sceneDescription = response?.text || response || actionSummary;
+      const sceneDescription = response?.text || actionSummary;
       
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating Round ${roundData.round} recap video with ${referenceImages.length} reference images`);
       
@@ -1324,53 +1592,366 @@ Requirements:
   }
 
   /**
-   * Generate battle recap videos and post them to Discord
+   * Extend an existing battle video with a new round (Veo 3.1 extension feature)
+   * @param {string} videoUrl - Current video URL to extend
+   * @param {object} roundData - Round data with actions
+   * @param {string} locationName - Location description
+   * @param {string[]} characterNames - Array of all character names in the battle for consistency
    * @private
    */
-  async _generateAndPostBattleRecap(encounter) {
+  async _extendRoundRecapVideo(videoUrl, roundData, locationName, characterNames = []) {
     try {
-      const videos = await this._generateBattleRecapVideos(encounter);
-      
-      if (!videos || videos.length === 0) {
-        this.logger?.debug?.(`[CombatEncounter][${encounter.channelId}] No battle recap videos to post`);
-        return;
+      const actions = roundData.actions || [];
+      if (actions.length === 0) {
+        this.logger?.debug?.(`[CombatEncounter] Round ${roundData.round} has no actions, skipping extension`);
+        return null;
       }
       
-      const channel = this._getChannel(encounter);
-      if (!channel) {
-        this.logger?.warn?.('[CombatEncounter] Cannot post battle recap: channel not found');
-        return;
-      }
+      // Generate cinematic prompt for the extension
+      const actionSummary = actions.map(a => 
+        `${a.attackerName} ${a.actionType === 'hit' ? 'strikes' : a.actionType === 'knockout' ? 'knocks out' : 'attacks'} ${a.defenderName}${a.critical ? ' with a critical hit' : ''}${a.damage > 0 ? ` for ${a.damage} damage` : ''}`
+      ).join(', then ');
       
-      // Calculate total duration
-      const totalDuration = videos.length * 8;
+      // Include character context to maintain visual consistency
+      const characterContext = characterNames.length > 0 
+        ? `\nCharacters featured: ${characterNames.join(', ')} - maintain their established appearance and visual characteristics from the previous footage.`
+        : '';
       
-      // Post header message
-      await channel.send({
-        content: `## 📹 Battle Chronicle\n**${totalDuration}-second recap** • ${videos.length} rounds of epic combat!`
+      const prompt = `Continue the fantasy battle video showing Round ${roundData.round}.
+
+Location: ${locationName || 'the battlefield'}
+Actions this round: ${actionSummary}${characterContext}
+
+Requirements:
+- Continue seamlessly from the previous action
+- Maintain the exact same visual appearance for all characters as shown in the previous footage
+- 150-250 words describing the visual continuation
+- Maintain cinematic camera work and flow
+- Show each combatant's action clearly
+- Fantasy RPG aesthetic with dramatic lighting
+- Keep character designs and appearances consistent with earlier shots
+- Do NOT include dialogue or narration, only visual description`;
+      
+      const messages = [
+        { role: 'system', content: 'You are a cinematic battle scene director. Generate vivid visual descriptions for extending fantasy combat videos while maintaining perfect character consistency.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      const response = await this.unifiedAIService.chat(messages, {
+        temperature: 0.8,
+        max_tokens: 350
       });
       
-      // Post each video with round information
-      for (const video of videos) {
+      const sceneDescription = response?.text || `The battle continues as ${actionSummary}`;
+      
+      this.logger?.info?.(`[CombatEncounter] Extending video with Round ${roundData.round} (${characterNames.length} characters)`);
+      
+      // Extend video using Veo 3.1
+      const extendedVideos = await this.veoService.extendVideo({
+        videoUrl,
+        prompt: sceneDescription,
+        config: {
+          resolution: '720p',
+          personGeneration: 'allow_adult'
+        },
+        model: 'veo-3.1-generate-preview'
+      });
+      
+      return extendedVideos; // Returns array of S3 URLs
+      
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] Round ${roundData.round} video extension failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate battle recap videos with live status updates (PUBLIC - called from button handler)
+   * @param {string} channelId - Channel ID where combat occurred
+   * @param {string} statusMessageId - Optional message ID to edit with status updates
+   * @returns {Promise<{success: boolean, videos: Array, error?: string}>}
+   */
+  async generateBattleRecapVideos(channelId, statusMessageId = null) {
+    try {
+      // Check active encounters first, then completed encounters
+      let encounter = this.getEncounter(channelId);
+      if (!encounter) {
+        encounter = this.completedEncounters.get(channelId);
+        if (!encounter) {
+          return { success: false, error: 'No encounter found for this channel' };
+        }
+      }
+
+      const channel = this._getChannel(encounter);
+      if (!channel) {
+        return { success: false, error: 'Channel not found' };
+      }
+
+      // Create or get status message
+      let statusMessage = null;
+      if (statusMessageId) {
         try {
-          await channel.send({
-            content: `**Round ${video.round}** • ${video.actions} ${video.actions === 1 ? 'action' : 'actions'}`,
-            files: [{
-              attachment: video.url,
-              name: `battle-round-${video.round}.mp4`
-            }]
-          });
-          
-          // Small delay between videos to avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          statusMessage = await channel.messages.fetch(statusMessageId);
         } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Failed to post round ${video.round} video: ${e.message}`);
+          this.logger.warn?.(`[CombatEncounter] Could not fetch status message: ${e.message}`);
         }
       }
       
-      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Posted ${videos.length} battle recap videos`);
+      if (!statusMessage) {
+        statusMessage = await channel.send({
+          content: '🎬 **Generating Battle Recap Videos...**\nPreparing scenes...'
+        });
+      }
+
+      const videos = await this._generateBattleRecapVideosWithProgress(encounter, statusMessage);
+      
+      if (!videos || videos.length === 0) {
+        await statusMessage.edit({
+          content: '❌ **Battle Recap Generation Failed**\nNo videos could be generated. The battle may not have enough data.'
+        });
+        return { success: false, error: 'No videos generated', videos: [] };
+      }
+      
+      // Update final status
+      await statusMessage.edit({
+        content: `✅ **Battle Recap Complete!**\n8-second cinematic video • ${videos[0].actions} total actions`
+      });
+
+      // Post the video
+      const video = videos[0];
+      try {
+        // Video is already uploaded to S3, just link to it
+        await channel.send({
+          content: `## 🎬 Battle Recap (Rounds ${video.round})\n8-second cinematic battle • ${video.actions} ${video.actions === 1 ? 'action' : 'actions'}\n${video.url}`
+        });
+      } catch (e) {
+        this.logger.error?.(`[CombatEncounter] Failed to post battle video: ${e.message}`);
+      }
+      
+      this.logger?.info?.(`[CombatEncounter][${channelId}] Posted ${video.duration}s extended battle recap video`);
+      return { success: true, videos };
+      
     } catch (e) {
-      this.logger.error?.(`[CombatEncounter] Failed to post battle recap: ${e.message}`);
+      this.logger.error?.(`[CombatEncounter] Battle recap generation failed: ${e.message}`);
+      return { success: false, error: e.message, videos: [] };
+    }
+  }
+
+  /**
+   * Generate battle recap videos with live progress updates
+   * Uses Veo 3.1 first/last frame interpolation to create one 8-second video
+   * @private
+   */
+  async _generateBattleRecapVideosWithProgress(encounter, statusMessage) {
+    try {
+      // Check if we have VeoService and battle recap data
+      if (!this.veoService) {
+        await statusMessage.edit({ content: '❌ Video generation service not available' });
+        return null;
+      }
+      
+      if (!encounter?.battleRecap?.rounds || encounter.battleRecap.rounds.length === 0) {
+        await statusMessage.edit({ content: '❌ No battle data available for recap' });
+        return null;
+      }
+      
+      if (!this.unifiedAIService?.chat) {
+        await statusMessage.edit({ content: '❌ AI service not available for scene generation' });
+        return null;
+      }
+      
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating single 8s battle recap video using first/last frame interpolation`);
+      
+      // Get the fight poster (first frame) and summary image (last frame)
+      const battleMedia = this.battleMediaService || this.battleService?.battleMediaService;
+      if (!battleMedia) {
+        await statusMessage.edit({ content: '❌ Battle media service not available' });
+        return null;
+      }
+      
+      await statusMessage.edit({
+        content: `🎬 **Generating Battle Recap Video...**\n📸 Preparing battle poster and summary images...\n\n░░░░░ 0%`
+      });
+      
+      const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(() => null);
+      const locationName = loc?.location?.name || 'the battlefield';
+      
+      // Get combatants for poster/summary
+      const combatants = encounter.combatants || [];
+      if (combatants.length < 2) {
+        await statusMessage.edit({ content: '❌ Not enough combatants for video generation' });
+        return null;
+      }
+      
+      const firstCombatant = combatants[0]?.ref;
+      const secondCombatant = combatants[1]?.ref;
+      
+      if (!firstCombatant || !secondCombatant) {
+        await statusMessage.edit({ content: '❌ Combatant data missing' });
+        return null;
+      }
+      
+      // Generate first frame (fight poster)
+      let firstFrameUrl = null;
+      try {
+        await statusMessage.edit({
+          content: `🎬 **Generating Battle Recap Video...**\n📸 Creating battle poster (first frame)...\n\n▓░░░░ 20%`
+        });
+        
+        const poster = await battleMedia.generateFightPoster({
+          attacker: firstCombatant,
+          defender: secondCombatant,
+          location: loc?.location
+        });
+        
+        if (poster?.imageUrl) {
+          firstFrameUrl = poster.imageUrl;
+          this.logger?.info?.(`[CombatEncounter] First frame (poster) generated: ${firstFrameUrl}`);
+        }
+      } catch (e) {
+        this.logger.error?.(`[CombatEncounter] First frame generation failed: ${e.message}`);
+      }
+      
+      if (!firstFrameUrl) {
+        await statusMessage.edit({ content: '❌ Failed to generate battle poster (first frame)' });
+        return null;
+      }
+      
+      // Generate last frame (summary image)
+      let lastFrameUrl = null;
+      try {
+        await statusMessage.edit({
+          content: `🎬 **Generating Battle Recap Video...**\n� Creating victory scene (last frame)...\n\n▓▓░░░ 40%`
+        });
+        
+        // Determine winner/loser
+        const alive = combatants.filter(c => (c.currentHp || 0) > 0);
+        const winner = alive.length === 1 ? alive[0]?.ref : combatants.sort((a,b) => (b.currentHp||0) - (a.currentHp||0))[0]?.ref;
+        const loser = combatants.find(c => c.ref !== winner)?.ref || combatants[1]?.ref;
+        const outcome = encounter.knockout?.result || 'win';
+        
+        const summary = await battleMedia.generateSummaryMedia({
+          winner,
+          loser,
+          outcome,
+          location: loc?.location
+        });
+        
+        if (summary?.imageUrl) {
+          lastFrameUrl = summary.imageUrl;
+          this.logger?.info?.(`[CombatEncounter] Last frame (summary) generated: ${lastFrameUrl}`);
+        }
+      } catch (e) {
+        this.logger.error?.(`[CombatEncounter] Last frame generation failed: ${e.message}`);
+      }
+      
+      if (!lastFrameUrl) {
+        await statusMessage.edit({ content: '❌ Failed to generate victory scene (last frame)' });
+        return null;
+      }
+      
+      // Generate cinematic prompt describing the entire battle
+      await statusMessage.edit({
+        content: `🎬 **Generating Battle Recap Video...**\n🎭 Creating battle narrative...\n\n▓▓▓░░ 60%`
+      });
+      
+      const totalActions = encounter.battleRecap.rounds.reduce((sum, r) => sum + (r.actions?.length || 0), 0);
+      const actionSummary = encounter.battleRecap.rounds.map(r => 
+        (r.actions || []).map(a => 
+          `${a.attackerName} ${a.actionType === 'hit' ? 'strikes' : a.actionType === 'knockout' ? 'knocks out' : 'attacks'} ${a.defenderName}${a.critical ? ' with a critical hit' : ''}${a.damage > 0 ? ` for ${a.damage} damage` : ''}`
+        ).join(', ')
+      ).filter(Boolean).join('; ');
+      
+      const prompt = `Generate a cinematic description for an 8-second fantasy battle video transitioning from combat start to victory.
+
+Location: ${locationName}
+Combatants: ${combatants.map(c => c.name).join(' vs ')}
+Rounds: ${encounter.battleRecap.rounds.length}
+Total actions: ${totalActions}
+Battle flow: ${actionSummary}
+
+The video starts with both fighters facing off (battle poster) and ends with the victor triumphant (victory scene).
+
+Requirements:
+- 200-300 words describing smooth visual transition from start to finish
+- Cinematic camera work showing the flow of combat
+- Capture key moments: initial clash, mid-battle intensity, final decisive blow
+- Fantasy RPG aesthetic with dramatic lighting
+- Emphasize movement, energy, and momentum
+- Do NOT include dialogue or narration, only visual choreography`;
+      
+      const messages = [
+        { role: 'system', content: 'You are a cinematic battle scene director. Generate vivid visual descriptions for fantasy combat video interpolation.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      const response = await this.unifiedAIService.chat(messages, {
+        temperature: 0.8,
+        max_tokens: 400
+      });
+      
+      const sceneDescription = response?.text || `Epic 8-second battle between ${combatants.map(c => c.name).join(' and ')} at ${locationName}. The combat flows from initial clash to victory in one continuous motion.`;
+      
+      // Generate video using Veo 3.1 interpolation
+      await statusMessage.edit({
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering 8-second battle video...\n\n▓▓▓▓░ 80%`
+      });
+      
+      this.logger?.info?.(`[CombatEncounter] Generating interpolation video with Veo 3.1`);
+      
+      // Download images and convert to base64
+      const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
+      if (!s3Service) {
+        await statusMessage.edit({ content: '❌ S3 service not available for image download' });
+        return null;
+      }
+      
+      let firstFrameData, lastFrameData;
+      try {
+        const firstBuffer = await s3Service.downloadImage(firstFrameUrl);
+        firstFrameData = { data: firstBuffer.toString('base64'), mimeType: 'image/png' };
+        
+        const lastBuffer = await s3Service.downloadImage(lastFrameUrl);
+        lastFrameData = { data: lastBuffer.toString('base64'), mimeType: 'image/png' };
+      } catch (e) {
+        this.logger.error?.(`[CombatEncounter] Failed to download frame images: ${e.message}`);
+        await statusMessage.edit({ content: '❌ Failed to download battle images' });
+        return null;
+      }
+      
+      const videos = await this.veoService.generateVideosWithInterpolation({
+        prompt: sceneDescription,
+        firstFrame: firstFrameData,
+        lastFrame: lastFrameData,
+        config: {
+          personGeneration: 'allow_adult',
+          durationSeconds: 8,
+          aspectRatio: '16:9'
+        },
+        model: 'veo-3.1-generate-preview'
+      });
+      
+      if (!videos || videos.length === 0) {
+        await statusMessage.edit({ content: '❌ Video generation failed' });
+        return null;
+      }
+      
+      const videoUrl = videos[0]; // VeoService returns array of URLs
+      
+      this.logger?.info?.(`[CombatEncounter] Battle recap video generated: ${videoUrl}`);
+      
+      // Return single video
+      return [{
+        round: `1-${encounter.battleRecap.rounds.length}`,
+        url: videoUrl,
+        duration: 8,
+        actions: totalActions
+      }];
+      
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] Battle recap video generation failed: ${e.message}`);
+      await statusMessage.edit({ content: `❌ **Generation Failed**\n${e.message}` });
+      return null;
     }
   }
 
@@ -1620,6 +2201,21 @@ Message: ${messageContent}`;
   cleanupStaleEncounters() {
     const now = Date.now();
     const threshold = this.staleEncounterMs;
+    const completedEncounterRetentionMs = 24 * 60 * 60 * 1000; // 24 hours
+    
+    // Clean up completed encounters older than 24 hours
+    let completedCleanedCount = 0;
+    for (const [channelId, completed] of this.completedEncounters.entries()) {
+      if (now - completed.endedAt > completedEncounterRetentionMs) {
+        this.completedEncounters.delete(channelId);
+        completedCleanedCount++;
+        this.logger.info?.(`[CombatEncounter] Cleaned completed encounter channel=${channelId} age=${Math.floor((now - completed.endedAt) / 1000 / 60)}min`);
+      }
+    }
+    
+    if (completedCleanedCount > 0) {
+      this.logger.info?.(`[CombatEncounter] Cleanup: removed ${completedCleanedCount} completed encounter(s), ${this.completedEncounters.size} retained`);
+    }
     
     // Clean from oldest until we hit a fresh encounter (early exit optimization)
     let cleanedCount = 0;
@@ -1801,6 +2397,19 @@ Message: ${messageContent}`;
       
       const status = encounter.combatants.map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`).join('\n');
       
+      // Determine winner for victory dialogue
+      const now = Date.now();
+      const aliveNow = (encounter.combatants || []).filter(c => {
+        const hpOk = (c.currentHp || 0) > 0;
+        const notDead = c.ref?.status !== 'dead';
+        const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+        return hpOk && notDead && notKO;
+      });
+      const everyone = (encounter.combatants || []).slice();
+      const winnerC = aliveNow.length === 1
+        ? aliveNow[0]
+        : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
+      
       // Generate AI summary of the battle
       let friendlyReason = this._formatEndReason?.(encounter) || 'The encounter concludes.';
       if (this.unifiedAIService?.chat) {
@@ -1825,14 +2434,18 @@ ${combatLog.length > 0 ? `Key moments: ${combatLog.join('; ')}` : ''}
 
 Write a brief, punchy summary with dramatic flair. No quotes.`;
           
-          const response = await this.unifiedAIService.chat({
-            messages: [{ role: 'user', content: prompt }],
+          const messages = [
+            { role: 'system', content: 'You are a combat narrator. Generate brief, dramatic battle summaries.' },
+            { role: 'user', content: prompt }
+          ];
+          
+          const response = await this.unifiedAIService.chat(messages, {
             temperature: 0.8,
-            maxTokens: 100
+            max_tokens: 100
           });
           
-          if (response?.content) {
-            const summary = String(response.content).trim().replace(/^["']|["']$/g, '').slice(0, 400);
+          if (response?.text) {
+            const summary = String(response.text).trim().replace(/^["']|["']$/g, '').slice(0, 400);
             if (summary.length > 10) {
               friendlyReason = summary;
             }
@@ -1848,6 +2461,14 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         color: 0x7289da,
         fields: [{ name: 'Status', value: status.slice(0, 1024) }],
       };
+      
+      // Create "Generate Video" button
+      const generateVideoButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`generate_battle_video_${encounter.channelId}`)
+          .setLabel('🎬 Generate Battle Video')
+          .setStyle(ButtonStyle.Primary)
+      );
   // Capture any video URL we plan to post separately after the embed
   let _videoUrl = null;
   try {
@@ -1957,8 +2578,17 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       } catch (e) {
         this.logger.warn?.(`[CombatEncounter] summary media failed: ${e.message}`);
       }
-  // Send the embed first
-  await channel.send({ embeds: [embed] });
+  // Send the embed with "Generate Video" button
+  await channel.send({ 
+    embeds: [embed],
+    components: [generateVideoButton]
+  });
+  
+  // Post winner's victory dialogue
+  if (winnerC && winnerC.ref) {
+    await this._postVictoryDialogue(encounter, winnerC);
+  }
+  
   // Then, if a video URL exists, post it as a separate message so the client can inline it
   try {
     if (typeof _videoUrl === 'string' && _videoUrl.length > 0) {
