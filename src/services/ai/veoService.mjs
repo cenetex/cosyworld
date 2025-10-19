@@ -136,14 +136,15 @@ export class VeoService {
   /**
    * Generate videos using Veo 3.1 with reference images to guide the content.
    * Supports up to 3 reference images (person, character, or product) to preserve appearance.
+   * Note: personGeneration and resolution parameters are NOT supported with reference images.
    * @param {object} params
    * @param {string} params.prompt - Text prompt describing the video to generate.
    * @param {{data: string, mimeType: string, referenceType: string}[]} params.referenceImages - Array of 1-3 reference images with type ('asset' or 'style').
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, resolution, durationSeconds must be 8, etc).
+   * @param {object} [params.config] - Video generation configuration (aspectRatio must be '16:9', durationSeconds must be 8).
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { personGeneration: "allow_adult", durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
+  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { aspectRatio: '16:9', durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!prompt) throw new Error('Prompt is required');
     if (!Array.isArray(referenceImages) || referenceImages.length === 0 || referenceImages.length > 3) {

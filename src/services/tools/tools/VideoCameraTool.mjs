@@ -100,8 +100,75 @@ export class VideoCameraTool extends BasicTool {
       const locLine = location?.name || 'an unknown location';
       const locDesc = location?.description?.slice(0, 150) || '';
 
-      // Cinematic prompt with audio cues
-      const cinematicPrompt = `
+      // Get recent channel context for better scene generation
+      const recentMessages = await this.discordService?.getRecentMessages?.(channelId, 10) || [];
+      const recentContext = recentMessages
+        .slice(0, 5)
+        .reverse()
+        .map(m => m.content || '')
+        .filter(c => c && !c.startsWith('-#'))
+        .join('\n')
+        .slice(0, 500);
+
+      // Use LLM to generate a detailed cinematic scene description
+      this.logger?.info?.(`[VideoCamera] Generating scene description with LLM...`);
+      
+      const scenePromptInstruction = `
+You are a professional cinematographer and video director. Create a detailed, vivid scene description for a video generation AI (Veo 3.1).
+
+CONTEXT:
+Location: ${locLine}
+Location Description: ${locDesc || 'Not specified'}
+
+Characters in scene:
+${selectedAvatars.map(a => `- ${a.name}: ${a.personality?.slice(0, 150) || a.description?.slice(0, 150) || 'No description'}`).join('\n')}
+
+Recent conversation context:
+${recentContext || 'No recent context'}
+
+User's scene request: ${userPrompt || 'Create a natural, character-driven scene with subtle interactions'}
+
+REQUIREMENTS:
+1. Create a cinematic widescreen scene description (16:9 aspect ratio)
+2. Describe what each character is doing, their expressions, and body language
+3. Include specific camera movements (dolly, pan, tracking, etc.)
+4. Specify lighting and atmosphere (golden hour, dramatic shadows, soft light, etc.)
+5. Add detailed audio cues:
+   - Character dialogue (use quotes for specific speech)
+   - Sound effects (footsteps, environment sounds, object interactions)
+   - Ambient noise (wind, water, crowd, music, etc.)
+6. Maintain the anime/animation style aesthetic
+7. Keep the scene dynamic but focused (8 second duration)
+8. Ensure all ${selectedAvatars.length} characters are visible and active in the scene
+9. Match the tone and energy of the recent conversation
+
+OUTPUT FORMAT:
+Write a single detailed paragraph (150-250 words) that vividly describes the scene. Include camera work, character actions, lighting, style, and comprehensive audio cues. Make it cinematic and engaging.
+
+DO NOT include any preamble or meta-commentary. Start directly with the scene description.
+      `.trim();
+
+      let cinematicPrompt;
+      try {
+        const aiResponse = await this.aiService.generateCompletion(scenePromptInstruction, {
+          systemPrompt: 'You are a master cinematographer creating detailed scene descriptions for AI video generation. Be vivid, specific, and cinematic.',
+          temperature: 0.8, // More creative
+          maxTokens: 400
+        });
+
+        cinematicPrompt = (typeof aiResponse === 'string' ? aiResponse : aiResponse?.text || aiResponse?.content || '').trim();
+        
+        // Fallback if response is too short or empty
+        if (cinematicPrompt.length < 100) {
+          throw new Error('Generated prompt too short');
+        }
+
+        this.logger?.info?.(`[VideoCamera] Generated scene prompt (${cinematicPrompt.length} chars)`);
+      } catch (e) {
+        this.logger?.warn?.(`[VideoCamera] LLM scene generation failed, using template: ${e?.message || e}`);
+        
+        // Fallback to template-based prompt
+        cinematicPrompt = `
 A cinematic widescreen scene at ${locLine}. ${locDesc}
 
 Characters present: ${avatarNames}. ${avatarDescriptions}
@@ -111,7 +178,8 @@ ${userPrompt || 'The scene unfolds with natural interactions and subtle movement
 Camera: Smooth dolly shot, maintaining a medium-wide composition that captures all characters. 
 Style: Cinematic anime aesthetic with dramatic lighting and depth of field.
 Audio: Ambient sounds of the environment, subtle character movements, atmospheric background.
-      `.trim();
+        `.trim();
+      }
 
       this.logger?.info?.(`[VideoCamera] Generating video with ${referenceImages.length} reference images`);
 
@@ -122,10 +190,9 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
           referenceImages,
           model: 'veo-3.1-fast-generate-preview', // Use fast model by default
           config: {
-            aspectRatio: '16:9', // Widescreen
-            resolution: '720p',
-            durationSeconds: 8, // Required for reference images
-            personGeneration: 'allow_adult'
+            aspectRatio: '16:9', // Widescreen (required for reference images)
+            durationSeconds: 8 // Required for reference images
+            // Note: resolution and personGeneration are not supported with reference images
           }
         });
 
