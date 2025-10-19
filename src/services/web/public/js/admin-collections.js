@@ -63,6 +63,7 @@ function renderItem(cfg) {
       <div class="text-xs text-gray-600">${meta}</div>
       <div class="text-xs text-gray-600">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
       <div class="text-xs text-gray-600">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
+      <div class="text-xs text-gray-600" data-count>avatars: <span data-count-value>loading...</span></div>
       <div class="mt-2" data-prog>
         <div class="h-2 w-full bg-gray-200 rounded overflow-hidden">
           <div class="h-full bg-indigo-600" style="width:0%" data-bar></div>
@@ -77,6 +78,19 @@ function renderItem(cfg) {
   // hide progress by default until we have data
   const prog = div.querySelector('[data-prog]');
   prog.style.display = 'none';
+  
+  // Fetch and display avatar count
+  (async () => {
+    try {
+      const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
+      const countValue = div.querySelector('[data-count-value]');
+      if (countValue) countValue.textContent = r.count || 0;
+    } catch (e) {
+      const countValue = div.querySelector('[data-count-value]');
+      if (countValue) countValue.textContent = 'error';
+    }
+  })();
+  
   div.querySelector('[data-act="status"]').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     await ui.withButtonLoading(btn, async () => {
@@ -89,18 +103,20 @@ function renderItem(cfg) {
     });
   });
   div.querySelector('[data-act="sync"]').addEventListener('click', async (e) => {
-    const ok = confirm(`Sync ${cfg.key} now?`);
+    const ok = confirm(`Sync ${cfg.key} now?\n\nThis will update avatar metadata while preserving existing data (channelId, status, lives).`);
     if (!ok) return;
     const btn = e.currentTarget;
     startCardProgress(div, cfg.key);
     await ui.withButtonLoading(btn, async () => {
       try {
-  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', sign: true, signMeta: { op: 'sync_collection', key: cfg.key }, body: JSON.stringify({ force: true }), requireCsrf: true });
+  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', sign: true, signMeta: { op: 'sync_collection', key: cfg.key }, body: JSON.stringify({ force: false }), requireCsrf: true });
         stopCardProgress(div, true);
         const processed = r.result?.processed || 0;
         const okCt = r.result?.success || 0;
         const failCt = r.result?.failures || 0;
         ui.success(`Processed ${processed} (ok ${okCt}, fail ${failCt})`);
+        // Reload configs to update UI with new lastSyncAt timestamp
+        await loadConfigs();
       } catch (err) {
         stopCardProgress(div, false);
         ui.error(err.message || 'Sync failed');

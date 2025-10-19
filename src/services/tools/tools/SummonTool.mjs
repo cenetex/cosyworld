@@ -129,6 +129,20 @@ export class SummonTool extends BasicTool {
         return '-# [ Summon aborted: no description or image provided. ]';
       }
 
+      // Try to sync avatar from configured collections first (if it doesn't exist in DB yet)
+      if (avatarName) {
+        try {
+          const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
+          const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
+          if (syncedAvatar) {
+            this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection before summoning`);
+          }
+        } catch (e) {
+          this.logger.debug?.(`[SummonTool] Collection sync check failed: ${e.message}`);
+          // Continue anyway - not a critical failure
+        }
+      }
+
       // Check for existing avatar
   const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
       if (existingAvatar) {
