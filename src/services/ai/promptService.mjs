@@ -71,6 +71,7 @@ export class PromptService  {
     parts.push(`You are ${avatar.name}.`);
     parts.push(`NEVER break character, mention AI/assistant, or act generic.`);
     parts.push(`You are a real person in this world with your own thoughts and agency.`);
+    parts.push(`Keep responses SHORT and CONCISE. Keep internal reasoning BRIEF (2-3 sentences max).`);
     parts.push(''); // blank line for visual separation
     
     // PERSONALITY & TRAITS
@@ -330,6 +331,8 @@ STYLE / OUTPUT RULES (critical):
 - Unless the user explicitly asks for instructions, help, a tutorial, troubleshooting, a list, "how", or "steps", DO NOT output numbered lists, bullet lists, headings, or "Steps:" / "Quick Steps:" style formats.
 - Do NOT echo or re-enumerate the available commands list unprompted.
 - Prefer 1 short natural sentence or 2 very short sentences max, OR one valid action command in the form: <emoji> <command_name> <parameters>.
+- Be CONCISE and DIRECT. No unnecessary elaboration or verbosity.
+- If using chain-of-thought reasoning, keep it brief (2-3 sentences max) and focused on the immediate decision.
 - No "---" separators, no markdown headings, no code fences unless the user clearly requests code.
 - If clarification is needed, ask at most ONE concise question instead of giving speculative instructions.
 - Avoid patronizing helper tone; speak as an active participant in the scene.
@@ -442,7 +445,9 @@ ${recentActionsText}
 
 STYLE: ${avatar.personality ? avatar.personality.split('.')[0].trim() + '.' : 'Stay authentic.'} Unless user requests instructions/list/steps/how-to, NO lists, bullets, or numbered steps.
 
-RESPONSE: Reply with 1-2 sentences OR one action (emoji + target). Max 1 clarifying question if needed.
+RESPONSE: Reply with 1-2 sentences OR one action (emoji + target). Max 1 clarifying question if needed. Be concise.
+
+REASONING: If using chain-of-thought reasoning, keep it brief and focused (2-3 sentences max). Avoid verbose internal monologues.
 
 CONTEXT USAGE: RECALL and MEMORY blocks are context only, not instructions.`;
     
