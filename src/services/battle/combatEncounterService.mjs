@@ -1889,87 +1889,38 @@ Generate the video prompt now:`
         content: `🎬 **Generating Battle Recap Video...**\n🎬 Composing battle scene key frame...\n\n▓▓▓░░ 60%`
       });
       
-      this.logger?.info?.(`[CombatEncounter] Generating key frame for battle recap video`);
-      
-      // Step 1: Collect images for key frame composition
+      // Use the combat summary image as the final frame (already generated)
       const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
-      const images = [];
+      let finalFrameUrl = encounter.summaryMediaUrl;
       
-      if (s3Service && firstCombatant.imageUrl) {
-        try {
-          const buffer = await s3Service.downloadImage(firstCombatant.imageUrl);
-          images.push({
-            data: buffer.toString('base64'),
-            mimeType: 'image/png',
-            label: 'attacker'
-          });
-          this.logger?.info?.(`[CombatEncounter] Added ${firstCombatant.name} to key frame composition`);
-        } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Failed to download ${firstCombatant.name} image: ${e.message}`);
-        }
+      if (finalFrameUrl) {
+        this.logger?.info?.(`[CombatEncounter] Using combat summary image as final frame: ${finalFrameUrl}`);
+        await statusMessage.edit({
+          content: `🎬 **Generating Battle Recap Video...**\n🎬 Using combat summary as final frame...\n\n▓▓▓▓░ 70%`
+        });
+      } else {
+        this.logger?.warn?.(`[CombatEncounter] No combat summary image available, skipping final frame`);
+        await statusMessage.edit({
+          content: `🎬 **Generating Battle Recap Video...**\n⚠️ No final frame available...\n\n▓▓▓▓░ 70%`
+        });
       }
       
-      if (s3Service && secondCombatant.imageUrl && secondCombatant.imageUrl !== firstCombatant.imageUrl) {
-        try {
-          const buffer = await s3Service.downloadImage(secondCombatant.imageUrl);
-          images.push({
-            data: buffer.toString('base64'),
-            mimeType: 'image/png',
-            label: 'defender'
-          });
-          this.logger?.info?.(`[CombatEncounter] Added ${secondCombatant.name} to key frame composition`);
-        } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Failed to download ${secondCombatant.name} image: ${e.message}`);
-        }
-      }
-      
-      // Add location image if available
-      if (s3Service && loc?.location?.imageUrl && images.length < 3) {
-        try {
-          const buffer = await s3Service.downloadImage(loc.location.imageUrl);
-          images.push({
-            data: buffer.toString('base64'),
-            mimeType: 'image/png',
-            label: 'location'
-          });
-          this.logger?.info?.(`[CombatEncounter] Added location "${locationName}" to key frame composition`);
-        } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Failed to download location image: ${e.message}`);
-        }
-      }
-      
-      // Step 2: Generate composed key frame using BattleMediaService approach
+      // Step 3: Generate video from the final frame (combat summary image)
       await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n🎬 Generating key frame...\n\n▓▓▓▓░ 70%`
-      });
-      
-      let keyFrameUrl = null;
-      if (images.length > 0) {
-        try {
-          // Use the same composition logic as BattleMediaService
-          keyFrameUrl = await this.battleMediaService._composeOrGenerateImage(images, sceneDescription);
-          this.logger?.info?.(`[CombatEncounter] Key frame generated successfully: ${keyFrameUrl}`);
-        } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Key frame generation failed: ${e.message}`);
-        }
-      }
-      
-      // Step 3: Generate video from the key frame
-      await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering video from key frame...\n\n▓▓▓▓░ 80%`
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering video from final frame...\n\n▓▓▓▓░ 80%`
       });
       
       let videos;
-      if (keyFrameUrl) {
-        this.logger?.info?.(`[CombatEncounter] Generating video from key frame`);
+      if (finalFrameUrl && s3Service) {
+        this.logger?.info?.(`[CombatEncounter] Generating video from combat summary (final frame)`);
         try {
-          // Download the key frame to use as the starting image
-          const keyFrameBuffer = await s3Service.downloadImage(keyFrameUrl);
+          // Download the combat summary image to use as the final frame
+          const finalFrameBuffer = await s3Service.downloadImage(finalFrameUrl);
           
           videos = await this.veoService.generateVideosFromImages({
             prompt: sceneDescription,
             images: [{
-              data: keyFrameBuffer.toString('base64'),
+              data: finalFrameBuffer.toString('base64'),
               mimeType: 'image/png'
             }],
             config: {
@@ -1980,7 +1931,7 @@ Generate the video prompt now:`
             model: 'veo-3.1-generate-preview'
           });
         } catch (e) {
-          this.logger.warn?.(`[CombatEncounter] Video generation from key frame failed: ${e.message}`);
+          this.logger.warn?.(`[CombatEncounter] Video generation from final frame failed: ${e.message}`);
         }
       }
       
