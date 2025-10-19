@@ -19,6 +19,7 @@ export class WebService {
     xService,
     secretsService,
     setupStatusService,
+    promptService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -31,6 +32,7 @@ export class WebService {
     this.xService = xService;
     this.secretsService = secretsService;
     this.setupStatusService = setupStatusService;
+    this.promptService = promptService;
 
     this.started = false;
 
@@ -50,6 +52,7 @@ export class WebService {
       xService: this.xService,
       secretsService: this.secretsService,
       setupStatusService: this.setupStatusService,
+      promptService: this.promptService,
     };
   }
 
