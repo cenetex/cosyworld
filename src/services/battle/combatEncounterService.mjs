@@ -2534,6 +2534,12 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
               // Store summary media URL for video generation reuse
               if (media?.imageUrl) {
                 encounter.summaryMediaUrl = media.imageUrl;
+                // Also update the completedEncounters entry if it exists
+                const completed = this.completedEncounters.get(encounter.channelId);
+                if (completed) {
+                  completed.summaryMediaUrl = media.imageUrl;
+                  this.logger?.info?.(`[CombatEncounter] Updated completedEncounters with summaryMediaUrl`);
+                }
               }
             } catch (e) {
               this.logger.warn?.(`[CombatEncounter] summary media generation failed: ${e.message}`);
@@ -2558,6 +2564,12 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
             // Store summary media URL if we have media and haven't stored it yet
             if (!encounter.summaryMediaUrl) {
               encounter.summaryMediaUrl = media.imageUrl;
+              // Also update the completedEncounters entry if it exists
+              const completed = this.completedEncounters.get(encounter.channelId);
+              if (completed) {
+                completed.summaryMediaUrl = media.imageUrl;
+                this.logger?.info?.(`[CombatEncounter] Updated completedEncounters with summaryMediaUrl (fallback)`);
+              }
             }
           }
           // Do not attach video inside the embed; post it separately for reliable inline playback
@@ -2760,6 +2772,12 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         // Store summary media URL for video generation reuse
         if (media.imageUrl) {
           encounter.summaryMediaUrl = media.imageUrl;
+          // Also update the completedEncounters entry if it exists
+          const completed = this.completedEncounters.get(encounter.channelId);
+          if (completed) {
+            completed.summaryMediaUrl = media.imageUrl;
+            this.logger?.info?.(`[CombatEncounter] Updated completedEncounters with summaryMediaUrl (knockout)`);
+          }
         }
         
         // Post media as follow-up message
