@@ -697,7 +697,7 @@ function createRouter(db, services) {
     }
   });
 
-  // Preview prompt endpoint
+  // Preview prompt endpoint - generates a realistic Discord conversation prompt
   router.get('/avatars/:id/preview-prompt', asyncHandler(async (req, res) => {
     let id;
     try {
@@ -712,65 +712,76 @@ function createRouter(db, services) {
     }
 
     try {
-      const conversationManager = req.app.locals.services?.conversationManager;
+      // Use services from createRouter parameters (passed from app.js)
+      const promptService = services?.promptService;
+      const databaseService = services?.databaseService;
+      const database = databaseService ? await databaseService.getDatabase() : db;
 
-      if (conversationManager) {
-        const systemPrompt = await conversationManager.buildSystemPrompt(avatar).catch(() => "System prompt unavailable.");
-        let dungeonPrompt = '';
-        let channelSummary = '';
+      if (promptService && database) {
+        // Simulate a Discord conversation context
+        const mockChannel = {
+          id: 'preview-channel',
+          name: 'preview-channel',
+          guild: { name: 'Preview Server', id: 'preview-server' }
+        };
 
-        if (avatar.channelId) {
-          try {
-            const channel = req.app.locals.client?.channels.cache.get(avatar.channelId);
-            if (channel?.guild) {
-              dungeonPrompt = await conversationManager.buildDungeonPrompt(avatar, channel.guild.id).catch(() => "Dungeon prompt unavailable.");
-            }
-          } catch (error) {
-            console.error('Error getting guild context:', error);
+        const mockMessages = [
+          {
+            role: 'user',
+            authorTag: 'PreviewUser#0000',
+            content: `Hello ${avatar.name}, what's on your mind today?`
           }
+        ];
 
-          if (conversationManager.getChannelSummary) {
-            channelSummary = await conversationManager.getChannelSummary(avatar._id, avatar.channelId).catch(() => "Channel summary unavailable.");
-          }
-        }
+        // Use the actual V2 prompt assembly method that Discord uses
+        const chatMessages = await promptService.getResponseChatMessagesV2(
+          avatar,
+          mockChannel,
+          mockMessages,
+          '', // channelSummary
+          database
+        );
+
+        // chatMessages is [{ role: 'system', content: systemPrompt }, { role: 'user', content: blocks }]
+        const systemMessage = chatMessages.find(m => m.role === 'system');
+        const userMessage = chatMessages.find(m => m.role === 'user');
 
         const previewPrompt = `
-// System Prompt:
-${systemPrompt}
+=== SYSTEM PROMPT ===
+${systemMessage?.content || 'No system prompt available'}
 
-// Channel Summary:
-${channelSummary}
+=== USER CONTEXT (includes CONTEXT, FOCUS, MEMORY, RECALL blocks) ===
+${userMessage?.content || 'No user context available'}
 
-// Available Commands:
-${dungeonPrompt}
-
-// Example User Message:
-Hello ${avatar.name}, what's on your mind today?
+=== NOTE ===
+This is what the AI model receives when responding to Discord messages.
+The MEMORY block contains persistent memories.
+The RECALL block contains semantically-relevant context retrieved from memory.
+Token budgets ensure the prompt fits within model limits.
 `;
 
         return res.json({ prompt: previewPrompt });
       } else {
+        // Fallback if services aren't available
         const examplePrompt = `
-// System Prompt:
+=== SYSTEM PROMPT ===
 You are ${avatar.name}.
 ${avatar.personality || 'No personality defined'}
 ${avatar.description || 'No description defined'}
 
-// Example Commands:
-🔮 <any concept or thing> - Summon an avatar to your location.
-⚔️ <target> - Attack another avatar.
-🛡️ - Defend yourself against attacks.
-🧠 <topic> - Access your memories on a topic.
+=== USER CONTEXT ===
+[Preview unavailable - promptService not initialized]
 
-// Example User Message:
-Hello ${avatar.name}, what's on your mind today?
+=== NOTE ===
+Services not available for realistic preview.
+Please ensure the server is fully initialized.
 `;
 
         return res.json({ prompt: examplePrompt });
       }
     } catch (error) {
       console.error('Error generating preview prompt:', error);
-      return res.status(500).json({ error: 'Failed to generate preview prompt' });
+      return res.status(500).json({ error: 'Failed to generate preview prompt', details: error.message });
     }
   }));
 
