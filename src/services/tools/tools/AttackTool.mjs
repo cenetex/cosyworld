@@ -118,6 +118,14 @@ export class AttackTool extends BasicTool {
         }
         return `-# 🫠 [ Target '${targetName}' not found here. ]`;
       }
+      
+      // Block self-combat
+      const attackerId = String(avatar?._id || avatar?.id || '');
+      const defenderId = String(defender?._id || defender?.id || '');
+      if (attackerId && defenderId && attackerId === defenderId) {
+        return `-# 🤔 [ You cannot attack yourself! ]`;
+      }
+      
       const now = Date.now();
       if (defender.status === 'dead') {
         return `-# ⚰️ [ **${defender.name}** is already dead! Have some *respect* for the fallen. ]`;
@@ -146,6 +154,9 @@ export class AttackTool extends BasicTool {
             encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
           } catch (e) {
             const msg = String(e?.message || '').toLowerCase();
+            if (msg.includes('self_combat')) {
+              return `-# 🤔 [ You cannot attack yourself! ]`;
+            }
             if (msg.includes('flee_cooldown')) {
               return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
             }

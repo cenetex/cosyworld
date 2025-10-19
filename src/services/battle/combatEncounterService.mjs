@@ -1197,6 +1197,13 @@ One-liner (no quotes):`;
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
   async ensureEncounterForAttack({ channelId, attacker, defender, sourceMessage, deferStart = false }) {
+    // Block self-combat as a safety net
+    const attackerId = this._normalizeId(attacker);
+    const defenderId = this._normalizeId(defender);
+    if (attackerId && defenderId && attackerId === defenderId) {
+      throw new Error('self_combat_blocked');
+    }
+    
     const now = Date.now();
     if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {
       throw new Error('knockout_cooldown');

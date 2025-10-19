@@ -70,6 +70,14 @@ export class ChallengeTool extends BasicTool {
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
       if (!defender) return `-# 🫠 [ Target '${targetName}' not found here. ]`;
+      
+      // Block self-combat
+      const attackerId = String(avatar?._id || avatar?.id || '');
+      const defenderId = String(defender?._id || defender?.id || '');
+      if (attackerId && defenderId && attackerId === defenderId) {
+        return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
+      }
+      
       // Defender state checks for clearer reasons
       try {
         const now = Date.now();
@@ -94,6 +102,9 @@ export class ChallengeTool extends BasicTool {
         encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
       } catch (e) {
         const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('self_combat')) {
+          return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
+        }
         if (msg.includes('flee_cooldown')) {
           return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
         }
