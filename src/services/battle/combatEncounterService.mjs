@@ -438,19 +438,23 @@ export class CombatEncounterService {
       const aid = this._getAvatarId(a);
       if (a && aid) unique.set(aid, a);
     });
-    const combatants = Array.from(unique.entries()).map(([aid, a]) => ({
-      avatarId: aid,
-      name: a.name,
-      ref: a,
-      initiative: null,
-      currentHp: a.currentHp ?? a.hp ?? a.health ??  (a.stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP),
-      maxHp: a.stats?.hp || a.hp ||  a.maxHp || COMBAT_CONSTANTS.DEFAULT_HP,
-      armorClass: COMBAT_CONSTANTS.DEFAULT_AC, // will be updated after stats fetch if available
-      hasActed: false,
-      isDefending: false,
-      conditions: [],
-      side: 'neutral'
-    }));
+    const combatants = Array.from(unique.entries()).map(([aid, a]) => {
+      // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
+      const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
+      return {
+        avatarId: aid,
+        name: a.name,
+        ref: a,
+        initiative: null,
+        currentHp: maxHp, // Start at full HP for new encounter
+        maxHp: maxHp,
+        armorClass: COMBAT_CONSTANTS.DEFAULT_AC, // will be updated after stats fetch if available
+        hasActed: false,
+        isDefending: false,
+        conditions: [],
+        side: 'neutral'
+      };
+    });
 
     const encounter = {
       channelId,
@@ -1213,6 +1217,11 @@ One-liner (no quotes):`;
     }
     
     const now = Date.now();
+    // Check both status field AND knockedOutUntil timer
+    if (attacker?.status === 'dead' || attacker?.status === 'knocked_out' ||
+        defender?.status === 'dead' || defender?.status === 'knocked_out') {
+      throw new Error('knocked_out_status');
+    }
     if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {
       throw new Error('knockout_cooldown');
     }

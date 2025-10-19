@@ -106,6 +106,12 @@ export class DiscordService {
           const channelId = customId.replace('generate_battle_video_', '');
           
           try {
+            // Check if interaction is already acknowledged or expired
+            if (interaction.replied || interaction.deferred) {
+              this.logger.warn?.('[DiscordService] Battle video button already processed');
+              return;
+            }
+            
             await interaction.deferUpdate(); // Acknowledge the button click
             
             // Check if combat encounter service is available (late-binding to avoid circular deps)
