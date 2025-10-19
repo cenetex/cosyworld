@@ -112,6 +112,19 @@ export class MessageHandler  {
 
   async _handleMessageInner(message) {
 
+    // === CRITICAL: Check guild authorization FIRST before any processing ===
+    // Ensure the message is from a guild
+    if (!message.guild) {
+      this.logger.debug("Message not in a guild, skipping.");
+      return;
+    }
+
+    // Check guild authorization BEFORE any database operations or side effects
+    if (!(await this.isGuildAuthorized(message))) {
+      this.logger.warn(`Guild ${message.guild.name} (${message.guild.id}) not authorized - ignoring message.`);
+      return;
+    }
+
     if (this.discordService.messageCache) {
       // Check if the message is already cached
       const cachedMessage = this.discordService.messageCache.get(message.id);
@@ -146,18 +159,6 @@ export class MessageHandler  {
           return;
         }
       }
-    }
-
-    // Ensure the message is from a guild
-    if (!message.guild) {
-      this.logger.debug("Message not in a guild, skipping.");
-      return;
-    }
-
-    // Check guild authorization
-    if (!(await this.isGuildAuthorized(message))) {
-      this.logger.warn(`Guild ${message.guild.name} (${message.guild.id}) not authorized.`);
-      return;
     }
 
     // Apply spam control

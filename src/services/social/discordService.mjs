@@ -86,6 +86,18 @@ export class DiscordService {
       try {
         this.db = await this.databaseService.getDatabase();
         if (!interaction.isButton()) return;
+        
+        // Check guild authorization for interactions
+        if (interaction.guild) {
+          const guildConfig = await this.configService.getGuildConfig(interaction.guild.id);
+          const isAuthorized = guildConfig?.authorized === true || 
+            (await this.configService.get("authorizedGuilds") || []).includes(interaction.guild.id);
+          if (!isAuthorized) {
+            this.logger.warn(`Interaction in unauthorized guild: ${interaction.guild.name} (${interaction.guild.id})`);
+            return;
+          }
+        }
+        
         const { customId } = interaction;
         if (!customId.startsWith('view_full_')) return;
 
@@ -179,6 +191,16 @@ export class DiscordService {
       try {
         // Only act on newly created threads under text channels
         if (!thread || !thread.parentId || !thread.guild) return;
+        
+        // Check guild authorization before moving avatars
+        const guildConfig = await this.configService.getGuildConfig(thread.guild.id);
+        const isAuthorized = guildConfig?.authorized === true || 
+          (await this.configService.get("authorizedGuilds") || []).includes(thread.guild.id);
+        if (!isAuthorized) {
+          this.logger.warn(`Thread created in unauthorized guild: ${thread.guild.name} (${thread.guild.id}) - ignoring`);
+          return;
+        }
+        
         const parentId = thread.parentId;
         // Try to fetch the starter message; if not available, skip
         let starter = null;
