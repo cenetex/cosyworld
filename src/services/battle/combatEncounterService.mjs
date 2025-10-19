@@ -1726,6 +1726,30 @@ Requirements:
         await channel.send({
           content: `## 🎬 Battle Recap (Rounds ${video.round})\n${video.actions} ${video.actions === 1 ? 'action' : 'actions'}\n[Watch Battle Video](${video.url})`
         });
+        
+        // Disable the "Generate Video" button now that video is ready
+        try {
+          if (statusMessageId) {
+            const originalMessage = await channel.messages.fetch(statusMessageId);
+            if (originalMessage?.components?.length > 0) {
+              // Disable all buttons in the message
+              const disabledComponents = originalMessage.components.map(row => {
+                const newRow = new ActionRowBuilder();
+                row.components.forEach(component => {
+                  if (component.customId?.startsWith('generate_battle_video_')) {
+                    const disabledButton = ButtonBuilder.from(component).setDisabled(true);
+                    newRow.addComponents(disabledButton);
+                  }
+                });
+                return newRow;
+              });
+              await originalMessage.edit({ components: disabledComponents });
+              this.logger?.info?.(`[CombatEncounter] Disabled video generation button`);
+            }
+          }
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to disable button: ${e.message}`);
+        }
       } catch (e) {
         this.logger.error?.(`[CombatEncounter] Failed to post battle video: ${e.message}`);
       }
@@ -1857,15 +1881,17 @@ Generate the video prompt now:`
       
       // Prepare character reference images from combatant avatars
       const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
-      const characterReferences = [];
+      const referenceImages = [];
       
       if (s3Service && firstCombatant.imageUrl) {
         try {
           const buffer = await s3Service.downloadImage(firstCombatant.imageUrl);
-          characterReferences.push({
-            referenceImage: { data: buffer.toString('base64'), mimeType: 'image/png' },
-            referenceId: firstCombatant._id?.toString() || firstCombatant.name
+          referenceImages.push({
+            data: buffer.toString('base64'),
+            mimeType: 'image/png',
+            referenceType: 'asset' // Preserve character appearance
           });
+          this.logger?.info?.(`[CombatEncounter] Added ${firstCombatant.name} as reference image`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download ${firstCombatant.name} image: ${e.message}`);
         }
@@ -1874,24 +1900,42 @@ Generate the video prompt now:`
       if (s3Service && secondCombatant.imageUrl && secondCombatant.imageUrl !== firstCombatant.imageUrl) {
         try {
           const buffer = await s3Service.downloadImage(secondCombatant.imageUrl);
-          characterReferences.push({
-            referenceImage: { data: buffer.toString('base64'), mimeType: 'image/png' },
-            referenceId: secondCombatant._id?.toString() || secondCombatant.name
+          referenceImages.push({
+            data: buffer.toString('base64'),
+            mimeType: 'image/png',
+            referenceType: 'asset' // Preserve character appearance
           });
+          this.logger?.info?.(`[CombatEncounter] Added ${secondCombatant.name} as reference image`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download ${secondCombatant.name} image: ${e.message}`);
         }
       }
       
-      const videos = await this.veoService.generateVideos({
-        prompt: sceneDescription,
-        characterReferences: characterReferences.length > 0 ? characterReferences : undefined,
-        config: {
-          durationSeconds: 8,
-          aspectRatio: '16:9'
-        },
-        model: 'veo-3.1-generate-preview'
-      });
+      // Generate video using Veo with reference images
+      let videos;
+      if (referenceImages.length > 0) {
+        this.logger?.info?.(`[CombatEncounter] Generating video with ${referenceImages.length} reference images`);
+        videos = await this.veoService.generateVideosWithReferenceImages({
+          prompt: sceneDescription,
+          referenceImages,
+          config: {
+            aspectRatio: '16:9',
+            durationSeconds: 8
+          },
+          model: 'veo-3.1-generate-preview'
+        });
+      } else {
+        // Fallback to text-only generation if no references available
+        this.logger?.warn?.(`[CombatEncounter] No reference images available, using text-only generation`);
+        videos = await this.veoService.generateVideos({
+          prompt: sceneDescription,
+          config: {
+            aspectRatio: '16:9',
+            durationSeconds: 8
+          },
+          model: 'veo-3.1-generate-preview'
+        });
+      }
       
       if (!videos || videos.length === 0) {
         await statusMessage.edit({ content: '❌ Video generation failed' });
