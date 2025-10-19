@@ -169,10 +169,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const onReady = () => { window.removeEventListener('admin:bootstrapReady', onReady); initPage(); };
     window.addEventListener('admin:bootstrapReady', onReady);
   }
+  
+  // Cleanup pollers when leaving collections page
+  // This provides an extra safety net, but the main check is in startCardProgress
+  const checkTab = () => {
+    if (window.state?.activeTab !== 'collections') {
+      stopAllPollers();
+    }
+  };
+  // Check every few seconds as a fallback
+  setInterval(checkTab, 5000);
 });
 
 // --- Inline card progress bars ---
 const pollers = new Map(); // key: container -> poller.stop()
+
+// Stop all pollers when leaving the collections page
+function stopAllPollers() {
+  pollers.forEach((stop, container) => {
+    try { stop(); } catch {}
+  });
+  pollers.clear();
+}
+
 function renderCardProgress(container, doc) {
   const prog = container.querySelector('[data-prog]');
   const bar = container.querySelector('[data-bar]');
@@ -190,6 +209,12 @@ async function startCardProgress(container, key) {
   if (!polling || !polling.createPoller) {
     // fallback to legacy interval if polling util missing
     const legacy = setInterval(async () => {
+      // Stop polling if we're no longer on the collections tab
+      if (window.state?.activeTab !== 'collections') {
+        clearInterval(legacy);
+        pollers.delete(container);
+        return;
+      }
       try {
         const doc = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(key)}/sync/progress`);
         renderCardProgress(container, doc);
@@ -200,6 +225,11 @@ async function startCardProgress(container, key) {
     return;
   }
   const controller = polling.createPoller(async () => {
+    // Stop polling if we're no longer on the collections tab
+    if (window.state?.activeTab !== 'collections') {
+      stopCardProgress(container, false);
+      return;
+    }
     const doc = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(key)}/sync/progress`);
     renderCardProgress(container, doc);
     if (doc.done) stopCardProgress(container, true);
