@@ -680,6 +680,13 @@ export class ConversationManager  {
           this.channelLastBotMessage.set(channel.id, Date.now());
           this.logger.debug(`Updated bot rate limit timestamp for channel ${channel.id}`);
           
+          // Update avatar activity for active avatar management
+          try {
+            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+          } catch (e) {
+            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+          }
+          
           // React with brain emoji if thoughts were detected
           if (thoughts.length > 0) {
             try {

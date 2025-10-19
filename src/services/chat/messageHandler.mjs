@@ -369,8 +369,12 @@ export class MessageHandler  {
                   await mapSvc.updateAvatarPosition(av, channelId, av.channelId);
                   this.logger.debug?.(`Moved mentioned avatar ${av.name} to ${channelId}`);
                 }
+                
+                // Activate the mentioned avatar in this channel (deactivating stalest if needed)
+                await this.avatarService.activateAvatarInChannel(channelId, String(av._id));
+                this.logger.debug?.(`Activated mentioned avatar ${av.name} in ${channelId}`);
               } catch (moveErr) {
-                this.logger.warn?.(`Failed moving mentioned avatar ${av.name}: ${moveErr.message}`);
+                this.logger.warn?.(`Failed moving/activating mentioned avatar ${av.name}: ${moveErr.message}`);
               }
             }
           }
@@ -387,7 +391,7 @@ export class MessageHandler  {
         return;
       }
 
-      // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness
+      // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness and activate
       try {
         if (message?.author && !message.author.bot && typeof message.content === 'string' && message.content.trim()) {
           const lower = message.content.toLowerCase();
@@ -397,10 +401,22 @@ export class MessageHandler  {
             if (!name && !emo) return false;
             return (name && lower.includes(name)) || (emo && lower.includes(emo));
           });
-          if (mentioned && this.decisionMaker?._recordAffinity) {
+          if (mentioned) {
             const avId = `${mentioned._id || mentioned.id}`;
-            this.decisionMaker._recordAffinity(channelId, message.author.id, avId);
-            this.logger.debug?.(`Affinity recorded for user ${message.author.id} -> avatar ${avId} in ${channelId}`);
+            
+            // Record affinity
+            if (this.decisionMaker?._recordAffinity) {
+              this.decisionMaker._recordAffinity(channelId, message.author.id, avId);
+              this.logger.debug?.(`Affinity recorded for user ${message.author.id} -> avatar ${avId} in ${channelId}`);
+            }
+            
+            // Activate the mentioned avatar (may deactivate stalest if at capacity)
+            try {
+              await this.avatarService.activateAvatarInChannel(channelId, avId);
+              this.logger.debug?.(`Activated mentioned avatar ${mentioned.name} in ${channelId}`);
+            } catch (activateErr) {
+              this.logger.warn?.(`Failed to activate mentioned avatar: ${activateErr.message}`);
+            }
           }
         }
       } catch {}

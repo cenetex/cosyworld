@@ -199,7 +199,148 @@ export class AvatarService {
         : [];
     }
 
-    return filtered;
+    // Limit to MAX_ACTIVE_AVATARS_PER_CHANNEL active avatars
+    // Return only avatars marked as "active" in the channel presence
+    const activeAvatars = await this.getActiveAvatarsInChannel(channelId, filtered);
+    return activeAvatars;
+  }
+
+  /**
+   * Get the active avatars in a channel (limited to MAX_ACTIVE_AVATARS_PER_CHANNEL)
+   * Uses channel_avatar_presence collection to track which avatars are currently active
+   * @param {string} channelId - Channel ID
+   * @param {Array} allAvatars - All avatars in the channel
+   * @returns {Promise<Array>} Active avatars (max 8)
+   */
+  async getActiveAvatarsInChannel(channelId, allAvatars) {
+    try {
+      const MAX_ACTIVE = Number(process.env.MAX_ACTIVE_AVATARS_PER_CHANNEL || 8);
+      
+      const db = await this._db();
+      const presenceCol = db.collection('channel_avatar_presence');
+      
+      // Get active avatar IDs for this channel
+      const activePresence = await presenceCol
+        .find({ channelId, isActive: true })
+        .sort({ lastActivityAt: -1 }) // Most recently active first
+        .limit(MAX_ACTIVE)
+        .toArray();
+      
+      const activeIds = new Set(activePresence.map(p => String(p.avatarId)));
+      
+      // Filter avatars to only those marked as active
+      const activeAvatars = allAvatars.filter(av => activeIds.has(String(av._id)));
+      
+      // If we have fewer active avatars than available, auto-activate up to MAX_ACTIVE
+      if (activeAvatars.length < Math.min(MAX_ACTIVE, allAvatars.length)) {
+        const inactiveAvatars = allAvatars.filter(av => !activeIds.has(String(av._id)));
+        const toActivate = Math.min(MAX_ACTIVE - activeAvatars.length, inactiveAvatars.length);
+        
+        for (let i = 0; i < toActivate; i++) {
+          const avatar = inactiveAvatars[i];
+          await this.activateAvatarInChannel(channelId, String(avatar._id));
+          activeAvatars.push(avatar);
+        }
+      }
+      
+      return activeAvatars;
+    } catch (err) {
+      this.logger.error(`Failed to get active avatars in channel – ${err.message}`);
+      // Fallback: return first MAX_ACTIVE avatars
+      const MAX_ACTIVE = Number(process.env.MAX_ACTIVE_AVATARS_PER_CHANNEL || 8);
+      return allAvatars.slice(0, MAX_ACTIVE);
+    }
+  }
+
+  /**
+   * Activate an avatar in a channel, deactivating the stalest one if at capacity
+   * @param {string} channelId - Channel ID
+   * @param {string} avatarId - Avatar ID to activate
+   */
+  async activateAvatarInChannel(channelId, avatarId) {
+    try {
+      const MAX_ACTIVE = Number(process.env.MAX_ACTIVE_AVATARS_PER_CHANNEL || 8);
+      
+      const db = await this._db();
+      const presenceCol = db.collection('channel_avatar_presence');
+      
+      // Check if already active
+      const existing = await presenceCol.findOne({ channelId, avatarId });
+      if (existing?.isActive) {
+        // Just update activity timestamp
+        await presenceCol.updateOne(
+          { channelId, avatarId },
+          { $set: { lastActivityAt: new Date() } }
+        );
+        return;
+      }
+      
+      // Count current active avatars
+      const activeCount = await presenceCol.countDocuments({ channelId, isActive: true });
+      
+      // If at capacity, deactivate the stalest avatar
+      if (activeCount >= MAX_ACTIVE) {
+        const stalest = await presenceCol
+          .find({ channelId, isActive: true })
+          .sort({ lastActivityAt: 1 }) // Oldest first
+          .limit(1)
+          .toArray();
+        
+        if (stalest.length > 0) {
+          await presenceCol.updateOne(
+            { _id: stalest[0]._id },
+            { $set: { isActive: false, deactivatedAt: new Date() } }
+          );
+          this.logger.info(`[AvatarService] Deactivated stalest avatar ${stalest[0].avatarId} in channel ${channelId}`);
+        }
+      }
+      
+      // Activate the new avatar
+      await presenceCol.updateOne(
+        { channelId, avatarId },
+        { 
+          $set: { 
+            isActive: true, 
+            lastActivityAt: new Date(),
+            activatedAt: new Date()
+          },
+          $setOnInsert: { createdAt: new Date() }
+        },
+        { upsert: true }
+      );
+      
+      this.logger.info(`[AvatarService] Activated avatar ${avatarId} in channel ${channelId}`);
+    } catch (err) {
+      this.logger.error(`Failed to activate avatar in channel – ${err.message}`);
+    }
+  }
+
+  /**
+   * Update activity timestamp for an avatar in a channel
+   * Called when an avatar speaks or is mentioned
+   * @param {string} channelId - Channel ID
+   * @param {string} avatarId - Avatar ID
+   */
+  async updateAvatarActivity(channelId, avatarId) {
+    try {
+      const db = await this._db();
+      const presenceCol = db.collection('channel_avatar_presence');
+      
+      await presenceCol.updateOne(
+        { channelId, avatarId },
+        { 
+          $set: { lastActivityAt: new Date() },
+          $setOnInsert: { 
+            isActive: true,
+            createdAt: new Date(),
+            activatedAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to update avatar activity – ${err.message}`);
+    }
   }
 
   /* -------------------------------------------------- */
