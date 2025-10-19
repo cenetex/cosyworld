@@ -769,7 +769,7 @@
     "anthropic/claude-3.5-haiku": {
       "supportsResponseFormat": false
     },
-    "anthropic/claude-3.5-sonnet": {
+    "anthropic/claude-haiku-4.5": {
       "supportsResponseFormat": false
     },
     "anthracite-org/magnum-v4-72b": {
@@ -904,7 +904,7 @@
     "mistralai/mistral-7b-instruct:free": {
       "supportsResponseFormat": true
     },
-    "anthropic/claude-3.5-sonnet-20240620": {
+    "anthropic/claude-haiku-4.5-20240620": {
       "supportsResponseFormat": false
     },
     "microsoft/phi-3-mini-128k-instruct": {

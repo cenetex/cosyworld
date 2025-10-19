@@ -19,7 +19,7 @@ export class ToolDecisionService {
     this.configService = configService;
     
     // The "smart" model used for tool decisions
-    this.decisionModel = process.env.TOOL_DECISION_MODEL || 'anthropic/claude-3.5-sonnet';
+    this.decisionModel = process.env.TOOL_DECISION_MODEL || 'anthropic/claude-haiku-4.5';
   }
 
   /**

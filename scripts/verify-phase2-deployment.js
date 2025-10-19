@@ -237,7 +237,7 @@ class DeploymentVerifier {
     console.log('');
     this.log('info', 'Verifying tool system configuration...\n');
     
-    const toolModel = process.env.TOOL_DECISION_MODEL || 'anthropic/claude-3.5-sonnet';
+    const toolModel = process.env.TOOL_DECISION_MODEL || 'anthropic/claude-haiku-4.5';
     this.log('info', `Tool decision model: ${toolModel}`);
     
     const maxIterations = process.env.TOOL_MAX_ITERATIONS || '3';

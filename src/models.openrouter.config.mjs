@@ -104,11 +104,11 @@ export default [
     "rarity": "rare"
   },
   {
-    "model": "anthropic/claude-3.5-sonnet",
+    "model": "anthropic/claude-haiku-4.5",
     "rarity": "rare"
   },
   {
-    "model": "anthropic/claude-3.5-sonnet-20240620",
+    "model": "anthropic/claude-haiku-4.5-20240620",
     "rarity": "rare"
   },
   {

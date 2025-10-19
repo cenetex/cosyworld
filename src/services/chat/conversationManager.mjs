@@ -63,6 +63,8 @@ export class ConversationManager  {
     // Phase 2: Tool calling configuration
     this.enableToolCalling = String(process.env.ENABLE_LLM_TOOL_CALLING || 'false').toLowerCase() === 'true';
     this.useMetaPrompting = String(process.env.TOOL_USE_META_PROMPTING || 'true').toLowerCase() === 'true';
+    this.toolFastPathEnabled = String(process.env.TOOL_FAST_PATH_ENABLED || 'true').toLowerCase() === 'true';
+    this.skipFinalResponseAfterRespond = String(process.env.SKIP_FINAL_RESPONSE_AFTER_RESPOND_TOOL || 'true').toLowerCase() === 'true';
   }
 
   /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
@@ -554,32 +556,42 @@ export class ConversationManager  {
       const toolSchemas = await this.toolSchemaGenerator.generateSchemas();
       
       if (toolSchemas.length > 0 && this.useMetaPrompting) {
-        // Universal approach: Use meta-prompting to decide tools (works with ANY model)
-        const availableTools = this.toolDecisionService.formatToolsForDecision(toolSchemas);
+        // Fast-path optimization: Skip tool decision for obviously conversational messages
+        let needsToolDecision = true;
+        if (this.toolFastPathEnabled) {
+          needsToolDecision = this._shouldCheckForTools(channelHistory);
+        }
         
-        // Build situation context
-        const situation = await this._buildSituationContext(avatar, channel);
-        
-        // Ask decision service what tools to use
-        const decisions = await this.toolDecisionService.decideTools({
-          avatar,
-          messages: channelHistory || [],
-          situation,
-          availableTools
-        });
-        
-        if (decisions.length > 0) {
-          this.logger.info?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
+        if (needsToolDecision) {
+          // Universal approach: Use meta-prompting to decide tools (works with ANY model)
+          const availableTools = this.toolDecisionService.formatToolsForDecision(toolSchemas);
           
-          // Convert decisions to tool_calls format
-          toolCalls = decisions.map((decision, idx) => ({
-            id: `meta_${corrId}_${idx}`,
-            type: 'function',
-            function: {
-              name: decision.toolName,
-              arguments: JSON.stringify(decision.arguments)
-            }
-          }));
+          // Build situation context
+          const situation = await this._buildSituationContext(avatar, channel);
+          
+          // Ask decision service what tools to use
+          const decisions = await this.toolDecisionService.decideTools({
+            avatar,
+            messages: channelHistory || [],
+            situation,
+            availableTools
+          });
+          
+          if (decisions.length > 0) {
+            this.logger.info?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
+            
+            // Convert decisions to tool_calls format
+            toolCalls = decisions.map((decision, idx) => ({
+              id: `meta_${corrId}_${idx}`,
+              type: 'function',
+              function: {
+                name: decision.toolName,
+                arguments: JSON.stringify(decision.arguments)
+              }
+            }));
+          }
+        } else {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Fast-path: Skipping tool decision for conversational message`);
         }
       } else if (toolSchemas.length > 0) {
         // Native function calling approach (only for compatible models)
@@ -621,7 +633,14 @@ export class ConversationManager  {
       // so we filter to avoid double-posting. We only post for tools that return pure status messages.
       const toolsWithInternalPosting = new Set(['attack', 'flee', 'defend']);
       
+      let respondToolPosted = false; // Track if respond tool posted
+      
       for (const toolResult of toolResults) {
+        // Track if respond tool successfully posted
+        if (toolResult.toolName === 'respond' && toolResult.success) {
+          respondToolPosted = true;
+        }
+        
         // Skip tools that handle their own posting
         if (toolsWithInternalPosting.has(toolResult.toolName)) {
           this.logger.debug?.(`[AI][sendResponse][${corrId}] Skipping ${toolResult.toolName} (posts internally)`);
@@ -641,6 +660,23 @@ export class ConversationManager  {
             this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to post ${toolResult.toolName} result: ${postError.message}`);
           }
         }
+      }
+      
+      // Optimization: Skip final response if respond tool already posted
+      if (respondToolPosted && this.skipFinalResponseAfterRespond) {
+        this.logger.info?.(`[AI][sendResponse][${corrId}] Respond tool handled reply, skipping final LLM generation`);
+        
+        // Still update rate limiting and activity
+        this.channelLastBotMessage.set(channel.id, Date.now());
+        responders.add(avatar._id);
+        
+        try {
+          await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+        } catch (e) {
+          this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+        }
+        
+        return null; // Early exit - no final response needed
       }
       
       // Inject tool results into the conversation
@@ -970,5 +1006,58 @@ export class ConversationManager  {
     
     // Default to false for unknown models to be safe
     return false;
+  }
+
+  /**
+   * Fast-path optimization: Check if message likely needs tool decision
+   * Returns false for obviously conversational messages to skip expensive tool decision LLM call
+   * @param {Array} channelHistory - Recent messages
+   * @returns {boolean} Whether to check for tools
+   * @private
+   */
+  _shouldCheckForTools(channelHistory) {
+    if (!channelHistory || channelHistory.length === 0) return true;
+    
+    // Get the most recent user message
+    const lastMessage = channelHistory[channelHistory.length - 1];
+    if (!lastMessage || !lastMessage.content) return true;
+    
+    const content = lastMessage.content.toLowerCase().trim();
+    
+    // Fast-path SKIP: Obviously conversational patterns (no tools needed)
+    const conversationalPatterns = [
+      /^(hi|hey|hello|sup|yo|greetings|howdy|hiya)/,
+      /^(thanks|thank you|ty|thx|tysm)/,
+      /^(bye|goodbye|cya|see you|later|gnight)/,
+      /^(lol|haha|lmao|rofl|xd|😂|😄|🤣)/,
+      /^(ok|okay|k|kk|cool|nice|neat|interesting)/,
+      /^(what|where|when|why|how|who)\s/,  // Questions
+      /\?$/,  // Ends with question mark
+      /^tell me (about|more)/,
+      /^(i think|i feel|i believe|imo|imho)/,
+    ];
+    
+    // If matches conversational pattern, skip tool check
+    if (conversationalPatterns.some(p => p.test(content))) {
+      return false; // No tool decision needed
+    }
+    
+    // Fast-path CHECK: Obviously needs tools
+    const toolKeywords = [
+      'attack', 'hit', 'strike', 'fight',
+      'move to', 'go to', 'travel to', 'walk to', 'head to', 'visit',
+      'challenge', 'duel', 'battle',
+      'flee', 'run away', 'escape',
+      'use', 'cast', 'activate',
+      'summon', 'spawn', 'create',
+      'defend', 'block', 'guard'
+    ];
+    
+    if (toolKeywords.some(kw => content.includes(kw))) {
+      return true; // Definitely needs tool decision
+    }
+    
+    // Default: Use tool decision (better safe than miss a tool opportunity)
+    return true;
   }
 }
