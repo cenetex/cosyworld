@@ -46,10 +46,12 @@ export default (env, argv) => {
       adminLogin: './src/services/web/public/js/admin-login.js',
       adminDashboard: './src/services/web/public/js/admin-dashboard.js',
       xAccountManagement: './src/services/web/public/js/x-account-management.js',
+      xGlobalPosting: './src/services/web/public/js/x-global-posting.js',
       adminCollections: './src/services/web/public/js/admin-collections.js',
       adminSettings: './src/services/web/public/js/admin-settings.js',
       adminServers: './src/services/web/public/js/admin-servers.js',
       adminSecrets: './src/services/web/public/js/admin-secrets.js',
+      guildSettings: './src/services/web/public/js/guild-settings.js',
       'admin/adminBootstrap': './src/services/web/public/js/admin/admin-bootstrap.js',
       tailwind: './src/tailwind.css'
     },
