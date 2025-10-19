@@ -88,9 +88,43 @@ This rate limit applies to ALL bot responses in a channel, regardless of which a
 - Can be overridden with `overrideCooldown` option when needed
 - Logs remaining cooldown time when rate limit is active
 
+## Active Avatar Management
+
+The system now limits each channel to a maximum of 8 active avatars to prevent channels from being overwhelmed. This is managed through the `channel_avatar_presence` collection.
+
+### How It Works
+
+1. **Active Limit**: Only up to 8 avatars can be "active" in a channel at once
+2. **Automatic Rotation**: When an inactive avatar is mentioned or summoned, it becomes active
+3. **Stale Removal**: The stalest active avatar (least recently active) is automatically deactivated
+4. **Activity Tracking**: Every time an avatar speaks, their activity timestamp is updated
+
+### Configuration
+
+```env
+# Maximum active avatars per channel
+# Default: 8
+MAX_ACTIVE_AVATARS_PER_CHANNEL=8
+```
+
+### Database Schema
+
+The `channel_avatar_presence` collection tracks:
+- `channelId`: Discord channel ID
+- `avatarId`: Avatar ObjectId
+- `isActive`: Boolean indicating if avatar is active in this channel
+- `lastActivityAt`: Timestamp of last activity (speaking or being mentioned)
+- `activatedAt`: When the avatar was activated in this channel
+- `deactivatedAt`: When the avatar was deactivated (if applicable)
+
+**Indexes:**
+- Unique compound index on `(channelId, avatarId)`
+- Compound index on `(channelId, isActive, lastActivityAt)` for efficient queries
+- Index on `lastActivityAt` for staleness queries
+
 ## Dependencies
 - DiscordService: For Discord interactions
-- AvatarService: For avatar data and updates
+- AvatarService: For avatar data, updates, and active avatar management
 - AIService: For generating AI responses
 - DatabaseService: For persistence
 - PromptService: For generating structured prompts
