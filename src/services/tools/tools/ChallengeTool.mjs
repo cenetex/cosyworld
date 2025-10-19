@@ -71,10 +71,24 @@ export class ChallengeTool extends BasicTool {
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
       if (!defender) return `-# 🫠 [ Target '${targetName}' not found here. ]`;
       
-      // Block self-combat
-      const attackerId = String(avatar?._id || avatar?.id || '');
-      const defenderId = String(defender?._id || defender?.id || '');
+      // Block self-combat - normalize both IDs properly
+      const normalizeId = (obj) => {
+        if (!obj) return '';
+        const id = obj._id || obj.id;
+        if (!id) return '';
+        // Handle ObjectId objects
+        if (typeof id === 'object' && id.toString) return id.toString();
+        return String(id);
+      };
+      
+      const attackerId = normalizeId(avatar);
+      const defenderId = normalizeId(defender);
+      
+      // Debug logging to diagnose false positives
+      this.logger?.debug?.(`[ChallengeTool] Checking self-combat: attacker=${avatar?.name}(${attackerId}), defender=${defender?.name}(${defenderId})`);
+      
       if (attackerId && defenderId && attackerId === defenderId) {
+        this.logger?.warn?.(`[ChallengeTool] Self-combat blocked: ${avatar?.name} tried to challenge themselves`);
         return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
       }
       
