@@ -1877,26 +1877,26 @@ Generate the video prompt now:`
       
       this.logger?.info?.(`[CombatEncounter] Generated video prompt: ${sceneDescription.substring(0, 100)}...`);
       
-      // Generate video using Veo with avatar references
+      // Generate video using Veo with key frame
       await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering battle video...\n\n▓▓▓▓░ 80%`
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Composing battle scene key frame...\n\n▓▓▓░░ 60%`
       });
       
-      this.logger?.info?.(`[CombatEncounter] Generating video with Veo using avatar references`);
+      this.logger?.info?.(`[CombatEncounter] Generating key frame for battle recap video`);
       
-      // Prepare character reference images from combatant avatars
+      // Step 1: Collect images for key frame composition
       const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
-      const referenceImages = [];
+      const images = [];
       
       if (s3Service && firstCombatant.imageUrl) {
         try {
           const buffer = await s3Service.downloadImage(firstCombatant.imageUrl);
-          referenceImages.push({
+          images.push({
             data: buffer.toString('base64'),
             mimeType: 'image/png',
-            referenceType: 'asset' // Preserve character appearance
+            label: 'attacker'
           });
-          this.logger?.info?.(`[CombatEncounter] Added ${firstCombatant.name} as reference image`);
+          this.logger?.info?.(`[CombatEncounter] Added ${firstCombatant.name} to key frame composition`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download ${firstCombatant.name} image: ${e.message}`);
         }
@@ -1905,56 +1905,94 @@ Generate the video prompt now:`
       if (s3Service && secondCombatant.imageUrl && secondCombatant.imageUrl !== firstCombatant.imageUrl) {
         try {
           const buffer = await s3Service.downloadImage(secondCombatant.imageUrl);
-          referenceImages.push({
+          images.push({
             data: buffer.toString('base64'),
             mimeType: 'image/png',
-            referenceType: 'asset' // Preserve character appearance
+            label: 'defender'
           });
-          this.logger?.info?.(`[CombatEncounter] Added ${secondCombatant.name} as reference image`);
+          this.logger?.info?.(`[CombatEncounter] Added ${secondCombatant.name} to key frame composition`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download ${secondCombatant.name} image: ${e.message}`);
         }
       }
       
-      // Add location image as third reference (for environment/setting)
-      if (s3Service && loc?.location?.imageUrl && referenceImages.length < 3) {
+      // Add location image if available
+      if (s3Service && loc?.location?.imageUrl && images.length < 3) {
         try {
           const buffer = await s3Service.downloadImage(loc.location.imageUrl);
-          referenceImages.push({
+          images.push({
             data: buffer.toString('base64'),
             mimeType: 'image/png',
-            referenceType: 'style' // Use as style reference for environment
+            label: 'location'
           });
-          this.logger?.info?.(`[CombatEncounter] Added location "${locationName}" as reference image`);
+          this.logger?.info?.(`[CombatEncounter] Added location "${locationName}" to key frame composition`);
         } catch (e) {
           this.logger.warn?.(`[CombatEncounter] Failed to download location image: ${e.message}`);
         }
       }
       
-      // Generate video using Veo with reference images
+      // Step 2: Generate composed key frame using BattleMediaService approach
+      await statusMessage.edit({
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Generating key frame...\n\n▓▓▓▓░ 70%`
+      });
+      
+      let keyFrameUrl = null;
+      if (images.length > 0) {
+        try {
+          // Use the same composition logic as BattleMediaService
+          keyFrameUrl = await this.battleMediaService._composeOrGenerateImage(images, sceneDescription);
+          this.logger?.info?.(`[CombatEncounter] Key frame generated successfully: ${keyFrameUrl}`);
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Key frame generation failed: ${e.message}`);
+        }
+      }
+      
+      // Step 3: Generate video from the key frame
+      await statusMessage.edit({
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering video from key frame...\n\n▓▓▓▓░ 80%`
+      });
+      
       let videos;
-      if (referenceImages.length > 0) {
-        this.logger?.info?.(`[CombatEncounter] Generating video with ${referenceImages.length} reference images`);
-        videos = await this.veoService.generateVideosWithReferenceImages({
-          prompt: sceneDescription,
-          referenceImages,
-          config: {
-            aspectRatio: '16:9',
-            durationSeconds: 8
-          },
-          model: 'veo-3.1-generate-preview'
-        });
-      } else {
-        // Fallback to text-only generation if no references available
-        this.logger?.warn?.(`[CombatEncounter] No reference images available, using text-only generation`);
-        videos = await this.veoService.generateVideos({
-          prompt: sceneDescription,
-          config: {
-            aspectRatio: '16:9',
-            durationSeconds: 8
-          },
-          model: 'veo-3.1-generate-preview'
-        });
+      if (keyFrameUrl) {
+        this.logger?.info?.(`[CombatEncounter] Generating video from key frame`);
+        try {
+          // Download the key frame to use as the starting image
+          const keyFrameBuffer = await s3Service.downloadImage(keyFrameUrl);
+          
+          videos = await this.veoService.generateVideosFromImages({
+            prompt: sceneDescription,
+            images: [{
+              data: keyFrameBuffer.toString('base64'),
+              mimeType: 'image/png'
+            }],
+            config: {
+              aspectRatio: '16:9',
+              durationSeconds: 8,
+              personGeneration: 'allow_adult'
+            },
+            model: 'veo-3.1-generate-preview'
+          });
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Video generation from key frame failed: ${e.message}`);
+        }
+      }
+      
+      // Fallback to text-only generation if key frame approach failed
+      if (!videos || videos.length === 0) {
+        this.logger?.warn?.(`[CombatEncounter] Using text-only video generation as fallback`);
+        try {
+          videos = await this.veoService.generateVideos({
+            prompt: sceneDescription,
+            config: {
+              aspectRatio: '16:9',
+              durationSeconds: 8,
+              personGeneration: 'allow_adult'
+            },
+            model: 'veo-3.1-generate-preview'
+          });
+        } catch (e) {
+          this.logger.error?.(`[CombatEncounter] Text-only video generation also failed: ${e.message}`);
+        }
       }
       
       if (!videos || videos.length === 0) {

@@ -69,25 +69,43 @@ export class VideoCameraTool extends BasicTool {
         return '-# [ ❌ Error: No avatars with images found in channel. ]';
       }
 
-      // Prepare reference images from avatar images
-      const referenceImages = [];
+      // Collect images for key frame composition: location + avatars
+      // Note: Location goes FIRST (like SceneCameraTool) for better composition
+      const images = [];
+      
+      // Add location image first if available
+      if (location?.imageUrl) {
+        try {
+          const buf = await this.s3Service.downloadImage(location.imageUrl);
+          images.push({
+            data: buf.toString('base64'),
+            mimeType: 'image/png',
+            label: 'location'
+          });
+          this.logger?.info?.(`[VideoCamera] Added location image (first)`);
+        } catch (e) {
+          this.logger?.warn?.(`[VideoCamera] Failed to load location image: ${e?.message || e}`);
+        }
+      }
+
+      // Then add avatar images
       for (const av of selectedAvatars) {
         if (!av?.imageUrl) continue;
         try {
           const buf = await this.s3Service.downloadImage(av.imageUrl);
-          referenceImages.push({
+          images.push({
             data: buf.toString('base64'),
             mimeType: 'image/png',
-            referenceType: 'asset' // Use 'asset' for character/subject references
+            label: 'avatar'
           });
-          this.logger?.info?.(` [VideoCamera] Added reference image for ${av.name}`);
+          this.logger?.info?.(` [VideoCamera] Added avatar image for ${av.name}`);
         } catch (e) {
           this.logger?.warn?.(`[VideoCamera] Failed to load avatar image for ${av.name}: ${e?.message || e}`);
         }
       }
 
-      if (referenceImages.length === 0) {
-        return '-# [ ❌ Error: Failed to load avatar reference images. ]';
+      if (images.length === 0) {
+        return '-# [ ❌ Error: Failed to load any images for scene. ]';
       }
 
       // Build cinematic prompt
@@ -181,19 +199,75 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
         `.trim();
       }
 
-      this.logger?.info?.(`[VideoCamera] Generating video with ${referenceImages.length} reference images`);
+      this.logger?.info?.(`[VideoCamera] Generating key frame from ${images.length} images...`);
 
-      // Generate video directly using Veo 3.1 with reference images
-      try {
-        const videos = await this.veoService.generateVideosWithReferenceImages({
-          prompt: cinematicPrompt,
-          referenceImages,
-          model: 'veo-3.1-fast-generate-preview', // Use fast model by default
-          config: {
-            aspectRatio: '16:9', // Widescreen (required for reference images)
-            durationSeconds: 8 // Required for reference images
-            // Note: resolution and personGeneration are not supported with reference images
+      // Step 1: Generate a composed key frame using the SAME method as SceneCameraTool
+      const subjectLine = selectedAvatars.map(a => `${a.name || 'Unknown'} ${a.emoji || ''}`.trim()).join(', ');
+      const style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
+      const compositePrompt = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${cinematicPrompt || 'Natural interactions and movements.'}`.trim();
+
+      // Helper: Try composition (preferred for multi-image scenes)
+      const tryCompose = async (provider) => {
+        if (!provider?.composeImageWithGemini || images.length === 0) return null;
+        try {
+          return await provider.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`);
+        } catch (e) {
+          this.logger?.warn?.('[VideoCamera] compose failed: ' + (e?.message || e));
+          return null;
+        }
+      };
+
+      // Helper: Try normal generation as fallback
+      const tryGenerate = async (provider) => {
+        if (!provider) return null;
+        try {
+          const basePrompt = `${compositePrompt}. Render in ${style}.`;
+          if (typeof provider.generateImageFull === 'function') {
+            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9' });
           }
+          if (typeof provider.generateImage === 'function') {
+            if (provider === this.googleAIService) {
+              return await provider.generateImage(basePrompt, '16:9');
+            }
+            return await provider.generateImage(basePrompt, images, { aspectRatio: '16:9' });
+          }
+        } catch (e) {
+          this.logger?.warn?.('[VideoCamera] generate failed: ' + (e?.message || e));
+        }
+        return null;
+      };
+
+      // Try composition first with aiService, then googleAIService
+      let keyFrameUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
+      if (!keyFrameUrl && this.googleAIService) {
+        keyFrameUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
+      }
+
+      if (!keyFrameUrl) {
+        return '-# [ ❌ Error: Failed to generate key frame for video. ]';
+      }
+      
+      this.logger?.info?.(`[VideoCamera] Key frame generated successfully: ${keyFrameUrl}`);
+
+      this.logger?.info?.(`[VideoCamera] Generating video from key frame...`);
+
+      // Step 2: Generate video from the composed key frame using Veo 3.1
+      try {
+        // Download the key frame to use as the starting image
+        const keyFrameBuffer = await this.s3Service.downloadImage(keyFrameUrl);
+        
+        const videos = await this.veoService.generateVideosFromImages({
+          prompt: cinematicPrompt,
+          images: [{
+            data: keyFrameBuffer.toString('base64'),
+            mimeType: 'image/png'
+          }],
+          config: {
+            aspectRatio: '16:9',
+            durationSeconds: 8,
+            personGeneration: 'allow_adult'
+          },
+          model: 'veo-3.1-fast-generate-preview'
         });
 
         const videoUrl = Array.isArray(videos) ? videos[0] : null;
