@@ -9,8 +9,9 @@ export default [
       'images/**',
       'public/**',
       'docs/**',
+      'coverage/**',
       'data/**/*.json',
-  'src/utils/schemaValidator.mjs',
+      'src/utils/schemaValidator.mjs',
       '**/*.min.js'
     ]
   },
