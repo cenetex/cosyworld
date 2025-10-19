@@ -7,7 +7,8 @@ import { BasicTool } from '../BasicTool.mjs';
 
 /**
  * VideoCameraTool
- * Captures a scene (like SceneCameraTool) and requests a short video clip via VeoService.
+ * Captures a cinematic scene as a short video clip using Veo 3.1 with reference images.
+ * Uses the most recently active avatars in the channel as reference images for character consistency.
  */
 export class VideoCameraTool extends BasicTool {
   constructor({
@@ -17,12 +18,14 @@ export class VideoCameraTool extends BasicTool {
     s3Service,
     locationService,
     avatarService,
+    discordService,
+    configService,
     logger
   }) {
     super();
     this.name = 'video camera';
     this.emoji = '🎥';
-    this.description = 'Capture a cinematic scene as a short video with avatars present in the channel.';
+    this.description = 'Capture a cinematic widescreen video scene with recently active avatars (Veo 3.1 with audio).';
     this.replyNotification = true;
     this.cooldownMs = 10 * 60 * 1000; // 10 minutes
 
@@ -32,6 +35,8 @@ export class VideoCameraTool extends BasicTool {
     this.s3Service = s3Service;
     this.locationService = locationService;
     this.avatarService = avatarService;
+    this.discordService = discordService;
+    this.configService = configService;
     this.logger = logger || console;
   }
 
@@ -42,111 +47,230 @@ export class VideoCameraTool extends BasicTool {
       const guildId = message?.guild?.id || message?.guildId;
       if (!channelId) return '-# [ ❌ Error: Missing channel context. ]';
 
-      // Gather location and present avatars
-      const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
-      const present = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);
-
-      // Select up to 4 avatars, include calling avatar first
-      const list = [];
-      if (avatar) list.push(avatar);
-      for (const av of present) {
-        if (!list.find(x => String(x._id) === String(av._id))) list.push(av);
-        if (list.length >= 4) break;
+      if (!this.veoService) {
+        return '-# [ ❌ Error: Veo service not available. ]';
       }
 
-      // Prepare images for composition
-      const images = [];
-      for (const av of list) {
+      // Check rate limit upfront
+      if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) {
+        return `-# [ ${this.emoji} Video generation cancelled: rate limit reached ]`;
+      }
+
+      // Gather location
+      const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
+
+      // Get recently active avatars from channel history
+      const recentAvatars = await this._getRecentlyActiveAvatars(channelId, guildId, avatar);
+      
+      // Select up to 3 avatars for reference images (Veo 3.1 limit)
+      const selectedAvatars = recentAvatars.slice(0, 3);
+
+      if (selectedAvatars.length === 0) {
+        return '-# [ ❌ Error: No avatars with images found in channel. ]';
+      }
+
+      // Prepare reference images from avatar images
+      const referenceImages = [];
+      for (const av of selectedAvatars) {
         if (!av?.imageUrl) continue;
         try {
           const buf = await this.s3Service.downloadImage(av.imageUrl);
-          images.push({ data: buf.toString('base64'), mimeType: 'image/png', label: 'avatar' });
-        } catch (e) { this.logger?.warn?.(`[VideoCamera] avatar image: ${e?.message || e}`); }
-      }
-      if (location?.imageUrl) {
-        try {
-          const buf = await this.s3Service.downloadImage(location.imageUrl);
-          images.unshift({ data: buf.toString('base64'), mimeType: 'image/png', label: 'location' });
-        } catch (e) { this.logger?.warn?.(`[VideoCamera] location image: ${e?.message || e}`); }
-      }
-
-      const subjectLine = list.map(a => `${a.name || 'Unknown'} ${a.emoji || ''}`.trim()).join(', ');
-      const locLine = location ? `${location.name || 'Unknown Location'}` : 'Unknown Location';
-      const style = 'cinematic anime style, 16:9, subtle motion, no UI, no watermark';
-      const compositePrompt = `Cinematic scene video featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`.trim();
-
-      // 1) Create a keyframe image via compose or generation
-      let imageUrl = null;
-      const tryCompose = async (p) => {
-        if (!p?.composeImageWithGemini || images.length === 0) return null;
-        try { return await p.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`);
-        } catch (e) { this.logger?.warn?.('[VideoCamera] compose failed: ' + (e?.message || e)); return null; }
-      };
-      const tryGenerate = async (p) => {
-        if (!p) return null;
-        try {
-          const basePrompt = `${compositePrompt}. Render in ${style}.`;
-          if (typeof p.generateImageFull === 'function') {
-            return await p.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9' });
-          }
-          if (typeof p.generateImage === 'function') {
-            if (p === this.googleAIService) return await p.generateImage(basePrompt, '16:9');
-            return await p.generateImage(basePrompt, images, { aspectRatio: '16:9' });
-          }
-        } catch (e) { this.logger?.warn?.('[VideoCamera] generate failed: ' + (e?.message || e)); }
-        return null;
-      };
-      imageUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
-      if (!imageUrl && this.googleAIService) {
-        imageUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
-      }
-      if (!imageUrl) return '-# [ ❌ Error: Failed to capture scene keyframe. ]';
-
-      // FEATURE: Schedule follow-up chatter from other avatars in the scene after keyframe generation.
-      try {
-        setTimeout(async () => {
-          try {
-            const convoMgr = this.configService?.services?.conversationManager;
-            const discord = this.discordService;
-            if (!convoMgr || !discord) return;
-            const channel = await discord.getChannelById?.(channelId) || message.channel;
-            if (!channel) return;
-            for (const av of list) {
-              if (!av || (avatar && String(av._id) === String(avatar._id))) continue;
-              try {
-                await convoMgr.sendResponse(channel, av, null, { overrideCooldown: true, cascadeDepth: 1 });
-              } catch (e) {
-                this.logger?.debug?.(`[VideoCamera] follow-up response failed for ${av.name}: ${e.message}`);
-              }
-            }
-          } catch (inner) {
-            this.logger?.debug?.('[VideoCamera] follow-up scheduling error: ' + (inner?.message || inner));
-          }
-        }, 2000);
-      } catch {}
-
-      // 2) Inline video generation using VeoService (like BattleMediaService)
-      if (!this.veoService) {
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
-      }
-      try {
-        if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) {
-          return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]\n-# [ video cancelled: rate limit ]`;
+          referenceImages.push({
+            data: buf.toString('base64'),
+            mimeType: 'image/png',
+            referenceType: 'asset' // Use 'asset' for character/subject references
+          });
+          this.logger?.info?.(` [VideoCamera] Added reference image for ${av.name}`);
+        } catch (e) {
+          this.logger?.warn?.(`[VideoCamera] Failed to load avatar image for ${av.name}: ${e?.message || e}`);
         }
-        const sceneBuf = await this.s3Service.downloadImage(imageUrl);
-        const baseImages = [{ data: sceneBuf.toString('base64'), mimeType: 'image/png', label: 'scene' }];
-        const videos = await this.veoService.generateVideosFromImages({ prompt: compositePrompt, images: baseImages, config: { numberOfVideos: 1, personGeneration: "allow_adult" } });
-        const vid = Array.isArray(videos) ? videos[0] : null;
-        if (vid) {
-          return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]\n-# [ 🎞️ [Scene Clip](${vid}) ]`;
+      }
+
+      if (referenceImages.length === 0) {
+        return '-# [ ❌ Error: Failed to load avatar reference images. ]';
+      }
+
+      // Build cinematic prompt
+      const avatarNames = selectedAvatars.map(a => a.name || 'Unknown').join(', ');
+      const avatarDescriptions = selectedAvatars.map(a => {
+        const desc = a.personality?.slice(0, 100) || a.description?.slice(0, 100) || '';
+        return `${a.name}: ${desc}`;
+      }).join('. ');
+      
+      const locLine = location?.name || 'an unknown location';
+      const locDesc = location?.description?.slice(0, 150) || '';
+
+      // Cinematic prompt with audio cues
+      const cinematicPrompt = `
+A cinematic widescreen scene at ${locLine}. ${locDesc}
+
+Characters present: ${avatarNames}. ${avatarDescriptions}
+
+${userPrompt || 'The scene unfolds with natural interactions and subtle movements.'}
+
+Camera: Smooth dolly shot, maintaining a medium-wide composition that captures all characters. 
+Style: Cinematic anime aesthetic with dramatic lighting and depth of field.
+Audio: Ambient sounds of the environment, subtle character movements, atmospheric background.
+      `.trim();
+
+      this.logger?.info?.(`[VideoCamera] Generating video with ${referenceImages.length} reference images`);
+
+      // Generate video directly using Veo 3.1 with reference images
+      try {
+        const videos = await this.veoService.generateVideosWithReferenceImages({
+          prompt: cinematicPrompt,
+          referenceImages,
+          model: 'veo-3.1-fast-generate-preview', // Use fast model by default
+          config: {
+            aspectRatio: '16:9', // Widescreen
+            resolution: '720p',
+            durationSeconds: 8, // Required for reference images
+            personGeneration: 'allow_adult'
+          }
+        });
+
+        const videoUrl = Array.isArray(videos) ? videos[0] : null;
+        
+        if (videoUrl) {
+          // Schedule follow-up chatter from avatars in the scene
+          this._scheduleFollowUpChatter(channelId, message, selectedAvatars, avatar);
+          
+          return `-# [ ${this.emoji} 🎬 [Cinematic Scene](${videoUrl}) ]\n-# [ 📹 Generated with Veo 3.1 • ${selectedAvatars.length} characters • Widescreen with audio ]`;
         }
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
+        
+        return `-# [ ${this.emoji} Video generation completed but no URL returned ]`;
       } catch (e) {
-        this.logger?.warn?.('[VideoCamera] inline video generation failed: ' + (e?.message || e));
-        return `-# [ ${this.emoji} [Scene Keyframe](${imageUrl}) ]`;
+        this.logger?.error?.(`[VideoCamera] Veo 3.1 generation failed: ${e?.message || e}`);
+        return `-# [ ❌ Error: Video generation failed - ${e?.message || 'unknown error'} ]`;
       }
     } catch (err) {
+      this.logger?.error?.(`[VideoCamera] Execution error: ${err?.message || err}`);
       return `-# [ ❌ Error: ${err?.message || err} ]`;
+    }
+  }
+
+  /**
+   * Get recently active avatars by checking recent messages in the channel.
+   * Returns avatars sorted by most recent activity.
+   * @private
+   */
+  async _getRecentlyActiveAvatars(channelId, guildId, currentAvatar) {
+    try {
+      // Get recent messages to find active avatars
+      const recentMessages = await this.discordService?.getRecentMessages?.(channelId, 50) || [];
+      
+      // Extract unique avatar IDs from webhook messages (ordered by recency)
+      const avatarIds = new Set();
+      const avatarIdList = []; // Preserve order
+      
+      // Add current avatar first if it has an image
+      if (currentAvatar?._id && currentAvatar?.imageUrl) {
+        avatarIds.add(String(currentAvatar._id));
+        avatarIdList.push(String(currentAvatar._id));
+      }
+
+      // Extract avatar IDs from recent webhook messages
+      for (const msg of recentMessages) {
+        if (!msg?.webhookId) continue;
+        
+        // Try to extract avatar ID from webhook username or content
+        const content = msg.content || '';
+        
+        // Look for avatar mentions or webhook patterns
+        // Webhooks created by the system often have avatar IDs in metadata
+        if (msg.author?.bot) {
+          // Try to find avatar reference in message
+          const matches = content.match(/\[.*?\]\(.*?\)/g) || [];
+          for (const match of matches) {
+            const urlMatch = match.match(/\((.*?)\)/);
+            if (urlMatch && urlMatch[1]) {
+              // Extract potential avatar ID from URLs or references
+              const idMatch = urlMatch[1].match(/[a-f0-9]{24}/i);
+              if (idMatch && !avatarIds.has(idMatch[0])) {
+                avatarIds.add(idMatch[0]);
+                avatarIdList.push(idMatch[0]);
+              }
+            }
+          }
+        }
+      }
+
+      // Fall back to getting all avatars in channel if we don't have enough from messages
+      if (avatarIdList.length < 3) {
+        const allAvatars = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);
+        for (const av of allAvatars) {
+          const id = String(av._id);
+          if (!avatarIds.has(id) && av?.imageUrl) {
+            avatarIds.add(id);
+            avatarIdList.push(id);
+          }
+          if (avatarIdList.length >= 5) break; // Get up to 5 for selection
+        }
+      }
+
+      // Fetch full avatar objects
+      const avatars = [];
+      for (const id of avatarIdList) {
+        try {
+          const av = await this.avatarService.getAvatarById(id);
+          if (av && av.imageUrl) {
+            avatars.push(av);
+          }
+        } catch (e) {
+          this.logger?.debug?.(`[VideoCamera] Failed to fetch avatar ${id}: ${e?.message}`);
+        }
+      }
+
+      return avatars;
+    } catch (e) {
+      this.logger?.warn?.(`[VideoCamera] Failed to get recent avatars: ${e?.message || e}`);
+      
+      // Fallback to all avatars in channel
+      const present = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);
+      const withImages = present.filter(av => av?.imageUrl);
+      
+      // Ensure current avatar is first if available
+      if (currentAvatar?._id && currentAvatar?.imageUrl) {
+        const filtered = withImages.filter(av => String(av._id) !== String(currentAvatar._id));
+        return [currentAvatar, ...filtered];
+      }
+      
+      return withImages;
+    }
+  }
+
+  /**
+   * Schedule follow-up chatter from other avatars in the scene.
+   * @private
+   */
+  _scheduleFollowUpChatter(channelId, message, avatars, excludeAvatar) {
+    try {
+      setTimeout(async () => {
+        try {
+          const convoMgr = this.configService?.services?.conversationManager;
+          const discord = this.discordService;
+          if (!convoMgr || !discord) return;
+          
+          const channel = await discord.getChannelById?.(channelId) || message.channel;
+          if (!channel) return;
+          
+          for (const av of avatars) {
+            if (!av || (excludeAvatar && String(av._id) === String(excludeAvatar._id))) continue;
+            try {
+              await convoMgr.sendResponse(channel, av, null, { 
+                overrideCooldown: true, 
+                cascadeDepth: 1 
+              });
+            } catch (e) {
+              this.logger?.debug?.(`[VideoCamera] Follow-up response failed for ${av.name}: ${e.message}`);
+            }
+          }
+        } catch (inner) {
+          this.logger?.debug?.('[VideoCamera] Follow-up scheduling error: ' + (inner?.message || inner));
+        }
+      }, 2000);
+    } catch (e) {
+      this.logger?.debug?.(`[VideoCamera] Failed to schedule follow-up: ${e?.message}`);
     }
   }
 
