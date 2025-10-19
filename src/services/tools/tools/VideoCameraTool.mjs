@@ -51,8 +51,8 @@ export class VideoCameraTool extends BasicTool {
         return '-# [ ❌ Error: Veo service not available. ]';
       }
 
-      // Check rate limit upfront
-      if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) {
+      // Check rate limit upfront (now async)
+      if (this.veoService?.checkRateLimit && !(await this.veoService.checkRateLimit())) {
         return `-# [ ${this.emoji} Video generation cancelled: rate limit reached ]`;
       }
 
