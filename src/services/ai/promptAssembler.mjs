@@ -175,7 +175,7 @@ export class PromptAssembler {
     return out;
   }
 
-  joinBlocks({ SYSTEM, CONTEXT, FOCUS, MEMORY, RECALL, CONSTRAINTS, TASK, OUTPUT_SCHEMA }) {
+  joinBlocks({ SYSTEM, CONTEXT, FOCUS, MEMORY, RECALL, CONSTRAINTS, TASK, OUTPUT_SCHEMA, IDENTITY_REMINDER }) {
     const lines = [];
     const delimiter = process.env.PROMPT_DELIMITER || '<<>>';  // Configurable delimiter
     
@@ -199,6 +199,13 @@ export class PromptAssembler {
         if (r.why) lines.push(`  // ${r.why}`);
       }
     }
+    
+    // Identity reminder after context-heavy blocks
+    if (IDENTITY_REMINDER && String(process.env.IDENTITY_REMINDER_ENABLED || 'true') === 'true') {
+      lines.push(delimiter);
+      lines.push(IDENTITY_REMINDER.trim());
+    }
+    
     if (CONSTRAINTS) { lines.push(delimiter); lines.push(CONSTRAINTS.trim()); }
     if (TASK) { lines.push(delimiter); lines.push(TASK.trim()); }
     if (OUTPUT_SCHEMA) { lines.push(delimiter); lines.push(OUTPUT_SCHEMA.trim()); }
