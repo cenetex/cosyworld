@@ -384,7 +384,6 @@ export class OpenRouterAIService {
 
     // Default options that will be used if not overridden by the caller.
     this.defaultCompletionOptions = {
-      max_tokens: 4000,        // Increased for reasoning models that need tokens for reasoning + response
       temperature: 0.9,        // More randomness for creative output
       top_p: 0.95,             // Broader token selection for diversity
       frequency_penalty: 0.2,  // Moderate penalty to avoid repetitive loops
@@ -618,6 +617,13 @@ export class OpenRouterAIService {
   return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
       const result = response.choices[0].message;
+      const finishReason = response.choices[0].finish_reason;
+
+      // Log finish_reason to help diagnose truncated responses
+      if (finishReason === 'length') {
+        this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit (${mergedOptions.max_tokens}). Consider increasing max_tokens.`);
+      }
+      this.logger.debug?.(`[OpenRouter][Chat] finish_reason=${finishReason} usage=${JSON.stringify(response.usage)}`);
 
       // If response is meant to be structured JSON, preserve it
       if (mergedOptions.response_format?.type === 'json_object') {
@@ -669,7 +675,7 @@ export class OpenRouterAIService {
       // Special case: reasoning exists but content is empty (e.g., GPT-5 reasoning models)
       // This typically indicates an incomplete response where the model only provided internal reasoning
       if (!normalizedContent && hasReasoning) {
-        this.logger.warn('Model returned reasoning but no content. This may indicate an incomplete response.');
+        this.logger.warn(`Model returned reasoning but no content. finish_reason=${finishReason}. This may indicate an incomplete response${finishReason === 'length' ? ' due to hitting max_tokens limit' : ''}.`);
         this.logger.info(JSON.stringify(result, null, 2));
         
         if (options.returnEnvelope) {
@@ -678,12 +684,15 @@ export class OpenRouterAIService {
             raw: response, 
             model: mergedOptions.model, 
             provider: 'openrouter', 
-            error: { code: 'NO_CONTENT', message: 'Model returned reasoning but no text content' } 
+            error: { 
+              code: finishReason === 'length' ? 'MAX_TOKENS' : 'NO_CONTENT', 
+              message: `Model returned reasoning but no text content (finish_reason: ${finishReason})` 
+            } 
           };
         }
         
         // Throw to trigger retry logic or fallback handling
-        throw new Error('Model returned reasoning but no text content');
+        throw new Error(`Model returned reasoning but no text content (finish_reason: ${finishReason})`);
       }
 
       // Do not inject <think> tags into visible content; keep reasoning separate
