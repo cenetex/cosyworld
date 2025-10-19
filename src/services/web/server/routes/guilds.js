@@ -350,10 +350,73 @@ export default function(db, client, configService) {
   router.post('/:guildId/authorize', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.params;
-      await configService.updateGuildConfig(guildId, { authorized: true, whitelisted: true, updatedAt: new Date() });
+      
+      // Try to get guild info from various sources
+      let guildName = null;
+      let guildIcon = null;
+      let guildIconUrl = null;
+      
+      // 1. Try detected_guilds collection
+      try {
+        const detected = await db.collection('detected_guilds').findOne({ id: guildId });
+        if (detected) {
+          if (detected.name) guildName = detected.name;
+          if (detected.icon) guildIcon = detected.icon;
+          if (detected.iconUrl) guildIconUrl = detected.iconUrl;
+        }
+      } catch {}
+      
+      // 2. Try Discord client
+      if (!guildName && client && client.guilds) {
+        try {
+          const guild = client.guilds.cache.get(guildId);
+          if (guild) {
+            if (guild.name) guildName = guild.name;
+            if (guild.icon) guildIcon = guild.icon;
+            if (guild.icon) guildIconUrl = `https://cdn.discordapp.com/icons/${guildId}/${guild.icon}.png`;
+          }
+        } catch {}
+      }
+      
+      // 3. Try existing guild config
+      if (!guildName) {
+        try {
+          const existing = await configService.getGuildConfig(guildId);
+          if (existing) {
+            if (existing.guildName) guildName = existing.guildName;
+            if (!guildName && existing.name) guildName = existing.name;
+            if (!guildIcon && existing.icon) guildIcon = existing.icon;
+            if (!guildIconUrl && existing.iconUrl) guildIconUrl = existing.iconUrl;
+          }
+        } catch {}
+      }
+      
+      // Build update object with name and icon if found
+      const updateData = { 
+        authorized: true, 
+        whitelisted: true, 
+        updatedAt: new Date() 
+      };
+      
+      if (guildName) {
+        updateData.guildName = guildName;
+        updateData.name = guildName; // Also set name for backward compatibility
+      }
+      
+      if (guildIcon) {
+        updateData.icon = guildIcon;
+      }
+      
+      if (guildIconUrl) {
+        updateData.iconUrl = guildIconUrl;
+      }
+      
+      await configService.updateGuildConfig(guildId, updateData);
+      
       // Clear caches so change takes effect immediately
       try { if (typeof configService.clearCache === 'function') await configService.clearCache(guildId); } catch {}
       try { if (client && client.authorizedGuilds instanceof Map) client.authorizedGuilds.delete(guildId); } catch {}
+      
       const updated = await configService.getGuildConfig(guildId, true);
       res.json({ success: true, message: 'Guild authorized', config: updated });
     } catch (error) {

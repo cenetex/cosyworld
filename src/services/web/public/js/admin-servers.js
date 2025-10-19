@@ -127,9 +127,6 @@ async function loadAll() {
       apiWrap('/api/guilds/detected')
     ]);
     
-    console.log('Raw configs from API:', configs);
-    console.log('Raw detected from API:', detected);
-    
     const authorized = (configs||[]).filter(g => g.authorized || g.whitelisted).sort((a,b)=>{
       const nameA = guildDisplayName(a) || '';
       const nameB = guildDisplayName(b) || '';
@@ -141,9 +138,6 @@ async function loadAll() {
       const nameB = guildDisplayName(b) || '';
       return nameA.localeCompare(nameB);
     });
-
-    console.log('Authorized guilds:', authorized);
-    console.log('Detected guilds:', detectedFiltered);
 
     if (counts) counts.textContent = `${authorized.length} auth · ${detectedFiltered.length} detected`;
 
