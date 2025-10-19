@@ -8,6 +8,17 @@
 
 ## 🎉 What's New in v0.0.11
 
+### 🎥 Veo 3.1 Video Generation (NEW!)
+**Cinematic AI videos with native audio!** Upgraded to Google's Veo 3.1 with powerful new features:
+
+- **🎬 Reference Images**: Use up to 3 images to guide character/object appearance
+- **🔗 Video Extension**: Extend videos by 7 seconds up to 20 times (148s total)
+- **🎞️ Frame Interpolation**: Control exact start and end frames
+- **🔊 Native Audio**: Dialogue, sound effects, and ambient noise generation
+- **📺 Higher Quality**: 720p/1080p with 16:9 and 9:16 aspect ratios
+
+See [Veo 3.1 Examples](docs/veo-3.1-examples.md) | [Upgrade Guide](docs/VEO-3.1-UPGRADE.md)
+
 ### 🔧 Browser-Based Configuration System
 **No more manual .env editing!** CosyWorld now features a comprehensive configuration wizard:
 
@@ -68,6 +79,7 @@ CosyWorld is an AI avatar universe where persistent, evolving entities with uniq
 - **Combat Tools**: ⚔️ Attack, 🛡️ Defend, 🚶 Move
 - **Social Tools**: 🐦 X Integration, 💭 Remember, 📝 Creation
 - **World Tools**: 🔮 Summon, 🏹 Breed, 🧪 Item Management
+- **Media Generation**: 🎥 Video Generation with Veo 3.1 (with audio!), 📸 Scene Camera, 🖼️ Image Generation
 - **Custom Abilities**: Dynamic narrative generation for unique actions
 
 ### Platform Integration
