@@ -112,19 +112,50 @@ export class DiscordService {
               return;
             }
             
-            await interaction.deferUpdate(); // Acknowledge the button click
+            let interactionExpired = false;
+            
+            // Try to acknowledge the button click
+            try {
+              await interaction.deferUpdate();
+            } catch (deferError) {
+              // Interaction expired - this is OK, we'll work around it
+              const errMsg = String(deferError?.message || '').toLowerCase();
+              if (errMsg.includes('unknown interaction') || errMsg.includes('interaction has already been acknowledged')) {
+                this.logger.info?.('[DiscordService] Battle video button interaction expired - creating new status message');
+                interactionExpired = true;
+              } else {
+                throw deferError; // Re-throw if it's a different error
+              }
+            }
             
             // Check if combat encounter service is available (late-binding to avoid circular deps)
             const combatEncounterService = this.getCombatEncounterService?.();
             if (!combatEncounterService) {
-              await interaction.followUp({ content: '❌ Combat system not available', flags: 64 });
+              if (interactionExpired) {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '❌ Combat system not available' });
+              } else {
+                await interaction.followUp({ content: '❌ Combat system not available', flags: 64 });
+              }
               return;
+            }
+            
+            // If interaction expired, create a new status message instead of using the original
+            let statusMessageId = null;
+            if (interactionExpired) {
+              const channel = await this.client.channels.fetch(channelId);
+              const statusMsg = await channel.send({ 
+                content: '🎬 **Generating Battle Recap Videos...**\nPreparing scenes...' 
+              });
+              statusMessageId = statusMsg.id;
+            } else {
+              statusMessageId = interaction.message.id;
             }
             
             // Generate videos with live status updates
             const result = await combatEncounterService.generateBattleRecapVideos(
               channelId,
-              interaction.message.id
+              statusMessageId
             );
             
             if (!result.success) {
@@ -134,11 +165,12 @@ export class DiscordService {
           } catch (error) {
             this.logger.error?.(`[DiscordService] Battle video button error: ${error.message}`);
             try {
-              await interaction.followUp({ 
-                content: `❌ Failed to generate battle videos: ${error.message}`, 
-                flags: 64 
-              });
-            } catch {}
+              // Try to send error message to the channel
+              const channel = await this.client.channels.fetch(channelId);
+              await channel.send({ content: `❌ Failed to generate battle videos: ${error.message}` });
+            } catch (sendError) {
+              this.logger.error?.(`[DiscordService] Failed to send error message: ${sendError.message}`);
+            }
           }
           
           return; // Exit early after handling
