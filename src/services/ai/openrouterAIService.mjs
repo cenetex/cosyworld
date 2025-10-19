@@ -431,11 +431,16 @@ export class OpenRouterAIService {
       { role: 'user', content: prompt }
     ];
 
-    const baseSchema = typeof schema === 'object' && schema ? schema : { type: 'object' };
+    // Handle both nested schema format { name, strict, schema: {...} } and direct schema format { type, properties, ... }
+    const schemaObj = schema?.schema || schema;
+    const schemaName = schema?.name || schemaObj?.title || 'Schema';
+    const isStrict = schema?.strict !== undefined ? schema.strict : true;
+    
+    const baseSchema = typeof schemaObj === 'object' && schemaObj ? schemaObj : { type: 'object' };
     const jsonSchemaPayload = {
-      name: baseSchema.title || 'Schema',
+      name: schemaName,
       schema: baseSchema,
-      strict: true,
+      strict: isStrict,
     };
     const structuredOptions = {
       model: options.model || this.structured_model,
@@ -447,6 +452,9 @@ export class OpenRouterAIService {
 
     try {
       const response = await this.chat(messages, structuredOptions);
+      if (!response) {
+        throw new Error('Chat returned null/empty response with json_schema format');
+      }
       return typeof response === 'string' ? parseFirstJson(response) : response;
     } catch (err) {
       const parsed = parseProviderError(err);

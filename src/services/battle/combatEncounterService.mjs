@@ -474,6 +474,8 @@ export class CombatEncounterService {
       timers: {},
       knockout: null,
       knockoutMedia: null,
+      fightPosterUrl: null, // Initial fight poster URL for video generation
+      summaryMediaUrl: null, // Final summary/victory scene URL for video generation
       // Media/turn sequencing controls
       turnAdvanceBlockers: [], // array of Promises to await before advancing to next turn
       manualActionCount: 0, // increments during manual/command-driven actions to pause auto-act
@@ -1714,7 +1716,7 @@ Requirements:
       
       // Update final status
       await statusMessage.edit({
-        content: `✅ **Battle Recap Complete!**\n8-second cinematic video • ${videos[0].actions} total actions`
+        content: `✅ **Battle Recap Complete!**\n${videos[0].actions} total ${videos[0].actions === 1 ? 'action' : 'actions'}`
       });
 
       // Post the video
@@ -1722,7 +1724,7 @@ Requirements:
       try {
         // Video is already uploaded to S3, just link to it
         await channel.send({
-          content: `## 🎬 Battle Recap (Rounds ${video.round})\n8-second cinematic battle • ${video.actions} ${video.actions === 1 ? 'action' : 'actions'}\n${video.url}`
+          content: `## 🎬 Battle Recap (Rounds ${video.round})\n${video.actions} ${video.actions === 1 ? 'action' : 'actions'}\n[Watch Battle Video](${video.url})`
         });
       } catch (e) {
         this.logger.error?.(`[CombatEncounter] Failed to post battle video: ${e.message}`);
@@ -1760,17 +1762,10 @@ Requirements:
         return null;
       }
       
-      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating single 8s battle recap video using first/last frame interpolation`);
-      
-      // Get the fight poster (first frame) and summary image (last frame)
-      const battleMedia = this.battleMediaService || this.battleService?.battleMediaService;
-      if (!battleMedia) {
-        await statusMessage.edit({ content: '❌ Battle media service not available' });
-        return null;
-      }
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating battle recap video`);
       
       await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n📸 Preparing battle poster and summary images...\n\n░░░░░ 0%`
+        content: `🎬 **Generating Battle Recap Video...**\n📸 Preparing combatant references...\n\n░░░░░ 0%`
       });
       
       const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(() => null);
@@ -1791,140 +1786,107 @@ Requirements:
         return null;
       }
       
-      // Generate first frame (fight poster)
-      let firstFrameUrl = null;
-      try {
-        await statusMessage.edit({
-          content: `🎬 **Generating Battle Recap Video...**\n📸 Creating battle poster (first frame)...\n\n▓░░░░ 20%`
-        });
-        
-        const poster = await battleMedia.generateFightPoster({
-          attacker: firstCombatant,
-          defender: secondCombatant,
-          location: loc?.location
-        });
-        
-        if (poster?.imageUrl) {
-          firstFrameUrl = poster.imageUrl;
-          this.logger?.info?.(`[CombatEncounter] First frame (poster) generated: ${firstFrameUrl}`);
-        }
-      } catch (e) {
-        this.logger.error?.(`[CombatEncounter] First frame generation failed: ${e.message}`);
-      }
-      
-      if (!firstFrameUrl) {
-        await statusMessage.edit({ content: '❌ Failed to generate battle poster (first frame)' });
-        return null;
-      }
-      
-      // Generate last frame (summary image)
-      let lastFrameUrl = null;
-      try {
-        await statusMessage.edit({
-          content: `🎬 **Generating Battle Recap Video...**\n� Creating victory scene (last frame)...\n\n▓▓░░░ 40%`
-        });
-        
-        // Determine winner/loser
-        const alive = combatants.filter(c => (c.currentHp || 0) > 0);
-        const winner = alive.length === 1 ? alive[0]?.ref : combatants.sort((a,b) => (b.currentHp||0) - (a.currentHp||0))[0]?.ref;
-        const loser = combatants.find(c => c.ref !== winner)?.ref || combatants[1]?.ref;
-        const outcome = encounter.knockout?.result || 'win';
-        
-        const summary = await battleMedia.generateSummaryMedia({
-          winner,
-          loser,
-          outcome,
-          location: loc?.location
-        });
-        
-        if (summary?.imageUrl) {
-          lastFrameUrl = summary.imageUrl;
-          this.logger?.info?.(`[CombatEncounter] Last frame (summary) generated: ${lastFrameUrl}`);
-        }
-      } catch (e) {
-        this.logger.error?.(`[CombatEncounter] Last frame generation failed: ${e.message}`);
-      }
-      
-      if (!lastFrameUrl) {
-        await statusMessage.edit({ content: '❌ Failed to generate victory scene (last frame)' });
-        return null;
-      }
-      
-      // Generate cinematic prompt describing the entire battle
+      // Prepare battle narrative
       await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n🎭 Creating battle narrative...\n\n▓▓▓░░ 60%`
+        content: `🎬 **Generating Battle Recap Video...**\n🎭 Creating battle narrative...\n\n▓▓░░░ 40%`
       });
       
       const totalActions = encounter.battleRecap.rounds.reduce((sum, r) => sum + (r.actions?.length || 0), 0);
-      const actionSummary = encounter.battleRecap.rounds.map(r => 
-        (r.actions || []).map(a => 
-          `${a.attackerName} ${a.actionType === 'hit' ? 'strikes' : a.actionType === 'knockout' ? 'knocks out' : 'attacks'} ${a.defenderName}${a.critical ? ' with a critical hit' : ''}${a.damage > 0 ? ` for ${a.damage} damage` : ''}`
+      const actionSummary = encounter.battleRecap.rounds.map((r, idx) => 
+        `Round ${idx + 1}: ` + (r.actions || []).map(a => 
+          `${a.attackerName} ${a.actionType === 'hit' ? 'strikes' : a.actionType === 'knockout' ? 'delivers knockout blow to' : 'attacks'} ${a.defenderName}${a.critical ? ' (critical!)' : ''}${a.damage > 0 ? ` [${a.damage} dmg]` : ''}`
         ).join(', ')
-      ).filter(Boolean).join('; ');
+      ).filter(Boolean).join('\n');
       
-      const prompt = `Generate a cinematic description for an 8-second fantasy battle video transitioning from combat start to victory.
-
-Location: ${locationName}
-Combatants: ${combatants.map(c => c.name).join(' vs ')}
-Rounds: ${encounter.battleRecap.rounds.length}
-Total actions: ${totalActions}
-Battle flow: ${actionSummary}
-
-The video starts with both fighters facing off (battle poster) and ends with the victor triumphant (victory scene).
-
-Requirements:
-- 200-300 words describing smooth visual transition from start to finish
-- Cinematic camera work showing the flow of combat
-- Capture key moments: initial clash, mid-battle intensity, final decisive blow
-- Fantasy RPG aesthetic with dramatic lighting
-- Emphasize movement, energy, and momentum
-- Do NOT include dialogue or narration, only visual choreography`;
+      // Use LLM to generate custom video prompt based on actual combat
+      // Determine winner for context
+      const alive = combatants.filter(c => (c.currentHp || 0) > 0);
+      const winner = alive.length === 1 ? alive[0]?.ref : combatants.sort((a,b) => (b.currentHp||0) - (a.currentHp||0))[0]?.ref;
       
-      const messages = [
-        { role: 'system', content: 'You are a cinematic battle scene director. Generate vivid visual descriptions for fantasy combat video interpolation.' },
-        { role: 'user', content: prompt }
+      const promptGenMessages = [
+        { 
+          role: 'system', 
+          content: 'You are a fantasy battle cinematographer. Generate detailed visual descriptions for battle video generation based on combat logs.' 
+        },
+        { 
+          role: 'user', 
+          content: `Create a vivid 200-300 word visual description for a fantasy battle video based on this combat:
+
+**Location:** ${locationName}
+**Combatants:** ${combatants.map(c => c.name).join(' vs ')}
+**Total Rounds:** ${encounter.battleRecap.rounds.length}
+**Total Actions:** ${totalActions}
+**Winner:** ${winner?.name}
+
+**Battle Flow:**
+${actionSummary}
+
+**Combatant Details:**
+- ${firstCombatant.name}: ${firstCombatant.description || 'A skilled fighter'}
+- ${secondCombatant.name}: ${secondCombatant.description || 'A worthy opponent'}
+
+**Requirements:**
+- Describe the visual flow from opening clash to final victory
+- Include specific combat moments from the battle log above
+- Dynamic camera movements tracking the action
+- Fantasy RPG aesthetic with dramatic lighting, particle effects, magical energy
+- Emphasize momentum building from initial exchanges to climactic finale
+- Reference the combatants' appearances and fighting styles based on their descriptions
+- Pure visual choreography - no dialogue, only movement and visual effects
+- Make it feel like an epic moment worth remembering
+
+Generate the video prompt now:` 
+        }
       ];
       
-      const response = await this.unifiedAIService.chat(messages, {
-        temperature: 0.8,
-        max_tokens: 400
+      const promptResponse = await this.unifiedAIService.chat(promptGenMessages, {
+        temperature: 0.9,
+        max_tokens: 500
       });
       
-      const sceneDescription = response?.text || `Epic 8-second battle between ${combatants.map(c => c.name).join(' and ')} at ${locationName}. The combat flows from initial clash to victory in one continuous motion.`;
+      const sceneDescription = promptResponse?.text || `Epic battle between ${combatants.map(c => c.name).join(' and ')} at ${locationName}. The combat flows from initial clash to victory in one continuous motion.`;
       
-      // Generate video using Veo 3.1 interpolation
+      this.logger?.info?.(`[CombatEncounter] Generated video prompt: ${sceneDescription.substring(0, 100)}...`);
+      
+      // Generate video using Veo with avatar references
       await statusMessage.edit({
-        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering 8-second battle video...\n\n▓▓▓▓░ 80%`
+        content: `🎬 **Generating Battle Recap Video...**\n🎬 Rendering battle video...\n\n▓▓▓▓░ 80%`
       });
       
-      this.logger?.info?.(`[CombatEncounter] Generating interpolation video with Veo 3.1`);
+      this.logger?.info?.(`[CombatEncounter] Generating video with Veo using avatar references`);
       
-      // Download images and convert to base64
+      // Prepare character reference images from combatant avatars
       const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
-      if (!s3Service) {
-        await statusMessage.edit({ content: '❌ S3 service not available for image download' });
-        return null;
+      const characterReferences = [];
+      
+      if (s3Service && firstCombatant.imageUrl) {
+        try {
+          const buffer = await s3Service.downloadImage(firstCombatant.imageUrl);
+          characterReferences.push({
+            referenceImage: { data: buffer.toString('base64'), mimeType: 'image/png' },
+            referenceId: firstCombatant._id?.toString() || firstCombatant.name
+          });
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to download ${firstCombatant.name} image: ${e.message}`);
+        }
       }
       
-      let firstFrameData, lastFrameData;
-      try {
-        const firstBuffer = await s3Service.downloadImage(firstFrameUrl);
-        firstFrameData = { data: firstBuffer.toString('base64'), mimeType: 'image/png' };
-        
-        const lastBuffer = await s3Service.downloadImage(lastFrameUrl);
-        lastFrameData = { data: lastBuffer.toString('base64'), mimeType: 'image/png' };
-      } catch (e) {
-        this.logger.error?.(`[CombatEncounter] Failed to download frame images: ${e.message}`);
-        await statusMessage.edit({ content: '❌ Failed to download battle images' });
-        return null;
+      if (s3Service && secondCombatant.imageUrl && secondCombatant.imageUrl !== firstCombatant.imageUrl) {
+        try {
+          const buffer = await s3Service.downloadImage(secondCombatant.imageUrl);
+          characterReferences.push({
+            referenceImage: { data: buffer.toString('base64'), mimeType: 'image/png' },
+            referenceId: secondCombatant._id?.toString() || secondCombatant.name
+          });
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to download ${secondCombatant.name} image: ${e.message}`);
+        }
       }
       
-      const videos = await this.veoService.generateVideosWithInterpolation({
+      const videos = await this.veoService.generateVideos({
         prompt: sceneDescription,
-        firstFrame: firstFrameData,
-        lastFrame: lastFrameData,
+        characterReferences: characterReferences.length > 0 ? characterReferences : undefined,
         config: {
-          personGeneration: 'allow_adult',
           durationSeconds: 8,
           aspectRatio: '16:9'
         },
@@ -2475,104 +2437,66 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         if (this.battleMediaService || this.battleService?.battleMediaService) {
           const bms = this.battleMediaService || this.battleService?.battleMediaService;
           const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(()=>null);
-          let media = null;
-          let attacker = null;
-          let defender = null;
-          // KO path: prefer captured media, else generate finishing scene
-          if (encounter.knockout) {
-            attacker = this.getCombatant(encounter, encounter.knockout.attackerId)?.ref;
-            defender = this.getCombatant(encounter, encounter.knockout.defenderId)?.ref;
-            media = encounter.knockoutMedia || null;
-            // Prefer summary generator so videos are only created in summary
-            if (!media || (!media.imageUrl && !media.videoUrl)) {
-              try {
-                media = await bms.generateSummaryMedia({
-                  winner: attacker,
-                  loser: defender,
-                  outcome: encounter.knockout.result,
-                  location: loc?.location
-                });
-              } catch {}
-            }
-            if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateFightPoster) {
-              try {
-                const poster = await bms.generateFightPoster({ attacker, defender, location: loc?.location });
-                if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
-              } catch {}
-            }
-          } else {
-            // Non-KO end: prefer a summary scene of the winner vs loser
+          let media = encounter.knockoutMedia || null;
+          
+          // Determine winner/loser (works for both KO and non-KO)
+          const now = Date.now();
+          const aliveNow = (encounter.combatants || []).filter(c => {
+            const hpOk = (c.currentHp || 0) > 0;
+            const notDead = c.ref?.status !== 'dead';
+            const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
+            return hpOk && notDead && notKO;
+          });
+          const everyone = (encounter.combatants || []).slice();
+          const winnerC = aliveNow.length === 1
+            ? aliveNow[0]
+            : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
+          const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
+          const outcome = encounter.knockout?.result || 'win';
+          
+          // Generate summary media if we don't have any yet
+          if (!media || (!media.imageUrl && !media.videoUrl)) {
             try {
-              const now = Date.now();
-              const aliveNow = (encounter.combatants || []).filter(c => {
-                const hpOk = (c.currentHp || 0) > 0;
-                const notDead = c.ref?.status !== 'dead';
-                const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
-                return hpOk && notDead && notKO;
-              });
-              const everyone = (encounter.combatants || []).slice();
-              const winnerC = aliveNow.length === 1
-                ? aliveNow[0]
-                : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
-              const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
-              attacker = winnerC?.ref;
-              defender = loserC?.ref;
               media = await bms.generateSummaryMedia({
-                winner: attacker,
-                loser: defender,
-                outcome: 'win',
-                location: loc?.location
-              });
-            } catch {}
-            if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateFightPoster) {
-              try {
-                // Choose first two combatants for poster if attacker/defender not set
-                if (!attacker || !defender) {
-                  const c0 = encounter.combatants?.[0]?.ref;
-                  const c1 = encounter.combatants?.[1]?.ref;
-                  attacker = attacker || c0;
-                  defender = defender || c1 || c0; // handle solo case
-                }
-                const poster = await bms.generateFightPoster({ attacker, defender, location: loc?.location });
-                if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
-              } catch {}
-            }
-          }
-          // If nothing yet, try a dedicated summary image generator (winner vs loser)
-          if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateSummaryMedia) {
-            try {
-              const now = Date.now();
-              const aliveNow = (encounter.combatants || []).filter(c => {
-                const hpOk = (c.currentHp || 0) > 0;
-                const notDead = c.ref?.status !== 'dead';
-                const notKO = !(c.ref?.status === 'knocked_out' || (c.ref?.knockedOutUntil && now < c.ref.knockedOutUntil));
-                return hpOk && notDead && notKO;
-              });
-              const everyone = (encounter.combatants || []).slice();
-              const winnerC = aliveNow.length === 1
-                ? aliveNow[0]
-                : everyone.slice().sort((a,b)=> (b.currentHp||0) - (a.currentHp||0))[0];
-              const loserC = everyone.find(c => this._normalizeId(c.avatarId) !== this._normalizeId(winnerC?.avatarId)) || winnerC;
-              const outcome = encounter.knockout?.result || 'win';
-              const sum = await bms.generateSummaryMedia({
                 winner: winnerC?.ref,
                 loser: loserC?.ref,
                 outcome,
                 location: loc?.location
               });
-              if (sum?.imageUrl || sum?.videoUrl) media = sum;
+              // Store summary media URL for video generation reuse
+              if (media?.imageUrl) {
+                encounter.summaryMediaUrl = media.imageUrl;
+              }
             } catch (e) {
-              this.logger.warn?.(`[CombatEncounter] summary fallback media failed: ${e.message}`);
+              this.logger.warn?.(`[CombatEncounter] summary media generation failed: ${e.message}`);
+            }
+          }
+          
+          // Fallback to fight poster if summary failed
+          if ((!media || (!media.imageUrl && !media.videoUrl)) && bms?.generateFightPoster) {
+            try {
+              const attacker = winnerC?.ref || encounter.combatants?.[0]?.ref;
+              const defender = loserC?.ref || encounter.combatants?.[1]?.ref || attacker;
+              const poster = await bms.generateFightPoster({ attacker, defender, location: loc?.location });
+              if (poster?.imageUrl) media = { imageUrl: poster.imageUrl };
+            } catch (e) {
+              this.logger.warn?.(`[CombatEncounter] fight poster fallback failed: ${e.message}`);
             }
           }
 
           // Attach media if any
-          if (media?.imageUrl) embed.image = { url: media.imageUrl };
+          if (media?.imageUrl) {
+            embed.image = { url: media.imageUrl };
+            // Store summary media URL if we have media and haven't stored it yet
+            if (!encounter.summaryMediaUrl) {
+              encounter.summaryMediaUrl = media.imageUrl;
+            }
+          }
           // Do not attach video inside the embed; post it separately for reliable inline playback
           _videoUrl = media?.videoUrl || null;
           // Fallback to avatar image if no generated image
-          if (!embed.image && (attacker?.imageUrl || defender?.imageUrl)) {
-            embed.image = { url: attacker?.imageUrl || defender?.imageUrl };
+          if (!embed.image && (winnerC?.ref?.imageUrl || loserC?.ref?.imageUrl)) {
+            embed.image = { url: winnerC?.ref?.imageUrl || loserC?.ref?.imageUrl };
           }
         }
       } catch (e) {
@@ -2592,7 +2516,7 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
   // Then, if a video URL exists, post it as a separate message so the client can inline it
   try {
     if (typeof _videoUrl === 'string' && _videoUrl.length > 0) {
-      await channel.send({ content: `🎬 Final clip: ${_videoUrl}` });
+      await channel.send({ content: `🎬 [Watch Final Clip](${_videoUrl})` });
     }
   } catch (e) {
     this.logger.warn?.(`[CombatEncounter] posting video link failed: ${e.message}`);
@@ -2765,13 +2689,17 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       // Store media for summary
       if (media) {
         encounter.knockoutMedia = media;
+        // Store summary media URL for video generation reuse
+        if (media.imageUrl) {
+          encounter.summaryMediaUrl = media.imageUrl;
+        }
         
         // Post media as follow-up message
         try {
           const channel = this._getChannel(encounter);
           if (channel?.send) {
             if (media.videoUrl) {
-              await channel.send({ content: `🎬 Finishing move: ${media.videoUrl}` });
+              await channel.send({ content: `🎬 [Watch Finishing Move](${media.videoUrl})` });
             } else if (media.imageUrl) {
               await channel.send({ 
                 embeds: [{ 

@@ -116,6 +116,12 @@ export class ChallengeTool extends BasicTool {
         if (battleMedia?.generateFightPoster) {
           const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
           if (poster?.imageUrl && this.discordService?.client) {
+            // Store poster URL on encounter for later video generation reuse
+            try {
+              const enc = ces.getEncounter(message.channel.id);
+              if (enc) enc.fightPosterUrl = poster.imageUrl;
+            } catch {}
+            
             const channel = await this.discordService.client.channels.fetch(message.channel.id);
             if (channel?.isTextBased()) {
               const embed = {
