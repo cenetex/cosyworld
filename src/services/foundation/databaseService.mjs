@@ -323,6 +323,12 @@ export class DatabaseService {
           { key: { analyzedAt: -1 }, name: 'image_cache_analyzed', background: true },
           { key: { status: 1 }, name: 'image_cache_status', background: true },
         ]),
+        // Avatar location memory indexes
+        db.collection('avatar_location_memory').createIndexes([
+          { key: { avatarId: 1, lastVisited: -1 }, name: 'memory_avatar_time', background: true },
+          { key: { avatarId: 1, channelId: 1 }, name: 'memory_avatar_channel', background: true },
+          { key: { lastVisited: 1 }, expireAfterSeconds: 30 * 24 * 60 * 60, name: 'memory_ttl', background: true },
+        ]),
         // Presence and scheduling indexes
         db.collection('presence').createIndexes([
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },

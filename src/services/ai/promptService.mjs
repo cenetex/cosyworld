@@ -105,6 +105,7 @@ export class PromptService  {
   /**
    * Generate tool context for system prompt (Phase 2: Agentic tool calling)
    * OPTIMIZED: Compress action lists, limit nearby avatars, reduce verbosity
+   * Includes known locations from avatar's memory
    * @private
    */
   async _getToolContext(avatar, location) {
@@ -133,6 +134,20 @@ export class PromptService  {
           ? `Nearby: ${nearbyAvatars.join(', ')}`
           : `Nearby: ${nearbyAvatars.slice(0, maxNearby).join(', ')} (+${nearbyAvatars.length - maxNearby} more)`;
       
+      // Get known locations from avatar's memory
+      let knownLocations = '';
+      if (this.mapService?.avatarLocationMemory) {
+        try {
+          const maxLocations = Number(process.env.PROMPT_MAX_KNOWN_LOCATIONS || 8);
+          knownLocations = await this.mapService.avatarLocationMemory.getLocationContextForAgent(
+            String(avatar._id),
+            maxLocations
+          );
+        } catch (err) {
+          this.logger?.debug?.(`Failed to get location memory: ${err.message}`);
+        }
+      }
+      
       const stats = avatar.hp !== undefined ? `HP: ${avatar.hp}/${avatar.maxHp || 100}` : '';
       
       return `
@@ -142,7 +157,10 @@ ${tools.join(compactMode ? ' ' : '\n')}${compactMode ? ' (use emoji + target)' :
 
 CURRENT SITUATION:
 ${stats ? `Status: ${stats}` : ''}
+${location ? `Current Location: ${location.name || 'Unknown'}` : ''}
 ${nearbyText}
+
+${knownLocations}
 
 You can use these actions when appropriate to achieve your goals. Consider the situation and act autonomously.`;
     } catch (error) {

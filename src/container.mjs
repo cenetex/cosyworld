@@ -503,6 +503,17 @@ async function initializeContainer() {
     console.warn('[container] Failed to initialize BackgroundImageAnalyzer:', e.message);
   }
 
+  // Initialize avatar location memory
+  try {
+    if (container.registrations.avatarLocationMemory) {
+      const memService = container.resolve('avatarLocationMemory');
+      await memService.init(); // Initialize DB and indexes
+      console.log('[container] AvatarLocationMemory initialized.');
+    }
+  } catch (e) {
+    console.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
+  }
+
   // Late bind s3Service into optional googleAIService
   try {
     if (googleAIService && container.registrations.s3Service) {
