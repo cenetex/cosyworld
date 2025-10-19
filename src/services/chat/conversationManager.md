@@ -61,9 +61,32 @@ Cleans up responses that might include the avatar's name as a prefix.
 
 ## Rate Limiting Implementation
 The service implements several rate limiting mechanisms:
-- Global narrative cooldown (1 hour)
-- Per-channel response cooldown (5 seconds)
-- Maximum responses per message (2)
+- **Global narrative cooldown** (1 hour): Prevents excessive narrative generation across all channels
+- **Per-channel response cooldown** (5 seconds): Prevents individual avatars from responding too quickly
+- **Bot reply rate limiting** (10 seconds, configurable): Enforces a minimum time between ANY bot replies in the same channel, preventing bots from overwhelming channels with rapid-fire responses
+- **Maximum responses per message** (2): Limits how many avatars can respond to a single trigger
+
+### Bot Reply Rate Limiting
+To prevent channels from being overwhelmed by bot activity, the ConversationManager tracks the last bot message timestamp per channel and enforces a configurable cooldown period before allowing the next bot reply.
+
+**Configuration:**
+```env
+# Minimum milliseconds between bot replies in the same channel
+# Default: 10000 (10 seconds)
+BOT_REPLY_COOLDOWN_MS=10000
+```
+
+This rate limit applies to ALL bot responses in a channel, regardless of which avatar is responding. It ensures:
+- Channels remain readable and not flooded with bot messages
+- Users have time to read and respond between bot messages
+- Bot-to-bot cascades are naturally throttled
+- More natural conversation pacing
+
+**Implementation Details:**
+- Tracked via `channelLastBotMessage` Map (channelId -> timestamp)
+- Updated immediately after successful message send
+- Can be overridden with `overrideCooldown` option when needed
+- Logs remaining cooldown time when rate limit is active
 
 ## Dependencies
 - DiscordService: For Discord interactions
