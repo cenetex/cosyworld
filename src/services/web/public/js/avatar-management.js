@@ -303,23 +303,31 @@ elements.imageUrlInput.addEventListener("input", () => {
   }
 
   function createAvatarRow(avatar) {
+    const truncatedId = avatar._id ? avatar._id.substring(0, 8) + '...' : '';
     return `
-      <tr>
-        <td class="px-6 py-4 whitespace-nowrap">
+      <tr class="hover:bg-gray-50 transition">
+        <td class="px-3 py-3">
           <img class="h-10 w-10 rounded-full object-cover" src="${avatar.thumbnailUrl || avatar.imageUrl || "/default-avatar.png"}" alt="${avatar.name || "Avatar"}">
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${avatar.name || "Unnamed"} ${avatar.emoji || ""}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${avatar._id}</td>
-        <td class="px-6 py-4 whitespace-nowrap">
+        <td class="px-3 py-3 text-sm font-medium text-gray-900">
+          <div class="flex flex-col">
+            <span class="truncate">${avatar.name || "Unnamed"} ${avatar.emoji || ""}</span>
+            <span class="md:hidden text-xs text-gray-400 font-normal">${truncatedId}</span>
+          </div>
+        </td>
+        <td class="hidden md:table-cell px-3 py-3 text-xs text-gray-500 truncate" title="${avatar._id}">${truncatedId}</td>
+        <td class="px-3 py-3">
           <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(avatar.status)}">
             ${avatar.status || "Unknown"}
           </span>
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${avatar.model || "Not specified"}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(avatar.createdAt)}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm">
-          <button data-avatar-id="${avatar._id}" class="edit-avatar text-indigo-600 hover:text-indigo-900">Edit</button>
-          <button data-avatar-id="${avatar._id}" class="delete-avatar text-red-600 hover:text-red-900 ml-2">Delete</button>
+        <td class="hidden lg:table-cell px-3 py-3 text-xs text-gray-500 truncate" title="${avatar.model || "Not specified"}">${avatar.model || "Not specified"}</td>
+        <td class="hidden sm:table-cell px-3 py-3 text-xs text-gray-500">${formatDate(avatar.createdAt)}</td>
+        <td class="px-3 py-3 text-sm">
+          <div class="flex flex-col sm:flex-row gap-1 sm:gap-2">
+            <button data-avatar-id="${avatar._id}" class="edit-avatar text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>
+            <button data-avatar-id="${avatar._id}" class="delete-avatar text-red-600 hover:text-red-900 font-medium">Del</button>
+          </div>
         </td>
       </tr>
     `;
