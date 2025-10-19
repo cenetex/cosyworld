@@ -1,7 +1,7 @@
 // Simple in-memory token bucket per route key (method+path pattern) for admin writes
 const buckets = new Map();
 const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_TOKENS = Number(process.env.ADMIN_WRITE_RATE_MAX || 30);
+const MAX_TOKENS = Number(process.env.ADMIN_WRITE_RATE_MAX || 100);
 
 export function adminWriteRateLimit(req, res, next) {
   const method = (req.method || 'GET').toUpperCase();

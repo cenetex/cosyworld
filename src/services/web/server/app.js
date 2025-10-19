@@ -35,9 +35,9 @@ async function initializeApp(services) {
   const allowedOrigins = Array.isArray(corsCfg.origin) ? corsCfg.origin : String(corsCfg.origin || '*');
   app.use(cors({ origin: allowedOrigins, credentials: !!corsCfg.credentials }));
   // Optional basic rate limit
-  const rl = serverCfg.rateLimit || { enabled: false, windowMs: 60_000, max: 100 };
+  const rl = serverCfg.rateLimit || { enabled: false, windowMs: 60_000, max: 300 };
   if (rl.enabled) {
-    app.use(rateLimit({ windowMs: Number(rl.windowMs) || 60_000, max: Number(rl.max) || 100, standardHeaders: true, legacyHeaders: false }));
+    app.use(rateLimit({ windowMs: Number(rl.windowMs) || 60_000, max: Number(rl.max) || 300, standardHeaders: true, legacyHeaders: false }));
   }
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
