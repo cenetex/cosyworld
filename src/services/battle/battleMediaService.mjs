@@ -93,7 +93,8 @@ export class BattleMediaService {
   const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo || wantKnockoutVideo);
 
     if (!imageUrl || !allowVideo) return null;
-    if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) return null;
+    // Check rate limit (now async)
+    if (this.veoService?.checkRateLimit && !(await this.veoService.checkRateLimit())) return null;
 
     try {
       const sceneBuf = await this.s3Service.downloadImage(imageUrl);

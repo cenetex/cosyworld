@@ -169,8 +169,8 @@ export default class VideoJobService {
     try {
       this.logger.info?.(`[VideoJobService] processing job ${String(job._id)}...`);
   if (this._shouldNotifyProgress()) await this._notifyStart(job).catch(() => {});
-      // Respect global Veo rate limits; if not allowed, defer
-      if (!this.veoService?.checkRateLimit?.()) {
+      // Respect global Veo rate limits; if not allowed, defer (now async)
+      if (!(await this.veoService?.checkRateLimit?.())) {
         await this.markCancelled(job._id, 'RATE_LIMIT');
         this.logger.warn?.(`[VideoJobService] cancelled job ${String(job._id)} due to rate limit`);
         await this._notifyCancel(job).catch(() => {});
