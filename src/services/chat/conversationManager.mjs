@@ -4,6 +4,7 @@
  */
 
 import { handleCommands } from '../commands/commandHandler.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 const GUILD_NAME = process.env.GUILD_NAME || 'The Guild';
 
@@ -216,12 +217,14 @@ export class ConversationManager  {
         return [];
       }
       const discordMessages = await channel.messages.fetch({ limit });
-      const formattedMessages = await Promise.all(Array.from(discordMessages.values()).map(async msg => {
-        // Best-effort backfill for images: extract URLs and caption
+      
+      // Format messages WITHOUT image analysis for fast context fetching
+      const formattedMessages = Array.from(discordMessages.values()).map(msg => {
+        // Extract image URLs synchronously without AI analysis
         const hasImages = msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail);
         let imageUrls = [];
         let primaryImageUrl = null;
-        let imageDescription = null;
+        
         if (hasImages) {
           try {
             const aUrls = Array.from(msg.attachments.values())
@@ -232,41 +235,111 @@ export class ConversationManager  {
             const seen = new Set();
             imageUrls = all.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
             primaryImageUrl = imageUrls[0] || null;
-            if (primaryImageUrl && this.aiService?.analyzeImage) {
-              const cap = await this.aiService.analyzeImage(primaryImageUrl, undefined, 'Write a concise, neutral caption (<=120 chars).');
-              imageDescription = (cap && String(cap).trim()) || null;
-            }
           } catch {}
         }
-        return ({
+        
+        const formattedMsg = {
           messageId: msg.id,
           channelId: msg.channel.id,
           authorId: msg.author.id,
           authorUsername: msg.author.username,
           content: msg.content,
           hasImages,
-          imageDescription,
+          imageDescription: null, // Will be filled by background analyzer
           imageUrls,
           primaryImageUrl,
           timestamp: msg.createdTimestamp,
-        });
-      }))
-        .sort((a, b) => a.timestamp - b.timestamp);
+        };
+        
+        // Emit event for background image analysis
+        if (hasImages && primaryImageUrl) {
+          try {
+            eventBus.emit('MESSAGE.CREATED', { message: formattedMsg });
+          } catch (emitErr) {
+            // Non-critical, just log
+            this.logger.debug(`[ConversationManager] Event emit failed: ${emitErr.message}`);
+          }
+        }
+        
+        return formattedMsg;
+      }).sort((a, b) => a.timestamp - b.timestamp);
+      
       this.logger.debug(`Retrieved ${formattedMessages.length} messages from Discord API for channel ${channelId}`);
+      
+      // Store in DB for future fast retrieval
       if (this.db) {
         const messagesCollection = this.db.collection('messages');
-        await Promise.all(formattedMessages.map(msg =>
-          messagesCollection.updateOne(
-            { messageId: msg.messageId },
-            { $set: msg },
-            { upsert: true }
-          )
-        ));
+        // Use bulk write for better performance
+        const bulkOps = formattedMessages.map(msg => ({
+          updateOne: {
+            filter: { messageId: msg.messageId },
+            update: { $set: msg },
+            upsert: true
+          }
+        }));
+        
+        if (bulkOps.length > 0) {
+          try {
+            await messagesCollection.bulkWrite(bulkOps, { ordered: false });
+          } catch (bulkError) {
+            this.logger.warn(`Bulk write error (non-critical): ${bulkError.message}`);
+          }
+        }
       }
+      
+      // Optionally enrich with cached image descriptions (non-blocking)
+      this.enrichMessagesWithCachedDescriptions(formattedMessages).catch(err => {
+        this.logger.debug(`[ConversationManager] Failed to enrich with cached descriptions: ${err.message}`);
+      });
+      
       return formattedMessages;
     } catch (error) {
       this.logger.error(`Error fetching channel context for channel ${channelId}: ${error.message}`);
       return [];
+    }
+  }
+
+  /**
+   * Enrich messages with cached image descriptions (non-blocking)
+   */
+  async enrichMessagesWithCachedDescriptions(messages) {
+    if (!this.db || !Array.isArray(messages) || messages.length === 0) return;
+
+    try {
+      const messagesWithImages = messages.filter(m => m.hasImages && m.primaryImageUrl && !m.imageDescription);
+      if (messagesWithImages.length === 0) return;
+
+      // Get URL hashes and check cache
+      const crypto = await import('crypto');
+      const urlToHash = new Map();
+      for (const msg of messagesWithImages) {
+        const hash = crypto.createHash('sha256').update(msg.primaryImageUrl).digest('hex');
+        urlToHash.set(msg.primaryImageUrl, hash);
+      }
+
+      const hashes = Array.from(urlToHash.values());
+      const cachedDescriptions = await this.db.collection('image_analysis_cache')
+        .find({ urlHash: { $in: hashes }, status: 'completed' })
+        .toArray();
+
+      // Map hash -> description
+      const hashToDesc = new Map();
+      for (const cache of cachedDescriptions) {
+        if (cache.description) {
+          hashToDesc.set(cache.urlHash, cache.description);
+        }
+      }
+
+      // Update messages in-place
+      for (const msg of messagesWithImages) {
+        const hash = urlToHash.get(msg.primaryImageUrl);
+        const desc = hashToDesc.get(hash);
+        if (desc) {
+          msg.imageDescription = desc;
+        }
+      }
+    } catch (err) {
+      this.logger.debug(`[ConversationManager] enrichMessagesWithCachedDescriptions failed: ${err.message}`);
     }
   }
 

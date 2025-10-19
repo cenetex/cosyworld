@@ -493,6 +493,16 @@ async function initializeContainer() {
     console.warn('[container] Failed to start CombatNarrativeService:', e.message);
   }
 
+  // Initialize background image analyzer (listens to MESSAGE.CREATED events)
+  try {
+    if (container.registrations.backgroundImageAnalyzer) {
+      container.resolve('backgroundImageAnalyzer'); // Just resolve to initialize event listeners
+      console.log('[container] BackgroundImageAnalyzer initialized and listening for image events.');
+    }
+  } catch (e) {
+    console.warn('[container] Failed to initialize BackgroundImageAnalyzer:', e.message);
+  }
+
   // Late bind s3Service into optional googleAIService
   try {
     if (googleAIService && container.registrations.s3Service) {

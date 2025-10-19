@@ -275,6 +275,7 @@ export class DatabaseService {
           { key: { avatarId: 1 }, background: true },
           { key: { messageId: 1 }, unique: true },
           { key: { channelId: 1 }, background: true },
+          { key: { channelId: 1, timestamp: -1 }, name: 'messages_channel_timestamp', background: true },
         ]),
         db.collection('agent_events').createIndexes([
           { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
@@ -315,6 +316,13 @@ export class DatabaseService {
         db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
+        // Image analysis cache indexes
+        db.collection('image_analysis_cache').createIndexes([
+          { key: { urlHash: 1 }, unique: true, name: 'image_cache_urlhash', background: true },
+          { key: { url: 1 }, name: 'image_cache_url', background: true },
+          { key: { analyzedAt: -1 }, name: 'image_cache_analyzed', background: true },
+          { key: { status: 1 }, name: 'image_cache_status', background: true },
+        ]),
         // Presence and scheduling indexes
         db.collection('presence').createIndexes([
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
