@@ -50,6 +50,10 @@ export class ConversationManager  {
     this.MAX_RESPONSES_PER_MESSAGE = 2;
     this.channelResponders = new Map();
     
+    // Bot rate limiting: Track last bot message time per channel
+    this.channelLastBotMessage = new Map(); // channelId -> timestamp
+    this.BOT_REPLY_COOLDOWN = Number(process.env.BOT_REPLY_COOLDOWN_MS || 10000); // 10 seconds default between bot replies in same channel
+    
     // In-memory cache for channel summaries to reduce expensive AI calls during combat
     this.summaryCacheMap = new Map(); // key: `${avatarId}:${channelId}` -> { summary, timestamp, lastMessageId }
     this.SUMMARY_CACHE_TTL_MS = 60 * 1000; // 60 seconds - summaries are fresh enough for combat
@@ -401,6 +405,16 @@ export class ConversationManager  {
       this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
       return null;
     }
+    
+    // Bot reply rate limiting: Ensure minimum time between ANY bot replies in the same channel
+    const lastBotMessageTime = this.channelLastBotMessage.get(channel.id) || 0;
+    const timeSinceLastBotMessage = Date.now() - lastBotMessageTime;
+    if (!overrideCooldown && timeSinceLastBotMessage < this.BOT_REPLY_COOLDOWN) {
+      const remainingMs = this.BOT_REPLY_COOLDOWN - timeSinceLastBotMessage;
+      this.logger.debug(`Channel ${channel.id} bot rate limit active - ${(remainingMs / 1000).toFixed(1)}s remaining until next bot reply allowed`);
+      return null;
+    }
+    
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
   if (!overrideCooldown && Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
       this.logger.debug(`Channel ${channel.id} is on cooldown`);
@@ -661,6 +675,10 @@ export class ConversationManager  {
             this.logger.error(`Failed to send message in channel ${channel.id}`);
             return null;
           }
+          
+          // Update bot message rate limiting timestamp for this channel
+          this.channelLastBotMessage.set(channel.id, Date.now());
+          this.logger.debug(`Updated bot rate limit timestamp for channel ${channel.id}`);
           
           // React with brain emoji if thoughts were detected
           if (thoughts.length > 0) {
