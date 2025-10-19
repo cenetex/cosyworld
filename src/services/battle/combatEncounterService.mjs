@@ -148,7 +148,7 @@ class CombatRateLimiter {
  * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
-  constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager }) {
+  constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager, veoService }) {
   this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
@@ -162,6 +162,7 @@ export class CombatEncounterService {
     this.configService = configService;
   this.promptAssembler = promptAssembler || null;
   this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
+    this.veoService = veoService || null; // For battle recap videos
 
     // channelId -> encounter object
     this.encounters = new Map();
@@ -181,9 +182,7 @@ export class CombatEncounterService {
   this.rateLimiter = new CombatRateLimiter(maxActionsPerMin);
   this.enableRateLimiting = (process.env.COMBAT_RATE_LIMITING_ENABLED || 'true').toLowerCase() === 'true';
 
-  // Auto-acting controls
-  this.autoActDelayMs = Number(process.env.COMBAT_AUTO_ACT_DELAY_MS || COMBAT_CONSTANTS.DEFAULT_AUTO_ACT_DELAY_MS);
-  this.defaultCombatMode = (process.env.COMBAT_MODE_DEFAULT || 'auto').toLowerCase(); // 'auto' or 'manual'
+  // Auto-action system removed - combat follows pure D&D initiative rules
 
   // Pacing & commentary controls
   this.minTurnGapMs = Number(process.env.COMBAT_MIN_TURN_GAP_MS || COMBAT_CONSTANTS.DEFAULT_MIN_TURN_GAP_MS);
@@ -480,7 +479,9 @@ export class CombatEncounterService {
         setTimeout(() => { try { resolve(); } catch {} }, this.posterWaitTimeoutMs).unref?.();
         return { promise: p, resolve };
       })(),
-      sourceMessageId: sourceMessage?.id || null
+      sourceMessageId: sourceMessage?.id || null,
+      // Battle recap data - stores moments from each round for video generation
+      battleRecap: { rounds: [] }
     };
     this.encounters.set(channelId, encounter);
     
@@ -560,193 +561,175 @@ export class CombatEncounterService {
     
     // Announce first turn immediately for clarity (disabled - see _announceTurn)
     try { await this._announceTurn(encounter); } catch {}
-    // kick off first turn using pacing logic
+    // Start first turn
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
-    this._scheduleTurnStart(encounter, { roundWrap: false });
+    this._scheduleTurnStart(encounter);
     return encounter;
   }
 
-  /** Determine combat mode for a combatant ('auto' or 'manual') */
-  _getCombatModeFor(combatant) {
-    const explicit = combatant?.ref?.combatMode;
-    if (explicit === 'auto' || explicit === 'manual') return explicit;
-    return this.defaultCombatMode;
-  }
+  // Combat mode system removed - all actions come from tools
 
-  /** Schedule an auto-act for the current turn if in auto mode */
-  _scheduleAutoAct(encounter) {
-    if (!encounter) return;
-    if (encounter.timers.auto) clearTimeout(encounter.timers.auto);
-    const currentId = this.getCurrentTurnAvatarId(encounter);
-    const combatant = this.getCombatant(encounter, currentId);
-    if (!combatant) return;
-    if ((encounter.manualActionCount || 0) > 0) {
-      this.logger.info?.(`[CombatEncounter] manual action in progress; delaying auto-act for ${this.autoActDelayMs}ms`);
-      encounter.timers.auto = setTimeout(() => this._scheduleAutoAct(encounter), this.autoActDelayMs);
-      return;
-    }
-    if (this._getCombatModeFor(combatant) !== 'auto') return; // manual: do not auto-act
-    this.logger.info?.(`[CombatEncounter] scheduling auto-act for ${combatant.name} in ${this.autoActDelayMs}ms (turn of ${combatant.avatarId})`);
-    encounter.timers.auto = setTimeout(() => this._maybeAutoAct(encounter, currentId).catch(e=>this.logger.warn?.(`[CombatEncounter] auto-act error: ${e.message}`)), this.autoActDelayMs);
-  }
+  // AUTO-ACTION SYSTEM REMOVED
+  // Combat now follows pure D&D rules: wait for player action via tools
+  // Tools (AttackTool, DefendTool) drive combat, not automated AI responses
 
   /** If it's still the same combatant's turn, pick and execute an AI action */
   /**
-   * Trigger immediate AI action for the current combatant's turn
-   * This eliminates the 30-60s wait for watchdog timeout by immediately prompting the AI
+   * Execute one combatant's turn in combat
+   * Orchestrates: action selection → execution → dialogue → post → capture
    */
-  async _triggerImmediateAIAction(encounter, combatant) {
+  async _executeTurn(encounter, combatant) {
     try {
-      if (!encounter || !combatant || !combatant.ref) {
-        this.logger?.warn?.('[CombatEncounter] _triggerImmediateAIAction: invalid inputs');
+      if (!combatant || !combatant.ref) {
+        this.logger?.warn?.('[CombatEncounter] _executeTurn: invalid combatant');
+        await this.nextTurn(encounter);
         return;
       }
       
-      // Get the ConversationManager to trigger AI response
-      const conversationManager = this.getConversationManager?.();
-      if (!conversationManager) {
-        this.logger?.debug?.('[CombatEncounter] _triggerImmediateAIAction: no ConversationManager available');
+      // 1. Select action (AI decision)
+      const action = await this._selectCombatAction(encounter, combatant);
+      if (!action) {
+        this.logger?.warn?.(`[CombatEncounter] No valid action for ${combatant.name}`);
+        await this.nextTurn(encounter);
         return;
       }
       
-      // Get the Discord channel
-      const channel = this._getChannel(encounter);
-      if (!channel) {
-        this.logger?.warn?.(`[CombatEncounter] _triggerImmediateAIAction: channel ${encounter.channelId} not found`);
-        return;
+      // 2. Execute action via BattleService
+      const result = await this._executeCombatAction(action, combatant, encounter);
+      
+      // 3. Generate combat dialogue (AI one-liner)
+      const dialogue = await this._generateCombatDialogue(combatant, action, result);
+      
+      // 4. Post to Discord
+      await this._postCombatAction(encounter, combatant, action, result, dialogue);
+      
+      // 5. Capture for video
+      if (action.type === 'attack' && action.target && result) {
+        this._captureBattleMoment(encounter, {
+          attacker: combatant,
+          defender: action.target,
+          result,
+          dialogue
+        });
       }
       
-      // Trigger AI response for this avatar immediately
-      // The AI will use its tools (attack, defend, hide, etc.) based on the combat state
-      this.logger?.info?.(
-        `[CombatEncounter][${encounter.channelId}] Prompting ${combatant.name} for immediate action`
-      );
+      // 6. Check end conditions
+      if (this.evaluateEnd(encounter)) return;
       
-      await conversationManager.sendResponse(channel, combatant.ref, null, {
-        overrideCooldown: true,
-        context: {
-          inCombat: true,
-          currentTurn: true,
-          encounter: {
-            channelId: encounter.channelId,
-            round: encounter.round,
-            combatants: encounter.combatants.map(c => ({
-              name: c.name,
-              hp: c.currentHp,
-              maxHp: c.maxHp,
-              isDefending: c.isDefending
-            }))
-          }
-        }
-      });
+      // 7. Advance turn
+      await this.nextTurn(encounter);
       
     } catch (e) {
-      this.logger?.warn?.(`[CombatEncounter] _triggerImmediateAIAction error: ${e.message}`);
+      this.logger?.error?.(`[CombatEncounter] _executeTurn error for ${combatant?.name}: ${e.message}`);
+      await this.nextTurn(encounter);
     }
   }
 
-  async _maybeAutoAct(encounter, plannedAvatarId) {
-    // Comprehensive null safety guards
-    if (!encounter || encounter.state !== 'active') {
-      this.logger.debug?.('[CombatEncounter] _maybeAutoAct: invalid encounter or not active');
-      return;
+  /**
+   * AI selects combat action based on current state
+   * Simple logic: low HP → defend, otherwise → attack random target
+   */
+  async _selectCombatAction(encounter, combatant) {
+    // Get all alive opponents
+    const opponents = encounter.combatants.filter(c => 
+      c.avatarId !== combatant.avatarId && !this._isKnockedOut(c)
+    );
+    
+    if (opponents.length === 0) return null;
+    
+    // Simple AI logic
+    const myHpPercent = combatant.currentHp / combatant.maxHp;
+    
+    if (myHpPercent < 0.3) {
+      // Low HP → defend
+      return { type: 'defend', target: null };
+    } else {
+      // Attack random opponent
+      const target = opponents[Math.floor(Math.random() * opponents.length)];
+      return { type: 'attack', target };
     }
+  }
+
+  /**
+   * Execute the selected combat action via BattleService
+   */
+  async _executeCombatAction(action, combatant, encounter) {
+    if (!action || !this.battleService) return null;
     
-    const currentId = this.getCurrentTurnAvatarId(encounter);
-    if (!currentId) {
-      this.logger.warn?.('[CombatEncounter] _maybeAutoAct: no current turn avatar');
-      return;
-    }
-    
-    if (currentId !== plannedAvatarId) {
-      this.logger.debug?.('[CombatEncounter] _maybeAutoAct: turn changed, skipping');
-      return; // turn changed
-    }
-    
-    const actor = this.getCombatant(encounter, currentId);
-    if (!actor) {
-      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: no combatant found for ${currentId}, advancing turn`);
-      await this.nextTurn(encounter);
-      return;
-    }
-    
-    if (!actor.ref) {
-      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: combatant ${actor.name} missing ref, advancing turn`);
-      await this.nextTurn(encounter);
-      return;
-    }
-    
-    if (this._getCombatModeFor(actor) !== 'auto') {
-      this.logger.debug?.(`[CombatEncounter] _maybeAutoAct: ${actor.name} is in manual mode`);
-      return;
-    }
-    
-    try {
-      // Check if actor is knocked out using centralized helper
-      if (this._isKnockedOut(actor)) {
-        this.logger.info?.(`[CombatEncounter] auto-act skip for KO'd combatant ${actor.name}`);
-        await this.nextTurn(encounter);
-        return;
-      }
-    } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] _maybeAutoAct: KO check failed for ${actor.name}: ${e.message}`);
-    }
-    
-    // Check if encounter should end before taking any action
-    // This prevents post-knockout attacks when the previous action KO'd the last opponent
-    if (this.evaluateEnd(encounter)) {
-      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act cancelled: encounter ended`);
-      return;
-    }
-    
-    this.logger.info?.(`[CombatEncounter][${encounter.channelId}] auto-act start for ${actor.name} (HP ${actor.currentHp}/${actor.maxHp})`);
-    
-    // SIMPLIFIED AUTO-ACT: Just trigger AI response with tool decision system
-    // The ToolDecisionService will decide what action to take based on combat state
-    try {
-      const channel = this._getChannel(encounter);
-      if (!channel) {
-        this.logger.warn?.(`[CombatEncounter] auto-act: channel ${encounter.channelId} not found`);
-        await this.nextTurn(encounter);
-        return;
-      }
-      
-      const conversationManager = this.getConversationManager?.();
-      if (!conversationManager) {
-        this.logger.warn?.('[CombatEncounter] auto-act: no ConversationManager available');
-        await this.nextTurn(encounter);
-        return;
-      }
-      
-      // Trigger AI response - the tool decision system will choose the appropriate action
-      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Prompting ${actor.name} to act via AI`);
-      
-      await conversationManager.sendResponse(channel, actor.ref, null, {
-        overrideCooldown: true,
-        context: {
-          inCombat: true,
-          currentTurn: true,
-          encounter: {
-            channelId: encounter.channelId,
-            round: encounter.round,
-            combatants: encounter.combatants.map(c => ({
-              name: c.name,
-              hp: c.currentHp,
-              maxHp: c.maxHp,
-              isDefending: c.isDefending,
-              isKnockedOut: this._isKnockedOut(c)
-            }))
-          }
+    switch (action.type) {
+      case 'attack':
+        if (!action.target) return null;
+        const attackResult = await this.battleService.attack({
+          attacker: combatant.ref,
+          defender: action.target.ref
+        });
+        // Apply damage and state changes
+        if (attackResult?.damage) {
+          this.applyDamage(encounter, action.target.avatarId, attackResult.damage);
+          this.markHostile(encounter);
         }
+        return attackResult;
+      
+      case 'defend':
+        combatant.isDefending = true;
+        return { result: 'defending' };
+      
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Generate combat dialogue using AI (short one-liner)
+   */
+  async _generateCombatDialogue(combatant, action, result) {
+    if (!this.unifiedAIService?.generateCompletion) return '';
+    
+    try {
+      const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${combatant.name}.
+Action: ${action.type}${action.target ? ` against ${action.target.name}` : ''}
+Result: ${result?.result || 'defending'}
+${result?.damage ? `Damage: ${result.damage}` : ''}
+${result?.critical ? 'CRITICAL HIT!' : ''}
+
+One-liner (no quotes):`;
+      
+      const response = await this.unifiedAIService.generateCompletion(prompt, {
+        temperature: 0.9,
+        max_tokens: 30
       });
       
-      // Turn advancement will be handled by the tool execution (attack/defend/etc)
-      // No need to call nextTurn here - the tool will handle it
-      
+      return (response?.text || response || '').trim();
     } catch (e) {
-      this.logger.warn?.(`[CombatEncounter] auto-act failed: ${e.message}`);
-      // Fallback: just advance turn on error
-      await this.nextTurn(encounter);
+      this.logger?.warn?.(`[CombatEncounter] Dialogue generation failed: ${e.message}`);
+      return '';
+    }
+  }
+
+  /**
+   * Post combat action to Discord
+   */
+  async _postCombatAction(encounter, combatant, action, result, dialogue) {
+    try {
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+      
+      let message = `**${combatant.name}**`;
+      
+      if (action.type === 'attack' && result) {
+        message += ` ${result.result === 'hit' ? 'strikes' : 'attacks'} **${action.target.name}**`;
+        if (result.damage) message += ` for **${result.damage} damage**!`;
+        if (result.critical) message += ` 🎯 **CRITICAL HIT!**`;
+        if (result.result === 'knockout') message += ` 💀 **KNOCKOUT!**`;
+      } else if (action.type === 'defend') {
+        message += ' takes a defensive stance 🛡️';
+      }
+      
+      if (dialogue) message += `\n_"${dialogue}"_`;
+      
+      await this._postAsWebhook(encounter, combatant.ref, message);
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] Failed to post action: ${e.message}`);
     }
   }
 
@@ -758,72 +741,38 @@ export class CombatEncounterService {
   }
 
   /** Schedule start of turn with pacing and optional commentary */
-  _scheduleTurnStart(encounter, { roundWrap }) {
+  /**
+   * Start the current turn - autonomous AI agent combat
+   * Immediately triggers the AI agent to act
+   */
+  _scheduleTurnStart(encounter) {
     if (!encounter || encounter.state !== 'active') return;
-    // clear any pending start timer, auto-act timer, and reset defend state for current actor
-    if (encounter.timers.startTurn) clearTimeout(encounter.timers.startTurn);
-    if (encounter.timers.auto) clearTimeout(encounter.timers.auto);
-
-    const sinceLast = encounter.lastActionAt ? Date.now() - encounter.lastActionAt : Infinity;
-    let delay = Math.max(0, this.minTurnGapMs - sinceLast);
-    if (roundWrap) delay += this.roundCooldownMs;
-
-  const doStart = async () => {
-      // If a manual action is currently in progress (e.g., poster/media), defer start slightly and retry
-      if ((encounter.manualActionCount || 0) > 0) {
-        this.logger.info?.(`[CombatEncounter] manual action; rescheduling turn start in ${this.autoActDelayMs}ms`);
-        encounter.timers.startTurn = setTimeout(() => this._scheduleTurnStart(encounter, { roundWrap }), this.autoActDelayMs);
-        return;
-      }
-      // Skip turns for knocked-out or dead combatants
-      try {
-        const currentId = this.getCurrentTurnAvatarId(encounter);
-        const current = this.getCombatant(encounter, currentId);
-        // Reset defending state at the start of their new turn
-        if (current) current.isDefending = false;
-        try { encounter.lastTurnStartAt = Date.now(); } catch {}
-        if (this._isKnockedOut(current)) {
-          this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId}`);
-          if (this.evaluateEnd(encounter)) return;
-          // Avoid tight recursion: advance on next tick
-          setTimeout(() => this.nextTurn(encounter), 0);
-          return;
-        }
-      } catch (e) { this.logger.warn?.(`[CombatEncounter] KO skip check failed: ${e.message}`); }
-      
-      // DISABLED: Narrative requests cause too much spam during combat
-      // Only trigger the AI action for the current turn
-      // try { this._publish('combat.narrative.request.commentary', { channelId: encounter.channelId }); } catch {}
-      // try { this._publish('combat.narrative.request.inter_turn', { channelId: encounter.channelId }); } catch {}
-      
-      // CRITICAL FIX: Trigger immediate AI response for combat turn
-      // All combatants are AI agents, so immediately prompt for action instead of waiting for timeout
-      try {
-        const currentId = this.getCurrentTurnAvatarId(encounter);
-        const current = this.getCombatant(encounter, currentId);
-        if (current?.ref) {
-          this.logger?.info?.(
-            `[CombatEncounter][${encounter.channelId}] Triggering immediate AI response for ${current.name}'s turn`
-          );
-          // Use ConversationManager to generate immediate AI response for this avatar
-          this._triggerImmediateAIAction(encounter, current).catch(e => {
-            this.logger?.warn?.(`[CombatEncounter] Immediate AI action failed for ${current.name}: ${e.message}`);
-          });
-        }
-      } catch (e) {
-        this.logger?.warn?.(`[CombatEncounter] Failed to trigger immediate AI action: ${e.message}`);
-      }
-      
-      // Start turn timeout timer only (fallback if AI doesn't respond)
-      // NOTE: _scheduleAutoAct() removed to prevent duplicate AI calls
-      this._scheduleTurnTimeout(encounter);
-    };
-    if (delay > 0) {
-      this.logger.info?.(`[CombatEncounter] delaying next turn by ${delay}ms (roundWrap=${roundWrap})`);
-      encounter.timers.startTurn = setTimeout(() => doStart(), delay);
-    } else {
-      void doStart();
+    
+    // Skip turns for knocked-out combatants
+    const currentId = this.getCurrentTurnAvatarId(encounter);
+    const current = this.getCombatant(encounter, currentId);
+    
+    if (this._isKnockedOut(current)) {
+      this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId}`);
+      if (this.evaluateEnd(encounter)) return;
+      // Skip to next turn immediately
+      setImmediate(() => this.nextTurn(encounter));
+      return;
     }
+    
+    // Reset defending state at the start of their new turn
+    if (current) current.isDefending = false;
+    encounter.lastTurnStartAt = Date.now();
+    
+    // Start turn timeout (fallback)
+    this._scheduleTurnTimeout(encounter);
+    
+    // Execute turn immediately (AI agent acts autonomously)
+    this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - executing action`);
+    this._executeTurn(encounter, current).catch(e => {
+      this.logger?.error?.(`[CombatEncounter] Turn execution failed: ${e.message}`);
+      this.nextTurn(encounter); // Fallback: advance turn on error
+    });
   }
 
   /** Marks a hostile action (attack) to prevent idle end */
@@ -952,6 +901,11 @@ export class CombatEncounterService {
     
     // Mark for cleanup by removing from encounters map (age list will be cleaned up later)
     // We don't remove from age list immediately to avoid O(n) search during combat
+    
+    // Generate battle recap videos asynchronously (non-blocking)
+    this._generateAndPostBattleRecap(encounter).catch(e => 
+      this.logger.warn?.(`[CombatEncounter] Battle recap generation failed: ${e.message}`)
+    );
     
     // Optionally persist summary later
   this._persistEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] persist failed: ${e.message}`));
@@ -1149,6 +1103,9 @@ export class CombatEncounterService {
         critical: !!result?.critical,
       };
       encounter.lastActionAt = Date.now();
+      
+      // Capture battle moment for video recap
+      this._captureBattleMoment(encounter, { attacker, defender, result });
     } catch {}
     
     // Check if encounter should end BEFORE advancing turn or doing anything else
@@ -1174,6 +1131,246 @@ export class CombatEncounterService {
       } finally {
         encounter._advancingTurn = false; // 🔓 Release mutex flag
       }
+    }
+  }
+
+  /**
+   * Capture a battle moment for the video recap
+   * Stores action data from each round for later video generation
+   * @private
+   */
+  _captureBattleMoment(encounter, { attacker, defender, result, dialogue }) {
+    try {
+      if (!encounter?.battleRecap) {
+        encounter.battleRecap = { rounds: [] };
+      }
+      
+      const currentRound = encounter.round || 1;
+      
+      // Find or create round entry
+      let roundData = encounter.battleRecap.rounds.find(r => r.round === currentRound);
+      if (!roundData) {
+        roundData = {
+          round: currentRound,
+          actions: [],
+          timestamp: Date.now()
+        };
+        encounter.battleRecap.rounds.push(roundData);
+      }
+      
+      // Capture the action
+      roundData.actions.push({
+        timestamp: Date.now(),
+        attackerName: attacker?.name || 'Unknown',
+        attackerId: attacker?.avatarId,
+        attackerImage: attacker?.ref?.imageUrl || attacker?.ref?.image,
+        defenderName: defender?.name || 'Unknown',
+        defenderId: defender?.avatarId,
+        defenderImage: defender?.ref?.imageUrl || defender?.ref?.image,
+        actionType: result?.result || 'attack',
+        damage: result?.damage || 0,
+        critical: !!result?.critical,
+        attackRoll: result?.attackRoll,
+        armorClass: result?.armorClass,
+        dialogue: dialogue || '' // Include AI-generated dialogue for video
+      });
+      
+      this.logger?.debug?.(`[CombatEncounter][${encounter.channelId}] Captured battle moment: Round ${currentRound}, ${attacker?.name} -> ${defender?.name}`);
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] Failed to capture battle moment: ${e.message}`);
+    }
+  }
+
+  /**
+   * Generate battle recap videos after combat ends
+   * Creates 3 separate 8-second clips (one per round) showing the battle visually
+   * @private
+   */
+  async _generateBattleRecapVideos(encounter) {
+    try {
+      // Check if we have VeoService and battle recap data
+      if (!this.veoService) {
+        this.logger?.warn?.('[CombatEncounter] VeoService not available, skipping battle recap videos');
+        return null;
+      }
+      
+      if (!encounter?.battleRecap?.rounds || encounter.battleRecap.rounds.length === 0) {
+        this.logger?.debug?.('[CombatEncounter] No battle recap data to generate videos from');
+        return null;
+      }
+      
+      if (!this.unifiedAIService?.generateCompletion) {
+        this.logger?.warn?.('[CombatEncounter] UnifiedAIService not available, skipping battle recap videos');
+        return null;
+      }
+      
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating battle recap videos for ${encounter.battleRecap.rounds.length} rounds`);
+      
+      const videoPromises = [];
+      const locationName = await this._getLocationName(encounter).catch(() => 'the battlefield');
+      
+      // Generate one 8-second video per round
+      for (const roundData of encounter.battleRecap.rounds) {
+        const videoPromise = this._generateRoundRecapVideo(encounter, roundData, locationName);
+        videoPromises.push(videoPromise);
+      }
+      
+      // Generate all videos in parallel
+      const videos = await Promise.allSettled(videoPromises);
+      
+      const successful = videos
+        .filter(v => v.status === 'fulfilled' && v.value)
+        .map(v => v.value);
+      
+      const failed = videos.filter(v => v.status === 'rejected');
+      
+      if (failed.length > 0) {
+        this.logger?.warn?.(`[CombatEncounter][${encounter.channelId}] ${failed.length}/${videos.length} battle recap videos failed to generate`);
+      }
+      
+      if (successful.length > 0) {
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generated ${successful.length} battle recap videos`);
+        return successful;
+      }
+      
+      return null;
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] Battle recap video generation failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate a single 8-second video for one round of combat
+   * @private
+   */
+  async _generateRoundRecapVideo(encounter, roundData, locationName) {
+    try {
+      // Build a narrative description of the round's actions
+      const actions = roundData.actions || [];
+      if (actions.length === 0) {
+        this.logger?.debug?.(`[CombatEncounter] Round ${roundData.round} has no actions, skipping video`);
+        return null;
+      }
+      
+      // Collect reference images from combatants in this round
+      const referenceImages = [];
+      const seenImages = new Set();
+      
+      for (const action of actions) {
+        if (action.attackerImage && !seenImages.has(action.attackerImage)) {
+          referenceImages.push(action.attackerImage);
+          seenImages.add(action.attackerImage);
+        }
+        if (action.defenderImage && !seenImages.has(action.defenderImage) && referenceImages.length < 3) {
+          referenceImages.push(action.defenderImage);
+          seenImages.add(action.defenderImage);
+        }
+        if (referenceImages.length >= 3) break; // Veo 3.1 max is 3 reference images
+      }
+      
+      // Generate cinematic prompt using LLM
+      const actionSummary = actions.map(a => 
+        `${a.attackerName} ${a.actionType === 'hit' ? 'strikes' : a.actionType === 'knockout' ? 'knocks out' : 'attacks'} ${a.defenderName}${a.critical ? ' with a critical hit' : ''}${a.damage > 0 ? ` for ${a.damage} damage` : ''}`
+      ).join(', then ');
+      
+      const prompt = `Generate a cinematic description for an 8-second fantasy battle video recap showing Round ${roundData.round} of combat.
+
+Location: ${locationName || 'a mystical battlefield'}
+Actions this round: ${actionSummary}
+
+Requirements:
+- 150-250 words describing the visual action
+- Cinematic camera work (sweeping shots, close-ups during key moments)
+- Show each combatant's action clearly
+- Fantasy RPG aesthetic with dramatic lighting
+- Focus on the choreography and flow of combat
+- Do NOT include dialogue or narration, only visual description`;
+      
+      const response = await this.unifiedAIService.generateCompletion(prompt, {
+        temperature: 0.8,
+        max_tokens: 350
+      });
+      
+      const sceneDescription = response?.text || response || actionSummary;
+      
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating Round ${roundData.round} recap video with ${referenceImages.length} reference images`);
+      
+      // Generate video using Veo 3.1 Fast with reference images
+      const videos = await this.veoService.generateVideosWithReferenceImages({
+        prompt: sceneDescription,
+        referenceImages: referenceImages.slice(0, 3), // Max 3 images
+        config: {
+          aspectRatio: '16:9',
+          durationSeconds: 8
+        },
+        model: 'veo-3.1-fast-generate-preview'
+      });
+      
+      if (videos && videos.length > 0) {
+        return {
+          round: roundData.round,
+          url: videos[0].url,
+          prompt: sceneDescription,
+          actions: actions.length
+        };
+      }
+      
+      return null;
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] Round ${roundData.round} video generation failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate battle recap videos and post them to Discord
+   * @private
+   */
+  async _generateAndPostBattleRecap(encounter) {
+    try {
+      const videos = await this._generateBattleRecapVideos(encounter);
+      
+      if (!videos || videos.length === 0) {
+        this.logger?.debug?.(`[CombatEncounter][${encounter.channelId}] No battle recap videos to post`);
+        return;
+      }
+      
+      const channel = this._getChannel(encounter);
+      if (!channel) {
+        this.logger?.warn?.('[CombatEncounter] Cannot post battle recap: channel not found');
+        return;
+      }
+      
+      // Calculate total duration
+      const totalDuration = videos.length * 8;
+      
+      // Post header message
+      await channel.send({
+        content: `## 📹 Battle Chronicle\n**${totalDuration}-second recap** • ${videos.length} rounds of epic combat!`
+      });
+      
+      // Post each video with round information
+      for (const video of videos) {
+        try {
+          await channel.send({
+            content: `**Round ${video.round}** • ${video.actions} ${video.actions === 1 ? 'action' : 'actions'}`,
+            files: [{
+              attachment: video.url,
+              name: `battle-round-${video.round}.mp4`
+            }]
+          });
+          
+          // Small delay between videos to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to post round ${video.round} video: ${e.message}`);
+        }
+      }
+      
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Posted ${videos.length} battle recap videos`);
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] Failed to post battle recap: ${e.message}`);
     }
   }
 
@@ -2060,9 +2257,10 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       }
       // Apply index and announce turn
       encounter.currentTurnIndex = nextIdx;
+      
       try { await this._announceTurn(encounter); } catch {}
-      // Schedule start (pacing + timers + auto-act)
-      this._scheduleTurnStart(encounter, { roundWrap });
+      // Start the turn (just timeout, no auto-actions)
+      this._scheduleTurnStart(encounter);
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] nextTurn error: ${e.message}`);
     }
@@ -2095,27 +2293,10 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         return;
       }
       
-      if (!actor.ref) {
-        this.logger.warn?.(`[CombatEncounter] _onTurnTimeout: actor ${actor.name} missing ref`);
-        await this.nextTurn(encounter);
-        return;
-      }
-      
-      const mode = this._getCombatModeFor(actor);
-      if (mode === 'auto') {
-        // Try to perform the planned action immediately
-        await this._maybeAutoAct(encounter, currentId);
-        return; // _maybeAutoAct will advance as needed
-      }
-      // Manual mode: default to defend and advance
-      try {
-        if (this.battleService?.defend) {
-          const msg = await this.battleService.defend({ avatar: actor.ref });
-          actor.isDefending = true;
-          await this._postAsWebhook(encounter, actor.ref, `${actor.name} used defend 🛡️\n${msg}`);
-        }
-      } catch {}
+      // Turn timed out - skip this turn (D&D style: if you don't act, you lose your turn)
+      this.logger.info?.(`[CombatEncounter][${encounter.channelId}] Turn timeout for ${actor.name} - skipping turn`);
       await this.nextTurn(encounter);
+      
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] onTurnTimeout error: ${e.message}`);
     }
