@@ -1217,9 +1217,54 @@ One-liner (no quotes):`;
     }
     
     const now = Date.now();
+    
+    // Auto-clear stale knocked_out status if timer has expired
+    // This handles cases where status was set but timer wasn't, or timer expired
+    if (attacker?.status === 'knocked_out' && (!attacker.knockedOutUntil || now >= attacker.knockedOutUntil)) {
+      this.logger?.info?.(
+        `[CombatEncounter] Auto-clearing stale knocked_out status for ${attacker.name} ` +
+        `(knockedOutUntil=${attacker.knockedOutUntil ? new Date(attacker.knockedOutUntil).toISOString() : 'not set'})`
+      );
+      attacker.status = 'active';
+      try {
+        await this.avatarService.updateAvatar(attacker);
+      } catch (e) {
+        this.logger?.warn?.(`[CombatEncounter] Failed to clear status for ${attacker.name}: ${e.message}`);
+      }
+    }
+    if (defender?.status === 'knocked_out' && (!defender.knockedOutUntil || now >= defender.knockedOutUntil)) {
+      this.logger?.info?.(
+        `[CombatEncounter] Auto-clearing stale knocked_out status for ${defender.name} ` +
+        `(knockedOutUntil=${defender.knockedOutUntil ? new Date(defender.knockedOutUntil).toISOString() : 'not set'})`
+      );
+      defender.status = 'active';
+      try {
+        await this.avatarService.updateAvatar(defender);
+      } catch (e) {
+        this.logger?.warn?.(`[CombatEncounter] Failed to clear status for ${defender.name}: ${e.message}`);
+      }
+    }
+    
     // Check both status field AND knockedOutUntil timer
     if (attacker?.status === 'dead' || attacker?.status === 'knocked_out' ||
         defender?.status === 'dead' || defender?.status === 'knocked_out') {
+      // Diagnostic logging to understand why avatar is knocked out
+      if (attacker?.status === 'knocked_out' || attacker?.status === 'dead') {
+        const koUntil = attacker.knockedOutUntil ? new Date(attacker.knockedOutUntil).toISOString() : 'not set';
+        const timeRemaining = attacker.knockedOutUntil ? Math.max(0, attacker.knockedOutUntil - now) : 0;
+        this.logger?.warn?.(
+          `[CombatEncounter] ${attacker.name} blocked from combat: status=${attacker.status}, ` +
+          `knockedOutUntil=${koUntil}, timeRemaining=${Math.round(timeRemaining / 1000 / 60)}min`
+        );
+      }
+      if (defender?.status === 'knocked_out' || defender?.status === 'dead') {
+        const koUntil = defender.knockedOutUntil ? new Date(defender.knockedOutUntil).toISOString() : 'not set';
+        const timeRemaining = defender.knockedOutUntil ? Math.max(0, defender.knockedOutUntil - now) : 0;
+        this.logger?.warn?.(
+          `[CombatEncounter] ${defender.name} blocked from combat: status=${defender.status}, ` +
+          `knockedOutUntil=${koUntil}, timeRemaining=${Math.round(timeRemaining / 1000 / 60)}min`
+        );
+      }
       throw new Error('knocked_out_status');
     }
     if ((attacker?.knockedOutUntil && now < attacker.knockedOutUntil) || (defender?.knockedOutUntil && now < defender.knockedOutUntil)) {

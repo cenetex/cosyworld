@@ -125,8 +125,13 @@ export class ChallengeTool extends BasicTool {
         if (msg.includes('flee_cooldown')) {
           return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
         }
+        if (msg.includes('knocked_out_status')) {
+          // More engaging message for knocked out status
+          const knockedOutAvatar = defender.status === 'knocked_out' || defender.status === 'dead' ? defender : avatar;
+          return `-# 🛡️ [ **Challenge Failed**: ${knockedOutAvatar.name} is knocked out and recovering. They cannot enter combat at this time. ]`;
+        }
         if (msg.includes('knockout_cooldown')) {
-          return `-# 💤 [ Combat cannot start: one combatant is knocked out and cannot fight today. ]`;
+          return `-# 💤 [ Combat cannot start: one combatant is still recovering from being knocked out. ]`;
         }
         throw e;
       }
