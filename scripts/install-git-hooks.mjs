@@ -3,14 +3,13 @@
 import { execFileSync } from 'node:child_process';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 
 const MARKER = '# cosyworld-version-hook';
 
 function getRepoRoot() {
   try {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -24,7 +23,7 @@ function resolveHooksDir(repoRoot) {
     if (configured) {
       hooksDir = path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
     }
-  } catch (error) {
+  } catch {
     // Ignore missing configuration.
   }
   return hooksDir;
@@ -59,7 +58,7 @@ function installHooks() {
         if (!existing.includes(MARKER)) {
           continue;
         }
-      } catch (error) {
+      } catch {
         continue;
       }
     }
@@ -67,8 +66,8 @@ function installHooks() {
     try {
       copyFileSync(sourcePath, targetPath);
       chmodSync(targetPath, 0o755);
-    } catch (error) {
-      console.warn(`[git-hooks] Failed to install ${entry}: ${error.message}`);
+    } catch (_error) {
+      console.warn(`[git-hooks] Failed to install ${entry}: ${_error.message}`);
     }
   }
 }
