@@ -10,6 +10,10 @@ import { ensureWallet } from './admin/admin-auth.js';
 document.addEventListener("DOMContentLoaded", async () => {
   // Ensure wallet (non-fatal)
   try { await ensureWallet(); } catch {}
+  
+  // Default placeholder image (SVG data URI)
+  const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+  
   // State Management
   const state = {
     currentPage: 1,
@@ -20,10 +24,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentSearch: "",
   };
 
-  // Enhance the model selector functionality
+  // Store models data globally for modal use
+  let modelsData = [];
+  let modelsByProvider = new Map();
+
+  // Enhanced model selector functionality with provider/model split
   async function loadModels() {
     const modelSelect = document.getElementById('model-filter');
-    const avatarModelSelect = document.getElementById('avatar-model');
 
     // Show loading indicator
     const loadingOption = document.createElement('option');
@@ -31,17 +38,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadingOption.disabled = true;
     loadingOption.selected = true;
     modelSelect.appendChild(loadingOption);
-    avatarModelSelect.appendChild(loadingOption.cloneNode(true));
 
     try {
+      console.log('Fetching models from /api/models/config...');
       const response = await fetch('/api/models/config');
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      if (!response.ok) {
+        console.error(`HTTP error ${response.status}`);
+        throw new Error(`HTTP error ${response.status}`);
+      }
 
       const data = await response.json();
+      console.log('Raw API response:', data);
+
+      // Store models data globally
+      modelsData = Array.isArray(data) ? data : [];
+      console.log(`Parsed ${modelsData.length} models from API`);
 
       // Clear existing options
       modelSelect.innerHTML = '';
-      avatarModelSelect.innerHTML = '';
 
       // Add default option
       const defaultOption = document.createElement('option');
@@ -49,24 +63,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       defaultOption.textContent = 'All Models';
       modelSelect.appendChild(defaultOption);
 
-      // Compute model name list from API (supports array or object)
-      const modelNames = Array.isArray(data)
-        ? data.map(m => m?.model).filter(Boolean)
-        : (data && typeof data === 'object')
-          ? Object.keys(data)
-          : [];
+      // Compute model name list from API
+      const modelNames = modelsData.map(m => m?.model).filter(Boolean);
+      console.log(`Found ${modelNames.length} valid model names`);
 
-      // Populate models
+      if (modelNames.length === 0) {
+        console.warn('No models returned from API - check API endpoint');
+        modelSelect.innerHTML = '<option disabled selected>No models available</option>';
+        return;
+      }
+
+      // Build provider map for modal
+      modelsByProvider.clear();
+      modelNames.forEach((fullModel) => {
+        const [provider, ...modelParts] = fullModel.split('/');
+        const modelName = modelParts.join('/');
+        if (provider && modelName) {
+          if (!modelsByProvider.has(provider)) {
+            modelsByProvider.set(provider, []);
+          }
+          modelsByProvider.get(provider).push({
+            fullName: fullModel,
+            modelName: modelName,
+            rarity: modelsData.find(m => m.model === fullModel)?.rarity || 'common'
+          });
+        }
+      });
+
+      console.log(`Loaded ${modelNames.length} models from ${modelsByProvider.size} providers`);
+      console.log('Providers:', Array.from(modelsByProvider.keys()));
+
+      // Populate filter dropdown with full model names
       modelNames.forEach((model) => {
         const option = document.createElement('option');
         option.value = model;
         option.textContent = model;
         modelSelect.appendChild(option);
-
-        const avatarOption = document.createElement('option');
-        avatarOption.value = model;
-        avatarOption.textContent = model;
-        avatarModelSelect.appendChild(avatarOption);
       });
 
       // Preserve current selection if possible
@@ -80,13 +112,111 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.currentPage = 1;
         loadAvatars();
       };
+
+      // Initialize modal dropdowns after models are loaded
+      initializeModalModelSelectors();
     } catch (error) {
       console.error('Error loading models:', error);
 
       // Show error message
       modelSelect.innerHTML = '<option disabled selected>Error loading models</option>';
-      avatarModelSelect.innerHTML = '<option disabled selected>Error loading models</option>';
     }
+  }
+
+  // Initialize provider/model dropdowns in modal
+  function initializeModalModelSelectors() {
+    const providerSelect = document.getElementById('avatar-model-provider');
+    const modelNameSelect = document.getElementById('avatar-model-name');
+    const rarityBadge = document.getElementById('model-rarity-badge');
+
+    if (!providerSelect || !modelNameSelect) {
+      console.warn('Model selector elements not found');
+      return;
+    }
+
+    // Check if models are loaded yet
+    if (modelsByProvider.size === 0) {
+      console.warn('Models not loaded yet, provider list will be empty');
+      providerSelect.innerHTML = '<option value="">Loading providers...</option>';
+      modelNameSelect.innerHTML = '<option value="">Loading models...</option>';
+      modelNameSelect.disabled = true;
+      return;
+    }
+
+    // Clear and populate provider dropdown
+    providerSelect.innerHTML = '<option value="">Select provider...</option>';
+    const providers = Array.from(modelsByProvider.keys()).sort();
+    
+    console.log('Populating providers:', providers.length, 'providers found');
+    
+    providers.forEach(provider => {
+      const option = document.createElement('option');
+      option.value = provider;
+      option.textContent = provider;
+      providerSelect.appendChild(option);
+    });
+
+    // Reset model dropdown
+    modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
+    modelNameSelect.disabled = true;
+
+    // Provider change handler
+    providerSelect.onchange = () => {
+      const selectedProvider = providerSelect.value;
+      modelNameSelect.innerHTML = '';
+      modelNameSelect.disabled = !selectedProvider;
+      
+      if (selectedProvider) {
+        const models = modelsByProvider.get(selectedProvider) || [];
+        console.log(`Provider ${selectedProvider} has ${models.length} models`);
+        models.forEach(modelInfo => {
+          const option = document.createElement('option');
+          option.value = modelInfo.fullName;
+          option.textContent = modelInfo.modelName;
+          option.dataset.rarity = modelInfo.rarity;
+          modelNameSelect.appendChild(option);
+        });
+        if (models.length > 0) {
+          modelNameSelect.selectedIndex = 0;
+          updateRarityBadge(models[0].rarity);
+        }
+      } else {
+        modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
+        hideRarityBadge();
+      }
+    };
+
+    // Model name change handler
+    modelNameSelect.onchange = () => {
+      const selectedOption = modelNameSelect.options[modelNameSelect.selectedIndex];
+      if (selectedOption && selectedOption.dataset.rarity) {
+        updateRarityBadge(selectedOption.dataset.rarity);
+      }
+    };
+  }
+
+  // Update rarity badge
+  function updateRarityBadge(rarity) {
+    const badge = document.getElementById('model-rarity-badge');
+    if (!badge) return;
+    
+    const span = badge.querySelector('span');
+    const rarityColors = {
+      'legendary': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'rare': 'bg-purple-100 text-purple-800 border-purple-300',
+      'uncommon': 'bg-blue-100 text-blue-800 border-blue-300',
+      'common': 'bg-gray-100 text-gray-800 border-gray-300'
+    };
+    
+    span.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${rarityColors[rarity] || rarityColors.common}`;
+    span.textContent = rarity.toUpperCase();
+    badge.classList.remove('hidden');
+  }
+
+  // Hide rarity badge
+  function hideRarityBadge() {
+    const badge = document.getElementById('model-rarity-badge');
+    if (badge) badge.classList.add('hidden');
   }
 
   loadModels();
@@ -108,7 +238,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     deleteAvatarBtn: document.getElementById("delete-avatar"),
     avatarForm: document.getElementById("avatar-form"),
     modalTitle: document.getElementById("modal-title"),
-    imagePreview: document.getElementById("avatar-image-preview"),
     imageUrlInput: document.getElementById("avatar-image-url"),
     saveBtn: document.getElementById("save-avatar"),
   };
@@ -223,8 +352,10 @@ uploadButton.addEventListener('click', withButtonLoading(uploadButton, async () 
       const data = await apiFetch('/api/admin/upload-image', { method: 'POST', body: formData, sign: true, signMeta: { op: 'upload_image' }, requireCsrf: true });
   const finalUrl = data?.url || '';
   elements.imageUrlInput.value = finalUrl;
-  elements.imagePreview.src = finalUrl;
-    elements.imagePreview.classList.remove('hidden');
+  const preview = document.getElementById('avatar-image-preview');
+  if (preview) {
+    preview.src = finalUrl;
+  }
     toastSuccess('Image uploaded successfully');
   } catch (error) {
     console.error('Upload error:', error);
@@ -237,10 +368,29 @@ uploadButton.addEventListener('click', withButtonLoading(uploadButton, async () 
 });
 
 elements.imageUrlInput.addEventListener("input", () => {
-  const url = elements.imageUrlInput.value;
-  elements.imagePreview.src = url;
-  elements.imagePreview.classList.toggle("hidden", !url);
+  const url = elements.imageUrlInput.value.trim();
+  const preview = document.getElementById('avatar-image-preview');
+  if (preview) {
+    preview.src = url || DEFAULT_AVATAR;
+  }
 });
+
+// Add emoji preview update
+const emojiInput = document.getElementById('avatar-emoji');
+if (emojiInput) {
+  emojiInput.addEventListener("input", () => {
+    const emoji = emojiInput.value.trim();
+    const emojiPreview = document.getElementById('avatar-preview-emoji');
+    if (emojiPreview) {
+      if (emoji) {
+        emojiPreview.textContent = emoji;
+        emojiPreview.classList.remove('hidden');
+      } else {
+        emojiPreview.classList.add('hidden');
+      }
+    }
+  });
+}
   }
 
   // Avatar List Functions
@@ -356,6 +506,7 @@ elements.imageUrlInput.addEventListener("input", () => {
     elements.modalTitle.textContent = "Create New Avatar";
     elements.deleteAvatarBtn.classList.add("hidden");
     resetForm();
+    initializeModalModelSelectors(); // Reinitialize dropdowns
     elements.avatarModal.classList.remove("hidden");
   }
 
@@ -367,6 +518,7 @@ elements.imageUrlInput.addEventListener("input", () => {
       elements.modalTitle.textContent = `Edit Avatar: ${avatar.name}`;
       elements.avatarForm.dataset.avatarId = avatarId;
       elements.deleteAvatarBtn.classList.remove("hidden");
+      initializeModalModelSelectors(); // Reinitialize dropdowns before populating
       populateForm(avatar);
     } catch (error) {
       console.error("Error fetching avatar:", error);
@@ -377,24 +529,94 @@ elements.imageUrlInput.addEventListener("input", () => {
 
   function resetForm() {
     elements.avatarForm.reset();
-    elements.imagePreview.src = "";
-    elements.imagePreview.classList.add("hidden");
-    elements.imageUrlInput.value = "";
+    const preview = document.getElementById('avatar-image-preview');
+    const emojiPreview = document.getElementById('avatar-preview-emoji');
+    const providerSelect = document.getElementById('avatar-model-provider');
+    const modelNameSelect = document.getElementById('avatar-model-name');
+    
+    if (preview) {
+      preview.src = DEFAULT_AVATAR;
+    }
+    if (emojiPreview) {
+      emojiPreview.textContent = '';
+      emojiPreview.classList.add('hidden');
+    }
+    if (providerSelect) {
+      providerSelect.value = '';
+    }
+    if (modelNameSelect) {
+      modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
+      modelNameSelect.disabled = true;
+    }
+    hideRarityBadge();
+    
+    // Hide prompt preview
+    const promptContainer = document.getElementById('prompt-preview-container');
+    if (promptContainer) {
+      promptContainer.classList.add('hidden');
+    }
   }
 
   function populateForm(avatar) {
     document.getElementById("avatar-name").value = avatar.name || "";
     document.getElementById("avatar-status").value = avatar.status || "alive";
-    document.getElementById("avatar-model").value =
-      avatar.model || "gemini-2.0-flash";
     document.getElementById("avatar-emoji").value = avatar.emoji || "";
-    document.getElementById("avatar-description").value =
-      avatar.description || "";
-    document.getElementById("avatar-personality").value =
-      avatar.personality || "";
+    document.getElementById("avatar-description").value = avatar.description || "";
+    document.getElementById("avatar-personality").value = avatar.personality || "";
+    
+    const imageUrl = avatar.imageUrl || avatar.thumbnailUrl || DEFAULT_AVATAR;
     elements.imageUrlInput.value = avatar.imageUrl || "";
-    elements.imagePreview.src = avatar.imageUrl || "";
-    elements.imagePreview.classList.toggle("hidden", !avatar.imageUrl);
+    
+    const preview = document.getElementById('avatar-image-preview');
+    if (preview) {
+      preview.src = imageUrl;
+    }
+    
+    // Update emoji preview
+    const emojiPreview = document.getElementById('avatar-preview-emoji');
+    if (emojiPreview && avatar.emoji) {
+      emojiPreview.textContent = avatar.emoji;
+      emojiPreview.classList.remove('hidden');
+    } else if (emojiPreview) {
+      emojiPreview.classList.add('hidden');
+    }
+    
+    // Populate model dropdowns
+    const fullModel = avatar.model || "google/gemini-2.0-flash";
+    const [provider, ...modelParts] = fullModel.split('/');
+    const modelName = modelParts.join('/');
+    
+    const providerSelect = document.getElementById('avatar-model-provider');
+    const modelNameSelect = document.getElementById('avatar-model-name');
+    
+    if (providerSelect && modelNameSelect) {
+      // Set provider
+      providerSelect.value = provider || '';
+      
+      // Trigger provider change to populate models
+      if (provider && modelsByProvider.has(provider)) {
+        const models = modelsByProvider.get(provider) || [];
+        modelNameSelect.innerHTML = '';
+        modelNameSelect.disabled = false;
+        
+        models.forEach(modelInfo => {
+          const option = document.createElement('option');
+          option.value = modelInfo.fullName;
+          option.textContent = modelInfo.modelName;
+          option.dataset.rarity = modelInfo.rarity;
+          modelNameSelect.appendChild(option);
+        });
+        
+        // Set the model
+        modelNameSelect.value = fullModel;
+        
+        // Update rarity badge
+        const selectedModel = models.find(m => m.fullName === fullModel);
+        if (selectedModel) {
+          updateRarityBadge(selectedModel.rarity);
+        }
+      }
+    }
   }
 
   async function handleFormSubmit(e) {
@@ -404,12 +626,23 @@ elements.imageUrlInput.addEventListener("input", () => {
     const url = avatarId
       ? `/api/admin/avatars/${avatarId}`
       : "/api/admin/avatars";
-    const formData = new FormData(elements.avatarForm);
+    
+    // Build payload manually to use the model from avatar-model-name dropdown
+    const payload = {
+      name: document.getElementById("avatar-name").value,
+      status: document.getElementById("avatar-status").value,
+      model: document.getElementById("avatar-model-name").value, // Get from split dropdown
+      emoji: document.getElementById("avatar-emoji").value,
+      description: document.getElementById("avatar-description").value,
+      personality: document.getElementById("avatar-personality").value,
+      imageUrl: elements.imageUrlInput.value
+    };
+    
     elements.saveBtn.disabled = true;
     elements.saveBtn.textContent = "Saving...";
 
     try {
-      await apiFetch(url, { method, body: Object.fromEntries(formData), sign: true, signMeta: { op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId }, requireCsrf: true });
+      await apiFetch(url, { method, body: payload, sign: true, signMeta: { op: avatarId ? 'update_avatar' : 'create_avatar', id: avatarId }, requireCsrf: true });
       // Fetch the updated avatar and refresh the modal fields
       let updatedAvatar;
       if (avatarId) {

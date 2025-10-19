@@ -698,7 +698,7 @@ function createRouter(db, services) {
   });
 
   // Preview prompt endpoint
-  router.get('/admin/avatars/:id/preview-prompt', asyncHandler(async (req, res) => {
+  router.get('/avatars/:id/preview-prompt', asyncHandler(async (req, res) => {
     let id;
     try {
       id = new ObjectId(req.params.id);

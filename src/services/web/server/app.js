@@ -155,7 +155,7 @@ async function initializeApp(services) {
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
-    app.use('/api/models', (await import('./routes/models.js')).default(db));
+    app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
   app.use('/api/auth', (await import('./routes/auth.js')).default(db));
   app.use('/api/memory', ensureAdmin, (await import('./routes/memory.js')).default(db));

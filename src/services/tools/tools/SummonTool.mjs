@@ -165,8 +165,37 @@ export class SummonTool extends BasicTool {
             await this.avatarService.updateAvatar(existingAvatar);
         }
         await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
+        
+        // Generate greeting from the avatar
+        const ai = this.unifiedAIService || this.aiService;
+        const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
+        let greeting = null;
+        try {
+          const greetingPrompt = alreadyHere 
+            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
+            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
+          
+          const greetingResult = await ai.chat([
+            { 
+              role: 'system', 
+              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}` 
+            },
+            { role: 'user', content: greetingPrompt }
+          ], { model: existingAvatar.model, corrId });
+          
+          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
+          // Remove any <think> tags
+          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        } catch (e) {
+          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+        }
+        
         if (alreadyHere) {
-          // Resummon in same channel: show the avatar's full embed for the user
+          // Resummon in same channel: send greeting then show profile
+          if (greeting) {
+            await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+          }
           try {
             await this.discordService.sendAvatarEmbed(existingAvatar, message.channel.id, this.aiService);
           } catch (e) {
@@ -174,8 +203,11 @@ export class SummonTool extends BasicTool {
           }
           return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
         } else {
-          // Arrival mini embed
+          // Arrival: send greeting and mini embed
           setTimeout(async () => {
+            if (greeting) {
+              await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+            }
             await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
           }, 800);
           return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;

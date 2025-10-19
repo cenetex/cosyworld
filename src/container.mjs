@@ -433,6 +433,8 @@ async function initializeContainer() {
       const openrouterAIService = container.resolve('openrouterAIService');
       if (openrouterAIService?.ready) await openrouterAIService.ready;
       container.register({ aiService: asValue(openrouterAIService) });
+      console.log('[container] Registered aiService alias pointing to openrouterAIService');
+      console.log(`[container] OpenRouter models registered: ${container.resolve('aiModelService').getAllModels('openrouter').length}`);
     } else if (container.registrations.ollamaAIService) {
       container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
     } else if (container.registrations.googleAIService) {

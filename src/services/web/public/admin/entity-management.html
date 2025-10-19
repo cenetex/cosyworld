@@ -101,69 +101,122 @@
                     </div>
                   </div>
 
-                  <!-- Reuse avatar edit modal from old page -->
+                  <!-- Avatar Edit Modal -->
                   <div id="avatar-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center p-4 z-50">
-                    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                      <div class="px-4 sm:px-6 py-4 bg-gray-100 border-b flex justify-between items-center sticky top-0 z-10">
-                        <h3 class="text-lg font-medium text-gray-900" id="modal-title">Edit Avatar</h3>
-                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                      <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 border-b flex justify-between items-center sticky top-0 z-10">
+                        <h3 class="text-xl font-semibold text-white" id="modal-title">Edit Avatar</h3>
+                        <button id="close-modal" class="text-white hover:text-indigo-100 transition">
                           <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       </div>
-                      <form id="avatar-form" class="px-4 sm:px-6 py-4">
-                        <!-- Same fields as old page -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div class="space-y-4">
+                      <form id="avatar-form" class="px-6 py-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          <!-- Left Column - Avatar Preview & Basic Info -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-name" class="block text-sm font-medium text-gray-700">Name</label>
-                              <input type="text" id="avatar-name" name="name" class="mt-1 block w-full border rounded py-2 px-3" required />
+                              <label class="block text-sm font-medium text-gray-700 mb-2">Avatar Preview</label>
+                              <div class="relative">
+                                <img id="avatar-image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="Avatar Preview" class="w-full aspect-square rounded-lg object-cover border-2 border-gray-200 shadow-sm" />
+                                <div id="avatar-preview-emoji" class="absolute bottom-2 right-2 text-4xl bg-white rounded-full p-2 shadow-md hidden"></div>
+                              </div>
+                              <div class="mt-3">
+                                <label for="avatar-image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                                <input type="url" id="avatar-image-url" name="imageUrl" placeholder="https://..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                              </div>
                             </div>
+                            
                             <div>
-                              <label for="avatar-status" class="block text-sm font-medium text-gray-700">Status</label>
-                              <select id="avatar-status" name="status" class="mt-1 block w-full border rounded py-2 px-3">
+                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
+                              <input type="text" id="avatar-emoji" name="emoji" maxlength="4" placeholder="😀" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-2xl text-center" />
+                              <p class="mt-1 text-xs text-gray-500">Choose a representative emoji</p>
+                            </div>
+
+                            <div>
+                              <label for="avatar-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                              <select id="avatar-status" name="status" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="alive">Alive</option>
                                 <option value="dead">Dead</option>
                                 <option value="inactive">Inactive</option>
                               </select>
                             </div>
+                          </div>
+
+                          <!-- Middle Column - Identity & AI Config -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-model" class="block text-sm font-medium text-gray-700">AI Model</label>
-                              <select id="avatar-model" name="model" class="mt-1 block w-full border rounded py-2 px-3"></select>
+                              <label for="avatar-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                              <input type="text" id="avatar-name" name="name" placeholder="Avatar name" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
                             </div>
+
                             <div>
-                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700">Emoji</label>
-                              <input type="text" id="avatar-emoji" name="emoji" class="mt-1 block w-full border rounded py-2 px-3" />
+                              <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
+                              <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label for="avatar-model-provider" class="block text-xs text-gray-600 mb-1">Provider</label>
+                                  <select id="avatar-model-provider" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                    <option value="">Select...</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label for="avatar-model-name" class="block text-xs text-gray-600 mb-1">Model</label>
+                                  <select id="avatar-model-name" name="model" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" disabled>
+                                    <option value="">Select provider first</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div id="model-rarity-badge" class="mt-2 hidden">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"></span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label for="avatar-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                              <textarea id="avatar-description" name="description" rows="4" placeholder="Brief description of this avatar..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                              <p class="mt-1 text-xs text-gray-500">Public-facing description</p>
                             </div>
                           </div>
-                          <div class="space-y-4">
+
+                          <!-- Right Column - Personality -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-description" class="block text-sm font-medium text-gray-700">Description</label>
-                              <textarea id="avatar-description" name="description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700 mb-1">Personality</label>
+                              <textarea id="avatar-personality" name="personality" rows="12" placeholder="Describe the avatar's personality traits, communication style, and behavioral patterns..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                              <p class="mt-1 text-xs text-gray-500">Used for AI prompt generation</p>
                             </div>
+
                             <div>
-                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700">Personality</label>
-                              <textarea id="avatar-personality" name="personality" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
-                            </div>
-                            <div>
-                              <label for="avatar-image-url" class="block text-sm font-medium text-gray-700">Avatar Image URL</label>
-                              <input type="url" id="avatar-image-url" name="imageUrl" class="mt-1 block w-full border rounded py-2 px-3" />
-                              <img id="avatar-image-preview" src="" alt="Avatar Preview" class="mt-2 h-32 w-32 rounded-full object-cover border hidden" />
+                              <button type="button" id="preview-prompt" class="w-full inline-flex justify-center items-center py-2 px-4 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Preview AI Prompt
+                              </button>
+                              <div id="prompt-preview-container" class="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 hidden">
+                                <h4 class="font-medium text-gray-700 mb-2 text-sm">Sample Contextual Prompt</h4>
+                                <div id="prompt-preview-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto"></div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <div class="mt-6">
-                          <button type="button" id="preview-prompt" class="inline-flex justify-center py-2 px-4 border border-blue-400 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Preview Prompt</button>
-                          <div id="prompt-preview-container" class="mt-4 p-4 bg-gray-50 rounded-md border hidden">
-                            <h4 class="font-medium text-gray-700 mb-2">Sample Contextual Prompt</h4>
-                            <div id="prompt-preview-content" class="text-sm text-gray-600 whitespace-pre-wrap"></div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                          <button type="button" id="delete-avatar" class="hidden px-6 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition">
+                            <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete Avatar
+                          </button>
+                          <div class="flex gap-3">
+                            <button type="button" id="cancel-edit" class="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition">Cancel</button>
+                            <button type="submit" id="save-avatar" class="px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm">
+                              Save Changes
+                            </button>
                           </div>
-                        </div>
-                        <div class="mt-6 flex flex-col sm:flex-row justify-end gap-3 sm:space-x-3">
-                          <button type="button" id="delete-avatar" class="hidden inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition order-3 sm:order-1">Delete</button>
-                          <button type="button" id="cancel-edit" class="inline-flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition order-2">Cancel</button>
-                          <button type="submit" id="save-avatar" class="inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition order-1 sm:order-3">Save Changes</button>
                         </div>
                       </form>
                     </div>
