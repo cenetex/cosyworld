@@ -1197,10 +1197,18 @@ One-liner (no quotes):`;
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
   async ensureEncounterForAttack({ channelId, attacker, defender, sourceMessage, deferStart = false }) {
-    // Block self-combat as a safety net
-    const attackerId = this._normalizeId(attacker);
-    const defenderId = this._normalizeId(defender);
+    // Block self-combat as a safety net - use _getAvatarId to extract ID from avatar objects
+    const attackerId = this._getAvatarId(attacker);
+    const defenderId = this._getAvatarId(defender);
+    
+    // Comprehensive debug logging
+    this.logger?.info?.(`[CombatEncounterService] SELF-COMBAT CHECK:`);
+    this.logger?.info?.(`  Attacker: name="${attacker?.name}" id="${attackerId}"`);
+    this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}"`);
+    this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
+    
     if (attackerId && defenderId && attackerId === defenderId) {
+      this.logger?.warn?.(`[CombatEncounterService] Self-combat blocked: ${attacker?.name} tried to fight themselves`);
       throw new Error('self_combat_blocked');
     }
     
