@@ -132,8 +132,11 @@ export class AttackTool extends BasicTool {
       const attackerId = normalizeId(avatar);
       const defenderId = normalizeId(defender);
       
-      // Debug logging to diagnose false positives
-      this.logger?.debug?.(`[AttackTool] Checking self-combat: attacker=${avatar?.name}(${attackerId}), defender=${defender?.name}(${defenderId})`);
+      // Comprehensive debug logging
+      this.logger?.info?.(`[AttackTool] SELF-COMBAT CHECK:`);
+      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
+      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
+      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
       
       if (attackerId && defenderId && attackerId === defenderId) {
         this.logger?.warn?.(`[AttackTool] Self-combat blocked: ${avatar?.name} tried to attack themselves`);

@@ -69,8 +69,10 @@ export class ChallengeTool extends BasicTool {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
-      if (!defender) return `-# 🫠 [ Target '${targetName}' not found here. ]`;
-      
+      if (!defender) {
+        return `-# � [ The avatar can't be found! ]`;
+      }
+
       // Block self-combat - normalize both IDs properly
       const normalizeId = (obj) => {
         if (!obj) return '';
@@ -80,19 +82,20 @@ export class ChallengeTool extends BasicTool {
         if (typeof id === 'object' && id.toString) return id.toString();
         return String(id);
       };
-      
+
       const attackerId = normalizeId(avatar);
       const defenderId = normalizeId(defender);
-      
-      // Debug logging to diagnose false positives
-      this.logger?.debug?.(`[ChallengeTool] Checking self-combat: attacker=${avatar?.name}(${attackerId}), defender=${defender?.name}(${defenderId})`);
-      
+
+      // Comprehensive debug logging
+      this.logger?.info?.(`[ChallengeTool] SELF-COMBAT CHECK:`);
+      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
+      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
+      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
+
       if (attackerId && defenderId && attackerId === defenderId) {
         this.logger?.warn?.(`[ChallengeTool] Self-combat blocked: ${avatar?.name} tried to challenge themselves`);
         return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
-      }
-      
-      // Defender state checks for clearer reasons
+      }      // Defender state checks for clearer reasons
       try {
         const now = Date.now();
         if (defender.status === 'dead') {
