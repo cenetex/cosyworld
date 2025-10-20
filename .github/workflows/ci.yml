@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
-      NODE_ENV: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
