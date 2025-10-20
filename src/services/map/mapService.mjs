@@ -120,8 +120,9 @@ export class MapService {
    * Atomically update both dungeon_positions and avatar.channelId.
    * Delegates avatar update to AvatarGateway to avoid direct coupling.
    * Records visit in location memory.
+   * @returns {Promise<Object>} The updated avatar object
    */
-  async updateAvatarPosition(avatar, newLocationId) {
+  async updateAvatarPosition(avatar, newLocationId, _oldLocationId) {
     const db = await this._db();
     const session = db.client.startSession();
 
@@ -161,6 +162,12 @@ export class MapService {
 
     // refresh cache
     this.positionsCache.set(avatar._id.toString(), { locationId: newLocationId, avatarId: avatar._id, lastMoved: new Date() });
+    
+    // Return updated avatar with new channelId
+    return {
+      ...avatar,
+      channelId: newLocationId
+    };
   }
 
   async getAvatarPosition(avatarId) {
