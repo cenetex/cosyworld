@@ -66,7 +66,7 @@ export class GlobalBotService {
         type: "global_narrator",
         personality: "I am the narrator of CosyWorld, a warm and welcoming guide who introduces new souls to our universe. I celebrate each arrival with genuine curiosity and help the community discover fascinating characters. I have a friendly, slightly whimsical tone and enjoy highlighting what makes each being unique.",
         dynamicPrompt: "I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to CosyWorld.",
-        model: process.env.GLOBAL_BOT_MODEL || "anthropic/claude-3.5-sonnet",
+        model: process.env.GLOBAL_BOT_MODEL || "anthropic/claude-sonnet-4.5",
         status: "immortal",
         createdAt: new Date(),
         updatedAt: new Date(),

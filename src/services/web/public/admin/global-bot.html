@@ -349,10 +349,12 @@
     // Load available models from API
     async function loadModels() {
       try {
+        console.log('[Model Selector] Loading models from API...');
         const response = await fetch('/api/models/config');
         if (!response.ok) throw new Error(`HTTP error ${response.status}`);
         
         const modelsData = await response.json();
+        console.log('[Model Selector] Received', modelsData.length, 'models from API');
         const modelNames = Array.isArray(modelsData) ? modelsData.map(m => m?.model).filter(Boolean) : [];
         
         // Build provider map
@@ -371,10 +373,14 @@
           }
         });
         
+        console.log('[Model Selector] Organized into', modelsByProvider.size, 'providers');
+        console.log('[Model Selector] Providers:', Array.from(modelsByProvider.keys()).join(', '));
+        
         // Initialize the dropdowns
         initializeModelSelectors();
+        console.log('[Model Selector] Initialization complete');
       } catch (error) {
-        console.error('Error loading models:', error);
+        console.error('[Model Selector] Error loading models:', error);
       }
     }
     
@@ -403,11 +409,14 @@
       // Provider change handler
       providerSelect.onchange = () => {
         const selectedProvider = providerSelect.value;
+        console.log('[Model Selector] Provider changed to:', selectedProvider);
         modelNameSelect.innerHTML = '';
         modelNameSelect.disabled = !selectedProvider;
         
         if (selectedProvider) {
           const models = modelsByProvider.get(selectedProvider) || [];
+          console.log('[Model Selector] Loading', models.length, 'models for provider:', selectedProvider);
+          
           models.forEach(modelInfo => {
             const option = document.createElement('option');
             option.value = modelInfo.fullName;
@@ -417,6 +426,7 @@
           
           // Try to select the current model if it's in this provider
           if (currentBotModel && currentBotModel.startsWith(selectedProvider + '/')) {
+            console.log('[Model Selector] Selecting current model:', currentBotModel);
             modelNameSelect.value = currentBotModel;
           }
         }
@@ -459,20 +469,63 @@
       console.log('[Model Selector] Setting provider to:', provider);
       providerSelect.value = provider;
       
-      // Trigger change to populate models
-      const changeEvent = new Event('change');
-      providerSelect.dispatchEvent(changeEvent);
+      // Manually populate the model dropdown (don't rely on event timing)
+      const models = modelsByProvider.get(provider) || [];
+      console.log('[Model Selector] Manually populating', models.length, 'models');
       
-      // Then set the specific model
-      setTimeout(() => {
-        console.log('[Model Selector] Setting model to:', modelFullName);
-        modelNameSelect.value = modelFullName;
-        if (modelNameSelect.value !== modelFullName) {
-          console.error('[Model Selector] Failed to set model value. Current value:', modelNameSelect.value);
-        } else {
-          console.log('[Model Selector] Model set successfully');
+      modelNameSelect.innerHTML = '';
+      modelNameSelect.disabled = false;
+      
+      models.forEach(modelInfo => {
+        const option = document.createElement('option');
+        option.value = modelInfo.fullName;
+        option.textContent = modelInfo.modelName;
+        modelNameSelect.appendChild(option);
+      });
+      
+      // Now set the specific model
+      console.log('[Model Selector] Setting model to:', modelFullName);
+      modelNameSelect.value = modelFullName;
+      
+      // If the model doesn't exist, try to find a reasonable fallback
+      if (modelNameSelect.value !== modelFullName) {
+        console.warn('[Model Selector] Model not found:', modelFullName);
+        console.log('[Model Selector] Available options:', Array.from(modelNameSelect.options).map(o => o.value));
+        
+        // Try fallback strategies for common models
+        let fallback = null;
+        const availableModels = Array.from(modelNameSelect.options).map(o => o.value);
+        
+        if (modelFullName.includes('claude-3.5-sonnet')) {
+          // Try newer Claude Sonnet versions
+          fallback = availableModels.find(m => m.includes('claude-sonnet-4.5')) ||
+                     availableModels.find(m => m.includes('claude-sonnet-4')) ||
+                     availableModels.find(m => m.includes('claude-3.7-sonnet')) ||
+                     availableModels.find(m => m.includes('sonnet'));
+        } else if (modelFullName.includes('claude-3.5-haiku')) {
+          fallback = availableModels.find(m => m.includes('claude-haiku-4.5')) ||
+                     availableModels.find(m => m.includes('claude-3.5-haiku'));
+        } else if (modelFullName.includes('claude')) {
+          // Generic Claude fallback - prefer Sonnet
+          fallback = availableModels.find(m => m.includes('sonnet')) ||
+                     availableModels.find(m => m.includes('claude'));
         }
-      }, 150);
+        
+        // If still no fallback, just use the first available model for this provider
+        if (!fallback && models.length > 0) {
+          fallback = models[0].fullName;
+        }
+        
+        if (fallback) {
+          console.log('[Model Selector] Using fallback model:', fallback);
+          modelNameSelect.value = fallback;
+          showStatus(`Model "${modelFullName}" not available, using "${fallback}" instead`);
+        } else {
+          console.error('[Model Selector] No fallback available');
+        }
+      } else {
+        console.log('[Model Selector] Model set successfully');
+      }
     }
     
     // Get the currently selected model
@@ -549,13 +602,15 @@
           model: selectedModel
         };
         
-        const res = await fetch('/api/admin/global-bot/persona', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates)
-        });
+        console.log('[Save] Saving with model:', selectedModel);
         
-        const data = await res.json();
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/persona', {
+          method: 'PUT',
+          body: updates,
+          requireCsrf: true,
+          sign: true
+        });
         
         if (!data.success) {
           throw new Error(data.error || 'Save failed');
@@ -569,7 +624,8 @@
           console.log('[Save] Model updated to:', data.bot.model);
         }
       } catch (err) {
-        showError('Failed to save persona: ' + err.message);
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to save persona: ' + errMsg);
         console.error('[Save] Error:', err);
       }
     }
@@ -579,11 +635,12 @@
       try {
         showStatus('Generating new narrative...');
         
-        const res = await fetch('/api/admin/global-bot/generate-narrative', {
-          method: 'POST'
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/generate-narrative', {
+          method: 'POST',
+          requireCsrf: true,
+          sign: true
         });
-        
-        const data = await res.json();
         
         if (!data.success) {
           throw new Error(data.error || 'Generation failed');
@@ -592,7 +649,8 @@
         document.getElementById('dynamic-prompt-textarea').value = data.narrative || '';
         showSuccess('New narrative generated!');
       } catch (err) {
-        showError('Failed to generate narrative: ' + err.message);
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to generate narrative: ' + errMsg);
       }
     }
     
@@ -617,13 +675,13 @@
           prompt: description
         };
         
-        const res = await fetch('/api/admin/global-bot/preview', {
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/preview', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: payload,
+          requireCsrf: true,
+          sign: true
         });
-        
-        const data = await res.json();
         
         if (!data.success) {
           throw new Error(data.error || 'Preview failed');
@@ -633,7 +691,8 @@
         document.getElementById('preview-result').style.display = 'block';
         clearStatus();
       } catch (err) {
-        showError('Failed to generate preview: ' + err.message);
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to generate preview: ' + errMsg);
       }
     }
     
@@ -711,12 +770,26 @@
       document.getElementById('status-message').style.display = 'none';
     }
     
-    // Load data on page load
-    window.addEventListener('DOMContentLoaded', async () => {
+    // Wait for admin bootstrap to be ready
+    async function initPage() {
+      // Wait for AdminAPI to be available
+      if (!window.AdminAPI) {
+        await new Promise(resolve => {
+          window.addEventListener('admin:bootstrapReady', resolve, { once: true });
+        });
+      }
+      
       await loadModels();
       await loadPersona();
       loadPosts();
-    });
+    }
+    
+    // Load data on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+      initPage();
+    }
   </script>
         </div>
       </div>
