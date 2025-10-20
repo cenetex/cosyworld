@@ -1,0 +1,31 @@
+name: Verify Dependencies
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies without cache
+        run: npm ci --no-audit --no-fund
+
+      - name: Check webpack-cli installation
+        run: |
+          echo "Checking for webpack-cli..."
+          npx webpack-cli --version
+          echo "webpack-cli found!"
+
+      - name: List installed packages
+        run: npm list webpack-cli
+
+      - name: Test build
+        run: npm run build:js

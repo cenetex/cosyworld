@@ -35,6 +35,12 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Verify webpack-cli installation
+        run: |
+          echo "Verifying webpack-cli is installed..."
+          npm list webpack-cli || echo "webpack-cli not found in npm list!"
+          ls -la node_modules/.bin/webpack* || echo "No webpack binaries found!"
+
       - name: Lint
         run: npm run lint
 
