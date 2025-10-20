@@ -193,6 +193,16 @@ export class ConversationManager  {
     return this.memoryService.storeNarrative(avatarId, content);
   }
 
+  /**
+   * Get channel context (wrapper for fetchChannelContext for backward compatibility)
+   * @param {string} channelId - Discord channel ID
+   * @param {number} limit - Number of messages to fetch (default 50)
+   * @returns {Promise<Array>} Array of formatted messages
+   */
+  async getChannelContext(channelId, limit = 50) {
+    return this.fetchChannelContext(channelId, null, limit);
+  }
+
   async fetchChannelContext(channelId, avatar, limit = 10) {
     try {
       this.logger.debug?.(`Fetching channel context for channel ${channelId}`);
@@ -820,7 +830,7 @@ export class ConversationManager  {
             avatarService: this.avatarService,
             discordService: this.discordService,
             configService: this.configService
-          }, avatar, this.getChannelContext(channel.id, 50));
+          }, avatar, await this.getChannelContext(channel.id, 50));
 
           // After successfully sending a visible message, process bot->bot mentions (limited cascade)
           try {

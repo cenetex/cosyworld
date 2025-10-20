@@ -16,6 +16,7 @@ import { adminWriteRateLimit } from './middleware/adminRateLimit.js';
 import { AuditLogService } from '../../foundation/auditLogService.mjs';
 import eventBus from '../../../utils/eventBus.mjs';
 import { registerXGlobalAutoPoster } from '../../social/xGlobalAutoPoster.mjs';
+import { registerTelegramGlobalAutoPoster } from '../../social/telegramGlobalAutoPoster.mjs';
 async function initializeApp(services) {
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -121,6 +122,17 @@ async function initializeApp(services) {
         logger 
       });
     } catch (e) { logger?.warn?.('[init] xGlobalAutoPoster registration failed: ' + e.message); }
+
+    // Register global Telegram auto poster
+    try {
+      registerTelegramGlobalAutoPoster({ 
+        telegramService: services.telegramService, 
+        aiService: services.openRouterAIService || services.aiService, 
+        databaseService: services.databaseService,
+        globalBotService: services.globalBotService,
+        logger 
+      });
+    } catch (e) { logger?.warn?.('[init] telegramGlobalAutoPoster registration failed: ' + e.message); }
 
     // Setup routes (must be registered before auth checks)
     app.use('/api/setup', (await import('./routes/setup.js')).default(services));

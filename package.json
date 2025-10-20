@@ -90,6 +90,7 @@
     "sharp": "^0.33.5",
     "string-similarity": "^4.0.4",
     "tailwindcss": "^3.4.17",
+    "telegraf": "^4.16.3",
     "tweetnacl": "^1.0.3",
     "twitter-api-v2": "^1.18.2",
     "uuid": "^11.1.0",

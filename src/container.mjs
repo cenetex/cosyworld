@@ -101,6 +101,7 @@ import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { XService } from './services/social/xService.mjs';
+import { TelegramService } from './services/social/telegramService.mjs';
 import { GlobalBotService } from './services/social/globalBotService.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/UnifiedAIService.mjs';
@@ -388,6 +389,7 @@ async function initializeContainer() {
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
     xService: asClass(XService).singleton(),
+    telegramService: asClass(TelegramService).singleton(),
     globalBotService: asClass(GlobalBotService).singleton(),
     toolService: asClass(ToolService).singleton(),
     toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),

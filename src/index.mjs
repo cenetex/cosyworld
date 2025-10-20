@@ -144,6 +144,19 @@ async function main() {
     }
 
 
+    // Initialize Telegram global bot if configured
+    try {
+      const telegramService = container.resolve('telegramService');
+      const initialized = await telegramService.initializeGlobalBot();
+      if (initialized) {
+        logger.log('[startup] Telegram global bot initialized');
+      } else {
+        logger.debug('[startup] Telegram global bot not configured (optional)');
+      }
+    } catch (e) {
+      logger.warn(`[startup] Telegram bot initialization failed: ${e.message}`);
+    }
+
     // Start the Web Service
     const web = container.resolve('webService');
     await web.start?.();

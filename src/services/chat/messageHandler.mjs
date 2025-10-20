@@ -214,7 +214,7 @@ export class MessageHandler  {
         discordService: this.discordService,
         mapService: this.mapService,
         configService: this.configService,
-      }, avatar, this.conversationManager.getChannelContext(message.channel.id));
+      }, avatar, await this.conversationManager.getChannelContext(message.channel.id));
     }
 
   const channelId = message.channel.id;
@@ -244,7 +244,7 @@ export class MessageHandler  {
     // Agentic tool planning phase (post-response, general chat only)
     try {
       if (this.toolPlanner && !message.author.bot) {
-        const context = this.conversationManager.getChannelContext(message.channel.id) || {};
+        const context = await this.conversationManager.getChannelContext(message.channel.id);
         await this.toolPlanner.planAndMaybeExecute(message, (await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id)) || (await this.avatarService.summonUserAvatar(message)).avatar, context);
       }
     } catch (e) {
