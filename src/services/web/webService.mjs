@@ -20,6 +20,7 @@ export class WebService {
     secretsService,
     setupStatusService,
     promptService,
+    globalBotService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -33,6 +34,7 @@ export class WebService {
     this.secretsService = secretsService;
     this.setupStatusService = setupStatusService;
     this.promptService = promptService;
+    this.globalBotService = globalBotService;
 
     this.started = false;
 
@@ -53,6 +55,7 @@ export class WebService {
       secretsService: this.secretsService,
       setupStatusService: this.setupStatusService,
       promptService: this.promptService,
+      globalBotService: this.globalBotService,
     };
   }
 

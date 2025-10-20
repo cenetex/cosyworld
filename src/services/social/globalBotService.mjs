@@ -38,8 +38,8 @@ export class GlobalBotService {
       this.botId = await this.getOrCreateGlobalBot();
       this.bot = await this.avatarService.getAvatarById(this.botId);
       
-      // Schedule periodic narrative generation (every 6 hours by default)
-      const intervalHours = Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 6);
+      // Schedule periodic narrative generation (once per week by default)
+      const intervalHours = Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168); // 168 hours = 7 days
       this.scheduleNarrativeGeneration(intervalHours);
       
       this.logger?.info?.(`[GlobalBotService] Initialized with bot ID: ${this.botId}`);
@@ -74,7 +74,7 @@ export class GlobalBotService {
           enabled: true,
           maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
           preferredHashtags: ["CosyWorld"],
-          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 6)
+          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168) // Default: once per week (7 days * 24 hours)
         }
       };
       

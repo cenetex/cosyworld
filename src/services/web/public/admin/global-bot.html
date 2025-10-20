@@ -1,10 +1,16 @@
+<!--
+  Copyright (c) 2019-2024 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Bot - CosyWorld Admin</title>
-  <link rel="stylesheet" href="/css/admin.css">
+  <title>Global Bot Management - Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="/css/admin-common.css" rel="stylesheet" />
   <style>
     .global-bot-container {
       max-width: 1200px;
@@ -185,14 +191,41 @@
     }
   </style>
 </head>
-<body>
-  <div class="global-bot-container">
-    <h1>🌍 Global Bot Management</h1>
-    
-    <div id="status-message"></div>
-    
-    <!-- Persona Section -->
-    <div class="section">
+<body class="bg-gray-100">
+  <div class="min-h-screen flex flex-col">
+    <!-- Legacy nav will be replaced by admin-shell.js if present -->
+    <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <h1 class="text-xl font-bold">RATi Admin Panel</h1>
+            </div>
+            <div class="ml-10 flex items-baseline space-x-4">
+              <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+              <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+              <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
+              <a href="/admin/global-bot" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Global Bot</a>
+              <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
+              <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+            </div>
+          </div>
+          <div>
+            <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="flex-grow">
+      <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+          <h1 class="text-3xl font-bold text-gray-900 mb-6">🌍 Global Bot Management</h1>
+          
+          <div id="status-message"></div>
+          
+          <!-- Persona Section -->
+          <div class="section">
       <h2>Bot Persona</h2>
       <div id="persona-loading" class="loading">Loading persona...</div>
       <div id="persona-content" style="display: none;">
@@ -213,6 +246,21 @@
             <label>Model</label>
             <div id="bot-model"></div>
           </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="model-provider">AI Provider</label>
+          <select id="model-provider" style="width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: inherit; margin-bottom: 10px;">
+            <option value="">Loading providers...</option>
+          </select>
+          
+          <label for="model-name">Model</label>
+          <select id="model-name" style="width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: inherit;" disabled>
+            <option value="">Select provider first</option>
+          </select>
+          <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+            Select the AI model for generating global bot posts. Claude 3.5 Sonnet is recommended for best quality.
+          </p>
         </div>
         
         <div style="margin-top: 20px;">
@@ -294,6 +342,147 @@
   </div>
   
   <script>
+    // Global variables
+    let modelsByProvider = new Map();
+    let currentBotModel = null;
+    
+    // Load available models from API
+    async function loadModels() {
+      try {
+        const response = await fetch('/api/models/config');
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        
+        const modelsData = await response.json();
+        const modelNames = Array.isArray(modelsData) ? modelsData.map(m => m?.model).filter(Boolean) : [];
+        
+        // Build provider map
+        modelsByProvider.clear();
+        modelNames.forEach((fullModel) => {
+          const [provider, ...modelParts] = fullModel.split('/');
+          const modelName = modelParts.join('/');
+          if (provider && modelName) {
+            if (!modelsByProvider.has(provider)) {
+              modelsByProvider.set(provider, []);
+            }
+            modelsByProvider.get(provider).push({
+              fullName: fullModel,
+              modelName: modelName
+            });
+          }
+        });
+        
+        // Initialize the dropdowns
+        initializeModelSelectors();
+      } catch (error) {
+        console.error('Error loading models:', error);
+      }
+    }
+    
+    // Initialize provider/model dropdowns
+    function initializeModelSelectors() {
+      const providerSelect = document.getElementById('model-provider');
+      const modelNameSelect = document.getElementById('model-name');
+      
+      if (!providerSelect || !modelNameSelect) return;
+      
+      // Clear and populate provider dropdown
+      providerSelect.innerHTML = '<option value="">Select provider...</option>';
+      const providers = Array.from(modelsByProvider.keys()).sort();
+      
+      providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider;
+        option.textContent = provider;
+        providerSelect.appendChild(option);
+      });
+      
+      // Reset model dropdown
+      modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
+      modelNameSelect.disabled = true;
+      
+      // Provider change handler
+      providerSelect.onchange = () => {
+        const selectedProvider = providerSelect.value;
+        modelNameSelect.innerHTML = '';
+        modelNameSelect.disabled = !selectedProvider;
+        
+        if (selectedProvider) {
+          const models = modelsByProvider.get(selectedProvider) || [];
+          models.forEach(modelInfo => {
+            const option = document.createElement('option');
+            option.value = modelInfo.fullName;
+            option.textContent = modelInfo.modelName;
+            modelNameSelect.appendChild(option);
+          });
+          
+          // Try to select the current model if it's in this provider
+          if (currentBotModel && currentBotModel.startsWith(selectedProvider + '/')) {
+            modelNameSelect.value = currentBotModel;
+          }
+        }
+      };
+    }
+    
+    // Set the current model in the dropdowns
+    function setCurrentModel(modelFullName) {
+      currentBotModel = modelFullName;
+      console.log('[Model Selector] Setting current model:', modelFullName);
+      
+      if (!modelFullName) {
+        console.warn('[Model Selector] No model provided');
+        return;
+      }
+      
+      if (modelsByProvider.size === 0) {
+        console.warn('[Model Selector] Models not loaded yet, will retry');
+        // Retry after a short delay
+        setTimeout(() => setCurrentModel(modelFullName), 200);
+        return;
+      }
+      
+      const [provider] = modelFullName.split('/');
+      const providerSelect = document.getElementById('model-provider');
+      const modelNameSelect = document.getElementById('model-name');
+      
+      if (!provider || !providerSelect || !modelNameSelect) {
+        console.error('[Model Selector] Missing elements or invalid model format');
+        return;
+      }
+      
+      // Check if provider exists
+      if (!modelsByProvider.has(provider)) {
+        console.error('[Model Selector] Provider not found:', provider);
+        console.log('[Model Selector] Available providers:', Array.from(modelsByProvider.keys()));
+        return;
+      }
+      
+      console.log('[Model Selector] Setting provider to:', provider);
+      providerSelect.value = provider;
+      
+      // Trigger change to populate models
+      const changeEvent = new Event('change');
+      providerSelect.dispatchEvent(changeEvent);
+      
+      // Then set the specific model
+      setTimeout(() => {
+        console.log('[Model Selector] Setting model to:', modelFullName);
+        modelNameSelect.value = modelFullName;
+        if (modelNameSelect.value !== modelFullName) {
+          console.error('[Model Selector] Failed to set model value. Current value:', modelNameSelect.value);
+        } else {
+          console.log('[Model Selector] Model set successfully');
+        }
+      }, 150);
+    }
+    
+    // Get the currently selected model
+    function getCurrentModel() {
+      const modelNameSelect = document.getElementById('model-name');
+      const value = modelNameSelect?.value || null;
+      console.log('[Model Selector] Getting current model:', value);
+      return value;
+    }
+    
     // Load persona data
     async function loadPersona() {
       try {
@@ -314,6 +503,7 @@
         document.getElementById('bot-emoji').textContent = bot.emoji || '🌍';
         document.getElementById('bot-status').innerHTML = `<span class="status status-${bot.status}">${bot.status}</span>`;
         document.getElementById('bot-model').textContent = bot.model || 'Unknown';
+        setCurrentModel(bot.model || 'anthropic/claude-3.5-sonnet');
         document.getElementById('personality-textarea').value = bot.personality || '';
         document.getElementById('dynamic-prompt-textarea').value = bot.dynamicPrompt || '';
         
@@ -347,9 +537,16 @@
     // Save persona changes
     async function savePersona() {
       try {
+        const selectedModel = getCurrentModel();
+        if (!selectedModel) {
+          showError('Please select a model');
+          return;
+        }
+        
         const updates = {
           personality: document.getElementById('personality-textarea').value,
-          dynamicPrompt: document.getElementById('dynamic-prompt-textarea').value
+          dynamicPrompt: document.getElementById('dynamic-prompt-textarea').value,
+          model: selectedModel
         };
         
         const res = await fetch('/api/admin/global-bot/persona', {
@@ -365,8 +562,15 @@
         }
         
         showSuccess('Persona saved successfully!');
+        
+        // Update the display model text
+        if (data.bot && data.bot.model) {
+          document.getElementById('bot-model').textContent = data.bot.model;
+          console.log('[Save] Model updated to:', data.bot.model);
+        }
       } catch (err) {
         showError('Failed to save persona: ' + err.message);
+        console.error('[Save] Error:', err);
       }
     }
     
@@ -508,10 +712,24 @@
     }
     
     // Load data on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      loadPersona();
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadModels();
+      await loadPersona();
       loadPosts();
     });
   </script>
+        </div>
+      </div>
+    </main>
+
+    <footer class="bg-white">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+        <p class="text-center text-sm text-gray-500">
+          RATi Swarm Admin Panel © 2024
+        </p>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
 </body>
 </html>

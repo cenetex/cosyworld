@@ -281,6 +281,11 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
+    app.get('/admin/global-bot', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'global-bot.html'), (err) => {
+        if (err) next(err);
+      });
+    });
 
     // SPA fallback (only if serving a frontend)
     app.get('*', (req, res, next) => {
