@@ -514,6 +514,17 @@ async function initializeContainer() {
     console.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
   }
 
+  // Initialize LocationService indexes to prevent duplicate locations
+  try {
+    if (container.registrations.locationService) {
+      const locService = container.resolve('locationService');
+      await locService.initializeDatabase(); // Create unique index on channelId
+      console.log('[container] LocationService indexes initialized.');
+    }
+  } catch (e) {
+    console.warn('[container] Failed to initialize LocationService:', e.message);
+  }
+
   // Late bind s3Service into optional googleAIService
   try {
     if (googleAIService && container.registrations.s3Service) {

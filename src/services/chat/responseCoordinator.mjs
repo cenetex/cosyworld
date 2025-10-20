@@ -852,6 +852,29 @@ export class ResponseCoordinator {
         cascadeDepth: context.cascadeDepth || 0
       };
 
+      // CRITICAL: Verify avatar is still in this channel before responding
+      // An avatar may have moved during tool execution (e.g., MoveTool)
+      // If avatar has moved, we should respond in their NEW location
+      try {
+        const freshAvatar = await this.avatarService.getAvatarById(avatar._id || avatar.id);
+        if (freshAvatar && String(freshAvatar.channelId) !== String(channel.id)) {
+          this.logger.info?.(`[ResponseCoordinator] Avatar ${avatar.name} moved to ${freshAvatar.channelId}, redirecting response`);
+          
+          // Fetch the new channel
+          const newChannel = await this.discordService.client.channels.fetch(freshAvatar.channelId);
+          if (newChannel) {
+            // Update avatar reference with fresh data
+            avatar = freshAvatar;
+            channel = newChannel;
+          } else {
+            this.logger.warn?.(`[ResponseCoordinator] Could not fetch new channel ${freshAvatar.channelId}, using original`);
+          }
+        }
+      } catch (e) {
+        this.logger.warn?.(`[ResponseCoordinator] Failed to check avatar location: ${e.message}`);
+        // Continue with original channel if check fails
+      }
+
       return await this.conversationManager.sendResponse(channel, avatar, null, options);
     } catch (e) {
       this.logger.error(`[ResponseCoordinator] generateResponse error: ${e.message}`);

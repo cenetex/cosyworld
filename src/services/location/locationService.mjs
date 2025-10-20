@@ -61,6 +61,28 @@ export class LocationService  {
   }
 
   /**
+   * Initialize database indexes to prevent duplicate locations.
+   * Should be called during service startup.
+   */
+  async initializeDatabase() {
+    await this.ensureDbConnection();
+    
+    try {
+      // Create unique index on channelId to prevent duplicates
+      await this.db.collection('locations').createIndex(
+        { channelId: 1 },
+        { unique: true, background: true }
+      );
+      console.log('LocationService: Created unique index on channelId');
+    } catch (error) {
+      // Index might already exist
+      if (error.code !== 85 && error.code !== 86) {
+        console.warn('LocationService: Failed to create index:', error.message);
+      }
+    }
+  }
+
+  /**
    * Generates an image for a location using Replicate and uploads it to S3.
    * @param {string} locationName - The location name used in the prompt.
    * @param {string} description - Additional descriptive text for the prompt.
@@ -291,10 +313,23 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         throw new Error(`Invalid location schema: ${JSON.stringify(validation.errors)}`);
       }
 
-      // Save to DB
+      // Save to DB with upsert and setOnInsert for createdAt
       await this.db.collection('locations').updateOne(
         { channelId: thread.id },
-        { $set: locationDocument },
+        { 
+          $set: {
+            name: locationDocument.name,
+            description: locationDocument.description,
+            imageUrl: locationDocument.imageUrl,
+            type: locationDocument.type,
+            parentId: locationDocument.parentId,
+            updatedAt: locationDocument.updatedAt,
+            version: locationDocument.version
+          },
+          $setOnInsert: {
+            createdAt: locationDocument.createdAt
+          }
+        },
         { upsert: true }
       );
 
@@ -382,7 +417,18 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         version: '1.0.0'
       };
 
-      await this.db.collection('locations').insertOne(location);
+      // Use updateOne with upsert to prevent race condition duplicates
+      await this.db.collection('locations').updateOne(
+        { channelId },
+        { 
+          $set: location,
+          $setOnInsert: { createdAt: new Date().toISOString() }
+        },
+        { upsert: true }
+      );
+
+      // Fetch the location again to ensure we have the correct _id
+      location = await this.db.collection('locations').findOne({ channelId });
 
       await this.discordService.sendLocationEmbed(location, [], [], channelId);
       await this.discordService.sendAsWebhook(channelId, description, {
