@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Bot - CosyWorld Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+  <style>
+    .global-bot-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .section h2 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    
+    .persona-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .info-card {
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .info-card label {
+      font-weight: bold;
+      color: #4a5568;
+      display: block;
+      margin-bottom: 5px;
+    }
+    
+    .info-card value {
+      color: #2d3748;
+      font-size: 1.1em;
+    }
+    
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+    
+    .btn-secondary {
+      background: #718096;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #4a5568;
+    }
+    
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #38a169;
+    }
+    
+    .memory-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .memory-item {
+      background: #f7fafc;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border-left: 3px solid #667eea;
+    }
+    
+    .post-list {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .post-item {
+      background: #f7fafc;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #48bb78;
+    }
+    
+    .post-meta {
+      color: #718096;
+      font-size: 0.9em;
+      margin-top: 8px;
+    }
+    
+    .preview-box {
+      background: #edf2f7;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 10px;
+      border: 1px solid #cbd5e0;
+    }
+    
+    .status {
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+    
+    .status-active {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .status-immortal {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+    
+    .error {
+      background: #fed7d7;
+      color: #742a2a;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    
+    .success {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="global-bot-container">
+    <h1>🌍 Global Bot Management</h1>
+    
+    <div id="status-message"></div>
+    
+    <!-- Persona Section -->
+    <div class="section">
+      <h2>Bot Persona</h2>
+      <div id="persona-loading" class="loading">Loading persona...</div>
+      <div id="persona-content" style="display: none;">
+        <div class="persona-info">
+          <div class="info-card">
+            <label>Name</label>
+            <div id="bot-name"></div>
+          </div>
+          <div class="info-card">
+            <label>Emoji</label>
+            <div id="bot-emoji" style="font-size: 2em;"></div>
+          </div>
+          <div class="info-card">
+            <label>Status</label>
+            <div id="bot-status"></div>
+          </div>
+          <div class="info-card">
+            <label>Model</label>
+            <div id="bot-model"></div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="personality-textarea">Core Personality</label>
+          <textarea id="personality-textarea"></textarea>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="dynamic-prompt-textarea">Current Perspective (Dynamic Prompt)</label>
+          <textarea id="dynamic-prompt-textarea"></textarea>
+          <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+            This evolves automatically as the bot welcomes new avatars and reflects on its experiences.
+          </p>
+        </div>
+        
+        <div class="button-group">
+          <button class="btn-primary" onclick="savePersona()">💾 Save Persona</button>
+          <button class="btn-secondary" onclick="generateNarrative()">🔄 Generate New Narrative</button>
+          <button class="btn-secondary" onclick="loadPersona()">↻ Refresh</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stats Section -->
+    <div class="section">
+      <h2>Statistics</h2>
+      <div class="persona-info">
+        <div class="info-card">
+          <label>Total Introductions</label>
+          <div id="stat-intros">-</div>
+        </div>
+        <div class="info-card">
+          <label>Memories Stored</label>
+          <div id="stat-memories">-</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recent Memories -->
+    <div class="section">
+      <h2>Recent Memories</h2>
+      <ul id="memory-list" class="memory-list"></ul>
+    </div>
+    
+    <!-- Preview Generator -->
+    <div class="section">
+      <h2>Preview Post Generation</h2>
+      <p>Test how the bot would introduce a new avatar:</p>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-name">Avatar Name</label>
+        <input type="text" id="preview-name" placeholder="e.g., Zanara the Mystic" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-emoji">Avatar Emoji</label>
+        <input type="text" id="preview-emoji" placeholder="e.g., 🔮" style="width: 100px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-description">Description</label>
+        <textarea id="preview-description" placeholder="e.g., A mystical seer with ancient powers..." style="min-height: 80px;"></textarea>
+      </div>
+      
+      <button class="btn-success" onclick="generatePreview()" style="margin-top: 10px;">✨ Generate Preview</button>
+      
+      <div id="preview-result" class="preview-box" style="display: none;">
+        <strong>Generated Post:</strong>
+        <div id="preview-text" style="margin-top: 10px; font-size: 1.1em;"></div>
+      </div>
+    </div>
+    
+    <!-- Recent Posts -->
+    <div class="section">
+      <h2>Recent Posts</h2>
+      <div id="posts-loading" class="loading">Loading posts...</div>
+      <div id="posts-list" class="post-list" style="display: none;"></div>
+    </div>
+  </div>
+  
+  <script>
+    // Load persona data
+    async function loadPersona() {
+      try {
+        document.getElementById('persona-loading').style.display = 'block';
+        document.getElementById('persona-content').style.display = 'none';
+        
+        const res = await fetch('/api/admin/global-bot/persona');
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load persona');
+        }
+        
+        const { bot, memories, stats } = data.persona;
+        
+        // Update persona fields
+        document.getElementById('bot-name').textContent = bot.name || 'Unknown';
+        document.getElementById('bot-emoji').textContent = bot.emoji || '🌍';
+        document.getElementById('bot-status').innerHTML = `<span class="status status-${bot.status}">${bot.status}</span>`;
+        document.getElementById('bot-model').textContent = bot.model || 'Unknown';
+        document.getElementById('personality-textarea').value = bot.personality || '';
+        document.getElementById('dynamic-prompt-textarea').value = bot.dynamicPrompt || '';
+        
+        // Update stats
+        document.getElementById('stat-intros').textContent = stats.totalIntroductions || 0;
+        document.getElementById('stat-memories').textContent = stats.memoryCount || 0;
+        
+        // Update memories list
+        const memoryList = document.getElementById('memory-list');
+        memoryList.innerHTML = '';
+        
+        if (memories && memories.length > 0) {
+          memories.forEach(mem => {
+            const li = document.createElement('li');
+            li.className = 'memory-item';
+            li.textContent = mem.memory || mem.text || 'Empty memory';
+            memoryList.appendChild(li);
+          });
+        } else {
+          memoryList.innerHTML = '<li class="memory-item">No memories yet</li>';
+        }
+        
+        document.getElementById('persona-loading').style.display = 'none';
+        document.getElementById('persona-content').style.display = 'block';
+      } catch (err) {
+        showError('Failed to load persona: ' + err.message);
+        document.getElementById('persona-loading').style.display = 'none';
+      }
+    }
+    
+    // Save persona changes
+    async function savePersona() {
+      try {
+        const updates = {
+          personality: document.getElementById('personality-textarea').value,
+          dynamicPrompt: document.getElementById('dynamic-prompt-textarea').value
+        };
+        
+        const res = await fetch('/api/admin/global-bot/persona', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Save failed');
+        }
+        
+        showSuccess('Persona saved successfully!');
+      } catch (err) {
+        showError('Failed to save persona: ' + err.message);
+      }
+    }
+    
+    // Generate new narrative
+    async function generateNarrative() {
+      try {
+        showStatus('Generating new narrative...');
+        
+        const res = await fetch('/api/admin/global-bot/generate-narrative', {
+          method: 'POST'
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Generation failed');
+        }
+        
+        document.getElementById('dynamic-prompt-textarea').value = data.narrative || '';
+        showSuccess('New narrative generated!');
+      } catch (err) {
+        showError('Failed to generate narrative: ' + err.message);
+      }
+    }
+    
+    // Generate preview
+    async function generatePreview() {
+      try {
+        const name = document.getElementById('preview-name').value;
+        const emoji = document.getElementById('preview-emoji').value;
+        const description = document.getElementById('preview-description').value;
+        
+        if (!name || !description) {
+          showError('Please fill in at least name and description');
+          return;
+        }
+        
+        showStatus('Generating preview...');
+        
+        const payload = {
+          source: 'avatar.create',
+          avatarName: name,
+          avatarEmoji: emoji,
+          prompt: description
+        };
+        
+        const res = await fetch('/api/admin/global-bot/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Preview failed');
+        }
+        
+        document.getElementById('preview-text').textContent = data.preview + ' #CosyWorld';
+        document.getElementById('preview-result').style.display = 'block';
+        clearStatus();
+      } catch (err) {
+        showError('Failed to generate preview: ' + err.message);
+      }
+    }
+    
+    // Load recent posts
+    async function loadPosts() {
+      try {
+        const res = await fetch('/api/admin/global-bot/posts?limit=20');
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load posts');
+        }
+        
+        const postsList = document.getElementById('posts-list');
+        postsList.innerHTML = '';
+        
+        if (data.posts && data.posts.length > 0) {
+          data.posts.forEach(post => {
+            const div = document.createElement('div');
+            div.className = 'post-item';
+            
+            const avatarInfo = post.metadata?.avatarName 
+              ? `<strong>${post.metadata.avatarEmoji || ''} ${post.metadata.avatarName}</strong><br>` 
+              : '';
+            
+            div.innerHTML = `
+              ${avatarInfo}
+              ${post.content}
+              <div class="post-meta">
+                Posted: ${new Date(post.createdAt).toLocaleString()} 
+                ${post.tweetId ? `| <a href="https://x.com/user/status/${post.tweetId}" target="_blank">View on X</a>` : ''}
+                ${post.metadata?.type ? `| Type: ${post.metadata.type}` : ''}
+              </div>
+            `;
+            
+            postsList.appendChild(div);
+          });
+        } else {
+          postsList.innerHTML = '<div class="loading">No posts yet</div>';
+        }
+        
+        document.getElementById('posts-loading').style.display = 'none';
+        document.getElementById('posts-list').style.display = 'block';
+      } catch (err) {
+        showError('Failed to load posts: ' + err.message);
+        document.getElementById('posts-loading').style.display = 'none';
+      }
+    }
+    
+    // Utility functions
+    function showError(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'error';
+      el.textContent = '❌ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+    
+    function showSuccess(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'success';
+      el.textContent = '✅ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+    
+    function showStatus(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'success';
+      el.textContent = '⏳ ' + msg;
+      el.style.display = 'block';
+    }
+    
+    function clearStatus() {
+      document.getElementById('status-message').style.display = 'none';
+    }
+    
+    // Load data on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadPersona();
+      loadPosts();
+    });
+  </script>
+</body>
+</html>

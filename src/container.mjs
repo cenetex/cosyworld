@@ -101,8 +101,9 @@ import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
 import { XService } from './services/social/xService.mjs';
+import { GlobalBotService } from './services/social/globalBotService.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
-import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
+import { UnifiedAIService } from './services/ai/UnifiedAIService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -387,6 +388,7 @@ async function initializeContainer() {
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
     xService: asClass(XService).singleton(),
+    globalBotService: asClass(GlobalBotService).singleton(),
     toolService: asClass(ToolService).singleton(),
     toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),
     toolDecisionService: asClass(ToolDecisionService).singleton(),
@@ -523,6 +525,17 @@ async function initializeContainer() {
     }
   } catch (e) {
     console.warn('[container] Failed to initialize LocationService:', e.message);
+  }
+
+  // Initialize GlobalBotService for intelligent X posting
+  try {
+    if (container.registrations.globalBotService) {
+      const globalBot = container.resolve('globalBotService');
+      await globalBot.initialize();
+      console.log('[container] GlobalBotService initialized.');
+    }
+  } catch (e) {
+    console.warn('[container] Failed to initialize GlobalBotService:', e.message);
   }
 
   // Late bind s3Service into optional googleAIService

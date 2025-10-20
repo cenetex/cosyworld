@@ -113,7 +113,13 @@ async function initializeApp(services) {
 
     // Register global X auto poster (after services prepared)
     try {
-      registerXGlobalAutoPoster({ xService: services.xService, aiService: services.openRouterAIService || services.aiService, logger });
+      registerXGlobalAutoPoster({ 
+        xService: services.xService, 
+        aiService: services.openRouterAIService || services.aiService, 
+        databaseService: services.databaseService,
+        globalBotService: services.globalBotService,
+        logger 
+      });
     } catch (e) { logger?.warn?.('[init] xGlobalAutoPoster registration failed: ' + e.message); }
 
     // Setup routes (must be registered before auth checks)

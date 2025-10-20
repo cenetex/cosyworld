@@ -913,6 +913,86 @@ Please ensure the server is fully initialized.
     }
   }));
 
+  // === Global Bot Management ===
+  
+  // Get global bot persona, memories, and stats
+  router.get('/global-bot/persona', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const persona = await services.globalBotService.getPersona();
+      res.json({ success: true, persona });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load global bot persona' });
+    }
+  }));
+
+  // Update global bot persona
+  router.put('/global-bot/persona', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const updates = req.body;
+      const updatedBot = await services.globalBotService.updatePersona(updates);
+      
+      res.json({ success: true, bot: updatedBot });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to update global bot persona' });
+    }
+  }));
+
+  // Get recent global bot posts
+  router.get('/global-bot/posts', asyncHandler(async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit || 50), 100);
+      const posts = await db.collection('social_posts')
+        .find({ global: true })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      
+      res.json({ success: true, posts });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load global bot posts' });
+    }
+  }));
+
+  // Preview post generation without actually posting
+  router.post('/global-bot/preview', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const payload = req.body;
+      const preview = await services.globalBotService.generateContextualPost(payload);
+      
+      res.json({ success: true, preview, payload });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to generate preview' });
+    }
+  }));
+
+  // Manually trigger narrative generation
+  router.post('/global-bot/generate-narrative', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      await services.globalBotService.generateNarrative();
+      const persona = await services.globalBotService.getPersona();
+      
+      res.json({ success: true, narrative: persona.bot.dynamicPrompt });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to generate narrative' });
+    }
+  }));
+
 
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);

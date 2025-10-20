@@ -955,10 +955,30 @@ class XService {
       let baseText = String(text || '').trim();
       if (!baseText && services.aiService?.analyzeImage && !isVideo) {
         try {
+          // Use context-aware prompts based on source and available data
+          let captionPrompt;
+          
+          if (opts.source === 'avatar.create' && opts.avatarName) {
+            // Special handling for avatar introductions
+            captionPrompt = `This is an introduction image for a new character in CosyWorld: ${opts.avatarEmoji || ''} ${opts.avatarName}.
+Description: ${opts.prompt || 'A mysterious new arrival'}
+
+Create a warm, welcoming introduction tweet (max 240 chars) that:
+- Captures their essence and personality
+- Makes people curious about them
+- Uses a friendly, narrator-like tone
+- Highlights what makes them unique
+
+Do not use quotes or extra hashtags. Be conversational and engaging.`;
+          } else {
+            // General media caption
+            captionPrompt = 'Analyze this image and create an engaging tweet (max 250 chars). Focus on what makes it interesting, unique, or worth sharing. Use a conversational, authentic tone. Avoid generic descriptions. No quotes or extra hashtags.';
+          }
+          
           const caption = await services.aiService.analyzeImage(
             mediaUrl,
             mimeType,
-            'Analyze this image and create an engaging tweet (max 250 chars). Focus on what makes it interesting, unique, or worth sharing. Use a conversational, authentic tone. Avoid generic descriptions. No quotes or extra hashtags.'
+            captionPrompt
           );
           if (caption) baseText = String(caption).replace(/[#\n\r]+/g, ' ').trim();
         } catch (e) { 
@@ -969,7 +989,7 @@ class XService {
       }
       
       // If we have text but it looks like a simple description, enhance it with AI
-      if (baseText && baseText.length < 100 && services.aiService?.analyzeImage && !isVideo) {
+      if (baseText && baseText.length < 100 && services.aiService?.analyzeImage && !isVideo && opts.source !== 'avatar.create') {
         try {
           this.logger?.debug?.('[XService][globalPost] enhancing short text with AI analysis');
           const enhancement = await services.aiService.analyzeImage(
@@ -1053,6 +1073,24 @@ class XService {
       // store basic record
       try {
         const db = await this.databaseService.getDatabase();
+        
+        // Build metadata for deduplication and tracking
+        const metadata = {
+          source: opts.source || 'media.generation',
+          type: opts.source === 'avatar.create' ? 'introduction' : 'general'
+        };
+        
+        // Include avatar info if available for deduplication
+        if (opts.avatarId) {
+          metadata.avatarId = String(opts.avatarId);
+          metadata.avatarName = opts.avatarName || null;
+          metadata.avatarEmoji = opts.avatarEmoji || null;
+        }
+        
+        if (opts.guildId) {
+          metadata.guildId = opts.guildId;
+        }
+        
         await db.collection('social_posts').insertOne({
           global: true,
           mediaUrl,
@@ -1061,6 +1099,7 @@ class XService {
           content: tweetText,
           altText: altText || null,
           shadow: false,
+          metadata,
           createdAt: new Date(),
         });
       } catch (e) { this.logger?.warn?.('[XService][globalPost] db insert failed ' + e.message); }
