@@ -12,11 +12,11 @@ export default [
     "rarity": "legendary"
   },
   {
-    "model": "openai/gpt-4",
+    "model": "openai/gpt-4-0314",
     "rarity": "legendary"
   },
   {
-    "model": "openai/gpt-4-0314",
+    "model": "openai/gpt-4",
     "rarity": "legendary"
   },
   {
@@ -104,11 +104,11 @@ export default [
     "rarity": "rare"
   },
   {
-    "model": "anthropic/claude-haiku-4.5",
+    "model": "anthropic/claude-3.5-sonnet",
     "rarity": "rare"
   },
   {
-    "model": "anthropic/claude-haiku-4.5-20240620",
+    "model": "anthropic/claude-3.5-sonnet-20240620",
     "rarity": "rare"
   },
   {
@@ -228,6 +228,10 @@ export default [
     "rarity": "uncommon"
   },
   {
+    "model": "anthracite-org/magnum-v4-72b",
+    "rarity": "uncommon"
+  },
+  {
     "model": "qwen/qwen-max",
     "rarity": "uncommon"
   },
@@ -253,10 +257,6 @@ export default [
   },
   {
     "model": "mistralai/mistral-large",
-    "rarity": "uncommon"
-  },
-  {
-    "model": "anthracite-org/magnum-v4-72b",
     "rarity": "uncommon"
   },
   {
@@ -576,11 +576,7 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "qwen/qwen3-vl-30b-a3b-thinking",
-    "rarity": "uncommon"
-  },
-  {
-    "model": "qwen/qwen3-vl-30b-a3b-instruct",
+    "model": "deepseek/deepseek-chat-v3.1",
     "rarity": "uncommon"
   },
   {
@@ -589,6 +585,10 @@ export default [
   },
   {
     "model": "inception/mercury-coder",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "qwen/qwen3-vl-30b-a3b-thinking",
     "rarity": "uncommon"
   },
   {
@@ -616,11 +616,11 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "deepseek/deepseek-chat-v3.1",
+    "model": "z-ai/glm-4.5-air",
     "rarity": "uncommon"
   },
   {
-    "model": "z-ai/glm-4.5-air",
+    "model": "qwen/qwen3-vl-30b-a3b-instruct",
     "rarity": "uncommon"
   },
   {
@@ -689,10 +689,6 @@ export default [
   },
   {
     "model": "meituan/longcat-flash-chat",
-    "rarity": "common"
-  },
-  {
-    "model": "qwen/qwen3-vl-8b-instruct",
     "rarity": "common"
   },
   {
@@ -789,6 +785,10 @@ export default [
   },
   {
     "model": "nousresearch/hermes-3-llama-3.1-70b",
+    "rarity": "common"
+  },
+  {
+    "model": "qwen/qwen3-vl-8b-instruct",
     "rarity": "common"
   },
   {
@@ -1052,10 +1052,6 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "gryphe/mythomax-l2-13b",
-    "rarity": "common"
-  },
-  {
     "model": "google/gemma-3-12b-it",
     "rarity": "common"
   },
@@ -1064,7 +1060,15 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "ibm-granite/granite-4.0-h-micro",
+    "rarity": "common"
+  },
+  {
     "model": "qwen/qwen2.5-coder-7b-instruct",
+    "rarity": "common"
+  },
+  {
+    "model": "gryphe/mythomax-l2-13b",
     "rarity": "common"
   },
   {
@@ -1116,10 +1120,6 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "liquid/lfm-3b",
-    "rarity": "common"
-  },
-  {
     "model": "meta-llama/llama-3.2-3b-instruct",
     "rarity": "common"
   },
@@ -1129,10 +1129,6 @@ export default [
   },
   {
     "model": "agentica-org/deepcoder-14b-preview",
-    "rarity": "common"
-  },
-  {
-    "model": "liquid/lfm-7b",
     "rarity": "common"
   },
   {
