@@ -596,7 +596,7 @@ export class OpenRouterAIService {
       this.logger.warn('Model not registered locally; sending as-is to provider:', mergedOptions.model);
     }
 
-    this.logger.info(`Generating chat completion with model ${mergedOptions.model}...`);
+    this.logger.debug?.(`Generating chat completion with model ${mergedOptions.model}...`);
 
     try {
     // Single model attempt

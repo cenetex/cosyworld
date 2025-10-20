@@ -7,15 +7,15 @@ import eventBus from '../../utils/eventBus.mjs';
 
 export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
   if (!xService) return;
-  logger?.info?.('[XGlobalAutoPoster] Initialising (DB-config governed)');
+  logger?.debug?.('[XGlobalAutoPoster] Initialising (DB-config governed)');
 
   const imageHandler = async (payload) => {
     try {
       if (!payload?.imageUrl) return;
-      // Elevate to info so operators always see that the event was captured (even without DEBUG flag)
-      logger?.info?.('[XGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { imageUrl: payload.imageUrl });
+      // Use debug level for routine operations
+      logger?.debug?.('[XGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { imageUrl: payload.imageUrl });
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        logger?.info?.('[XGlobalAutoPoster][diag] image event payload', { keys: Object.keys(payload||{}) });
+        logger?.debug?.('[XGlobalAutoPoster][diag] image event payload', { keys: Object.keys(payload||{}) });
       }
       
       // Pass through context from the event (e.g., avatar introduction, location description)
@@ -35,9 +35,9 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger }) {
   const videoHandler = async (payload) => {
     try {
       if (!payload?.videoUrl) return;
-      logger?.info?.('[XGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { videoUrl: payload.videoUrl });
+      logger?.debug?.('[XGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { videoUrl: payload.videoUrl });
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        logger?.info?.('[XGlobalAutoPoster][diag] video event payload', { keys: Object.keys(payload||{}) });
+        logger?.debug?.('[XGlobalAutoPoster][diag] video event payload', { keys: Object.keys(payload||{}) });
       }
   await xService.postGlobalMediaUpdate({ mediaUrl: payload.videoUrl, type: 'video', guildId: payload.guildId || payload.serverId || null }, { aiService });
     } catch (e) {

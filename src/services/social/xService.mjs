@@ -580,8 +580,8 @@ class XService {
    */
   async postGlobalMediaUpdate(opts = {}, services = {}) {
     try {
-      // Info-level invocation trace for operator visibility even without DEBUG_GLOBAL_X
-      this.logger?.info?.('[XService][globalPost] attempt', {
+      // Debug-level invocation trace for operator diagnostics
+      this.logger?.debug?.('[XService][globalPost] attempt', {
         mediaUrl: opts.mediaUrl,
         type: opts.type || 'image'
       });
@@ -592,7 +592,7 @@ class XService {
       });
       // Early trace of environment + minimal opts for support diagnostics
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        this.logger?.info?.('[XService][globalPost][diag] envFlags', {
+        this.logger?.debug?.('[XService][globalPost][diag] envFlags', {
           X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED,
           X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP,
           X_GLOBAL_POST_MIN_INTERVAL_SEC: process.env.X_GLOBAL_POST_MIN_INTERVAL_SEC,
@@ -645,10 +645,10 @@ class XService {
         enabled = !!config.enabled;
       }
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        this.logger?.info?.('[XService][globalPost][diag] loadedConfig', { enabled, configKeys: Object.keys(config || {}) });
+        this.logger?.debug?.('[XService][globalPost][diag] loadedConfig', { enabled, configKeys: Object.keys(config || {}) });
       }
       if (!enabled) {
-        this.logger?.info?.('[XService][globalPost] skip: disabled', { mediaUrl: opts.mediaUrl });
+        this.logger?.debug?.('[XService][globalPost] skip: disabled', { mediaUrl: opts.mediaUrl });
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
         _bump('disabled', { mediaUrl: opts.mediaUrl });
         return null;
@@ -677,7 +677,7 @@ class XService {
                 if (rec?.accessToken) {
                   authRecord = rec;
                   accessToken = safeDecrypt(rec.accessToken);
-                  this.logger?.info?.('[XService][globalPost] using per-guild override account', { guildId, overrideAuthId, isVideoType });
+                  this.logger?.debug?.('[XService][globalPost] using per-guild override account', { guildId, overrideAuthId, isVideoType });
                 }
               } catch (oidErr) {
                 this.logger?.warn?.('[XService][globalPost] invalid overrideAuthId for guild ' + guildId + ': ' + oidErr.message);
@@ -699,7 +699,7 @@ class XService {
           if (!accessToken) accessToken = safeDecrypt(authRecord.accessToken);
           this.logger?.debug?.('[XService][globalPost] resolved access token', { avatarId: authRecord.avatarId || null, global: !!authRecord.global, guildOverride: !!guildId && !!overrideAuthId });
           if (process.env.DEBUG_GLOBAL_X === '1') {
-            this.logger?.info?.('[XService][globalPost][diag] authRecord', { hasRefresh: !!authRecord.refreshToken, expiresAt: authRecord.expiresAt, profileCached: !!authRecord.profile, guildOverride: !!guildId });
+            this.logger?.debug?.('[XService][globalPost][diag] authRecord', { hasRefresh: !!authRecord.refreshToken, expiresAt: authRecord.expiresAt, profileCached: !!authRecord.profile, guildOverride: !!guildId });
           }
           if (guildId && overrideAuthId) {
             try { this._globalPostMetrics.reasons.guild_override++; } catch {}
@@ -747,18 +747,18 @@ class XService {
       if (this._globalRate.lastPostedAt && (now - this._globalRate.lastPostedAt) < (minIntervalSec * 1000)) {
         const nextInMs = (minIntervalSec * 1000) - (now - this._globalRate.lastPostedAt);
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'min_interval', mediaUrl, waitMs: nextInMs };
-        this.logger?.info?.(`[XService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s before next post`);
+        this.logger?.debug?.(`[XService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s before next post`);
         _bump('min_interval', { mediaUrl, minIntervalSec });
         return null;
       }
       if (this._globalRate.count >= hourlyCap) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'hourly_cap', mediaUrl };
-        this.logger?.warn?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
+        this.logger?.debug?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
         _bump('hourly_cap', { mediaUrl, hourlyCap });
         return null;
       }
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        this.logger?.info?.('[XService][globalPost][diag] proceeding', { mediaUrl, isVideo: type === 'video', hourlyCount: this._globalRate.count });
+        this.logger?.debug?.('[XService][globalPost][diag] proceeding', { mediaUrl, isVideo: type === 'video', hourlyCount: this._globalRate.count });
       }
       this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
 
@@ -1099,7 +1099,7 @@ class XService {
       }
       
       const creds = await this.secretsService.getAsync('x_oauth1_creds');
-      this.logger?.info?.('[XService] Retrieved credentials:', { 
+      this.logger?.debug?.('[XService] Retrieved credentials:', { 
         hasCreds: !!creds,
         credsType: typeof creds,
         credsKeys: creds ? Object.keys(creds) : [],

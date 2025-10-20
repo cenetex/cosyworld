@@ -151,7 +151,7 @@ export class SecretsService {
   }
 
   async getAsync(name, { envFallback = true, guildId = null } = {}) {
-    this.logger.info(`[secrets] getAsync() called for key="${name}", guildId=${guildId}, hasCollection=${!!this.collection}`);
+    this.logger.debug?.(`[secrets] getAsync() called for key="${name}", guildId=${guildId}, hasCollection=${!!this.collection}`);
     // Prefer guild override
     let enc = this.cache.get(this._ck(name, 'guild', guildId));
     if (!enc && this.collection && guildId) {
@@ -160,7 +160,7 @@ export class SecretsService {
         if (doc?.value) {
           enc = doc.value;
           this.cache.set(this._ck(name, 'guild', guildId), enc);
-          this.logger.info(`[secrets] getAsync() loaded guild secret from DB for key="${name}"`);
+          this.logger.debug?.(`[secrets] getAsync() loaded guild secret from DB for key="${name}"`);
         }
       } catch (e) {
         this.logger.error('[secrets] getAsync guild query failed:', e.message);
@@ -169,16 +169,16 @@ export class SecretsService {
     // Fallback to global
     if (!enc) {
       enc = this.cache.get(this._ck(name, 'global'));
-      this.logger.info(`[secrets] getAsync() cache check for key="${name}": ${enc ? 'FOUND' : 'NOT FOUND'}`);
+      this.logger.debug?.(`[secrets] getAsync() cache check for key="${name}": ${enc ? 'FOUND' : 'NOT FOUND'}`);
       if (!enc && this.collection) {
-        this.logger.info(`[secrets] getAsync() querying DB for key="${name}"`);
+        this.logger.debug?.(`[secrets] getAsync() querying DB for key="${name}"`);
         try {
           const doc = await this.collection.findOne({ key: name, $or: [{ scope: 'global' }, { scope: { $exists: false } }] });
-          this.logger.info(`[secrets] getAsync() DB query result for key="${name}": ${doc ? 'FOUND' : 'NOT FOUND'}`);
+          this.logger.debug?.(`[secrets] getAsync() DB query result for key="${name}": ${doc ? 'FOUND' : 'NOT FOUND'}`);
           if (doc?.value) {
             enc = doc.value;
             this.cache.set(this._ck(name, 'global'), enc);
-            this.logger.info(`[secrets] getAsync() loaded global secret from DB for key="${name}"`);
+            this.logger.debug?.(`[secrets] getAsync() loaded global secret from DB for key="${name}"`);
           }
         } catch (e) {
           this.logger.error('[secrets] getAsync global query failed:', e.message);
@@ -188,7 +188,7 @@ export class SecretsService {
     if (enc) {
       try { 
         const decrypted = this.decrypt(enc);
-        this.logger.info(`[secrets] getAsync() returning decrypted value for key="${name}"`);
+        this.logger.debug?.(`[secrets] getAsync() returning decrypted value for key="${name}"`);
         return decrypted;
       } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
     }

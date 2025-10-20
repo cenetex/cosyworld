@@ -430,14 +430,14 @@ export class DiscordService {
           threadId: channel.isThread() ? channelId : undefined,
         });
       }
-      this.logger.info(`Sent message to channel ${channelId} as ${username}`);
+      this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
       sentMessage.rati = {
         avatarId: avatar.id,
       };
       sentMessage.guild = channel.guild;
       sentMessage.channel = channel;
       this.databaseService.saveMessage(sentMessage);
-      this.logger.info(`Saved message to database with ID ${sentMessage.id}`);
+      this.logger.debug?.(`Saved message to database with ID ${sentMessage.id}`);
       return sentMessage;
     } catch (error) {
       this.logger.error(`Failed to send webhook message to ${channelId}: ${error.message}`);
@@ -510,7 +510,7 @@ export class DiscordService {
         components,
       });
 
-      this.logger.info(`Sent embed to channel ${channelId} as ${username}`);
+      this.logger.debug?.(`Sent embed to channel ${channelId} as ${username}`);
     } catch (error) {
       this.logger.error(`Failed to send embed to ${channelId}: ${error.message}`);
       throw error;
@@ -518,7 +518,7 @@ export class DiscordService {
   }
 
   async getGuildByChannelId(channelId) {
-    this.logger.info(`Fetching guild for channel ID: ${channelId}`);
+    this.logger.debug?.(`Fetching guild for channel ID: ${channelId}`);
     try {
       const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
@@ -565,7 +565,7 @@ export class DiscordService {
         return;
       }
       await message.react(emoji);
-      this.logger.info(`Reacted to message ${message.id} with ${emoji}`);
+      this.logger.debug?.(`Reacted to message ${message.id} with ${emoji}`);
     } catch (error) {
       this.logger.error(`Failed to react to message ${message?.id}: ${error?.message}`);
     }

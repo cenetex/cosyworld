@@ -100,7 +100,7 @@ export class ConversationManager  {
         if (picked) {
           avatar.model = picked;
           try { await this.avatarService.updateAvatar(avatar); } catch {}
-          this.logger.info?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
+          this.logger.debug?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
         }
       }
     } catch (e) {
@@ -158,7 +158,7 @@ export class ConversationManager  {
 
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
-  this.logger.info?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048, corrId });
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
       // Scrub any <think> tags that may have leaked from providers
@@ -193,9 +193,9 @@ export class ConversationManager  {
     return this.memoryService.storeNarrative(avatarId, content);
   }
 
-  async getChannelContext(channelId, limit = 50) {
+  async fetchChannelContext(channelId, avatar, limit = 10) {
     try {
-      this.logger.info(`Fetching channel context for channel ${channelId}`);
+      this.logger.debug?.(`Fetching channel context for channel ${channelId}`);
       this.db = await this.databaseService.getDatabase();
       if (this.db) {
         try {
@@ -419,7 +419,7 @@ export class ConversationManager  {
     }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `summary:${avatar._id}:${channelId}`;
-  this.logger.info?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
@@ -546,7 +546,7 @@ export class ConversationManager  {
       }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
-  this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
+  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
   
   // Phase 2: Tool calling with universal meta-prompting approach
   let toolCalls = [];
@@ -578,7 +578,7 @@ export class ConversationManager  {
           });
           
           if (decisions.length > 0) {
-            this.logger.info?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
+            this.logger.debug?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
             
             // Convert decisions to tool_calls format
             toolCalls = decisions.map((decision, idx) => ({
@@ -612,7 +612,7 @@ export class ConversationManager  {
   
   // Execute tools if meta-prompting decided on any
   if (toolCalls.length > 0) {
-    this.logger.info?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} tool(s) before response`);
+    this.logger.debug?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} tool(s) before response`);
     
     try {
       const toolResults = await this.toolExecutor.executeToolCalls(
@@ -621,7 +621,7 @@ export class ConversationManager  {
         avatar
       );
       
-      this.logger.info?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
+      this.logger.debug?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
       
       // Add tool execution context to the conversation
       const toolSummary = toolResults.map(r => 
@@ -654,7 +654,7 @@ export class ConversationManager  {
             const resultText = toolResult.result.trim();
             if (resultText && resultText !== 'null' && !resultText.startsWith('[System:')) {
               await this.discordService.sendAsWebhook(channel.id, resultText, avatar);
-              this.logger.info?.(`[AI][sendResponse][${corrId}] Posted ${toolResult.toolName} result to channel`);
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Posted ${toolResult.toolName} result to channel`);
             }
           } catch (postError) {
             this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to post ${toolResult.toolName} result: ${postError.message}`);
@@ -664,7 +664,7 @@ export class ConversationManager  {
       
       // Optimization: Skip final response if respond tool already posted
       if (respondToolPosted && this.skipFinalResponseAfterRespond) {
-        this.logger.info?.(`[AI][sendResponse][${corrId}] Respond tool handled reply, skipping final LLM generation`);
+        this.logger.debug?.(`[AI][sendResponse][${corrId}] Respond tool handled reply, skipping final LLM generation`);
         
         // Still update rate limiting and activity
         this.channelLastBotMessage.set(channel.id, Date.now());
