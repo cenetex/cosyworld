@@ -114,6 +114,9 @@ export class PotionTool extends BasicTool {
           return `-# [${this.emoji} ${targetAvatar.name} is not knocked out and doesn't need revival.]`;
         }
         
+        // Get database connection for item operations
+        const db = this.avatarService.db || await this.avatarService.databaseService.getDatabase();
+        
         // Get the user's potion
         const potion = await this.itemService.ensureSoulboundPotion(avatar, { healValue: 10 });
         
