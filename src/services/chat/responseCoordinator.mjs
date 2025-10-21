@@ -235,7 +235,10 @@ export class ResponseCoordinator {
             // Check if sticky avatar should respond
             const shouldRespond = await this.decisionMaker.shouldRespond(channel, stickyAvatar, message);
             if (shouldRespond) {
-              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name}`);
+              // CRITICAL: Extend the sticky affinity TTL since user is still actively engaging
+              // This keeps the avatar "locked on" to this user as long as they keep talking
+              this.decisionMaker._recordAffinity(channelId, message.author.id, stickyAvatarId);
+              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed)`);
               return [stickyAvatar];
             }
           }
@@ -920,6 +923,12 @@ export class ResponseCoordinator {
         },
         { upsert: true }
       );
+      
+      // Also refresh the sticky affinity TTL since this avatar just responded to this user
+      // This ensures the avatar continues to be "locked on" to this user as long as they're actively conversing
+      if (this.decisionMaker?._recordAffinity) {
+        this.decisionMaker._recordAffinity(channelId, userId, avatarId);
+      }
     } catch (e) {
       this.logger.warn?.(`[ResponseCoordinator] Session update error: ${e.message}`);
     }
