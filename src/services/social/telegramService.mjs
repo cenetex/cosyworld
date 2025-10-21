@@ -112,11 +112,27 @@ class TelegramService {
         this.logger?.error?.('[TelegramService] Bot launch error:', err.message);
       });
       
-      const botInfo = await this.globalBot.telegram.getMe();
+      // Verify bot connection with retry logic (network issues can cause ECONNRESET)
+      let botInfo = null;
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          botInfo = await this.globalBot.telegram.getMe();
+          break; // Success, exit retry loop
+        } catch (err) {
+          if (attempt === maxRetries) {
+            throw err; // Final attempt failed
+          }
+          this.logger?.warn?.(`[TelegramService] Bot verification attempt ${attempt}/${maxRetries} failed: ${err.message}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        }
+      }
+      
       this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
       return true;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to initialize global bot:', error.message);
+      // Bot may still work even if getMe() fails - don't fail startup completely
       return false;
     }
   }
