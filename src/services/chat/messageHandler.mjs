@@ -6,7 +6,6 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 
 import { handleCommands } from "../commands/commandHandler.mjs";
 import { ToolPlannerService } from "../tools/ToolPlannerService.mjs";
-const CONSTRUCTION_ROADBLOCK_EMOJI = '🚧';
 
 /**
  * Handles Discord messages by processing commands, managing avatars, generating responses,
@@ -142,24 +141,6 @@ export class MessageHandler  {
 
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
-
-    const channel = message.channel;
-    if (channel && channel.name) {
-      if (process.env.NODE_ENV === 'development') {
-        // In dev mode, only respond in channels starting with the construction roadblock emoji
-        if (!channel.name.startsWith(CONSTRUCTION_ROADBLOCK_EMOJI)) {
-          // Ignore messages in channels that do not start with the construction roadblock emoji
-          this.logger.debug(`Dev mode: Ignoring message in channel ${channel.name} as it does not start with 🚧.`);
-          return;
-        }
-      } else {
-        // In production, ignore channels that start with the construction roadblock emoji
-        if (channel.name.startsWith(CONSTRUCTION_ROADBLOCK_EMOJI)) {
-          this.logger.debug(`Prod mode: Ignoring message in construction channel ${channel.name}.`);
-          return;
-        }
-      }
-    }
 
     // Apply spam control
     if (!(await this.spamControlService.shouldProcessMessage(message))) {
