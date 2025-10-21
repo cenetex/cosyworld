@@ -15,7 +15,6 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 // -------------------------------------------------------
 
 import process from 'process';
-import eventBus from '../../utils/eventBus.mjs';
 import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
@@ -668,8 +667,8 @@ export class AvatarService {
     return this.schemaService.executePipeline({ prompt, schema });
   }
 
-  async generateAvatarImage(prompt) {
-    return this.schemaService.generateImage(prompt, '1:1');
+  async generateAvatarImage(prompt, uploadOptions = {}) {
+    return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
   }
 
   /* -------------------------------------------------- */
@@ -768,7 +767,17 @@ export class AvatarService {
     if (imageUrlOverride) {
       imageUrl = imageUrlOverride;
     } else {
-      try { imageUrl = await this.generateAvatarImage(details.description); } catch (e) {
+      try { 
+        // Pass metadata through to the upload service for proper event emission
+        const uploadOptions = {
+          source: 'avatar.create',
+          avatarName: details.name,
+          avatarEmoji: details.emoji,
+          prompt: details.description,
+          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim()
+        };
+        imageUrl = await this.generateAvatarImage(details.description, uploadOptions); 
+      } catch (e) {
         this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
         imageUrl = null;
       }
@@ -812,20 +821,8 @@ export class AvatarService {
             }
             if (admin) {
               const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
-              // Emit unified event (global posting pipeline may consume)
-              try { 
-                eventBus.emit('MEDIA.IMAGE.GENERATED', { 
-                  type: 'image', 
-                  source: 'avatar.create', 
-                  avatarId: insertedId, 
-                  imageUrl: doc.imageUrl, 
-                  prompt: doc.description, 
-                  avatarName: doc.name,
-                  avatarEmoji: doc.emoji,
-                  context: content, // Pre-formatted introduction text
-                  createdAt: new Date() 
-                }); 
-              } catch {}
+              // Event already emitted by S3Service during upload with full metadata
+              // Direct X posting for backwards compatibility
               await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
@@ -873,7 +870,17 @@ export class AvatarService {
     if (!avatar) return false;
     if (await this.isImageAccessible(avatar.imageUrl)) return true;
 
-    const file = await this.generateAvatarImage(avatar.description);
+    // Pass metadata for proper event emission
+    const uploadOptions = {
+      source: 'avatar.regenerate',
+      avatarName: avatar.name,
+      avatarEmoji: avatar.emoji,
+      avatarId: avatarId,
+      prompt: avatar.description,
+      context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim()
+    };
+    
+    const file = await this.generateAvatarImage(avatar.description, uploadOptions);
     if (!file) return false;
 
     // Upload via s3Service if available, otherwise return false

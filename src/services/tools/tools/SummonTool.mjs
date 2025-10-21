@@ -153,7 +153,16 @@ export class SummonTool extends BasicTool {
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
           try {
             this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
-            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description);
+            // Pass metadata for proper event emission
+            const uploadOptions = {
+              source: 'avatar.summon',
+              avatarName: existingAvatar.name,
+              avatarEmoji: existingAvatar.emoji,
+              avatarId: existingAvatar._id,
+              prompt: existingAvatar.description,
+              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
+            };
+            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
           } catch (e) {
             this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
           }
