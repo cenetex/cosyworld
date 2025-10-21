@@ -624,11 +624,32 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       let messageResult;
       
       if (type === 'video') {
-        messageResult = await this.globalBot.telegram.sendVideo(channelId, mediaUrl, {
-          caption,
-        });
+        // For videos, Telegram requires the file to be accessible
+        // Send as a URL input - Telegram will fetch and process it
+        try {
+          messageResult = await this.globalBot.telegram.sendVideo(channelId, { url: mediaUrl }, {
+            caption,
+            supports_streaming: true, // Enable streaming for better playback
+          });
+        } catch (videoErr) {
+          // If video posting fails, try to send the thumbnail as fallback
+          this.logger?.warn?.('[TelegramService][globalPost] Video post failed, trying photo fallback:', videoErr.message);
+          
+          // Try to extract thumbnail URL if available
+          const thumbnailUrl = opts.thumbnailUrl || mediaUrl.replace(/\.mp4$/i, '.jpg');
+          
+          try {
+            messageResult = await this.globalBot.telegram.sendPhoto(channelId, { url: thumbnailUrl }, {
+              caption: caption + '\n\n⚠️ Full video available at source',
+            });
+            this.logger?.info?.('[TelegramService][globalPost] Posted thumbnail as fallback for video');
+          } catch (fallbackErr) {
+            this.logger?.error?.('[TelegramService][globalPost] Both video and fallback failed');
+            throw videoErr; // Throw original error
+          }
+        }
       } else {
-        messageResult = await this.globalBot.telegram.sendPhoto(channelId, mediaUrl, {
+        messageResult = await this.globalBot.telegram.sendPhoto(channelId, { url: mediaUrl }, {
           caption,
         });
       }

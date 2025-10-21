@@ -47,6 +47,12 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
     try {
       if (!payload?.imageUrl) return;
       
+      // Skip if this is a keyframe/thumbnail for a video
+      if (payload.isKeyframe || payload.isThumbnail || payload.type === 'keyframe') {
+        logger?.debug?.('[TelegramGlobalAutoPoster] Skipping keyframe/thumbnail image');
+        return;
+      }
+      
       logger?.debug?.('[TelegramGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { 
         imageUrl: payload.imageUrl,
         source: payload.source,
@@ -125,9 +131,12 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
 
   const videoHandler = async (payload) => {
     try {
-      if (!payload?.videoUrl) return;
+      if (!payload?.videoUrl) {
+        logger?.warn?.('[TelegramGlobalAutoPoster] Video event received but no videoUrl in payload');
+        return;
+      }
       
-      logger?.debug?.('[TelegramGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { 
+      logger?.info?.('[TelegramGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { 
         videoUrl: payload.videoUrl,
         source: payload.source,
         avatarName: payload.avatarName 
