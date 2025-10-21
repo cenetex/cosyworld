@@ -411,13 +411,13 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         channelId,
         type: channel.isThread() ? 'thread' : 'channel',
         parentId: channel.isThread() ? channel.parentId : null,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         lastSummaryUpdate: null,
         version: '1.0.0'
       };
 
       // Use updateOne with upsert to prevent race condition duplicates
+      // Note: createdAt is only set on insert via $setOnInsert to avoid conflicts
       await this.db.collection('locations').updateOne(
         { channelId },
         { 
