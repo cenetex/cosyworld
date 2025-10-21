@@ -15,6 +15,7 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 // -------------------------------------------------------
 
 import process from 'process';
+import eventBus from '../../utils/eventBus.mjs';
 import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
@@ -821,8 +822,21 @@ export class AvatarService {
             }
             if (admin) {
               const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
-              // Event already emitted by S3Service during upload with full metadata
-              // Direct X posting for backwards compatibility
+              // Emit event for global auto-poster system (may have been emitted by S3Service already, but ensure it's available)
+              try { 
+                eventBus.emit('MEDIA.IMAGE.GENERATED', { 
+                  type: 'image', 
+                  source: 'avatar.create', 
+                  avatarId: insertedId, 
+                  imageUrl: doc.imageUrl, 
+                  prompt: doc.description, 
+                  avatarName: doc.name,
+                  avatarEmoji: doc.emoji,
+                  context: content,
+                  createdAt: new Date() 
+                }); 
+              } catch {}
+              // Direct X posting for backwards compatibility (may be skipped if global auto-poster already posted)
               await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
