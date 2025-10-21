@@ -57,19 +57,44 @@ export class VideoCameraTool extends BasicTool {
         return `-# [ ${this.emoji} Video generation cancelled: rate limit reached ]`;
       }
 
-      // Gather location
+      // Get location and avatars quickly
       const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
-
-      // Get recently active avatars from channel history
       const recentAvatars = await this._getRecentlyActiveAvatars(channelId, guildId, avatar);
-      
-      // Select up to 3 avatars for reference images (Veo 3.1 limit)
       const selectedAvatars = recentAvatars.slice(0, 3);
 
       if (selectedAvatars.length === 0) {
         return '-# [ ❌ Error: No avatars with images found in channel. ]';
       }
 
+      const locLine = location?.name || 'an unknown location';
+
+      // Start background video generation (don't await)
+      this._generateVideoInBackground({
+        message,
+        userPrompt,
+        channelId,
+        guildId,
+        location,
+        selectedAvatars
+      }).catch(err => {
+        this.logger?.error?.(`[VideoCamera] Background generation failed: ${err.message}`);
+      });
+
+      // Return immediately so avatars can continue chatting
+      return `-# [ ${this.emoji} 🎬 Generating cinematic scene with ${selectedAvatars.length} characters at ${locLine}... ]`;
+      
+    } catch (err) {
+      this.logger?.error?.(`[VideoCamera] Execution error: ${err?.message || err}`);
+      return `-# [ ❌ Error: ${err?.message || err} ]`;
+    }
+  }
+
+  /**
+   * Generate video in background without blocking avatar responses
+   * @private
+   */
+  async _generateVideoInBackground({ message, userPrompt, channelId, guildId, location, selectedAvatars }) {
+    try {
       // Collect images for key frame composition: location + avatars
       // Note: Location goes FIRST (like SceneCameraTool) for better composition
       const images = [];
@@ -106,7 +131,8 @@ export class VideoCameraTool extends BasicTool {
       }
 
       if (images.length === 0) {
-        return '-# [ ❌ Error: Failed to load any images for scene. ]';
+        this.logger?.error?.('[VideoCamera] Failed to load any images for scene');
+        return;
       }
 
       // Build cinematic prompt
@@ -224,7 +250,7 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
         try {
           const basePrompt = `${compositePrompt}. Render in ${style}.`;
           if (typeof provider.generateImageFull === 'function') {
-            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9', purpose: 'keyframe' });
+            return await provider.generateImageFull(basePrompt, null, location, images.slice(0,1), { aspectRatio: '16:9', purpose: 'keyframe' });
           }
           if (typeof provider.generateImage === 'function') {
             if (provider === this.googleAIService) {
@@ -245,7 +271,12 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
       }
 
       if (!keyFrameUrl) {
-        return '-# [ ❌ Error: Failed to generate key frame for video. ]';
+        this.logger?.error?.('[VideoCamera] Failed to generate key frame for video');
+        // Post error message to channel
+        if (message?.channel?.send) {
+          await message.channel.send('-# [ ❌ Error: Failed to generate key frame for video. ]');
+        }
+        return;
       }
       
       this.logger?.info?.(`[VideoCamera] Key frame generated successfully: ${keyFrameUrl}`);
@@ -301,20 +332,30 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
             this.logger?.warn?.(`[VideoCamera] Failed to emit video event: ${emitErr.message}`);
           }
           
-          // Schedule follow-up chatter from avatars in the scene
-          this._scheduleFollowUpChatter(channelId, message, selectedAvatars, avatar);
+          // Post video to Discord channel
+          if (message?.channel?.send) {
+            await message.channel.send(`-# [ ${this.emoji} 🎬 [Cinematic Scene](${videoUrl}) ]\n-# [ 📹 Generated with Veo 3.1 • ${selectedAvatars.length} characters • Widescreen with audio ]`);
+          }
           
-          return `-# [ ${this.emoji} 🎬 [Cinematic Scene](${videoUrl}) ]\n-# [ 📹 Generated with Veo 3.1 • ${selectedAvatars.length} characters • Widescreen with audio ]`;
+          // Schedule follow-up chatter from avatars in the scene
+          this._scheduleFollowUpChatter(channelId, message, selectedAvatars, null);
+        } else {
+          this.logger?.error?.('[VideoCamera] Video generation completed but no URL returned');
+          if (message?.channel?.send) {
+            await message.channel.send(`-# [ ${this.emoji} Video generation completed but no URL returned ]`);
+          }
         }
-        
-        return `-# [ ${this.emoji} Video generation completed but no URL returned ]`;
       } catch (e) {
         this.logger?.error?.(`[VideoCamera] Veo 3.1 generation failed: ${e?.message || e}`);
-        return `-# [ ❌ Error: Video generation failed - ${e?.message || 'unknown error'} ]`;
+        if (message?.channel?.send) {
+          await message.channel.send(`-# [ ❌ Error: Video generation failed - ${e?.message || 'unknown error'} ]`);
+        }
       }
     } catch (err) {
-      this.logger?.error?.(`[VideoCamera] Execution error: ${err?.message || err}`);
-      return `-# [ ❌ Error: ${err?.message || err} ]`;
+      this.logger?.error?.(`[VideoCamera] Background generation error: ${err?.message || err}`);
+      if (message?.channel?.send) {
+        await message.channel.send(`-# [ ❌ Error: ${err?.message || err} ]`);
+      }
     }
   }
 
