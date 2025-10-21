@@ -183,8 +183,9 @@ Create a welcoming introduction tweet (max 240 chars) that:
 2. Welcomes them warmly to the community
 3. Reflects your narrator personality
 4. Makes people curious to learn more about them
+5. Use *bold* for the avatar name using Markdown formatting
 
-Be conversational and genuine. Do not use quotes, extra hashtags, or generic phrases.`;
+Be conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.`;
       } else if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
         // New location discovery
         userPrompt = `A new location has been discovered in CosyWorld: "${mediaPayload.locationName}"
@@ -196,8 +197,9 @@ Create an evocative announcement (max 240 chars) that:
 2. Invites adventurers to explore it
 3. Uses vivid, atmospheric language
 4. Reflects your narrator personality
+5. Use *bold* for the location name using Markdown formatting
 
-Be immersive and captivating. Include the location name. No quotes or extra hashtags.`;
+Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.`;
       } else {
         // General media post
         userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).
@@ -229,11 +231,11 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
       
       // Fallback to simple text
       if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
-        return `${mediaPayload.avatarEmoji || '✨'} Meet ${mediaPayload.avatarName} — ${mediaPayload.prompt || 'a new arrival in CosyWorld'}`;
+        return `${mediaPayload.avatarEmoji || '✨'} Meet *${mediaPayload.avatarName}* — ${mediaPayload.prompt || 'a new arrival in CosyWorld'}`;
       }
       
       if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
-        return `📍 New location discovered: ${mediaPayload.locationName}. ${mediaPayload.locationDescription || 'A place of mystery and wonder.'}`;
+        return `📍 New location discovered: *${mediaPayload.locationName}*. ${mediaPayload.locationDescription || 'A place of mystery and wonder.'}`;
       }
       
       return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';

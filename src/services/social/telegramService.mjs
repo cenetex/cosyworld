@@ -516,6 +516,20 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
   }
 
   /**
+   * Format text with Markdown for Telegram
+   * Escapes special characters but preserves intentional markdown
+   * @param {string} text - Text to format
+   * @returns {string} - Markdown formatted text
+   */
+  _formatTelegramMarkdown(text) {
+    if (!text) return '';
+    
+    // Use standard Markdown (not MarkdownV2) for better compatibility
+    // Telegram supports: *bold* _italic_ [text](URL) `code` ```pre```
+    return String(text).trim();
+  }
+
+  /**
    * Post to global Telegram channel/group
    * Used for automatic posting of generated media
    */
@@ -685,7 +699,8 @@ Create a warm, welcoming introduction message (max 200 chars) that:
         try {
           // Add timeout for video uploads (Telegram can be slow to process)
           const videoPromise = this.globalBot.telegram.sendVideo(channelId, mediaUrl, {
-            caption,
+            caption: this._formatTelegramMarkdown(caption),
+            parse_mode: 'Markdown',
             supports_streaming: true, // Enable streaming for better playback
           });
           
@@ -709,7 +724,8 @@ Create a warm, welcoming introduction message (max 200 chars) that:
           this.logger?.info?.('[TelegramService][globalPost] Attempting to send as document instead...');
           try {
             messageResult = await this.globalBot.telegram.sendDocument(channelId, mediaUrl, {
-              caption: caption + '\n\n🎥 Video file',
+              caption: this._formatTelegramMarkdown(caption + '\n\n🎥 Video file'),
+              parse_mode: 'Markdown',
             });
             this.logger?.info?.('[TelegramService][globalPost] Posted video as document successfully');
           } catch (docErr) {
@@ -721,7 +737,8 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       } else {
         this.logger?.info?.('[TelegramService][globalPost] Attempting to send photo:', mediaUrl);
         messageResult = await this.globalBot.telegram.sendPhoto(channelId, mediaUrl, {
-          caption,
+          caption: this._formatTelegramMarkdown(caption),
+          parse_mode: 'Markdown',
         });
         this.logger?.info?.('[TelegramService][globalPost] Photo posted successfully');
       }
