@@ -583,9 +583,15 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   async getAvatarByName(name, opts = {}) {
-    const filters = { ...this._legacyToFilters(opts), name: { $regex: new RegExp(`^${name}$`, 'i') } };
+    // Use case-insensitive exact match without regex to avoid issues with special characters
     const db = await this._db();
-    const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(buildAvatarQuery(filters));
+    const filters = this._legacyToFilters(opts);
+    const query = buildAvatarQuery(filters);
+    
+    // Find all matching the base query, then filter by exact name match (case-insensitive)
+    const avatars = await db.collection(this.AVATARS_COLLECTION).find(query).toArray();
+    const avatar = avatars.find(av => av.name && av.name.toLowerCase() === name.toLowerCase());
+    
     if (!avatar) return null;
     avatar.stats = await this.getOrCreateStats(avatar);
     return avatar;
