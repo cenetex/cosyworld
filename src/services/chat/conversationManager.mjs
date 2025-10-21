@@ -480,26 +480,32 @@ export class ConversationManager  {
   const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
     
     this.logger.info?.(`[ConversationManager] sendResponse called for ${avatar.name} in channel ${channel.id}, overrideCooldown=${overrideCooldown}`);
+    this.logger.info?.(`[ConversationManager] Channel object type: ${typeof channel}, has id: ${!!channel?.id}, Avatar object type: ${typeof avatar}, has name: ${!!avatar?.name}`);
     
     // Gate speaking for KO/dead avatars
     try {
       const now = Date.now();
       if (avatar?.status === 'dead') {
-        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - status is dead`);
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - status is dead`);
         return null;
       }
       if (avatar?.status === 'knocked_out') {
-        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - status is knocked_out`);
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - status is knocked_out`);
         return null;
       }
       if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) {
-        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
         return null;
       }
     } catch (e) {
       this.logger.warn?.(`[ConversationManager] Error checking avatar status for ${avatar.name}: ${e.message}`);
     }
+    
+    this.logger.info?.(`[ConversationManager] ${avatar.name} passed status checks`);
+    this.logger.info?.(`[ConversationManager] About to get database connection for ${avatar.name}`);
     this.db = await this.databaseService.getDatabase();
+    this.logger.info?.(`[ConversationManager] Database connection obtained for ${avatar.name}`);
+    
     if (!await this.checkChannelPermissions(channel)) {
       this.logger.warn?.(`[ConversationManager] ${avatar.name} cannot send response - missing permissions in channel ${channel.id}`);
       return null;

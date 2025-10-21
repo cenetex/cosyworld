@@ -202,6 +202,21 @@ export class DecisionMaker  {
       avatar.id = `${avatar._id.toString()}`;
     }
 
+    // Gate speaking for KO/dead avatars
+    const now = Date.now();
+    if (avatar?.status === 'dead') {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - status is dead`);
+      return false;
+    }
+    if (avatar?.status === 'knocked_out') {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - status is knocked_out`);
+      return false;
+    }
+    if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
+      return false;
+    }
+
     // CRITICAL: Never respond to own messages (prevents self-conversation loops)
     if (triggerMessage && triggerMessage.author?.bot) {
       const isSelf = triggerMessage.author.username === avatar.name ||
