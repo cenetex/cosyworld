@@ -574,7 +574,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       }
 
       const hourlyCap = Number(config?.rate?.hourly) || 10;
-      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 60; // 60 seconds between posts
+      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 10; // 60 seconds between posts
 
       if (this._globalRate.lastPostedAt && (now - this._globalRate.lastPostedAt) < (minIntervalSec * 1000)) {
         const nextInMs = (minIntervalSec * 1000) - (now - this._globalRate.lastPostedAt);

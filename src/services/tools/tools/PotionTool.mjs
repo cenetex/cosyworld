@@ -76,16 +76,38 @@ export class PotionTool extends BasicTool {
       if (params && params.length > 0) {
         const targetName = params.join(' ').trim();
         
-        // Find the target avatar by name in the same guild
-        const db = await this.avatarService.db || await this.avatarService.databaseService.getDatabase();
-        const targetAvatar = await db.collection('avatars').findOne({
-          guildId: message.channel.guild.id,
-          name: { $regex: new RegExp(`^${targetName}$`, 'i') }
-        });
+        this.logger?.info?.(`[PotionTool] Searching for avatar: "${targetName}" in channel: ${message.channel.id}`);
         
+        // Get database connection
+        const db = this.avatarService.db || await this.avatarService.databaseService.getDatabase();
+        
+        // First, get all avatars in this channel/location
+        const { avatars: channelAvatars } = await this.avatarService.getMapService().getLocationAndAvatars(message.channel.id);
+        
+        this.logger?.info?.(`[PotionTool] Found ${channelAvatars?.length || 0} avatars in channel`);
+        
+        // Find target by name
+        let targetAvatar = channelAvatars?.find(av => 
+          av.name.toLowerCase() === targetName.toLowerCase()
+        );
+        
+        // If not found, try partial match
         if (!targetAvatar) {
-          return `-# [${this.emoji} Avatar "${targetName}" not found in this guild.]`;
+          this.logger?.info?.(`[PotionTool] Exact match failed, trying partial match`);
+          targetAvatar = channelAvatars?.find(av => 
+            av.name.toLowerCase().includes(targetName.toLowerCase())
+          );
         }
+        
+        // If still not found, list available avatars
+        if (!targetAvatar) {
+          const avatarList = channelAvatars?.map(a => `${a.name} (${a.status || 'active'})`).join(', ') || 'none';
+          this.logger?.info?.(`[PotionTool] Available avatars: ${avatarList}`);
+          return `-# [${this.emoji} Avatar "${targetName}" not found. Available: ${avatarList}]`;
+        }
+        
+        this.logger?.info?.(`[PotionTool] Found avatar: ${targetAvatar.name}, status: ${targetAvatar.status}`);
+
         
         // Check if target is knocked out
         if (targetAvatar.status !== 'knocked_out' && targetAvatar.status !== 'dead') {
