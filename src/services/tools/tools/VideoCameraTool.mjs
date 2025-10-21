@@ -4,6 +4,7 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import eventBus from '../../../utils/eventBus.mjs';
 
 /**
  * VideoCameraTool
@@ -273,6 +274,33 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
         const videoUrl = Array.isArray(videos) ? videos[0] : null;
         
         if (videoUrl) {
+          // Emit event for social media auto-posters with full context
+          try {
+            const avatarNames = selectedAvatars.map(a => `${a.name || 'Unknown'} ${a.emoji || ''}`.trim()).join(', ');
+            const locationInfo = location ? `${location.name}` : 'unknown location';
+            
+            eventBus.emit('MEDIA.VIDEO.GENERATED', {
+              type: 'video',
+              source: 'videocamera.tool',
+              videoUrl: videoUrl,
+              context: `🎬 Cinematic scene: ${avatarNames} at ${locationInfo}`,
+              prompt: cinematicPrompt,
+              avatarName: avatarNames,
+              avatarId: selectedAvatars[0]?._id ? String(selectedAvatars[0]._id) : null,
+              guildId: guildId,
+              channelId: channelId,
+              createdAt: new Date(),
+              metadata: {
+                avatarCount: selectedAvatars.length,
+                model: 'veo-3.1-fast-generate-preview',
+                duration: 8,
+                aspectRatio: '16:9'
+              }
+            });
+          } catch (emitErr) {
+            this.logger?.warn?.(`[VideoCamera] Failed to emit video event: ${emitErr.message}`);
+          }
+          
           // Schedule follow-up chatter from avatars in the scene
           this._scheduleFollowUpChatter(channelId, message, selectedAvatars, avatar);
           

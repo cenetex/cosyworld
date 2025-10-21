@@ -559,9 +559,12 @@ export class GoogleAIService {
     if (!Array.isArray(images) || images.length === 0) throw new Error("At least one image is required");
     if (images.length > 3) images = images.slice(0, 3); // Limit to 3 images
     
-    // Extract purpose for upload metadata
+    // Extract purpose for upload metadata and remove from generation config
     const uploadPurpose = options.purpose || 'general';
     const uploadOptions = { purpose: uploadPurpose, source: 'googleAIService' };
+    
+    // Extract model and purpose before passing to generation config
+    const { purpose: _purpose, model, ...genOptions } = options;
     
     // Build a single content object with role 'user' and a parts array
     const parts = images.map(img => ({
@@ -576,9 +579,9 @@ export class GoogleAIService {
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-  const generativeModel = this.googleAI.getGenerativeModel({ model: options.model || 'gemini-2.5-flash-image-preview' });
+  const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-2.5-flash-image-preview' });
         // Remove penalty fields if present (always for image models)
-        const generationConfig = { ...this.defaultCompletionOptions, ...options, responseModalities: ['text', 'image'] };
+        const generationConfig = { ...this.defaultCompletionOptions, ...genOptions, responseModalities: ['text', 'image'] };
         delete generationConfig.frequencyPenalty;
         delete generationConfig.presencePenalty;
         const response = await generativeModel.generateContent({

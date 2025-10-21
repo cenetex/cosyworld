@@ -589,7 +589,8 @@ export class VeoService {
         const tempFile = path.join(os.tmpdir(), `veo_video_${Date.now()}_${i}${ext}`);
         fs.writeFileSync(tempFile, buffer);
         this.logger.info(`Uploading video to S3: ${tempFile}`);
-        const s3Url = await this.s3Service.uploadImage(tempFile);
+        // Skip event emission - let the caller emit with full context
+        const s3Url = await this.s3Service.uploadImage(tempFile, { skipEventEmit: true });
         s3Urls.push(s3Url);
       } catch (error) {
         this.logger.error(`Error processing video ${uri}: ${error.message}`);
