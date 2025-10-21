@@ -638,7 +638,8 @@ export class ConversationManager  {
   }
   
   // Build chat options
-  const chatOptions = { model: avatar.model, max_tokens: 256, corrId };
+  // Increased max_tokens to accommodate models with extended reasoning (e.g., Nemotron with reasoning mode)
+  const chatOptions = { model: avatar.model, max_tokens: 1024, corrId };
   
   // Execute tools if meta-prompting decided on any
   if (toolCalls.length > 0) {
