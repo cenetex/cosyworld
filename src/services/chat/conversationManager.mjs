@@ -610,8 +610,20 @@ export class ConversationManager  {
           if (decisions.length > 0) {
             this.logger.debug?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
             
-            // Convert decisions to tool_calls format
-            toolCalls = decisions.map((decision, idx) => ({
+            // Filter out special meta-decisions that aren't actual tools
+            const actualToolDecisions = decisions.filter(d => 
+              d.toolName !== 'none' && 
+              d.toolName !== 'respond' && 
+              d.toolName !== 'just respond' &&
+              d.toolName !== 'reply'
+            );
+            
+            if (actualToolDecisions.length !== decisions.length) {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Filtered out ${decisions.length - actualToolDecisions.length} non-tool decision(s) (respond/none)`);
+            }
+            
+            // Convert actual tool decisions to tool_calls format
+            toolCalls = actualToolDecisions.map((decision, idx) => ({
               id: `meta_${corrId}_${idx}`,
               type: 'function',
               function: {
@@ -619,6 +631,12 @@ export class ConversationManager  {
                 arguments: JSON.stringify(decision.arguments)
               }
             }));
+            
+            if (toolCalls.length > 0) {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} actual tool(s): ${toolCalls.map(tc => tc.function.name).join(', ')}`);
+            } else {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] No actual tools to execute, will generate normal response`);
+            }
           }
         } else {
           this.logger.debug?.(`[AI][sendResponse][${corrId}] Fast-path: Skipping tool decision for conversational message`);
