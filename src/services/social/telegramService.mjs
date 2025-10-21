@@ -55,6 +55,12 @@ class TelegramService {
    */
   async initializeGlobalBot() {
     try {
+      // If bot is already running, don't start another instance
+      if (this.globalBot && this.globalBot.botInfo) {
+        this.logger?.warn?.('[TelegramService] Global bot already initialized, skipping');
+        return true;
+      }
+
       // Try to get token from secrets service first, fallback to config/env
       let token = null;
       
@@ -76,6 +82,16 @@ class TelegramService {
         return false;
       }
 
+      // Stop any existing bot instance before creating a new one
+      if (this.globalBot) {
+        try {
+          await this.globalBot.stop('SIGTERM');
+          this.logger?.info?.('[TelegramService] Stopped existing bot instance');
+        } catch {
+          this.logger?.debug?.('[TelegramService] No existing bot to stop');
+        }
+      }
+
       this.globalBot = new Telegraf(token);
       
       // Set up basic commands
@@ -85,9 +101,12 @@ class TelegramService {
       // Set up message handlers for conversations
       this.setupMessageHandlers();
       
-      // Launch the bot
+      // Launch the bot (uses long polling by default, which Telegram handles gracefully)
+      // Telegram will automatically disconnect any other instance using the same token
       await this.globalBot.launch();
-      this.logger?.info?.('[TelegramService] Global bot initialized successfully');
+      
+      const botInfo = await this.globalBot.telegram.getMe();
+      this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
       return true;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to initialize global bot:', error.message);
