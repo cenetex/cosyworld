@@ -274,12 +274,44 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
     
     this.logger?.info?.(`[GlobalBotService] Scheduled narrative generation every ${intervalHours} hours`);
     
-    // Generate initial narrative after a short delay
-    setTimeout(() => {
-      this.generateNarrative().catch(err => {
-        this.logger?.error?.(`[GlobalBotService] Initial narrative generation failed: ${err.message}`);
-      });
+    // Generate initial narrative only if last one was more than 24 hours ago
+    setTimeout(async () => {
+      try {
+        const shouldGenerate = await this.shouldGenerateNarrative();
+        if (shouldGenerate) {
+          await this.generateNarrative();
+        } else {
+          this.logger?.info?.('[GlobalBotService] Skipping initial narrative - generated recently');
+        }
+      } catch (err) {
+        this.logger?.error?.(`[GlobalBotService] Initial narrative check failed: ${err.message}`);
+      }
     }, 60000); // 1 minute delay
+  }
+
+  /**
+   * Check if we should generate a new narrative (only if last one was > 24 hours ago)
+   */
+  async shouldGenerateNarrative() {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const lastNarrative = await db.collection('narratives')
+        .findOne({ avatarId: this.botId }, { sort: { timestamp: -1 } });
+      
+      if (!lastNarrative) {
+        this.logger?.debug?.('[GlobalBotService] No previous narrative found, will generate');
+        return true;
+      }
+      
+      const hoursSinceLastNarrative = (Date.now() - lastNarrative.timestamp.getTime()) / (1000 * 60 * 60);
+      const shouldGenerate = hoursSinceLastNarrative >= 24;
+      
+      this.logger?.debug?.(`[GlobalBotService] Last narrative was ${hoursSinceLastNarrative.toFixed(1)} hours ago, will ${shouldGenerate ? 'generate' : 'skip'}`);
+      return shouldGenerate;
+    } catch (err) {
+      this.logger?.warn?.(`[GlobalBotService] shouldGenerateNarrative check failed: ${err.message}`);
+      return false; // Fail safe - don't generate on error
+    }
   }
 
   /**

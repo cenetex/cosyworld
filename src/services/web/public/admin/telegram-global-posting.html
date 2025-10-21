@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global Telegram Posting - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0"><h1 class="text-xl font-bold">RATi Admin Panel</h1></div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/x-global-posting" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Global X Posting</a>
+                <a href="/admin/telegram-global-posting" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Global Telegram</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main class="flex-grow">
+        <div class="max-w-5xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div class="px-4 py-6 sm:px-0">
+            <!-- Bot Configuration -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+              <div class="px-4 py-5 sm:px-6">
+                <h2 class="text-lg leading-6 font-medium text-gray-900">Telegram Bot Configuration</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500">Configure your global Telegram bot credentials</p>
+              </div>
+              <div class="border-t border-gray-200 px-4 py-5 sm:p-6 space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700">Bot Token</label>
+                  <div class="mt-1 flex">
+                    <input type="password" id="bot-token" class="flex-1 border-gray-300 rounded-l-md shadow-sm" placeholder="Enter your bot token from @BotFather" />
+                    <button id="save-token" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">Save Token</button>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Get your bot token from Telegram's @BotFather</p>
+                  <div id="token-status" class="mt-2 text-sm"></div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700">Channel ID</label>
+                  <div class="mt-1 flex">
+                    <input type="text" id="channel-id" class="flex-1 border-gray-300 rounded-l-md shadow-sm" placeholder="@yourchannel or -1001234567890" />
+                    <button id="save-channel" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">Save Channel</button>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Use @username for public channels or numeric ID for private channels</p>
+                  <div id="channel-status" class="mt-2 text-sm"></div>
+                </div>
+                <div class="flex items-center space-x-2 pt-2">
+                  <div id="bot-configured-status" class="text-sm"></div>
+                  <button id="test-bot" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Test Connection</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Posting Configuration -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                <div>
+                  <h2 class="text-lg leading-6 font-medium text-gray-900">Auto-Posting Configuration</h2>
+                  <p class="mt-1 max-w-2xl text-sm text-gray-500">Control automatic media posts to your Telegram channel</p>
+                </div>
+                <button id="refresh-config" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Refresh</button>
+              </div>
+              <div class="border-t border-gray-200 px-4 py-5 sm:p-6 space-y-6">
+                <form id="telegram-config-form" class="space-y-6">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Auto-Posting Enabled</label>
+                      <select name="enabled" id="cfg-enabled" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Hourly Rate Limit</label>
+                      <input type="number" id="cfg-rate-hourly" min="1" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="10" />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Minimum Interval (seconds)</label>
+                      <input type="number" id="cfg-min-interval" min="60" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" placeholder="180" />
+                    </div>
+                  </div>
+                  <div class="flex justify-end space-x-3">
+                    <button type="button" id="save-config" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Save Configuration</button>
+                  </div>
+                </form>
+                <div id="config-status" class="text-xs text-gray-500"></div>
+              </div>
+            </div>
+
+            <!-- Diagnostics -->
+            <div class="mt-6 bg-white shadow sm:rounded-lg p-4">
+              <h3 class="text-sm font-medium text-gray-900 mb-2">Diagnostics</h3>
+              <pre id="diag-log" class="text-xs bg-gray-50 p-3 rounded border overflow-auto max-h-52">Ready...</pre>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer class="bg-white"><div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8"><p class="text-center text-sm text-gray-500">RATi Swarm Admin Panel © 2024</p></div></footer>
+    </div>
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/telegram-global-posting.js"></script>
+  </body>
+</html>

@@ -47,6 +47,7 @@ export default (env, argv) => {
       adminDashboard: './src/services/web/public/js/admin-dashboard.js',
       xAccountManagement: './src/services/web/public/js/x-account-management.js',
       xGlobalPosting: './src/services/web/public/js/x-global-posting.js',
+      telegramGlobalPosting: './src/services/web/public/js/telegram-global-posting.js',
       adminCollections: './src/services/web/public/js/admin-collections.js',
       adminSettings: './src/services/web/public/js/admin-settings.js',
       adminServers: './src/services/web/public/js/admin-servers.js',

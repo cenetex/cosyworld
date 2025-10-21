@@ -17,6 +17,7 @@ export class WebService {
     aiService,
     openrouterAIService,
     xService,
+    telegramService,
     secretsService,
     setupStatusService,
     promptService,
@@ -31,6 +32,7 @@ export class WebService {
     this.aiService = aiService;
     this.openrouterAIService = openrouterAIService;
     this.xService = xService;
+    this.telegramService = telegramService;
     this.secretsService = secretsService;
     this.setupStatusService = setupStatusService;
     this.promptService = promptService;
@@ -52,6 +54,7 @@ export class WebService {
       // Back-compat for modules referencing openRouterAIService (note the capital R)
       openRouterAIService: this.openrouterAIService,
       xService: this.xService,
+      telegramService: this.telegramService,
       secretsService: this.secretsService,
       setupStatusService: this.setupStatusService,
       promptService: this.promptService,

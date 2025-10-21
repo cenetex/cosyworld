@@ -33,13 +33,21 @@ class TelegramService {
     databaseService,
     configService,
     secretsService,
+    aiService,
+    globalBotService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
     this.configService = configService;
     this.secretsService = secretsService;
+    this.aiService = aiService;
+    this.globalBotService = globalBotService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
+    
+    // Message debouncing: track pending replies per channel
+    this.pendingReplies = new Map(); // channelId -> { timeout, lastMessageTime, messages }
+    this.REPLY_DELAY_MS = 30000; // 30 seconds delay between messages
   }
 
   /**
@@ -47,7 +55,22 @@ class TelegramService {
    */
   async initializeGlobalBot() {
     try {
-      const token = this.configService.get('TELEGRAM_GLOBAL_BOT_TOKEN') || process.env.TELEGRAM_GLOBAL_BOT_TOKEN;
+      // Try to get token from secrets service first, fallback to config/env
+      let token = null;
+      
+      if (this.secretsService) {
+        try {
+          token = await this.secretsService.getAsync('telegram_global_bot_token');
+        } catch (e) {
+          this.logger?.debug?.('[TelegramService] No token in secrets service:', e.message);
+        }
+      }
+      
+      // Fallback to config/env for backward compatibility
+      if (!token) {
+        token = this.configService.get('TELEGRAM_GLOBAL_BOT_TOKEN') || process.env.TELEGRAM_GLOBAL_BOT_TOKEN;
+      }
+      
       if (!token) {
         this.logger?.debug?.('[TelegramService] No global bot token configured');
         return false;
@@ -56,8 +79,11 @@ class TelegramService {
       this.globalBot = new Telegraf(token);
       
       // Set up basic commands
-      this.globalBot.start((ctx) => ctx.reply('Welcome to CosyWorld!'));
-      this.globalBot.help((ctx) => ctx.reply('This is the official CosyWorld bot. Follow us for updates about our AI avatar community!'));
+      this.globalBot.start((ctx) => ctx.reply('Welcome to CosyWorld! 🌍 I\'m here to share stories and chat about our vibrant community.'));
+      this.globalBot.help((ctx) => ctx.reply('I\'m the CosyWorld bot! I can chat about our community and answer questions. Just message me anytime!'));
+      
+      // Set up message handlers for conversations
+      this.setupMessageHandlers();
       
       // Launch the bot
       await this.globalBot.launch();
@@ -66,6 +92,175 @@ class TelegramService {
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to initialize global bot:', error.message);
       return false;
+    }
+  }
+
+  /**
+   * Set up message handlers for the global bot
+   */
+  setupMessageHandlers() {
+    if (!this.globalBot) return;
+
+    // Handle all text messages
+    this.globalBot.on('text', async (ctx) => {
+      try {
+        await this.handleIncomingMessage(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Message handling error:', error);
+      }
+    });
+
+    this.logger?.debug?.('[TelegramService] Message handlers configured');
+  }
+
+  /**
+   * Handle incoming messages with debouncing and mention detection
+   */
+  async handleIncomingMessage(ctx) {
+    const message = ctx.message;
+    const channelId = String(ctx.chat.id);
+    
+    // Ignore messages from the bot itself
+    if (message.from.is_bot) {
+      return;
+    }
+
+    // Check if bot is mentioned
+    const botUsername = ctx.botInfo?.username;
+    const isMentioned = message.text?.includes(`@${botUsername}`) || 
+                       message.entities?.some(e => e.type === 'mention' && message.text.slice(e.offset, e.offset + e.length).includes(botUsername));
+
+    this.logger?.debug?.(`[TelegramService] Message received in ${channelId}, mentioned: ${isMentioned}`);
+
+    // If mentioned, reply immediately
+    if (isMentioned) {
+      await this.generateAndSendReply(ctx, channelId, true);
+      return;
+    }
+
+    // Otherwise, use debouncing logic
+    this.debounceReply(ctx, channelId);
+  }
+
+  /**
+   * Debounce replies - wait 30 seconds, but reset timer if new messages arrive
+   */
+  debounceReply(ctx, channelId) {
+    const pending = this.pendingReplies.get(channelId) || { messages: [] };
+    
+    // Clear existing timeout
+    if (pending.timeout) {
+      clearTimeout(pending.timeout);
+    }
+
+    // Add message to context
+    pending.messages.push({
+      text: ctx.message.text,
+      from: ctx.message.from,
+      date: ctx.message.date,
+    });
+
+    // Keep only last 10 messages for context
+    if (pending.messages.length > 10) {
+      pending.messages = pending.messages.slice(-10);
+    }
+
+    pending.lastMessageTime = Date.now();
+
+    // Set new timeout
+    pending.timeout = setTimeout(async () => {
+      try {
+        await this.generateAndSendReply(ctx, channelId, false);
+        this.pendingReplies.delete(channelId);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Debounced reply error:', error);
+      }
+    }, this.REPLY_DELAY_MS);
+
+    this.pendingReplies.set(channelId, pending);
+    this.logger?.debug?.(`[TelegramService] Reply debounced for channel ${channelId}, ${pending.messages.length} messages pending`);
+  }
+
+  /**
+   * Generate and send a reply using the global bot's personality
+   */
+  async generateAndSendReply(ctx, channelId, isMention) {
+    try {
+      // Get pending messages for context
+      const pending = this.pendingReplies.get(channelId);
+      const recentMessages = pending?.messages || [{
+        text: ctx.message.text,
+        from: ctx.message.from,
+        date: ctx.message.date,
+      }];
+
+      // Build conversation context
+      const conversationContext = recentMessages
+        .map(m => `${m.from.first_name || m.from.username || 'User'}: ${m.text}`)
+        .join('\n');
+
+      // Get global bot persona
+      let botPersonality = 'You are the CosyWorld narrator bot, a warm and welcoming guide who shares stories about our AI avatar community.';
+      let botDynamicPrompt = 'I\'ve been welcoming interesting souls to CosyWorld.';
+      
+      if (this.globalBotService?.bot) {
+        try {
+          const persona = await this.globalBotService.getPersona();
+          if (persona?.bot) {
+            botPersonality = persona.bot.personality || botPersonality;
+            botDynamicPrompt = persona.bot.dynamicPrompt || botDynamicPrompt;
+          }
+        } catch (e) {
+          this.logger?.debug?.('[TelegramService] Could not load bot persona:', e.message);
+        }
+      }
+
+      const systemPrompt = `${botPersonality}
+
+Your current thoughts and perspective:
+${botDynamicPrompt}
+
+You're having a conversation in a Telegram channel. Respond naturally and conversationally.
+Keep responses concise (2-3 sentences max).
+${isMention ? 'You were directly mentioned - respond to the question or comment.' : 'Respond to the general conversation flow.'}`;
+
+      const userPrompt = `Recent conversation:
+${conversationContext}
+
+Respond naturally to this conversation. Be warm, engaging, and reflect your narrator personality.`;
+
+      // Generate response using AI
+      if (!this.aiService) {
+        await ctx.reply('I\'m here and listening! 👂 (AI service not configured)');
+        return;
+      }
+
+      const response = await this.aiService.chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], {
+        model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+        max_tokens: 150,
+        temperature: 0.8
+      });
+
+      const responseText = typeof response === 'object' ? response.text : response;
+      const cleanResponse = String(responseText || '')
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .trim();
+
+      if (cleanResponse) {
+        await ctx.reply(cleanResponse);
+        this.logger?.info?.(`[TelegramService] Sent ${isMention ? 'mention' : 'debounced'} reply to channel ${channelId}`);
+      }
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Reply generation failed:', error);
+      try {
+        await ctx.reply('I\'m having trouble forming thoughts right now. Try again in a moment! 💭');
+      } catch (e) {
+        this.logger?.error?.('[TelegramService] Failed to send error reply:', e);
+      }
     }
   }
 
@@ -310,10 +505,21 @@ class TelegramService {
         return null;
       }
 
-      // Get channel ID from config
-      const channelId = config?.channelId || 
-                       this.configService.get('TELEGRAM_GLOBAL_CHANNEL_ID') || 
-                       process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
+      // Get channel ID from config or secrets
+      let channelId = config?.channelId;
+      
+      if (!channelId && this.secretsService) {
+        try {
+          channelId = await this.secretsService.getAsync('telegram_global_channel_id');
+        } catch {
+          this.logger?.debug?.('[TelegramService][globalPost] No channel in secrets');
+        }
+      }
+      
+      // Fallback to config/env
+      if (!channelId) {
+        channelId = this.configService.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
+      }
 
       if (!channelId) {
         this.logger?.warn?.('[TelegramService][globalPost] No channel ID configured');
@@ -528,6 +734,15 @@ Create a warm, welcoming introduction message (max 200 chars) that:
    */
   async shutdown() {
     try {
+      // Clear all pending reply timeouts
+      for (const [channelId, pending] of this.pendingReplies.entries()) {
+        if (pending.timeout) {
+          clearTimeout(pending.timeout);
+          this.logger?.debug?.(`[TelegramService] Cleared pending reply for channel ${channelId}`);
+        }
+      }
+      this.pendingReplies.clear();
+
       // Stop global bot
       if (this.globalBot) {
         await this.globalBot.stop('SIGTERM');
