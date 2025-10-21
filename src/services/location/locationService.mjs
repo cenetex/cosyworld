@@ -29,6 +29,8 @@ export class LocationService  {
   this.aiService = aiService;
   this.unifiedAIService = unifiedAIService; // optional adapter
     this.discordService = discordService;
+    // Track in-progress location creations to prevent duplicate generations
+    this.creationLocks = new Map(); // channelId -> Promise
     this.databaseService = databaseService;
     this.schemaService = schemaService;
     this.itemService = itemService;
@@ -86,10 +88,25 @@ export class LocationService  {
    * Generates an image for a location using Replicate and uploads it to S3.
    * @param {string} locationName - The location name used in the prompt.
    * @param {string} description - Additional descriptive text for the prompt.
+   * @param {Object} metadata - Optional metadata to attach to the generated image event
    * @returns {Promise<string>} - The uploaded image URL.
    */
-  async generateLocationImage(locationName, description) {
-    return await this.schemaService.generateImage(`${locationName}: ${description} Overhead RPG Map Style`, '16:9'); // Use SchemaService
+  async generateLocationImage(locationName, description, metadata = {}) {
+    // Pass metadata through to the upload service so social media posts have context
+    const uploadOptions = {
+      source: 'location.create',
+      purpose: 'location',
+      locationName: locationName,
+      locationDescription: description,
+      context: `New location discovered: ${locationName}. ${description}`,
+      ...metadata
+    };
+    
+    return await this.schemaService.generateImage(
+      `${locationName}: ${description} Overhead RPG Map Style`, 
+      '16:9',
+      uploadOptions
+    );
   }
 
   /**
@@ -360,6 +377,36 @@ If already suitable, return as is. If it needs editing, revise it while preservi
 
     let location = await this.db.collection('locations').findOne({ channelId });
     if (!location) {
+      // Check if another call is already creating this location
+      if (this.creationLocks.has(channelId)) {
+        console.log(`[LocationService] Waiting for in-progress creation of location ${channelId}`);
+        await this.creationLocks.get(channelId);
+        // After waiting, try to fetch the location again
+        location = await this.db.collection('locations').findOne({ channelId });
+        if (location) {
+          return location; // Another call created it, we're done
+        }
+      }
+
+      // Set a lock for this channel to prevent other simultaneous calls from generating
+      const creationPromise = this._createLocation(channelId);
+      this.creationLocks.set(channelId, creationPromise);
+      
+      try {
+        location = await creationPromise;
+      } finally {
+        this.creationLocks.delete(channelId);
+      }
+    }
+    return location;
+  }
+
+  /**
+   * Internal method to create a new location (called once per channel due to locking)
+   * @private
+   */
+  async _createLocation(channelId) {
+      let location;
       let channel;
       try {
         channel = await this.discordService.client.channels.fetch(channelId);
@@ -435,8 +482,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         name: String(cleanLocationName || 'Unknown Location'),
         imageUrl: imageUrl || ''
       });
-    }
-    return location;
+      
+      return location;
   }
 
   /**

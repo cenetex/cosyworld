@@ -29,7 +29,7 @@ export class SchemaService {
     ];
   }
 
-  async generateImage(prompt, aspectRatio = '1:1') {
+  async generateImage(prompt, aspectRatio = '1:1', uploadOptions = {}) {
     try {
       const replicateConfig = this.configService.getAIConfig('replicate');
       const loraTrigger = replicateConfig.loraTriggerWord || '';
@@ -62,7 +62,8 @@ export class SchemaService {
       const localFilename = `./images/generated_${Date.now()}.png`;
       await fs.mkdir('./images', { recursive: true });
       await fs.writeFile(localFilename, imageBuffer);
-      const s3url = await this.s3Service.uploadImage(localFilename);
+      // Pass through upload options (including metadata for event emission)
+      const s3url = await this.s3Service.uploadImage(localFilename, uploadOptions);
       return s3url;
     } catch (error) {
       console.error('Error generating image:', error);

@@ -185,6 +185,19 @@ Create a welcoming introduction tweet (max 240 chars) that:
 4. Makes people curious to learn more about them
 
 Be conversational and genuine. Do not use quotes, extra hashtags, or generic phrases.`;
+      } else if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
+        // New location discovery
+        userPrompt = `A new location has been discovered in CosyWorld: "${mediaPayload.locationName}"
+
+Description: ${mediaPayload.locationDescription || 'A mysterious new place'}
+
+Create an evocative announcement (max 240 chars) that:
+1. Highlights what makes this location unique and intriguing
+2. Invites adventurers to explore it
+3. Uses vivid, atmospheric language
+4. Reflects your narrator personality
+
+Be immersive and captivating. Include the location name. No quotes or extra hashtags.`;
       } else {
         // General media post
         userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).

@@ -47,7 +47,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
     try {
       if (!payload?.imageUrl) return;
       
-      // Skip if this is a keyframe/thumbnail for a video
+      // Skip if this is a keyframe/thumbnail for a video, or a location image
       if (payload.isKeyframe || payload.isThumbnail || payload.type === 'keyframe' || payload.purpose === 'keyframe' || payload.purpose === 'thumbnail') {
         logger?.debug?.('[TelegramGlobalAutoPoster] Skipping keyframe/thumbnail image');
         return;

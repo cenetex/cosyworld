@@ -94,10 +94,18 @@ export class S3Service {
             eventBus.emit(isVideo ? 'MEDIA.VIDEO.GENERATED' : 'MEDIA.IMAGE.GENERATED', {
               type: isVideo ? 'video' : 'image',
               source: options.source || 'uploadService',
-              purpose: options.purpose || 'general', // 'keyframe', 'thumbnail', 'general', 'avatar'
+              purpose: options.purpose || 'general', // 'keyframe', 'thumbnail', 'general', 'avatar', 'location'
               imageUrl: !isVideo ? finalUrl : undefined,
               videoUrl: isVideo ? finalUrl : undefined,
-              prompt: null,
+              prompt: options.prompt || null,
+              context: options.context || null,
+              // Pass through additional metadata for richer social posts
+              locationName: options.locationName || null,
+              locationDescription: options.locationDescription || null,
+              avatarName: options.avatarName || null,
+              avatarId: options.avatarId || null,
+              avatarEmoji: options.avatarEmoji || null,
+              guildId: options.guildId || null,
               createdAt: new Date()
             });
           } catch (e) { this.logger?.warn?.('[S3Service] emit MEDIA event failed: ' + e.message); }
