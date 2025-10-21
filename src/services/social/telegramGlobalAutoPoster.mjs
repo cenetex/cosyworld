@@ -91,6 +91,9 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
         avatarId: payload.avatarId || null,
         avatarName: payload.avatarName || null,
         avatarEmoji: payload.avatarEmoji || null,
+        // Location context for new location posts
+        locationName: payload.locationName || null,
+        locationDescription: payload.locationDescription || null,
         source: payload.source || 'media.generation',
         prompt: payload.prompt || null,
         createdAt: payload.createdAt || new Date()

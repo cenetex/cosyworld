@@ -232,6 +232,10 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
         return `${mediaPayload.avatarEmoji || '✨'} Meet ${mediaPayload.avatarName} — ${mediaPayload.prompt || 'a new arrival in CosyWorld'}`;
       }
       
+      if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
+        return `📍 New location discovered: ${mediaPayload.locationName}. ${mediaPayload.locationDescription || 'A place of mystery and wonder.'}`;
+      }
+      
       return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';
     }
   }

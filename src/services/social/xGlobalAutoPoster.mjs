@@ -77,10 +77,13 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
         type: 'image', 
         text: payload.context || payload.prompt || null,
         guildId: payload.guildId || payload.serverId || null,
-        // NEW: Avatar context for better AI generation
+        // Avatar context for better AI generation
         avatarId: payload.avatarId || null,
         avatarName: payload.avatarName || null,
         avatarEmoji: payload.avatarEmoji || null,
+        // Location context for new location posts
+        locationName: payload.locationName || null,
+        locationDescription: payload.locationDescription || null,
         source: payload.source || 'media.generation',
         prompt: payload.prompt || null,
         createdAt: payload.createdAt || new Date()
