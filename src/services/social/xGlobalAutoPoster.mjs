@@ -41,9 +41,16 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
     try {
       if (!payload?.imageUrl) return;
       
+      // Skip if this is a keyframe/thumbnail for a video
+      if (payload.isKeyframe || payload.isThumbnail || payload.type === 'keyframe' || payload.purpose === 'keyframe' || payload.purpose === 'thumbnail') {
+        logger?.debug?.('[XGlobalAutoPoster] Skipping keyframe/thumbnail image');
+        return;
+      }
+      
       logger?.debug?.('[XGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { 
         imageUrl: payload.imageUrl,
         source: payload.source,
+        purpose: payload.purpose,
         avatarName: payload.avatarName 
       });
       

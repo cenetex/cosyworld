@@ -441,12 +441,17 @@ export class GoogleAIService {
     if (!this.googleAI) throw new Error("Google AI client not initialized.");
     if (!this.s3Service) throw new Error("s3Service not initialized.");
 
-    // Remove aspectRatio from options and append to prompt if present
+    // Extract purpose for upload metadata
+    const uploadPurpose = options.purpose || 'general';
+    const uploadOptions = { purpose: uploadPurpose, source: 'googleAIService' };
+
+    // Remove aspectRatio and purpose from options (not for generation config)
     let aspectRatio;
     if (options && options.aspectRatio) {
       aspectRatio = options.aspectRatio;
       delete options.aspectRatio;
     }
+    delete options.purpose;
 
     let fullPrompt = prompt ? prompt.trim() : '';
     if (aspectRatio) {
@@ -495,7 +500,7 @@ export class GoogleAIService {
             await fs.mkdir('./images', { recursive: true });
             const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
-            const s3url = await this.s3Service.uploadImage(tempFile);
+            const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
             return s3url;
           }
@@ -516,15 +521,16 @@ export class GoogleAIService {
    * Calls the main implementation with aspectRatio mapped to options.
    * @param {string} prompt
    * @param {string} [aspectRatio]
+   * @param {object} [options] - Additional options like purpose
    * @returns {Promise<string|Array<string>>}
    */
-  async generateImage(prompt, aspectRatio) {
+  async generateImage(prompt, aspectRatio, options = {}) {
     // If aspectRatio is not provided, call the main method as usual
     if (aspectRatio === undefined) {
       return await this._generateImageImpl(prompt);
     }
     // Map aspectRatio to options and call the main method
-    return await this._generateImageImpl(prompt, null, null, [], { aspectRatio });
+    return await this._generateImageImpl(prompt, null, null, [], { ...options, aspectRatio });
   }
 
   /**
@@ -552,6 +558,11 @@ export class GoogleAIService {
     if (!this.s3Service) throw new Error("s3Service not initialized.");
     if (!Array.isArray(images) || images.length === 0) throw new Error("At least one image is required");
     if (images.length > 3) images = images.slice(0, 3); // Limit to 3 images
+    
+    // Extract purpose for upload metadata
+    const uploadPurpose = options.purpose || 'general';
+    const uploadOptions = { purpose: uploadPurpose, source: 'googleAIService' };
+    
     // Build a single content object with role 'user' and a parts array
     const parts = images.map(img => ({
       inline_data: {
@@ -580,7 +591,7 @@ export class GoogleAIService {
             await fs.mkdir('./images', { recursive: true });
             const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
-            const s3url = await this.s3Service.uploadImage(tempFile);
+            const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
             return s3url;
           }

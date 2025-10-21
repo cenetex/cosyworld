@@ -210,7 +210,7 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
       const tryCompose = async (provider) => {
         if (!provider?.composeImageWithGemini || images.length === 0) return null;
         try {
-          return await provider.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`);
+          return await provider.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`, { purpose: 'keyframe' });
         } catch (e) {
           this.logger?.warn?.('[VideoCamera] compose failed: ' + (e?.message || e));
           return null;
@@ -223,13 +223,13 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
         try {
           const basePrompt = `${compositePrompt}. Render in ${style}.`;
           if (typeof provider.generateImageFull === 'function') {
-            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9' });
+            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9', purpose: 'keyframe' });
           }
           if (typeof provider.generateImage === 'function') {
             if (provider === this.googleAIService) {
-              return await provider.generateImage(basePrompt, '16:9');
+              return await provider.generateImage(basePrompt, '16:9', { purpose: 'keyframe' });
             }
-            return await provider.generateImage(basePrompt, images, { aspectRatio: '16:9' });
+            return await provider.generateImage(basePrompt, images, { aspectRatio: '16:9', purpose: 'keyframe' });
           }
         } catch (e) {
           this.logger?.warn?.('[VideoCamera] generate failed: ' + (e?.message || e));

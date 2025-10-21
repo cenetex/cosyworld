@@ -45,7 +45,14 @@ export class S3Service {
     }
   }
 
-  async uploadImage(filePath) {
+  /**
+   * Upload an image to S3 and return its public CDN URL
+   * @param {string} filePath - Local file path
+   * @param {Object} options - Upload options
+   * @param {boolean} options.skipEventEmit - Skip emitting MEDIA events (for intermediate/keyframe images)
+   * @returns {Promise<string|null>} CDN URL or null if upload failed
+   */
+  async uploadImageToS3(filePath, options = {}) {
     // Check if service is configured
     if (!this.configured) {
       this.logger?.warn?.('[S3Service] Upload attempted but service not configured. Please complete setup wizard.');
@@ -79,18 +86,23 @@ export class S3Service {
         }
         this.logger.info(`Upload Successful via UploadService! status=${status}`);
         this.logger.info(`Image URL: ${finalUrl}`);
-        try {
-          // Emit media event for downstream global poster (type inferred from extension)
-          const isVideo = /\.mp4$/i.test(finalUrl);
-          eventBus.emit(isVideo ? 'MEDIA.VIDEO.GENERATED' : 'MEDIA.IMAGE.GENERATED', {
-            type: isVideo ? 'video' : 'image',
-            source: 'uploadService',
-            imageUrl: !isVideo ? finalUrl : undefined,
-            videoUrl: isVideo ? finalUrl : undefined,
-            prompt: null,
-            createdAt: new Date()
-          });
-        } catch (e) { this.logger?.warn?.('[S3Service] emit MEDIA event failed: ' + e.message); }
+        
+        // Emit media event for downstream global poster (unless suppressed for keyframes)
+        if (!options.skipEventEmit) {
+          try {
+            const isVideo = /\.mp4$/i.test(finalUrl);
+            eventBus.emit(isVideo ? 'MEDIA.VIDEO.GENERATED' : 'MEDIA.IMAGE.GENERATED', {
+              type: isVideo ? 'video' : 'image',
+              source: options.source || 'uploadService',
+              purpose: options.purpose || 'general', // 'keyframe', 'thumbnail', 'general', 'avatar'
+              imageUrl: !isVideo ? finalUrl : undefined,
+              videoUrl: isVideo ? finalUrl : undefined,
+              prompt: null,
+              createdAt: new Date()
+            });
+          } catch (e) { this.logger?.warn?.('[S3Service] emit MEDIA event failed: ' + e.message); }
+        }
+        
         return finalUrl;
       }
 
@@ -108,7 +120,7 @@ export class S3Service {
       const { protocol, hostname, pathname } = new URL(this.S3_API_ENDPOINT);
       const httpModule = protocol === 'https:' ? request : httpRequest;
 
-      const options = {
+      const requestOptions = {
         hostname,
         path: pathname,
         method: 'POST',
@@ -120,7 +132,7 @@ export class S3Service {
       };
 
       return new Promise((resolve, reject) => {
-        const req = httpModule(options, (res) => {
+        const req = httpModule(requestOptions, (res) => {
           let data = '';
           res.on('data', (chunk) => (data += chunk));
           res.on('end', () => {
@@ -169,7 +181,7 @@ export class S3Service {
     try {
       const { protocol, hostname, pathname, search } = new URL(imageUrl);
       const httpModule = protocol === 'https:' ? request : httpRequest;
-      const options = {
+      const requestOptions = {
         hostname,
         path: pathname + (search || ''),
         method: 'GET',
@@ -177,7 +189,7 @@ export class S3Service {
       };
 
       return new Promise((resolve, reject) => {
-        const req = httpModule(options, (res) => {
+        const req = httpModule(requestOptions, (res) => {
           // Handle redirects
           if ([301, 302, 307, 308].includes(res.statusCode)) {
             const location = res.headers.location;
@@ -217,6 +229,19 @@ export class S3Service {
       this.logger?.error('Error:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Convenience alias for uploadImageToS3 with optional purpose metadata
+   * @param {string} filePath - Local file path
+   * @param {Object} options - Upload options
+   * @param {string} options.purpose - Purpose of the image: 'keyframe', 'thumbnail', 'general', 'avatar'
+   * @param {string} options.source - Source of the image
+   * @param {boolean} options.skipEventEmit - Skip emitting MEDIA events
+   * @returns {Promise<string|null>} CDN URL or null if upload failed
+   */
+  async uploadImage(filePath, options = {}) {
+    return this.uploadImageToS3(filePath, options);
   }
 
   /**

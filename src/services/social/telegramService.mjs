@@ -47,7 +47,7 @@ class TelegramService {
     
     // Message debouncing: track pending replies per channel
     this.pendingReplies = new Map(); // channelId -> { timeout, lastMessageTime, messages }
-    this.REPLY_DELAY_MS = 30000; // 30 seconds delay between messages
+    this.REPLY_DELAY_MS = 10000; // 10 seconds delay between messages
   }
 
   /**
@@ -574,7 +574,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       }
 
       const hourlyCap = Number(config?.rate?.hourly) || 10;
-      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 30; // Reduced from 180 to 30 seconds
+      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 60; // 60 seconds between posts
 
       if (this._globalRate.lastPostedAt && (now - this._globalRate.lastPostedAt) < (minIntervalSec * 1000)) {
         const nextInMs = (minIntervalSec * 1000) - (now - this._globalRate.lastPostedAt);

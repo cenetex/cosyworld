@@ -48,7 +48,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
       if (!payload?.imageUrl) return;
       
       // Skip if this is a keyframe/thumbnail for a video
-      if (payload.isKeyframe || payload.isThumbnail || payload.type === 'keyframe') {
+      if (payload.isKeyframe || payload.isThumbnail || payload.type === 'keyframe' || payload.purpose === 'keyframe' || payload.purpose === 'thumbnail') {
         logger?.debug?.('[TelegramGlobalAutoPoster] Skipping keyframe/thumbnail image');
         return;
       }
@@ -56,6 +56,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
       logger?.info?.('[TelegramGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { 
         imageUrl: payload.imageUrl,
         source: payload.source,
+        purpose: payload.purpose,
         avatarName: payload.avatarName 
       });
       
