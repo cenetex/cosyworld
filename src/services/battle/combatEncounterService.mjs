@@ -1,6 +1,7 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { publishEvent } from '../../events/envelope.mjs';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import eventBus from '../../utils/eventBus.mjs';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability
@@ -1800,6 +1801,33 @@ Requirements:
         await channel.send({
           content: `## 🎬 Battle Recap (Rounds ${video.round})\n${video.actions} ${video.actions === 1 ? 'action' : 'actions'}\n[Watch Battle Video](${video.url})`
         });
+        
+        // Emit event for social media auto-posters (Telegram, X, etc.)
+        try {
+          const combatants = encounter.combatants || [];
+          const avatarNames = combatants.map(c => c.ref?.name).filter(Boolean).join(' vs ');
+          const loc = await this.mapService?.getLocationAndAvatars?.(encounter.channelId).catch(() => null);
+          const locationName = loc?.location?.name || 'the battlefield';
+          
+          eventBus.emit('MEDIA.VIDEO.GENERATED', {
+            type: 'video',
+            source: 'combat.recap',
+            videoUrl: video.url,
+            context: `🎬 Battle Recap: ${avatarNames} at ${locationName}`,
+            prompt: `Epic battle between ${avatarNames}`,
+            avatarName: avatarNames,
+            guildId: channel.guild?.id,
+            createdAt: new Date(),
+            metadata: {
+              rounds: video.round,
+              actions: video.actions,
+              duration: video.duration,
+              combatants: combatants.length
+            }
+          });
+        } catch (e) {
+          this.logger?.warn?.(`[CombatEncounter] Failed to emit video event: ${e.message}`);
+        }
         
         // Disable the "Generate Video" button now that video is ready
         try {

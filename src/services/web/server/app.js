@@ -324,8 +324,12 @@ async function initializeApp(services) {
     });
 
     // Start server on the configured port; if it's taken we fail fast (no auto-increment)
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode at http://0.0.0.0:${PORT}`);
+    const server = await new Promise((resolve, reject) => {
+      const srv = app.listen(PORT, '0.0.0.0', () => {
+        logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode at http://0.0.0.0:${PORT}`);
+        resolve(srv);
+      });
+      srv.on('error', reject);
     });
 
     // Graceful shutdown

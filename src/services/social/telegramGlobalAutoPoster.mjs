@@ -53,7 +53,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
         return;
       }
       
-      logger?.debug?.('[TelegramGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { 
+      logger?.info?.('[TelegramGlobalAutoPoster] evt MEDIA.IMAGE.GENERATED', { 
         imageUrl: payload.imageUrl,
         source: payload.source,
         avatarName: payload.avatarName 
@@ -67,6 +67,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
       
       // Check for recent posts about this avatar
       if (payload.avatarId && payload.source === 'avatar.create') {
+        logger?.info?.('[TelegramGlobalAutoPoster] Avatar creation detected, checking deduplication');
         // Use GlobalBotService deduplication if available, otherwise fallback
         const shouldPost = globalBotService 
           ? await globalBotService.shouldPostAboutAvatar(String(payload.avatarId))
@@ -76,6 +77,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
           logger?.info?.(`[TelegramGlobalAutoPoster] Skipping - avatar ${payload.avatarName} recently introduced`);
           return;
         }
+        logger?.info?.('[TelegramGlobalAutoPoster] Proceeding with avatar introduction post');
       }
       
       // Enhanced payload with full context

@@ -37,13 +37,19 @@ async function checkConfiguration() {
 }
 
 async function main() {
+  const startTime = Date.now();
+  const logTiming = (label) => console.log(`[startup:timing] ${label}: +${Date.now() - startTime}ms`);
+  
   // Ensure container finished async initialization
   await containerReady;
+  logTiming('Container ready');
+  
   const logger = container.resolve('logger');
 
   try {
     // Check if configuration is complete FIRST before any service initialization
     const configured = await checkConfiguration();
+    logTiming('Configuration checked');
     if (!configured) {
       // Wizard is running, exit main startup
       return;
@@ -68,6 +74,7 @@ async function main() {
     // Step 1: Connect to database
     const db = container.resolve('databaseService');
     await db.connect();
+    logTiming('Database connected');
     logger.log('[startup] Database connected');
 
     // Step 2: Assign DB to config if needed
@@ -85,11 +92,13 @@ async function main() {
 
 
     await db.createIndexes();
+    logTiming('Database indexes created');
     logger.log('[startup] Database indexes created');
 
     // Step 4: Initialize core services
     const toolService = container.resolve('toolService');
     await toolService.initialize();
+    logTiming('ToolService initialized');
     logger.log('[startup] ToolService initialized');
 
     // Start Memory nightly job (if enabled)
@@ -127,6 +136,7 @@ async function main() {
     // Step 5: Launch Discord bot
     const discord = container.resolve('discordService');
     await discord.login();
+    logTiming('Discord bot logged in');
     logger.log('[startup] Discord bot logged in');
 
     // Start the MessageHandler
@@ -146,8 +156,10 @@ async function main() {
 
     // Initialize Telegram global bot if configured
     try {
+      logger.info('[startup] Initializing Telegram bot...');
       const telegramService = container.resolve('telegramService');
       const initialized = await telegramService.initializeGlobalBot();
+      logTiming('Telegram bot initialized');
       if (initialized) {
         logger.log('[startup] Telegram global bot initialized');
       } else {
@@ -155,12 +167,21 @@ async function main() {
       }
     } catch (e) {
       logger.warn(`[startup] Telegram bot initialization failed: ${e.message}`);
+      logTiming('Telegram bot failed');
     }
 
     // Start the Web Service
-    const web = container.resolve('webService');
-    await web.start?.();
-    logger.log('[startup] Web service started');
+    try {
+      logger.info('[startup] Starting web service...');
+      const web = container.resolve('webService');
+      await web.start?.();
+      logTiming('Web service started');
+      logger.log('[startup] Web service started');
+    } catch (e) {
+      logger.error(`[startup] Web service failed to start: ${e.message}`);
+      logger.error(e.stack);
+      logTiming('Web service failed');
+    }
 
   } catch (err) {
     logger.error(`[fatal] Startup failed: ${err.message}\n${err.stack}`);

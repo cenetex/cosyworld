@@ -103,7 +103,10 @@ class TelegramService {
       
       // Launch the bot (uses long polling by default, which Telegram handles gracefully)
       // Telegram will automatically disconnect any other instance using the same token
-      await this.globalBot.launch();
+      // Don't await launch() - it starts a long-running polling process
+      this.globalBot.launch().catch(err => {
+        this.logger?.error?.('[TelegramService] Bot launch error:', err.message);
+      });
       
       const botInfo = await this.globalBot.telegram.getMe();
       this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
@@ -472,9 +475,11 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
    */
   async postGlobalMediaUpdate(opts = {}, services = {}) {
     try {
-      this.logger?.debug?.('[TelegramService][globalPost] attempt', {
+      this.logger?.info?.('[TelegramService][globalPost] attempt', {
         mediaUrl: opts.mediaUrl,
         type: opts.type || 'image',
+        source: opts.source,
+        avatarName: opts.avatarName
       });
 
       // Initialize metrics if needed
@@ -519,10 +524,12 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       // Check for global bot
       if (!this.globalBot) {
-        this.logger?.warn?.('[TelegramService][globalPost] No global bot configured');
+        this.logger?.info?.('[TelegramService][globalPost] No global bot configured - skipping post');
         _bump('no_bot', { mediaUrl: opts.mediaUrl });
         return null;
       }
+      
+      this.logger?.info?.('[TelegramService][globalPost] Global bot is available');
 
       // Get channel ID from config or secrets
       let channelId = config?.channelId;
@@ -541,10 +548,12 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       }
 
       if (!channelId) {
-        this.logger?.warn?.('[TelegramService][globalPost] No channel ID configured');
+        this.logger?.info?.('[TelegramService][globalPost] No channel ID configured - please configure in admin UI');
         _bump('no_channel', { mediaUrl: opts.mediaUrl });
         return null;
       }
+      
+      this.logger?.info?.('[TelegramService][globalPost] Using channel:', channelId);
 
       const { mediaUrl, text, type = 'image' } = opts;
       
@@ -565,17 +574,17 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       }
 
       const hourlyCap = Number(config?.rate?.hourly) || 10;
-      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 180;
+      const minIntervalSec = Number(config?.rate?.minIntervalSec) || 30; // Reduced from 180 to 30 seconds
 
       if (this._globalRate.lastPostedAt && (now - this._globalRate.lastPostedAt) < (minIntervalSec * 1000)) {
         const nextInMs = (minIntervalSec * 1000) - (now - this._globalRate.lastPostedAt);
-        this.logger?.debug?.(`[TelegramService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s`);
+        this.logger?.info?.(`[TelegramService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s (last posted ${Math.ceil((now - this._globalRate.lastPostedAt)/1000)}s ago, min interval ${minIntervalSec}s)`);
         _bump('min_interval', { mediaUrl, minIntervalSec });
         return null;
       }
 
       if (this._globalRate.count >= hourlyCap) {
-        this.logger?.debug?.(`[TelegramService][globalPost] Hourly cap reached (${hourlyCap})`);
+        this.logger?.info?.(`[TelegramService][globalPost] Hourly cap reached (${hourlyCap})`);
         _bump('hourly_cap', { mediaUrl, hourlyCap });
         return null;
       }
@@ -626,32 +635,49 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       if (type === 'video') {
         // For videos, Telegram requires the file to be accessible
         // Send as a URL input - Telegram will fetch and process it
+        this.logger?.info?.('[TelegramService][globalPost] Attempting to send video:', mediaUrl);
         try {
-          messageResult = await this.globalBot.telegram.sendVideo(channelId, { url: mediaUrl }, {
+          // Add timeout for video uploads (Telegram can be slow to process)
+          const videoPromise = this.globalBot.telegram.sendVideo(channelId, mediaUrl, {
             caption,
             supports_streaming: true, // Enable streaming for better playback
           });
+          
+          // Set 30 second timeout
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Video send timeout after 30s')), 30000);
+          });
+          
+          messageResult = await Promise.race([videoPromise, timeoutPromise]);
+          this.logger?.info?.('[TelegramService][globalPost] Video posted successfully');
         } catch (videoErr) {
           // If video posting fails, try to send the thumbnail as fallback
-          this.logger?.warn?.('[TelegramService][globalPost] Video post failed, trying photo fallback:', videoErr.message);
+          this.logger?.error?.('[TelegramService][globalPost] Video post failed:', videoErr.message);
+          this.logger?.error?.('[TelegramService][globalPost] Video error details:', JSON.stringify({
+            error: videoErr.message,
+            code: videoErr.code,
+            response: videoErr.response?.body
+          }));
           
-          // Try to extract thumbnail URL if available
-          const thumbnailUrl = opts.thumbnailUrl || mediaUrl.replace(/\.mp4$/i, '.jpg');
-          
+          // Try sending as document instead of video (bypasses Telegram video processing)
+          this.logger?.info?.('[TelegramService][globalPost] Attempting to send as document instead...');
           try {
-            messageResult = await this.globalBot.telegram.sendPhoto(channelId, { url: thumbnailUrl }, {
-              caption: caption + '\n\n⚠️ Full video available at source',
+            messageResult = await this.globalBot.telegram.sendDocument(channelId, mediaUrl, {
+              caption: caption + '\n\n🎥 Video file',
             });
-            this.logger?.info?.('[TelegramService][globalPost] Posted thumbnail as fallback for video');
-          } catch (fallbackErr) {
-            this.logger?.error?.('[TelegramService][globalPost] Both video and fallback failed');
+            this.logger?.info?.('[TelegramService][globalPost] Posted video as document successfully');
+          } catch (docErr) {
+            this.logger?.error?.('[TelegramService][globalPost] Document fallback also failed:', docErr.message);
+            _bump('error', { mediaUrl, error: videoErr.message });
             throw videoErr; // Throw original error
           }
         }
       } else {
-        messageResult = await this.globalBot.telegram.sendPhoto(channelId, { url: mediaUrl }, {
+        this.logger?.info?.('[TelegramService][globalPost] Attempting to send photo:', mediaUrl);
+        messageResult = await this.globalBot.telegram.sendPhoto(channelId, mediaUrl, {
           caption,
         });
+        this.logger?.info?.('[TelegramService][globalPost] Photo posted successfully');
       }
 
       this._globalRate.count++;
