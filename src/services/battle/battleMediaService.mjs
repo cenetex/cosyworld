@@ -53,13 +53,13 @@ export class BattleMediaService {
     }
   }
 
-  async _composeOrGenerateImage(images, scenePrompt) {
+  async _composeOrGenerateImage(images, scenePrompt, uploadOptions = {}) {
     // Try primary provider first, fallback to googleAIService
     const tryProvider = async (provider) => {
       if (!provider) return null;
       try {
         if (typeof provider.composeImageWithGemini === 'function') {
-          const composed = await provider.composeImageWithGemini(images, scenePrompt);
+          const composed = await provider.composeImageWithGemini(images, scenePrompt, uploadOptions);
           if (composed) return composed;
         }
       } catch (e) {
@@ -68,7 +68,7 @@ export class BattleMediaService {
       try {
         if (typeof provider.generateImage === 'function') {
           const prompt = `${scenePrompt}`;
-          const gen = await provider.generateImage(prompt);
+          const gen = await provider.generateImage(prompt, uploadOptions);
           if (gen) return gen;
         }
       } catch (e) {
@@ -132,7 +132,19 @@ export class BattleMediaService {
       if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-  const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const locName = location?.name || location?.title || 'the battlefield';
+      const uploadOptions = {
+        source: 'combat.action',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `⚔️ ${attacker.name} attacks ${defender.name} at ${locName}`,
+        avatarName: `${attacker.name} vs ${defender.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+  const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
   // Mid-battle: never generate video here. Video is only attempted in summaries.
   if (!imageUrl) return null;
   return { imageUrl, videoUrl: null };
@@ -161,7 +173,18 @@ export class BattleMediaService {
       if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const uploadOptions = {
+        source: 'combat.poster',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `⚔️ ${attacker.name} vs ${defender.name} at ${locName}`,
+        avatarName: `${attacker.name} vs ${defender.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
       if (!imageUrl) return null;
       return { imageUrl };
     } catch (e) {
@@ -205,7 +228,19 @@ export class BattleMediaService {
       if (loc64) images.push({ data: loc64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const locName = location?.name || location?.title || 'the battlefield';
+      const uploadOptions = {
+        source: 'combat.summary',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `🏆 ${winner.name} defeats ${loser.name} at ${locName}`,
+        avatarName: `${winner.name} vs ${loser.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
 
       // For summary, attempt a video if knockout/death occurred
       let videoUrl = null;

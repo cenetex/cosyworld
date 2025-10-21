@@ -217,6 +217,24 @@ Create an engaging caption (max 240 chars) that:
 5. Reflects your narrator personality
 
 Be atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`;
+      } else if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
+        // Combat/battle images
+        const combatType = mediaPayload.source === 'combat.poster' ? 'Pre-battle standoff' 
+                         : mediaPayload.source === 'combat.summary' ? 'Battle concluded' 
+                         : 'Combat action';
+        
+        userPrompt = `${combatType} in CosyWorld: ${mediaPayload.avatarName || 'Warriors clash'}${mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : ''}
+
+Scene: ${mediaPayload.context || mediaPayload.prompt || 'Epic battle moment'}
+
+Create an intense, dramatic caption (max 240 chars) that:
+1. Captures the energy and stakes of the combat
+2. Highlights the combatants (use *bold* for names)
+3. Creates excitement and tension
+4. References the location if provided (use *bold*)
+5. Reflects your narrator personality
+
+Be dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`;
       } else {
         // General media post
         userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).
@@ -259,6 +277,12 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
         return `📸 ${who}${where} — ${mediaPayload.context || 'A cinematic moment in CosyWorld'}`;
+      }
+      
+      if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
+        const emoji = mediaPayload.source === 'combat.poster' ? '⚔️' : '🏆';
+        const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
+        return `${emoji} ${mediaPayload.avatarName || 'Battle'}${where} — ${mediaPayload.context || 'Epic combat in CosyWorld'}`;
       }
       
       return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';
