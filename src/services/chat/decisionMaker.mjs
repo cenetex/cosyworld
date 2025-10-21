@@ -254,10 +254,16 @@ export class DecisionMaker  {
         // Slightly relax cooldown window when sticky
         const stickyCooldown = Math.max(10_000, Math.floor((this.config.PER_AVATAR_COOLDOWN || 120_000) * 0.6));
         const state = this._getAttentionState(avatar.id);
-        if (Date.now() - state.lastResponse >= stickyCooldown) {
+        const timeSinceLastResponse = Date.now() - state.lastResponse;
+        
+        if (timeSinceLastResponse >= stickyCooldown) {
+          this.logger.debug?.(`[DecisionMaker] ${avatar.name} responding via sticky affinity (${Math.round(timeSinceLastResponse/1000)}s since last)`);
           this._updateAttention(avatar.id, 20);
           this._updateConversation(channel.id, avatar.id);
           return true;
+        } else {
+          this.logger.debug?.(`[DecisionMaker] ${avatar.name} sticky cooldown active (${Math.round(timeSinceLastResponse/1000)}s/${Math.round(stickyCooldown/1000)}s)`);
+          return false;
         }
       }
     }

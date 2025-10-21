@@ -104,17 +104,21 @@ export class ResponseCoordinator {
       // 5. Generate responses with locking
       const responses = [];
       for (const avatar of selectedAvatars) {
+        this.logger.debug?.(`[ResponseCoordinator] Attempting response from ${avatar.name}`);
+        
         // Acquire lock to prevent duplicates
         const lockAcquired = await this.acquireResponseLock(channelId, avatar._id || avatar.id);
         if (!lockAcquired) {
-          this.logger.debug?.(`[ResponseCoordinator] Lock not acquired for ${avatar.name} in ${channelId}`);
+          this.logger.info?.(`[ResponseCoordinator] Lock not acquired for ${avatar.name} in ${channelId} - another response in progress`);
           continue;
         }
 
         try {
+          this.logger.debug?.(`[ResponseCoordinator] Lock acquired, generating response for ${avatar.name}`);
           // Generate and send the response
           const response = await this.generateResponse(avatar, channel, message, context);
           if (response) {
+            this.logger.debug?.(`[ResponseCoordinator] Response generated successfully for ${avatar.name}`);
             responses.push(response);
             
             // Update presence state
@@ -124,6 +128,8 @@ export class ResponseCoordinator {
             if (message && !message.author.bot) {
               await this.updateConversationSession(channelId, message.author.id, avatar._id || avatar.id);
             }
+          } else {
+            this.logger.warn?.(`[ResponseCoordinator] generateResponse returned null/empty for ${avatar.name}`);
           }
         } catch (e) {
           this.logger.error(`[ResponseCoordinator] Response generation failed for ${avatar.name}: ${e.message}`);
@@ -852,6 +858,8 @@ export class ResponseCoordinator {
         cascadeDepth: context.cascadeDepth || 0
       };
 
+      this.logger.debug?.(`[ResponseCoordinator] generateResponse called for ${avatar.name} in channel ${channel.id}`);
+
       // CRITICAL: Verify avatar is still in this channel before responding
       // An avatar may have moved during tool execution (e.g., MoveTool)
       // If avatar has moved, we should respond in their NEW location
@@ -875,9 +883,17 @@ export class ResponseCoordinator {
         // Continue with original channel if check fails
       }
 
-      return await this.conversationManager.sendResponse(channel, avatar, null, options);
+      this.logger.debug?.(`[ResponseCoordinator] Calling conversationManager.sendResponse for ${avatar.name}`);
+      const result = await this.conversationManager.sendResponse(channel, avatar, null, options);
+      
+      if (!result) {
+        this.logger.warn?.(`[ResponseCoordinator] conversationManager.sendResponse returned null for ${avatar.name}`);
+      }
+      
+      return result;
     } catch (e) {
-      this.logger.error(`[ResponseCoordinator] generateResponse error: ${e.message}`);
+      this.logger.error(`[ResponseCoordinator] generateResponse error for ${avatar.name}: ${e.message}`);
+      this.logger.error(`[ResponseCoordinator] Stack: ${e.stack}`);
       return null;
     }
   }

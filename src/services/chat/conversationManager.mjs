@@ -478,16 +478,30 @@ export class ConversationManager  {
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
   const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
+    
+    this.logger.info?.(`[ConversationManager] sendResponse called for ${avatar.name} in channel ${channel.id}, overrideCooldown=${overrideCooldown}`);
+    
     // Gate speaking for KO/dead avatars
     try {
       const now = Date.now();
-      if (avatar?.status === 'dead') return null;
-      if (avatar?.status === 'knocked_out') return null;
-      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
-    } catch {}
+      if (avatar?.status === 'dead') {
+        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - status is dead`);
+        return null;
+      }
+      if (avatar?.status === 'knocked_out') {
+        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - status is knocked_out`);
+        return null;
+      }
+      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) {
+        this.logger.debug?.(`[ConversationManager] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
+        return null;
+      }
+    } catch (e) {
+      this.logger.warn?.(`[ConversationManager] Error checking avatar status for ${avatar.name}: ${e.message}`);
+    }
     this.db = await this.databaseService.getDatabase();
     if (!await this.checkChannelPermissions(channel)) {
-      this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
+      this.logger.warn?.(`[ConversationManager] ${avatar.name} cannot send response - missing permissions in channel ${channel.id}`);
       return null;
     }
     
@@ -496,23 +510,23 @@ export class ConversationManager  {
     const timeSinceLastBotMessage = Date.now() - lastBotMessageTime;
     if (!overrideCooldown && timeSinceLastBotMessage < this.BOT_REPLY_COOLDOWN) {
       const remainingMs = this.BOT_REPLY_COOLDOWN - timeSinceLastBotMessage;
-      this.logger.debug(`Channel ${channel.id} bot rate limit active - ${(remainingMs / 1000).toFixed(1)}s remaining until next bot reply allowed`);
+      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked by bot rate limit in channel ${channel.id} - ${(remainingMs / 1000).toFixed(1)}s remaining`);
       return null;
     }
     
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
   if (!overrideCooldown && Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
-      this.logger.debug(`Channel ${channel.id} is on cooldown`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked by channel cooldown in ${channel.id}`);
       return null;
     }
     if (!this.channelResponders.has(channel.id)) this.channelResponders.set(channel.id, new Set());
     const responders = this.channelResponders.get(channel.id);
     if (responders.size >= this.MAX_RESPONSES_PER_MESSAGE) {
-      this.logger.debug(`Channel ${channel.id} has reached maximum responses`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked - channel ${channel.id} has reached maximum responses`);
       return null;
     }
     if (responders.has(avatar._id)) {
-      this.logger.debug(`Avatar ${avatar.name} has already responded in channel ${channel.id}`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} already responded in channel ${channel.id}`);
       return null;
     }
     try {
@@ -703,6 +717,8 @@ export class ConversationManager  {
   let result = await ai.chat(chatMessages, chatOptions);
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
       
+      this.logger.info?.(`[ConversationManager] AI chat returned for ${avatar.name}, result type: ${typeof result}, is null/undefined: ${result == null}`);
+      
       // Log non-string/atypical shapes for diagnostics
       try {
         if (result && typeof result !== 'string') {
@@ -717,7 +733,7 @@ export class ConversationManager  {
         response = result;
       }
       if (!response) {
-        this.logger.error(`Empty response generated for ${avatar.name}`);
+        this.logger.error(`[ConversationManager] Empty response generated for ${avatar.name} - ai.chat returned null/empty`);
         try {
           const preview = (() => { try { return JSON.stringify(result).slice(0, 500); } catch { return String(result); } })();
           this.logger.error(`[AI][sendResponse][${corrId}] empty response; rawPreview=${preview}`);
