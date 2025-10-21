@@ -78,13 +78,34 @@ export class SceneCameraTool extends BasicTool {
       const style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
       const compositePrompt = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`.trim();
 
+      // Build metadata for social media posts
+      const metadata = {
+        source: 'scene.camera',
+        purpose: 'general',
+        guildId: guildId,
+        context: `${compositePrompt}. ${style}`,
+      };
+      
+      // Add primary avatar info (the one who took the photo)
+      if (avatar) {
+        metadata.avatarId = String(avatar._id || avatar.id);
+        metadata.avatarName = avatar.name;
+        metadata.avatarEmoji = avatar.emoji;
+      }
+      
+      // Add location info
+      if (location) {
+        metadata.locationName = location.name;
+        metadata.locationDescription = location.description;
+      }
+
       let imageUrl = null;
 
       // Prefer composition if we have multiple image sources
       const tryCompose = async (provider) => {
         if (!provider?.composeImageWithGemini || images.length === 0) return null;
         try {
-          return await provider.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`);
+          return await provider.composeImageWithGemini(images, `${compositePrompt}\nRender in ${style}.`, metadata);
         } catch (e) {
           this.logger?.warn?.('[SceneCamera] compose failed: ' + (e?.message || e));
           return null;
@@ -97,13 +118,13 @@ export class SceneCameraTool extends BasicTool {
         try {
           const basePrompt = `${compositePrompt}. Render in ${style}.`;
           if (typeof provider.generateImageFull === 'function') {
-            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9' });
+            return await provider.generateImageFull(basePrompt, avatar, location, images.slice(0,1), { aspectRatio: '16:9', ...metadata });
           }
           if (typeof provider.generateImage === 'function') {
             if (provider === this.googleAIService) {
-              return await provider.generateImage(basePrompt, '16:9');
+              return await provider.generateImage(basePrompt, '16:9', metadata);
             }
-            return await provider.generateImage(basePrompt, images, { aspectRatio: '16:9' });
+            return await provider.generateImage(basePrompt, images, { aspectRatio: '16:9', ...metadata });
           }
         } catch (e) {
           this.logger?.warn?.('[SceneCamera] generate failed: ' + (e?.message || e));

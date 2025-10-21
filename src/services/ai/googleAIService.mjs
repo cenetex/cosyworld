@@ -443,7 +443,37 @@ export class GoogleAIService {
 
     // Extract purpose for upload metadata
     const uploadPurpose = options.purpose || 'general';
-    const uploadOptions = { purpose: uploadPurpose, source: 'googleAIService' };
+    
+    // Build rich upload options for social media context
+    const uploadOptions = { 
+      purpose: uploadPurpose, 
+      source: options.source || 'scene.camera',
+      prompt: prompt,
+    };
+    
+    // Add avatar context if provided
+    if (avatar) {
+      uploadOptions.avatarId = String(avatar._id || avatar.id || '');
+      uploadOptions.avatarName = avatar.name || null;
+      uploadOptions.avatarEmoji = avatar.emoji || null;
+      uploadOptions.context = `${avatar.name || 'An avatar'} ${avatar.emoji || ''} ${prompt}`.trim();
+    }
+    
+    // Add location context if provided
+    if (location) {
+      uploadOptions.locationName = location.name || null;
+      uploadOptions.locationDescription = location.description || null;
+      if (!uploadOptions.context) {
+        uploadOptions.context = `At ${location.name || 'a location'}: ${prompt}`.trim();
+      } else {
+        uploadOptions.context = `${uploadOptions.context} at ${location.name}`.trim();
+      }
+    }
+    
+    // Add guild context if provided
+    if (options.guildId) {
+      uploadOptions.guildId = options.guildId;
+    }
 
     // Remove aspectRatio and purpose from options (not for generation config)
     let aspectRatio;
@@ -561,10 +591,25 @@ export class GoogleAIService {
     
     // Extract purpose for upload metadata and remove from generation config
     const uploadPurpose = options.purpose || 'general';
-    const uploadOptions = { purpose: uploadPurpose, source: 'googleAIService' };
+    
+    // Build rich upload options for social media context
+    const uploadOptions = { 
+      purpose: uploadPurpose, 
+      source: options.source || 'scene.camera',
+      prompt: prompt,
+      context: options.context || prompt,
+    };
+    
+    // Pass through any avatar/location metadata from options
+    if (options.avatarId) uploadOptions.avatarId = options.avatarId;
+    if (options.avatarName) uploadOptions.avatarName = options.avatarName;
+    if (options.avatarEmoji) uploadOptions.avatarEmoji = options.avatarEmoji;
+    if (options.locationName) uploadOptions.locationName = options.locationName;
+    if (options.locationDescription) uploadOptions.locationDescription = options.locationDescription;
+    if (options.guildId) uploadOptions.guildId = options.guildId;
     
     // Extract model and purpose before passing to generation config
-    const { purpose: _purpose, model, ...genOptions } = options;
+    const { purpose: _purpose, model, avatarId: _avatarId, avatarName: _avatarName, avatarEmoji: _avatarEmoji, locationName: _locationName, locationDescription: _locationDescription, guildId: _guildId, context: _context, source: _source, ...genOptions } = options;
     
     // Build a single content object with role 'user' and a parts array
     const parts = images.map(img => ({

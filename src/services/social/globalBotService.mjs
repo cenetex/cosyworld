@@ -200,6 +200,23 @@ Create an evocative announcement (max 240 chars) that:
 5. Use *bold* for the location name using Markdown formatting
 
 Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.`;
+      } else if (mediaPayload.source === 'scene.camera' && (mediaPayload.avatarName || mediaPayload.locationName)) {
+        // Scene camera photo
+        const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
+        const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
+        
+        userPrompt = `A scene has been captured in CosyWorld: ${who}${where}
+
+Scene description: ${mediaPayload.context || mediaPayload.prompt || 'A cinematic moment'}
+
+Create an engaging caption (max 240 chars) that:
+1. Describes the scene vividly
+2. Captures the mood and atmosphere
+3. Uses *bold* for names (avatar and location)
+4. Makes viewers curious about the moment
+5. Reflects your narrator personality
+
+Be atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`;
       } else {
         // General media post
         userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).
@@ -236,6 +253,12 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
       
       if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
         return `📍 New location discovered: *${mediaPayload.locationName}*. ${mediaPayload.locationDescription || 'A place of mystery and wonder.'}`;
+      }
+      
+      if (mediaPayload.source === 'scene.camera') {
+        const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
+        const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
+        return `📸 ${who}${where} — ${mediaPayload.context || 'A cinematic moment in CosyWorld'}`;
       }
       
       return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';
