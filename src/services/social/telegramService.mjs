@@ -593,9 +593,8 @@ Your caption:`;
         prompt: prompt,
         config: {
           numberOfVideos: 1,
-          aspectRatio: '16:9',
-          durationSeconds: 5,
-          resolution: '480p' // Faster generation for user requests
+          aspectRatio: '16:9'
+          // Note: durationSeconds and resolution parameters are not supported for text-to-video generation
         },
         model: 'veo-3.1-generate-preview'
       });

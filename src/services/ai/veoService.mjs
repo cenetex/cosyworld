@@ -193,7 +193,8 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Optional text prompt for video generation.
    * @param {{data: string, mimeType: string}[]} params.images - Array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, resolution, durationSeconds, etc).
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, personGeneration).
+   *                                   Note: resolution and durationSeconds are NOT supported for image-to-video.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of video URIs.
    */
@@ -248,7 +249,8 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Required text prompt when no image is provided.
    * @param {{data: string, mimeType: string}[]} [params.images] - Optional array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, resolution, durationSeconds, etc).
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration).
+   *                                   Note: resolution and durationSeconds are NOT supported for basic text/image-to-video.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
@@ -378,11 +380,11 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.videoUrl - URL or S3 path to the Veo-generated video to extend.
    * @param {string} params.prompt - Text prompt describing how to extend the video.
-   * @param {object} [params.config] - Video generation configuration (must use 720p resolution).
+   * @param {object} [params.config] - Video generation configuration.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to extended videos (combines input + extension).
    */
-  async extendVideo({ videoUrl, prompt, config = { resolution: '720p', personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
+  async extendVideo({ videoUrl, prompt, config = { personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!videoUrl) throw new Error('Video URL is required');
     if (!prompt) throw new Error('Prompt is required');
@@ -423,8 +425,8 @@ export class VeoService {
       prompt,
       video: videoParam,
       config: {
-        ...config,
-        resolution: '720p' // Required for extensions
+        ...config
+        // Note: resolution parameter is not supported in Gemini API
       }
     });
 

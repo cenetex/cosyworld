@@ -1728,8 +1728,8 @@ Requirements:
         videoUrl,
         prompt: sceneDescription,
         config: {
-          resolution: '720p',
           personGeneration: 'allow_adult'
+          // Note: resolution parameter is not supported in Gemini API
         },
         model: 'veo-3.1-generate-preview'
       });
