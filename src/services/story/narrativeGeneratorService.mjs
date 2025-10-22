@@ -84,12 +84,11 @@ export class NarrativeGeneratorService {
       const response = await this.aiService.chat([
         { role: 'user', content: arcPrompt }
       ], {
-        temperature: 0.9, // Higher creativity for story generation
-        max_tokens: 3000
+        temperature: 0.9 // Higher creativity for story generation
       });
       
       // Parse AI response
-      const arcData = this._parseArcResponse(response);
+      const arcData = this._parseArcResponse(response, worldContext);
       
       // Enrich with metadata
       arcData.theme = selectedTheme;
@@ -315,8 +314,7 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
       const response = await this.aiService.chat([
         { role: 'user', content: beatPrompt }
       ], {
-        temperature: 0.85,
-        max_tokens: 1500
+        temperature: 0.85
       });
       
       // Parse beat response
