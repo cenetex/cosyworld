@@ -105,6 +105,12 @@ import { TelegramService } from './services/social/telegramService.mjs';
 import { GlobalBotService } from './services/social/globalBotService.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
 import { UnifiedAIService } from './services/ai/UnifiedAIService.mjs';
+import { StoryStateService } from './services/story/storyStateService.mjs';
+import { WorldContextService } from './services/story/worldContextService.mjs';
+import { NarrativeGeneratorService } from './services/story/narrativeGeneratorService.mjs';
+import { StoryPlannerService } from './services/story/storyPlannerService.mjs';
+import { StorySchedulerService } from './services/story/storySchedulerService.mjs';
+import { StoryPostingService } from './services/story/storyPostingService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -398,9 +404,16 @@ async function initializeContainer() {
     discordService: asClass(DiscordService).singleton(),
     responseCoordinator: asClass(ResponseCoordinator).singleton(),
     messageHandler: asClass(MessageHandler).singleton(),
-  webService: asClass(WebService).singleton(),
-  embeddingService: asClass(EmbeddingService).singleton(),
-  memoryScheduler: asClass(MemoryScheduler).singleton()
+    webService: asClass(WebService).singleton(),
+    embeddingService: asClass(EmbeddingService).singleton(),
+    memoryScheduler: asClass(MemoryScheduler).singleton(),
+    // Story system services
+    storyStateService: asClass(StoryStateService).singleton(),
+    worldContextService: asClass(WorldContextService).singleton(),
+    narrativeGeneratorService: asClass(NarrativeGeneratorService).singleton(),
+    storyPlannerService: asClass(StoryPlannerService).singleton(),
+    storySchedulerService: asClass(StorySchedulerService).singleton(),
+    storyPostingService: asClass(StoryPostingService).singleton()
   });
 
   // Dynamically register remaining services
@@ -538,6 +551,24 @@ async function initializeContainer() {
     }
   } catch (e) {
     console.warn('[container] Failed to initialize GlobalBotService:', e.message);
+  }
+
+  // Initialize Story System
+  try {
+    if (container.registrations.storyPlannerService) {
+      const storyPlanner = container.resolve('storyPlannerService');
+      await storyPlanner.initialize();
+      console.log('[container] StoryPlannerService initialized.');
+    }
+    
+    if (container.registrations.storySchedulerService) {
+      const storyScheduler = container.resolve('storySchedulerService');
+      await storyScheduler.initialize();
+      console.log('[container] StorySchedulerService initialized.');
+      // Note: Scheduler will be started explicitly via index.mjs or admin API
+    }
+  } catch (e) {
+    console.warn('[container] Failed to initialize Story System:', e.message);
   }
 
   // Late bind s3Service into optional googleAIService

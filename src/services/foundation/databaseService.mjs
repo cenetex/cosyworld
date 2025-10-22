@@ -358,6 +358,25 @@ export class DatabaseService {
           { key: { channelId: 1 }, unique: true, name: 'thread_summary_channel', background: true },
           { key: { updatedAt: -1 }, name: 'thread_summary_updated', background: true },
         ]),
+        // Story system collections
+        db.collection('story_arcs').createIndexes([
+          { key: { status: 1, lastProgressedAt: -1 }, name: 'story_arcs_status_progress', background: true },
+          { key: { status: 1, startedAt: -1 }, name: 'story_arcs_status_start', background: true },
+          { key: { 'characters.avatarId': 1 }, name: 'story_arcs_characters', background: true },
+          { key: { theme: 1, startedAt: -1 }, name: 'story_arcs_theme', background: true },
+          { key: { createdAt: -1 }, name: 'story_arcs_created', background: true },
+        ]),
+        db.collection('story_character_states').createIndexes([
+          { key: { avatarId: 1 }, unique: true, name: 'story_char_avatar', background: true },
+          { key: { currentArc: 1 }, name: 'story_char_arc', background: true },
+          { key: { 'storyStats.lastFeaturedAt': -1 }, name: 'story_char_featured', background: true },
+          { key: { updatedAt: -1 }, name: 'story_char_updated', background: true },
+        ]),
+        db.collection('story_memory_summaries').createIndexes([
+          { key: { type: 1, referenceId: 1 }, name: 'story_mem_type_ref', background: true },
+          { key: { significance: -1, createdAt: -1 }, name: 'story_mem_sig_created', background: true },
+          { key: { lastUsed: -1 }, name: 'story_mem_used', background: true },
+        ]),
   // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
   (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
   (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),

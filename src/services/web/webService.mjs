@@ -22,6 +22,13 @@ export class WebService {
     setupStatusService,
     promptService,
     globalBotService,
+    // Story system services
+    storyStateService,
+    worldContextService,
+    narrativeGeneratorService,
+    storyPlannerService,
+    storySchedulerService,
+    storyPostingService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -37,6 +44,13 @@ export class WebService {
     this.setupStatusService = setupStatusService;
     this.promptService = promptService;
     this.globalBotService = globalBotService;
+    // Story system
+    this.storyStateService = storyStateService;
+    this.worldContextService = worldContextService;
+    this.narrativeGeneratorService = narrativeGeneratorService;
+    this.storyPlannerService = storyPlannerService;
+    this.storySchedulerService = storySchedulerService;
+    this.storyPostingService = storyPostingService;
 
     this.started = false;
 
@@ -59,6 +73,13 @@ export class WebService {
       setupStatusService: this.setupStatusService,
       promptService: this.promptService,
       globalBotService: this.globalBotService,
+      // Story system services
+      storyStateService: this.storyStateService,
+      worldContextService: this.worldContextService,
+      narrativeGeneratorService: this.narrativeGeneratorService,
+      storyPlannerService: this.storyPlannerService,
+      storySchedulerService: this.storySchedulerService,
+      storyPostingService: this.storyPostingService,
     };
   }
 

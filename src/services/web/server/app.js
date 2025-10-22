@@ -171,6 +171,20 @@ async function initializeApp(services) {
     }
     next();
   }, (await import('./routes/admin.js')).default(db, services));
+  
+  // Story system admin routes (no CSRF/signed message required for MVP, but still requires admin auth)
+  try {
+    const { default: registerStoryAdminRoutes } = await import('../../story/storyAdminRoutes.mjs');
+    // Create a mini-container object with resolve method
+    const storyContainer = {
+      resolve: (name) => services[name]
+    };
+    registerStoryAdminRoutes(app, storyContainer);
+    logger.info('[Web] Story admin routes registered');
+  } catch (e) {
+    logger.warn('[Web] Failed to register story admin routes:', e.message);
+  }
+  
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
     app.use('/api/rati', (await import('./routes/rati.js')).default(db));
