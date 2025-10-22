@@ -262,8 +262,8 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
     } catch (error) {
       this.logger.error('[NarrativeGenerator] Error parsing arc response:', error.message);
       this.logger.error('[NarrativeGenerator] Raw response:', response.substring(0, 500));
-      // Return a fallback arc structure
-      return this._getFallbackArc();
+      // Return a fallback arc structure with real avatars from world context
+      return this._getFallbackArc(worldContext);
     }
   }
 
@@ -271,20 +271,43 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
    * Get fallback arc if AI generation fails
    * @private
    */
-  _getFallbackArc() {
+  _getFallbackArc(worldContext) {
+    // Try to use real avatars from world context
+    const characters = [];
+    if (worldContext?.avatars && worldContext.avatars.length > 0) {
+      const avatar = worldContext.avatars[0];
+      characters.push({
+        avatarId: avatar._id.toString(),
+        avatarName: avatar.name + (avatar.emoji ? ' ' + avatar.emoji : ''),
+        role: 'protagonist',
+        characterArc: 'Discovers the wonders of CosyWorld'
+      });
+    }
+    
+    // Try to use real locations
+    const locations = [];
+    if (worldContext?.locations && worldContext.locations.length > 0) {
+      const location = worldContext.locations[0];
+      locations.push({
+        locationId: location._id ? location._id.toString() : null,
+        locationName: location.name,
+        significance: 'The starting point of the adventure'
+      });
+    }
+    
     return {
       title: 'A Day in CosyWorld',
       theme: 'discovery',
       emotionalTone: 'lighthearted',
-      characters: [],
-      locations: [],
+      characters,
+      locations,
       beats: [
         {
           sequenceNumber: 1,
           type: 'setup',
           description: 'The sun rises over CosyWorld, bringing new possibilities.',
-          location: 'The Town Square',
-          characters: [],
+          location: locations[0]?.locationName || 'The Town Square',
+          characters: characters.map(c => c.avatarName),
           visualPrompt: 'A whimsical town square at sunrise, warm golden light, cheerful atmosphere, fantasy art style',
           captionHint: 'A new day begins'
         }
