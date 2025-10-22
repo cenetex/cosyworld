@@ -475,13 +475,22 @@ export class GoogleAIService {
       uploadOptions.guildId = options.guildId;
     }
 
-    // Remove aspectRatio and purpose from options (not for generation config)
+    // Remove metadata fields from options (not for generation config)
     let aspectRatio;
     if (options && options.aspectRatio) {
       aspectRatio = options.aspectRatio;
       delete options.aspectRatio;
     }
+    // Remove all metadata fields that are for S3/upload only
     delete options.purpose;
+    delete options.source;
+    delete options.context;
+    delete options.avatarId;
+    delete options.avatarName;
+    delete options.avatarEmoji;
+    delete options.locationName;
+    delete options.locationDescription;
+    delete options.guildId;
 
     let fullPrompt = prompt ? prompt.trim() : '';
     if (aspectRatio) {

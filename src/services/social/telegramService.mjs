@@ -35,6 +35,8 @@ class TelegramService {
     secretsService,
     aiService,
     globalBotService,
+    googleAIService,
+    veoService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
@@ -42,6 +44,8 @@ class TelegramService {
     this.secretsService = secretsService;
     this.aiService = aiService;
     this.globalBotService = globalBotService;
+    this.googleAIService = googleAIService;
+    this.veoService = veoService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
@@ -282,11 +286,24 @@ You're having a conversation in a Telegram channel. Respond naturally and conver
 Keep responses concise (2-3 sentences max).
 ${isMention ? 'You were directly mentioned - respond to the question or comment.' : 'Respond to the general conversation flow.'}
 
-IMPORTANT: You have special powers! When users ask you to:
-- Generate/create/make an image or photo → Use the generate_image tool
-- Generate/create/make a video → Use the generate_video tool
+CRITICAL: When using tools, you MUST provide BOTH a natural text response AND the tool call:
+- The text response should acknowledge what you're about to do in a contextual, natural way
+- Reference the actual content of their request, not generic phrases
+- Make it feel like natural conversation, not a status update
+- Then use the tool to actually execute the action
 
-If they ask for media generation, ALWAYS use the appropriate tool instead of just talking about it.`;
+Examples:
+User: "Can you show me the ratbros mourning Rati?"
+You: "Of course. Let me capture that somber moment for you..." [+ generate_image tool with detailed prompt]
+
+User: "Make a video of rain falling"  
+You: "I love that - there's something meditative about rain. Give me a minute to bring it to life..." [+ generate_video tool]
+
+When they ask for media generation:
+- Generate/create/make an image or photo → Natural acknowledgment + generate_image tool
+- Generate/create/make a video → Natural acknowledgment + generate_video tool
+
+ALWAYS provide the acknowledgment text alongside the tool call. The acknowledgment is part of the conversation.`;
 
       const userPrompt = `Recent conversation:
 ${conversationContext}
@@ -353,6 +370,25 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       
       if (responseObj.tool_calls && responseObj.tool_calls.length > 0) {
         // User requested media generation!
+        // The AI should have provided a natural acknowledgment in the text response
+        const acknowledgment = responseObj.text || String(response || '').trim();
+        
+        if (acknowledgment) {
+          // Send the AI's natural acknowledgment first
+          await ctx.reply(acknowledgment);
+          
+          // Track in conversation history
+          if (!this.conversationHistory.has(String(ctx.chat.id))) {
+            this.conversationHistory.set(String(ctx.chat.id), []);
+          }
+          this.conversationHistory.get(String(ctx.chat.id)).push({
+            from: 'Bot',
+            text: acknowledgment,
+            date: Date.now()
+          });
+        }
+        
+        // Then execute the tools (which generate media)
         await this.handleToolCalls(ctx, responseObj.tool_calls, conversationContext);
         return;
       }
@@ -392,9 +428,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
    * Handle tool calls from AI (image/video generation)
    * @param {Object} ctx - Telegram context
    * @param {Array} toolCalls - Array of tool calls from AI
-   * @param {string} _conversationContext - Recent conversation for context (reserved for future use)
+   * @param {string} conversationContext - Recent conversation for context
    */
-  async handleToolCalls(ctx, toolCalls, _conversationContext) {
+  async handleToolCalls(ctx, toolCalls, conversationContext) {
     try {
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function?.name;
@@ -405,9 +441,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args });
 
         if (functionName === 'generate_image') {
-          await this.executeImageGeneration(ctx, args.prompt);
+          await this.executeImageGeneration(ctx, args.prompt, conversationContext);
         } else if (functionName === 'generate_video') {
-          await this.executeVideoGeneration(ctx, args.prompt);
+          await this.executeVideoGeneration(ctx, args.prompt, conversationContext);
         } else {
           this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
           await ctx.reply(`I tried to use ${functionName} but I don't know how yet! 🤔`);
@@ -422,12 +458,12 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
   /**
    * Execute image generation and send to channel
    * @param {Object} ctx - Telegram context
-   * @param {string} prompt - Image generation prompt
+   * @param {string} prompt - Image generation prompt (enhanced by AI)
+   * @param {string} conversationContext - Recent conversation history
    */
-  async executeImageGeneration(ctx, prompt) {
+  async executeImageGeneration(ctx, prompt, conversationContext = '') {
     try {
-      // Send initial response
-      const statusMsg = await ctx.reply('🎨 Creating an image for you... This may take a moment!');
+      // No status message - the AI already sent a natural acknowledgment
 
       this.logger?.info?.('[TelegramService] Generating image:', { prompt });
 
@@ -448,10 +484,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       }
 
       // Fallback to googleAIService if available
-      if (!imageUrl && this.configService?.services?.googleAIService) {
+      if (!imageUrl && this.googleAIService?.generateImage) {
         try {
-          const googleAI = this.configService.services.googleAIService;
-          imageUrl = await googleAI.generateImage(prompt, '1:1', {
+          imageUrl = await this.googleAIService.generateImage(prompt, '1:1', {
             source: 'telegram.user_request',
             purpose: 'user_generated',
             context: prompt
@@ -467,46 +502,94 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       this.logger?.info?.('[TelegramService] Image generated successfully:', { imageUrl });
 
-      // Send the image with caption
-      await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
-        caption: `✨ Here's your image!\n\n*Prompt:* ${prompt.slice(0, 200)}`,
-        parse_mode: 'Markdown'
-      });
+      // Generate natural caption using AI
+      let caption = null;
+      if (this.globalBotService) {
+        try {
+          const captionPrompt = `You're a helpful, friendly narrator bot in CosyWorld. You just generated an image based on this prompt: "${prompt}"
 
-      // Delete the status message
-      try {
-        await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id);
-      } catch {
-        // Ignore deletion errors
+Recent conversation context:
+${conversationContext || 'No recent context'}
+
+Create a brief, natural caption for the image. The caption should:
+- Be conversational and warm, not mechanical
+- Reference what the image shows WITHOUT repeating the technical prompt verbatim
+- Be subtle and artistic, hint at the content rather than describing it literally
+- Keep it under 100 characters
+- Don't use asterisks or markdown
+
+Examples:
+- "A glimpse into their world..." 
+- "Sometimes the quiet moments speak loudest"
+- "Here's what I saw in my mind's eye"
+- "A scene from CosyWorld, just for you ✨"
+
+Your caption:`;
+
+          const captionResponse = await this.aiService.chat([
+            { role: 'user', content: captionPrompt }
+          ], {
+            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+            max_tokens: 100,
+            temperature: 0.9
+          });
+          
+          caption = String(captionResponse || '').trim().replace(/^["']|["']$/g, '');
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Failed to generate natural caption:', err.message);
+        }
       }
+
+      // Send the image with natural caption
+      await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
+        caption: caption || undefined // No caption if AI generation failed
+      });
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Image generation failed:', error);
-      await ctx.reply('❌ Sorry, I couldn\'t generate that image. The AI gods weren\'t smiling today! 😅');
+      
+      // Generate natural error message
+      let errorText = '❌ Sorry, I couldn\'t generate that image. The AI gods weren\'t smiling today! 😅';
+      if (this.globalBotService) {
+        try {
+          const errorResponse = await this.aiService.chat([
+            { role: 'user', content: 'You tried to generate an image but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
+          ], {
+            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+            max_tokens: 100,
+            temperature: 0.9
+          });
+          const naturalError = String(errorResponse || '').trim();
+          if (naturalError) {
+            errorText = naturalError;
+          }
+        } catch {
+          // Use default error message
+        }
+      }
+      await ctx.reply(errorText);
     }
   }
 
   /**
    * Execute video generation and send to channel
    * @param {Object} ctx - Telegram context
-   * @param {string} prompt - Video generation prompt
+   * @param {string} prompt - Video generation prompt (enhanced by AI)
+   * @param {string} conversationContext - Recent conversation history
    */
-  async executeVideoGeneration(ctx, prompt) {
+  async executeVideoGeneration(ctx, prompt, conversationContext = '') {
     try {
-      // Send initial response
-      const statusMsg = await ctx.reply('🎬 Creating a video for you... This will take 1-2 minutes!');
+      // No status message - the AI already sent a natural acknowledgment
 
       this.logger?.info?.('[TelegramService] Generating video:', { prompt });
 
       // Generate video using VeoService
-      const veoService = this.configService?.services?.veoService;
-      
-      if (!veoService) {
+      if (!this.veoService) {
         throw new Error('Video generation service not available');
       }
 
       // Generate video (returns array of URLs)
-      const videoUrls = await veoService.generateVideos({
+      const videoUrls = await this.veoService.generateVideos({
         prompt: prompt,
         config: {
           numberOfVideos: 1,
@@ -524,23 +607,73 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       const videoUrl = videoUrls[0];
       this.logger?.info?.('[TelegramService] Video generated successfully:', { videoUrl });
 
-      // Send the video with caption
+      // Generate natural caption using AI
+      let caption = null;
+      if (this.globalBotService) {
+        try {
+          const captionPrompt = `You're a helpful, friendly narrator bot in CosyWorld. You just generated a video based on this prompt: "${prompt}"
+
+Recent conversation context:
+${conversationContext || 'No recent context'}
+
+Create a brief, natural caption for the video. The caption should:
+- Be conversational and warm, not mechanical
+- Reference what the video shows WITHOUT repeating the technical prompt verbatim
+- Be subtle and artistic, hint at the content rather than describing it literally
+- Keep it under 100 characters
+- Don't use asterisks or markdown
+
+Examples:
+- "Watch this moment unfold..."
+- "A brief glimpse into motion 🎬"
+- "Sometimes you need to see it move"
+- "Here's what I imagined in motion ✨"
+
+Your caption:`;
+
+          const captionResponse = await this.aiService.chat([
+            { role: 'user', content: captionPrompt }
+          ], {
+            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+            max_tokens: 100,
+            temperature: 0.9
+          });
+          
+          caption = String(captionResponse || '').trim().replace(/^["']|["']$/g, '');
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Failed to generate natural caption:', err.message);
+        }
+      }
+
+      // Send the video with natural caption
       await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
-        caption: `🎬 Here's your video!\n\n*Prompt:* ${prompt.slice(0, 200)}`,
-        parse_mode: 'Markdown',
+        caption: caption || undefined,
         supports_streaming: true
       });
 
-      // Delete the status message
-      try {
-        await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id);
-      } catch {
-        // Ignore deletion errors
-      }
-
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video generation failed:', error);
-      await ctx.reply('❌ Sorry, I couldn\'t generate that video. Video generation is complex and sometimes fails! 😅');
+      
+      // Generate natural error message
+      let errorText = '❌ Sorry, I couldn\'t generate that video. Video generation is complex and sometimes fails! 😅';
+      if (this.globalBotService) {
+        try {
+          const errorResponse = await this.aiService.chat([
+            { role: 'user', content: 'You tried to generate a video but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
+          ], {
+            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+            max_tokens: 100,
+            temperature: 0.9
+          });
+          const naturalError = String(errorResponse || '').trim();
+          if (naturalError) {
+            errorText = naturalError;
+          }
+        } catch {
+          // Use default error message
+        }
+      }
+      await ctx.reply(errorText);
     }
   }
 
@@ -830,6 +963,10 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       const { mediaUrl, text, type = 'image' } = opts;
       
+      // Initialize rate limiting tracker
+      const now = Date.now();
+      if (!this._globalRate) this._globalRate = { windowStart: now, count: 0, lastPostedAt: null };
+      
       // For tweets (X posts), we just share the text + link, no media re-upload
       if (type === 'tweet' || opts.tweetUrl) {
         this.logger?.info?.('[TelegramService][globalPost] Posting tweet link');
@@ -890,10 +1027,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         return null;
       }
 
-      // Rate limiting
-      const now = Date.now();
-      if (!this._globalRate) this._globalRate = { windowStart: now, count: 0 };
-      
+      // Rate limiting (already initialized earlier)
       const hourMs = 3600_000;
       if (now - this._globalRate.windowStart >= hourMs) {
         this._globalRate.windowStart = now;

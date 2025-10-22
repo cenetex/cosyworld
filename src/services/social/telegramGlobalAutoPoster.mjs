@@ -263,9 +263,10 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
       }
       
       // Build enriched payload for Telegram
+      // X posts should be shared with no caption, just the link for preview
       const enrichedPayload = {
         type: 'tweet',
-        text: payload.content,
+        text: payload.tweetUrl, // Just the URL, no caption
         tweetUrl: payload.tweetUrl,
         tweetId: payload.tweetId,
         imageUrl: payload.imageUrl || null,
@@ -277,30 +278,6 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
         createdAt: new Date()
       };
       
-      // Use GlobalBotService to enhance the cross-post message
-      let telegramText = payload.content;
-      if (globalBotService) {
-        try {
-          // Add context to make it clear this is from X/Twitter
-          const contextualPayload = {
-            ...enrichedPayload,
-            context: `${payload.content}\n\nFrom X/Twitter: ${payload.tweetUrl}`
-          };
-          const enhanced = await globalBotService.generateContextualPost(contextualPayload);
-          if (enhanced) {
-            telegramText = `🐦 ${enhanced}\n\n${payload.tweetUrl}`;
-          }
-        } catch (err) {
-          logger?.warn?.(`[TelegramGlobalAutoPoster] GlobalBotService enhancement failed: ${err.message}`);
-          // Fallback to simple format
-          telegramText = `🐦 ${payload.content}\n\n${payload.tweetUrl}`;
-        }
-      } else {
-        telegramText = `🐦 ${payload.content}\n\n${payload.tweetUrl}`;
-      }
-      
-      enrichedPayload.text = telegramText;
-      
       // Post to Telegram (using media if available, otherwise text-only)
       const result = await telegramService.postGlobalMediaUpdate(enrichedPayload, { aiService });
       
@@ -310,7 +287,7 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
           await globalBotService.recordPost(
             `telegram_x_${payload.tweetId}`,
             enrichedPayload,
-            telegramText
+            enrichedPayload.text
           );
         } catch (err) {
           logger?.warn?.(`[TelegramGlobalAutoPoster] Failed to record X post in GlobalBotService: ${err.message}`);

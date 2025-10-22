@@ -631,13 +631,13 @@ export class OpenRouterAIService {
       }
 
       // Handle function/tool calls if present
-      if (result.tool_calls) {
-        // Return a serialized representation so downstream logging does not show [object Object]
-        try {
-          return JSON.stringify({ tool_calls: result.tool_calls }, null, 2);
-        } catch {
-          return '[tool_calls returned – serialization failed]';
-        }
+      // Return as an object so downstream code can access tool_calls properly
+      if (result.tool_calls && result.tool_calls.length > 0) {
+        // Return object with tool_calls array for proper handling
+        return {
+          tool_calls: result.tool_calls,
+          text: result.content || null // Include any text content if present
+        };
       }
 
         // Normalize content that might be an array of segments

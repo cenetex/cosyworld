@@ -1009,8 +1009,92 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
       if (!/#cosyworld/i.test(baseText)) {
         baseText = (baseText + ' #CosyWorld').trim();
       }
-      // Truncate to 280 chars final
-      const tweetText = baseText.slice(0, 280) || ' #CosyWorld';
+      
+      // Smart truncation: if text is over 280 chars, try to truncate at sentence boundary
+      let tweetText = baseText;
+      if (tweetText.length > 280) {
+        this.logger?.debug?.('[XService][globalPost] tweet too long, attempting smart truncation', { length: tweetText.length });
+        
+        // Try to find the last complete sentence before 280 chars
+        const truncated = tweetText.slice(0, 280);
+        const sentenceEndings = ['. ', '! ', '? '];
+        let lastSentenceEnd = -1;
+        
+        for (const ending of sentenceEndings) {
+          const pos = truncated.lastIndexOf(ending);
+          if (pos > lastSentenceEnd) {
+            lastSentenceEnd = pos;
+          }
+        }
+        
+        // If we found a sentence ending and it's not too short (at least 100 chars), use it
+        if (lastSentenceEnd > 100) {
+          tweetText = truncated.slice(0, lastSentenceEnd + 1).trim();
+          // Re-add #CosyWorld if it got cut off
+          if (!/#cosyworld/i.test(tweetText) && tweetText.length < 268) {
+            tweetText = (tweetText + ' #CosyWorld').trim();
+          }
+          this.logger?.debug?.('[XService][globalPost] truncated at sentence boundary', { newLength: tweetText.length });
+        } else {
+          // No good sentence boundary found, try to regenerate with strict length limit
+          this.logger?.debug?.('[XService][globalPost] no sentence boundary found, attempting regeneration');
+          if (services.aiService?.analyzeImage && !isVideo) {
+            try {
+              const regeneratePrompt = `Previous tweet was too long. Create a concise, engaging tweet about this image (MAX 250 chars including spaces). 
+Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characters total.`;
+              
+              const newCaption = await services.aiService.analyzeImage(
+                mediaUrl,
+                mimeType,
+                regeneratePrompt
+              );
+              
+              if (newCaption) {
+                let shortened = String(newCaption).replace(/[#\n\r]+/g, ' ').trim();
+                // Add hashtag if not present
+                if (!/#cosyworld/i.test(shortened)) {
+                  shortened = (shortened + ' #CosyWorld').trim();
+                }
+                // If still too long, hard truncate at sentence
+                if (shortened.length > 280) {
+                  const trunc = shortened.slice(0, 280);
+                  for (const ending of sentenceEndings) {
+                    const pos = trunc.lastIndexOf(ending);
+                    if (pos > 100) {
+                      shortened = trunc.slice(0, pos + 1).trim();
+                      break;
+                    }
+                  }
+                  if (shortened.length > 280) {
+                    shortened = trunc.slice(0, 277) + '...';
+                  }
+                }
+                tweetText = shortened;
+                this.logger?.debug?.('[XService][globalPost] regenerated shorter tweet', { newLength: tweetText.length });
+              } else {
+                // AI regeneration failed, hard truncate with ellipsis
+                tweetText = truncated.slice(0, 277) + '...';
+              }
+            } catch (regenErr) {
+              this.logger?.warn?.('[XService][globalPost] tweet regeneration failed:', regenErr.message);
+              // Fallback to hard truncate with ellipsis
+              tweetText = truncated.slice(0, 277) + '...';
+            }
+          } else {
+            // No AI available, hard truncate with ellipsis
+            tweetText = truncated.slice(0, 277) + '...';
+          }
+        }
+      }
+      
+      // Final safety check
+      if (tweetText.length > 280) {
+        tweetText = tweetText.slice(0, 280);
+      }
+      
+      if (!tweetText.trim()) {
+        tweetText = '#CosyWorld';
+      }
       const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
       let tweet;
       const sendTweet = async () => {
