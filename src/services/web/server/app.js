@@ -184,6 +184,18 @@ async function initializeApp(services) {
   } catch (e) {
     logger.warn('[Web] Failed to register story admin routes:', e.message);
   }
+
+  // Story system public routes (no auth required)
+  try {
+    const { default: registerStoryPublicRoutes } = await import('../../story/storyPublicRoutes.mjs');
+    registerStoryPublicRoutes(app, {
+      storyStateService: services.storyStateService,
+      logger
+    });
+    logger.info('[Web] Story public routes registered');
+  } catch (e) {
+    logger.warn('[Web] Failed to register story public routes:', e.message);
+  }
   
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));

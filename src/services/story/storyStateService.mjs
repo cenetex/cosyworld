@@ -87,6 +87,22 @@ export class StoryStateService {
   }
 
   /**
+   * Get all arcs sorted for public display
+   * @param {Object} options - Sort and pagination options
+   * @returns {Promise<Array>}
+   */
+  async getAllArcs(options = {}) {
+    const sortBy = options.sortBy || 'createdAt';
+    const sortOrder = options.sortOrder === 'asc' ? 1 : -1;
+    
+    return await this.getArcs({}, {
+      sort: { [sortBy]: sortOrder },
+      limit: options.limit,
+      skip: options.skip
+    });
+  }
+
+  /**
    * Update story arc
    * @param {string|ObjectId} arcId - Arc ID
    * @param {Object} updates - Fields to update

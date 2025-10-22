@@ -445,7 +445,7 @@ export class WorldContextService {
       prompt += '--- AVATARS ---\n';
       const avatarSample = context.avatars.slice(0, 20); // Limit for prompt size
       for (const avatar of avatarSample) {
-        prompt += `• ${avatar.name} ${avatar.emoji || ''}: ${avatar.description || 'A denizen of CosyWorld'}\n`;
+        prompt += `• ID: ${avatar._id} | ${avatar.name} ${avatar.emoji || ''}: ${avatar.description || 'A denizen of CosyWorld'}\n`;
       }
       prompt += '\n';
     }
@@ -454,7 +454,7 @@ export class WorldContextService {
     if (context.locations && context.locations.length > 0) {
       prompt += '--- LOCATIONS ---\n';
       for (const location of context.locations.slice(0, 10)) {
-        prompt += `• ${location.name}: ${location.description || 'A place in CosyWorld'}\n`;
+        prompt += `• ID: ${location._id} | ${location.name}: ${location.description || 'A place in CosyWorld'}\n`;
       }
       prompt += '\n';
     }
@@ -463,7 +463,7 @@ export class WorldContextService {
     if (context.items && context.items.length > 0) {
       prompt += '--- NOTABLE ITEMS ---\n';
       for (const item of context.items.slice(0, 10)) {
-        prompt += `• ${item.name}: ${item.description || 'An item'}\n`;
+        prompt += `• ID: ${item._id} | ${item.name}: ${item.description || 'An item'}\n`;
       }
       prompt += '\n';
     }

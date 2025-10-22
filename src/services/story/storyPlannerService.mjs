@@ -25,7 +25,7 @@ export class StoryPlannerService {
     
     // Default configuration
     this.config = {
-      maxConcurrentArcs: 3,
+      maxConcurrentArcs: 1, // ONE continuous story at a time
       minTimeBetweenNewArcs: 24 * 60 * 60 * 1000, // 24 hours
       targetBeatsPerArc: { min: 4, max: 8 },
       characterRotationWindowDays: 7,

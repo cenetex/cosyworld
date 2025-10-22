@@ -17,6 +17,8 @@ export class StoryPostingService {
     veoService,
     narrativeGeneratorService,
     storyStateService,
+    worldContextService,
+    schemaService,
     eventBus,
     logger 
   }) {
@@ -26,6 +28,8 @@ export class StoryPostingService {
     this.veo = veoService;
     this.narrativeGenerator = narrativeGeneratorService;
     this.storyState = storyStateService;
+    this.worldContext = worldContextService;
+    this.schemaService = schemaService;
     this.eventBus = eventBus;
     this.logger = logger || console;
   }
@@ -90,7 +94,7 @@ export class StoryPostingService {
   }
 
   /**
-   * Generate media for beat
+   * Generate media for beat using composition of real avatars
    * @private
    */
   async _generateMedia(beat, arc) {
@@ -113,21 +117,49 @@ export class StoryPostingService {
         this.logger.warn('[StoryPosting] Video generation failed, falling back to image');
       }
       
-      // Generate image
-      this.logger.info('[StoryPosting] Generating image...');
+      // Get avatar data from arc characters
+      const avatarIds = arc.characters
+        .filter(char => char.avatarId && beat.characters?.includes(char.avatarName))
+        .map(char => char.avatarId);
+      
+      // Fetch actual avatar documents
+      const avatars = avatarIds.length > 0
+        ? await this.worldContext.getAvatarsByIds(avatarIds)
+        : [];
+      
+      // Get avatar image URLs
+      const avatarImages = avatars
+        .map(avatar => avatar.imageUrl)
+        .filter(url => url);
+      
+      this.logger.info(`[StoryPosting] Composing image with ${avatarImages.length} avatars`);
+      
+      // Get location data if available
+      let location = null;
+      if (beat.location) {
+        const locationData = arc.locations.find(loc => loc.locationName === beat.location);
+        if (locationData?.locationId) {
+          location = await this.worldContext.getLocation(locationData.locationId);
+        }
+      }
       
       // Ensure visualPrompt is a string
       const visualPrompt = typeof beat.visualPrompt === 'string' 
         ? beat.visualPrompt 
         : 'A whimsical scene from CosyWorld, fantasy art style';
       
-      const imageResult = await this.googleAI.generateImage(
-        visualPrompt,  // First parameter: prompt string
-        '1:1',         // Second parameter: aspectRatio
-        {              // Third parameter: options
+      // Use schema service for composition (like camera tools)
+      const imageResult = await this.schemaService.generateImage(
+        visualPrompt,
+        '1:1',
+        {
           source: 'story.beat',
           purpose: 'story_beat',
-          context: `Story: ${arc.title}, Beat ${beat.sequenceNumber}`
+          context: `Story: ${arc.title}, Beat ${beat.sequenceNumber}`,
+          images: avatarImages, // Avatar images for composition
+          avatar: avatars[0], // Primary avatar
+          location: location,
+          composeIfMultiple: true // Enable composition
         }
       );
       
