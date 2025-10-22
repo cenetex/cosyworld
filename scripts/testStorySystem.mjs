@@ -4,7 +4,7 @@
  * Tests the basic storytelling system functionality:
  * 1. World context gathering
  * 2. Story arc generation
- * 3. Beat generation
+ * 3. Page generation
  * 4. Media generation and posting
  */
 
@@ -71,7 +71,7 @@ async function testStorySystemMVP() {
     console.log(`   - Created arc: "${arc.title}"`);
     console.log(`   - Theme: ${arc.theme}`);
     console.log(`   - Emotional tone: ${arc.emotionalTone}`);
-    console.log(`   - Planned beats: ${arc.plannedBeats}`);
+    console.log(`   - Planned pages: ${arc.plannedBeats}`);
     console.log(`   - Characters: ${arc.characters?.length || 0}`);
     
     if (arc.characters && arc.characters.length > 0) {
@@ -89,8 +89,8 @@ async function testStorySystemMVP() {
     console.log('✅ Arc activated');
     console.log('');
 
-    // Test 5: Generate and post first beat
-    console.log('🎬 TEST 5: Generating and posting first beat...');
+    // Test 5: Generate and post next page
+    console.log('🎬 TEST 5: Generating and posting next page...');
     console.log('   ⚠️  This will generate media and post to social platforms!');
     console.log('   Press Ctrl+C within 5 seconds to abort...');
     
@@ -101,19 +101,19 @@ async function testStorySystemMVP() {
     if (!result) {
       console.log('   ⚠️  Arc completed or error occurred');
     } else {
-      const { arc: updatedArc, beat } = result;
+      const { arc: updatedArc, beat: page } = result;
       
-      console.log(`   - Generated beat ${beat.sequenceNumber}`);
-      console.log(`   - Type: ${beat.type}`);
-      console.log(`   - Description: ${beat.description}`);
-      console.log(`   - Visual prompt: ${beat.visualPrompt.substring(0, 80)}...`);
+      console.log(`   - Generated page ${page.sequenceNumber}`);
+      console.log(`   - Type: ${page.type}`);
+      console.log(`   - Description: ${page.description}`);
+      console.log(`   - Visual prompt: ${page.visualPrompt.substring(0, 80)}...`);
       
-      // Post the beat
-      console.log('   - Posting beat to social platforms...');
-      const postResult = await storyPosting.postBeat(updatedArc, beat);
+      // Post the page
+      console.log('   - Posting page to social platforms...');
+      const postResult = await storyPosting.postBeat(updatedArc, page);
       
       if (postResult.success) {
-        console.log(`   ✅ Beat posted successfully`);
+        console.log(`   ✅ Page posted successfully`);
         console.log(`   - Media URL: ${postResult.mediaUrl}`);
         console.log(`   - Caption: ${postResult.caption.substring(0, 100)}...`);
         
@@ -146,10 +146,11 @@ async function testStorySystemMVP() {
     console.log('='.repeat(60));
     console.log('');
     console.log('Next steps:');
-    console.log('1. Check your Telegram channel for the posted beat');
-    console.log('2. Check your X/Twitter feed for the posted beat');
-    console.log('3. View the arc in the database: story_arcs collection');
-    console.log('4. Start the scheduler to automate: POST /api/admin/story/scheduler/start');
+    console.log('1. Visit http://localhost:3000/stories to view the story');
+    console.log('2. Check your Telegram channel for the posted page');
+    console.log('3. Check your X/Twitter feed for the posted page');
+    console.log('4. Run this script again to generate the next page');
+    console.log('5. Start the scheduler to automate: POST /api/admin/story/scheduler/start');
     console.log('');
     console.log(`Arc ID for reference: ${arc._id}`);
     console.log('');

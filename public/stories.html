@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CosyWorld Stories</title>
+  <title>CosyWorld Story</title>
   <style>
     * {
       margin: 0;
@@ -12,443 +12,376 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-family: 'Georgia', 'Times New Roman', serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 2rem;
       color: #333;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
+    .book-container {
+      max-width: 900px;
+      width: 100%;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 3rem;
+    .book-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      padding: 2rem;
+      text-align: center;
     }
 
-    header h1 {
-      font-size: 3rem;
+    .book-header h1 {
+      font-size: 2.5rem;
       margin-bottom: 0.5rem;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }
 
-    header p {
-      font-size: 1.2rem;
+    .book-header .subtitle {
+      font-size: 1.1rem;
       opacity: 0.95;
+      font-style: italic;
     }
 
-    .loading {
+    .loading, .error {
       text-align: center;
-      color: white;
-      font-size: 1.5rem;
-      margin: 4rem 0;
+      padding: 4rem 2rem;
+      font-size: 1.2rem;
     }
 
     .error {
-      background: #fff;
-      border-radius: 12px;
-      padding: 2rem;
-      margin: 2rem 0;
-      border-left: 4px solid #e74c3c;
-    }
-
-    .error h2 {
       color: #e74c3c;
-      margin-bottom: 1rem;
     }
 
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+    .story-page {
+      padding: 3rem;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
     }
 
-    .stat-card {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 12px;
-      padding: 1.5rem;
-      text-align: center;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .stat-card .number {
-      font-size: 2.5rem;
-      font-weight: bold;
-      color: #667eea;
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-card .label {
-      color: #666;
+    .page-number {
       font-size: 0.9rem;
+      color: #667eea;
       text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .arc-card {
-      background: white;
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .arc-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
-    }
-
-    .arc-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .arc-title {
-      flex: 1;
-    }
-
-    .arc-title h2 {
-      font-size: 2rem;
-      color: #2c3e50;
-      margin-bottom: 0.5rem;
-    }
-
-    .arc-meta {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-top: 0.5rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      font-size: 0.85rem;
+      letter-spacing: 2px;
+      margin-bottom: 1rem;
       font-weight: 600;
-      text-transform: uppercase;
     }
 
-    .badge.theme {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    .badge.tone {
-      background: #fff3e0;
-      color: #e65100;
-    }
-
-    .badge.status {
-      background: #e3f2fd;
-      color: #1565c0;
-    }
-
-    .badge.status.active {
-      background: #c8e6c9;
-      color: #2e7d32;
-    }
-
-    .badge.status.completed {
-      background: #f5f5f5;
-      color: #616161;
-    }
-
-    .arc-characters {
-      margin: 1.5rem 0;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
-
-    .arc-characters h3 {
-      font-size: 1rem;
-      color: #666;
-      margin-bottom: 0.5rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .character-list {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .character {
-      background: white;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-size: 0.9rem;
-      border: 1px solid #e0e0e0;
-    }
-
-    .beats-timeline {
-      position: relative;
-      padding-left: 2rem;
-    }
-
-    .beats-timeline::before {
-      content: '';
-      position: absolute;
-      left: 0.5rem;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: linear-gradient(to bottom, #667eea, #764ba2);
-    }
-
-    .beat {
-      position: relative;
-      margin-bottom: 2rem;
-      padding-left: 1.5rem;
-    }
-
-    .beat::before {
-      content: '';
-      position: absolute;
-      left: -1.5rem;
-      top: 0.5rem;
-      width: 1rem;
-      height: 1rem;
-      background: white;
-      border: 3px solid #667eea;
-      border-radius: 50%;
-    }
-
-    .beat.posted::before {
-      background: #667eea;
-    }
-
-    .beat-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .beat-number {
-      font-weight: bold;
-      color: #667eea;
-      font-size: 1.1rem;
-    }
-
-    .beat-type {
-      font-size: 0.85rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      background: #f0f0f0;
-      color: #666;
-      text-transform: capitalize;
-    }
-
-    .beat-description {
-      color: #555;
-      line-height: 1.6;
-      margin-bottom: 1rem;
-    }
-
-    .beat-image {
+    .page-image {
       width: 100%;
-      max-width: 600px;
       border-radius: 12px;
-      margin: 1rem 0;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      margin: 2rem 0;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     }
 
-    .beat-caption {
+    .page-caption {
+      font-size: 1.3rem;
+      line-height: 1.8;
+      color: #2c3e50;
+      margin: 2rem 0;
+      text-align: center;
       font-style: italic;
-      color: #666;
-      margin: 1rem 0;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border-left: 4px solid #667eea;
     }
 
-    .beat-location {
+    .page-description {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #555;
+      margin: 1.5rem 0;
+    }
+
+    .page-location {
+      font-size: 0.95rem;
       color: #888;
-      font-size: 0.9rem;
-      margin-top: 0.5rem;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #eee;
+      text-align: center;
     }
 
-    .beat-location::before {
+    .page-location::before {
       content: '📍 ';
     }
 
-    .no-arcs {
+    .navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2rem 3rem;
+      border-top: 2px solid #f0f0f0;
+      background: #fafafa;
+    }
+
+    .nav-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .nav-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .page-indicator {
+      font-size: 1rem;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .no-story {
       text-align: center;
       padding: 4rem 2rem;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
 
-    .no-arcs h2 {
+    .no-story h2 {
       color: #666;
       margin-bottom: 1rem;
+      font-size: 2rem;
     }
 
-    .no-arcs p {
+    .no-story p {
       color: #999;
+      font-size: 1.1rem;
     }
 
     @media (max-width: 768px) {
       body {
-        padding: 1rem;
+        padding: 0;
       }
 
-      header h1 {
+      .book-container {
+        border-radius: 0;
+        min-height: 100vh;
+      }
+
+      .book-header h1 {
         font-size: 2rem;
       }
 
-      .arc-card {
-        padding: 1.5rem;
+      .story-page {
+        padding: 2rem 1.5rem;
+        min-height: auto;
       }
 
-      .arc-title h2 {
-        font-size: 1.5rem;
+      .beat-caption {
+        font-size: 1.1rem;
+      }
+
+      .beat-description {
+        font-size: 1rem;
+      }
+
+      .navigation {
+        padding: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .nav-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.9rem;
+      }
+
+      .page-indicator {
+        width: 100%;
+        text-align: center;
+        order: -1;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>📖 CosyWorld Stories</h1>
-      <p>Discover the unfolding tales of our magical realm</p>
-    </header>
+  <div class="book-container">
+    <div class="book-header">
+      <h1 id="storyTitle">📖 CosyWorld Story</h1>
+      <div class="subtitle" id="storySubtitle">Loading...</div>
+    </div>
 
-    <div id="stats" class="stats"></div>
-    <div id="loading" class="loading">Loading stories...</div>
+    <div id="loading" class="loading">Loading story...</div>
     <div id="error" class="error" style="display: none;"></div>
-    <div id="stories"></div>
+    
+    <div id="storyPage" class="story-page" style="display: none;">
+      <!-- Story content will be inserted here -->
+    </div>
+
+    <div id="navigation" class="navigation" style="display: none;">
+      <button id="prevButton" class="nav-button">
+        <span>←</span>
+        <span>Previous</span>
+      </button>
+      
+      <div class="page-indicator">
+        <span id="pageIndicator">Page 1 of 5</span>
+      </div>
+      
+      <button id="nextButton" class="nav-button">
+        <span>Next</span>
+        <span>→</span>
+      </button>
+    </div>
   </div>
 
   <script>
-    async function loadStories() {
+    let currentStory = null;
+    let currentPageIndex = 0;
+
+    async function loadStory() {
       try {
         const response = await fetch('/api/stories');
         if (!response.ok) {
-          throw new Error(`Failed to load stories: ${response.statusText}`);
+          throw new Error(`Failed to load story: ${response.statusText}`);
         }
 
         const data = await response.json();
         
         document.getElementById('loading').style.display = 'none';
         
-        // Display stats
-        displayStats(data.stats);
+        // Get the most recent active story
+        const activeStory = data.arcs.find(arc => arc.status === 'active') || data.arcs[0];
         
-        // Display arcs
-        displayArcs(data.arcs);
+        if (!activeStory || !activeStory.beats || activeStory.beats.length === 0) {
+          showNoStory();
+          return;
+        }
+
+        currentStory = activeStory;
+        currentPageIndex = 0;
+        
+        // Update header
+        document.getElementById('storyTitle').textContent = activeStory.title;
+        document.getElementById('storySubtitle').textContent = `${activeStory.theme} • ${activeStory.emotionalTone}`;
+        
+        // Show first page
+        showPage(currentPageIndex);
+        
+        // Setup navigation
+        document.getElementById('navigation').style.display = 'flex';
+        document.getElementById('prevButton').addEventListener('click', previousPage);
+        document.getElementById('nextButton').addEventListener('click', nextPage);
+        
+        updateNavigation();
         
       } catch (error) {
-        console.error('Error loading stories:', error);
+        console.error('Error loading story:', error);
         document.getElementById('loading').style.display = 'none';
         const errorDiv = document.getElementById('error');
         errorDiv.style.display = 'block';
-        errorDiv.innerHTML = `
-          <h2>Error Loading Stories</h2>
-          <p>${error.message}</p>
-        `;
+        errorDiv.textContent = `Error: ${error.message}`;
       }
     }
 
-    function displayStats(stats) {
-      const statsDiv = document.getElementById('stats');
-      statsDiv.innerHTML = `
-        <div class="stat-card">
-          <div class="number">${stats.totalArcs}</div>
-          <div class="label">Total Stories</div>
-        </div>
-        <div class="stat-card">
-          <div class="number">${stats.activeArcs}</div>
-          <div class="label">Active</div>
-        </div>
-        <div class="stat-card">
-          <div class="number">${stats.completedArcs}</div>
-          <div class="label">Completed</div>
-        </div>
-        <div class="stat-card">
-          <div class="number">${stats.totalBeats}</div>
-          <div class="label">Story Moments</div>
+    function showPage(index) {
+      if (!currentStory || !currentStory.beats[index]) return;
+      
+      const page = currentStory.beats[index];
+      const storyPage = document.getElementById('storyPage');
+      storyPage.style.display = 'block';
+      
+      storyPage.innerHTML = `
+        <div class="page-number">Page ${page.sequenceNumber}</div>
+        
+        ${page.generatedImageUrl ? `
+          <img src="${escapeHtml(page.generatedImageUrl)}" alt="Page ${page.sequenceNumber}" class="page-image" />
+        ` : ''}
+        
+        ${page.caption ? `
+          <div class="page-caption">${escapeHtml(page.caption)}</div>
+        ` : ''}
+        
+        <div class="page-description">${escapeHtml(page.description)}</div>
+        
+        ${page.location ? `
+          <div class="page-location">${escapeHtml(page.location)}</div>
+        ` : ''}
+      `;
+      
+      updateNavigation();
+    }
+
+    function previousPage() {
+      if (currentPageIndex > 0) {
+        currentPageIndex--;
+        showPage(currentPageIndex);
+      }
+    }
+
+    function nextPage() {
+      if (currentPageIndex < currentStory.beats.length - 1) {
+        currentPageIndex++;
+        showPage(currentPageIndex);
+      }
+    }
+
+    function updateNavigation() {
+      const prevButton = document.getElementById('prevButton');
+      const nextButton = document.getElementById('nextButton');
+      const pageIndicator = document.getElementById('pageIndicator');
+      
+      prevButton.disabled = currentPageIndex === 0;
+      nextButton.disabled = currentPageIndex === currentStory.beats.length - 1;
+      
+      pageIndicator.textContent = `Page ${currentPageIndex + 1} of ${currentStory.beats.length}`;
+    }
+
+    function previousBeat() {
+      if (currentBeatIndex > 0) {
+        currentBeatIndex--;
+        showBeat(currentBeatIndex);
+      }
+    }
+
+    function nextBeat() {
+      if (currentBeatIndex < currentStory.beats.length - 1) {
+        currentBeatIndex++;
+        showBeat(currentBeatIndex);
+      }
+    }
+
+    function updateNavigation() {
+      const prevButton = document.getElementById('prevButton');
+      const nextButton = document.getElementById('nextButton');
+      const pageIndicator = document.getElementById('pageIndicator');
+      
+      prevButton.disabled = currentBeatIndex === 0;
+      nextButton.disabled = currentBeatIndex === currentStory.beats.length - 1;
+      
+      pageIndicator.textContent = `Beat ${currentBeatIndex + 1} of ${currentStory.beats.length}`;
+    }
+
+    function showNoStory() {
+      const storyPage = document.getElementById('storyPage');
+      storyPage.style.display = 'block';
+      storyPage.innerHTML = `
+        <div class="no-story">
+          <h2>No story yet...</h2>
+          <p>The tale of CosyWorld is about to begin.<br>Check back soon for magical adventures!</p>
         </div>
       `;
-    }
-
-    function displayArcs(arcs) {
-      const storiesDiv = document.getElementById('stories');
-      
-      if (!arcs || arcs.length === 0) {
-        storiesDiv.innerHTML = `
-          <div class="no-arcs">
-            <h2>No stories yet...</h2>
-            <p>Check back soon for magical tales from CosyWorld!</p>
-          </div>
-        `;
-        return;
-      }
-
-      storiesDiv.innerHTML = arcs.map(arc => `
-        <div class="arc-card">
-          <div class="arc-header">
-            <div class="arc-title">
-              <h2>${escapeHtml(arc.title)}</h2>
-              <div class="arc-meta">
-                <span class="badge theme">🎭 ${escapeHtml(arc.theme)}</span>
-                <span class="badge tone">💫 ${escapeHtml(arc.emotionalTone)}</span>
-                <span class="badge status ${arc.status}">${arc.status}</span>
-                <span class="badge">${arc.beats.length}/${arc.plannedBeats} beats</span>
-              </div>
-            </div>
-          </div>
-
-          ${arc.characters && arc.characters.length > 0 ? `
-            <div class="arc-characters">
-              <h3>Characters</h3>
-              <div class="character-list">
-                ${arc.characters.map(char => `
-                  <div class="character">
-                    ${escapeHtml(char.avatarName)} <span style="opacity: 0.6;">(${char.role})</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-
-          <div class="beats-timeline">
-            ${arc.beats.map(beat => `
-              <div class="beat ${beat.generatedImageUrl ? 'posted' : ''}">
-                <div class="beat-header">
-                  <span class="beat-number">Beat ${beat.sequenceNumber}</span>
-                  <span class="beat-type">${beat.type}</span>
-                </div>
-                <div class="beat-description">${escapeHtml(beat.description)}</div>
-                ${beat.generatedImageUrl ? `
-                  <img src="${escapeHtml(beat.generatedImageUrl)}" alt="Beat ${beat.sequenceNumber}" class="beat-image" />
-                ` : ''}
-                ${beat.caption ? `
-                  <div class="beat-caption">${escapeHtml(beat.caption)}</div>
-                ` : ''}
-                ${beat.location ? `
-                  <div class="beat-location">${escapeHtml(beat.location)}</div>
-                ` : ''}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
     }
 
     function escapeHtml(text) {
@@ -457,11 +390,17 @@
       return div.innerHTML;
     }
 
-    // Load stories on page load
-    loadStories();
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') previousPage();
+      if (e.key === 'ArrowRight') nextPage();
+    });
+
+    // Load story on page load
+    loadStory();
 
     // Refresh every 2 minutes
-    setInterval(loadStories, 120000);
+    setInterval(loadStory, 120000);
   </script>
 </body>
 </html>
