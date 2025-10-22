@@ -240,6 +240,7 @@ class TelegramService {
 
   /**
    * Generate and send a reply using the global bot's personality
+   * Now includes tool calling for image and video generation!
    */
   async generateAndSendReply(ctx, channelId, isMention) {
     try {
@@ -279,30 +280,85 @@ ${botDynamicPrompt}
 
 You're having a conversation in a Telegram channel. Respond naturally and conversationally.
 Keep responses concise (2-3 sentences max).
-${isMention ? 'You were directly mentioned - respond to the question or comment.' : 'Respond to the general conversation flow.'}`;
+${isMention ? 'You were directly mentioned - respond to the question or comment.' : 'Respond to the general conversation flow.'}
+
+IMPORTANT: You have special powers! When users ask you to:
+- Generate/create/make an image or photo → Use the generate_image tool
+- Generate/create/make a video → Use the generate_video tool
+
+If they ask for media generation, ALWAYS use the appropriate tool instead of just talking about it.`;
 
       const userPrompt = `Recent conversation:
 ${conversationContext}
 
 Respond naturally to this conversation. Be warm, engaging, and reflect your narrator personality.`;
 
-      // Generate response using AI
+      // Generate response using AI (with tool calling support)
       if (!this.aiService) {
         await ctx.reply('I\'m here and listening! 👂 (AI service not configured)');
         return;
       }
+
+      // Define available tools for the AI
+      const tools = [
+        {
+          type: 'function',
+          function: {
+            name: 'generate_image',
+            description: 'Generate an image based on a text prompt. Use this when users ask you to create, generate, or make an image or photo.',
+            parameters: {
+              type: 'object',
+              properties: {
+                prompt: {
+                  type: 'string',
+                  description: 'A detailed description of the image to generate. Be creative and descriptive.'
+                }
+              },
+              required: ['prompt']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'generate_video',
+            description: 'Generate a short video based on a text prompt. Use this when users ask you to create, generate, or make a video.',
+            parameters: {
+              type: 'object',
+              properties: {
+                prompt: {
+                  type: 'string',
+                  description: 'A detailed description of the video to generate. Include motion, action, and visual details.'
+                }
+              },
+              required: ['prompt']
+            }
+          }
+        }
+      ];
 
       const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ], {
         model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-        max_tokens: 150,
-        temperature: 0.8
+        max_tokens: 500,
+        temperature: 0.8,
+        tools: tools,
+        tool_choice: 'auto'
       });
 
-      const responseText = typeof response === 'object' ? response.text : response;
-      const cleanResponse = String(responseText || '')
+      // Handle tool calls
+      const responseObj = typeof response === 'object' ? response : { text: response };
+      
+      if (responseObj.tool_calls && responseObj.tool_calls.length > 0) {
+        // User requested media generation!
+        await this.handleToolCalls(ctx, responseObj.tool_calls, conversationContext);
+        return;
+      }
+
+      const responseText = responseObj.text || String(response || '');
+      const cleanResponse = String(responseText)
         .replace(/<think>[\s\S]*?<\/think>/g, '')
         .trim();
 
@@ -329,6 +385,162 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       } catch (e) {
         this.logger?.error?.('[TelegramService] Failed to send error reply:', e);
       }
+    }
+  }
+
+  /**
+   * Handle tool calls from AI (image/video generation)
+   * @param {Object} ctx - Telegram context
+   * @param {Array} toolCalls - Array of tool calls from AI
+   * @param {string} _conversationContext - Recent conversation for context (reserved for future use)
+   */
+  async handleToolCalls(ctx, toolCalls, _conversationContext) {
+    try {
+      for (const toolCall of toolCalls) {
+        const functionName = toolCall.function?.name;
+        const args = typeof toolCall.function?.arguments === 'string' 
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function?.arguments || {};
+
+        this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args });
+
+        if (functionName === 'generate_image') {
+          await this.executeImageGeneration(ctx, args.prompt);
+        } else if (functionName === 'generate_video') {
+          await this.executeVideoGeneration(ctx, args.prompt);
+        } else {
+          this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
+          await ctx.reply(`I tried to use ${functionName} but I don't know how yet! 🤔`);
+        }
+      }
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Tool execution failed:', error);
+      await ctx.reply('I encountered an error using my powers! 😅 Try again?');
+    }
+  }
+
+  /**
+   * Execute image generation and send to channel
+   * @param {Object} ctx - Telegram context
+   * @param {string} prompt - Image generation prompt
+   */
+  async executeImageGeneration(ctx, prompt) {
+    try {
+      // Send initial response
+      const statusMsg = await ctx.reply('🎨 Creating an image for you... This may take a moment!');
+
+      this.logger?.info?.('[TelegramService] Generating image:', { prompt });
+
+      // Generate image using the AI service
+      let imageUrl = null;
+      
+      // Try aiService first (usually OpenRouter/Replicate)
+      if (this.aiService?.generateImage) {
+        try {
+          imageUrl = await this.aiService.generateImage(prompt, [], {
+            source: 'telegram.user_request',
+            purpose: 'user_generated',
+            context: prompt
+          });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
+        }
+      }
+
+      // Fallback to googleAIService if available
+      if (!imageUrl && this.configService?.services?.googleAIService) {
+        try {
+          const googleAI = this.configService.services.googleAIService;
+          imageUrl = await googleAI.generateImage(prompt, '1:1', {
+            source: 'telegram.user_request',
+            purpose: 'user_generated',
+            context: prompt
+          });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
+        }
+      }
+
+      if (!imageUrl) {
+        throw new Error('All image generation services failed');
+      }
+
+      this.logger?.info?.('[TelegramService] Image generated successfully:', { imageUrl });
+
+      // Send the image with caption
+      await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
+        caption: `✨ Here's your image!\n\n*Prompt:* ${prompt.slice(0, 200)}`,
+        parse_mode: 'Markdown'
+      });
+
+      // Delete the status message
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id);
+      } catch {
+        // Ignore deletion errors
+      }
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Image generation failed:', error);
+      await ctx.reply('❌ Sorry, I couldn\'t generate that image. The AI gods weren\'t smiling today! 😅');
+    }
+  }
+
+  /**
+   * Execute video generation and send to channel
+   * @param {Object} ctx - Telegram context
+   * @param {string} prompt - Video generation prompt
+   */
+  async executeVideoGeneration(ctx, prompt) {
+    try {
+      // Send initial response
+      const statusMsg = await ctx.reply('🎬 Creating a video for you... This will take 1-2 minutes!');
+
+      this.logger?.info?.('[TelegramService] Generating video:', { prompt });
+
+      // Generate video using VeoService
+      const veoService = this.configService?.services?.veoService;
+      
+      if (!veoService) {
+        throw new Error('Video generation service not available');
+      }
+
+      // Generate video (returns array of URLs)
+      const videoUrls = await veoService.generateVideos({
+        prompt: prompt,
+        config: {
+          numberOfVideos: 1,
+          aspectRatio: '16:9',
+          durationSeconds: 5,
+          resolution: '480p' // Faster generation for user requests
+        },
+        model: 'veo-3.1-generate-preview'
+      });
+
+      if (!videoUrls || videoUrls.length === 0) {
+        throw new Error('Video generation returned no results');
+      }
+
+      const videoUrl = videoUrls[0];
+      this.logger?.info?.('[TelegramService] Video generated successfully:', { videoUrl });
+
+      // Send the video with caption
+      await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
+        caption: `🎬 Here's your video!\n\n*Prompt:* ${prompt.slice(0, 200)}`,
+        parse_mode: 'Markdown',
+        supports_streaming: true
+      });
+
+      // Delete the status message
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id);
+      } catch {
+        // Ignore deletion errors
+      }
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Video generation failed:', error);
+      await ctx.reply('❌ Sorry, I couldn\'t generate that video. Video generation is complex and sometimes fails! 😅');
     }
   }
 
@@ -539,7 +751,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         mediaUrl: opts.mediaUrl,
         type: opts.type || 'image',
         source: opts.source,
-        avatarName: opts.avatarName
+        avatarName: opts.avatarName,
+        hasTweetUrl: !!opts.tweetUrl
       });
 
       // Initialize metrics if needed
@@ -617,6 +830,60 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       const { mediaUrl, text, type = 'image' } = opts;
       
+      // For tweets (X posts), we just share the text + link, no media re-upload
+      if (type === 'tweet' || opts.tweetUrl) {
+        this.logger?.info?.('[TelegramService][globalPost] Posting tweet link');
+        
+        const tweetText = text || `Check out this post from CosyWorld!\n\n${opts.tweetUrl}`;
+        
+        const messageResult = await this.globalBot.telegram.sendMessage(channelId, tweetText, {
+          parse_mode: 'Markdown',
+          disable_web_page_preview: false // Show preview
+        });
+        
+        this._globalRate.count++;
+        this._globalRate.lastPostedAt = Date.now();
+        
+        // Store in database
+        const db = await this.databaseService.getDatabase();
+        
+        const metadata = {
+          source: opts.source || 'x.post',
+          type: 'tweet_share',
+          tweetUrl: opts.tweetUrl,
+          tweetId: opts.tweetId
+        };
+        
+        if (opts.avatarId) {
+          metadata.avatarId = String(opts.avatarId);
+          metadata.avatarName = opts.avatarName || null;
+          metadata.avatarEmoji = opts.avatarEmoji || null;
+        }
+        
+        await db.collection('social_posts').insertOne({
+          global: true,
+          platform: 'telegram',
+          messageId: messageResult.message_id,
+          channelId,
+          content: tweetText,
+          metadata,
+          createdAt: new Date(),
+        });
+        
+        this.logger?.info?.('[TelegramService][globalPost] posted tweet link', {
+          messageId: messageResult.message_id,
+          channelId,
+        });
+        
+        _bump('posted', { messageId: messageResult.message_id, tweetUrl: opts.tweetUrl });
+        
+        return {
+          messageId: messageResult.message_id,
+          channelId,
+        };
+      }
+      
+      // For regular media posts (images/videos), continue with existing logic
       if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
         this.logger?.warn?.('[TelegramService][globalPost] Invalid mediaUrl');
         _bump('invalid_media_url', { mediaUrl });

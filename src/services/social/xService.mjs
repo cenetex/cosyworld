@@ -13,6 +13,7 @@ import { ObjectId } from 'mongodb';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -1112,6 +1113,27 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };
       this.logger?.info?.('[XService][globalPost] posted media', { tweetUrl });
       _bump('posted', { tweetId: tweet.data.id, tweetUrl, mediaUrl });
+      
+      // NEW: Emit event for cross-posting to other platforms (e.g., Telegram)
+      try {
+        eventBus.emit('X.POST.CREATED', {
+          tweetId: tweet.data.id,
+          tweetUrl,
+          content: tweetText,
+          imageUrl: isVideo ? null : mediaUrl,
+          videoUrl: isVideo ? mediaUrl : null,
+          avatarId: opts.avatarId || null,
+          avatarName: opts.avatarName || null,
+          avatarEmoji: opts.avatarEmoji || null,
+          source: opts.source || 'media.generation',
+          global: true,
+          createdAt: new Date()
+        });
+        this.logger?.debug?.('[XService][globalPost] emitted X.POST.CREATED event');
+      } catch (eventErr) {
+        this.logger?.warn?.('[XService][globalPost] failed to emit X.POST.CREATED event:', eventErr?.message);
+      }
+      
       return { tweetId: tweet.data.id, tweetUrl };
     } catch (err) {
       // If we got here due to diagnostics already logged, avoid duplicate generic noise
