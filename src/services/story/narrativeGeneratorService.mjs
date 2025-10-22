@@ -136,8 +136,14 @@ REQUIREMENTS:
 4. Each beat should be visually compelling and emotionally resonant
 5. Keep the tone ${options.tone} throughout
 
-CRITICAL: Respond with ONLY valid JSON. No markdown formatting, no extra text.
-Ensure all strings are properly escaped and no unterminated quotes.
+CRITICAL JSON FORMATTING:
+- Respond with ONLY valid JSON
+- NO markdown code blocks, NO extra text
+- Ensure ALL strings are properly closed with quotes
+- Ensure ALL arrays are properly closed with ]
+- Ensure ALL objects are properly closed with }
+- NO trailing commas
+- Keep descriptions SHORT (under 200 chars) to avoid truncation
 
 {
   "title": "A captivating story title",
@@ -148,30 +154,30 @@ Ensure all strings are properly escaped and no unterminated quotes.
       "avatarId": "use actual _id from avatar list",
       "avatarName": "avatar name",
       "role": "protagonist",
-      "characterArc": "How this character grows"
+      "characterArc": "Brief character arc"
     }
   ],
   "locations": [
     {
       "locationId": "use actual _id or null",
       "locationName": "location name",
-      "significance": "Why this location matters"
+      "significance": "Brief significance"
     }
   ],
   "beats": [
     {
       "sequenceNumber": 1,
       "type": "setup",
-      "description": "What happens - keep under 200 characters",
+      "description": "Brief description",
       "location": "location name",
       "characters": ["character names"],
-      "visualPrompt": "Detailed image prompt with visual details, atmosphere, lighting, mood - keep under 500 characters",
-      "captionHint": "Brief caption note"
+      "visualPrompt": "Image prompt",
+      "captionHint": "Brief caption"
     }
   ]
 }
 
-Keep descriptions concise. Make the story engaging and emotionally resonant.`;
+Keep ALL text concise. Respond ONLY with the JSON object above.`;
   }
 
   /**
@@ -209,6 +215,32 @@ Keep descriptions concise. Make the story engaging and emotionally resonant.`;
       // Remove trailing commas before closing braces/brackets
       jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
       
+      // Try to fix truncated strings (common issue)
+      // If we have an unterminated string at the end, try to close it
+      const unclosedStringMatch = jsonText.match(/"[^"]*$/);
+      if (unclosedStringMatch) {
+        this.logger.warn('[NarrativeGenerator] Detected truncated string, attempting to fix');
+        jsonText = jsonText.replace(/"[^"]*$/, '');
+        // Remove trailing comma or colon
+        jsonText = jsonText.replace(/[,:]\s*$/, '');
+      }
+      
+      // Try to close unclosed arrays/objects
+      let openBraces = (jsonText.match(/\{/g) || []).length;
+      let closeBraces = (jsonText.match(/\}/g) || []).length;
+      let openBrackets = (jsonText.match(/\[/g) || []).length;
+      let closeBrackets = (jsonText.match(/\]/g) || []).length;
+      
+      if (openBrackets > closeBrackets) {
+        this.logger.warn('[NarrativeGenerator] Closing unclosed arrays');
+        jsonText += ']'.repeat(openBrackets - closeBrackets);
+      }
+      
+      if (openBraces > closeBraces) {
+        this.logger.warn('[NarrativeGenerator] Closing unclosed objects');
+        jsonText += '}'.repeat(openBraces - closeBraces);
+      }
+      
       const arcData = JSON.parse(jsonText);
       
       // Validate required fields
@@ -216,15 +248,20 @@ Keep descriptions concise. Make the story engaging and emotionally resonant.`;
         throw new Error('Missing required fields in arc data');
       }
       
-      // Ensure characters array exists
-      if (!arcData.characters) {
+      // Ensure characters array exists and is valid
+      if (!arcData.characters || !Array.isArray(arcData.characters)) {
         arcData.characters = [];
+      }
+      
+      // Ensure locations array exists
+      if (!arcData.locations || !Array.isArray(arcData.locations)) {
+        arcData.locations = [];
       }
       
       return arcData;
       
     } catch (error) {
-      this.logger.error('[NarrativeGenerator] Error parsing arc response:', error);
+      this.logger.error('[NarrativeGenerator] Error parsing arc response:', error.message);
       this.logger.error('[NarrativeGenerator] Raw response:', response.substring(0, 500));
       // Return a fallback arc structure
       return this._getFallbackArc();
