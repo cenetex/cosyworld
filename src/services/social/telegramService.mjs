@@ -56,6 +56,7 @@ class TelegramService {
     // Proactive messaging tracking
     this.lastProactiveMessageTime = null;
     this.conversationHistory = new Map(); // channelId -> array of recent messages
+    this.HISTORY_LIMIT = 50; // Keep last 50 messages per channel for rich context
   }
 
   /**
@@ -160,6 +161,56 @@ class TelegramService {
   }
 
   /**
+   * Save a message to the database for persistence
+   * @private
+   */
+  async _saveMessageToDatabase(channelId, message) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_messages').insertOne({
+        channelId,
+        from: message.from,
+        text: message.text,
+        date: new Date(message.date * 1000), // Convert Unix timestamp to Date
+        isBot: message.isBot || false,
+        createdAt: new Date()
+      });
+      this.logger?.debug?.(`[TelegramService] Saved message to database for channel ${channelId}`);
+    } catch (error) {
+      this.logger?.error?.(`[TelegramService] Failed to save message to database:`, error);
+    }
+  }
+
+  /**
+   * Load conversation history from database for a channel
+   * @private
+   */
+  async _loadConversationHistory(channelId) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const messages = await db.collection('telegram_messages')
+        .find({ channelId })
+        .sort({ date: -1 })
+        .limit(this.HISTORY_LIMIT)
+        .toArray();
+      
+      // Reverse to get chronological order (oldest first)
+      const history = messages.reverse().map(msg => ({
+        from: msg.isBot ? 'Bot' : msg.from,
+        text: msg.text,
+        date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date
+      }));
+      
+      this.conversationHistory.set(channelId, history);
+      this.logger?.info?.(`[TelegramService] Loaded ${history.length} messages from database for channel ${channelId}`);
+      return history;
+    } catch (error) {
+      this.logger?.error?.(`[TelegramService] Failed to load conversation history:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Handle incoming messages with debouncing and mention detection
    */
   async handleIncomingMessage(ctx) {
@@ -171,20 +222,33 @@ class TelegramService {
       return;
     }
 
-    // Track conversation history
+    // Load history from database if not in memory
     if (!this.conversationHistory.has(channelId)) {
-      this.conversationHistory.set(channelId, []);
+      await this._loadConversationHistory(channelId);
     }
-    const history = this.conversationHistory.get(channelId);
-    history.push({
+    
+    const history = this.conversationHistory.get(channelId) || [];
+    
+    // Add message to history
+    const messageData = {
       from: message.from.first_name || message.from.username || 'User',
       text: message.text,
-      date: message.date
-    });
-    // Keep only last 20 messages
-    if (history.length > 20) {
-      this.conversationHistory.set(channelId, history.slice(-20));
+      date: message.date,
+      isBot: false
+    };
+    history.push(messageData);
+    
+    // Keep only last N messages in memory
+    if (history.length > this.HISTORY_LIMIT) {
+      this.conversationHistory.set(channelId, history.slice(-this.HISTORY_LIMIT));
     }
+    
+    // Persist to database asynchronously (don't await to avoid blocking)
+    this._saveMessageToDatabase(channelId, messageData).catch(err => 
+      this.logger?.error?.('[TelegramService] Background save failed:', err)
+    );
+
+    this.logger?.debug?.(`[TelegramService] Tracked message in ${channelId}, history: ${history.length} messages`);
 
     // Check if bot is mentioned
     const botUsername = ctx.botInfo?.username;
@@ -245,21 +309,25 @@ class TelegramService {
   /**
    * Generate and send a reply using the global bot's personality
    * Now includes tool calling for image and video generation!
+   * Uses full conversation history for better context awareness.
    */
   async generateAndSendReply(ctx, channelId, isMention) {
     try {
-      // Get pending messages for context
-      const pending = this.pendingReplies.get(channelId);
-      const recentMessages = pending?.messages || [{
-        text: ctx.message.text,
-        from: ctx.message.from,
-        date: ctx.message.date,
-      }];
+      // Load conversation history if not already in memory
+      if (!this.conversationHistory.has(channelId)) {
+        await this._loadConversationHistory(channelId);
+      }
+      
+      // Get full conversation history (last 20 messages for context)
+      const fullHistory = this.conversationHistory.get(channelId) || [];
+      const recentHistory = fullHistory.slice(-20); // Use last 20 for AI context
+      
+      // Build rich conversation context from history
+      const conversationContext = recentHistory.length > 0
+        ? recentHistory.map(m => `${m.from}: ${m.text}`).join('\n')
+        : `${ctx.message.from.first_name || ctx.message.from.username || 'User'}: ${ctx.message.text}`;
 
-      // Build conversation context
-      const conversationContext = recentMessages
-        .map(m => `${m.from.first_name || m.from.username || 'User'}: ${m.text}`)
-        .join('\n');
+      this.logger?.info?.(`[TelegramService] Generating reply with ${recentHistory.length} messages of context`);
 
       // Get global bot persona
       let botPersonality = 'You are the CosyWorld narrator bot, a warm and welcoming guide who shares stories about our AI avatar community.';
@@ -405,11 +473,18 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         if (!this.conversationHistory.has(channelId)) {
           this.conversationHistory.set(channelId, []);
         }
-        this.conversationHistory.get(channelId).push({
+        const botMessage = {
           from: 'Bot',
           text: cleanResponse,
-          date: Date.now()
-        });
+          date: Math.floor(Date.now() / 1000),
+          isBot: true
+        };
+        this.conversationHistory.get(channelId).push(botMessage);
+        
+        // Persist bot's reply to database
+        this._saveMessageToDatabase(channelId, botMessage).catch(err => 
+          this.logger?.error?.('[TelegramService] Failed to save bot message:', err)
+        );
         
         this.logger?.info?.(`[TelegramService] Sent ${isMention ? 'mention' : 'debounced'} reply to channel ${channelId}`);
       }
