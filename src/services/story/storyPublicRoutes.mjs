@@ -249,7 +249,7 @@ export function registerStoryPublicRoutes(app, services) {
 
       // Use first/last frame interpolation for multi-beat chapters (3 beats = 2 transitions)
       // For single beat, use standard image-to-video
-      const allVideoUrls = [];
+      const allVideoClips = []; // Store {url, fromBeat, toBeat}
       
       if (keyframes.length === 1) {
         // Single keyframe: use standard image-to-video
@@ -268,7 +268,11 @@ export function registerStoryPublicRoutes(app, services) {
           });
           
           if (videoUrls && videoUrls.length > 0) {
-            allVideoUrls.push(videoUrls[0]);
+            allVideoClips.push({
+              url: videoUrls[0],
+              fromBeat: 0,
+              toBeat: 0
+            });
           }
         } catch (veoError) {
           logger.error('[StoryPublicAPI] Chapter Animation: Single-beat video generation failed:', veoError);
@@ -305,7 +309,11 @@ export function registerStoryPublicRoutes(app, services) {
             });
             
             if (videoUrls && videoUrls.length > 0) {
-              allVideoUrls.push(videoUrls[0]);
+              allVideoClips.push({
+                url: videoUrls[0],
+                fromBeat: i,
+                toBeat: i + 1
+              });
               logger.info(`[StoryPublicAPI] Chapter transition ${i + 1}/${numTransitions} generated`);
             }
           } catch (veoError) {
@@ -315,7 +323,7 @@ export function registerStoryPublicRoutes(app, services) {
         }
       }
 
-      if (allVideoUrls.length === 0) {
+      if (allVideoClips.length === 0) {
         logger.error('[StoryPublicAPI] Chapter Animation: No videos generated');
         return res.status(500).json({
           success: false,
@@ -323,12 +331,13 @@ export function registerStoryPublicRoutes(app, services) {
         });
       }
 
-      logger.info(`[StoryPublicAPI] Chapter animation complete: ${allVideoUrls.length} video(s) generated`);
+      logger.info(`[StoryPublicAPI] Chapter animation complete: ${allVideoClips.length} video(s) generated`);
 
       // Store generated videos in arc metadata for future reference
       const chapterVideos = arc.chapterVideos || {};
       chapterVideos[`chapter_${chapterNum}`] = {
-        videoUrls: allVideoUrls,
+        videoClips: allVideoClips, // [{url, fromBeat, toBeat}, ...]
+        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
         generatedAt: new Date(),
         beatCount: chapterBeats.length
       };
@@ -338,9 +347,10 @@ export function registerStoryPublicRoutes(app, services) {
 
       res.json({
         success: true,
-        videoUrls: allVideoUrls,
-        videoUrl: allVideoUrls[0],
-        clipCount: allVideoUrls.length,
+        videoClips: allVideoClips,
+        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
+        videoUrl: allVideoClips[0].url,
+        clipCount: allVideoClips.length,
         chapter: {
           arcId: arc._id.toString(),
           chapterNumber: chapterNum,
@@ -495,16 +505,41 @@ export function registerStoryPublicRoutes(app, services) {
       const clipDuration = 6; // 6 seconds per transition
       
       // Start with existing chapter videos
-      const allVideoUrls = [...existingChapterVideos];
+      const allVideoClips = []; // [{url, fromBeat, toBeat}, ...]
       
-      // Generate only the new transitions needed
+      // Add existing chapter videos with their beat mapping
+      for (let chapterNum = 1; chapterNum <= totalChapters; chapterNum++) {
+        const chapterKey = `chapter_${chapterNum}`;
+        if (chapterVideos[chapterKey] && chapterVideos[chapterKey].videoClips) {
+          allVideoClips.push(...chapterVideos[chapterKey].videoClips);
+        } else if (chapterVideos[chapterKey] && chapterVideos[chapterKey].videoUrls) {
+          // Backward compatibility: convert old format to new format
+          const startBeat = (chapterNum - 1) * beatsPerChapter;
+          chapterVideos[chapterKey].videoUrls.forEach((url, i) => {
+            allVideoClips.push({
+              url,
+              fromBeat: startBeat + i,
+              toBeat: startBeat + i + 1
+            });
+          });
+        }
+      }
+      
+      // Track newly generated videos by chapter for storage
+      const newChapterVideos = {};
+      
+      // Generate only the new transitions needed and track by chapter
       for (let idx = 0; idx < newTransitionsNeeded.length; idx++) {
         const i = newTransitionsNeeded[idx];
         const firstFrame = keyframes[i];
         const lastFrame = keyframes[i + 1];
         
+        // Determine which chapter this transition belongs to
+        const chapterNum = Math.floor(i / beatsPerChapter) + 1;
+        const chapterKey = `chapter_${chapterNum}`;
+        
         const clipPrompt = `${basePrompt} Transition ${idx + 1} of ${newTransitionsNeeded.length}.`;
-        logger.info(`[StoryPublicAPI] Generating transition ${idx + 1}/${newTransitionsNeeded.length} (keyframe ${i} → ${i + 1})`);
+        logger.info(`[StoryPublicAPI] Generating transition ${idx + 1}/${newTransitionsNeeded.length} (keyframe ${i} → ${i + 1}) for chapter ${chapterNum}`);
 
         let videoUrls;
         try {
@@ -521,8 +556,21 @@ export function registerStoryPublicRoutes(app, services) {
           });
 
           if (videoUrls && videoUrls.length > 0) {
-            allVideoUrls.push(videoUrls[0]);
-            logger.info(`[StoryPublicAPI] Transition ${idx + 1} generated: ${videoUrls[0]}`);
+            const videoUrl = videoUrls[0];
+            const videoClip = {
+              url: videoUrl,
+              fromBeat: i,
+              toBeat: i + 1
+            };
+            allVideoClips.push(videoClip);
+            
+            // Track this video for the chapter
+            if (!newChapterVideos[chapterKey]) {
+              newChapterVideos[chapterKey] = [];
+            }
+            newChapterVideos[chapterKey].push(videoClip);
+            
+            logger.info(`[StoryPublicAPI] Transition ${idx + 1} generated for chapter ${chapterNum}: ${videoUrl}`);
           }
         } catch (veoError) {
           logger.error(`[StoryPublicAPI] Episode Animation: Transition ${idx + 1} generation failed:`, veoError);
@@ -535,7 +583,7 @@ export function registerStoryPublicRoutes(app, services) {
         }
       }
 
-      if (allVideoUrls.length === 0) {
+      if (allVideoClips.length === 0) {
         logger.error('[StoryPublicAPI] Episode Animation: No transition videos were generated successfully');
         return res.status(500).json({
           success: false,
@@ -543,26 +591,41 @@ export function registerStoryPublicRoutes(app, services) {
         });
       }
 
-      logger.info(`[StoryPublicAPI] Episode animation complete: ${allVideoUrls.length} transition video(s) (${existingChapterVideos.length} reused, ${newTransitionsNeeded.length} new)`);
+      logger.info(`[StoryPublicAPI] Episode animation complete: ${allVideoClips.length} transition video(s) (${existingChapterVideos.length} reused, ${newTransitionsNeeded.length} new)`);
 
-      // Store episode videos in arc metadata
+      // Merge new chapter videos with existing ones
+      const updatedChapterVideos = { ...(arc.chapterVideos || {}) };
+      for (const [chapterKey, videoClips] of Object.entries(newChapterVideos)) {
+        updatedChapterVideos[chapterKey] = {
+          videoClips: videoClips,
+          videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
+          generatedAt: new Date(),
+          beatCount: beatsPerChapter
+        };
+        logger.info(`[StoryPublicAPI] Stored ${videoClips.length} video(s) for ${chapterKey}`);
+      }
+
+      // Store both episode videos and updated chapter videos
       await storyStateService.updateArc(arcId, {
+        chapterVideos: updatedChapterVideos,
         episodeVideos: {
-          videoUrls: allVideoUrls,
+          videoClips: allVideoClips,
+          videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
           generatedAt: new Date(),
           totalBeats: arc.beats?.length || 0,
           reusedCount: existingChapterVideos.length,
           newCount: newTransitionsNeeded.length
         }
       });
-      logger.info(`[StoryPublicAPI] Stored episode videos in arc metadata`);
+      logger.info(`[StoryPublicAPI] Stored episode videos and ${Object.keys(newChapterVideos).length} new chapter video(s) in arc metadata`);
 
       res.json({
         success: true,
-        videoUrls: allVideoUrls, // Return all transition videos
-        videoUrl: allVideoUrls[0], // First transition for backwards compatibility
-        clipCount: allVideoUrls.length,
-        totalDuration: allVideoUrls.length * clipDuration,
+        videoClips: allVideoClips,
+        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
+        videoUrl: allVideoClips[0]?.url, // First transition for backwards compatibility
+        clipCount: allVideoClips.length,
+        totalDuration: allVideoClips.length * clipDuration,
         reusedCount: existingChapterVideos.length,
         newCount: newTransitionsNeeded.length,
         episode: {
@@ -579,6 +642,295 @@ export function registerStoryPublicRoutes(app, services) {
       res.status(500).json({
         success: false,
         error: 'Failed to generate episode video',
+        details: error.message
+      });
+    }
+  });
+
+  /**
+   * GET /api/stories/chapters/:arcId/:chapterNumber/videos
+   * Get video status for a specific chapter
+   */
+  app.get('/api/stories/chapters/:arcId/:chapterNumber/videos', async (req, res) => {
+    try {
+      const { arcId, chapterNumber } = req.params;
+      
+      const arc = await storyStateService.getArc(arcId);
+      if (!arc) {
+        return res.status(404).json({
+          success: false,
+          error: 'Story arc not found'
+        });
+      }
+
+      const chapterKey = `chapter_${chapterNumber}`;
+      const chapterVideos = arc.chapterVideos?.[chapterKey];
+
+      if (!chapterVideos || (!chapterVideos.videoClips && !chapterVideos.videoUrls)) {
+        return res.json({
+          success: true,
+          hasVideos: false,
+          status: 'not_generated'
+        });
+      }
+
+      // Support both new format (videoClips) and old format (videoUrls)
+      const videoClips = chapterVideos.videoClips || chapterVideos.videoUrls?.map((url, i) => ({
+        url,
+        fromBeat: i,
+        toBeat: i + 1
+      })) || [];
+
+      res.json({
+        success: true,
+        hasVideos: true,
+        status: 'complete',
+        videoClips: videoClips,
+        videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
+        generatedAt: chapterVideos.generatedAt,
+        clipCount: videoClips.length
+      });
+
+    } catch (error) {
+      logger.error('[StoryPublicAPI] Error checking chapter video status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check video status'
+      });
+    }
+  });
+
+  /**
+   * GET /api/stories/episodes/:arcId/videos
+   * Get video status for an episode
+   */
+  app.get('/api/stories/episodes/:arcId/videos', async (req, res) => {
+    try {
+      const { arcId } = req.params;
+      
+      const arc = await storyStateService.getArc(arcId);
+      if (!arc) {
+        return res.status(404).json({
+          success: false,
+          error: 'Episode not found'
+        });
+      }
+
+      const episodeVideos = arc.episodeVideos;
+
+      if (!episodeVideos || (!episodeVideos.videoClips && !episodeVideos.videoUrls)) {
+        return res.json({
+          success: true,
+          hasVideos: false,
+          status: 'not_generated'
+        });
+      }
+
+      // Support both new format (videoClips) and old format (videoUrls)
+      const videoClips = episodeVideos.videoClips || episodeVideos.videoUrls?.map((url, i) => ({
+        url,
+        fromBeat: i,
+        toBeat: i + 1
+      })) || [];
+
+      res.json({
+        success: true,
+        hasVideos: true,
+        status: 'complete',
+        videoClips: videoClips,
+        videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
+        generatedAt: episodeVideos.generatedAt,
+        clipCount: videoClips.length,
+        reusedCount: episodeVideos.reusedCount,
+        newCount: episodeVideos.newCount
+      });
+
+    } catch (error) {
+      logger.error('[StoryPublicAPI] Error checking episode video status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check video status'
+      });
+    }
+  });
+
+  /**
+   * POST /api/stories/chapters/:arcId/:chapterNumber/concatenate
+   * Concatenate chapter videos into a single file using ffmpeg
+   */
+  app.post('/api/stories/chapters/:arcId/:chapterNumber/concatenate', async (req, res) => {
+    try {
+      const { arcId, chapterNumber } = req.params;
+      
+      const arc = await storyStateService.getArc(arcId);
+      if (!arc) {
+        return res.status(404).json({
+          success: false,
+          error: 'Story arc not found'
+        });
+      }
+
+      const chapterKey = `chapter_${chapterNumber}`;
+      const chapterVideos = arc.chapterVideos?.[chapterKey];
+
+      if (!chapterVideos || (!chapterVideos.videoClips && !chapterVideos.videoUrls)) {
+        return res.status(404).json({
+          success: false,
+          error: 'No videos found for this chapter'
+        });
+      }
+
+      // Get video URLs
+      const videoUrls = chapterVideos.videoClips?.map(clip => clip.url) || chapterVideos.videoUrls || [];
+
+      if (videoUrls.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No video URLs available'
+        });
+      }
+
+      // Check if already concatenated
+      if (chapterVideos.concatenatedUrl) {
+        logger.info(`[StoryPublicAPI] Returning existing concatenated video for chapter ${chapterNumber}`);
+        return res.json({
+          success: true,
+          videoUrl: chapterVideos.concatenatedUrl,
+          cached: true
+        });
+      }
+
+      logger.info(`[StoryPublicAPI] Concatenating ${videoUrls.length} videos for chapter ${chapterNumber}`);
+
+      // Get services
+      const { s3Service } = services;
+      if (!s3Service) {
+        return res.status(503).json({
+          success: false,
+          error: 'Storage service not available'
+        });
+      }
+
+      // Import video utils
+      const { concatenateVideos } = await import('../../utils/videoUtils.mjs');
+      
+      // Concatenate videos and upload result
+      const concatenatedUrl = await concatenateVideos(videoUrls, s3Service, {
+        prefix: `story-videos/${arcId}/chapter-${chapterNumber}`
+      });
+
+      // Store concatenated URL
+      const updatedChapterVideos = { ...(arc.chapterVideos || {}) };
+      updatedChapterVideos[chapterKey] = {
+        ...chapterVideos,
+        concatenatedUrl,
+        concatenatedAt: new Date()
+      };
+      
+      await storyStateService.updateArc(arcId, { chapterVideos: updatedChapterVideos });
+      logger.info(`[StoryPublicAPI] Stored concatenated video URL for chapter ${chapterNumber}`);
+
+      res.json({
+        success: true,
+        videoUrl: concatenatedUrl,
+        cached: false
+      });
+
+    } catch (error) {
+      logger.error('[StoryPublicAPI] Error concatenating chapter videos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to concatenate videos',
+        details: error.message
+      });
+    }
+  });
+
+  /**
+   * POST /api/stories/episodes/:arcId/concatenate
+   * Concatenate episode videos into a single file using ffmpeg
+   */
+  app.post('/api/stories/episodes/:arcId/concatenate', async (req, res) => {
+    try {
+      const { arcId } = req.params;
+      
+      const arc = await storyStateService.getArc(arcId);
+      if (!arc) {
+        return res.status(404).json({
+          success: false,
+          error: 'Episode not found'
+        });
+      }
+
+      const episodeVideos = arc.episodeVideos;
+
+      if (!episodeVideos || (!episodeVideos.videoClips && !episodeVideos.videoUrls)) {
+        return res.status(404).json({
+          success: false,
+          error: 'No videos found for this episode'
+        });
+      }
+
+      // Get video URLs
+      const videoUrls = episodeVideos.videoClips?.map(clip => clip.url) || episodeVideos.videoUrls || [];
+
+      if (videoUrls.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No video URLs available'
+        });
+      }
+
+      // Check if already concatenated
+      if (episodeVideos.concatenatedUrl) {
+        logger.info(`[StoryPublicAPI] Returning existing concatenated video for episode ${arcId}`);
+        return res.json({
+          success: true,
+          videoUrl: episodeVideos.concatenatedUrl,
+          cached: true
+        });
+      }
+
+      logger.info(`[StoryPublicAPI] Concatenating ${videoUrls.length} videos for episode ${arcId}`);
+
+      // Get services
+      const { s3Service } = services;
+      if (!s3Service) {
+        return res.status(503).json({
+          success: false,
+          error: 'Storage service not available'
+        });
+      }
+
+      // Import video utils
+      const { concatenateVideos } = await import('../../utils/videoUtils.mjs');
+      
+      // Concatenate videos and upload result
+      const concatenatedUrl = await concatenateVideos(videoUrls, s3Service, {
+        prefix: `story-videos/${arcId}/episode`
+      });
+
+      // Store concatenated URL
+      await storyStateService.updateArc(arcId, {
+        episodeVideos: {
+          ...episodeVideos,
+          concatenatedUrl,
+          concatenatedAt: new Date()
+        }
+      });
+      logger.info(`[StoryPublicAPI] Stored concatenated video URL for episode ${arcId}`);
+
+      res.json({
+        success: true,
+        videoUrl: concatenatedUrl,
+        cached: false
+      });
+
+    } catch (error) {
+      logger.error('[StoryPublicAPI] Error concatenating episode videos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to concatenate videos',
         details: error.message
       });
     }

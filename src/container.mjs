@@ -375,6 +375,20 @@ container.register({ services: asValue(container) });
 async function initializeContainer() {
   try { validateEnv(logger); } catch (e) { logger.error('[container] Env validation threw:', e.message); }
   await configService.loadConfig();
+  
+  // Check ffmpeg availability (required for video concatenation)
+  try {
+    const { checkFfmpegAvailable } = await import('./utils/videoUtils.mjs');
+    const ffmpegAvailable = await checkFfmpegAvailable();
+    if (ffmpegAvailable) {
+      logger.info('[container] ✅ ffmpeg is available for video processing');
+    } else {
+      logger.warn('[container] ⚠️  ffmpeg not found - video concatenation features will not work');
+      logger.warn('[container] To enable video features, install ffmpeg: https://ffmpeg.org/download.html');
+    }
+  } catch (e) {
+    logger.warn('[container] Could not check ffmpeg availability:', e.message);
+  }
 
   // Optional secondary Google AI service
   let googleAIService = null;

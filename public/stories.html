@@ -301,6 +301,14 @@
       cursor: wait;
     }
 
+    .animate-chapter-btn.has-video {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .animate-chapter-btn.has-video:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+
     .archive-card-actions {
       display: flex;
       gap: 0.5rem;
@@ -341,8 +349,97 @@
       cursor: wait;
     }
 
+    .animate-btn-small.has-video {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .animate-btn-small.has-video:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
     .animate-btn-episode {
       background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+
+    .download-video-link {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      text-decoration: none;
+      padding: 0.5rem 1.5rem;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .download-video-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      text-decoration: none;
+      color: white;
+    }
+
+    .download-video-link-small {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      text-decoration: none;
+      padding: 0.4rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.3s ease;
+      flex: 1;
+    }
+
+    .download-video-link-small:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      text-decoration: none;
+      color: white;
+    }
+
+    /* Inline video player styles */
+    .inline-video-container {
+      margin: 2rem auto;
+      max-width: 800px;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .inline-video-label {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    .inline-video {
+      width: 100%;
+      border-radius: 8px;
+      background: #000;
+      max-height: 500px;
+    }
+
+    .chapter-video-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .generating-status {
+      color: #888;
+      font-style: italic;
+      font-size: 0.9rem;
     }
 
     .comic-panel {
@@ -771,21 +868,33 @@
               </div>
               
               ${hasBeats ? `
-                <div class="archive-card-actions" onclick="event.stopPropagation()">
-                  <button 
-                    class="animate-btn-small animate-btn-episode ${hasEpisodeVideos ? 'has-video' : ''}" 
-                    onclick="animateEpisode('${arc.id}')"
-                    id="animate-episode-${arc.id}"
-                    ${!hasBeats ? 'disabled' : ''}
-                  >
-                    ${hasEpisodeVideos ? '📼 View Episode Videos' : '🎬 Animate Episode'}
-                  </button>
+                <div class="archive-card-actions" onclick="event.stopPropagation()" id="episode-controls-${arc.id}">
+                  ${hasEpisodeVideos ? `
+                    <a href="#" onclick="downloadEpisodeVideos('${arc.id}'); return false;" class="download-video-link-small">
+                      📥 Download Episode Videos
+                    </a>
+                  ` : `
+                    <button 
+                      class="animate-btn-small animate-btn-episode" 
+                      onclick="animateEpisode('${arc.id}')"
+                      id="animate-episode-${arc.id}"
+                    >
+                      🎬 Generate Episode Videos
+                    </button>
+                  `}
                 </div>
               ` : ''}
             </div>
           </div>
         `;
       }).join('');
+      
+      // Check video status for each episode after rendering
+      archiveChapters.forEach(arc => {
+        if (arc.id && arc.beatsCount > 0) {
+          checkEpisodeVideoStatus(arc.id);
+        }
+      });
     }
 
     async function viewChapter(arcId, chapterNumber) {
@@ -814,6 +923,11 @@
           const storyPage = document.getElementById('storyPage');
           storyPage.innerHTML = renderChapterBeats(data.chapter);
           
+          // Check video status after rendering
+          if (data.chapter.arcId && data.chapter.chapterNumber) {
+            checkChapterVideoStatus(data.chapter.arcId, data.chapter.chapterNumber);
+          }
+          
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } catch (error) {
@@ -841,11 +955,70 @@
           // Render the returned chapters for the selected arc
           const storyPage = document.getElementById('storyPage');
           storyPage.innerHTML = data.chapters.map(ch => renderChapterBeats(ch)).join('');
+          
+          // Check video status for each chapter after rendering
+          data.chapters.forEach(ch => {
+            if (ch.arcId && ch.chapterNumber) {
+              checkChapterVideoStatus(ch.arcId, ch.chapterNumber);
+            }
+          });
+          
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } catch (error) {
         console.error('Error loading arc:', error);
         alert(`Failed to load arc: ${error.message}`);
+      }
+    }
+
+    async function checkChapterVideoStatus(arcId, chapterNumber) {
+      try {
+        const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/videos`);
+        const data = await response.json();
+        
+        const controlsDiv = document.getElementById(`chapter-video-controls-${chapterNumber}`);
+        if (!controlsDiv) return;
+        
+        if (data.success && data.hasVideos && data.videoUrls && data.videoUrls.length > 0) {
+          const clipCount = data.videoUrls.length;
+          controlsDiv.innerHTML = `
+            <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
+              📥 Download Videos (${clipCount})
+            </a>
+          `;
+          
+          // Add video icon to chapter title if not already present
+          const chapterTitle = controlsDiv.closest('.chapter-title');
+          if (chapterTitle) {
+            const titleSpan = chapterTitle.querySelector('span');
+            if (titleSpan && !titleSpan.textContent.includes('🎥')) {
+              titleSpan.textContent = titleSpan.textContent.trim() + ' 🎥';
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking chapter video status:', error);
+      }
+    }
+
+    async function checkEpisodeVideoStatus(arcId) {
+      try {
+        const response = await fetch(`/api/stories/episodes/${arcId}/videos`);
+        const data = await response.json();
+        
+        const controlsDiv = document.getElementById(`episode-controls-${arcId}`);
+        if (!controlsDiv) return;
+        
+        if (data.success && data.hasVideos && data.videoUrls && data.videoUrls.length > 0) {
+          const clipCount = data.videoUrls.length;
+          controlsDiv.innerHTML = `
+            <a href="#" onclick="downloadEpisodeVideos('${arcId}'); return false;" class="download-video-link-small">
+              📥 Download Episode Videos (${clipCount})
+            </a>
+          `;
+        }
+      } catch (error) {
+        console.error('Error checking episode video status:', error);
       }
     }
 
@@ -862,13 +1035,21 @@
         <div class="chapter-title">
           <span>Chapter ${chapter.chapterNumber} ${hasVideos ? '🎥' : ''}</span>
           ${allBeatsHaveImages ? `
-            <button 
-              class="animate-chapter-btn ${hasVideos ? 'has-video' : ''}" 
-              onclick="animateChapterFromArchive('${chapter.arcId}', ${chapter.chapterNumber})"
-              id="animate-chapter-archive-${chapter.chapterNumber}"
-            >
-              ${hasVideos ? '📼 View Videos' : '🎬 Animate Chapter'}
-            </button>
+            <div id="chapter-video-controls-${chapter.chapterNumber}" class="chapter-video-controls">
+              ${hasVideos ? `
+                <a href="#" onclick="downloadChapterVideos('${chapter.arcId}', ${chapter.chapterNumber}); return false;" class="download-video-link">
+                  📥 Download Videos
+                </a>
+              ` : `
+                <button 
+                  class="animate-chapter-btn" 
+                  onclick="animateChapterFromArchive('${chapter.arcId}', ${chapter.chapterNumber})"
+                  id="animate-chapter-archive-${chapter.chapterNumber}"
+                >
+                  🎬 Generate Videos
+                </button>
+              `}
+            </div>
           ` : ''}
         </div>
       `;
@@ -976,15 +1157,17 @@
       
       let chapterHTML = `
         <div class="chapter-title">
-          <span>Chapter ${chapterNumber}</span>
+          <span id="chapter-title-main-${index}">Chapter ${chapterNumber}</span>
           ${allBeatsHaveImages ? `
-            <button 
-              class="animate-chapter-btn" 
-              onclick="animateChapter(${index})"
-              id="animate-btn-${index}"
-            >
-              🎬 Animate Chapter
-            </button>
+            <div id="chapter-video-controls-main-${index}" class="chapter-video-controls">
+              <button 
+                class="animate-chapter-btn" 
+                onclick="animateChapter(${index})"
+                id="animate-btn-${index}"
+              >
+                🎬 Generate Videos
+              </button>
+            </div>
           ` : ''}
         </div>
       `;
@@ -1033,6 +1216,87 @@
       
       storyPage.innerHTML = chapterHTML;
       updateNavigation();
+      
+      // Check video status after rendering
+      if (currentStory && currentStory.id) {
+        checkMainChapterVideoStatus(currentStory.id, chapterNumber, index);
+      }
+    }
+
+    /**
+     * Inject inline video players between beats for a chapter
+     * @param {number} index - Chapter index
+     * @param {Array} videoClips - Array of {url, fromBeat, toBeat} objects
+     */
+    function injectInlineVideos(index, videoClips) {
+      if (!videoClips || videoClips.length === 0) return;
+      
+      const storyPage = document.getElementById('storyPage');
+      const panels = storyPage.querySelectorAll('.comic-panel');
+      
+      videoClips.forEach((clip) => {
+        // Insert video after the "fromBeat" panel
+        const panelIndex = clip.fromBeat;
+        if (panelIndex < panels.length) {
+          const panel = panels[panelIndex];
+          
+          // Check if video already exists
+          const videoId = `inline-video-${index}-${clip.fromBeat}-${clip.toBeat}`;
+          if (document.getElementById(videoId)) {
+            return; // Already injected
+          }
+          
+          // Create video element
+          const videoContainer = document.createElement('div');
+          videoContainer.className = 'inline-video-container';
+          videoContainer.id = videoId;
+          videoContainer.innerHTML = `
+            <div class="inline-video-label">🎬 Transition: Beat ${clip.fromBeat + 1} → ${clip.toBeat + 1}</div>
+            <video controls preload="metadata" class="inline-video">
+              <source src="${escapeHtml(clip.url)}" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          `;
+          
+          // Insert after the panel
+          panel.after(videoContainer);
+        }
+      });
+    }
+
+    async function checkMainChapterVideoStatus(arcId, chapterNumber, index) {
+      try {
+        const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/videos`);
+        const data = await response.json();
+        
+        const controlsDiv = document.getElementById(`chapter-video-controls-main-${index}`);
+        if (!controlsDiv) return;
+        
+        if (data.success && data.hasVideos && data.videoUrls && data.videoUrls.length > 0) {
+          const clipCount = data.videoUrls.length;
+          controlsDiv.innerHTML = `
+            <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
+              📥 Download Videos (${clipCount})
+            </a>
+          `;
+          
+          // Add video icon to chapter title if not already present
+          const chapterTitle = controlsDiv.closest('.chapter-title');
+          if (chapterTitle) {
+            const titleSpan = chapterTitle.querySelector('span');
+            if (titleSpan && !titleSpan.textContent.includes('🎥')) {
+              titleSpan.textContent = titleSpan.textContent.trim() + ' 🎥';
+            }
+          }
+          
+          // Inject inline videos between beats if videoClips data is available
+          if (data.videoClips && data.videoClips.length > 0) {
+            injectInlineVideos(index, data.videoClips);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking main chapter video status:', error);
+      }
     }
 
     function handleImageError(img, panelId) {
@@ -1095,16 +1359,116 @@
       return div.innerHTML;
     }
 
+    async function downloadChapterVideos(arcId, chapterNumber) {
+      try {
+        // Show progress message
+        const statusMsg = document.createElement('div');
+        statusMsg.className = 'generating-status';
+        statusMsg.textContent = '⏳ Preparing video download...';
+        statusMsg.style.position = 'fixed';
+        statusMsg.style.top = '20px';
+        statusMsg.style.right = '20px';
+        statusMsg.style.background = '#1e293b';
+        statusMsg.style.padding = '1rem 1.5rem';
+        statusMsg.style.borderRadius = '8px';
+        statusMsg.style.zIndex = '10000';
+        document.body.appendChild(statusMsg);
+        
+        // Call concatenation endpoint
+        const concatResponse = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/concatenate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!concatResponse.ok) {
+          throw new Error('Failed to concatenate videos');
+        }
+        
+        const concatData = await concatResponse.json();
+        
+        if (concatData.success && concatData.videoUrl) {
+          // Update status
+          statusMsg.textContent = concatData.cached ? '✅ Opening video...' : '✅ Video ready! Opening...';
+          
+          // Open concatenated video
+          setTimeout(() => {
+            window.open(concatData.videoUrl, '_blank');
+            document.body.removeChild(statusMsg);
+          }, 1000);
+        } else {
+          throw new Error('No video URL returned');
+        }
+      } catch (error) {
+        console.error('Error downloading chapter videos:', error);
+        alert(`Failed to download video: ${error.message}`);
+        const statusMsg = document.querySelector('.generating-status');
+        if (statusMsg) {
+          document.body.removeChild(statusMsg);
+        }
+      }
+    }
+
+    async function downloadEpisodeVideos(arcId) {
+      try {
+        // Show progress message
+        const statusMsg = document.createElement('div');
+        statusMsg.className = 'generating-status';
+        statusMsg.textContent = '⏳ Preparing episode video download...';
+        statusMsg.style.position = 'fixed';
+        statusMsg.style.top = '20px';
+        statusMsg.style.right = '20px';
+        statusMsg.style.background = '#1e293b';
+        statusMsg.style.padding = '1rem 1.5rem';
+        statusMsg.style.borderRadius = '8px';
+        statusMsg.style.zIndex = '10000';
+        document.body.appendChild(statusMsg);
+        
+        // Call concatenation endpoint
+        const concatResponse = await fetch(`/api/stories/episodes/${arcId}/concatenate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!concatResponse.ok) {
+          throw new Error('Failed to concatenate episode videos');
+        }
+        
+        const concatData = await concatResponse.json();
+        
+        if (concatData.success && concatData.videoUrl) {
+          // Update status
+          statusMsg.textContent = concatData.cached ? '✅ Opening video...' : '✅ Episode video ready! Opening...';
+          
+          // Open concatenated video
+          setTimeout(() => {
+            window.open(concatData.videoUrl, '_blank');
+            document.body.removeChild(statusMsg);
+          }, 1000);
+        } else {
+          throw new Error('No video URL returned');
+        }
+      } catch (error) {
+        console.error('Error downloading episode videos:', error);
+        alert(`Failed to download episode video: ${error.message}`);
+        const statusMsg = document.querySelector('.generating-status');
+        if (statusMsg) {
+          document.body.removeChild(statusMsg);
+        }
+      }
+    }
+
     async function animateChapter(chapterIndex) {
       if (!currentStory) return;
       
-      const btn = document.getElementById(`animate-btn-${chapterIndex}`);
-      if (!btn) return;
+      const controlsDiv = document.getElementById(`chapter-video-controls-main-${chapterIndex}`);
+      if (!controlsDiv) return;
       
-      // Disable button and show loading state
-      btn.disabled = true;
-      btn.classList.add('generating');
-      btn.innerHTML = '⏳ Generating...';
+      // Replace controls with generating status
+      controlsDiv.innerHTML = '<span class="generating-status">⏳ Generating videos...</span>';
       
       try {
         const chapterNumber = chapterIndex + 1;
@@ -1135,46 +1499,45 @@
           const videos = data.videoUrls || [data.videoUrl];
           const clipCount = videos.length;
           
-          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
-          btn.classList.remove('generating');
+          // Show success message briefly
+          controlsDiv.innerHTML = `<span class="generating-status">✅ ${clipCount} Video${clipCount > 1 ? 's' : ''} Complete!</span>`;
           
-          // Open all video clips in new tabs
-          videos.forEach((url, index) => {
-            setTimeout(() => {
-              window.open(url, '_blank');
-            }, index * 500); // Stagger by 500ms to avoid popup blocker
-          });
-          
-          // Reset button after 3 seconds
+          // Replace with download link after brief delay
           setTimeout(() => {
-            btn.innerHTML = '🎬 Animate Chapter';
-            btn.disabled = false;
-          }, 3000);
+            controlsDiv.innerHTML = `<a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">📥 Download Videos (${clipCount})</a>`;
+            // Add video icon to chapter title
+            const chapterTitle = document.getElementById(`chapter-title-main-${chapterIndex}`);
+            if (chapterTitle && !chapterTitle.textContent.includes('🎥')) {
+              chapterTitle.textContent = '🎥 ' + chapterTitle.textContent.trim();
+            }
+            
+            // Inject inline videos if videoClips data is available
+            if (data.videoClips && data.videoClips.length > 0) {
+              injectInlineVideos(chapterIndex, data.videoClips);
+            }
+          }, 2000);
         } else {
           throw new Error('No video URL returned');
         }
         
       } catch (error) {
         console.error('Error animating chapter:', error);
-        btn.innerHTML = '❌ Failed';
-        btn.classList.remove('generating');
+        controlsDiv.innerHTML = '<span class="generating-status">❌ Failed</span>';
         alert(`Failed to generate chapter video: ${error.message}`);
         
         // Reset button after 3 seconds
         setTimeout(() => {
-          btn.innerHTML = '🎬 Animate Chapter';
-          btn.disabled = false;
+          controlsDiv.innerHTML = '<button onclick="animateChapter(' + chapterIndex + ')" class="btn btn-primary">🎬 Generate Videos</button>';
         }, 3000);
       }
     }
 
     async function animateChapterFromArchive(arcId, chapterNumber) {
-      const btn = document.getElementById(`animate-chapter-archive-${chapterNumber}`);
-      if (!btn) return;
+      const controlsDiv = document.getElementById(`chapter-video-controls-${chapterNumber}`);
+      if (!controlsDiv) return;
       
-      btn.disabled = true;
-      btn.classList.add('generating');
-      btn.innerHTML = '⏳ Generating...';
+      // Replace controls with generating status
+      controlsDiv.innerHTML = '<span class="generating-status">⏳ Generating videos...</span>';
       
       try {
         const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/animate`, {
@@ -1195,45 +1558,46 @@
           const videos = data.videoUrls || [data.videoUrl];
           const clipCount = videos.length;
           
-          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
-          btn.classList.remove('generating');
-          
-          // Open all video clips
-          videos.forEach((url, index) => {
-            setTimeout(() => {
-              window.open(url, '_blank');
-            }, index * 500);
-          });
+          // Show success and replace with download link
+          controlsDiv.innerHTML = `<span class="generating-status">✅ Videos complete!</span>`;
           
           setTimeout(() => {
-            btn.innerHTML = '🎬 Animate Chapter';
-            btn.disabled = false;
-          }, 3000);
+            controlsDiv.innerHTML = `
+              <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
+                📥 Download Videos (${clipCount})
+              </a>
+            `;
+          }, 2000);
         } else {
           throw new Error('No video URL returned');
         }
         
       } catch (error) {
         console.error('Error animating chapter:', error);
-        btn.innerHTML = '❌ Failed';
-        btn.classList.remove('generating');
+        controlsDiv.innerHTML = '<span class="generating-status" style="color: #e53e3e;">❌ Failed to generate</span>';
         alert(`Failed to generate chapter video: ${error.message}`);
         
+        // Reset after error
         setTimeout(() => {
-          btn.innerHTML = '🎬 Animate Chapter';
-          btn.disabled = false;
+          controlsDiv.innerHTML = `
+            <button 
+              class="animate-chapter-btn" 
+              onclick="animateChapterFromArchive('${arcId}', ${chapterNumber})"
+              id="animate-chapter-archive-${chapterNumber}"
+            >
+              🎬 Generate Videos
+            </button>
+          `;
         }, 3000);
       }
     }
 
     async function animateEpisode(arcId) {
-      const btn = document.getElementById(`animate-episode-${arcId}`);
-      if (!btn) return;
+      const controlsDiv = document.getElementById(`episode-controls-${arcId}`);
+      if (!controlsDiv) return;
       
-      btn.disabled = true;
-      btn.classList.add('generating');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '⏳ Generating...';
+      // Replace controls with generating status
+      controlsDiv.innerHTML = '<span class="generating-status">⏳ Generating episode videos...</span>';
       
       try {
         const response = await fetch(`/api/stories/episodes/${arcId}/animate`, {
@@ -1255,33 +1619,40 @@
           const videos = data.videoUrls || [data.videoUrl];
           const clipCount = videos.length;
           
-          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
-          btn.classList.remove('generating');
+          // Show success message
+          controlsDiv.innerHTML = `<span class="generating-status">✅ ${clipCount} video${clipCount > 1 ? 's' : ''} complete!</span>`;
           
-          // Open all video clips in new tabs
-          videos.forEach((url, index) => {
-            setTimeout(() => {
-              window.open(url, '_blank');
-            }, index * 500); // Stagger by 500ms to avoid popup blocker
-          });
-          
+          // Replace with download link after brief delay
           setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-          }, 3000);
+            controlsDiv.innerHTML = `
+              <a href="#" onclick="downloadEpisodeVideos('${arcId}'); return false;" class="download-video-link-small">
+                📥 Download Episode Videos (${clipCount})
+              </a>
+            `;
+            
+            // Reload archive to update chapter video statuses
+            loadArchive();
+          }, 2000);
         } else {
           throw new Error('No video URL returned');
         }
         
       } catch (error) {
         console.error('Error animating episode:', error);
-        btn.innerHTML = '❌ Failed';
-        btn.classList.remove('generating');
+        controlsDiv.innerHTML = '<span class="generating-status" style="color: #e53e3e;">❌ Failed to generate</span>';
         alert(`Failed to generate episode video: ${error.message}`);
         
+        // Reset after error
         setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
+          controlsDiv.innerHTML = `
+            <button 
+              class="animate-btn-small animate-btn-episode" 
+              onclick="animateEpisode('${arcId}')"
+              id="animate-episode-${arcId}"
+            >
+              🎬 Generate Episode Videos
+            </button>
+          `;
         }, 3000);
       }
     }
