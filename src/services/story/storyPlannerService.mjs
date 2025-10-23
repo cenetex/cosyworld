@@ -7,29 +7,37 @@
  * StoryPlannerService
  * 
  * High-level narrative orchestration and arc management.
- * Decides when to start new arcs, which arcs to progress, and how to react to world events.
+ * NEW: Chapter-based generation (1 chapter = 3 beats per day)
+ * Uses channel summaries and evolving plans.
  */
 export class StoryPlannerService {
   constructor({ 
     storyStateService, 
     worldContextService, 
     narrativeGeneratorService,
+    storyPlanService,
     configService,
+    aiService,
     logger 
   }) {
     this.storyState = storyStateService;
     this.worldContext = worldContextService;
     this.narrativeGenerator = narrativeGeneratorService;
+    this.storyPlanService = storyPlanService;
     this.configService = configService;
+    this.aiService = aiService;
     this.logger = logger || console;
     
     // Default configuration
     this.config = {
       maxConcurrentArcs: 1, // ONE continuous story at a time
       minTimeBetweenNewArcs: 24 * 60 * 60 * 1000, // 24 hours
-      targetBeatsPerArc: { min: 4, max: 8 },
+      beatsPerChapter: 3, // Fixed: 3 beats per chapter
+      chaptersPerDay: 1, // Fixed: 1 chapter per day
+      minHoursBetweenChapters: 20, // Minimum time between chapters (allows scheduling flexibility)
       characterRotationWindowDays: 7,
-      themeVarietyWindow: 3 // Last N arcs should have different themes
+      themeVarietyWindow: 3, // Last N arcs should have different themes
+      planEvolutionFrequency: 'per_chapter' // Evolve plan after each chapter
     };
   }
 
@@ -104,16 +112,23 @@ export class StoryPlannerService {
   }
 
   /**
-   * Create and plan a new story arc
+   * Create and plan a new story arc WITH EVOLVING PLAN
+   * Uses channel summaries for context
    * @param {Object} options - Arc generation options
-   * @returns {Promise<Object>} Created arc
+   * @returns {Promise<Object>} Created arc with plan
    */
   async createNewArc(options = {}) {
     try {
-      this.logger.info('[StoryPlanner] Creating new story arc...');
+      this.logger.info('[StoryPlanner] Creating new story arc with plan...');
       
-      // Get world context
-      const worldContext = await this.worldContext.getWorldContext();
+      // Get world context (includes channel summaries and meta-summary)
+      const worldContext = await this.worldContext.getWorldContext({
+        includeChannelSummaries: true,
+        includeMetaSummary: true,
+        includeAvatars: true,
+        includeLocations: true,
+        includeItems: true
+      }, this.aiService);
       
       // Ensure theme variety
       const recentThemes = await this._getRecentThemes();
@@ -127,21 +142,27 @@ export class StoryPlannerService {
         this.config.characterRotationWindowDays
       );
       
-      // Generate target beats count
-      const targetBeats = Math.floor(
-        Math.random() * (this.config.targetBeatsPerArc.max - this.config.targetBeatsPerArc.min + 1) +
-        this.config.targetBeatsPerArc.min
-      );
+      // Generate initial plan with AI
+      const planData = await this._generateInitialPlan(worldContext, {
+        ...options,
+        unfeaturedCharacters
+      });
       
-      // Generate arc
+      // Generate arc metadata
       const arcData = await this.narrativeGenerator.generateArc(worldContext, {
         ...options,
-        targetBeats,
+        plan: planData,
         unfeaturedCharacters
       });
       
       // Persist arc
       const createdArc = await this.storyState.createArc(arcData);
+      
+      // Create story plan
+      if (this.storyPlanService) {
+        await this.storyPlanService.createPlan(createdArc._id, planData, worldContext);
+        this.logger.info(`[StoryPlanner] Created evolving plan for arc ${createdArc._id}`);
+      }
       
       // Update character states for featured characters
       if (createdArc.characters) {
@@ -165,6 +186,89 @@ export class StoryPlannerService {
       
     } catch (error) {
       this.logger.error('[StoryPlanner] Error creating arc:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate initial plan for a story arc
+   * @private
+   * @param {Object} worldContext - Current world context
+   * @param {Object} options - Planning options
+   * @returns {Promise<Object>} Initial plan structure
+   */
+  async _generateInitialPlan(worldContext, options = {}) {
+    try {
+      const contextPrompt = this.worldContext.formatContextForPrompt(worldContext);
+      
+      const planningPrompt = `${contextPrompt}
+
+--- STORY PLANNING TASK ---
+
+Create a detailed story plan for a new arc in CosyWorld. The plan should:
+
+1. Have a compelling overallTheme that fits the current world state
+2. Be structured into 4-6 chapters
+3. Each chapter should have 3 beats (story moments)
+4. Incorporate active avatars, current themes, and locations
+5. Build narrative tension and resolution
+
+Respond with JSON in this format:
+{
+  "overallTheme": "A brief theme statement",
+  "chapters": [
+    {
+      "title": "Chapter Title",
+      "summary": "What happens in this chapter",
+      "beats": ["Beat 1 summary", "Beat 2 summary", "Beat 3 summary"]
+    }
+  ]
+}`;
+
+      if (this.aiService) {
+        const response = await this.aiService.chat([
+          { role: 'user', content: planningPrompt }
+        ], {
+          model: 'anthropic/claude-sonnet-4',
+          max_tokens: 2000,
+          temperature: 0.8
+        });
+        
+        const responseText = String(response?.text || response || '').trim();
+        
+        try {
+          const plan = JSON.parse(responseText);
+          this.logger.info(`[StoryPlanner] Generated plan with ${plan.chapters?.length || 0} chapters`);
+          return plan;
+        } catch {
+          this.logger.warn('[StoryPlanner] Could not parse plan JSON, using fallback');
+        }
+      }
+      
+      // Fallback plan
+      return {
+        overallTheme: 'A tale of adventure and discovery in CosyWorld',
+        chapters: [
+          {
+            title: 'The Beginning',
+            summary: 'Characters are introduced and the journey begins',
+            beats: ['Introduction', 'Inciting incident', 'Decision to act']
+          },
+          {
+            title: 'Development',
+            summary: 'The story unfolds with challenges and growth',
+            beats: ['Challenge encountered', 'Struggle and effort', 'Small victory']
+          },
+          {
+            title: 'Resolution',
+            summary: 'The arc concludes with meaningful change',
+            beats: ['Climactic moment', 'Resolution', 'New normal']
+          }
+        ]
+      };
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error generating initial plan:', error);
       throw error;
     }
   }
