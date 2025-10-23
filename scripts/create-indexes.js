@@ -341,6 +341,202 @@ async function createIndexes() {
     }
     
     // ========================================================================
+    // UNIFIED CHANNEL SUMMARIES COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for unified_channel_summaries collection...');
+    
+    const channelSummariesCollection = db.collection('unified_channel_summaries');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingSummaryIndexes = [];
+    let existingSummaryNames = [];
+    try {
+      existingSummaryIndexes = await channelSummariesCollection.indexes();
+      existingSummaryNames = existingSummaryIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingSummaryNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Unique composite ID (platform + channelId)
+    if (!existingSummaryNames.includes('compositeId_unique')) {
+      try {
+        await channelSummariesCollection.createIndex(
+          { compositeId: 1 },
+          { unique: true, name: 'compositeId_unique' }
+        );
+        console.log('  ✓ Created unique index: compositeId');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): compositeId');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: compositeId');
+    }
+    
+    // Platform + channelId lookup
+    if (!existingSummaryNames.includes('platform_channelId')) {
+      try {
+        await channelSummariesCollection.createIndex(
+          { platform: 1, channelId: 1 },
+          { name: 'platform_channelId' }
+        );
+        console.log('  ✓ Created index: platform + channelId');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): platform + channelId');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: platform + channelId');
+    }
+    
+    // Last updated (for finding stale summaries)
+    if (!existingSummaryNames.includes('lastUpdated')) {
+      try {
+        await channelSummariesCollection.createIndex(
+          { lastUpdated: 1 },
+          { name: 'lastUpdated' }
+        );
+        console.log('  ✓ Created index: lastUpdated');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): lastUpdated');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: lastUpdated');
+    }
+    
+    // Active avatars (for filtering by avatar participation)
+    if (!existingSummaryNames.includes('activeAvatarIds')) {
+      try {
+        await channelSummariesCollection.createIndex(
+          { activeAvatarIds: 1 },
+          { name: 'activeAvatarIds', sparse: true }
+        );
+        console.log('  ✓ Created index: activeAvatarIds');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): activeAvatarIds');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: activeAvatarIds');
+    }
+    
+    // ========================================================================
+    // STORY PLANS COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for story_plans collection...');
+    
+    const storyPlansCollection = db.collection('story_plans');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingPlanIndexes = [];
+    let existingPlanNames = [];
+    try {
+      existingPlanIndexes = await storyPlansCollection.indexes();
+      existingPlanNames = existingPlanIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingPlanNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Arc ID (unique for active plans)
+    if (!existingPlanNames.includes('arcId')) {
+      try {
+        await storyPlansCollection.createIndex(
+          { arcId: 1 },
+          { name: 'arcId' }
+        );
+        console.log('  ✓ Created index: arcId');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): arcId');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: arcId');
+    }
+    
+    // Status (for finding active plans)
+    if (!existingPlanNames.includes('status')) {
+      try {
+        await storyPlansCollection.createIndex(
+          { status: 1 },
+          { name: 'status' }
+        );
+        console.log('  ✓ Created index: status');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): status');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: status');
+    }
+    
+    // Current chapter (for progress tracking)
+    if (!existingPlanNames.includes('currentChapter')) {
+      try {
+        await storyPlansCollection.createIndex(
+          { currentChapter: 1 },
+          { name: 'currentChapter', sparse: true }
+        );
+        console.log('  ✓ Created index: currentChapter');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): currentChapter');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: currentChapter');
+    }
+    
+    // Last updated (for finding stale plans)
+    if (!existingPlanNames.includes('lastUpdated_plan')) {
+      try {
+        await storyPlansCollection.createIndex(
+          { lastUpdated: 1 },
+          { name: 'lastUpdated_plan' }
+        );
+        console.log('  ✓ Created index: lastUpdated');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): lastUpdated');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: lastUpdated');
+    }
+    
+    // ========================================================================
     // VERIFICATION
     // ========================================================================
     console.log('\n🔍 Verifying indexes...');
@@ -376,6 +572,28 @@ async function createIndexes() {
       }
     }
     
+    try {
+      const summaryIndexes = await channelSummariesCollection.indexes();
+      console.log(`  ✓ unified_channel_summaries: ${summaryIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  unified_channel_summaries: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
+    try {
+      const planIndexes = await storyPlansCollection.indexes();
+      console.log(`  ✓ story_plans: ${planIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  story_plans: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
     console.log('\n✅ All indexes created successfully!');
     console.log('\n📝 Summary:');
     console.log('  - presence: 5 indexes (unique, state, turn timing, summons)');
@@ -383,7 +601,9 @@ async function createIndexes() {
     console.log('  - response_locks: 2 indexes (TTL, lookup)');
     console.log('  - telegram_messages: 2 indexes (channelId+date, TTL 30d)');
     console.log('  - telegram_media_usage: 2 indexes (userId+mediaType+date, TTL 30d)');
-    console.log('\n🚀 Database is ready for Phase 2 production deployment!');
+    console.log('  - unified_channel_summaries: 4 indexes (unique compositeId, platform+channel, lastUpdated, avatarIds)');
+    console.log('  - story_plans: 4 indexes (arcId, status, currentChapter, lastUpdated)');
+    console.log('\n🚀 Database is ready for production deployment!');
     
   } catch (error) {
     console.error('\n❌ Error creating indexes:', error);

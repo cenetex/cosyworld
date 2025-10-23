@@ -194,10 +194,10 @@ export class StoryPlannerService {
    * Generate initial plan for a story arc
    * @private
    * @param {Object} worldContext - Current world context
-   * @param {Object} options - Planning options
+   * @param {Object} _options - Planning options (reserved for future use)
    * @returns {Promise<Object>} Initial plan structure
    */
-  async _generateInitialPlan(worldContext, options = {}) {
+  async _generateInitialPlan(worldContext, _options = {}) {
     try {
       const contextPrompt = this.worldContext.formatContextForPrompt(worldContext);
       
@@ -302,10 +302,11 @@ Respond with JSON in this format:
   }
 
   /**
-   * Progress a story arc by generating and posting next beat
+   * Progress a story arc by generating the next CHAPTER (3 beats)
+   * Uses channel summaries and evolving plan
    * @param {string|ObjectId} arcId - Arc ID
    * @param {Object} worldContext - Current world context (optional)
-   * @returns {Promise<Object>} Generated beat
+   * @returns {Promise<Object>} Generated chapter with beats
    */
   async progressArc(arcId, worldContext = null) {
     try {
@@ -324,20 +325,45 @@ Respond with JSON in this format:
         return null;
       }
       
-      // Get world context if not provided
+      // Get world context with channel summaries if not provided
       if (!worldContext) {
-        worldContext = await this.worldContext.getWorldContext();
+        worldContext = await this.worldContext.getWorldContext({
+          includeChannelSummaries: true,
+          includeMetaSummary: true,
+          includeAvatars: true,
+          includeLocations: true,
+          includeItems: true
+        }, this.aiService);
       }
       
-      // Generate next beat
-      const beat = await this.narrativeGenerator.generateBeat(arc, worldContext);
+      // Check if plan needs evolution
+      if (this.storyPlanService && this.config.planEvolutionFrequency === 'per_chapter') {
+        const currentBeatCount = arc.completedBeats || 0;
+        if (currentBeatCount > 0 && currentBeatCount % this.config.beatsPerChapter === 0) {
+          this.logger.info(`[StoryPlanner] Evolving plan for arc ${arcId}...`);
+          await this.storyPlanService.evolvePlan(arcId, worldContext);
+        }
+      }
       
-      // Add beat to arc
-      const updatedArc = await this.storyState.addBeat(arcId, beat);
+      // Generate chapter (3 beats)
+      const chapter = await this._generateChapter(arc, worldContext);
       
-      this.logger.info(`[StoryPlanner] Generated beat ${beat.sequenceNumber} for arc "${arc.title}"`);
+      // Add beats to arc and publish
+      const beats = [];
+      for (const beatData of chapter.beats) {
+        await this.storyState.addBeat(arcId, beatData);
+        beats.push(beatData);
+        this.logger.info(`[StoryPlanner] Generated beat ${beatData.sequenceNumber} for chapter "${chapter.title}"`);
+      }
       
-      return { arc: updatedArc, beat };
+      // Mark chapter complete in plan if available
+      if (this.storyPlanService) {
+        await this.storyPlanService.completeChapter(arcId);
+      }
+      
+      this.logger.info(`[StoryPlanner] Generated chapter "${chapter.title}" (${beats.length} beats) for arc "${arc.title}"`);
+      
+      return { arc, chapter, beats };
       
     } catch (error) {
       this.logger.error('[StoryPlanner] Error progressing arc:', error);
@@ -346,7 +372,53 @@ Respond with JSON in this format:
   }
 
   /**
-   * Complete a story arc
+   * Generate a chapter with 3 beats
+   * @private
+   * @param {Object} arc - Current arc
+   * @param {Object} worldContext - World context
+   * @returns {Promise<Object>} Chapter with beats array
+   */
+  async _generateChapter(arc, worldContext) {
+    try {
+      // Get the plan for context (if available)
+      let planContext = null;
+      if (this.storyPlanService) {
+        const plan = await this.storyPlanService.getPlan(arc._id);
+        if (plan) {
+          planContext = {
+            theme: plan.overallTheme,
+            currentChapter: plan.currentChapter,
+            totalChapters: plan.chapters.length,
+            chapterInfo: plan.chapters[plan.currentChapter] || null
+          };
+        }
+      }
+      
+      // Generate all 3 beats as a cohesive chapter
+      const beats = [];
+      for (let i = 0; i < this.config.beatsPerChapter; i++) {
+        const beat = await this.narrativeGenerator.generateBeat(arc, worldContext, {
+          chapterContext: planContext,
+          beatInChapter: i + 1,
+          totalBeatsInChapter: this.config.beatsPerChapter,
+          previousBeats: beats
+        });
+        beats.push(beat);
+      }
+      
+      return {
+        title: planContext?.chapterInfo?.title || `Chapter ${(arc.completedBeats / this.config.beatsPerChapter) + 1}`,
+        beats
+      };
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error generating chapter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete a story arc and its plan
    * @param {string|ObjectId} arcId - Arc ID
    * @returns {Promise<void>}
    */
@@ -361,6 +433,18 @@ Respond with JSON in this format:
       
       // Generate summary
       const summary = await this.narrativeGenerator.summarizeArc(arc);
+      
+      // Complete the story plan
+      if (this.storyPlanService) {
+        const plan = await this.storyPlanService.getPlan(arcId);
+        if (plan) {
+          await this.storyPlanService.updatePlan(arcId, {
+            status: 'completed',
+            completedAt: new Date()
+          });
+          this.logger.info(`[StoryPlanner] Completed plan for arc ${arcId}`);
+        }
+      }
       
       // Update arc status
       await this.storyState.updateArc(arcId, {

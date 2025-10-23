@@ -182,8 +182,10 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
   /**
    * Parse AI response into arc structure
    * @private
+   * @param {string} response - AI response text
+   * @param {Object} worldContext - World context for fallback
    */
-  _parseArcResponse(response) {
+  _parseArcResponse(response, worldContext) {
     try {
       // Extract JSON from response
       let text = response.trim();
