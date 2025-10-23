@@ -136,11 +136,13 @@ async function generateNextPage() {
       }
     } else {
       console.log('   - No active arc found, checking if we should create one...');
-      const shouldCreate = forceCreate || await storyPlanner.shouldStartNewArc();
       
-      if (forceCreate && !shouldCreate) {
+      let shouldCreate = false;
+      if (forceCreate) {
         console.log(`   - Force flag enabled: bypassing timing restrictions`);
+        shouldCreate = true;
       } else {
+        shouldCreate = await storyPlanner.shouldStartNewArc();
         console.log(`   - Should create new arc: ${shouldCreate}`);
       }
       
