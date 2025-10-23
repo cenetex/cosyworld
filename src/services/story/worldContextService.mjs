@@ -9,11 +9,13 @@ import { ObjectId } from 'mongodb';
  * WorldContextService
  * 
  * Aggregates and analyzes the current state of the CosyWorld universe.
- * Provides context about avatars, locations, items, and recent events for story generation.
+ * NOW USES CHANNEL SUMMARIES as primary source instead of raw events.
+ * Provides context about avatars, locations, items, and channel activity for story generation.
  */
 export class WorldContextService {
-  constructor({ databaseService, logger }) {
+  constructor({ databaseService, channelSummaryService, logger }) {
     this.databaseService = databaseService;
+    this.channelSummaryService = channelSummaryService;
     this.logger = logger || console;
   }
 
@@ -355,16 +357,20 @@ export class WorldContextService {
 
   /**
    * Get comprehensive world context for story generation
+   * PRIMARY SOURCE: Channel summaries + meta-summary
+   * SECONDARY: Active avatars, locations, items
    * @param {Object} options - Context options
+   * @param {Object} aiService - AI service for meta-summary generation
    * @returns {Promise<Object>}
    */
-  async getWorldContext(options = {}) {
+  async getWorldContext(options = {}, aiService = null) {
     const {
+      includeChannelSummaries = true,
+      includeMetaSummary = true,
       includeAvatars = true,
       includeLocations = true,
       includeItems = true,
-      includeEvents = true,
-      includeOpportunities = true,
+      hoursOfActivity = 24,
       avatarLimit = 50,
       locationLimit = 20,
       itemLimit = 30
@@ -372,58 +378,72 @@ export class WorldContextService {
     
     const context = {
       timestamp: new Date(),
-      summary: {}
+      summary: {},
+      metaSummary: null,
+      channelSummaries: []
     };
     
-    // Gather all context in parallel
-    const promises = [];
+    // PRIORITY 1: Get channel summaries and meta-summary
+    if (this.channelSummaryService) {
+      try {
+        // Get recently active channel summaries
+        if (includeChannelSummaries) {
+          context.channelSummaries = await this.channelSummaryService.getRecentlyActiveChannels(
+            hoursOfActivity,
+            20 // Max 20 channels
+          );
+          this.logger.info(`[WorldContext] Loaded ${context.channelSummaries.length} channel summaries`);
+        }
+        
+        // Generate meta-summary (summarize the summaries)
+        if (includeMetaSummary && aiService) {
+          context.metaSummary = await this.channelSummaryService.generateMetaSummary(aiService, {
+            hoursOfActivity,
+            maxChannels: 20,
+            includeAvatars: true,
+            includeLocations: true
+          });
+          this.logger.info(`[WorldContext] Generated meta-summary with ${context.metaSummary.activeAvatarIds.length} avatars`);
+        }
+      } catch (error) {
+        this.logger.error('[WorldContext] Error loading channel summaries:', error);
+      }
+    }
     
+    // PRIORITY 2: Get active avatars (from meta-summary or direct query)
     if (includeAvatars) {
-      promises.push(
-        this.getActiveAvatars(avatarLimit)
-          .then(avatars => { context.avatars = avatars; })
-      );
+      if (context.metaSummary?.avatars) {
+        // Use avatars from meta-summary (already enriched)
+        context.avatars = context.metaSummary.avatars;
+      } else {
+        // Fallback to direct query
+        context.avatars = await this.getActiveAvatars(avatarLimit);
+      }
     }
     
+    // PRIORITY 3: Get locations (from meta-summary or direct query)
     if (includeLocations) {
-      promises.push(
-        this.getLocations()
-          .then(locations => { 
-            context.locations = locations.slice(0, locationLimit); 
-          })
-      );
+      if (context.metaSummary?.locations) {
+        context.locations = context.metaSummary.locations;
+      } else {
+        const locs = await this.getLocations();
+        context.locations = locs.slice(0, locationLimit);
+      }
     }
     
+    // PRIORITY 4: Get items
     if (includeItems) {
-      promises.push(
-        this.getItems(itemLimit)
-          .then(items => { context.items = items; })
-      );
+      context.items = await this.getItems(itemLimit);
     }
-    
-    if (includeEvents) {
-      promises.push(
-        this.getRecentEvents()
-          .then(events => { context.recentEvents = events; })
-      );
-    }
-    
-    if (includeOpportunities) {
-      promises.push(
-        this.identifyStoryOpportunities()
-          .then(opportunities => { context.opportunities = opportunities; })
-      );
-    }
-    
-    await Promise.all(promises);
     
     // Add summary statistics
     context.summary = {
+      totalChannels: context.channelSummaries?.length || 0,
       totalAvatars: context.avatars?.length || 0,
       totalLocations: context.locations?.length || 0,
       totalItems: context.items?.length || 0,
-      recentEventCount: context.recentEvents?.length || 0,
-      opportunityCount: context.opportunities?.length || 0
+      hasMetaSummary: !!context.metaSummary,
+      keyThemes: context.metaSummary?.keyThemes || []
     };
     
     return context;
@@ -431,30 +451,55 @@ export class WorldContextService {
 
   /**
    * Format world context for AI prompts
+   * NOW PRIORITIZES CHANNEL SUMMARIES AND META-SUMMARY
    * @param {Object} context - World context object
    * @returns {string}
    */
   formatContextForPrompt(context) {
     let prompt = '=== COSYWORLD CURRENT STATE ===\n\n';
     
-    // Summary
-    prompt += `Summary: ${context.summary.totalAvatars} avatars, ${context.summary.totalLocations} locations, ${context.summary.totalItems} items\n\n`;
+    // Meta-summary (the big picture)
+    if (context.metaSummary) {
+      prompt += '--- WORLD OVERVIEW (Meta-Summary) ---\n';
+      prompt += context.metaSummary.summary + '\n\n';
+      
+      if (context.metaSummary.keyThemes && context.metaSummary.keyThemes.length > 0) {
+        prompt += `Key Themes: ${context.metaSummary.keyThemes.join(', ')}\n\n`;
+      }
+    }
     
-    // Avatars
+    // Channel summaries (what's happening in conversations)
+    if (context.channelSummaries && context.channelSummaries.length > 0) {
+      prompt += '--- RECENT CHANNEL ACTIVITY ---\n';
+      for (const cs of context.channelSummaries.slice(0, 10)) {
+        prompt += `• ${cs.platform}/${cs.channelName || cs.channelId}:\n`;
+        prompt += `  ${cs.summary}\n`;
+        prompt += `  (${cs.activeAvatarIds?.length || 0} active avatars)\n\n`;
+      }
+    }
+    
+    // Active Avatars (from meta-summary or direct)
     if (context.avatars && context.avatars.length > 0) {
-      prompt += '--- AVATARS ---\n';
-      const avatarSample = context.avatars.slice(0, 20); // Limit for prompt size
+      prompt += '--- ACTIVE AVATARS ---\n';
+      const avatarSample = context.avatars.slice(0, 20);
       for (const avatar of avatarSample) {
-        prompt += `• ID: ${avatar._id} | ${avatar.name} ${avatar.emoji || ''}: ${avatar.description || 'A denizen of CosyWorld'}\n`;
+        const id = avatar.id || avatar._id;
+        const name = avatar.name;
+        const emoji = avatar.emoji || '';
+        const desc = avatar.description || 'A resident of CosyWorld';
+        prompt += `• ${name} ${emoji} (ID: ${id}): ${desc}\n`;
       }
       prompt += '\n';
     }
     
     // Locations
     if (context.locations && context.locations.length > 0) {
-      prompt += '--- LOCATIONS ---\n';
+      prompt += '--- KNOWN LOCATIONS ---\n';
       for (const location of context.locations.slice(0, 10)) {
-        prompt += `• ID: ${location._id} | ${location.name}: ${location.description || 'A place in CosyWorld'}\n`;
+        const id = location.id || location._id;
+        const name = location.name;
+        const desc = location.description || 'A place in CosyWorld';
+        prompt += `• ${name} (ID: ${id}): ${desc}\n`;
       }
       prompt += '\n';
     }
@@ -463,19 +508,17 @@ export class WorldContextService {
     if (context.items && context.items.length > 0) {
       prompt += '--- NOTABLE ITEMS ---\n';
       for (const item of context.items.slice(0, 10)) {
-        prompt += `• ID: ${item._id} | ${item.name}: ${item.description || 'An item'}\n`;
+        prompt += `• ${item.name} (ID: ${item._id}): ${item.description || 'An item'}\n`;
       }
       prompt += '\n';
     }
     
-    // Opportunities
-    if (context.opportunities && context.opportunities.length > 0) {
-      prompt += '--- STORY OPPORTUNITIES ---\n';
-      for (const opp of context.opportunities) {
-        prompt += `• ${opp.type}: ${opp.description} (priority: ${opp.priority})\n`;
-      }
-      prompt += '\n';
-    }
+    // Statistics
+    prompt += '--- STATISTICS ---\n';
+    prompt += `Active Channels: ${context.summary.totalChannels || 0}\n`;
+    prompt += `Active Avatars: ${context.summary.totalAvatars || 0}\n`;
+    prompt += `Known Locations: ${context.summary.totalLocations || 0}\n`;
+    prompt += `Notable Items: ${context.summary.totalItems || 0}\n\n`;
     
     return prompt;
   }
