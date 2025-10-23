@@ -215,6 +215,132 @@ async function createIndexes() {
     }
     
     // ========================================================================
+    // TELEGRAM MESSAGES COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for telegram_messages collection...');
+    
+    const telegramMessagesCollection = db.collection('telegram_messages');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingTelegramIndexes = [];
+    let existingTelegramNames = [];
+    try {
+      existingTelegramIndexes = await telegramMessagesCollection.indexes();
+      existingTelegramNames = existingTelegramIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingTelegramNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Primary lookup: channelId + date (for conversation history retrieval)
+    if (!existingTelegramNames.includes('channelId_date')) {
+      try {
+        await telegramMessagesCollection.createIndex(
+          { channelId: 1, date: -1 },
+          { name: 'channelId_date' }
+        );
+        console.log('  ✓ Created index: channelId + date');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): channelId + date');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: channelId + date');
+    }
+    
+    // TTL index: auto-delete old messages after 30 days
+    if (!existingTelegramNames.includes('createdAt_ttl')) {
+      try {
+        await telegramMessagesCollection.createIndex(
+          { createdAt: 1 },
+          { 
+            name: 'createdAt_ttl',
+            expireAfterSeconds: 30 * 24 * 60 * 60 // 30 days
+          }
+        );
+        console.log('  ✓ Created TTL index: createdAt (30 days)');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  TTL index exists (different name): createdAt');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: createdAt (TTL)');
+    }
+    
+    // ========================================================================
+    // TELEGRAM MEDIA USAGE COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for telegram_media_usage collection...');
+    
+    const mediaUsageCollection = db.collection('telegram_media_usage');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingMediaIndexes = [];
+    let existingMediaNames = [];
+    try {
+      existingMediaIndexes = await mediaUsageCollection.indexes();
+      existingMediaNames = existingMediaIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingMediaNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Primary lookup: userId + mediaType + createdAt (for cooldown checks)
+    if (!existingMediaNames.includes('userId_mediaType_createdAt')) {
+      try {
+        await mediaUsageCollection.createIndex(
+          { userId: 1, mediaType: 1, createdAt: -1 },
+          { name: 'userId_mediaType_createdAt' }
+        );
+        console.log('  ✓ Created index: userId + mediaType + createdAt');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): userId + mediaType + createdAt');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: userId + mediaType + createdAt');
+    }
+    
+    // TTL index: auto-delete old usage records after 30 days
+    if (!existingMediaNames.includes('createdAt_ttl_media')) {
+      try {
+        await mediaUsageCollection.createIndex(
+          { createdAt: 1 },
+          { 
+            name: 'createdAt_ttl_media',
+            expireAfterSeconds: 30 * 24 * 60 * 60 // 30 days
+          }
+        );
+        console.log('  ✓ Created TTL index: createdAt (30 days)');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  TTL index exists (different name): createdAt');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: createdAt (TTL)');
+    }
+    
+    // ========================================================================
     // VERIFICATION
     // ========================================================================
     console.log('\n🔍 Verifying indexes...');
@@ -228,11 +354,35 @@ async function createIndexes() {
     const lockIndexes = await locksCollection.indexes();
     console.log(`  ✓ response_locks: ${lockIndexes.length} indexes`);
     
+    try {
+      const telegramIndexes = await telegramMessagesCollection.indexes();
+      console.log(`  ✓ telegram_messages: ${telegramIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  telegram_messages: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
+    try {
+      const mediaIndexes = await mediaUsageCollection.indexes();
+      console.log(`  ✓ telegram_media_usage: ${mediaIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  telegram_media_usage: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
     console.log('\n✅ All indexes created successfully!');
     console.log('\n📝 Summary:');
     console.log('  - presence: 5 indexes (unique, state, turn timing, summons)');
     console.log('  - conversation_sessions: 2 indexes (unique, TTL)');
     console.log('  - response_locks: 2 indexes (TTL, lookup)');
+    console.log('  - telegram_messages: 2 indexes (channelId+date, TTL 30d)');
+    console.log('  - telegram_media_usage: 2 indexes (userId+mediaType+date, TTL 30d)');
     console.log('\n🚀 Database is ready for Phase 2 production deployment!');
     
   } catch (error) {

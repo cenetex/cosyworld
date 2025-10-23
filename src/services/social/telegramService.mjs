@@ -57,6 +57,13 @@ class TelegramService {
     this.lastProactiveMessageTime = null;
     this.conversationHistory = new Map(); // channelId -> array of recent messages
     this.HISTORY_LIMIT = 50; // Keep last 50 messages per channel for rich context
+    
+    // Media generation cooldown tracking (per user)
+    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 6/day
+    this.mediaGenerationLimits = {
+      video: { hourly: 2, daily: 4 },
+      image: { hourly: 3, daily: 6 }
+    };
   }
 
   /**
@@ -107,6 +114,38 @@ class TelegramService {
       this.globalBot.start((ctx) => ctx.reply('Welcome to CosyWorld! 🌍 I\'m here to share stories and chat about our vibrant community.'));
       this.globalBot.help((ctx) => ctx.reply('I\'m the CosyWorld bot! I can chat about our community and answer questions. Just message me anytime!'));
       
+      // Set up media usage command
+      this.globalBot.command('usage', async (ctx) => {
+        try {
+          const userId = String(ctx.from.id);
+          const [imageLimit, videoLimit] = await Promise.all([
+            this.checkMediaGenerationLimit(userId, 'image'),
+            this.checkMediaGenerationLimit(userId, 'video')
+          ]);
+          
+          const imageMinutesUntilReset = imageLimit.hourlyUsed >= imageLimit.hourlyLimit
+            ? Math.ceil((imageLimit.resetTimes.hourly - new Date()) / 60000)
+            : null;
+          const videoMinutesUntilReset = videoLimit.hourlyUsed >= videoLimit.hourlyLimit
+            ? Math.ceil((videoLimit.resetTimes.hourly - new Date()) / 60000)
+            : null;
+          
+          await ctx.reply(
+            `📊 Your Media Generation Usage\n\n` +
+            `🎨 Images:\n` +
+            `  Hourly: ${imageLimit.hourlyUsed}/${imageLimit.hourlyLimit} used ${imageMinutesUntilReset ? `(resets in ${imageMinutesUntilReset}m)` : ''}\n` +
+            `  Daily: ${imageLimit.dailyUsed}/${imageLimit.dailyLimit} used\n\n` +
+            `🎬 Videos:\n` +
+            `  Hourly: ${videoLimit.hourlyUsed}/${videoLimit.hourlyLimit} used ${videoMinutesUntilReset ? `(resets in ${videoMinutesUntilReset}m)` : ''}\n` +
+            `  Daily: ${videoLimit.dailyUsed}/${videoLimit.dailyLimit} used\n\n` +
+            `💡 Tip: Just ask me to create images or videos in conversation!`
+          );
+        } catch (error) {
+          this.logger?.error?.('[TelegramService] Usage command failed:', error);
+          await ctx.reply('Sorry, I couldn\'t fetch your usage stats right now. 😅');
+        }
+      });
+      
       // Set up message handlers for conversations
       this.setupMessageHandlers();
       
@@ -134,6 +173,10 @@ class TelegramService {
       }
       
       this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
+      
+      // Start conversation gap polling
+      this.startConversationGapPolling();
+      
       return true;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to initialize global bot:', error.message);
@@ -211,6 +254,106 @@ class TelegramService {
   }
 
   /**
+   * Check if user has available charges for media generation
+   * @param {string} userId - User ID from Telegram
+   * @param {string} mediaType - 'video' or 'image'
+   * @returns {Promise<{allowed: boolean, hourlyUsed: number, dailyUsed: number, hourlyLimit: number, dailyLimit: number, resetTimes: {hourly: Date, daily: Date}}>}
+   */
+  async checkMediaGenerationLimit(userId, mediaType) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      const limits = this.mediaGenerationLimits[mediaType];
+      if (!limits) {
+        throw new Error(`Invalid media type: ${mediaType}`);
+      }
+      
+      // Count usage in last hour and last day
+      const usageCol = db.collection('telegram_media_usage');
+      
+      const [hourlyUsage, dailyUsage] = await Promise.all([
+        usageCol.countDocuments({
+          userId,
+          mediaType,
+          createdAt: { $gte: oneHourAgo }
+        }),
+        usageCol.countDocuments({
+          userId,
+          mediaType,
+          createdAt: { $gte: oneDayAgo }
+        })
+      ]);
+      
+      const allowed = hourlyUsage < limits.hourly && dailyUsage < limits.daily;
+      
+      // Calculate reset times
+      const oldestHourlyDoc = await usageCol.findOne(
+        { userId, mediaType, createdAt: { $gte: oneHourAgo } },
+        { sort: { createdAt: 1 } }
+      );
+      const oldestDailyDoc = await usageCol.findOne(
+        { userId, mediaType, createdAt: { $gte: oneDayAgo } },
+        { sort: { createdAt: 1 } }
+      );
+      
+      const hourlyResetTime = oldestHourlyDoc 
+        ? new Date(oldestHourlyDoc.createdAt.getTime() + 60 * 60 * 1000)
+        : now;
+      const dailyResetTime = oldestDailyDoc
+        ? new Date(oldestDailyDoc.createdAt.getTime() + 24 * 60 * 60 * 1000)
+        : now;
+      
+      return {
+        allowed,
+        hourlyUsed: hourlyUsage,
+        dailyUsed: dailyUsage,
+        hourlyLimit: limits.hourly,
+        dailyLimit: limits.daily,
+        resetTimes: {
+          hourly: hourlyResetTime,
+          daily: dailyResetTime
+        }
+      };
+    } catch (error) {
+      this.logger?.error?.(`[TelegramService] Failed to check media generation limit:`, error);
+      // Fail open - allow generation if check fails
+      return { 
+        allowed: true, 
+        hourlyUsed: 0, 
+        dailyUsed: 0,
+        hourlyLimit: this.mediaGenerationLimits[mediaType]?.hourly || 0,
+        dailyLimit: this.mediaGenerationLimits[mediaType]?.daily || 0,
+        resetTimes: { hourly: new Date(), daily: new Date() }
+      };
+    }
+  }
+
+  /**
+   * Record media generation usage
+   * @param {string} userId - User ID from Telegram
+   * @param {string} username - Username for logging
+   * @param {string} mediaType - 'video' or 'image'
+   * @private
+   */
+  async _recordMediaUsage(userId, username, mediaType) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_media_usage').insertOne({
+        userId,
+        username,
+        mediaType,
+        createdAt: new Date()
+      });
+      this.logger?.info?.(`[TelegramService] Recorded ${mediaType} generation for user ${username} (${userId})`);
+    } catch (error) {
+      this.logger?.error?.(`[TelegramService] Failed to record media usage:`, error);
+    }
+  }
+
+  /**
    * Handle incoming messages with debouncing and mention detection
    */
   async handleIncomingMessage(ctx) {
@@ -260,50 +403,96 @@ class TelegramService {
     // If mentioned, reply immediately
     if (isMentioned) {
       await this.generateAndSendReply(ctx, channelId, true);
+      // Mark that we've responded to this conversation
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
       return;
     }
 
-    // Otherwise, use debouncing logic
-    this.debounceReply(ctx, channelId);
+    // Otherwise, just track the message (don't respond to every message)
+    // The polling mechanism will check for conversation gaps
   }
 
   /**
-   * Debounce replies - wait 30 seconds, but reset timer if new messages arrive
+   * Start polling for conversation gaps and respond when appropriate
+   * 
+   * NEW BEHAVIOR (less chatty, more selective):
+   * - Bot responds INSTANTLY when mentioned (@botname)
+   * - Bot responds INSTANTLY after posting images/videos (marks as bot activity)
+   * - Bot polls every 30 seconds for conversation gaps
+   * - Only responds ONCE per gap (45s of silence)
+   * - Does NOT respond to every message during active conversation
+   * - Tracks last bot response to avoid duplicate responses
+   * 
+   * This creates a more natural, less intrusive bot that:
+   * - Listens more, talks less
+   * - Responds when called upon
+   * - Chimes in thoughtfully during pauses
    */
-  debounceReply(ctx, channelId) {
-    const pending = this.pendingReplies.get(channelId) || { messages: [] };
+  startConversationGapPolling() {
+    const POLL_INTERVAL = 30000; // 30 seconds - how often to check for gaps
+    const GAP_THRESHOLD = 45000; // 45 seconds of silence before responding
     
-    // Clear existing timeout
-    if (pending.timeout) {
-      clearTimeout(pending.timeout);
-    }
-
-    // Add message to context
-    pending.messages.push({
-      text: ctx.message.text,
-      from: ctx.message.from,
-      date: ctx.message.date,
-    });
-
-    // Keep only last 10 messages for context
-    if (pending.messages.length > 10) {
-      pending.messages = pending.messages.slice(-10);
-    }
-
-    pending.lastMessageTime = Date.now();
-
-    // Set new timeout
-    pending.timeout = setTimeout(async () => {
-      try {
-        await this.generateAndSendReply(ctx, channelId, false);
-        this.pendingReplies.delete(channelId);
-      } catch (error) {
-        this.logger?.error?.('[TelegramService] Debounced reply error:', error);
+    setInterval(async () => {
+      for (const [channelId, history] of this.conversationHistory.entries()) {
+        try {
+          // Skip if no messages
+          if (!history || history.length === 0) continue;
+          
+          const lastMessage = history[history.length - 1];
+          const lastMessageTime = lastMessage.date * 1000; // Convert to milliseconds
+          const timeSinceLastMessage = Date.now() - lastMessageTime;
+          
+          // Check if there's been a gap in conversation
+          if (timeSinceLastMessage < GAP_THRESHOLD) continue;
+          
+          // Check if last message was from bot (don't respond to ourselves)
+          if (lastMessage.from === 'Bot') continue;
+          
+          // Check if we've already responded to this conversation
+          const pending = this.pendingReplies.get(channelId) || {};
+          if (pending.lastBotResponseTime && pending.lastBotResponseTime > lastMessageTime) {
+            // We already responded after this message
+            continue;
+          }
+          
+          // Check if we've already marked this gap as handled
+          if (pending.lastCheckedMessageTime === lastMessageTime) continue;
+          
+          this.logger?.info?.(`[TelegramService] Conversation gap detected in ${channelId} (${Math.round(timeSinceLastMessage/1000)}s silence)`);
+          
+          // Mark this message as checked to avoid duplicate responses
+          pending.lastCheckedMessageTime = lastMessageTime;
+          this.pendingReplies.set(channelId, pending);
+          
+          // Generate a response to the conversation
+          // Create a mock context object for the reply
+          if (!this.globalBot) continue;
+          
+          const mockCtx = {
+            chat: { id: channelId },
+            message: {
+              text: lastMessage.text,
+              from: { first_name: lastMessage.from },
+              date: lastMessage.date
+            },
+            reply: async (text) => {
+              return await this.globalBot.telegram.sendMessage(channelId, text);
+            }
+          };
+          
+          await this.generateAndSendReply(mockCtx, channelId, false);
+          pending.lastBotResponseTime = Date.now();
+          this.pendingReplies.set(channelId, pending);
+          
+        } catch (error) {
+          this.logger?.error?.(`[TelegramService] Gap polling error for ${channelId}:`, error);
+        }
       }
-    }, this.REPLY_DELAY_MS);
-
-    this.pendingReplies.set(channelId, pending);
-    this.logger?.debug?.(`[TelegramService] Reply debounced for channel ${channelId}, ${pending.messages.length} messages pending`);
+    }, POLL_INTERVAL);
+    
+    this.logger?.info?.('[TelegramService] Started conversation gap polling (30s interval, 45s gap threshold)');
   }
 
   /**
@@ -508,24 +697,62 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
   /**
    * Handle tool calls from AI (image/video generation)
+   * Enforces cooldown limits before executing
    * @param {Object} ctx - Telegram context
    * @param {Array} toolCalls - Array of tool calls from AI
    * @param {string} conversationContext - Recent conversation for context
    */
   async handleToolCalls(ctx, toolCalls, conversationContext) {
     try {
+      const userId = String(ctx.message?.from?.id || ctx.from?.id);
+      const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
+      
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function?.name;
         const args = typeof toolCall.function?.arguments === 'string' 
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function?.arguments || {};
 
-        this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args });
+        this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args, userId, username });
 
         if (functionName === 'generate_image') {
-          await this.executeImageGeneration(ctx, args.prompt, conversationContext);
+          // Check cooldown limit
+          const limit = await this.checkMediaGenerationLimit(userId, 'image');
+          if (!limit.allowed) {
+            const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
+              ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000) // minutes
+              : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
+            
+            await ctx.reply(
+              `🎨 You've used all your image generation charges!\n\n` +
+              `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
+              `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
+              `⏰ Next charge available in ${timeUntilReset} minutes`
+            );
+            continue;
+          }
+          
+          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username);
+          
         } else if (functionName === 'generate_video') {
-          await this.executeVideoGeneration(ctx, args.prompt, conversationContext);
+          // Check cooldown limit
+          const limit = await this.checkMediaGenerationLimit(userId, 'video');
+          if (!limit.allowed) {
+            const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
+              ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000) // minutes
+              : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
+            
+            await ctx.reply(
+              `🎬 You've used all your video generation charges!\n\n` +
+              `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
+              `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
+              `⏰ Next charge available in ${timeUntilReset} minutes`
+            );
+            continue;
+          }
+          
+          await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
+          
         } else {
           this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
           await ctx.reply(`I tried to use ${functionName} but I don't know how yet! 🤔`);
@@ -542,12 +769,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
    * @param {Object} ctx - Telegram context
    * @param {string} prompt - Image generation prompt (enhanced by AI)
    * @param {string} conversationContext - Recent conversation history
+   * @param {string} userId - User ID for cooldown tracking
+   * @param {string} username - Username for logging
    */
-  async executeImageGeneration(ctx, prompt, conversationContext = '') {
+  async executeImageGeneration(ctx, prompt, conversationContext = '', userId = null, username = null) {
     try {
       // No status message - the AI already sent a natural acknowledgment
 
-      this.logger?.info?.('[TelegramService] Generating image:', { prompt });
+      this.logger?.info?.('[TelegramService] Generating image:', { prompt, userId, username });
 
       // Generate image using the AI service
       let imageUrl = null;
@@ -626,6 +855,19 @@ Your caption:`;
       await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
         caption: caption || undefined // No caption if AI generation failed
       });
+      
+      // Record usage for cooldown tracking
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'image');
+      }
+      
+      // Mark that bot posted media - this counts as bot attention/activity
+      const channelId = String(ctx.chat.id);
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
+      
+      this.logger?.info?.('[TelegramService] Image posted, marked as bot activity');
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Image generation failed:', error);
@@ -658,12 +900,14 @@ Your caption:`;
    * @param {Object} ctx - Telegram context
    * @param {string} prompt - Video generation prompt (enhanced by AI)
    * @param {string} conversationContext - Recent conversation history
+   * @param {string} userId - User ID for cooldown tracking
+   * @param {string} username - Username for logging
    */
-  async executeVideoGeneration(ctx, prompt, conversationContext = '') {
+  async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null) {
     try {
       // No status message - the AI already sent a natural acknowledgment
 
-      this.logger?.info?.('[TelegramService] Generating video:', { prompt });
+      this.logger?.info?.('[TelegramService] Generating video:', { prompt, userId, username });
 
       // Generate video using VeoService
       if (!this.veoService) {
@@ -731,6 +975,19 @@ Your caption:`;
         caption: caption || undefined,
         supports_streaming: true
       });
+      
+      // Record usage for cooldown tracking
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'video');
+      }
+      
+      // Mark that bot posted media - this counts as bot attention/activity
+      const channelId = String(ctx.chat.id);
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
+      
+      this.logger?.info?.('[TelegramService] Video posted, marked as bot activity');
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video generation failed:', error);
