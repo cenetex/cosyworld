@@ -134,11 +134,11 @@ export class StorySchedulerService {
         
         this.logger.info(`[StoryScheduler] Started new arc: "${arc.title}"`);
         
-        // Progress it immediately to post first beat
+        // Progress it immediately to post first chapter
         return await this._progressArc(arc._id);
       }
       
-      if (action.action === 'progress_beat' && action.arcId) {
+      if (action.action === 'progress_chapter' && action.arcId) {
         this.logger.info(`[StoryScheduler] Progressing arc ${action.arcId}...`);
         return await this._progressArc(action.arcId);
       }
@@ -149,7 +149,7 @@ export class StorySchedulerService {
   }
 
   /**
-   * Progress an arc (internal method that posts the beat)
+   * Progress an arc (internal method that posts all beats in the chapter)
    * @private
    */
   async _progressArc(arcId) {
@@ -161,24 +161,38 @@ export class StorySchedulerService {
         return null;
       }
       
-      const { arc, beat } = result;
+      const { arc, chapter, beats } = result;
       
-      this.logger.info(`[StoryScheduler] Generated beat ${beat.sequenceNumber} for "${arc.title}"`);
+      this.logger.info(`[StoryScheduler] Generated chapter "${chapter.title}" with ${beats.length} beats for "${arc.title}"`);
       
-      // Post the beat to social platforms
+      // Post each beat in the chapter to social platforms
+      const postResults = [];
       if (this.storyPosting) {
-        const postResult = await this.storyPosting.postBeat(arc, beat);
-        
-        if (postResult.success) {
-          this.logger.info(`[StoryScheduler] Beat posted successfully`);
-        } else {
-          this.logger.error(`[StoryScheduler] Failed to post beat: ${postResult.error}`);
+        for (let i = 0; i < beats.length; i++) {
+          const beat = beats[i];
+          this.logger.info(`[StoryScheduler] Posting beat ${beat.sequenceNumber} (${i + 1}/${beats.length})...`);
+          
+          const postResult = await this.storyPosting.postBeat(arc, beat);
+          
+          if (postResult.success) {
+            this.logger.info(`[StoryScheduler] Beat ${beat.sequenceNumber} posted successfully`);
+          } else {
+            this.logger.error(`[StoryScheduler] Failed to post beat ${beat.sequenceNumber}: ${postResult.error}`);
+          }
+          
+          postResults.push({ beat, postResult });
+          
+          // Add delay between posts to avoid rate limits (except after last beat)
+          if (i < beats.length - 1) {
+            this.logger.info('[StoryScheduler] Waiting 3 seconds before next beat...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
         }
-        
-        return { arc, beat, postResult };
       }
       
-      return { arc, beat };
+      this.logger.info(`[StoryScheduler] Chapter "${chapter.title}" completed - posted ${postResults.filter(r => r.postResult.success).length}/${beats.length} beats successfully`);
+      
+      return { arc, chapter, beats, postResults };
       
     } catch (error) {
       this.logger.error('[StoryScheduler] Error progressing arc:', error);
@@ -202,7 +216,7 @@ export class StorySchedulerService {
       const arcToProgress = await this.selectArcToProgress();
       if (arcToProgress) {
         return { 
-          action: 'progress_beat', 
+          action: 'progress_chapter', 
           arcId: arcToProgress._id 
         };
       }

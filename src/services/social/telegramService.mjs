@@ -59,10 +59,10 @@ class TelegramService {
     this.HISTORY_LIMIT = 50; // Keep last 50 messages per channel for rich context
     
     // Media generation cooldown tracking (per user)
-    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 6/day
+    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 12/day (Telegram-only counting)
     this.mediaGenerationLimits = {
       video: { hourly: 2, daily: 4 },
-      image: { hourly: 3, daily: 6 }
+      image: { hourly: 3, daily: 12 }
     };
   }
 
@@ -112,17 +112,15 @@ class TelegramService {
 
       this.globalBot = new Telegraf(token);
       
-      // Set up basic commands
+      // Set up media usage command
       this.globalBot.start((ctx) => ctx.reply('Welcome to CosyWorld! 🌍 I\'m here to share stories and chat about our vibrant community.'));
       this.globalBot.help((ctx) => ctx.reply('I\'m the CosyWorld bot! I can chat about our community and answer questions. Just message me anytime!'));
-      
-      // Set up media usage command
       this.globalBot.command('usage', async (ctx) => {
         try {
-          const userId = String(ctx.from.id);
+          // Global usage (not per-user)
           const [imageLimit, videoLimit] = await Promise.all([
-            this.checkMediaGenerationLimit(userId, 'image'),
-            this.checkMediaGenerationLimit(userId, 'video')
+            this.checkMediaGenerationLimit(null, 'image'),
+            this.checkMediaGenerationLimit(null, 'video')
           ]);
           
           const imageMinutesUntilReset = imageLimit.hourlyUsed >= imageLimit.hourlyLimit
@@ -133,18 +131,18 @@ class TelegramService {
             : null;
           
           await ctx.reply(
-            `📊 Your Media Generation Usage\n\n` +
+            `📊 Media Generation Usage (Global)\n\n` +
             `🎨 Images:\n` +
             `  Hourly: ${imageLimit.hourlyUsed}/${imageLimit.hourlyLimit} used ${imageMinutesUntilReset ? `(resets in ${imageMinutesUntilReset}m)` : ''}\n` +
             `  Daily: ${imageLimit.dailyUsed}/${imageLimit.dailyLimit} used\n\n` +
             `🎬 Videos:\n` +
             `  Hourly: ${videoLimit.hourlyUsed}/${videoLimit.hourlyLimit} used ${videoMinutesUntilReset ? `(resets in ${videoMinutesUntilReset}m)` : ''}\n` +
             `  Daily: ${videoLimit.dailyUsed}/${videoLimit.dailyLimit} used\n\n` +
-            `💡 Tip: Just ask me to create images or videos in conversation!`
+            `💡 Tip: Ask me to create images or videos anytime!`
           );
         } catch (error) {
           this.logger?.error?.('[TelegramService] Usage command failed:', error);
-          await ctx.reply('Sorry, I couldn\'t fetch your usage stats right now. 😅');
+          await ctx.reply('Sorry, I couldn\'t fetch usage stats right now. 😅');
         }
       });
       
@@ -287,14 +285,13 @@ class TelegramService {
       // Count usage in last hour and last day
       const usageCol = db.collection('telegram_media_usage');
       
+      // GLOBAL: no userId filter
       const [hourlyUsage, dailyUsage] = await Promise.all([
         usageCol.countDocuments({
-          userId,
           mediaType,
           createdAt: { $gte: oneHourAgo }
         }),
         usageCol.countDocuments({
-          userId,
           mediaType,
           createdAt: { $gte: oneDayAgo }
         })
@@ -304,11 +301,11 @@ class TelegramService {
       
       // Calculate reset times
       const oldestHourlyDoc = await usageCol.findOne(
-        { userId, mediaType, createdAt: { $gte: oneHourAgo } },
+        { mediaType, createdAt: { $gte: oneHourAgo } },
         { sort: { createdAt: 1 } }
       );
       const oldestDailyDoc = await usageCol.findOne(
-        { userId, mediaType, createdAt: { $gte: oneDayAgo } },
+        { mediaType, createdAt: { $gte: oneDayAgo } },
         { sort: { createdAt: 1 } }
       );
       
@@ -516,6 +513,18 @@ class TelegramService {
    */
   async generateAndSendReply(ctx, channelId, isMention) {
     try {
+      // Determine GLOBAL tool credit context (not per-user)
+      let imageLimitCtx = null;
+      let videoLimitCtx = null;
+      try {
+        [imageLimitCtx, videoLimitCtx] = await Promise.all([
+          this.checkMediaGenerationLimit(null, 'image'),
+          this.checkMediaGenerationLimit(null, 'video')
+        ]);
+      } catch (e) {
+        this.logger?.debug?.('[TelegramService] Could not fetch tool credit context:', e.message);
+      }
+
       // Load conversation history if not already in memory
       if (!this.conversationHistory.has(channelId)) {
         await this._loadConversationHistory(channelId);
@@ -548,33 +557,51 @@ class TelegramService {
         }
       }
 
+      // Build compact tool credit context for the AI
+      const buildCreditInfo = (lim, label) => {
+        if (!lim) return `${label}: unavailable`;
+        const now = Date.now();
+        const hLeft = Math.max(0, (lim.hourlyLimit ?? 0) - (lim.hourlyUsed ?? 0));
+        const dLeft = Math.max(0, (lim.dailyLimit ?? 0) - (lim.dailyUsed ?? 0));
+        const available = hLeft > 0 && dLeft > 0;
+        
+        if (available) {
+          return `${label}: ${Math.min(hLeft, dLeft)} available`;
+        }
+        
+        // No credits - calculate time until next reset
+        let nextResetMin = null;
+        if (hLeft === 0 && lim.resetTimes?.hourly) {
+          const msUntilHourly = lim.resetTimes.hourly.getTime() - now;
+          if (msUntilHourly > 0) nextResetMin = Math.ceil(msUntilHourly / 60000);
+        }
+        if (dLeft === 0 && lim.resetTimes?.daily) {
+          const msUntilDaily = lim.resetTimes.daily.getTime() - now;
+          if (msUntilDaily > 0) {
+            const dailyMin = Math.ceil(msUntilDaily / 60000);
+            nextResetMin = nextResetMin ? Math.min(nextResetMin, dailyMin) : dailyMin;
+          }
+        }
+        
+        return nextResetMin 
+          ? `${label}: 0 left, resets in ${nextResetMin}m`
+          : `${label}: 0 left`;
+      };
+      
+      const toolCreditContext = `
+Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')}
+Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
+
       const systemPrompt = `${botPersonality}
 
-Your current thoughts and perspective:
 ${botDynamicPrompt}
 
-You're having a conversation in a Telegram channel. Respond naturally and conversationally.
-Keep responses concise (2-3 sentences max).
-${isMention ? 'You were directly mentioned - respond to the question or comment.' : 'Respond to the general conversation flow.'}
+Conversation mode: ${isMention ? 'Direct mention - respond to their question' : 'General chat - respond naturally'}
+Keep responses brief (2-3 sentences).
 
-CRITICAL: When using tools, you MUST provide BOTH a natural text response AND the tool call:
-- The text response should acknowledge what you're about to do in a contextual, natural way
-- Reference the actual content of their request, not generic phrases
-- Make it feel like natural conversation, not a status update
-- Then use the tool to actually execute the action
+${toolCreditContext}
 
-Examples:
-User: "Can you show me the ratbros mourning Rati?"
-You: "Of course. Let me capture that somber moment for you..." [+ generate_image tool with detailed prompt]
-
-User: "Make a video of rain falling"  
-You: "I love that - there's something meditative about rain. Give me a minute to bring it to life..." [+ generate_video tool]
-
-When they ask for media generation:
-- Generate/create/make an image or photo → Natural acknowledgment + generate_image tool
-- Generate/create/make a video → Natural acknowledgment + generate_video tool
-
-ALWAYS provide the acknowledgment text alongside the tool call. The acknowledgment is part of the conversation.`;
+Tool usage: When tools are available and user asks for media, provide natural acknowledgment + tool call together.`;
 
       const userPrompt = `Recent conversation:
 ${conversationContext}
@@ -630,7 +657,6 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         { role: 'user', content: userPrompt }
       ], {
         model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-        max_tokens: 500,
         temperature: 0.8,
         tools: tools,
         tool_choice: 'auto'
@@ -718,8 +744,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
    */
   async handleToolCalls(ctx, toolCalls, conversationContext) {
     try {
-      const userId = String(ctx.message?.from?.id || ctx.from?.id);
-      const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
+  const userId = String(ctx.message?.from?.id || ctx.from?.id);
+  const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
       
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function?.name;
@@ -731,14 +757,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
         if (functionName === 'generate_image') {
           // Check cooldown limit
-          const limit = await this.checkMediaGenerationLimit(userId, 'image');
+          const limit = await this.checkMediaGenerationLimit(null, 'image');
           if (!limit.allowed) {
             const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
               ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000) // minutes
               : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
             
             await ctx.reply(
-              `🎨 You've used all your image generation charges!\n\n` +
+              `🎨 Image generation charges are fully used up right now.\n\n` +
               `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
@@ -750,14 +776,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           
         } else if (functionName === 'generate_video') {
           // Check cooldown limit
-          const limit = await this.checkMediaGenerationLimit(userId, 'video');
+          const limit = await this.checkMediaGenerationLimit(null, 'video');
           if (!limit.allowed) {
             const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
               ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000) // minutes
               : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
             
             await ctx.reply(
-              `🎬 You've used all your video generation charges!\n\n` +
+              `🎬 Video generation charges are fully used up right now.\n\n` +
               `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
@@ -855,7 +881,6 @@ Your caption:`;
             { role: 'user', content: captionPrompt }
           ], {
             model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            max_tokens: 100,
             temperature: 0.9
           });
           
@@ -894,7 +919,6 @@ Your caption:`;
             { role: 'user', content: 'You tried to generate an image but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
           ], {
             model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            max_tokens: 100,
             temperature: 0.9
           });
           const naturalError = String(errorResponse || '').trim();
@@ -974,7 +998,6 @@ Your caption:`;
             { role: 'user', content: captionPrompt }
           ], {
             model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            max_tokens: 100,
             temperature: 0.9
           });
           
@@ -1014,7 +1037,6 @@ Your caption:`;
             { role: 'user', content: 'You tried to generate a video but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
           ], {
             model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            max_tokens: 100,
             temperature: 0.9
           });
           const naturalError = String(errorResponse || '').trim();
@@ -1745,7 +1767,6 @@ ${recentContext ? `Recent channel conversation for context:\n${recentContext}\n\
         { role: 'user', content: userPrompt }
       ], {
         model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-        max_tokens: 200,
         temperature: 0.9 // Higher temperature for more creative starters
       });
 

@@ -310,7 +310,6 @@ Write in a narrative style that would help a storyteller understand the current 
             { role: 'user', content: aiPrompt }
           ], {
             model: 'anthropic/claude-sonnet-4',
-            max_tokens: 500,
             temperature: 0.7
           });
           
@@ -322,7 +321,6 @@ Write in a narrative style that would help a storyteller understand the current 
             { role: 'user', content: themePrompt }
           ], {
             model: 'anthropic/claude-haiku-4',
-            max_tokens: 100,
             temperature: 0.5
           });
           

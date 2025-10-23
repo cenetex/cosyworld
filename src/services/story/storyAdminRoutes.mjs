@@ -76,7 +76,7 @@ export function registerStoryAdminRoutes(app, container) {
     }
   });
 
-  // Manually progress arc (generate next beat)
+  // Manually progress arc (generate next chapter - 3 beats)
   app.post('/api/admin/story/arcs/:id/progress', async (req, res) => {
     try {
       const storyPlanner = container.resolve('storyPlannerService');
@@ -92,16 +92,21 @@ export function registerStoryAdminRoutes(app, container) {
         });
       }
       
-      const { arc, beat } = result;
+      const { arc, chapter, beats } = result;
       
-      // Post the beat
-      const postResult = await storyPosting.postBeat(arc, beat);
+      // Post each beat in the chapter
+      const postResults = [];
+      for (const beat of beats) {
+        const postResult = await storyPosting.postBeat(arc, beat);
+        postResults.push({ beat, postResult });
+      }
       
       res.json({ 
         success: true, 
         arc, 
-        beat, 
-        postResult 
+        chapter,
+        beats,
+        postResults 
       });
     } catch (error) {
       logger.error('[StoryAdmin] Error progressing arc:', error);

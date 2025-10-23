@@ -79,7 +79,6 @@ export class ThinkTool extends BasicTool {
         }
       ], {
         model: avatar.model,
-        max_tokens: 2048,
         temperature: 0.7,
         top_p: 0.95,
         frequency_penalty: 0,
@@ -89,6 +88,25 @@ export class ThinkTool extends BasicTool {
   if (reflection && typeof reflection === 'object' && reflection.text) reflection = reflection.text;
 
       await this.memoryService.addMemory(avatar._id, reflection);
+
+      // Update avatar activity to keep world state fresh
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('avatars').updateOne(
+          { _id: avatar._id },
+          {
+            $set: {
+              lastActiveAt: new Date(),
+              currentChannelId: message?.channel?.id,
+              updatedAt: new Date().toISOString(),
+              lastInteraction: 'think'
+            },
+            $inc: { reflections: 1 }
+          }
+        );
+      } catch (actErr) {
+        this.logger?.debug?.('ThinkTool activity update failed: ' + (actErr?.message || actErr));
+      }
 
       // Extract knowledge points from reflection
       try {

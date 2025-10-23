@@ -16,6 +16,7 @@ export class WebService {
     // Provide AI services for downstream consumers (global X poster needs analyzeImage)
     aiService,
     openrouterAIService,
+    veoService,
     xService,
     telegramService,
     secretsService,
@@ -29,6 +30,7 @@ export class WebService {
     storyPlannerService,
     storySchedulerService,
     storyPostingService,
+    storyArchiveService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -38,6 +40,7 @@ export class WebService {
     this.aiModelService = aiModelService;
     this.aiService = aiService;
     this.openrouterAIService = openrouterAIService;
+    this.veoService = veoService;
     this.xService = xService;
     this.telegramService = telegramService;
     this.secretsService = secretsService;
@@ -51,6 +54,7 @@ export class WebService {
     this.storyPlannerService = storyPlannerService;
     this.storySchedulerService = storySchedulerService;
     this.storyPostingService = storyPostingService;
+  this.storyArchiveService = storyArchiveService;
 
     this.started = false;
 
@@ -67,6 +71,7 @@ export class WebService {
       openrouterAIService: this.openrouterAIService,
       // Back-compat for modules referencing openRouterAIService (note the capital R)
       openRouterAIService: this.openrouterAIService,
+      veoService: this.veoService,
       xService: this.xService,
       telegramService: this.telegramService,
       secretsService: this.secretsService,
@@ -80,6 +85,7 @@ export class WebService {
       storyPlannerService: this.storyPlannerService,
       storySchedulerService: this.storySchedulerService,
       storyPostingService: this.storyPostingService,
+      storyArchiveService: this.storyArchiveService,
     };
   }
 

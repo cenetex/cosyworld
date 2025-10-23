@@ -50,6 +50,196 @@
       font-style: italic;
     }
 
+    .view-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .view-toggle button {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      padding: 0.5rem 1.5rem;
+      border-radius: 25px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .view-toggle button:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .view-toggle button.active {
+      background: white;
+      color: #667eea;
+      border-color: white;
+    }
+
+    .archive-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      padding: 2rem;
+    }
+
+    .archive-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid #f0f0f0;
+    }
+
+    .archive-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+      border-color: #667eea;
+    }
+
+    .archive-card.title-card-archive {
+      border: 3px solid #667eea;
+      background: linear-gradient(135deg, #667eea05 0%, #764ba210 100%);
+    }
+
+    .archive-thumbnail {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+
+    .archive-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .archive-thumbnail .title-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+      display: flex;
+      align-items: flex-end;
+      padding: 1rem;
+    }
+
+    .archive-thumbnail .title-overlay .title-badge {
+      font-size: 0.7rem;
+      color: #a78bfa;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.3rem;
+    }
+
+    .archive-thumbnail .title-overlay .title-text {
+      font-size: 1.1rem;
+      color: white;
+      font-weight: 700;
+    }
+
+    .archive-card-content {
+      padding: 1rem;
+    }
+
+    .archive-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .archive-chapter-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+
+    .title-badge-pill {
+      background: #667eea;
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .archive-arc-title {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 0.75rem;
+    }
+
+    .archive-summary {
+      font-size: 0.9rem;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .archive-characters {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .character-avatars {
+      display: flex;
+      margin-left: -0.25rem;
+    }
+
+    .character-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid white;
+      object-fit: cover;
+      margin-left: -0.5rem;
+      transition: transform 0.2s;
+    }
+
+    .character-avatar:first-child {
+      margin-left: 0;
+    }
+
+    .character-avatar:hover {
+      transform: scale(1.15) translateY(-2px);
+      z-index: 10;
+    }
+
+    .character-count {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      border: 2px solid white;
+      margin-left: -0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #666;
+    }
+
+    .archive-date {
+      font-size: 0.75rem;
+      color: #999;
+    }
+
     .loading, .error {
       text-align: center;
       padding: 4rem 2rem;
@@ -74,6 +264,85 @@
       border-bottom: 2px solid #f0f0f0;
       font-weight: 600;
       letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .animate-chapter-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 0.5rem 1.5rem;
+      border-radius: 25px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .animate-chapter-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .animate-chapter-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .animate-chapter-btn.generating {
+      background: #888;
+      cursor: wait;
+    }
+
+    .archive-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .animate-btn-small {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 0.4rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex: 1;
+    }
+
+    .animate-btn-small:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .animate-btn-small:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .animate-btn-small.generating {
+      background: #888;
+      cursor: wait;
+    }
+
+    .animate-btn-episode {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
 
     .comic-panel {
@@ -365,6 +634,10 @@
     <div class="book-header">
       <h1 id="storyTitle">📖 CosyWorld Story</h1>
       <div class="subtitle" id="storySubtitle">Loading...</div>
+      <div class="view-toggle">
+        <button id="currentViewBtn" class="active" onclick="switchView('current')">Current Story</button>
+        <button id="archiveViewBtn" onclick="switchView('archive')">Archive</button>
+      </div>
     </div>
 
     <div id="loading" class="loading">Loading story...</div>
@@ -372,6 +645,10 @@
     
     <div id="storyPage" class="story-page" style="display: none;">
       <!-- Story content will be inserted here -->
+    </div>
+
+    <div id="archivePage" class="archive-grid" style="display: none;">
+      <!-- Archive content will be inserted here -->
     </div>
 
     <div id="navigation" class="navigation" style="display: none;">
@@ -395,7 +672,243 @@
     let currentStory = null;
     let chapters = [];
     let currentChapterIndex = 0;
+    let archiveChapters = [];
+    let currentView = 'current';
     const BEATS_PER_CHAPTER = 3;
+
+    function switchView(view) {
+      currentView = view;
+      
+      // Update buttons
+      document.getElementById('currentViewBtn').classList.toggle('active', view === 'current');
+      document.getElementById('archiveViewBtn').classList.toggle('active', view === 'archive');
+      
+      if (view === 'current') {
+        document.getElementById('storyPage').style.display = 'block';
+        document.getElementById('archivePage').style.display = 'none';
+        document.getElementById('navigation').style.display = 'flex';
+      } else {
+        document.getElementById('storyPage').style.display = 'none';
+        document.getElementById('archivePage').style.display = 'grid';
+        document.getElementById('navigation').style.display = 'none';
+        
+        // Load archive if not loaded yet
+        if (archiveChapters.length === 0) {
+          loadArchive();
+        }
+      }
+    }
+
+    async function loadArchive() {
+      try {
+        const response = await fetch('/api/stories/archive?page=1&limit=50&view=arcs');
+        if (!response.ok) {
+          throw new Error(`Failed to load archive: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          archiveChapters = data.arcs;
+          renderArchive();
+        }
+      } catch (error) {
+        console.error('Error loading archive:', error);
+        const archivePage = document.getElementById('archivePage');
+        archivePage.innerHTML = `<div style="text-align: center; padding: 3rem; color: #999;">Failed to load archive: ${error.message}</div>`;
+      }
+    }
+
+    function renderArchive() {
+      const archivePage = document.getElementById('archivePage');
+      
+      if (!archiveChapters || archiveChapters.length === 0) {
+        archivePage.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #999;">
+            <h2>No archived arcs yet</h2>
+            <p>Story arcs will appear here</p>
+          </div>
+        `;
+        return;
+      }
+
+      archivePage.innerHTML = archiveChapters.map(arc => {
+        // Calculate number of completed chapters (3 beats per chapter)
+        const totalBeats = arc.beatsCount || 0;
+        const completedChapters = Math.floor(totalBeats / 3);
+        const hasBeats = totalBeats > 0;
+        const hasEpisodeVideos = arc.episodeVideos && arc.episodeVideos.videoUrls && arc.episodeVideos.videoUrls.length > 0;
+        
+        return `
+          <div class="archive-card" onclick="viewArc('${arc.id}')">
+            <div class="archive-thumbnail">
+              ${arc.thumbnail ? `
+                <img src="${escapeHtml(arc.thumbnail)}" alt="${escapeHtml(arc.title)}">
+              ` : `
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #999;">
+                  📖
+                </div>
+              `}
+              <div class="title-overlay">
+                <div>
+                  <div class="title-badge">${escapeHtml(arc.theme)} • ${escapeHtml(arc.emotionalTone)}</div>
+                  <div class="title-text">${escapeHtml(arc.title)} ${hasEpisodeVideos ? '🎥' : ''}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="archive-card-content">
+              <div class="archive-card-header">
+                <div class="archive-chapter-title">${escapeHtml(arc.title)}</div>
+                <span class="title-badge-pill">${escapeHtml(arc.status)}</span>
+              </div>
+              
+              <div class="archive-summary">${escapeHtml(arc.summary)}</div>
+              
+              <div class="archive-date">
+                ${completedChapters > 0 ? `${completedChapters} ${completedChapters === 1 ? 'chapter' : 'chapters'} • ` : ''}
+                ${arc.lastUpdated ? new Date(arc.lastUpdated).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+              </div>
+              
+              ${hasBeats ? `
+                <div class="archive-card-actions" onclick="event.stopPropagation()">
+                  <button 
+                    class="animate-btn-small animate-btn-episode ${hasEpisodeVideos ? 'has-video' : ''}" 
+                    onclick="animateEpisode('${arc.id}')"
+                    id="animate-episode-${arc.id}"
+                    ${!hasBeats ? 'disabled' : ''}
+                  >
+                    ${hasEpisodeVideos ? '📼 View Episode Videos' : '🎬 Animate Episode'}
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function viewChapter(arcId, chapterNumber) {
+      try {
+        const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load chapter: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Switch to current view and display this chapter
+          currentView = 'current';
+          document.getElementById('currentViewBtn').classList.add('active');
+          document.getElementById('archiveViewBtn').classList.remove('active');
+          document.getElementById('storyPage').style.display = 'block';
+          document.getElementById('archivePage').style.display = 'none';
+          document.getElementById('navigation').style.display = 'none'; // Hide navigation for single chapter view
+          
+          // Update header
+          document.getElementById('storyTitle').textContent = data.chapter.arcTitle || 'CosyWorld Story';
+          document.getElementById('storySubtitle').textContent = `Chapter ${chapterNumber}`;
+          
+          // Display the chapter
+          const storyPage = document.getElementById('storyPage');
+          storyPage.innerHTML = renderChapterBeats(data.chapter);
+          
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch (error) {
+        console.error('Error loading chapter:', error);
+        alert(`Failed to load chapter: ${error.message}`);
+      }
+    }
+
+    async function viewArc(arcId) {
+      try {
+        const response = await fetch(`/api/stories/latest?arcId=${encodeURIComponent(arcId)}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load arc: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          currentView = 'current';
+          document.getElementById('currentViewBtn').classList.add('active');
+          document.getElementById('archiveViewBtn').classList.remove('active');
+          document.getElementById('storyPage').style.display = 'block';
+          document.getElementById('archivePage').style.display = 'none';
+          document.getElementById('navigation').style.display = 'none';
+
+          // Render the returned chapters for the selected arc
+          const storyPage = document.getElementById('storyPage');
+          storyPage.innerHTML = data.chapters.map(ch => renderChapterBeats(ch)).join('');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch (error) {
+        console.error('Error loading arc:', error);
+        alert(`Failed to load arc: ${error.message}`);
+      }
+    }
+
+    function renderChapterBeats(chapter) {
+      const beats = chapter.beats || [];
+      
+      // Check if chapter is complete (all beats have images)
+      const allBeatsHaveImages = beats.every(beat => beat.generatedImageUrl);
+      
+      // Check if chapter has generated videos
+      const hasVideos = chapter.hasVideos || false;
+      
+      let html = `
+        <div class="chapter-title">
+          <span>Chapter ${chapter.chapterNumber} ${hasVideos ? '🎥' : ''}</span>
+          ${allBeatsHaveImages ? `
+            <button 
+              class="animate-chapter-btn ${hasVideos ? 'has-video' : ''}" 
+              onclick="animateChapterFromArchive('${chapter.arcId}', ${chapter.chapterNumber})"
+              id="animate-chapter-archive-${chapter.chapterNumber}"
+            >
+              ${hasVideos ? '📼 View Videos' : '🎬 Animate Chapter'}
+            </button>
+          ` : ''}
+        </div>
+      `;
+      
+      beats.forEach((beat, beatIndex) => {
+        const beatId = beat.id || `beat-${chapter.chapterNumber}-${beatIndex}`;
+        const isTitleCard = beat.type === 'title';
+        const description = beat.description || '';
+        
+        html += `
+          <div class="comic-panel ${isTitleCard ? 'title-card' : ''}">
+            <div class="panel-image ${!beat.generatedImageUrl ? 'loading' : ''}" id="panel-image-${beatId}">
+              ${beat.generatedImageUrl ? `
+                <img 
+                  src="${escapeHtml(beat.generatedImageUrl)}" 
+                  alt="${isTitleCard ? 'Title Card' : 'Panel ' + (beatIndex + 1)}" 
+                  onerror="handleImageError(this, '${beatId}')"
+                  onload="handleImageLoad(this, '${beatId}')"
+                />
+              ` : `<div style="color: #999; font-style: italic;">${isTitleCard ? 'Title card' : 'Image'} loading...</div>`}
+            </div>
+            
+            <div class="panel-text">
+              ${isTitleCard ? `
+                <div class="panel-number">${escapeHtml(beat.title || 'Title Card')}</div>
+                <div class="panel-caption">${escapeHtml(description)}</div>
+              ` : `
+                <div class="panel-description">${escapeHtml(description)}</div>
+                
+                ${beat.location ? `
+                  <div class="panel-location">${escapeHtml(beat.location)}</div>
+                ` : ''}
+              `}
+            </div>
+          </div>
+        `;
+      });
+      
+      return html;
+    }
 
     async function loadStory() {
       try {
@@ -457,7 +970,24 @@
       storyPage.style.display = 'block';
       
       const chapterNumber = index + 1;
-      let chapterHTML = `<div class="chapter-title">Chapter ${chapterNumber}</div>`;
+      
+      // Check if chapter is complete (all beats have images)
+      const allBeatsHaveImages = chapter.every(beat => beat.generatedImageUrl);
+      
+      let chapterHTML = `
+        <div class="chapter-title">
+          <span>Chapter ${chapterNumber}</span>
+          ${allBeatsHaveImages ? `
+            <button 
+              class="animate-chapter-btn" 
+              onclick="animateChapter(${index})"
+              id="animate-btn-${index}"
+            >
+              🎬 Animate Chapter
+            </button>
+          ` : ''}
+        </div>
+      `;
       
       // Create comic panels for each beat in the chapter
       chapter.forEach((beat, beatIndex) => {
@@ -468,11 +998,7 @@
         // Check if this is a title card
         const isTitleCard = beat.type === 'title';
         
-        // Extract first sentence from description as title
         const description = beat.description || '';
-        const firstSentenceMatch = description.match(/^[^.!?]+[.!?]/);
-        const title = firstSentenceMatch ? firstSentenceMatch[0].trim() : description.substring(0, 80) + '...';
-        const remainingDescription = firstSentenceMatch ? description.substring(firstSentenceMatch[0].length).trim() : '';
         
         console.log(`Panel ${beatId}: ${beat.generatedImageUrl ? 'has image' : 'no image'} (sequenceNumber: ${beat.sequenceNumber}, type: ${beat.type})`);
         
@@ -491,18 +1017,10 @@
             
             <div class="panel-text">
               ${isTitleCard ? `
-                <div class="panel-number">${escapeHtml(beat.caption || title)}</div>
-                <div class="panel-caption">${escapeHtml(remainingDescription || description)}</div>
+                <div class="panel-number">${escapeHtml(beat.title || 'Title Card')}</div>
+                <div class="panel-caption">${escapeHtml(description)}</div>
               ` : `
-                <div class="panel-number">${escapeHtml(title)}</div>
-                
-                ${beat.caption ? `
-                  <div class="panel-caption">"${escapeHtml(beat.caption)}"</div>
-                ` : ''}
-                
-                ${remainingDescription ? `
-                  <div class="panel-description">${escapeHtml(remainingDescription)}</div>
-                ` : ''}
+                <div class="panel-description">${escapeHtml(description)}</div>
                 
                 ${beat.location ? `
                   <div class="panel-location">${escapeHtml(beat.location)}</div>
@@ -575,6 +1093,197 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    async function animateChapter(chapterIndex) {
+      if (!currentStory) return;
+      
+      const btn = document.getElementById(`animate-btn-${chapterIndex}`);
+      if (!btn) return;
+      
+      // Disable button and show loading state
+      btn.disabled = true;
+      btn.classList.add('generating');
+      btn.innerHTML = '⏳ Generating...';
+      
+      try {
+        const chapterNumber = chapterIndex + 1;
+        const arcId = currentStory.id || currentStory._id?.toString();
+        
+        if (!arcId) {
+          throw new Error('Arc ID not found in currentStory object');
+        }
+        
+        console.log('[AnimateChapter] Animating chapter', chapterNumber, 'of arc', arcId);
+        
+        const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/animate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to generate video');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && (data.videoUrls || data.videoUrl)) {
+          // Handle multiple video clips or single video
+          const videos = data.videoUrls || [data.videoUrl];
+          const clipCount = videos.length;
+          
+          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
+          btn.classList.remove('generating');
+          
+          // Open all video clips in new tabs
+          videos.forEach((url, index) => {
+            setTimeout(() => {
+              window.open(url, '_blank');
+            }, index * 500); // Stagger by 500ms to avoid popup blocker
+          });
+          
+          // Reset button after 3 seconds
+          setTimeout(() => {
+            btn.innerHTML = '🎬 Animate Chapter';
+            btn.disabled = false;
+          }, 3000);
+        } else {
+          throw new Error('No video URL returned');
+        }
+        
+      } catch (error) {
+        console.error('Error animating chapter:', error);
+        btn.innerHTML = '❌ Failed';
+        btn.classList.remove('generating');
+        alert(`Failed to generate chapter video: ${error.message}`);
+        
+        // Reset button after 3 seconds
+        setTimeout(() => {
+          btn.innerHTML = '🎬 Animate Chapter';
+          btn.disabled = false;
+        }, 3000);
+      }
+    }
+
+    async function animateChapterFromArchive(arcId, chapterNumber) {
+      const btn = document.getElementById(`animate-chapter-archive-${chapterNumber}`);
+      if (!btn) return;
+      
+      btn.disabled = true;
+      btn.classList.add('generating');
+      btn.innerHTML = '⏳ Generating...';
+      
+      try {
+        const response = await fetch(`/api/stories/chapters/${arcId}/${chapterNumber}/animate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to generate video');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && (data.videoUrls || data.videoUrl)) {
+          const videos = data.videoUrls || [data.videoUrl];
+          const clipCount = videos.length;
+          
+          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
+          btn.classList.remove('generating');
+          
+          // Open all video clips
+          videos.forEach((url, index) => {
+            setTimeout(() => {
+              window.open(url, '_blank');
+            }, index * 500);
+          });
+          
+          setTimeout(() => {
+            btn.innerHTML = '🎬 Animate Chapter';
+            btn.disabled = false;
+          }, 3000);
+        } else {
+          throw new Error('No video URL returned');
+        }
+        
+      } catch (error) {
+        console.error('Error animating chapter:', error);
+        btn.innerHTML = '❌ Failed';
+        btn.classList.remove('generating');
+        alert(`Failed to generate chapter video: ${error.message}`);
+        
+        setTimeout(() => {
+          btn.innerHTML = '🎬 Animate Chapter';
+          btn.disabled = false;
+        }, 3000);
+      }
+    }
+
+    async function animateEpisode(arcId) {
+      const btn = document.getElementById(`animate-episode-${arcId}`);
+      if (!btn) return;
+      
+      btn.disabled = true;
+      btn.classList.add('generating');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Generating...';
+      
+      try {
+        const response = await fetch(`/api/stories/episodes/${arcId}/animate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to generate video');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && (data.videoUrls || data.videoUrl)) {
+          // Handle multiple video clips or single video
+          const videos = data.videoUrls || [data.videoUrl];
+          const clipCount = videos.length;
+          
+          btn.innerHTML = `✅ ${clipCount} Clip${clipCount > 1 ? 's' : ''} Ready!`;
+          btn.classList.remove('generating');
+          
+          // Open all video clips in new tabs
+          videos.forEach((url, index) => {
+            setTimeout(() => {
+              window.open(url, '_blank');
+            }, index * 500); // Stagger by 500ms to avoid popup blocker
+          });
+          
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }, 3000);
+        } else {
+          throw new Error('No video URL returned');
+        }
+        
+      } catch (error) {
+        console.error('Error animating episode:', error);
+        btn.innerHTML = '❌ Failed';
+        btn.classList.remove('generating');
+        alert(`Failed to generate episode video: ${error.message}`);
+        
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }, 3000);
+      }
     }
 
     // Keyboard navigation

@@ -143,15 +143,19 @@ export class WorldContextService {
   // ============================================================================
 
   /**
-   * Get all locations
+   * Get locations, prioritized by recent activity
+   * Sort order: lastSummaryUpdate desc, then updatedAt desc, then createdAt desc
+   * @param {number} limit - Max number of locations to return (default 100)
    * @returns {Promise<Array>}
    */
-  async getLocations() {
+  async getLocations(limit = 100) {
     const db = await this._db();
     const locations = db.collection('locations');
-    
+
     return await locations
       .find({})
+      .sort({ lastSummaryUpdate: -1, updatedAt: -1, createdAt: -1 })
+      .limit(limit)
       .toArray();
   }
 
@@ -198,6 +202,7 @@ export class WorldContextService {
     
     return await items
       .find({})
+      .sort({ updatedAt: -1, createdAt: -1 })
       .limit(limit)
       .toArray();
   }
@@ -418,6 +423,30 @@ export class WorldContextService {
             20 // Max 20 channels
           );
           this.logger.info(`[WorldContext] Loaded ${context.channelSummaries.length} channel summaries`);
+
+          // Fallback: if none found, attempt a quick refresh and widen the window
+          if (!context.channelSummaries || context.channelSummaries.length === 0) {
+            try {
+              this.logger.info('[WorldContext] No recent channel summaries found, attempting refresh...');
+              await this.channelSummaryService.refreshAllSummaries({ maxAge: 24 }).catch(() => null);
+              // Retry with a wider window (last 7 days) and same limit
+              context.channelSummaries = await this.channelSummaryService.getRecentlyActiveChannels(168, 20);
+              this.logger.info(`[WorldContext] After refresh, loaded ${context.channelSummaries.length} channel summaries`);
+            } catch (e) {
+              this.logger.warn('[WorldContext] Refresh fallback failed:', e.message);
+            }
+          }
+
+          // Secondary fallback: pull latest summaries regardless of activity window
+          if (!context.channelSummaries || context.channelSummaries.length === 0) {
+            try {
+              context.channelSummaries = await this.channelSummaryService.getAllChannelSummaries(null, 20);
+              this.logger.info(`[WorldContext] Fallback to all summaries loaded ${context.channelSummaries.length}`);
+            } catch (e) {
+              this.logger.warn('[WorldContext] Fallback to all summaries failed:', e.message);
+              context.channelSummaries = [];
+            }
+          }
         }
         
         // Generate meta-summary (summarize the summaries)
@@ -454,14 +483,22 @@ export class WorldContextService {
       if (context.metaSummary?.locations) {
         context.locations = context.metaSummary.locations;
       } else {
-        const locs = await this.getLocations();
-        context.locations = locs.slice(0, locationLimit);
+        // Prefer most recently active locations
+        context.locations = await this.getLocations(locationLimit);
       }
     }
     
     // PRIORITY 4: Get items
     if (includeItems) {
       context.items = await this.getItems(itemLimit);
+    }
+    
+    // Derive story opportunities from recent activity (best-effort)
+    try {
+      context.opportunities = await this.identifyStoryOpportunities();
+    } catch (e) {
+      this.logger?.warn?.('[WorldContext] identifyStoryOpportunities failed:', e.message);
+      context.opportunities = [];
     }
     
     // Add summary statistics

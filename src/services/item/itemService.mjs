@@ -281,7 +281,7 @@ export class ItemService {
     let resp = await ai.chat([
         { role: 'system', content: `You are the spirit of the item ${item.name}.` },
         { role: 'user',   content: `Memory:\n${summary}\nContext: ${extraContext || '[none]'}\nRespond to acknowledge use succinctly.` }
-      ], { model: avatar.model, max_tokens: 100 });
+  ], { model: avatar.model });
     if (resp && typeof resp === 'object' && resp.text) resp = resp.text;
 
       if (systemAck) {

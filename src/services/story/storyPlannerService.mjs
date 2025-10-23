@@ -16,6 +16,7 @@ export class StoryPlannerService {
     worldContextService, 
     narrativeGeneratorService,
     storyPlanService,
+    chapterContextService,
     configService,
     aiService,
     logger 
@@ -24,6 +25,7 @@ export class StoryPlannerService {
     this.worldContext = worldContextService;
     this.narrativeGenerator = narrativeGeneratorService;
     this.storyPlanService = storyPlanService;
+    this.chapterContext = chapterContextService;
     this.configService = configService;
     this.aiService = aiService;
     this.logger = logger || console;
@@ -149,9 +151,12 @@ export class StoryPlannerService {
       });
       
       // Generate arc metadata
+      // Derive target beats from planned chapters to ensure desired arc length (3 beats/chapter)
+      const targetBeats = (planData?.chapters?.length || 4) * this.config.beatsPerChapter;
       const arcData = await this.narrativeGenerator.generateArc(worldContext, {
         ...options,
         plan: planData,
+        targetBeats,
         unfeaturedCharacters
       });
       
@@ -208,7 +213,7 @@ export class StoryPlannerService {
 Create a detailed story plan for a new arc in CosyWorld. The plan should:
 
 1. Have a compelling overallTheme that fits the current world state
-2. Be structured into 4-6 chapters
+2. Be structured into 3-5 chapters
 3. Each chapter should have 3 beats (story moments)
 4. Incorporate active avatars, current themes, and locations
 5. Build narrative tension and resolution
@@ -230,7 +235,6 @@ Respond with JSON in this format:
           { role: 'user', content: planningPrompt }
         ], {
           model: 'anthropic/claude-sonnet-4',
-          max_tokens: 2000,
           temperature: 0.8
         });
         
@@ -341,7 +345,7 @@ Respond with JSON in this format:
         const currentBeatCount = arc.completedBeats || 0;
         if (currentBeatCount > 0 && currentBeatCount % this.config.beatsPerChapter === 0) {
           this.logger.info(`[StoryPlanner] Evolving plan for arc ${arcId}...`);
-          await this.storyPlanService.evolvePlan(arcId, worldContext);
+          await this.storyPlanService.evolvePlan(arcId, worldContext, this.aiService);
         }
       }
       
@@ -358,7 +362,10 @@ Respond with JSON in this format:
       
       // Mark chapter complete in plan if available
       if (this.storyPlanService) {
-        await this.storyPlanService.completeChapter(arcId);
+        const plan = await this.storyPlanService.getActivePlan(arcId);
+        if (plan) {
+          await this.storyPlanService.completeChapter(arcId, plan.currentChapter);
+        }
       }
       
       this.logger.info(`[StoryPlanner] Generated chapter "${chapter.title}" (${beats.length} beats) for arc "${arc.title}"`);
@@ -398,14 +405,32 @@ Respond with JSON in this format:
           };
         }
       }
+
+      // Build evolving chapter context (history with same characters/locations)
+      let chapterContext = null;
+      if (this.chapterContext) {
+        try {
+          const currentChapter = planContext?.currentChapter ?? 0;
+          chapterContext = await this.chapterContext.buildChapterContext(arc, {
+            currentChapter,
+            excludeCurrentArc: true
+          });
+          this.logger.info(`[StoryPlanner] Built chapter context with ${chapterContext.relevantHistory.chapters.length} relevant chapters`);
+        } catch (error) {
+          this.logger.warn('[StoryPlanner] Could not build chapter context:', error.message);
+        }
+      }
       
       const beats = [];
       const currentBeatCount = arc.beats?.length || 0;
       
-      // Every 9 beats (3 chapters), insert a title card as the first beat
-      const shouldInsertTitleCard = currentBeatCount > 0 && currentBeatCount % 9 === 0;
+      // Special case: After the very first beat (beat 1), insert a title card
+      const shouldInsertTitleCardAfterFirstBeat = currentBeatCount === 1;
       
-      if (shouldInsertTitleCard) {
+      // Regular case: Every 9 beats (3 chapters), insert a title card
+      const shouldInsertTitleCard = currentBeatCount > 1 && currentBeatCount % 9 === 0;
+      
+      if (shouldInsertTitleCardAfterFirstBeat || shouldInsertTitleCard) {
         this.logger.info(`[StoryPlanner] Generating title card for arc "${arc.title}" at beat ${currentBeatCount + 1}`);
         
         // Create a temporary arc object for title card generation
@@ -421,7 +446,9 @@ Respond with JSON in this format:
       }
       
       // Generate remaining beats for the chapter (2 if we added title card, 3 otherwise)
-      const beatsToGenerate = shouldInsertTitleCard ? this.config.beatsPerChapter - 1 : this.config.beatsPerChapter;
+      const beatsToGenerate = (shouldInsertTitleCardAfterFirstBeat || shouldInsertTitleCard) 
+        ? this.config.beatsPerChapter - 1 
+        : this.config.beatsPerChapter;
       
       for (let i = 0; i < beatsToGenerate; i++) {
         // Create a temporary arc object with updated beat count for correct sequenceNumber
@@ -432,6 +459,7 @@ Respond with JSON in this format:
         
         const beat = await this.narrativeGenerator.generateBeat(tempArc, worldContext, {
           chapterContext: planContext,
+          evolvingContext: chapterContext,
           beatInChapter: i + 1,
           totalBeatsInChapter: beatsToGenerate,
           previousBeats: beats

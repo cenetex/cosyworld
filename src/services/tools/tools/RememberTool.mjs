@@ -85,6 +85,25 @@ export class RememberTool extends BasicTool {
 
       await this.memoryService.addMemory(avatar._id, formattedMemory);
 
+      // Update avatar activity for persistent world tracking
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('avatars').updateOne(
+          { _id: avatar._id },
+          {
+            $set: {
+              lastActiveAt: new Date(),
+              currentChannelId: message?.channel?.id,
+              updatedAt: new Date().toISOString(),
+              lastInteraction: 'remember'
+            },
+            $inc: { memoriesCreated: 1 }
+          }
+        );
+      } catch (actErr) {
+        this.logger?.debug?.('RememberTool activity update failed: ' + (actErr?.message || actErr));
+      }
+
       if (avatar.innerMonologueChannel) {
         await this.discordService.sendAsWebhook(
           avatar.innerMonologueChannel,

@@ -148,6 +148,15 @@ export class MoveTool extends BasicTool {
         return `-# 🏃‍♂️ [ Failed to move: Avatar location update failed.`
       }
 
+      // Best-effort: bump lastActiveAt and currentChannelId for persistent world tracking
+      try {
+        updatedAvatar.lastActiveAt = new Date();
+        updatedAvatar.currentChannelId = newLocation.channel.id;
+        await this.avatarService.updateAvatar(updatedAvatar);
+      } catch (e) {
+        this.logger?.debug?.('MoveTool activity update failed: ' + (e?.message || e));
+      }
+
       // 7. Send a mini card to the departure channel if we have one
       if (currentLocationId) {
         try {

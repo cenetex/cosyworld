@@ -41,6 +41,17 @@ export class SceneCameraTool extends BasicTool {
       const guildId = message?.guild?.id || message?.guildId;
       if (!channelId) return '-# [ ❌ Error: Missing channel context. ]';
 
+      // Record activity for the invoking avatar
+      try {
+        if (avatar && this.avatarService?.updateAvatar) {
+          avatar.lastActiveAt = new Date();
+          avatar.currentChannelId = channelId;
+          await this.avatarService.updateAvatar(avatar);
+        }
+      } catch (e) {
+        this.logger?.debug?.('[SceneCamera] Activity update failed: ' + (e?.message || e));
+      }
+
       // Resolve location and avatars present
       const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
       const present = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);

@@ -51,6 +51,22 @@ export class LocationService  {
   }
 
   /**
+   * Fetch a location document by its MongoDB _id.
+   * @param {string|ObjectId} id - The location document _id
+   * @returns {Promise<Object|null>} Location document or null if not found
+   */
+  async getLocationById(id) {
+    await this.ensureDbConnection();
+    try {
+      const _id = typeof id === 'string' ? new ObjectId(id) : id;
+      return await this.db.collection('locations').findOne({ _id });
+    } catch (e) {
+      console.warn('[LocationService] getLocationById failed:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Ensures the DB is connected before proceeding.
    * @private
    */

@@ -86,6 +86,8 @@ export class ItemTool extends BasicTool {
           }
           const extraContext = params.slice(1).join(' ').trim();
           const response = await this.itemService.useItem(avatar, item, message.channel.id, extraContext, services);
+          // Activity bump
+          try { avatar.lastActiveAt = new Date(); await this.avatarService.updateAvatar(avatar); } catch {}
           return response;
         }
         case 'take': {
@@ -112,6 +114,7 @@ export class ItemTool extends BasicTool {
           } else {
             avatar.storedItemId = item._id;
           }
+          try { avatar.lastActiveAt = new Date(); } catch {}
           await this.avatarService.updateAvatar(avatar);
           await this.postItemDetails(message.channel.id, item);
           return `-# [${this.emoji} You picked up ${item.name}.]`;
@@ -125,11 +128,13 @@ export class ItemTool extends BasicTool {
             const temp = avatar.selectedItemId;
             avatar.selectedItemId = avatar.storedItemId;
             avatar.storedItemId = temp;
+            try { avatar.lastActiveAt = new Date(); } catch {}
             await this.avatarService.updateAvatar(avatar);
             return `-# [${this.emoji} Swapped your held and stored items.]`;
           } else {
             avatar.storedItemId = avatar.selectedItemId;
             avatar.selectedItemId = null;
+            try { avatar.lastActiveAt = new Date(); } catch {}
             await this.avatarService.updateAvatar(avatar);
             return `-# [${this.emoji} Stored your current item. You can now take another.]`;
           }
@@ -163,6 +168,7 @@ export class ItemTool extends BasicTool {
           // Remove from avatar only after successful drop
           if (avatar.selectedItemId && avatar.selectedItemId.equals(itemId)) avatar.selectedItemId = null;
           if (avatar.storedItemId && avatar.storedItemId.equals(itemId)) avatar.storedItemId = null;
+          try { avatar.lastActiveAt = new Date(); } catch {}
           await this.avatarService.updateAvatar(avatar);
           return `-# [${this.emoji} You dropped ${item.name}.]`;
         }
@@ -178,11 +184,13 @@ export class ItemTool extends BasicTool {
               avatar.storedItemId = null;
             }
             placed = ' (selected)';
+            try { avatar.lastActiveAt = new Date(); } catch {}
             await this.avatarService.updateAvatar(avatar);
           } else if (behavior === 'store' || !avatar.storedItemId) {
             if (!avatar.storedItemId || (avatar.storedItemId && !avatar.storedItemId.equals(potion._id))) {
               avatar.storedItemId = potion._id;
               placed = ' (stored)';
+              try { avatar.lastActiveAt = new Date(); } catch {}
               await this.avatarService.updateAvatar(avatar);
             }
           }
@@ -215,6 +223,7 @@ export class ItemTool extends BasicTool {
           // Remove both from avatar, add new crafted item
           avatar.selectedItemId = newItem._id;
           avatar.storedItemId = null;
+          try { avatar.lastActiveAt = new Date(); } catch {}
           await this.avatarService.updateAvatar(avatar);
           await this.postItemDetails(message.channel.id, newItem);
           return `-# [${this.emoji} You have crafted a new item: ${newItem.name}]`;

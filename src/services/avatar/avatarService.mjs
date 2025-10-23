@@ -713,7 +713,7 @@ export class AvatarService {
           { role: 'system', content: 'You are generating a minimal RPG character. Reply with a single line: Name | One-sentence description | emoji | model (short). No JSON.' },
           { role: 'user', content: `Create a character for: ${prompt}` }
         ];
-        const raw = await this.aiService.chat(fallbackPrompt, { max_tokens: 128 });
+  const raw = await this.aiService.chat(fallbackPrompt, {});
         const text = typeof raw === 'object' && raw?.text ? raw.text : String(raw || '');
         
         // Check if the response is an error message or empty

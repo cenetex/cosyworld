@@ -403,8 +403,7 @@ export class OpenRouterAIService {
 
     this.defaultVisionOptions = {
       model: orCfg.visionModel || 'x-ai/grok-2-vision-1212',
-      temperature: 0.5,
-  max_tokens: 400,
+      temperature: 0.5
     };
   }
 
@@ -621,7 +620,8 @@ export class OpenRouterAIService {
 
       // Log finish_reason to help diagnose truncated responses
       if (finishReason === 'length') {
-        this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit (${mergedOptions.max_tokens}). Consider increasing max_tokens.`);
+        const limitMsg = typeof mergedOptions.max_tokens === 'number' ? ` (${mergedOptions.max_tokens})` : '';
+        this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit${limitMsg}. Consider increasing or removing max_tokens.`);
       }
       this.logger.debug?.(`[OpenRouter][Chat] finish_reason=${finishReason} usage=${JSON.stringify(response.usage)}`);
 

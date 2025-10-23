@@ -185,11 +185,28 @@ async function initializeApp(services) {
     logger.warn('[Web] Failed to register story admin routes:', e.message);
   }
 
+  // Story archive routes (public access for browsing)
+  // IMPORTANT: Must be registered BEFORE public routes so that specific routes like
+  // /api/stories/archive match before the generic /api/stories/:arcId route
+  try {
+    const { default: createStoryArchiveRoutes } = await import('../../story/storyArchiveRoutes.mjs');
+    const archiveRouter = createStoryArchiveRoutes({
+      storyArchiveService: services.storyArchiveService,
+      logger
+    });
+    app.use('/api/stories', archiveRouter);
+    logger.info('[Web] Story archive routes registered');
+  } catch (e) {
+    logger.warn('[Web] Failed to register story archive routes:', e.message);
+  }
+
   // Story system public routes (no auth required)
   try {
     const { default: registerStoryPublicRoutes } = await import('../../story/storyPublicRoutes.mjs');
     registerStoryPublicRoutes(app, {
       storyStateService: services.storyStateService,
+      veoService: services.veoService,
+      s3Service: services.s3Service,
       logger
     });
     logger.info('[Web] Story public routes registered');

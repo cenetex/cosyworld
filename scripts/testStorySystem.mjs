@@ -6,16 +6,24 @@
  * Usage:
  *   node scripts/testStorySystem.mjs          # Generate next page
  *   node scripts/testStorySystem.mjs --reset  # Reset and start new story
+ *   node scripts/testStorySystem.mjs --force  # Force create new arc (ignores timing)
  */
 
 import { container, containerReady } from '../src/container.mjs';
 
-// Check for --reset flag
+// Check for flags
 const shouldReset = process.argv.includes('--reset');
+const forceCreate = process.argv.includes('--force');
 
 async function generateNextPage() {
   console.log('='.repeat(60));
-  console.log(shouldReset ? '🔄 RESETTING STORY' : '📖 GENERATING NEXT PAGE');
+  if (shouldReset) {
+    console.log('🔄 RESETTING STORY');
+  } else if (forceCreate) {
+    console.log('⚡ FORCE MODE - Creating new arc');
+  } else {
+    console.log('📖 GENERATING NEXT PAGE');
+  }
   console.log('='.repeat(60));
   console.log('');
 
@@ -80,6 +88,19 @@ async function generateNextPage() {
 
     // Test 2: Check for existing active arc or create new one
     console.log('🎭 TEST 2: Looking for existing active arc...');
+    
+    // Handle reset flag - abandon all active arcs
+    if (shouldReset) {
+      const activeArcs = await storyState.getActiveArcs();
+      if (activeArcs.length > 0) {
+        console.log(`   - RESET MODE: Found ${activeArcs.length} active arc(s), abandoning...`);
+        for (const oldArc of activeArcs) {
+          await storyState.updateArcStatus(oldArc._id, 'abandoned');
+          console.log(`     • Abandoned: "${oldArc.title}"`);
+        }
+      }
+    }
+    
     const activeArcs = await storyState.getActiveArcs();
     let arc = activeArcs.length > 0 ? activeArcs[0] : null;
     
@@ -101,7 +122,15 @@ async function generateNextPage() {
       }
     } else {
       console.log('   - No active arc found, checking if we should create one...');
-      const shouldCreate = await storyPlanner.shouldStartNewArc();
+      
+      let shouldCreate = false;
+      if (forceCreate) {
+        console.log(`   - FORCE MODE: Bypassing all timing checks`);
+        shouldCreate = true;
+      } else {
+        shouldCreate = await storyPlanner.shouldStartNewArc();
+      }
+      
       console.log(`   - Should create new arc: ${shouldCreate}`);
       
       if (shouldCreate) {

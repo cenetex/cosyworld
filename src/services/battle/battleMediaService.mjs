@@ -256,6 +256,92 @@ export class BattleMediaService {
       return null;
     }
   }
+
+  /**
+   * Generate a cinematic video clip from a battle image with background music
+   * This is designed to be triggered by a button click, not automatically
+   * @param {Object} params
+   * @param {string} params.imageUrl - Battle image URL
+   * @param {Object} params.battleContext - Battle context (attacker, defender, outcome, location)
+   * @param {string} [params.channelId] - Discord channel ID
+   * @param {string} [params.guildId] - Discord guild ID
+   * @param {string} [params.userId] - User who requested
+   * @returns {Promise<{jobId: string, status: string}>} Video composition job info
+   */
+  async generateBattleVideoWithMusic({
+    imageUrl,
+    battleContext = {},
+    channelId = null,
+    guildId = null,
+    userId = null
+  }) {
+    try {
+      if (!this.battleVideoComposer) {
+        throw new Error('Battle video composer not available');
+      }
+
+      // Determine battle mood from outcome
+      let mood = 'intense';
+      const outcome = battleContext.outcome;
+      if (outcome === 'dead') mood = 'dramatic';
+      else if (outcome === 'knockout') mood = 'epic';
+      else if (outcome === 'win') mood = 'triumphant';
+
+      // Build video prompt
+      const attacker = battleContext.attacker?.name || 'Fighter';
+      const defender = battleContext.defender?.name || 'Opponent';
+      const location = battleContext.location?.name || 'the battlefield';
+      
+      let videoPrompt = `Cinematic ${mood} battle scene: ${attacker} vs ${defender} at ${location}. `;
+      videoPrompt += 'Dynamic camera movement, dramatic lighting, particle effects, slow-motion impact moments. ';
+      videoPrompt += '16:9 widescreen, both combatants visible, epic cinematography.';
+
+      // Create composition job
+      const jobId = await this.battleVideoComposer.createComposition({
+        imageUrl,
+        prompt: videoPrompt,
+        battleContext: {
+          mood,
+          genre: 'orchestral',
+          tempo: outcome === 'dead' || outcome === 'knockout' ? 'medium' : 'fast',
+          attacker: battleContext.attacker,
+          defender: battleContext.defender,
+          outcome: battleContext.outcome,
+          location: battleContext.location
+        },
+        channelId,
+        guildId,
+        userId
+      });
+
+      this.logger?.info?.(`[BattleMedia] Created video composition job ${jobId} for ${attacker} vs ${defender}`);
+
+      return {
+        jobId,
+        status: 'queued',
+        message: '🎬 Generating cinematic battle video with epic music... This may take 1-2 minutes.'
+      };
+
+    } catch (err) {
+      this.logger?.error?.(`[BattleMedia] Video composition request failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Check status of a video composition job
+   * @param {string} jobId - Job ID
+   * @returns {Promise<object|null>} Job status
+   */
+  async getVideoJobStatus(jobId) {
+    try {
+      if (!this.battleVideoComposer) return null;
+      return await this.battleVideoComposer.getJobStatus(jobId);
+    } catch (err) {
+      this.logger?.error?.(`[BattleMedia] Get job status error: ${err.message}`);
+      return null;
+    }
+  }
 }
 
 export default BattleMediaService;

@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import { parseFirstJson } from '../../utils/jsonParse.mjs';
 
 /**
  * NarrativeGeneratorService
@@ -58,8 +59,7 @@ export class NarrativeGeneratorService {
       minCharacters = 1,
       maxCharacters = 3,
       minLocations = 1,
-      maxLocations = 3,
-      targetBeats = 5
+      maxLocations = 3
     } = options;
     
     try {
@@ -73,6 +73,13 @@ export class NarrativeGeneratorService {
       const contextPrompt = this.worldContextService.formatContextForPrompt(worldContext);
       
       // Generate arc using AI
+      // Decide target beats: prefer explicit option, else derive from plan, else default to 12 (4 chapters)
+      const beatsPerChapter = 3;
+      const derivedBeats = options?.plan?.chapters?.length
+        ? options.plan.chapters.length * beatsPerChapter
+        : undefined;
+      const targetBeats = options?.targetBeats ?? derivedBeats ?? 12;
+
       const arcPrompt = this._buildArcPrompt(contextPrompt, {
         theme: selectedTheme,
         tone: selectedTone,
@@ -86,16 +93,20 @@ export class NarrativeGeneratorService {
       const response = await this.aiService.chat([
         { role: 'user', content: arcPrompt }
       ], {
-        temperature: 0.9 // Higher creativity for story generation
+        temperature: 0.8, // Slightly lower to stay concise
+        // Prefer a strong structured model if available; provider will fallback if not
+        model: 'anthropic/claude-sonnet-4',
+        // Coerce JSON-only output when provider supports it
+        response_format: { type: 'json_object' }
       });
       
-      // Parse AI response
-      const arcData = this._parseArcResponse(response, worldContext);
+  // Parse AI response (metadata only; beats generated later)
+  const arcData = this._parseArcResponse(response, worldContext);
       
       // Enrich with metadata
       arcData.theme = selectedTheme;
       arcData.emotionalTone = selectedTone;
-      arcData.plannedBeats = targetBeats;
+  arcData.plannedBeats = targetBeats;
       arcData.status = 'planning';
       arcData.startedAt = new Date();
       arcData.estimatedCompletionDate = this._estimateCompletionDate(targetBeats);
@@ -123,19 +134,18 @@ export class NarrativeGeneratorService {
 
 ${contextPrompt}
 
-Create an engaging story arc with the following parameters:
+Create an engaging story arc METADATA with the following parameters (do NOT include the beats content):
 - Theme: ${options.theme}
 - Emotional Tone: ${options.tone}
 - Characters: ${options.minCharacters}-${options.maxCharacters} avatars from the list above
 - Locations: ${options.minLocations}-${options.maxLocations} locations
-- Story Beats: ${options.targetBeats} progressive scenes
+- Planned Story Beats: ${options.targetBeats} scenes (this is a number only; beats will be generated later)
 
 REQUIREMENTS:
 1. Select avatars that fit the theme and would have interesting dynamics
 2. Choose locations that enhance the narrative
-3. Plan ${options.targetBeats} beats with clear progression (setup → development → climax → resolution)
-4. Each beat should be visually compelling and emotionally resonant
-5. Keep the tone ${options.tone} throughout
+3. Keep the tone ${options.tone} throughout
+4. Keep output concise; only include METADATA fields, not the story beats themselves
 
 CRITICAL JSON FORMATTING:
 - Respond with ONLY valid JSON
@@ -147,7 +157,7 @@ CRITICAL JSON FORMATTING:
 - Keep descriptions SHORT (under 200 chars) to avoid truncation
 
 {
-  "title": "A captivating story title",
+  "title": "Evocative, specific arc title (3-6 words, no generic phrases; do NOT use 'CosyWorld' or 'A Day in ...')",
   "theme": "${options.theme}",
   "emotionalTone": "${options.tone}",
   "characters": [
@@ -164,17 +174,6 @@ CRITICAL JSON FORMATTING:
       "locationName": "location name",
       "significance": "Brief significance"
     }
-  ],
-  "beats": [
-    {
-      "sequenceNumber": 1,
-      "type": "setup",
-      "description": "Brief description",
-      "location": "location name",
-      "characters": ["character names"],
-      "visualPrompt": "Image prompt",
-      "captionHint": "Brief caption"
-    }
   ]
 }
 
@@ -189,83 +188,30 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
    */
   _parseArcResponse(response, worldContext) {
     try {
-      // Extract JSON from response
-      let text = response.trim();
-      
-      // Try to extract JSON block if wrapped in markdown
-      if (text.includes('```json')) {
-        const jsonBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonBlock) {
-          text = jsonBlock[1];
-        }
-      } else if (text.includes('```')) {
-        const codeBlock = text.match(/```\s*([\s\S]*?)\s*```/);
-        if (codeBlock) {
-          text = codeBlock[1];
-        }
-      }
-      
-      // Extract JSON object
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      
-      // Try to fix common JSON issues
-      let jsonText = jsonMatch[0];
-      
-      // Remove trailing commas before closing braces/brackets
-      jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
-      
-      // Try to fix truncated strings (common issue)
-      // If we have an unterminated string at the end, try to close it
-      const unclosedStringMatch = jsonText.match(/"[^"]*$/);
-      if (unclosedStringMatch) {
-        this.logger.warn('[NarrativeGenerator] Detected truncated string, attempting to fix');
-        jsonText = jsonText.replace(/"[^"]*$/, '');
-        // Remove trailing comma or colon
-        jsonText = jsonText.replace(/[,:]\s*$/, '');
-      }
-      
-      // Try to close unclosed arrays/objects
-      let openBraces = (jsonText.match(/\{/g) || []).length;
-      let closeBraces = (jsonText.match(/\}/g) || []).length;
-      let openBrackets = (jsonText.match(/\[/g) || []).length;
-      let closeBrackets = (jsonText.match(/\]/g) || []).length;
-      
-      if (openBrackets > closeBrackets) {
-        this.logger.warn('[NarrativeGenerator] Closing unclosed arrays');
-        jsonText += ']'.repeat(openBrackets - closeBrackets);
-      }
-      
-      if (openBraces > closeBraces) {
-        this.logger.warn('[NarrativeGenerator] Closing unclosed objects');
-        jsonText += '}'.repeat(openBraces - closeBraces);
-      }
-      
-      const arcData = JSON.parse(jsonText);
-      
-      // Validate required fields
-      if (!arcData.title || !arcData.beats) {
+      // OpenRouter service returns plain string; guard for envelope-shaped objects
+      const rawText = typeof response === 'string' 
+        ? response 
+        : (response?.text || String(response || ''));
+
+      const arcData = parseFirstJson(rawText);
+
+      // Validate required fields (beats are NOT required here)
+      if (!arcData || !arcData.title) {
         throw new Error('Missing required fields in arc data');
       }
-      
-      // Ensure characters array exists and is valid
-      if (!arcData.characters || !Array.isArray(arcData.characters)) {
-        arcData.characters = [];
-      }
-      
-      // Ensure locations array exists
-      if (!arcData.locations || !Array.isArray(arcData.locations)) {
-        arcData.locations = [];
-      }
-      
+
+      // Ensure arrays exist
+      if (!Array.isArray(arcData.characters)) arcData.characters = [];
+      if (!Array.isArray(arcData.locations)) arcData.locations = [];
+
       return arcData;
-      
+
     } catch (error) {
       this.logger.error('[NarrativeGenerator] Error parsing arc response:', error.message);
-      this.logger.error('[NarrativeGenerator] Raw response:', response.substring(0, 500));
+      const preview = typeof response === 'string' ? response : (response?.text || '') ;
+      if (preview) {
+        this.logger.error('[NarrativeGenerator] Raw response:', preview.substring(0, 500));
+      }
       // Return a fallback arc structure with real avatars from world context
       return this._getFallbackArc(worldContext);
     }
@@ -276,6 +222,42 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
    * @private
    */
   _getFallbackArc(worldContext) {
+    // Build a more distinctive fallback title
+    const pick = (arr) => (Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null);
+    const protagonist = worldContext?.avatars && worldContext.avatars.length ? worldContext.avatars[0] : null;
+    const loc = worldContext?.locations && worldContext.locations.length ? worldContext.locations[0] : null;
+
+    const firstWord = (s) => {
+      if (!s) return null;
+      const parts = String(s).trim().split(/\s+/);
+      // Skip leading articles
+      const skip = new Set(['the','a','an']);
+      for (const p of parts) {
+        if (!skip.has(p.toLowerCase())) return p;
+      }
+      return parts[0] || null;
+    };
+
+    let fallbackTitle = null;
+    const pName = firstWord(protagonist?.name);
+    const lName = firstWord(loc?.name);
+    if (pName && lName) fallbackTitle = `${pName} at ${lName}`;
+    else if (pName) fallbackTitle = `${pName}'s Journey`;
+
+    if (!fallbackTitle) {
+      const themeTitles = {
+        journey: ['Footsteps Beyond', 'Paths Unfolding', 'Crossing Thresholds'],
+        discovery: ['Secrets of Eldrador', 'Whispers in the Grove', 'Moonlit Revelations'],
+        celebration: ['Lanterns in Bloom', 'Festival of Echoes', 'Songs of the Vale'],
+        mystery: ['Shadows and Sigils', 'The Hidden Map', 'Veil of Echoes'],
+        conflict: ['Storm at the Gates', 'Fractures of Fate', 'Clash in the Ruins'],
+        reunion: ['Embers Reignited', 'Return to the Grove', 'Threads Rewoven'],
+        adventure: ['Compass of Starlight', 'The Luminous Trail', 'Beyond the Hollow'],
+        transformation: ['Becoming Luminous', 'The Turning of Leaves', 'Chrysalis Dawn']
+      };
+      const themed = pick(themeTitles.discovery);
+      fallbackTitle = themed || 'Whispers of the Vale';
+    }
     // Try to use real avatars from world context
     const characters = [];
     if (worldContext?.avatars && worldContext.avatars.length > 0) {
@@ -300,7 +282,7 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
     }
     
     return {
-      title: 'A Day in CosyWorld',
+      title: fallbackTitle,
       theme: 'discovery',
       emotionalTone: 'lighthearted',
       characters,
@@ -323,6 +305,20 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
   // ============================================================================
   // Story Beat Generation
   // ============================================================================
+
+  /**
+   * Ensure beat has a unique ID
+   * @private
+   * @param {Object} beatData - Beat data
+   * @returns {Object} Beat data with guaranteed ID
+   */
+  _ensureBeatId(beatData) {
+    if (!beatData.id) {
+      beatData.id = crypto.randomUUID();
+      this.logger.debug(`[NarrativeGenerator] Added ID to beat: ${beatData.id}`);
+    }
+    return beatData;
+  }
 
   /**
    * Generate a title card beat for the story arc
@@ -363,16 +359,17 @@ ${arc.characters.map(c => `- ${c.avatarName} (${c.role})`).join('\n')}
 LOCATIONS:
 ${arc.locations.map(l => `- ${l.locationName}`).join('\n')}
 
-Create a title card that:
-1. Provides a compelling 2-3 sentence summary of the story arc and what has happened
-2. Sets the stage for what's coming next
-3. Features a rich visual prompt showing the arc's key characters and locations in an iconic scene
+Create a title card with:
+1. A SHORT title (maximum 8 words, preferably 3-5 words) - NOT the arc title, create a new evocative chapter title
+2. A compelling 2-3 sentence summary of what has happened and what's coming
+3. A rich visual prompt for an iconic establishing shot
 
 Respond ONLY with valid JSON:
 {
   "sequenceNumber": ${nextBeatNumber},
   "type": "title",
-  "description": "Title: ${arc.title}. 2-3 sentence arc summary capturing what has happened and the current state",
+  "title": "Short evocative chapter title (3-8 words maximum)",
+  "description": "2-3 sentences summarizing the story so far and setting up what's next",
   "location": "primary location from arc",
   "characters": ["all main character names"],
   "visualPrompt": "Epic establishing shot showcasing the story's key characters and setting. Cinematic composition, dramatic lighting, rich atmosphere. Include: ${arc.characters.map(c => c.avatarName).join(', ')}. Setting: ${arc.locations[0]?.locationName || 'CosyWorld'}. Style: ${arc.emotionalTone} and ${arc.theme} themed, fantasy art, title card quality",
@@ -391,6 +388,9 @@ Respond ONLY with valid JSON:
       // Ensure type is set to 'title'
       titleCardData.type = 'title';
       
+      // Ensure beat has ID
+      this._ensureBeatId(titleCardData);
+      
       this.logger.info(`[NarrativeGenerator] Generated title card: "${titleCardData.description.substring(0, 60)}..."`);
       
       return titleCardData;
@@ -399,16 +399,17 @@ Respond ONLY with valid JSON:
       this.logger.error('[NarrativeGenerator] Error generating title card:', error);
       // Fallback title card
       const nextBeatNumber = (arc.beats?.length || 0) + 1;
-      return {
+      return this._ensureBeatId({
         id: crypto.randomUUID(),
         sequenceNumber: nextBeatNumber,
         type: 'title',
-        description: `Title: ${arc.title}. A ${arc.theme} story with ${arc.emotionalTone} tone, featuring ${arc.characters.map(c => c.avatarName).join(', ')}.`,
+        title: arc.title,
+        description: `A ${arc.theme} tale unfolds in CosyWorld, where ${arc.characters.map(c => c.avatarName).join(' and ')} embark on a ${arc.emotionalTone} journey.`,
         location: arc.locations[0]?.locationName || 'CosyWorld',
         characters: arc.characters.map(c => c.avatarName),
         visualPrompt: `Epic title card for ${arc.title}. Featuring ${arc.characters.map(c => c.avatarName).join(', ')} in ${arc.locations[0]?.locationName || 'a magical world'}. Cinematic composition, ${arc.emotionalTone} atmosphere, fantasy art style, dramatic lighting`,
         emotionalNote: `A ${arc.emotionalTone} ${arc.theme} tale`
-      };
+      });
     }
   }
 
@@ -427,6 +428,7 @@ Respond ONLY with valid JSON:
     try {
       const nextBeatNumber = (arc.beats?.length || 0) + 1;
       const chapterContext = chapterOptions.chapterContext || null;
+      const evolvingContext = chapterOptions.evolvingContext || null;
       const beatInChapter = chapterOptions.beatInChapter || 1;
       const previousBeatsInChapter = chapterOptions.previousBeats || [];
       
@@ -443,7 +445,8 @@ Respond ONLY with valid JSON:
         worldContext, 
         chapterContext,
         beatInChapter,
-        previousBeatsInChapter
+        previousBeatsInChapter,
+        evolvingContext
       );
       
       const response = await this.aiService.chat([
@@ -454,6 +457,9 @@ Respond ONLY with valid JSON:
       
       // Parse beat response
       const beatData = this._parseBeatResponse(response, nextBeatNumber);
+      
+      // Ensure beat has ID
+      this._ensureBeatId(beatData);
       
       this.logger.info(`[NarrativeGenerator] Generated beat ${nextBeatNumber}: "${beatData.description.substring(0, 50)}..."`);
       
@@ -470,7 +476,7 @@ Respond ONLY with valid JSON:
    * Uses channel summaries for world context
    * @private
    */
-  _buildBeatPrompt(arc, beatNumber, worldContext, chapterContext = null, beatInChapter = 1, previousBeatsInChapter = []) {
+  _buildBeatPrompt(arc, beatNumber, worldContext, chapterContext = null, beatInChapter = 1, previousBeatsInChapter = [], evolvingContext = null) {
     const previousBeats = arc.beats || [];
     const totalBeats = arc.plannedBeats || 5;
     const beatType = this._determineBeatType(beatNumber, totalBeats);
@@ -487,6 +493,36 @@ ${arc.characters.map(c => `- ${c.avatarName} (${c.role}): ${c.characterArc}`).jo
 LOCATIONS:
 ${arc.locations.map(l => `- ${l.locationName}: ${l.significance}`).join('\n')}
 `;
+
+    // Add evolving context (character/location history)
+    if (evolvingContext) {
+      prompt += `\n--- STORY CONTINUITY ---\n`;
+      
+      // Add character history
+      if (evolvingContext.characters && evolvingContext.characters.length > 0) {
+        for (const char of evolvingContext.characters) {
+          if (char.previousRoles && char.previousRoles.length > 0) {
+            prompt += `${char.avatarName} has previously been: ${char.previousRoles.join(', ')}\n`;
+          }
+        }
+        prompt += '\n';
+      }
+      
+      // Add relevant history
+      if (evolvingContext.relevantHistory && evolvingContext.relevantHistory.summary) {
+        prompt += evolvingContext.relevantHistory.summary + '\n\n';
+      }
+      
+      // Add world context
+      if (evolvingContext.worldContext && evolvingContext.worldContext.summary) {
+        prompt += evolvingContext.worldContext.summary + '\n\n';
+      }
+      
+      // Add continuity notes
+      if (evolvingContext.continuityNotes && evolvingContext.continuityNotes.length > 0) {
+        prompt += `IMPORTANT CONTINUITY:\n${evolvingContext.continuityNotes.join('\n')}\n\n`;
+      }
+    }
 
     // Add chapter context if available
     if (chapterContext && chapterContext.chapterInfo) {
@@ -601,7 +637,7 @@ Make this beat advance the story meaningfully while maintaining emotional resona
       
     } catch (error) {
       this.logger.error('[NarrativeGenerator] Error parsing beat:', error);
-      return {
+      return this._ensureBeatId({
         id: crypto.randomUUID(),
         sequenceNumber: beatNumber,
         type: 'development',
@@ -610,7 +646,7 @@ Make this beat advance the story meaningfully while maintaining emotional resona
         characters: [],
         visualPrompt: 'A scene from CosyWorld, whimsical fantasy art',
         emotionalNote: 'Continuing the journey'
-      };
+      });
     }
   }
 
@@ -651,8 +687,7 @@ Caption:`;
       const response = await this.aiService.chat([
         { role: 'user', content: captionPrompt }
       ], {
-        temperature: 0.8,
-        max_tokens: 300
+        temperature: 0.8
       });
       
       return response.trim().replace(/^["']|["']$/g, ''); // Remove quotes if present
@@ -694,8 +729,7 @@ Summary:`;
       const response = await this.aiService.chat([
         { role: 'user', content: summaryPrompt }
       ], {
-        temperature: 0.7,
-        max_tokens: 500
+        temperature: 0.7
       });
       
       return response.trim();

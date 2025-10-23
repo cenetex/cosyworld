@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Archive - CosyWorld</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chapter-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .chapter-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .beat-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .beat-panel.expanded {
+            max-height: 2000px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-12 text-center">
+            <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                CosyWorld Stories
+            </h1>
+            <p class="text-gray-400 text-lg">An ongoing narrative universe</p>
+        </header>
+
+        <!-- Stats -->
+        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <!-- Stats will be populated by JavaScript -->
+        </div>
+
+        <!-- Navigation -->
+        <div class="flex justify-center gap-4 mb-8">
+            <button id="latestBtn" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition">
+                Latest Chapters
+            </button>
+            <button id="archiveBtn" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition">
+                Archive (Arcs)
+            </button>
+            <button id="charactersBtn" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition">
+                Core Characters
+            </button>
+        </div>
+
+        <!-- Latest View -->
+        <div id="latestView" class="view">
+            <h2 class="text-3xl font-bold mb-6">Latest Chapters</h2>
+            <div id="latestChapters" class="space-y-6">
+                <!-- Chapters will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Archive View -->
+        <div id="archiveView" class="view hidden">
+            <h2 class="text-3xl font-bold mb-6">Story Archive (Arcs)</h2>
+            <div id="archiveArcs" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            <div id="pagination" class="mt-8 flex justify-center gap-2">
+                <!-- Pagination will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Characters View -->
+        <div id="charactersView" class="view hidden">
+            <h2 class="text-3xl font-bold mb-6">Core Characters</h2>
+            <p class="text-gray-400 mb-6">The recurring cast that brings continuity to our story universe</p>
+            <div id="coreCharacters" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Characters will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/stories';
+        let currentPage = 1;
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        async function init() {
+            await loadStats();
+            await loadLatest();
+            setupEventListeners();
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('latestBtn').addEventListener('click', () => showView('latest'));
+            document.getElementById('archiveBtn').addEventListener('click', () => {
+                showView('archive');
+                if (currentPage === 1) loadArchive(1);
+            });
+            document.getElementById('charactersBtn').addEventListener('click', () => {
+                showView('characters');
+                loadCharacters();
+            });
+        }
+
+        // View management
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('button[id$="Btn"]').forEach(btn => {
+                btn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                btn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+            });
+
+            const viewId = `${viewName}View`;
+            const btnId = `${viewName}Btn`;
+            
+            document.getElementById(viewId).classList.remove('hidden');
+            const btn = document.getElementById(btnId);
+            btn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+            btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('stats').innerHTML = `
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-3xl font-bold text-purple-400">${data.totalChapters}</div>
+                            <div class="text-sm text-gray-400">Chapters</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-3xl font-bold text-blue-400">${data.totalArcs}</div>
+                            <div class="text-sm text-gray-400">Story Arcs</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-3xl font-bold text-green-400">${data.totalBeats}</div>
+                            <div class="text-sm text-gray-400">Story Beats</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-3xl font-bold text-pink-400">${data.coreCharacters}</div>
+                            <div class="text-sm text-gray-400">Characters</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Load latest chapters
+        async function loadLatest() {
+            try {
+                const response = await fetch(`${API_BASE}/latest`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderChapters(data.chapters, 'latestChapters', true);
+                }
+            } catch (error) {
+                console.error('Failed to load latest:', error);
+            }
+        }
+
+        // Load archive
+        async function loadArchive(page) {
+            try {
+                const response = await fetch(`${API_BASE}/archive?page=${page}&limit=9&view=arcs`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderArcCards(data.arcs || []);
+                    renderPagination(data.pagination || { page, limit: 9, totalPages: 1 });
+                    currentPage = page;
+                }
+            } catch (error) {
+                console.error('Failed to load archive:', error);
+            }
+        }
+
+        // Load core characters
+        async function loadCharacters() {
+            try {
+                const response = await fetch(`${API_BASE}/core-characters`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderCharacters(data.coreCharacters);
+                }
+            } catch (error) {
+                console.error('Failed to load characters:', error);
+            }
+        }
+
+        // Render full chapters (latest view)
+        function renderChapters(chapters, containerId, expandable = false) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = chapters.map(chapter => {
+                const firstBeat = chapter.beats?.[0] || {};
+                const isTitleCard = firstBeat.type === 'title';
+                
+                // Get character avatars for the chapter
+                const characterAvatars = [];
+                for (const beat of (chapter.beats || [])) {
+                    if (beat.characters && Array.isArray(beat.characters)) {
+                        for (const char of beat.characters) {
+                            if (char.imageUrl && !characterAvatars.some(c => c.id === char.avatarId)) {
+                                characterAvatars.push({
+                                    id: char.avatarId,
+                                    name: char.avatarName,
+                                    imageUrl: char.imageUrl
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                return `
+                    <div class="bg-gray-800 rounded-lg overflow-hidden">
+                        ${isTitleCard && firstBeat.generatedImageUrl ? `
+                            <div class="relative h-64 overflow-hidden">
+                                <img src="${firstBeat.generatedImageUrl}" alt="${escapeHtml(firstBeat.title || 'Title Card')}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end">
+                                    <div class="p-6 w-full">
+                                        <div class="text-xs font-semibold text-purple-300 mb-2">TITLE CARD</div>
+                                        <h2 class="text-4xl font-bold mb-2">${escapeHtml(firstBeat.title || 'Chapter ' + chapter.chapterNumber)}</h2>
+                                        <p class="text-gray-300">${escapeHtml(firstBeat.description || chapter.summary)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="text-2xl font-bold">
+                                        ${isTitleCard && firstBeat.title ? escapeHtml(firstBeat.title) : `Chapter ${chapter.chapterNumber}`}
+                                    </h3>
+                                    ${!isTitleCard ? `<p class="text-sm text-gray-400 mt-1">${escapeHtml(chapter.arcTitle || 'Story Arc')}</p>` : ''}
+                                </div>
+                                <span class="text-sm text-gray-400">${new Date(chapter.completedAt).toLocaleDateString()}</span>
+                            </div>
+                            
+                            ${characterAvatars.length > 0 ? `
+                                <div class="flex items-center gap-3 mb-4 pb-4 border-b border-gray-700">
+                                    <span class="text-sm text-gray-400">Featuring:</span>
+                                    <div class="flex gap-2">
+                                        ${characterAvatars.map(char => `
+                                            <div class="flex items-center gap-2 bg-gray-700 rounded-full px-3 py-1">
+                                                <img src="${char.imageUrl}" alt="${escapeHtml(char.name)}" 
+                                                     class="w-6 h-6 rounded-full object-cover">
+                                                <span class="text-sm">${escapeHtml(char.name)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${!isTitleCard ? `<p class="text-gray-300 mb-4">${escapeHtml(chapter.summary)}</p>` : ''}
+                            ${expandable ? `<button onclick="toggleBeats(${chapter.chapterNumber})" class="text-purple-400 hover:text-purple-300 font-semibold">
+                                <span id="toggle-${chapter.chapterNumber}">▼ Show Beats</span>
+                            </button>` : ''}
+                        </div>
+                        <div id="beats-${chapter.chapterNumber}" class="beat-panel bg-gray-900 p-6 space-y-4">
+                            ${chapter.beats.map((beat, i) => {
+                                const beatIsTitleCard = beat.type === 'title';
+                                return `
+                                    <div class="flex gap-4 ${i > 0 ? 'border-t border-gray-700 pt-4' : ''}">
+                                        ${beat.generatedImageUrl ? `
+                                            <img src="${beat.generatedImageUrl}" alt="Beat ${beat.sequenceNumber}" class="w-32 h-32 object-cover rounded">
+                                        ` : ''}
+                                        <div class="flex-1">
+                                            <div class="font-semibold ${beatIsTitleCard ? 'text-purple-400' : 'text-blue-400'} mb-2">
+                                                ${beatIsTitleCard ? `Title Card${beat.title ? ': ' + escapeHtml(beat.title) : ''}` : `Beat ${beat.sequenceNumber}`}
+                                            </div>
+                                            <p class="text-sm text-gray-300">${escapeHtml(beat.description)}</p>
+                                            ${beat.location ? `
+                                                <p class="text-xs text-gray-500 mt-2">📍 ${escapeHtml(beat.location)}</p>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render archive cards (arcs grid view)
+        function renderArcCards(arcs) {
+            const container = document.getElementById('archiveArcs');
+            container.innerHTML = arcs.map(arc => {
+                return `
+                    <div class="chapter-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer" onclick="viewArc('${arc.id}')">
+                        ${arc.thumbnail ? `
+                            <div class="relative">
+                                <img src="${arc.thumbnail}" alt="${escapeHtml(arc.title)}" class="w-full h-48 object-cover">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
+                                    <div class="text-white">
+                                        <div class="text-xs font-semibold text-purple-300 mb-1">${escapeHtml(arc.theme)} • ${escapeHtml(arc.emotionalTone)}</div>
+                                        <div class="text-lg font-bold">${escapeHtml(arc.title)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="w-full h-48 bg-gray-700 flex items-center justify-center">
+                                <span class="text-4xl text-gray-500">📖</span>
+                            </div>
+                        `}
+                        <div class="p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xl font-bold">${escapeHtml(arc.title)}</h3>
+                                <span class="text-xs px-2 py-1 rounded-full ${arc.status === 'completed' ? 'bg-green-700' : 'bg-blue-700'}">${escapeHtml(arc.status)}</span>
+                            </div>
+                            <p class="text-sm text-gray-400 mb-2">${escapeHtml(arc.theme)} • ${escapeHtml(arc.emotionalTone)}</p>
+                            <p class="text-sm text-gray-300 line-clamp-3 mb-3">${escapeHtml(arc.summary)}</p>
+                            <div class="text-xs text-gray-400 flex items-center gap-3">
+                                <span>📚 ${arc.chaptersCount} chapter${arc.chaptersCount !== 1 ? 's' : ''}</span>
+                                <span>•</span>
+                                <span>🧩 ${arc.beatsCount} beat${arc.beatsCount !== 1 ? 's' : ''}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Updated ${arc.lastUpdated ? new Date(arc.lastUpdated).toLocaleDateString() : ''}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render characters
+        function renderCharacters(characters) {
+            const container = document.getElementById('coreCharacters');
+            container.innerHTML = characters.map(char => `
+                <div class="bg-gray-800 rounded-lg p-4 text-center">
+                    <div class="text-3xl mb-2">👤</div>
+                    <h3 class="font-bold mb-1">${char.avatarName}</h3>
+                    <p class="text-sm text-gray-400">${char.appearances} appearance${char.appearances !== 1 ? 's' : ''}</p>
+                    <p class="text-xs text-gray-500 mt-2">
+                        ${char.roles.slice(-3).join(', ')}
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        // Render pagination
+        function renderPagination(pagination) {
+            const container = document.getElementById('pagination');
+            const pages = [];
+            
+            for (let i = 1; i <= pagination.totalPages; i++) {
+                pages.push(`
+                    <button onclick="loadArchive(${i})" class="px-4 py-2 ${i === pagination.page ? 'bg-purple-600' : 'bg-gray-700'} hover:bg-purple-700 rounded transition">
+                        ${i}
+                    </button>
+                `);
+            }
+            
+            container.innerHTML = pages.join('');
+        }
+
+        // Toggle beat visibility
+        function toggleBeats(chapterNumber) {
+            const panel = document.getElementById(`beats-${chapterNumber}`);
+            const toggle = document.getElementById(`toggle-${chapterNumber}`);
+            
+            if (panel.classList.contains('expanded')) {
+                panel.classList.remove('expanded');
+                toggle.textContent = '▼ Show Beats';
+            } else {
+                panel.classList.add('expanded');
+                toggle.textContent = '▲ Hide Beats';
+            }
+        }
+
+        // Expand chapter (when clicking archive card)
+        async function expandChapter(chapterNumber, arcId) {
+            try {
+                const response = await fetch(`${API_BASE}/chapters/${arcId}/${chapterNumber}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Switch to latest view and show the chapter
+                    showView('latest');
+                    document.getElementById('latestChapters').innerHTML = '';
+                    renderChapters([data.chapter], 'latestChapters', true);
+                }
+            } catch (error) {
+                console.error('Failed to load chapter:', error);
+            }
+        }
+
+        // View an arc by showing its latest chapters
+        async function viewArc(arcId) {
+            try {
+                const response = await fetch(`${API_BASE}/latest?arcId=${encodeURIComponent(arcId)}`);
+                const data = await response.json();
+                if (data.success) {
+                    showView('latest');
+                    document.getElementById('latestChapters').innerHTML = '';
+                    renderChapters(data.chapters, 'latestChapters', true);
+                }
+            } catch (error) {
+                console.error('Failed to view arc:', error);
+            }
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

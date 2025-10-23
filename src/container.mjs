@@ -111,6 +111,9 @@ import { NarrativeGeneratorService } from './services/story/narrativeGeneratorSe
 import { StoryPlannerService } from './services/story/storyPlannerService.mjs';
 import { StorySchedulerService } from './services/story/storySchedulerService.mjs';
 import { StoryPostingService } from './services/story/storyPostingService.mjs';
+import { StoryArchiveService } from './services/story/storyArchiveService.mjs';
+import { CharacterContinuityService } from './services/story/characterContinuityService.mjs';
+import { ChapterContextService } from './services/story/chapterContextService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -413,7 +416,10 @@ async function initializeContainer() {
     narrativeGeneratorService: asClass(NarrativeGeneratorService).singleton(),
     storyPlannerService: asClass(StoryPlannerService).singleton(),
     storySchedulerService: asClass(StorySchedulerService).singleton(),
-    storyPostingService: asClass(StoryPostingService).singleton()
+    storyPostingService: asClass(StoryPostingService).singleton(),
+    storyArchiveService: asClass(StoryArchiveService).singleton(),
+    characterContinuityService: asClass(CharacterContinuityService).singleton(),
+    chapterContextService: asClass(ChapterContextService).singleton()
   });
 
   // Dynamically register remaining services
@@ -555,6 +561,13 @@ async function initializeContainer() {
 
   // Initialize Story System
   try {
+    // Create database indexes first
+    if (container.registrations.storyStateService) {
+      const storyState = container.resolve('storyStateService');
+      await storyState.createIndexes();
+      console.log('[container] StoryStateService indexes created.');
+    }
+    
     if (container.registrations.storyPlannerService) {
       const storyPlanner = container.resolve('storyPlannerService');
       await storyPlanner.initialize();

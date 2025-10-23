@@ -244,14 +244,10 @@ Context: ${mediaPayload.context || mediaPayload.prompt || 'An interesting moment
 Make it compelling and reflect your narrator voice. No quotes or extra hashtags.`;
       }
 
-      const response = await this.aiService.chat([
+        const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ], { 
-        model: this.bot.model, 
-        max_tokens: 200,
-        temperature: 0.8 
-      });
+        ], { model: this.bot.model, temperature: 0.8 });
 
       const text = typeof response === 'object' ? response.text : response;
       
@@ -413,11 +409,7 @@ Write 2-3 sentences about your evolving perspective on the CosyWorld community. 
 Be thoughtful and introspective. This is for your own reflection, not for posting.`
       }];
       
-      const response = await this.aiService.chat(narrativePrompt, { 
-        model: this.bot.model, 
-        max_tokens: 300,
-        temperature: 0.7
-      });
+        const response = await this.aiService.chat(narrativePrompt, { model: this.bot.model, temperature: 0.7 });
       
       const narrative = typeof response === 'object' ? response.text : response;
       const cleanNarrative = String(narrative || '')

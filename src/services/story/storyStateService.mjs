@@ -15,10 +15,81 @@ export class StoryStateService {
   constructor({ databaseService, logger }) {
     this.databaseService = databaseService;
     this.logger = logger || console;
+    this.indexesCreated = false;
   }
 
   async _db() {
     return await this.databaseService.getDatabase();
+  }
+
+  /**
+   * Create database indexes for optimal query performance
+   * Called once during initialization
+   */
+  async createIndexes() {
+    if (this.indexesCreated) {
+      return;
+    }
+
+    try {
+      const db = await this._db();
+      
+      this.logger.info('[StoryState] Creating database indexes...');
+      
+      // Helper to safely create indexes
+      const safeCreateIndexes = async (collection, indexes) => {
+        for (const index of indexes) {
+          try {
+            await db.collection(collection).createIndex(index.key, { 
+              name: index.name,
+              unique: index.unique || false
+            });
+          } catch (error) {
+            // Ignore if index already exists
+            if (error.code !== 11000 && !error.message.includes('already exists')) {
+              this.logger.warn(`[StoryState] Could not create index ${index.name} on ${collection}:`, error.message);
+            }
+          }
+        }
+      };
+      
+      // Story arcs indexes
+      await safeCreateIndexes('story_arcs', [
+        { key: { status: 1 }, name: 'idx_status' },
+        { key: { startedAt: -1 }, name: 'idx_started_desc' },
+        { key: { createdAt: -1 }, name: 'idx_created_desc' },
+        { key: { status: 1, startedAt: -1 }, name: 'idx_status_started' },
+        { key: { lastProgressedAt: -1 }, name: 'idx_last_progressed' }
+      ]);
+      
+      // Story plans indexes
+      await safeCreateIndexes('story_plans', [
+        { key: { arcId: 1, status: 1 }, name: 'idx_arc_status' },
+        { key: { status: 1 }, name: 'idx_plan_status' },
+        { key: { createdAt: -1 }, name: 'idx_plan_created' }
+      ]);
+      
+      // Character states indexes
+      await safeCreateIndexes('story_character_states', [
+        { key: { avatarId: 1 }, name: 'idx_avatar', unique: true },
+        { key: { 'storyStats.lastFeaturedAt': 1 }, name: 'idx_last_featured' },
+        { key: { currentArc: 1 }, name: 'idx_current_arc' }
+      ]);
+      
+      // Memory summaries indexes
+      await safeCreateIndexes('story_memory_summaries', [
+        { key: { type: 1, referenceId: 1 }, name: 'idx_type_ref' },
+        { key: { significance: -1, createdAt: -1 }, name: 'idx_significance' },
+        { key: { createdAt: -1 }, name: 'idx_summary_created' }
+      ]);
+      
+      this.indexesCreated = true;
+      this.logger.info('[StoryState] Database indexes created successfully');
+      
+    } catch (error) {
+      this.logger.error('[StoryState] Error creating indexes:', error);
+      // Don't throw - indexes are optimization, not critical
+    }
   }
 
   // ============================================================================
@@ -103,6 +174,17 @@ export class StoryStateService {
   }
 
   /**
+   * Count arcs matching filter
+   * @param {Object} filter - MongoDB filter
+   * @returns {Promise<number>}
+   */
+  async countArcs(filter = {}) {
+    const db = await this._db();
+    const arcs = db.collection('story_arcs');
+    return await arcs.countDocuments(filter);
+  }
+
+  /**
    * Update story arc
    * @param {string|ObjectId} arcId - Arc ID
    * @param {Object} updates - Fields to update
@@ -140,16 +222,24 @@ export class StoryStateService {
       postedAt: beatData.postedAt || new Date()
     };
     
+    // Only increment completedBeats for non-title beats
+    // Title cards are structural, not story progression
+    const isStoryBeat = beat.type !== 'title';
+    const updateOps = { 
+      $push: { beats: beat },
+      $set: { 
+        lastProgressedAt: new Date(),
+        updatedAt: new Date()
+      }
+    };
+    
+    if (isStoryBeat) {
+      updateOps.$inc = { completedBeats: 1 };
+    }
+    
     const result = await arcs.findOneAndUpdate(
       { _id: new ObjectId(arcId) },
-      { 
-        $push: { beats: beat },
-        $inc: { completedBeats: 1 },
-        $set: { 
-          lastProgressedAt: new Date(),
-          updatedAt: new Date()
-        }
-      },
+      updateOps,
       { returnDocument: 'after' }
     );
     
@@ -240,14 +330,35 @@ export class StoryStateService {
     const db = await this._db();
     const states = db.collection('story_character_states');
     
+    // Allow callers to pass Mongo update operators (e.g., $inc) alongside plain fields
+    const operatorKeys = ['$set', '$inc', '$push', '$addToSet', '$unset', '$pull'];
+    const hasOperators = Object.keys(updates || {}).some(k => operatorKeys.includes(k));
+    const ops = {};
+
+    if (hasOperators) {
+      // Copy through provided operators
+      for (const k of operatorKeys) {
+        if (updates[k] && typeof updates[k] === 'object') {
+          ops[k] = { ...(ops[k] || {}), ...updates[k] };
+        }
+      }
+      // Any top-level non-operator fields should be treated as $set
+      const topLevelSet = Object.fromEntries(
+        Object.entries(updates).filter(([k]) => !operatorKeys.includes(k))
+      );
+      if (Object.keys(topLevelSet).length > 0) {
+        ops.$set = { ...(ops.$set || {}), ...topLevelSet };
+      }
+      // Always update the timestamp
+      ops.$set = { ...(ops.$set || {}), updatedAt: new Date() };
+    } else {
+      // Plain field updates -> convert to $set and add timestamp
+      ops.$set = { ...(updates || {}), updatedAt: new Date() };
+    }
+
     const result = await states.updateOne(
       { avatarId: new ObjectId(avatarId) },
-      { 
-        $set: { 
-          ...updates, 
-          updatedAt: new Date() 
-        } 
-      },
+      ops,
       { upsert: true }
     );
     
@@ -461,6 +572,46 @@ export class StoryStateService {
         : 0
     };
   }
+
+  /**
+   * Get character pool
+   * @returns {Promise<Object|null>} Character pool
+   */
+  async getCharacterPool() {
+    try {
+      const db = await this._db();
+      const pool = await db.collection('story_character_pool').findOne({});
+      return pool;
+    } catch (error) {
+      this.logger.error('[StoryState] Error getting character pool:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save character pool
+   * @param {Object} pool - Character pool data
+   * @returns {Promise<Object>} Saved pool
+   */
+  async saveCharacterPool(pool) {
+    try {
+      const db = await this._db();
+      
+      // Upsert (update or insert)
+      const result = await db.collection('story_character_pool').replaceOne(
+        {},
+        pool,
+        { upsert: true }
+      );
+      
+      this.logger.info('[StoryState] Character pool saved');
+      return { ...pool, _id: result.upsertedId || pool._id };
+    } catch (error) {
+      this.logger.error('[StoryState] Error saving character pool:', error);
+      throw error;
+    }
+  }
 }
 
 export default StoryStateService;
+

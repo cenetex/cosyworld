@@ -15,6 +15,7 @@ export class StoryPostingService {
     xService,
     googleAIService,
     aiService,
+    schemaService,
     veoService,
     narrativeGeneratorService,
     storyStateService,
@@ -27,6 +28,7 @@ export class StoryPostingService {
     this.x = xService;
     this.googleAI = googleAIService;
     this.aiService = aiService;
+  this.schemaService = schemaService;
     this.veo = veoService;
     this.narrativeGenerator = narrativeGeneratorService;
     this.storyState = storyStateService;
@@ -54,20 +56,25 @@ export class StoryPostingService {
         return { success: false, error: 'Media generation failed' };
       }
       
-      // Generate caption
-      const caption = await this.narrativeGenerator.generateCaption(beat, arc, mediaUrl);
+      // Use description as caption (no separate caption generation)
+      const caption = beat.description;
       
       // Post to social platforms
       const posts = await this._postToSocial(mediaUrl, caption, arc, beat);
       
       // Update beat with media URL and post IDs using beat ID for reliable identification
       // Find the beat index by ID (preferred) or fall back to sequenceNumber for old beats
-      const beatIndex = beat.id 
-        ? arc.beats.findIndex(b => b.id === beat.id)
-        : beat.sequenceNumber - 1;
+      let beatIndex = -1;
+      if (beat.id) {
+        beatIndex = arc.beats.findIndex(b => b.id === beat.id);
+      }
+      // If not found by ID, try sequenceNumber (backwards compatibility)
+      if (beatIndex === -1 && beat.sequenceNumber) {
+        beatIndex = arc.beats.findIndex(b => b.sequenceNumber === beat.sequenceNumber);
+      }
       
       if (beatIndex === -1) {
-        this.logger.error(`[StoryPosting] Could not find beat with ID ${beat.id} in arc`);
+        this.logger.error(`[StoryPosting] Could not find beat with ID ${beat.id} or sequence ${beat.sequenceNumber} in arc`);
         throw new Error('Beat not found in arc');
       }
       
@@ -108,7 +115,7 @@ export class StoryPostingService {
   /**
    * Generate media for beat using composition of real avatars
    * Uses the same composition logic as SceneCameraTool
-   * Special handling for title cards
+   * Special handling for title cards and video generation for climax beats
    * @private
    */
   async _generateMedia(beat, arc) {
@@ -119,20 +126,35 @@ export class StoryPostingService {
         return await this._generateTitleCardImage(beat, arc);
       }
       
-      // Determine media type (for MVP, always use images)
-      const useVideo = beat.type === 'climax' && this.veo && typeof this.veo.generateVideo === 'function';
+      // Determine if we should generate video for climax beats
+      const useVideo = beat.type === 'climax' && this.veo && typeof this.veo.generateVideosFromImages === 'function';
       
       if (useVideo) {
         this.logger.info('[StoryPosting] Generating video for climax beat...');
         try {
-          const videoResult = await this.veo.generateVideo({
-            prompt: beat.visualPrompt,
-            length: 5,
-            aspectRatio: '16:9'
-          });
+          // First generate the keyframe image
+          const keyframeUrl = await this._generateStoryImage(beat, arc);
           
-          if (videoResult?.url) {
-            return videoResult.url;
+          if (keyframeUrl) {
+            // Download keyframe as base64
+            const keyframeBuffer = await this.s3Service.downloadImage(keyframeUrl);
+            const keyframeBase64 = keyframeBuffer.toString('base64');
+            
+            // Generate video from keyframe using Veo
+            const videoUrls = await this.veo.generateVideosFromImages({
+              prompt: beat.visualPrompt || `Cinematic scene from ${arc.title}`,
+              images: [{ data: keyframeBase64, mimeType: 'image/png', label: 'keyframe' }],
+              config: {
+                aspectRatio: '16:9',
+                numberOfVideos: 1,
+                durationSeconds: 5 // 5-second climax video
+              }
+            });
+            
+            if (videoUrls && videoUrls.length > 0) {
+              this.logger.info(`[StoryPosting] Generated climax video: ${videoUrls[0]}`);
+              return videoUrls[0];
+            }
           }
         } catch (e) {
           this.logger.warn(`[StoryPosting] Video generation failed: ${e.message}`);
@@ -141,6 +163,22 @@ export class StoryPostingService {
         this.logger.warn('[StoryPosting] Falling back to image generation');
       }
       
+      // Generate standard image for non-video beats
+      return await this._generateStoryImage(beat, arc);
+      
+    } catch (error) {
+      this.logger.error('[StoryPosting] Error in _generateMedia:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate image for story beat
+   * Extracted into separate method to support video generation workflow
+   * @private
+   */
+  async _generateStoryImage(beat, arc) {
+    try {
       // Get avatar data from arc characters
       // If beat.characters is empty or undefined, use all arc characters
       const avatarIds = arc.characters
@@ -255,10 +293,31 @@ export class StoryPostingService {
         return null;
       };
       
+      // Final fallback: use schemaService if available (keeps unit tests compatible)
+      const trySchemaService = async () => {
+        if (!this.schemaService?.generateImage) return null;
+        try {
+          // If we couldn't build image buffers, pass through URLs when available
+          const imageUrls = [];
+          for (const av of avatars) {
+            if (av?.imageUrl) imageUrls.push(av.imageUrl);
+          }
+          if (location?.imageUrl) imageUrls.unshift(location.imageUrl);
+          const promptForSchema = typeof beat.visualPrompt === 'string' ? beat.visualPrompt : compositePrompt;
+          return await this.schemaService.generateImage(promptForSchema, '1:1', { images: imageUrls, ...metadata });
+        } catch (e) {
+          this.logger.warn('[StoryPosting] schemaService.generateImage failed: ' + (e?.message || e));
+          return null;
+        }
+      };
+      
       // Try composition first on primary AI service, then google, then fallback to generation
       imageUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
       if (!imageUrl && this.googleAI) {
         imageUrl = await tryCompose(this.googleAI) || await tryGenerate(this.googleAI);
+      }
+      if (!imageUrl) {
+        imageUrl = await trySchemaService();
       }
       
       if (!imageUrl) {

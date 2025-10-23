@@ -145,16 +145,33 @@ export class StoryPlanService {
             { role: 'user', content: evolutionPrompt }
           ], {
             model: 'anthropic/claude-sonnet-4',
-            max_tokens: 1500,
             temperature: 0.7
           });
           
-          const responseText = String(response?.text || response || '').trim();
-          
-          // Parse response (expecting JSON)
-          try {
-            evolvedPlan = JSON.parse(responseText);
-          } catch {
+          let responseText = String(response?.text || response || '').trim();
+
+          // Attempt to parse JSON; if it fails, try to extract a JSON block from the text
+          const tryParseJson = (text) => {
+            try {
+              return JSON.parse(text);
+            } catch {
+              // Try to locate the largest {...} block
+              const first = text.indexOf('{');
+              const last = text.lastIndexOf('}');
+              if (first !== -1 && last !== -1 && last > first) {
+                const candidate = text.slice(first, last + 1);
+                try {
+                  return JSON.parse(candidate);
+                } catch {}
+              }
+              return null;
+            }
+          };
+
+          const parsed = tryParseJson(responseText);
+          if (parsed) {
+            evolvedPlan = parsed;
+          } else {
             // If not JSON, extract key information
             this.logger.warn('[StoryPlan] AI response was not JSON, using text');
             evolvedPlan = {
@@ -225,7 +242,7 @@ export class StoryPlanService {
   /**
    * Mark a chapter as completed and advance to next
    * @param {Object} arcId - Arc ID
-   * @param {number} chapterNumber - Completed chapter number
+   * @param {number} chapterNumber - Completed chapter number (0-based index)
    * @returns {Promise<Object>} Updated plan
    */
   async completeChapter(arcId, chapterNumber) {
@@ -237,19 +254,30 @@ export class StoryPlanService {
       throw new Error(`No active plan for arc ${arcId}`);
     }
     
-    await plans.updateOne(
-      { _id: plan._id },
+    // Atomic increment to prevent race conditions
+    // Only update if we're still on the expected chapter
+    const result = await plans.findOneAndUpdate(
+      { 
+        _id: plan._id,
+        currentChapter: chapterNumber  // Only update if still on this chapter
+      },
       {
         $set: {
           currentChapter: chapterNumber + 1,
           lastUpdated: new Date()
         }
-      }
+      },
+      { returnDocument: 'after' }
     );
     
-    this.logger.info(`[StoryPlan] Completed chapter ${chapterNumber} for arc ${arcId}`);
+    if (!result) {
+      this.logger.warn(`[StoryPlan] Chapter ${chapterNumber} already completed for arc ${arcId}`);
+      return await this.getActivePlan(arcId);
+    }
     
-    return await plans.findOne({ _id: plan._id });
+    this.logger.info(`[StoryPlan] Completed chapter ${chapterNumber} for arc ${arcId}, advanced to chapter ${chapterNumber + 1}`);
+    
+    return result;
   }
 
   /**
