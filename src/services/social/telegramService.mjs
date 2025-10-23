@@ -449,11 +449,18 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           if (!this.conversationHistory.has(String(ctx.chat.id))) {
             this.conversationHistory.set(String(ctx.chat.id), []);
           }
-          this.conversationHistory.get(String(ctx.chat.id)).push({
+          const botMessage = {
             from: 'Bot',
             text: acknowledgment,
-            date: Date.now()
-          });
+            date: Math.floor(Date.now() / 1000),
+            isBot: true
+          };
+          this.conversationHistory.get(String(ctx.chat.id)).push(botMessage);
+          
+          // Persist to database
+          this._saveMessageToDatabase(String(ctx.chat.id), botMessage).catch(err => 
+            this.logger?.error?.('[TelegramService] Failed to save bot acknowledgment:', err)
+          );
         }
         
         // Then execute the tools (which generate media)
@@ -1491,13 +1498,20 @@ ${recentContext ? `Recent channel conversation for context:\n${recentContext}\n\
       if (!this.conversationHistory.has(channelId)) {
         this.conversationHistory.set(channelId, []);
       }
-      this.conversationHistory.get(channelId).push({
+      const botMessage = {
         from: 'Bot',
         text: cleanMessage,
-        date: Date.now()
-      });
+        date: Math.floor(Date.now() / 1000),
+        isBot: true
+      };
+      this.conversationHistory.get(channelId).push(botMessage);
+      
+      // Persist to telegram_messages collection
+      this._saveMessageToDatabase(channelId, botMessage).catch(err => 
+        this.logger?.error?.('[TelegramService] Failed to save proactive message:', err)
+      );
 
-      // Store in database
+      // Store in social_posts database for analytics
       const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({
         global: true,
