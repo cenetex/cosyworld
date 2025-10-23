@@ -46,6 +46,7 @@ export function registerStoryPublicRoutes(app, services) {
         locations: arc.locations || [],
         beats: (arc.beats || [])
           .map(beat => ({
+            id: beat.id,
             sequenceNumber: beat.sequenceNumber,
             type: beat.type,
             description: beat.description,
@@ -111,6 +112,7 @@ export function registerStoryPublicRoutes(app, services) {
         locations: arc.locations || [],
         beats: (arc.beats || [])
           .map(beat => ({
+            id: beat.id,
             sequenceNumber: beat.sequenceNumber,
             type: beat.type,
             description: beat.description,

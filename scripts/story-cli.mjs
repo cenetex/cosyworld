@@ -1,21 +1,56 @@
 /**
- * Story Page Generator
+ * Story CLI
  * 
- * Generates the next page (3 beats) of the active story arc.
+ * Command-line interface for managing story generation.
  * 
  * Usage:
- *   node scripts/testStorySystem.mjs          # Generate next page
- *   node scripts/testStorySystem.mjs --reset  # Reset and start new story
+ *   node scripts/story-cli.mjs              # Generate next chapter (3 beats) for active arc
+ *   node scripts/story-cli.mjs --reset      # Start a new story arc
+ *   node scripts/story-cli.mjs --force      # Force create new arc (bypass timing restrictions)
+ *   node scripts/story-cli.mjs --help       # Show this help
  */
 
 import { container, containerReady } from '../src/container.mjs';
 
-// Check for --reset flag
-const shouldReset = process.argv.includes('--reset');
+// Parse command line arguments
+const args = process.argv.slice(2);
+const shouldReset = args.includes('--reset');
+const forceCreate = args.includes('--force');
+const showHelp = args.includes('--help') || args.includes('-h');
+
+if (showHelp) {
+  console.log(`
+Story CLI - Manage story generation for CosyWorld
+
+Usage:
+  node scripts/story-cli.mjs [options]
+
+Options:
+  (none)      Generate next chapter (3 beats) for active arc
+  --reset     Start a new story arc
+  --force     Force create new arc (bypass timing restrictions)
+  --help, -h  Show this help message
+
+Examples:
+  node scripts/story-cli.mjs              # Continue existing story
+  node scripts/story-cli.mjs --force      # Force new arc creation
+  node scripts/story-cli.mjs --reset      # Start fresh story
+
+Note: Each chapter contains exactly 3 beats (story posts).
+Recommended: 1 chapter per day for optimal pacing.
+`);
+  process.exit(0);
+}
 
 async function generateNextPage() {
   console.log('='.repeat(60));
-  console.log(shouldReset ? '🔄 RESETTING STORY' : '📖 GENERATING NEXT PAGE');
+  if (shouldReset) {
+    console.log('🔄 RESETTING STORY');
+  } else if (forceCreate) {
+    console.log('⚡ FORCE CREATING NEW ARC');
+  } else {
+    console.log('📖 GENERATING NEXT CHAPTER');
+  }
   console.log('='.repeat(60));
   console.log('');
 
@@ -101,8 +136,13 @@ async function generateNextPage() {
       }
     } else {
       console.log('   - No active arc found, checking if we should create one...');
-      const shouldCreate = await storyPlanner.shouldStartNewArc();
-      console.log(`   - Should create new arc: ${shouldCreate}`);
+      const shouldCreate = forceCreate || await storyPlanner.shouldStartNewArc();
+      
+      if (forceCreate && !shouldCreate) {
+        console.log(`   - Force flag enabled: bypassing timing restrictions`);
+      } else {
+        console.log(`   - Should create new arc: ${shouldCreate}`);
+      }
       
       if (shouldCreate) {
         console.log('');
@@ -259,12 +299,19 @@ async function generateNextPage() {
     console.log('1. Visit http://localhost:3000/stories to view the story');
     console.log('2. Check your Telegram channel for the posted beats');
     console.log('3. Check your X/Twitter feed for the posted beats');
-    console.log('4. Run this script again to generate the next chapter (3 more beats)');
+    console.log('4. Generate next chapter: node scripts/story-cli.mjs');
     console.log('5. Start the scheduler to automate: POST /api/admin/story/scheduler/start');
     console.log('   (Scheduler will generate 1 chapter per day automatically)');
     console.log('');
+    console.log('Commands:');
+    console.log('  node scripts/story-cli.mjs         # Continue existing story');
+    console.log('  node scripts/story-cli.mjs --force # Force create new arc');
+    console.log('  node scripts/story-cli.mjs --help  # Show help');
+    console.log('');
     console.log(`Arc ID: ${arc._id}`);
     console.log(`Arc progress: ${arc.beats?.length || 0}/${arc.plannedBeats} beats`);
+    console.log(`Story URL: http://localhost:3000/stories`);
+    console.log(`LAN URL: http://10.117.1.123:3000/stories (from laptop on same WiFi)`);
     console.log('');
 
   } catch (error) {

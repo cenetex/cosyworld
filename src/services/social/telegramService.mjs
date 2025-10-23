@@ -103,8 +103,10 @@ class TelegramService {
         try {
           await this.globalBot.stop('SIGTERM');
           this.logger?.info?.('[TelegramService] Stopped existing bot instance');
-        } catch {
-          this.logger?.debug?.('[TelegramService] No existing bot to stop');
+          // Give Telegram API a moment to clean up
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (stopErr) {
+          this.logger?.debug?.('[TelegramService] Error stopping existing bot:', stopErr.message);
         }
       }
 
@@ -149,12 +151,23 @@ class TelegramService {
       // Set up message handlers for conversations
       this.setupMessageHandlers();
       
-      // Launch the bot (uses long polling by default, which Telegram handles gracefully)
+      // Launch the bot with timeout protection
       // Telegram will automatically disconnect any other instance using the same token
-      // Don't await launch() - it starts a long-running polling process
-      this.globalBot.launch().catch(err => {
-        this.logger?.error?.('[TelegramService] Bot launch error:', err.message);
+      const launchTimeout = 30000; // 30 seconds timeout
+      const launchPromise = this.globalBot.launch();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Bot launch timeout - this usually means the bot is starting up or there are network issues')), launchTimeout);
       });
+      
+      try {
+        // Race the launch against the timeout
+        await Promise.race([launchPromise, timeoutPromise]);
+        this.logger?.info?.('[TelegramService] Bot launch initiated successfully');
+      } catch (launchErr) {
+        // If launch times out or fails, log it but don't fail startup
+        // The bot may still work, we'll verify with getMe() call
+        this.logger?.warn?.('[TelegramService] Bot launch warning:', launchErr.message);
+      }
       
       // Verify bot connection with retry logic (network issues can cause ECONNRESET)
       let botInfo = null;
@@ -474,9 +487,10 @@ class TelegramService {
             chat: { id: channelId },
             message: {
               text: lastMessage.text,
-              from: { first_name: lastMessage.from },
+              from: { first_name: lastMessage.from, id: 'unknown' },
               date: lastMessage.date
             },
+            telegram: this.globalBot.telegram, // CRITICAL: Need this for sendPhoto/sendVideo
             reply: async (text) => {
               return await this.globalBot.telegram.sendMessage(channelId, text);
             }

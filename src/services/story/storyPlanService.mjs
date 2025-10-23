@@ -168,9 +168,18 @@ export class StoryPlanService {
           // Keep current plan
           evolvedPlan = {
             theme: currentPlan.overallTheme,
-            chapters: currentPlan.plannedChapters
+            chapters: currentPlan.plannedChapters,
+            evolutionNote: 'Plan evolution failed, maintaining current structure'
           };
         }
+      } else {
+        // No AI service provided, maintain current plan structure
+        this.logger.warn('[StoryPlan] No AI service provided, maintaining current plan');
+        evolvedPlan = {
+          theme: currentPlan.overallTheme,
+          chapters: currentPlan.plannedChapters,
+          evolutionNote: 'Plan maintained without AI evolution'
+        };
       }
       
       // Update plan

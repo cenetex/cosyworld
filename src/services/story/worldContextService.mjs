@@ -40,9 +40,32 @@ export class WorldContextService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysSince);
     
+    // Filter out system/global avatars (global narrator, system bots, etc.)
+    const excludeFilter = {
+      type: { $ne: 'global_narrator' },
+      status: { $ne: 'immortal' }
+    };
+    
+    // Try to find avatars with recent lastActiveAt timestamps
+    const activeAvatars = await avatars
+      .find({
+        lastActiveAt: { $gte: cutoffDate },
+        ...excludeFilter
+      })
+      .sort({ lastActiveAt: -1 })
+      .limit(limit)
+      .toArray();
+    
+    // If we found recently active avatars, return them
+    if (activeAvatars && activeAvatars.length > 0) {
+      return activeAvatars;
+    }
+    
+    // Fallback: Use createdAt for avatars without lastActiveAt (legacy data)
     return await avatars
       .find({
-        createdAt: { $gte: cutoffDate }
+        createdAt: { $gte: cutoffDate },
+        ...excludeFilter
       })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -50,7 +73,7 @@ export class WorldContextService {
   }
 
   /**
-   * Get all avatars
+   * Get all avatars (excluding system/global avatars)
    * @param {number} limit - Maximum number of avatars
    * @returns {Promise<Array>}
    */
@@ -58,14 +81,16 @@ export class WorldContextService {
     const db = await this._db();
     const avatars = db.collection('avatars');
     
+    // Filter out system/global avatars
     return await avatars
-      .find({})
+      .find({
+        type: { $ne: 'global_narrator' },
+        status: { $ne: 'immortal' }
+      })
       .sort({ createdAt: -1 })
       .limit(limit)
       .toArray();
-  }
-
-  /**
+  }  /**
    * Get avatar by ID
    * @param {string|ObjectId} avatarId - Avatar ID
    * @returns {Promise<Object|null>}
@@ -412,12 +437,15 @@ export class WorldContextService {
     
     // PRIORITY 2: Get active avatars (from meta-summary or direct query)
     if (includeAvatars) {
-      if (context.metaSummary?.avatars) {
+      if (context.metaSummary?.avatars && context.metaSummary.avatars.length > 0) {
         // Use avatars from meta-summary (already enriched)
         context.avatars = context.metaSummary.avatars;
       } else {
-        // Fallback to direct query
+        // Fallback to direct query - try active first, then all avatars
         context.avatars = await this.getActiveAvatars(avatarLimit);
+        if (!context.avatars || context.avatars.length === 0) {
+          context.avatars = await this.getAllAvatars(avatarLimit);
+        }
       }
     }
     
@@ -483,11 +511,17 @@ export class WorldContextService {
       prompt += '--- ACTIVE AVATARS ---\n';
       const avatarSample = context.avatars.slice(0, 20);
       for (const avatar of avatarSample) {
-        const id = avatar.id || avatar._id;
+        // Ensure ID is a string (convert ObjectId if needed)
+        const id = avatar.id 
+          ? avatar.id.toString() 
+          : avatar._id 
+            ? avatar._id.toString() 
+            : null;
         const name = avatar.name;
         const emoji = avatar.emoji || '';
         const desc = avatar.description || 'A resident of CosyWorld';
-        prompt += `• ${name} ${emoji} (ID: ${id}): ${desc}\n`;
+        const imageUrl = avatar.imageUrl ? ' [has image]' : '';
+        prompt += `• ${name} ${emoji} (ID: ${id}): ${desc}${imageUrl}\n`;
       }
       prompt += '\n';
     }
@@ -496,7 +530,12 @@ export class WorldContextService {
     if (context.locations && context.locations.length > 0) {
       prompt += '--- KNOWN LOCATIONS ---\n';
       for (const location of context.locations.slice(0, 10)) {
-        const id = location.id || location._id;
+        // Ensure ID is a string (convert ObjectId if needed)
+        const id = location.id 
+          ? location.id.toString() 
+          : location._id 
+            ? location._id.toString() 
+            : null;
         const name = location.name;
         const desc = location.description || 'A place in CosyWorld';
         prompt += `• ${name} (ID: ${id}): ${desc}\n`;

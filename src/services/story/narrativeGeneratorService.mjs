@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import crypto from 'crypto';
+
 /**
  * NarrativeGeneratorService
  * 
@@ -305,6 +307,7 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
       locations,
       beats: [
         {
+          id: crypto.randomUUID(), // Add GUID to fallback beat
           sequenceNumber: 1,
           type: 'setup',
           description: 'The sun rises over CosyWorld, bringing new possibilities.',
@@ -322,19 +325,126 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
   // ============================================================================
 
   /**
-   * Generate the next beat in a story arc
+   * Generate a title card beat for the story arc
+   * Title cards appear every 9 beats (3 chapters) and summarize the story so far
    * @param {Object} arc - Current story arc
-   * @param {Object} worldContext - Current world state
-   * @returns {Promise<Object>} Generated beat
+   * @param {Object} _worldContext - Current world state (reserved for future use)
+   * @returns {Promise<Object>} Generated title card beat
    */
-  async generateBeat(arc, worldContext) {
+  async generateTitleCard(arc, _worldContext) {
     try {
       const nextBeatNumber = (arc.beats?.length || 0) + 1;
+      const totalBeats = arc.beats?.length || 0;
+      const chaptersCompleted = Math.floor(totalBeats / 3);
       
-      this.logger.info(`[NarrativeGenerator] Generating beat ${nextBeatNumber} for arc "${arc.title}"`);
+      this.logger.info(`[NarrativeGenerator] Generating title card for arc "${arc.title}" at beat ${nextBeatNumber} (after ${chaptersCompleted} chapters)`);
       
-      // Build beat prompt
-      const beatPrompt = this._buildBeatPrompt(arc, nextBeatNumber, worldContext);
+      // Create a summary of the story so far
+      const recentBeats = arc.beats?.slice(-9) || []; // Last 9 beats (3 chapters)
+      const storySummary = recentBeats.length > 0
+        ? recentBeats.map((b, i) => `${i + 1}. ${b.description}`).join('\n')
+        : 'The story begins...';
+      
+      const titleCardPrompt = `You are creating a title card for CosyWorld story arc.
+
+STORY ARC: "${arc.title}"
+Theme: ${arc.theme}
+Emotional Tone: ${arc.emotionalTone}
+
+CHAPTERS COMPLETED: ${chaptersCompleted}
+TOTAL BEATS SO FAR: ${totalBeats}
+
+STORY SO FAR:
+${storySummary}
+
+CHARACTERS:
+${arc.characters.map(c => `- ${c.avatarName} (${c.role})`).join('\n')}
+
+LOCATIONS:
+${arc.locations.map(l => `- ${l.locationName}`).join('\n')}
+
+Create a title card that:
+1. Provides a compelling 2-3 sentence summary of the story arc and what has happened
+2. Sets the stage for what's coming next
+3. Features a rich visual prompt showing the arc's key characters and locations in an iconic scene
+
+Respond ONLY with valid JSON:
+{
+  "sequenceNumber": ${nextBeatNumber},
+  "type": "title",
+  "description": "Title: ${arc.title}. 2-3 sentence arc summary capturing what has happened and the current state",
+  "location": "primary location from arc",
+  "characters": ["all main character names"],
+  "visualPrompt": "Epic establishing shot showcasing the story's key characters and setting. Cinematic composition, dramatic lighting, rich atmosphere. Include: ${arc.characters.map(c => c.avatarName).join(', ')}. Setting: ${arc.locations[0]?.locationName || 'CosyWorld'}. Style: ${arc.emotionalTone} and ${arc.theme} themed, fantasy art, title card quality",
+  "emotionalNote": "This is a ${arc.emotionalTone} ${arc.theme} story"
+}`;
+
+      const response = await this.aiService.chat([
+        { role: 'user', content: titleCardPrompt }
+      ], {
+        temperature: 0.7 // Slightly lower for more consistent title cards
+      });
+      
+      // Parse the response
+      const titleCardData = this._parseBeatResponse(response, nextBeatNumber);
+      
+      // Ensure type is set to 'title'
+      titleCardData.type = 'title';
+      
+      this.logger.info(`[NarrativeGenerator] Generated title card: "${titleCardData.description.substring(0, 60)}..."`);
+      
+      return titleCardData;
+      
+    } catch (error) {
+      this.logger.error('[NarrativeGenerator] Error generating title card:', error);
+      // Fallback title card
+      const nextBeatNumber = (arc.beats?.length || 0) + 1;
+      return {
+        id: crypto.randomUUID(),
+        sequenceNumber: nextBeatNumber,
+        type: 'title',
+        description: `Title: ${arc.title}. A ${arc.theme} story with ${arc.emotionalTone} tone, featuring ${arc.characters.map(c => c.avatarName).join(', ')}.`,
+        location: arc.locations[0]?.locationName || 'CosyWorld',
+        characters: arc.characters.map(c => c.avatarName),
+        visualPrompt: `Epic title card for ${arc.title}. Featuring ${arc.characters.map(c => c.avatarName).join(', ')} in ${arc.locations[0]?.locationName || 'a magical world'}. Cinematic composition, ${arc.emotionalTone} atmosphere, fantasy art style, dramatic lighting`,
+        emotionalNote: `A ${arc.emotionalTone} ${arc.theme} tale`
+      };
+    }
+  }
+
+  /**
+   * Generate the next beat in a story arc
+   * @param {Object} arc - Current story arc
+   * @param {Object} worldContext - Current world state (with channel summaries)
+   * @param {Object} chapterOptions - Chapter context for beat generation
+   * @param {Object} chapterOptions.chapterContext - Plan context for current chapter
+   * @param {number} chapterOptions.beatInChapter - Position of beat within chapter (1-3)
+   * @param {number} chapterOptions.totalBeatsInChapter - Total beats in chapter (usually 3)
+   * @param {Array} chapterOptions.previousBeats - Previously generated beats in this chapter
+   * @returns {Promise<Object>} Generated beat
+   */
+  async generateBeat(arc, worldContext, chapterOptions = {}) {
+    try {
+      const nextBeatNumber = (arc.beats?.length || 0) + 1;
+      const chapterContext = chapterOptions.chapterContext || null;
+      const beatInChapter = chapterOptions.beatInChapter || 1;
+      const previousBeatsInChapter = chapterOptions.previousBeats || [];
+      
+      if (chapterContext) {
+        this.logger.info(`[NarrativeGenerator] Generating beat ${nextBeatNumber} (Chapter ${chapterContext.currentChapter + 1}, Beat ${beatInChapter}/3) for arc "${arc.title}"`);
+      } else {
+        this.logger.info(`[NarrativeGenerator] Generating beat ${nextBeatNumber} for arc "${arc.title}"`);
+      }
+      
+      // Build beat prompt with chapter context
+      const beatPrompt = this._buildBeatPrompt(
+        arc, 
+        nextBeatNumber, 
+        worldContext, 
+        chapterContext,
+        beatInChapter,
+        previousBeatsInChapter
+      );
       
       const response = await this.aiService.chat([
         { role: 'user', content: beatPrompt }
@@ -357,9 +467,10 @@ Keep ALL text concise. Respond ONLY with the JSON object above.`;
 
   /**
    * Build prompt for beat generation
+   * Uses channel summaries for world context
    * @private
    */
-  _buildBeatPrompt(arc, beatNumber, worldContext) {
+  _buildBeatPrompt(arc, beatNumber, worldContext, chapterContext = null, beatInChapter = 1, previousBeatsInChapter = []) {
     const previousBeats = arc.beats || [];
     const totalBeats = arc.plannedBeats || 5;
     const beatType = this._determineBeatType(beatNumber, totalBeats);
@@ -375,12 +486,56 @@ ${arc.characters.map(c => `- ${c.avatarName} (${c.role}): ${c.characterArc}`).jo
 
 LOCATIONS:
 ${arc.locations.map(l => `- ${l.locationName}: ${l.significance}`).join('\n')}
-
-PREVIOUS BEATS:
-${previousBeats.map((b, i) => `Beat ${i + 1} (${b.type}): ${b.description}`).join('\n\n')}
-
 `;
 
+    // Add chapter context if available
+    if (chapterContext && chapterContext.chapterInfo) {
+      prompt += `
+CURRENT CHAPTER (${chapterContext.currentChapter + 1}/${chapterContext.totalChapters}): "${chapterContext.chapterInfo.title}"
+Chapter Plan: ${chapterContext.chapterInfo.summary}
+Overall Plan Theme: ${chapterContext.theme}
+
+THIS CHAPTER'S BEATS:
+${chapterContext.chapterInfo.beats.map((b, i) => `Beat ${i + 1}: ${b}`).join('\n')}
+
+GENERATING: Beat ${beatInChapter} of 3 in this chapter
+`;
+
+      // Show previously generated beats in this chapter
+      if (previousBeatsInChapter.length > 0) {
+        prompt += `\nBEATS GENERATED SO FAR IN THIS CHAPTER:\n`;
+        prompt += previousBeatsInChapter.map((b, i) => 
+          `Beat ${i + 1}: ${b.description}`
+        ).join('\n\n');
+        prompt += '\n';
+      }
+    }
+
+    // Add world context from channel summaries
+    if (worldContext.metaSummary) {
+      prompt += `\nCURRENT WORLD STATE:\n${worldContext.metaSummary}\n`;
+    }
+
+    if (worldContext.channelSummaries && worldContext.channelSummaries.length > 0) {
+      prompt += `\nRECENT ACTIVITY BY CHANNEL:\n`;
+      worldContext.channelSummaries.slice(0, 3).forEach(summary => {
+        prompt += `- ${summary.platform} (${summary.channelName}): ${summary.recentThemes.join(', ')}\n`;
+        if (summary.summary) {
+          prompt += `  ${summary.summary.substring(0, 150)}...\n`;
+        }
+      });
+      prompt += '\n';
+    }
+
+    // Add previous beats from the full arc
+    if (previousBeats.length > 0) {
+      prompt += `\nPREVIOUS BEATS IN ARC:\n`;
+      const recentBeats = previousBeats.slice(-3); // Last 3 beats for context
+      prompt += recentBeats.map((b, i) => `Beat ${previousBeats.length - recentBeats.length + i + 1} (${b.type}): ${b.description}`).join('\n\n');
+      prompt += '\n';
+    }
+
+    // Add legacy opportunities if available
     if (worldContext.opportunities && worldContext.opportunities.length > 0) {
       prompt += `\nRECENT WORLD EVENTS:\n`;
       prompt += worldContext.opportunities.slice(0, 3).map(o => `- ${o.description}`).join('\n');
@@ -391,7 +546,10 @@ ${previousBeats.map((b, i) => `Beat ${i + 1} (${b.type}): ${b.description}`).joi
 Generate Beat ${beatNumber} of ${totalBeats}:
 - This should be a ${beatType} beat
 - Continue naturally from previous beats
+${chapterContext?.chapterInfo?.beats?.[beatInChapter - 1] ? `- Align with the chapter plan for beat ${beatInChapter}: "${chapterContext.chapterInfo.beats[beatInChapter - 1]}"` : ''}
+${previousBeatsInChapter.length > 0 ? `- Build upon the previous ${previousBeatsInChapter.length} beat(s) in this chapter to create a cohesive narrative` : ''}
 - Show character development and story progression
+- Incorporate themes and events from the world state summaries
 - Create a visually compelling scene
 
 Respond ONLY with valid JSON:
@@ -405,7 +563,7 @@ Respond ONLY with valid JSON:
   "emotionalNote": "The emotional quality of this moment"
 }
 
-Make this beat advance the story meaningfully while maintaining emotional resonance.`;
+Make this beat advance the story meaningfully while maintaining emotional resonance${chapterContext ? ' and chapter coherence' : ''}.`;
 
     return prompt;
   }
@@ -436,12 +594,15 @@ Make this beat advance the story meaningfully while maintaining emotional resona
       
       const beatData = JSON.parse(jsonMatch[0]);
       beatData.sequenceNumber = beatNumber;
+      // Add unique GUID for reliable identification
+      beatData.id = crypto.randomUUID();
       
       return beatData;
       
     } catch (error) {
       this.logger.error('[NarrativeGenerator] Error parsing beat:', error);
       return {
+        id: crypto.randomUUID(),
         sequenceNumber: beatNumber,
         type: 'development',
         description: 'The story continues in CosyWorld...',

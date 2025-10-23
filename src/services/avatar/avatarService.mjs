@@ -325,18 +325,28 @@ export class AvatarService {
     try {
       const db = await this._db();
       const presenceCol = db.collection('channel_avatar_presence');
+      const avatarsCol = db.collection(this.AVATARS_COLLECTION);
       
+      const now = new Date();
+      
+      // Update channel presence
       await presenceCol.updateOne(
         { channelId, avatarId },
         { 
-          $set: { lastActivityAt: new Date() },
+          $set: { lastActivityAt: now },
           $setOnInsert: { 
             isActive: true,
-            createdAt: new Date(),
-            activatedAt: new Date()
+            createdAt: now,
+            activatedAt: now
           }
         },
         { upsert: true }
+      );
+      
+      // Update avatar's lastActiveAt timestamp
+      await avatarsCol.updateOne(
+        { _id: new ObjectId(avatarId) },
+        { $set: { lastActiveAt: now } }
       );
     } catch (err) {
       this.logger.warn(`Failed to update avatar activity – ${err.message}`);

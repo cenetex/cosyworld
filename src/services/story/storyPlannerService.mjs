@@ -363,7 +363,10 @@ Respond with JSON in this format:
       
       this.logger.info(`[StoryPlanner] Generated chapter "${chapter.title}" (${beats.length} beats) for arc "${arc.title}"`);
       
-      return { arc, chapter, beats };
+      // Reload arc to include newly added beats
+      const updatedArc = await this.storyState.getArc(arcId);
+      
+      return { arc: updatedArc, chapter, beats };
       
     } catch (error) {
       this.logger.error('[StoryPlanner] Error progressing arc:', error);
@@ -383,31 +386,61 @@ Respond with JSON in this format:
       // Get the plan for context (if available)
       let planContext = null;
       if (this.storyPlanService) {
-        const plan = await this.storyPlanService.getPlan(arc._id);
+        const plan = await this.storyPlanService.getActivePlan(arc._id);
         if (plan) {
+          // Fallback to 0 if currentChapter is not set (for old plans)
+          const currentChapter = plan.currentChapter ?? 0;
           planContext = {
             theme: plan.overallTheme,
-            currentChapter: plan.currentChapter,
-            totalChapters: plan.chapters.length,
-            chapterInfo: plan.chapters[plan.currentChapter] || null
+            currentChapter: currentChapter,
+            totalChapters: plan.plannedChapters?.length || 0,
+            chapterInfo: plan.plannedChapters?.[currentChapter] || null
           };
         }
       }
       
-      // Generate all 3 beats as a cohesive chapter
       const beats = [];
-      for (let i = 0; i < this.config.beatsPerChapter; i++) {
-        const beat = await this.narrativeGenerator.generateBeat(arc, worldContext, {
+      const currentBeatCount = arc.beats?.length || 0;
+      
+      // Every 9 beats (3 chapters), insert a title card as the first beat
+      const shouldInsertTitleCard = currentBeatCount > 0 && currentBeatCount % 9 === 0;
+      
+      if (shouldInsertTitleCard) {
+        this.logger.info(`[StoryPlanner] Generating title card for arc "${arc.title}" at beat ${currentBeatCount + 1}`);
+        
+        // Create a temporary arc object for title card generation
+        const tempArc = {
+          ...arc,
+          beats: [...(arc.beats || [])]
+        };
+        
+        const titleBeat = await this.narrativeGenerator.generateTitleCard(tempArc, worldContext);
+        beats.push(titleBeat);
+        
+        this.logger.info(`[StoryPlanner] Generated title card: "${titleBeat.description.substring(0, 50)}..."`);
+      }
+      
+      // Generate remaining beats for the chapter (2 if we added title card, 3 otherwise)
+      const beatsToGenerate = shouldInsertTitleCard ? this.config.beatsPerChapter - 1 : this.config.beatsPerChapter;
+      
+      for (let i = 0; i < beatsToGenerate; i++) {
+        // Create a temporary arc object with updated beat count for correct sequenceNumber
+        const tempArc = {
+          ...arc,
+          beats: [...(arc.beats || []), ...beats] // Include previously generated beats in this chapter
+        };
+        
+        const beat = await this.narrativeGenerator.generateBeat(tempArc, worldContext, {
           chapterContext: planContext,
           beatInChapter: i + 1,
-          totalBeatsInChapter: this.config.beatsPerChapter,
+          totalBeatsInChapter: beatsToGenerate,
           previousBeats: beats
         });
         beats.push(beat);
       }
       
       return {
-        title: planContext?.chapterInfo?.title || `Chapter ${(arc.completedBeats / this.config.beatsPerChapter) + 1}`,
+        title: planContext?.chapterInfo?.title || `Chapter ${(currentBeatCount / this.config.beatsPerChapter) + 1}`,
         beats
       };
       
@@ -436,12 +469,9 @@ Respond with JSON in this format:
       
       // Complete the story plan
       if (this.storyPlanService) {
-        const plan = await this.storyPlanService.getPlan(arcId);
+        const plan = await this.storyPlanService.getActivePlan(arcId);
         if (plan) {
-          await this.storyPlanService.updatePlan(arcId, {
-            status: 'completed',
-            completedAt: new Date()
-          });
+          await this.storyPlanService.completePlan(arcId);
           this.logger.info(`[StoryPlanner] Completed plan for arc ${arcId}`);
         }
       }
