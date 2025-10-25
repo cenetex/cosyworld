@@ -31,6 +31,9 @@ export class WebService {
     storySchedulerService,
     storyPostingService,
     storyArchiveService,
+    // NFT services
+    nftMetadataService,
+    arweaveService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -55,6 +58,9 @@ export class WebService {
     this.storySchedulerService = storySchedulerService;
     this.storyPostingService = storyPostingService;
   this.storyArchiveService = storyArchiveService;
+    // NFT services
+    this.nftMetadataService = nftMetadataService;
+    this.arweaveService = arweaveService;
 
     this.started = false;
 
@@ -86,6 +92,9 @@ export class WebService {
       storySchedulerService: this.storySchedulerService,
       storyPostingService: this.storyPostingService,
       storyArchiveService: this.storyArchiveService,
+      // NFT services
+      nftMetadataService: this.nftMetadataService,
+      arweaveService: this.arweaveService,
     };
   }
 

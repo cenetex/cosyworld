@@ -520,6 +520,9 @@ if (emojiInput) {
       elements.deleteAvatarBtn.classList.remove("hidden");
       initializeModalModelSelectors(); // Reinitialize dropdowns before populating
       populateForm(avatar);
+      
+      // Initialize NFT section
+      await initializeNftSection(avatarId);
     } catch (error) {
       console.error("Error fetching avatar:", error);
       closeModal();
@@ -779,4 +782,175 @@ if (emojiInput) {
       }
     }, 300),
   );
+
+  // ============================================================
+  // NFT DEPLOYMENT FUNCTIONALITY
+  // ============================================================
+  
+  async function initializeNftSection(avatarId) {
+    const nftSection = document.getElementById('nft-section');
+    const nftStatus = document.getElementById('nft-status');
+    const generateBtn = document.getElementById('generate-nft-metadata');
+    const deployBtn = document.getElementById('deploy-to-arweave');
+    const mobileBtn = document.getElementById('view-mobile-deployment');
+    
+    if (!nftSection) return;
+    
+    // Show NFT section
+    nftSection.classList.remove('hidden');
+    
+    // Check deployment status
+    try {
+      const status = await apiFetch(`/api/nft/avatar/${avatarId}/status`);
+      
+      if (status.deployed) {
+        displayDeploymentStatus(status.deployment);
+        generateBtn.classList.add('hidden');
+        deployBtn.classList.add('hidden');
+        mobileBtn.classList.remove('hidden');
+      } else {
+        nftStatus.innerHTML = `
+          <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+            <span class="font-semibold">Ready to deploy!</span> Generate NFT metadata and deploy to Arweave.
+          </div>
+        `;
+        generateBtn.classList.remove('hidden');
+        deployBtn.classList.add('hidden');
+        mobileBtn.classList.add('hidden');
+      }
+    } catch (error) {
+      console.error('Error checking NFT status:', error);
+      nftStatus.innerHTML = `
+        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+          Could not load NFT status. You can still generate metadata.
+        </div>
+      `;
+    }
+    
+    // Set up event listeners
+    generateBtn.onclick = () => generateNftMetadata(avatarId);
+    deployBtn.onclick = () => deployToArweave(avatarId);
+    mobileBtn.onclick = () => openMobileDeployment(avatarId);
+  }
+  
+  async function generateNftMetadata(avatarId) {
+    const generateBtn = document.getElementById('generate-nft-metadata');
+    const deployBtn = document.getElementById('deploy-to-arweave');
+    const manifestsDiv = document.getElementById('nft-manifests');
+    const nftStatus = document.getElementById('nft-status');
+    
+    try {
+      generateBtn.disabled = true;
+      generateBtn.innerHTML = '<span class="mr-2">⏳</span>Generating...';
+      
+      const metadata = await apiFetch(`/api/nft/avatar/${avatarId}/metadata`);
+      
+      // Display manifests
+      document.getElementById('base-manifest').textContent = JSON.stringify(metadata.base, null, 2);
+      document.getElementById('solana-manifest').textContent = JSON.stringify(metadata.solana, null, 2);
+      manifestsDiv.classList.remove('hidden');
+      
+      // Show deploy button
+      deployBtn.classList.remove('hidden');
+      
+      nftStatus.innerHTML = `
+        <div class="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
+          <span class="font-semibold">✓ Metadata generated!</span> Review the manifests below and deploy to Arweave.
+        </div>
+      `;
+      
+      toastSuccess('NFT metadata generated successfully');
+    } catch (error) {
+      console.error('Error generating NFT metadata:', error);
+      toastError(error.message || 'Failed to generate NFT metadata');
+      nftStatus.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+          <span class="font-semibold">Error:</span> ${error.message || 'Failed to generate metadata'}
+        </div>
+      `;
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.innerHTML = '<span class="mr-2">📋</span>Generate NFT Metadata';
+    }
+  }
+  
+  async function deployToArweave(avatarId) {
+    const deployBtn = document.getElementById('deploy-to-arweave');
+    const nftStatus = document.getElementById('nft-status');
+    const mobileBtn = document.getElementById('view-mobile-deployment');
+    
+    if (!confirm('Deploy this avatar NFT to Arweave? This will upload the image and metadata.')) {
+      return;
+    }
+    
+    try {
+      deployBtn.disabled = true;
+      deployBtn.innerHTML = '<span class="mr-2">⏳</span>Deploying...';
+      
+      nftStatus.innerHTML = `
+        <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+          <div class="flex items-center">
+            <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="font-semibold">Uploading to Arweave...</span> This may take a few moments.
+          </div>
+        </div>
+      `;
+      
+      const result = await apiFetch(`/api/nft/avatar/${avatarId}/deploy`, {
+        method: 'POST',
+        body: { walletConnected: false }
+      });
+      
+      displayDeploymentStatus(result);
+      
+      // Hide generate and deploy buttons, show mobile button
+      document.getElementById('generate-nft-metadata').classList.add('hidden');
+      deployBtn.classList.add('hidden');
+      mobileBtn.classList.remove('hidden');
+      
+      toastSuccess('Avatar deployed to Arweave successfully!');
+    } catch (error) {
+      console.error('Error deploying to Arweave:', error);
+      toastError(error.message || 'Failed to deploy to Arweave');
+      nftStatus.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+          <span class="font-semibold">Deployment failed:</span> ${error.message || 'Unknown error'}
+        </div>
+      `;
+      deployBtn.disabled = false;
+      deployBtn.innerHTML = '<span class="mr-2">🚀</span>Deploy to Arweave';
+    }
+  }
+  
+  function displayDeploymentStatus(deployment) {
+    const nftStatus = document.getElementById('nft-status');
+    const linksDiv = document.getElementById('nft-deployment-links');
+    
+    nftStatus.innerHTML = `
+      <div class="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
+        <span class="font-semibold">✓ Deployed to Arweave!</span>
+        <div class="mt-2 text-xs">
+          ${deployment.simulated ? '<span class="bg-yellow-200 text-yellow-900 px-2 py-1 rounded">Simulated (Arweave not configured)</span>' : ''}
+          Deployed on: ${new Date(deployment.deployed).toLocaleString()}
+        </div>
+      </div>
+    `;
+    
+    // Display Arweave links
+    document.getElementById('nft-image-link').href = deployment.image.url;
+    document.getElementById('nft-image-link').textContent = deployment.image.txId;
+    document.getElementById('nft-base-link').href = deployment.base.url;
+    document.getElementById('nft-base-link').textContent = deployment.base.txId;
+    document.getElementById('nft-solana-link').href = deployment.solana.url;
+    document.getElementById('nft-solana-link').textContent = deployment.solana.txId;
+    
+    linksDiv.classList.remove('hidden');
+  }
+  
+  function openMobileDeployment(avatarId) {
+    window.open(`/deploy-avatar.html?id=${avatarId}`, '_blank');
+  }
 });

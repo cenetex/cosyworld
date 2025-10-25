@@ -159,7 +159,7 @@ export class ConversationManager  {
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
   this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
-  let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048, corrId });
+  let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId });
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
       // Scrub any <think> tags that may have leaked from providers
       try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
@@ -433,7 +433,7 @@ export class ConversationManager  {
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
-  ], { model: avatar.model, max_tokens: 500, corrId });
+  ], { model: avatar.model, corrId });
   if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
     try { if (typeof summary === 'string') summary = summary.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
     if (!summary) {

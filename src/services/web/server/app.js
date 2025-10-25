@@ -143,6 +143,7 @@ async function initializeApp(services) {
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
     app.use('/api/health', (await import('./routes/health.js')).default(db));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
+    app.use('/api/nft', (await import('./routes/nft.js')).default);
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
     app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));

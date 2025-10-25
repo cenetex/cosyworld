@@ -114,6 +114,7 @@ import { StoryPostingService } from './services/story/storyPostingService.mjs';
 import { StoryArchiveService } from './services/story/storyArchiveService.mjs';
 import { CharacterContinuityService } from './services/story/characterContinuityService.mjs';
 import { ChapterContextService } from './services/story/chapterContextService.mjs';
+import { NftMetadataService } from './services/nft/nftMetadataService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -271,6 +272,17 @@ container.register({
  * @since 0.0.8
  */
 container.register({ combatNarrativeService: asClass(CombatNarrativeService).singleton() });
+
+/**
+ * Register NFT Metadata Service
+ * 
+ * @description
+ * Service for generating Base (ERC-721) and Solana NFT metadata manifests
+ * 
+ * @see {@link NftMetadataService} for NFT metadata generation
+ * @since 0.0.8
+ */
+container.register({ nftMetadataService: asClass(NftMetadataService).singleton() });
 
 /**
  * Make the container itself available for injection.
