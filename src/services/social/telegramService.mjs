@@ -668,7 +668,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       if (responseObj.tool_calls && responseObj.tool_calls.length > 0) {
         // User requested media generation!
         // The AI should have provided a natural acknowledgment in the text response
-        const acknowledgment = responseObj.text || String(response || '').trim();
+        const acknowledgment = (typeof responseObj.text === 'string' && responseObj.text.trim()) 
+          ? responseObj.text.trim()
+          : (typeof response === 'string' ? response.trim() : '');
         
         if (acknowledgment) {
           // Send the AI's natural acknowledgment first
@@ -1345,7 +1347,10 @@ Your caption:`;
       if (type === 'tweet' || opts.tweetUrl) {
         this.logger?.info?.('[TelegramService][globalPost] Posting tweet link');
         
-        const tweetText = text || `Check out this post from CosyWorld!\n\n${opts.tweetUrl}`;
+        // Ensure text is a string (handle objects/undefined gracefully)
+        const tweetText = (typeof text === 'string' && text.trim()) 
+          ? text 
+          : `Check out this post from CosyWorld!\n\n${opts.tweetUrl}`;
         
         const messageResult = await this.globalBot.telegram.sendMessage(channelId, tweetText, {
           parse_mode: 'Markdown',
