@@ -59,10 +59,10 @@ class TelegramService {
     this.HISTORY_LIMIT = 50; // Keep last 50 messages per channel for rich context
     
     // Media generation cooldown tracking (per user)
-    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 12/day (Telegram-only counting)
+    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 100/day (Telegram-only counting)
     this.mediaGenerationLimits = {
       video: { hourly: 2, daily: 4 },
-      image: { hourly: 3, daily: 12 }
+      image: { hourly: 3, daily: 100 }
     };
   }
 

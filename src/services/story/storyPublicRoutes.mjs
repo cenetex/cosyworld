@@ -811,13 +811,46 @@ export function registerStoryPublicRoutes(app, services) {
         });
       }
 
-      // Import video utils
-      const { concatenateVideos } = await import('../../utils/videoUtils.mjs');
+      // Import video utils and check ffmpeg availability
+      let videoUtils;
+      try {
+        videoUtils = await import('../../utils/videoUtils.mjs');
+      } catch (importError) {
+        logger.error('[StoryPublicAPI] Failed to import videoUtils:', importError);
+        return res.status(500).json({
+          success: false,
+          error: 'Video processing module not available',
+          details: importError.message
+        });
+      }
+
+      const { concatenateVideos, checkFfmpegAvailable } = videoUtils;
+      
+      // Check ffmpeg availability
+      const ffmpegAvailable = await checkFfmpegAvailable();
+      if (!ffmpegAvailable) {
+        logger.error('[StoryPublicAPI] ffmpeg is not installed or not available in PATH');
+        return res.status(503).json({
+          success: false,
+          error: 'ffmpeg is not installed on the server. Please install ffmpeg to use video concatenation features.',
+          details: 'Install ffmpeg: https://ffmpeg.org/download.html'
+        });
+      }
       
       // Concatenate videos and upload result
+      logger.info(`[StoryPublicAPI] Starting concatenation of ${videoUrls.length} videos for chapter ${chapterNumber}`);
       const concatenatedUrl = await concatenateVideos(videoUrls, s3Service, {
-        prefix: `story-videos/${arcId}/chapter-${chapterNumber}`
+        prefix: `story-videos/${arcId}/chapter-${chapterNumber}`,
+        source: 'story-chapter-concatenation',
+        context: {
+          arcTitle: arc.title,
+          chapterNumber: parseInt(chapterNumber, 10),
+          theme: arc.theme,
+          emotionalTone: arc.emotionalTone
+        },
+        skipEventEmit: true // Don't post individual chapters to social media
       });
+      logger.info(`[StoryPublicAPI] Concatenation complete: ${concatenatedUrl}`);
 
       // Store concatenated URL
       const updatedChapterVideos = { ...(arc.chapterVideos || {}) };
@@ -902,13 +935,46 @@ export function registerStoryPublicRoutes(app, services) {
         });
       }
 
-      // Import video utils
-      const { concatenateVideos } = await import('../../utils/videoUtils.mjs');
+      // Import video utils and check ffmpeg availability
+      let videoUtils;
+      try {
+        videoUtils = await import('../../utils/videoUtils.mjs');
+      } catch (importError) {
+        logger.error('[StoryPublicAPI] Failed to import videoUtils:', importError);
+        return res.status(500).json({
+          success: false,
+          error: 'Video processing module not available',
+          details: importError.message
+        });
+      }
+
+      const { concatenateVideos, checkFfmpegAvailable } = videoUtils;
+      
+      // Check ffmpeg availability
+      const ffmpegAvailable = await checkFfmpegAvailable();
+      if (!ffmpegAvailable) {
+        logger.error('[StoryPublicAPI] ffmpeg is not installed or not available in PATH');
+        return res.status(503).json({
+          success: false,
+          error: 'ffmpeg is not installed on the server. Please install ffmpeg to use video concatenation features.',
+          details: 'Install ffmpeg: https://ffmpeg.org/download.html'
+        });
+      }
       
       // Concatenate videos and upload result
+      logger.info(`[StoryPublicAPI] Starting concatenation of ${videoUrls.length} episode videos`);
       const concatenatedUrl = await concatenateVideos(videoUrls, s3Service, {
-        prefix: `story-videos/${arcId}/episode`
+        prefix: `story-videos/${arcId}/episode`,
+        source: 'story-episode-concatenation',
+        context: {
+          arcTitle: arc.title,
+          theme: arc.theme,
+          emotionalTone: arc.emotionalTone,
+          totalChapters: Math.ceil((arc.beats?.length || 0) / 3)
+        },
+        skipEventEmit: false // Post complete episodes to Telegram/X (not individual chapters)
       });
+      logger.info(`[StoryPublicAPI] Episode concatenation complete: ${concatenatedUrl}`);
 
       // Store concatenated URL
       await storyStateService.updateArc(arcId, {

@@ -1382,13 +1382,15 @@
           }
         });
         
-        if (!concatResponse.ok) {
-          throw new Error('Failed to concatenate videos');
-        }
-        
         const concatData = await concatResponse.json();
         
-        if (concatData.success && concatData.videoUrl) {
+        if (!concatResponse.ok || !concatData.success) {
+          const errorMsg = concatData.error || 'Failed to concatenate videos';
+          const errorDetails = concatData.details ? `\n\nDetails: ${concatData.details}` : '';
+          throw new Error(errorMsg + errorDetails);
+        }
+        
+        if (concatData.videoUrl) {
           // Update status
           statusMsg.textContent = concatData.cached ? '✅ Opening video...' : '✅ Video ready! Opening...';
           
@@ -1404,7 +1406,7 @@
         console.error('Error downloading chapter videos:', error);
         alert(`Failed to download video: ${error.message}`);
         const statusMsg = document.querySelector('.generating-status');
-        if (statusMsg) {
+        if (statusMsg && statusMsg.parentNode) {
           document.body.removeChild(statusMsg);
         }
       }
@@ -1433,13 +1435,15 @@
           }
         });
         
-        if (!concatResponse.ok) {
-          throw new Error('Failed to concatenate episode videos');
-        }
-        
         const concatData = await concatResponse.json();
         
-        if (concatData.success && concatData.videoUrl) {
+        if (!concatResponse.ok || !concatData.success) {
+          const errorMsg = concatData.error || 'Failed to concatenate episode videos';
+          const errorDetails = concatData.details ? `\n\nDetails: ${concatData.details}` : '';
+          throw new Error(errorMsg + errorDetails);
+        }
+        
+        if (concatData.videoUrl) {
           // Update status
           statusMsg.textContent = concatData.cached ? '✅ Opening video...' : '✅ Episode video ready! Opening...';
           
@@ -1455,7 +1459,7 @@
         console.error('Error downloading episode videos:', error);
         alert(`Failed to download episode video: ${error.message}`);
         const statusMsg = document.querySelector('.generating-status');
-        if (statusMsg) {
+        if (statusMsg && statusMsg.parentNode) {
           document.body.removeChild(statusMsg);
         }
       }
