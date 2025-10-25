@@ -43,13 +43,13 @@ export class X402Service {
       ? 'base-sepolia' 
       : (config.defaultNetwork || 'base');
 
-    // Validate required credentials
-    if (!this.cdpApiKeyId || !this.cdpApiKeySecret) {
-      throw new Error('CDP API credentials not configured. Set CDP_API_KEY_ID and CDP_API_KEY_SECRET');
-    }
-
-    if (!this.sellerAddress) {
-      throw new Error('Seller address not configured. Set X402_SELLER_ADDRESS');
+    // Validate required credentials (log warning but don't throw - allow admin UI configuration)
+    this.configured = !!(this.cdpApiKeyId && this.cdpApiKeySecret && this.sellerAddress);
+    
+    if (!this.configured) {
+      this.logger.warn('[X402Service] Not configured. Set credentials via Admin UI or environment variables.');
+      this.logger.warn('[X402Service] Required: CDP_API_KEY_ID, CDP_API_KEY_SECRET, X402_SELLER_ADDRESS');
+      return; // Don't initialize caches or timers
     }
 
     // In-memory caches
@@ -139,6 +139,10 @@ export class X402Service {
    * @returns {Promise<Array>} Array of supported kinds
    */
   async getSupportedNetworks() {
+    if (!this.configured) {
+      throw new Error('X402Service not configured. Please set credentials via Admin UI.');
+    }
+    
     if (this._supportedNetworksCache) {
       return this._supportedNetworksCache;
     }

@@ -154,7 +154,14 @@ export default function createPaymentRoutes(services) {
       if (!x402Service) {
         return res.json({ 
           success: false, 
-          error: 'x402Service not initialized. Check configuration and restart server.' 
+          error: 'x402Service not initialized. Check server logs and restart if needed.' 
+        });
+      }
+
+      if (!x402Service.configured) {
+        return res.json({ 
+          success: false, 
+          error: 'x402Service not configured. Please enter your CDP credentials and save configuration first.' 
         });
       }
 
