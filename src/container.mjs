@@ -448,7 +448,41 @@ async function initializeContainer() {
     storyArchiveService: asClass(StoryArchiveService).singleton(),
     characterContinuityService: asClass(CharacterContinuityService).singleton(),
     chapterContextService: asClass(ChapterContextService).singleton(),
-    // Payment services (x402 protocol)
+  });
+
+  // Load payment configuration from database before creating payment services
+  try {
+    const databaseService = container.resolve('databaseService');
+    const db = await databaseService.getDatabase();
+    const settingsCollection = db.collection('settings');
+    const paymentSettings = await settingsCollection.find({ 
+      key: { $regex: /^payment\./ },
+      scope: 'global' 
+    }).toArray();
+    
+    if (paymentSettings.length > 0) {
+      if (!configService.config.payment) {
+        configService.config.payment = { x402: {}, agentWallets: {} };
+      }
+      
+      for (const setting of paymentSettings) {
+        const keys = setting.key.split('.');
+        if (keys[0] === 'payment' && keys[1] === 'x402') {
+          configService.config.payment.x402[keys[2]] = setting.value;
+        } else if (keys[0] === 'payment' && keys[1] === 'agentWallets') {
+          configService.config.payment.agentWallets[keys[2]] = setting.value;
+        }
+      }
+      
+      logger.info('[container] ✅ Loaded payment configuration from database');
+      logger.debug('[container] Payment x402 config:', configService.config.payment.x402);
+    }
+  } catch (e) {
+    logger.debug('[container] Could not load payment config from database:', e.message);
+  }
+
+  // Register payment services after loading config
+  container.register({
     x402Service: asClass(X402Service).singleton(),
     agentWalletService: asClass(AgentWalletService).singleton()
   });

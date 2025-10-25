@@ -34,6 +34,9 @@ export class WebService {
     // NFT services
     nftMetadataService,
     arweaveService,
+    // Payment services
+    x402Service,
+    agentWalletService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -61,6 +64,9 @@ export class WebService {
     // NFT services
     this.nftMetadataService = nftMetadataService;
     this.arweaveService = arweaveService;
+    // Payment services
+    this.x402Service = x402Service;
+    this.agentWalletService = agentWalletService;
 
     this.started = false;
 
@@ -95,6 +101,9 @@ export class WebService {
       // NFT services
       nftMetadataService: this.nftMetadataService,
       arweaveService: this.arweaveService,
+      // Payment services
+      x402Service: this.x402Service,
+      agentWalletService: this.agentWalletService,
     };
   }
 

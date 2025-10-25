@@ -35,8 +35,14 @@ export class AgentWalletService {
     const config = configService?.config?.payment?.agentWallets || {};
     const encryptionKey = config.encryptionKey || process.env.AGENT_WALLET_ENCRYPTION_KEY;
 
-    if (!encryptionKey) {
-      throw new Error('Wallet encryption key not configured. Set AGENT_WALLET_ENCRYPTION_KEY');
+    // Mark as configured or not (don't throw - allow admin UI configuration)
+    this.configured = !!encryptionKey;
+
+    if (!this.configured) {
+      this.logger.warn('[AgentWalletService] Not configured. Set AGENT_WALLET_ENCRYPTION_KEY via Admin UI.');
+      this.encryptionKey = null;
+      this.defaultDailyLimit = 100 * 1e6; // Default 100 USDC
+      return; // Don't initialize encryption
     }
 
     // Ensure key is correct length (32 bytes for AES-256)
@@ -142,6 +148,10 @@ export class AgentWalletService {
    * @returns {Promise<Object>} Wallet info (without private key)
    */
   async getOrCreateWallet(agentId, options = {}) {
+    if (!this.configured) {
+      throw new Error('AgentWalletService not configured. Please set encryption key via Admin UI.');
+    }
+    
     const walletsCol = await this._getWalletsCollection();
     
     // Check if wallet exists

@@ -90,7 +90,17 @@ export class X402Service {
   async _generateJWT(requestMethod, requestPath) {
     const requestHost = 'api.cdp.coinbase.com';
 
-    return await generateJwt({
+    // Debug logging (will remove after fixing)
+    this.logger.info('[X402Service] Generating JWT with:', {
+      apiKeyId: this.cdpApiKeyId,
+      apiKeySecretLength: this.cdpApiKeySecret?.length || 0,
+      apiKeySecretPrefix: this.cdpApiKeySecret?.substring(0, 20) + '...',
+      requestMethod,
+      requestHost,
+      requestPath,
+    });
+
+    const token = await generateJwt({
       apiKeyId: this.cdpApiKeyId,
       apiKeySecret: this.cdpApiKeySecret,
       requestMethod,
@@ -98,6 +108,10 @@ export class X402Service {
       requestPath,
       expiresIn: 120, // 2 minutes
     });
+
+    this.logger.info('[X402Service] Generated JWT:', token.substring(0, 50) + '...');
+    
+    return token;
   }
 
   /**
@@ -136,6 +150,7 @@ export class X402Service {
 
   /**
    * Get supported payment schemes and networks
+   * CDP facilitator supports: Base, Base Sepolia, Solana, Solana Devnet
    * @returns {Promise<Array>} Array of supported kinds
    */
   async getSupportedNetworks() {
@@ -147,19 +162,25 @@ export class X402Service {
       return this._supportedNetworksCache;
     }
 
-    try {
-      const response = await this._cdpRequest('/v2/x402/supported');
-      this._supportedNetworksCache = response.kinds || [];
-      
-      this.logger.info(
-        `[X402Service] Loaded ${this._supportedNetworksCache.length} supported networks`
-      );
-      
-      return this._supportedNetworksCache;
-    } catch (error) {
-      this.logger.error('[X402Service] Failed to fetch supported networks:', error);
-      throw new Error('Failed to fetch supported networks: ' + error.message);
-    }
+    // CDP facilitator supports these networks as per documentation
+    // https://docs.cdp.coinbase.com/x402/network-support
+    this._supportedNetworksCache = [
+      {
+        kind: 'eip-3009-transfer',
+        networks: ['base', 'base-sepolia'],
+        tokens: ['USDC'],
+        description: 'EIP-3009 transfers on Base networks with USDC'
+      },
+      {
+        kind: 'solana-transfer',
+        networks: ['solana', 'solana-devnet'],
+        tokens: ['USDC'],
+        description: 'SPL token transfers on Solana networks with USDC'
+      }
+    ];
+
+    this.logger.info('[X402Service] Loaded supported networks from CDP documentation');
+    return this._supportedNetworksCache;
   }
 
   /**

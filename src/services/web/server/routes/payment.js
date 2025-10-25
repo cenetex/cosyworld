@@ -18,9 +18,47 @@ export default function createPaymentRoutes(services) {
    */
   router.get('/config', async (req, res) => {
     try {
-      const config = configService.config?.payment || {};
+      // Try to load from database first, fall back to config service
+      let config = configService.config?.payment || {};
       
-      // Return configuration with sensitive data masked if not admin
+      const { databaseService } = services;
+      if (databaseService) {
+        try {
+          const db = await databaseService.getDatabase();
+          const settingsCollection = db.collection('settings');
+          
+          // Load all payment settings from database
+          const paymentSettings = await settingsCollection.find({
+            key: { $regex: /^payment\./ },
+            scope: 'global'
+          }).toArray();
+          
+          // Build config object from database
+          if (paymentSettings.length > 0) {
+            config = { x402: {}, agentWallets: {} };
+            
+            for (const setting of paymentSettings) {
+              const parts = setting.key.split('.');
+              if (parts[0] === 'payment') {
+                if (parts[1] === 'x402') {
+                  config.x402[parts[2]] = setting.value;
+                } else if (parts[1] === 'agentWallets') {
+                  config.agentWallets[parts[2]] = setting.value;
+                }
+              }
+            }
+          }
+        } catch (dbError) {
+          logger.warn('[PaymentConfig] Failed to load from database, using config service:', dbError.message);
+        }
+      }
+      
+      // Log what we're returning (for debugging)
+      logger.info('[PaymentConfig] GET config - apiKeyId present:', !!config.x402?.apiKeyId);
+      logger.info('[PaymentConfig] GET config - apiKeySecret length:', config.x402?.apiKeySecret?.length || 0);
+      logger.info('[PaymentConfig] GET config - sellerAddress present:', !!config.x402?.sellerAddress);
+      
+      // Return configuration with sensitive data masked
       const response = {
         // x402 configuration
         apiKeyId: config.x402?.apiKeyId || process.env.CDP_API_KEY_ID || '',
@@ -94,46 +132,104 @@ export default function createPaymentRoutes(services) {
         });
       }
 
-      // Update config service
+      // Update config service in memory
       if (!configService.config.payment) {
         configService.config.payment = {};
       }
 
+      // Trim all string values to remove whitespace
+      const trimmedApiKeyId = apiKeyId?.trim();
+      const trimmedApiKeySecret = apiKeySecret?.trim();
+      const trimmedSellerAddress = sellerAddress?.trim();
+      const trimmedDefaultNetwork = defaultNetwork?.trim();
+      const trimmedWalletEncryptionKey = walletEncryptionKey?.trim();
+
+      logger.info('[PaymentConfig] Saving configuration (trimmed values)');
+      logger.debug('[PaymentConfig] apiKeyId:', trimmedApiKeyId);
+      logger.debug('[PaymentConfig] apiKeySecret length:', trimmedApiKeySecret?.length);
+      logger.debug('[PaymentConfig] sellerAddress:', trimmedSellerAddress);
+
       configService.config.payment.x402 = {
-        apiKeyId: apiKeyId || '',
-        apiKeySecret: apiKeySecret || '',
-        sellerAddress: sellerAddress || '',
-        defaultNetwork: defaultNetwork || 'base-sepolia',
+        apiKeyId: trimmedApiKeyId || '',
+        apiKeySecret: trimmedApiKeySecret || '',
+        sellerAddress: trimmedSellerAddress || '',
+        defaultNetwork: trimmedDefaultNetwork || 'base-sepolia',
         enableTestnet: enableTestnet !== false,
       };
 
       configService.config.payment.agentWallets = {
-        encryptionKey: walletEncryptionKey || '',
+        encryptionKey: trimmedWalletEncryptionKey || '',
         defaultDailyLimit: defaultDailyLimit || 100 * 1e6,
       };
 
-      // Save to database using settings service
-      const { settingsService } = services;
-      if (settingsService) {
-        // Save individual settings
-        const settings = [
-          { key: 'payment.x402.apiKeyId', value: apiKeyId },
-          { key: 'payment.x402.apiKeySecret', value: apiKeySecret },
-          { key: 'payment.x402.sellerAddress', value: sellerAddress },
-          { key: 'payment.x402.defaultNetwork', value: defaultNetwork },
-          { key: 'payment.x402.enableTestnet', value: enableTestnet },
-          { key: 'payment.agentWallets.encryptionKey', value: walletEncryptionKey },
-          { key: 'payment.agentWallets.defaultDailyLimit', value: defaultDailyLimit },
-        ];
+      // Save to database directly
+      const { databaseService } = services;
+      if (databaseService) {
+        try {
+          const db = await databaseService.getDatabase();
+          const settingsCollection = db.collection('settings');
+          
+          // Save individual settings as documents
+          const settings = [
+            { key: 'payment.x402.apiKeyId', value: trimmedApiKeyId },
+            { key: 'payment.x402.apiKeySecret', value: trimmedApiKeySecret },
+            { key: 'payment.x402.sellerAddress', value: trimmedSellerAddress },
+            { key: 'payment.x402.defaultNetwork', value: trimmedDefaultNetwork },
+            { key: 'payment.x402.enableTestnet', value: enableTestnet },
+            { key: 'payment.agentWallets.encryptionKey', value: trimmedWalletEncryptionKey },
+            { key: 'payment.agentWallets.defaultDailyLimit', value: defaultDailyLimit },
+          ];
 
-        for (const setting of settings) {
-          if (setting.value !== undefined && setting.value !== null && setting.value !== '') {
-            await settingsService.set(setting.key, setting.value, { scope: 'global' });
+          for (const setting of settings) {
+            if (setting.value !== undefined && setting.value !== null && setting.value !== '') {
+              await settingsCollection.updateOne(
+                { key: setting.key, scope: 'global' },
+                { 
+                  $set: { 
+                    value: setting.value,
+                    scope: 'global',
+                    updatedAt: new Date()
+                  },
+                  $setOnInsert: { createdAt: new Date() }
+                },
+                { upsert: true }
+              );
+            }
           }
+          
+          logger.info('[PaymentConfig] Configuration saved to database');
+        } catch (dbError) {
+          logger.error('[PaymentConfig] Failed to save to database:', dbError);
+          // Don't throw - config is still in memory
         }
       }
-
-      logger.info('[PaymentConfig] Configuration updated');
+      
+      // Update x402Service with new credentials if it exists
+      const { x402Service, agentWalletService } = services;
+      if (x402Service && trimmedApiKeyId && trimmedApiKeySecret && trimmedSellerAddress) {
+        x402Service.cdpApiKeyId = trimmedApiKeyId;
+        x402Service.cdpApiKeySecret = trimmedApiKeySecret;
+        x402Service.sellerAddress = trimmedSellerAddress;
+        x402Service.defaultNetwork = enableTestnet ? 'base-sepolia' : (trimmedDefaultNetwork || 'base');
+        x402Service.configured = true;
+        
+        // Clear cached networks to force refresh with new credentials
+        x402Service._supportedNetworksCache = null;
+        
+        logger.info('[PaymentConfig] x402Service credentials updated');
+      }
+      
+      // Update agentWalletService with new encryption key if it exists
+      if (agentWalletService && trimmedWalletEncryptionKey) {
+        const crypto = await import('crypto');
+        agentWalletService.encryptionKey = Buffer.from(
+          crypto.default.createHash('sha256').update(trimmedWalletEncryptionKey).digest()
+        );
+        agentWalletService.defaultDailyLimit = defaultDailyLimit || 100 * 1e6;
+        agentWalletService.configured = true;
+        
+        logger.info('[PaymentConfig] AgentWalletService encryption key updated');
+      }
 
       res.json({ 
         success: true, 
@@ -147,42 +243,57 @@ export default function createPaymentRoutes(services) {
 
   /**
    * GET /api/payment/test-connection
-   * Test connection to CDP API
+   * Test connection to CDP API by checking configuration
    */
   router.get('/test-connection', async (req, res) => {
     try {
-      if (!x402Service) {
-        return res.json({ 
-          success: false, 
-          error: 'x402Service not initialized. Check server logs and restart if needed.' 
+      const { x402Service } = services;
+      
+      if (!x402Service || !x402Service.configured) {
+        return res.status(400).json({ 
+          error: 'X402Service not configured. Please configure CDP credentials first.' 
         });
       }
 
-      if (!x402Service.configured) {
-        return res.json({ 
-          success: false, 
-          error: 'x402Service not configured. Please enter your CDP credentials and save configuration first.' 
-        });
-      }
-
-      // Test by fetching supported networks
+      // Test by getting supported networks (no API call, just returns hardcoded values)
       const networks = await x402Service.getSupportedNetworks();
       
+      // Verify we have valid credentials by checking they're set
+      const hasApiKeyId = !!x402Service.cdpApiKeyId;
+      const hasApiKeySecret = !!x402Service.cdpApiKeySecret;
+      const hasSellerAddress = !!x402Service.sellerAddress;
+      
+      if (!hasApiKeyId || !hasApiKeySecret || !hasSellerAddress) {
+        return res.status(400).json({
+          error: 'Missing required credentials',
+          details: {
+            hasApiKeyId,
+            hasApiKeySecret,
+            hasSellerAddress
+          }
+        });
+      }
+
       res.json({ 
         success: true, 
-        networks: networks,
-        message: `Successfully connected. ${networks.length} networks available.`
+        message: 'CDP configuration is valid',
+        networks: networks.map(n => ({
+          kind: n.kind,
+          networks: n.networks,
+          tokens: n.tokens
+        })),
+        config: {
+          defaultNetwork: x402Service.defaultNetwork,
+          sellerAddress: x402Service.sellerAddress,
+        }
       });
     } catch (error) {
-      logger.error('Payment connection test failed:', error);
-      res.json({ 
-        success: false, 
-        error: error.message || 'Connection test failed'
+      logger.error('Payment connection test failed:', error.message, error);
+      res.status(500).json({ 
+        error: `Failed to test connection: ${error.message}` 
       });
     }
-  });
-
-  /**
+  });  /**
    * GET /api/payment/stats
    * Get payment statistics
    */

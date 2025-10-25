@@ -481,9 +481,23 @@ async function savePaymentConfig() {
     return;
   }
   
-  if (config.apiKeySecret && config.apiKeySecret.length < 20) {
-    toastError('CDP API Key Secret appears invalid (too short)');
-    return;
+  if (config.apiKeySecret) {
+    const secret = config.apiKeySecret.trim();
+    
+    // Check if it's Ed25519 format (base64, ends with ==)
+    const isEd25519 = /^[A-Za-z0-9+/]+==$/.test(secret) && secret.length > 80;
+    
+    // Check if it's ECDSA PEM format
+    const isECDSA = secret.includes('-----BEGIN EC PRIVATE KEY-----') && 
+                    secret.includes('-----END EC PRIVATE KEY-----');
+    
+    if (!isEd25519 && !isECDSA) {
+      toastError('CDP API Key Secret must be either:\n' +
+                 '1. Ed25519 format (base64 string ending with ==)\n' +
+                 '2. ECDSA PEM format (BEGIN EC PRIVATE KEY)\n\n' +
+                 'Copy the COMPLETE secret from your CDP portal.');
+      return;
+    }
   }
   
   if (config.sellerAddress && !config.sellerAddress.startsWith('0x')) {

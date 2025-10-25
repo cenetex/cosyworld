@@ -123,11 +123,14 @@
                       
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">CDP API Key Secret</label>
-                        <input id="cdpApiKeySecret" type="password" 
-                          placeholder="Your API key secret (Ed25519 or ECDSA)"
+                        <textarea id="cdpApiKeySecret" rows="8" 
+                          placeholder="Paste your API key secret here&#10;&#10;Ed25519 format (recommended):&#10;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx==&#10;&#10;OR ECDSA PEM format:&#10;-----BEGIN EC PRIVATE KEY-----&#10;MHcCAQEEI...&#10;-----END EC PRIVATE KEY-----"
                           class="w-full px-3 py-2 border rounded text-sm font-mono"
-                        />
-                        <p class="text-xs text-gray-500 mt-1">Your API key secret from the CDP portal (kept secure, never logged)</p>
+                        ></textarea>
+                        <p class="text-xs text-gray-500 mt-1">
+                          Paste the <strong>complete</strong> API key secret from CDP portal. 
+                          Ed25519 keys end with <code>==</code>, ECDSA keys have BEGIN/END markers.
+                        </p>
                       </div>
                       
                       <div>

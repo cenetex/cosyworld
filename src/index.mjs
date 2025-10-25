@@ -154,32 +154,34 @@ async function main() {
     }
 
 
-    // Initialize Telegram global bot if configured
-    try {
-      logger.info('[startup] Initializing Telegram bot...');
-      const telegramService = container.resolve('telegramService');
-      const initialized = await telegramService.initializeGlobalBot();
-      logTiming('Telegram bot initialized');
-      if (initialized) {
-        logger.log('[startup] Telegram global bot initialized');
-        
-        // Start proactive messaging
-        try {
-          const schedulingService = container.resolve('schedulingService');
-          if (schedulingService) {
-            telegramService.startProactiveMessaging(schedulingService);
-            logger.log('[startup] Telegram proactive messaging started');
+    // Initialize Telegram global bot in background (don't block startup)
+    setImmediate(async () => {
+      try {
+        logger.info('[startup] Initializing Telegram bot in background...');
+        const telegramService = container.resolve('telegramService');
+        const initialized = await telegramService.initializeGlobalBot();
+        logTiming('Telegram bot initialized');
+        if (initialized) {
+          logger.log('[startup] Telegram global bot initialized');
+          
+          // Start proactive messaging
+          try {
+            const schedulingService = container.resolve('schedulingService');
+            if (schedulingService) {
+              telegramService.startProactiveMessaging(schedulingService);
+              logger.log('[startup] Telegram proactive messaging started');
+            }
+          } catch (e) {
+            logger.warn(`[startup] Telegram proactive messaging not started: ${e.message}`);
           }
-        } catch (e) {
-          logger.warn(`[startup] Telegram proactive messaging not started: ${e.message}`);
+        } else {
+          logger.debug('[startup] Telegram global bot not configured (optional)');
         }
-      } else {
-        logger.debug('[startup] Telegram global bot not configured (optional)');
+      } catch (e) {
+        logger.warn(`[startup] Telegram bot initialization failed: ${e.message}`);
+        logTiming('Telegram bot failed');
       }
-    } catch (e) {
-      logger.warn(`[startup] Telegram bot initialization failed: ${e.message}`);
-      logTiming('Telegram bot failed');
-    }
+    });
 
     // Start the Web Service
     try {
