@@ -37,6 +37,7 @@ export class WebService {
     // Payment services
     x402Service,
     agentWalletService,
+    pricingService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -67,6 +68,7 @@ export class WebService {
     // Payment services
     this.x402Service = x402Service;
     this.agentWalletService = agentWalletService;
+    this.pricingService = pricingService;
 
     this.started = false;
 
@@ -104,6 +106,7 @@ export class WebService {
       // Payment services
       x402Service: this.x402Service,
       agentWalletService: this.agentWalletService,
+      pricingService: this.pricingService,
     };
   }
 
