@@ -417,6 +417,196 @@ document.getElementById('exportJson')?.addEventListener('click', () => {
   download(`export-${currentScopeLabel()}.json`, JSON.stringify(out, null, 2));
 });
 
+// Payment Configuration Functions
+async function loadPaymentConfig() {
+  try {
+    const response = await fetchJSON('/api/payment/config');
+    if (response) {
+      // x402 Configuration
+      document.getElementById('cdpApiKeyId').value = response.apiKeyId || '';
+      document.getElementById('cdpApiKeySecret').value = response.apiKeySecret || '';
+      document.getElementById('sellerAddress').value = response.sellerAddress || '';
+      document.getElementById('defaultNetwork').value = response.defaultNetwork || 'base-sepolia';
+      document.getElementById('enableTestnet').checked = response.enableTestnet !== false;
+      
+      // Agent Wallet Configuration
+      document.getElementById('walletEncryptionKey').value = response.walletEncryptionKey || '';
+      document.getElementById('defaultDailyLimit').value = response.defaultDailyLimit 
+        ? (response.defaultDailyLimit / 1e6).toFixed(2) 
+        : '100.00';
+      
+      // Update status
+      updatePaymentStatus(response);
+    }
+  } catch (error) {
+    console.error('Failed to load payment config:', error);
+    toastError('Failed to load payment configuration');
+  }
+}
+
+function updatePaymentStatus(config) {
+  const statusEl = document.getElementById('x402-status');
+  if (!statusEl) return;
+  
+  const hasApiKey = config.apiKeyId && config.apiKeySecret;
+  const hasSellerAddress = config.sellerAddress && config.sellerAddress.startsWith('0x');
+  const hasEncryptionKey = config.walletEncryptionKey && config.walletEncryptionKey.length >= 32;
+  
+  if (hasApiKey && hasSellerAddress && hasEncryptionKey) {
+    statusEl.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-800';
+    statusEl.textContent = 'Configured';
+  } else if (hasApiKey || hasSellerAddress || hasEncryptionKey) {
+    statusEl.className = 'text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800';
+    statusEl.textContent = 'Partial';
+  } else {
+    statusEl.className = 'text-xs px-2 py-1 rounded bg-gray-200 text-gray-700';
+    statusEl.textContent = 'Not Configured';
+  }
+}
+
+async function savePaymentConfig() {
+  const config = {
+    apiKeyId: document.getElementById('cdpApiKeyId').value.trim(),
+    apiKeySecret: document.getElementById('cdpApiKeySecret').value.trim(),
+    sellerAddress: document.getElementById('sellerAddress').value.trim(),
+    defaultNetwork: document.getElementById('defaultNetwork').value,
+    enableTestnet: document.getElementById('enableTestnet').checked,
+    walletEncryptionKey: document.getElementById('walletEncryptionKey').value.trim(),
+    defaultDailyLimit: parseFloat(document.getElementById('defaultDailyLimit').value) * 1e6, // Convert USDC to 6 decimals
+  };
+  
+  // Validation
+  if (config.apiKeyId && !config.apiKeyId.trim()) {
+    toastError('CDP API Key ID is required');
+    return;
+  }
+  
+  if (config.apiKeySecret && config.apiKeySecret.length < 20) {
+    toastError('CDP API Key Secret appears invalid (too short)');
+    return;
+  }
+  
+  if (config.sellerAddress && !config.sellerAddress.startsWith('0x')) {
+    toastError('Seller address must start with 0x');
+    return;
+  }
+  
+  if (config.walletEncryptionKey && config.walletEncryptionKey.length < 32) {
+    toastError('Encryption key must be at least 32 characters');
+    return;
+  }
+  
+  try {
+    const response = await fetchJSON('/api/payment/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    
+    updatePaymentStatus(config);
+    success('Payment configuration saved successfully');
+    showPaymentStatus('Configuration saved and will be used by payment services.', 'success');
+  } catch (error) {
+    console.error('Failed to save payment config:', error);
+    toastError('Failed to save payment configuration: ' + (error.message || 'Unknown error'));
+    showPaymentStatus('Failed to save configuration: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+async function testX402Connection() {
+  const btn = document.getElementById('testX402Connection');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+  
+  try {
+    const response = await fetchJSON('/api/payment/test-connection');
+    if (response.success) {
+      success('x402 connection successful');
+      showPaymentStatus(`Connected to CDP API. Supported networks: ${response.networks?.length || 0}`, 'success');
+    } else {
+      toastError('Connection test failed: ' + (response.error || 'Unknown error'));
+      showPaymentStatus('Connection test failed: ' + (response.error || 'Unknown error'), 'error');
+    }
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    toastError('Connection test failed: ' + (error.message || 'Unknown error'));
+    showPaymentStatus('Connection test failed: ' + (error.message || 'Unknown error'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function generateEncryptionKey() {
+  // Generate a random 64-character hex string (32 bytes)
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const key = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  document.getElementById('walletEncryptionKey').value = key;
+  success('Encryption key generated');
+}
+
+function toggleEncryptionKeyVisibility() {
+  const input = document.getElementById('walletEncryptionKey');
+  const btn = document.getElementById('toggleEncryptionKeyVisibility');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    btn.textContent = 'Show';
+  }
+}
+
+function showPaymentStatus(message, type = 'info') {
+  const statusEl = document.getElementById('paymentConfigStatus');
+  const statusDiv = statusEl?.querySelector('div');
+  if (!statusDiv) return;
+  
+  const colors = {
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+  };
+  
+  statusDiv.className = `p-3 rounded border ${colors[type] || colors.info}`;
+  statusDiv.textContent = message;
+  statusEl.classList.remove('hidden');
+  
+  setTimeout(() => {
+    statusEl.classList.add('hidden');
+  }, 5000);
+}
+
+function resetPaymentConfig() {
+  if (!confirm('Reset payment configuration to defaults?')) return;
+  
+  document.getElementById('cdpApiKeyId').value = '';
+  document.getElementById('cdpApiKeySecret').value = '';
+  document.getElementById('sellerAddress').value = '';
+  document.getElementById('defaultNetwork').value = 'base-sepolia';
+  document.getElementById('enableTestnet').checked = true;
+  document.getElementById('walletEncryptionKey').value = '';
+  document.getElementById('defaultDailyLimit').value = '100.00';
+  
+  updatePaymentStatus({});
+}
+
+function initPaymentConfigHandlers() {
+  document.getElementById('savePaymentConfig')?.addEventListener('click', 
+    withButtonLoading(document.getElementById('savePaymentConfig'), savePaymentConfig)
+  );
+  
+  document.getElementById('resetPaymentConfig')?.addEventListener('click', resetPaymentConfig);
+  
+  document.getElementById('testX402Connection')?.addEventListener('click', testX402Connection);
+  
+  document.getElementById('generateEncryptionKey')?.addEventListener('click', generateEncryptionKey);
+  
+  document.getElementById('toggleEncryptionKeyVisibility')?.addEventListener('click', toggleEncryptionKeyVisibility);
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -454,25 +644,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Tab wiring (default Prompts active)
   const tabPrompts = document.getElementById('tabPrompts');
   const tabSettings = document.getElementById('tabSettings');
+  const tabPayments = document.getElementById('tabPayments');
   const tabSecrets = document.getElementById('tabSecrets');
   const panelPrompts = document.getElementById('panelPrompts');
   const panelSettings = document.getElementById('panelSettings');
+  const panelPayments = document.getElementById('panelPayments');
   const panelSecrets = document.getElementById('panelSecrets');
   function activate(tab) {
     // styles
-    [tabPrompts, tabSettings, tabSecrets].forEach(b => b && b.classList.remove('bg-gray-200', 'font-medium'));
+    [tabPrompts, tabSettings, tabPayments, tabSecrets].forEach(b => b && b.classList.remove('bg-gray-200', 'font-medium'));
     if (tab) tab.classList.add('bg-gray-200', 'font-medium');
     // panels
     panelPrompts?.classList.add('hidden');
     panelSettings?.classList.add('hidden');
+    panelPayments?.classList.add('hidden');
     panelSecrets?.classList.add('hidden');
     if (tab === tabPrompts) panelPrompts?.classList.remove('hidden');
     if (tab === tabSettings) panelSettings?.classList.remove('hidden');
+    if (tab === tabPayments) panelPayments?.classList.remove('hidden');
     if (tab === tabSecrets) panelSecrets?.classList.remove('hidden');
   }
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
   tabSettings?.addEventListener('click', () => activate(tabSettings));
+  tabPayments?.addEventListener('click', () => {
+    activate(tabPayments);
+    loadPaymentConfig();
+  });
   tabSecrets?.addEventListener('click', () => activate(tabSecrets));
   activate(tabPrompts);
 
+  // Payment configuration handlers
+  initPaymentConfigHandlers();
 });

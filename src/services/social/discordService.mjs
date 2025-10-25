@@ -64,14 +64,24 @@ export class DiscordService {
     this.client.once('ready', async () => {
       this.logger.info(`Bot is ready as ${this.client.user.tag}`);
       await this.updateConnectedGuilds();
-      await this.updateDetectedGuilds();
+      // Run guild detection in background to avoid blocking startup
+      setImmediate(() => {
+        this.updateDetectedGuilds().catch(err => 
+          this.logger.error('Background guild detection failed:', err)
+        );
+      });
       this.client.guildWhitelist = new Map(); // Initialize guild whitelist cache
     });
 
     this.client.on('guildCreate', async guild => {
       this.logger.info(`Joined guild: ${guild.name} (${guild.id})`);
       await this.updateConnectedGuilds();
-      await this.updateDetectedGuilds();
+      // Run guild detection in background
+      setImmediate(() => {
+        this.updateDetectedGuilds().catch(err => 
+          this.logger.error('Background guild detection failed:', err)
+        );
+      });
     });
 
     this.client.on('guildDelete', async guild => {
@@ -347,6 +357,7 @@ export class DiscordService {
   }
 
   async updateDetectedGuilds() {
+    // This can be slow if there are many guilds, so it should be called via setImmediate()
     this.db = await this.databaseService.getDatabase();
     if (!this.db) {
       this.logger.error('Database not connected, cannot update detected guilds');
@@ -361,9 +372,10 @@ export class DiscordService {
         detectedAt: new Date(),
         updatedAt: new Date(),
       }));
-      this.logger.info(`Updating ${allGuilds.length} detected guilds from Discord client's cache`);
+      this.logger.info(`[Background] Updating ${allGuilds.length} detected guilds from Discord client's cache`);
       if (allGuilds.length > 0) {
         await this.guildConnectionRepository.upsertDetectedGuilds(allGuilds);
+        this.logger.info(`[Background] Completed updating ${allGuilds.length} detected guilds`);
       }
     } catch (error) {
       this.logger.error('Error updating detected guilds: ' + error.message);

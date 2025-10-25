@@ -1,0 +1,474 @@
+/**
+ * Copyright (c) 2019-2025 Cenetex Inc.
+ * Licensed under the MIT License.
+ * 
+ * @file test/services/payment/agentWalletService.test.mjs
+ * @description Unit tests for AgentWalletService - agent wallet management
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AgentWalletService } from '../../../src/services/payment/agentWalletService.mjs';
+import { createMockLogger, createMockConfigService, createMockDatabaseService } from '../../helpers/mockServices.mjs';
+
+describe('AgentWalletService', () => {
+  let service;
+  let mockLogger;
+  let mockConfigService;
+  let mockDatabaseService;
+
+  beforeEach(() => {
+    mockLogger = createMockLogger();
+    mockConfigService = createMockConfigService();
+    mockDatabaseService = createMockDatabaseService();
+    
+    mockConfigService.config = {
+      payment: {
+        agentWallets: {
+          encryptionKey: 'a'.repeat(64), // 32-byte hex key
+          defaultNetwork: 'base-sepolia',
+          autoFundThreshold: 10000, // 0.01 USDC
+        }
+      }
+    };
+
+    service = new AgentWalletService({
+      logger: mockLogger,
+      configService: mockConfigService,
+      databaseService: mockDatabaseService,
+    });
+  });
+
+  describe('Initialization', () => {
+    it('should initialize with encryption key', () => {
+      expect(service).toBeDefined();
+      expect(service.encryptionKey).toBeDefined();
+    });
+
+    it('should throw error if encryption key missing', () => {
+      mockConfigService.config.payment.agentWallets.encryptionKey = null;
+      
+      expect(() => {
+        new AgentWalletService({
+          logger: mockLogger,
+          configService: mockConfigService,
+          databaseService: mockDatabaseService,
+        });
+      }).toThrow('Wallet encryption key not configured');
+    });
+
+    it('should validate encryption key length', () => {
+      mockConfigService.config.payment.agentWallet.encryptionKey = 'too-short';
+      
+      expect(() => {
+        new AgentWalletService({
+          logger: mockLogger,
+          configService: mockConfigService,
+          databaseService: mockDatabaseService,
+        });
+      }).toThrow('Encryption key must be 32 bytes');
+    });
+  });
+
+  describe('getOrCreateWallet', () => {
+    it('should return existing wallet if found', async () => {
+      const existingWallet = {
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+        address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        balance: { usdc: 500000, lastUpdated: new Date() },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(existingWallet);
+
+      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+
+      expect(wallet).toEqual(existingWallet);
+      expect(mockDatabaseService.collection.findOne).toHaveBeenCalledWith({
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+      });
+    });
+
+    it('should create new wallet if not found', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+      mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+
+      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+
+      expect(wallet.agentId).toBe('agent-123');
+      expect(wallet.network).toBe('base-sepolia');
+      expect(wallet.address).toMatch(/^0x[a-fA-F0-9]{40}$/); // Valid Ethereum address
+      expect(mockDatabaseService.collection.insertOne).toHaveBeenCalled();
+    });
+
+    it('should encrypt private key before storing', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+      mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+
+      await service.getOrCreateWallet('agent-123', 'base-sepolia');
+
+      const insertCall = mockDatabaseService.collection.insertOne.mock.calls[0][0];
+      
+      expect(insertCall.privateKey).toBeDefined();
+      expect(insertCall.privateKey.encrypted).toBeDefined();
+      expect(insertCall.privateKey.iv).toBeDefined();
+      expect(insertCall.privateKey.authTag).toBeDefined();
+      expect(insertCall.privateKey.encrypted).not.toMatch(/^0x[a-fA-F0-9]+$/); // Should be encrypted, not plaintext
+    });
+
+    it('should initialize balance to zero', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+      mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+
+      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+
+      expect(wallet.balance.usdc).toBe(0);
+      expect(wallet.spending.total).toBe(0);
+      expect(wallet.spending.thisMonth).toBe(0);
+    });
+
+    it('should use default network if not specified', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+      mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+
+      const wallet = await service.getOrCreateWallet('agent-123');
+
+      expect(wallet.network).toBe('base-sepolia');
+    });
+  });
+
+  describe('getBalance', () => {
+    it('should return USDC balance for agent', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+        balance: { usdc: 1000000, lastUpdated: new Date() }, // 1 USDC
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+
+      const balance = await service.getBalance('agent-123', 'base-sepolia');
+
+      expect(balance).toBe(1000000);
+    });
+
+    it('should return 0 if wallet not found', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+
+      const balance = await service.getBalance('agent-123', 'base-sepolia');
+
+      expect(balance).toBe(0);
+    });
+
+    it('should return 0 if balance not set', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue({
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+        balance: {},
+      });
+
+      const balance = await service.getBalance('agent-123', 'base-sepolia');
+
+      expect(balance).toBe(0);
+    });
+  });
+
+  describe('fundWallet', () => {
+    it('should update wallet balance', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+        balance: { usdc: 100000, lastUpdated: new Date() },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      await service.fundWallet('agent-123', 500000, 'base-sepolia');
+
+      expect(mockDatabaseService.collection.updateOne).toHaveBeenCalledWith(
+        { agentId: 'agent-123', network: 'base-sepolia' },
+        {
+          $inc: { 'balance.usdc': 500000 },
+          $set: { 'balance.lastUpdated': expect.any(Date) },
+        }
+      );
+    });
+
+    it('should create wallet if not exists', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+      mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+
+      await service.fundWallet('agent-123', 500000, 'base-sepolia');
+
+      expect(mockDatabaseService.collection.insertOne).toHaveBeenCalled();
+    });
+
+    it('should reject negative amounts', async () => {
+      await expect(
+        service.fundWallet('agent-123', -100000, 'base-sepolia')
+      ).rejects.toThrow('Amount must be positive');
+    });
+
+    it('should log funding transaction', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue({
+        agentId: 'agent-123',
+        balance: { usdc: 0 },
+      });
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      await service.fundWallet('agent-123', 500000, 'base-sepolia');
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Funded wallet for agent-123')
+      );
+    });
+  });
+
+  describe('createPayment', () => {
+    it('should create signed payment transaction', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+        address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        privateKey: {
+          encrypted: 'encrypted-key',
+          iv: 'iv',
+          authTag: 'authTag',
+        },
+        balance: { usdc: 1000000 },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+
+      const payment = await service.createPayment({
+        agentId: 'agent-123',
+        amount: 100000,
+        destination: '0xRecipientAddress',
+        network: 'base-sepolia',
+      });
+
+      expect(payment).toEqual({
+        x402Version: 1,
+        scheme: 'exact',
+        network: 'base-sepolia',
+        signedPayload: expect.stringMatching(/^0x[a-fA-F0-9]+$/),
+        metadata: {
+          agentId: 'agent-123',
+          nonce: expect.any(String),
+        },
+      });
+    });
+
+    it('should reject payment if insufficient balance', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        balance: { usdc: 50000 }, // Less than requested 100000
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+
+      await expect(
+        service.createPayment({
+          agentId: 'agent-123',
+          amount: 100000,
+          destination: '0xRecipient',
+          network: 'base-sepolia',
+        })
+      ).rejects.toThrow('Insufficient balance');
+    });
+
+    it('should throw if wallet not found', async () => {
+      mockDatabaseService.collection.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.createPayment({
+          agentId: 'agent-123',
+          amount: 100000,
+          destination: '0xRecipient',
+          network: 'base-sepolia',
+        })
+      ).rejects.toThrow('Wallet not found');
+    });
+
+    it('should decrypt private key for signing', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        privateKey: {
+          encrypted: 'encrypted-key',
+          iv: 'aabbccdd',
+          authTag: 'tag',
+        },
+        balance: { usdc: 1000000 },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+
+      await service.createPayment({
+        agentId: 'agent-123',
+        amount: 100000,
+        destination: '0xRecipient',
+        network: 'base-sepolia',
+      });
+
+      // Private key should never be exposed in logs or errors
+      expect(mockLogger.info.mock.calls.join('')).not.toContain('0x');
+    });
+  });
+
+  describe('getTransactionHistory', () => {
+    it('should retrieve transaction history for agent', async () => {
+      const mockTransactions = [
+        { agentId: 'agent-123', amount: 100000, status: 'settled', createdAt: new Date() },
+        { agentId: 'agent-123', amount: 50000, status: 'verified', createdAt: new Date() },
+      ];
+
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue(mockTransactions),
+        limit: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        sort: vi.fn().mockReturnThis(),
+      };
+
+      mockDatabaseService.collection.find.mockReturnValue(mockCursor);
+
+      const history = await service.getTransactionHistory('agent-123', {
+        limit: 10,
+        offset: 0,
+      });
+
+      expect(history).toEqual(mockTransactions);
+      expect(mockDatabaseService.collection.find).toHaveBeenCalledWith({
+        agentId: 'agent-123',
+      });
+    });
+
+    it('should support pagination', async () => {
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([]),
+        limit: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        sort: vi.fn().mockReturnThis(),
+      };
+
+      mockDatabaseService.collection.find.mockReturnValue(mockCursor);
+
+      await service.getTransactionHistory('agent-123', {
+        limit: 20,
+        offset: 40,
+      });
+
+      expect(mockCursor.limit).toHaveBeenCalledWith(20);
+      expect(mockCursor.skip).toHaveBeenCalledWith(40);
+      expect(mockCursor.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    });
+
+    it('should filter by network', async () => {
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([]),
+        limit: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        sort: vi.fn().mockReturnThis(),
+      };
+
+      mockDatabaseService.collection.find.mockReturnValue(mockCursor);
+
+      await service.getTransactionHistory('agent-123', {
+        network: 'base-sepolia',
+      });
+
+      expect(mockDatabaseService.collection.find).toHaveBeenCalledWith({
+        agentId: 'agent-123',
+        network: 'base-sepolia',
+      });
+    });
+  });
+
+  describe('Private Key Encryption/Decryption', () => {
+    it('should encrypt and decrypt private key correctly', () => {
+      const testPrivateKey = '0xaabbccddee1122334455667788990011223344556677889900112233445566';
+      
+      // Encrypt
+      const encrypted = service._encryptPrivateKey(testPrivateKey);
+      
+      expect(encrypted.encrypted).toBeDefined();
+      expect(encrypted.iv).toBeDefined();
+      expect(encrypted.authTag).toBeDefined();
+      expect(encrypted.encrypted).not.toBe(testPrivateKey);
+      
+      // Decrypt
+      const decrypted = service._decryptPrivateKey(encrypted);
+      
+      expect(decrypted).toBe(testPrivateKey);
+    });
+
+    it('should use different IV for each encryption', () => {
+      const testPrivateKey = '0xaabbccddee112233445566778899001122334455667788990011223344556677';
+      
+      const encrypted1 = service._encryptPrivateKey(testPrivateKey);
+      const encrypted2 = service._encryptPrivateKey(testPrivateKey);
+      
+      expect(encrypted1.iv).not.toBe(encrypted2.iv);
+      expect(encrypted1.encrypted).not.toBe(encrypted2.encrypted);
+    });
+
+    it('should fail decryption with wrong auth tag', () => {
+      const testPrivateKey = '0xaabbccddee112233445566778899001122334455667788990011223344556677';
+      
+      const encrypted = service._encryptPrivateKey(testPrivateKey);
+      encrypted.authTag = 'wrong-tag';
+      
+      expect(() => {
+        service._decryptPrivateKey(encrypted);
+      }).toThrow();
+    });
+  });
+
+  describe('Spending Limits', () => {
+    it('should check daily spending limit', async () => {
+      const mockWallet = {
+        agentId: 'agent-123',
+        balance: { usdc: 1000000 },
+        limits: { daily: 500000 },
+        spending: { today: 400000 },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+
+      // This should succeed (400000 + 50000 < 500000)
+      await service._checkSpendingLimit('agent-123', 50000);
+
+      // This should fail (400000 + 200000 > 500000)
+      await expect(
+        service._checkSpendingLimit('agent-123', 200000)
+      ).rejects.toThrow('Daily spending limit exceeded');
+    });
+
+    it('should reset daily spending at midnight', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const mockWallet = {
+        agentId: 'agent-123',
+        limits: { daily: 500000 },
+        spending: { today: 1000000, lastReset: yesterday },
+      };
+
+      mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      await service._checkSpendingLimit('agent-123', 100000);
+
+      // Should reset spending
+      expect(mockDatabaseService.collection.updateOne).toHaveBeenCalledWith(
+        { agentId: 'agent-123' },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            'spending.today': 0,
+          }),
+        })
+      );
+    });
+  });
+});

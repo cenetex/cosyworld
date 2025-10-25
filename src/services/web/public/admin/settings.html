@@ -53,6 +53,7 @@
                     <div class="ml-2 inline-flex rounded overflow-hidden border">
                       <button id="tabPrompts" class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200">Prompts</button>
                       <button id="tabSettings" class="px-3 py-1 text-sm hover:bg-gray-100">Settings</button>
+                      <button id="tabPayments" class="px-3 py-1 text-sm hover:bg-gray-100">Payments</button>
                       <button id="tabSecrets" class="px-3 py-1 text-sm hover:bg-gray-100">Secrets</button>
                     </div>
                   </div>
@@ -94,6 +95,110 @@
                 <div id="panelSettings" class="mt-4 hidden">
                   <h3 class="text-base font-semibold mb-2">Settings</h3>
                   <div id="settingsList" class="space-y-3"></div>
+                </div>
+
+                <div id="panelPayments" class="mt-4 hidden">
+                  <h3 class="text-base font-semibold mb-2">Payment Configuration</h3>
+                  <p class="text-sm text-gray-600 mb-4">Configure Coinbase CDP x402 payment integration for autonomous agent transactions.</p>
+                  
+                  <!-- x402 Configuration -->
+                  <div class="border rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="font-medium text-gray-900">x402 Payment Protocol</h4>
+                      <div class="flex items-center gap-2">
+                        <span id="x402-status" class="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">Not Configured</span>
+                        <button id="testX402Connection" class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Test Connection</button>
+                      </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CDP API Key ID</label>
+                        <input id="cdpApiKeyId" type="text" 
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Copy the API Key ID (UUID format) from your CDP portal</p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CDP API Key Secret</label>
+                        <input id="cdpApiKeySecret" type="password" 
+                          placeholder="Your API key secret (Ed25519 or ECDSA)"
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Your API key secret from the CDP portal (kept secure, never logged)</p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Seller Address (Base/Ethereum)</label>
+                        <input id="sellerAddress" type="text" 
+                          placeholder="0x..." 
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Wallet address to receive payments (0x...)</p>
+                      </div>
+                      
+                      <div class="grid grid-cols-2 gap-3">
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Default Network</label>
+                          <select id="defaultNetwork" class="w-full px-3 py-2 border rounded text-sm">
+                            <option value="base">Base (Mainnet)</option>
+                            <option value="base-sepolia">Base Sepolia (Testnet)</option>
+                            <option value="ethereum">Ethereum</option>
+                            <option value="solana">Solana</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label class="flex items-center gap-2 mt-6">
+                            <input id="enableTestnet" type="checkbox" class="rounded" />
+                            <span class="text-sm text-gray-700">Enable Testnet Mode</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Agent Wallet Configuration -->
+                  <div class="border rounded-lg p-4 mb-4">
+                    <h4 class="font-medium text-gray-900 mb-3">Agent Wallet Configuration</h4>
+                    
+                    <div class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Wallet Encryption Key</label>
+                        <div class="flex gap-2">
+                          <input id="walletEncryptionKey" type="password" 
+                            placeholder="32+ character encryption key" 
+                            class="flex-1 px-3 py-2 border rounded text-sm font-mono"
+                          />
+                          <button id="generateEncryptionKey" class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">Generate</button>
+                          <button id="toggleEncryptionKeyVisibility" class="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">Show</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Used to encrypt agent private keys in database (AES-256-GCM)</p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Daily Limit (USDC)</label>
+                        <input id="defaultDailyLimit" type="number" step="0.01" 
+                          placeholder="100.00" 
+                          class="w-full px-3 py-2 border rounded text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Default spending limit per agent per day (in USDC)</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Save Button -->
+                  <div class="flex justify-end gap-2">
+                    <button id="resetPaymentConfig" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Reset</button>
+                    <button id="savePaymentConfig" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save Configuration</button>
+                  </div>
+                  
+                  <!-- Status Messages -->
+                  <div id="paymentConfigStatus" class="mt-4 hidden">
+                    <div class="p-3 rounded border"></div>
+                  </div>
                 </div>
 
                 <div id="panelSecrets" class="mt-4 hidden">

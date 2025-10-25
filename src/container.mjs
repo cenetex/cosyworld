@@ -115,6 +115,8 @@ import { StoryArchiveService } from './services/story/storyArchiveService.mjs';
 import { CharacterContinuityService } from './services/story/characterContinuityService.mjs';
 import { ChapterContextService } from './services/story/chapterContextService.mjs';
 import { NftMetadataService } from './services/nft/nftMetadataService.mjs';
+import { X402Service } from './services/payment/x402Service.mjs';
+import { AgentWalletService } from './services/payment/agentWalletService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -445,7 +447,10 @@ async function initializeContainer() {
     storyPostingService: asClass(StoryPostingService).singleton(),
     storyArchiveService: asClass(StoryArchiveService).singleton(),
     characterContinuityService: asClass(CharacterContinuityService).singleton(),
-    chapterContextService: asClass(ChapterContextService).singleton()
+    chapterContextService: asClass(ChapterContextService).singleton(),
+    // Payment services (x402 protocol)
+    x402Service: asClass(X402Service).singleton(),
+    agentWalletService: asClass(AgentWalletService).singleton()
   });
 
   // Dynamically register remaining services
