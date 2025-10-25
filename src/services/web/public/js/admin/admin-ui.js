@@ -12,6 +12,10 @@ function ensureToastRoot() {
 }
 
 export function toast(message, { type = 'info', timeout = 4000 } = {}) {
+  // Log to console for debugging
+  const logFn = type === 'error' ? console.error : type === 'success' ? console.info : console.log;
+  logFn(`[Admin UI - ${type}]`, message);
+  
   const root = ensureToastRoot();
   const el = document.createElement('div');
   el.className = `toast ${type}`;
