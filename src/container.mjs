@@ -118,6 +118,7 @@ import { NftMetadataService } from './services/nft/nftMetadataService.mjs';
 import { X402Service } from './services/payment/x402Service.mjs';
 import { AgentWalletService } from './services/payment/agentWalletService.mjs';
 import { PricingService } from './services/payment/pricingService.mjs';
+import { MarketplaceService } from './services/payment/marketplaceService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -486,7 +487,8 @@ async function initializeContainer() {
   container.register({
     x402Service: asClass(X402Service).singleton(),
     agentWalletService: asClass(AgentWalletService).singleton(),
-    pricingService: asClass(PricingService).singleton()
+    pricingService: asClass(PricingService).singleton(),
+    marketplaceService: asClass(MarketplaceService).singleton()
   });
 
   // Dynamically register remaining services
