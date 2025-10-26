@@ -63,6 +63,15 @@ export class X402Service {
   }
 
   /**
+   * Check if service is properly configured
+   * This method dynamically checks current configuration state
+   * @returns {boolean} True if all required credentials are set
+   */
+  isConfigured() {
+    return !!(this.cdpApiKeyId && this.cdpApiKeySecret && this.sellerAddress);
+  }
+
+  /**
    * Get database connection
    * @private
    */

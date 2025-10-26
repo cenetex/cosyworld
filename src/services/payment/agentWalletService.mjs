@@ -57,6 +57,15 @@ export class AgentWalletService {
   }
 
   /**
+   * Check if service is properly configured
+   * This method dynamically checks current configuration state
+   * @returns {boolean} True if encryption key is set
+   */
+  isConfigured() {
+    return !!(this.encryptionKey);
+  }
+
+  /**
    * Get database connection
    * @private
    */

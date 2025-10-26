@@ -81,6 +81,7 @@
     "express-rate-limit": "^7.5.0",
     "fuse.js": "^7.0.0",
     "globby": "^14.1.0",
+    "helius-sdk": "^2.0.2",
     "js-sha3": "^0.9.3",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.11.0",

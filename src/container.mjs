@@ -83,6 +83,7 @@ import { ConfigService } from './services/foundation/configService.mjs';
 import { CrossmintService } from './services/crossmint/crossmintService.mjs';
 import { DatabaseService } from './services/foundation/databaseService.mjs';
 import { DiscordService } from './services/social/discordService.mjs';
+import { BuybotService } from './services/social/buybotService.mjs';
 import { WebService } from './services/web/webService.mjs';
 import { MessageHandler } from './services/chat/messageHandler.mjs';
 import { ToolService } from './services/tools/ToolService.mjs';
@@ -119,6 +120,7 @@ import { X402Service } from './services/payment/x402Service.mjs';
 import { AgentWalletService } from './services/payment/agentWalletService.mjs';
 import { PricingService } from './services/payment/pricingService.mjs';
 import { MarketplaceService } from './services/payment/marketplaceService.mjs';
+import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceServiceRegistry.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -226,6 +228,7 @@ const configService = new ConfigService({ logger, secretsService });
 
 // Pre-register core values; other services will be loaded during containerReady
 container.register({
+  container: asValue(container), // Register container itself for services that need it
   logger:        asValue(logger),
   secretsService: asValue(secretsService),
   configService: asValue(configService),
@@ -435,6 +438,9 @@ async function initializeContainer() {
     toolDecisionService: asClass(ToolDecisionService).singleton(),
     toolExecutor: asClass(ToolExecutor).singleton(),
     discordService: asClass(DiscordService).singleton(),
+    buybotService: asClass(BuybotService).singleton().inject(() => ({
+      getTelegramService: () => container.resolve('telegramService'),
+    })),
     responseCoordinator: asClass(ResponseCoordinator).singleton(),
     messageHandler: asClass(MessageHandler).singleton(),
     webService: asClass(WebService).singleton(),
@@ -488,7 +494,8 @@ async function initializeContainer() {
     x402Service: asClass(X402Service).singleton(),
     agentWalletService: asClass(AgentWalletService).singleton(),
     pricingService: asClass(PricingService).singleton(),
-    marketplaceService: asClass(MarketplaceService).singleton()
+    marketplaceService: asClass(MarketplaceService).singleton(),
+    marketplaceServiceRegistry: asClass(MarketplaceServiceRegistry).singleton(),
   });
 
   // Dynamically register remaining services

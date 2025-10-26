@@ -5,6 +5,7 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
  */
 
 import { handleCommands } from "../commands/commandHandler.mjs";
+import { handleBuybotCommands } from "../commands/buybotCommandHandler.mjs";
 import { ToolPlannerService } from "../tools/ToolPlannerService.mjs";
 
 /**
@@ -32,6 +33,7 @@ export class MessageHandler  {
     moderationService,
     mapService,
     responseCoordinator,
+    buybotService,
   }) {
     this.logger = logger || console;
     this.toolService = toolService;
@@ -48,6 +50,7 @@ export class MessageHandler  {
     this.moderationService = moderationService;
     this.mapService = mapService;
     this.responseCoordinator = responseCoordinator;
+    this.buybotService = buybotService;
 
   // Lazy-initialized tool planner; constructed in start() to ensure services are ready
   this.toolPlanner = null;
@@ -184,6 +187,19 @@ export class MessageHandler  {
     if (message.author.bot) {
       this.logger.debug("Message is from the bot itself, skipping.");
       return;
+    }
+
+    // Check for buybot commands first (!ca, !ca-remove, !ca-list)
+    const content = message.content.trim();
+    if (content.match(/^[!/]ca(-remove|-list)?(\s|$)/i)) {
+      const handled = await handleBuybotCommands(message, {
+        buybotService: this.buybotService,
+        discordService: this.discordService,
+        logger: this.logger,
+      });
+      if (handled) {
+        return; // Command handled, don't process further
+      }
     }
 
     // Check if the message is a command

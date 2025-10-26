@@ -24,6 +24,7 @@
               </div>
               <div class="ml-10 flex items-baseline space-x-4">
                 <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Dashboard</a>
+                <a href="/admin/payment-monitoring" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Payments</a>
                 <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
                 <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
                 <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
@@ -66,6 +67,38 @@
                     <div class="text-2xl font-semibold" id="stat-memories">--</div>
                   </div>
                 </div>
+                
+                <!-- Payment Stats Section -->
+                <div class="mt-4 bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-4 rounded-lg border border-indigo-200">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <h3 class="text-sm font-medium text-gray-900">💰 Agentic Economy</h3>
+                      <span id="payment-status-badge" class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">Loading...</span>
+                    </div>
+                    <a href="/admin/payment-monitoring" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                      View Dashboard →
+                    </a>
+                  </div>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-white/70 rounded p-3">
+                      <div class="text-xs text-gray-600">Transactions</div>
+                      <div class="text-lg font-bold text-gray-900" id="payment-stat-transactions">--</div>
+                    </div>
+                    <div class="bg-white/70 rounded p-3">
+                      <div class="text-xs text-gray-600">Total Volume</div>
+                      <div class="text-lg font-bold text-gray-900" id="payment-stat-volume">--</div>
+                    </div>
+                    <div class="bg-white/70 rounded p-3">
+                      <div class="text-xs text-gray-600">Agent Wallets</div>
+                      <div class="text-lg font-bold text-gray-900" id="payment-stat-wallets">--</div>
+                    </div>
+                    <div class="bg-white/70 rounded p-3">
+                      <div class="text-xs text-gray-600">Platform Revenue</div>
+                      <div class="text-lg font-bold text-gray-900" id="payment-stat-revenue">--</div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div class="mt-4 flex items-center justify-between bg-gray-50 px-4 py-3 rounded border">
                   <div>
                     <div class="text-sm font-medium text-gray-700">Admin login</div>

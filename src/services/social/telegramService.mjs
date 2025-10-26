@@ -11,6 +11,7 @@
 
 import { Telegraf } from 'telegraf';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
+import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -37,6 +38,7 @@ class TelegramService {
     globalBotService,
     googleAIService,
     veoService,
+    buybotService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
@@ -46,6 +48,7 @@ class TelegramService {
     this.globalBotService = globalBotService;
     this.googleAIService = googleAIService;
     this.veoService = veoService;
+    this.buybotService = buybotService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
@@ -148,6 +151,15 @@ class TelegramService {
       
       // Set up message handlers for conversations
       this.setupMessageHandlers();
+      
+      // Setup buybot commands if available
+      if (this.buybotService) {
+        setupBuybotTelegramCommands(this.globalBot, {
+          buybotService: this.buybotService,
+          logger: this.logger,
+        });
+        this.logger?.info?.('[TelegramService] Buybot commands registered');
+      }
       
       // Launch the bot with timeout protection
       // Telegram will automatically disconnect any other instance using the same token

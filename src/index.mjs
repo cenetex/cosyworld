@@ -139,6 +139,15 @@ async function main() {
     logTiming('Discord bot logged in');
     logger.log('[startup] Discord bot logged in');
 
+    // Initialize Buybot Service
+    try {
+      const buybotService = container.resolve('buybotService');
+      await buybotService.initialize();
+      logger.log('[startup] BuybotService initialized');
+    } catch (e) {
+      logger.warn(`[startup] BuybotService not initialized: ${e.message}`);
+    }
+
     // Start the MessageHandler
     const messageHandler = container.resolve('messageHandler');
     await messageHandler.start();

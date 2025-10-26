@@ -39,6 +39,7 @@ export class WebService {
     agentWalletService,
     pricingService,
     marketplaceService,
+    marketplaceServiceRegistry,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -71,6 +72,7 @@ export class WebService {
     this.agentWalletService = agentWalletService;
     this.pricingService = pricingService;
     this.marketplaceService = marketplaceService;
+    this.marketplaceServiceRegistry = marketplaceServiceRegistry;
 
     this.started = false;
 
@@ -110,12 +112,21 @@ export class WebService {
       agentWalletService: this.agentWalletService,
       pricingService: this.pricingService,
       marketplaceService: this.marketplaceService,
+      marketplaceServiceRegistry: this.marketplaceServiceRegistry,
     };
   }
 
   async start() {
     try {
       this.logger.info('Starting WebService...');
+      
+      // Initialize marketplace service registry
+      if (this.marketplaceServiceRegistry) {
+        this.logger.info('Initializing marketplace service registry...');
+        await this.marketplaceServiceRegistry.initialize();
+        this.logger.info('Marketplace service registry initialized successfully.');
+      }
+      
       await initializeApp(this.services);
       this.logger.info('WebService started successfully.');
     } catch (error) {

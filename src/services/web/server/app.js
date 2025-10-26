@@ -221,6 +221,7 @@ async function initializeApp(services) {
   app.use('/api/ai', (await import('./routes/ai.js')).default(services));
   app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(services));
+  app.use('/api/services', (await import('./routes/services.js')).default(services));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));
   app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));

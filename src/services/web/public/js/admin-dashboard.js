@@ -14,6 +14,79 @@ async function fetchStats() {
   } catch (e) {
     console.warn('Failed to load stats', e);
   }
+  
+  // Load payment stats
+  await fetchPaymentStats();
+}
+
+async function fetchPaymentStats() {
+  try {
+    const res = await fetch('/api/payment/stats');
+    if (!res.ok) {
+      // Payment not configured, show N/A
+      updatePaymentUI(null);
+      return;
+    }
+    const data = await res.json();
+    updatePaymentUI(data);
+  } catch (e) {
+    console.warn('Failed to load payment stats', e);
+    updatePaymentUI(null);
+  }
+}
+
+function updatePaymentUI(data) {
+  const badge = document.getElementById('payment-status-badge');
+  const setText = (id, v) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = v ?? '--'; 
+  };
+  
+  if (!data || !data.stats) {
+    // Not configured or error loading
+    if (badge) {
+      badge.textContent = 'ERROR';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-red-100 text-red-800';
+    }
+    setText('payment-stat-transactions', '0');
+    setText('payment-stat-volume', '$0.00');
+    setText('payment-stat-wallets', '0');
+    setText('payment-stat-revenue', '$0.00');
+    return;
+  }
+  
+  // Check configuration status
+  const x402Configured = data.configured?.x402;
+  const walletConfigured = data.configured?.wallet;
+  
+  // Format USDC amounts
+  const formatUSDC = (amount) => {
+    const usd = (amount || 0) / 1e6;
+    return '$' + usd.toFixed(2);
+  };
+  
+  const totalTx = (data.stats.x402Transactions || 0) + (data.stats.walletTransactions || 0);
+  const totalVolume = data.stats.totalVolume || 0;
+  const platformRevenue = data.stats.platformRevenue || 0;
+  
+  // Update badge based on configuration and activity
+  if (badge) {
+    if (!x402Configured && !walletConfigured) {
+      badge.textContent = 'NOT CONFIGURED';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-800';
+    } else if (totalTx > 0) {
+      badge.textContent = 'OPERATIONAL';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-green-100 text-green-800';
+    } else {
+      badge.textContent = 'READY';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800';
+    }
+  }
+  
+  setText('payment-stat-transactions', totalTx.toLocaleString());
+  setText('payment-stat-volume', formatUSDC(totalVolume));
+  setText('payment-stat-wallets', (data.stats.agentWallets || 0).toLocaleString());
+  setText('payment-stat-revenue', formatUSDC(platformRevenue));
 }
 
 async function ensureAdminSession() {

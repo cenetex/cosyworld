@@ -1,0 +1,813 @@
+<!--
+  Copyright (c) 2019-2025 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Monitoring - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+      .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
+      }
+      
+      .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1;
+      }
+      
+      .metric-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.5rem;
+        font-weight: 500;
+      }
+      
+      .metric-change {
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+        font-weight: 600;
+      }
+      
+      .metric-change.positive {
+        color: #059669;
+      }
+      
+      .metric-change.negative {
+        color: #dc2626;
+      }
+      
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+      }
+      
+      .status-badge.success {
+        background-color: #d1fae5;
+        color: #065f46;
+      }
+      
+      .status-badge.warning {
+        background-color: #fef3c7;
+        color: #92400e;
+      }
+      
+      .status-badge.error {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
+      
+      .status-badge.info {
+        background-color: #dbeafe;
+        color: #1e40af;
+      }
+      
+      .transaction-row {
+        padding: 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      .transaction-row:hover {
+        background-color: #f9fafb;
+      }
+      
+      .transaction-row:last-child {
+        border-bottom: none;
+      }
+      
+      .refresh-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #10b981;
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+      }
+      
+      .loading-spinner {
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #6366f1;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <!-- Navigation -->
+      <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
+              </div>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/payment-monitoring" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Payment Monitor</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="refresh-indicator"></span>
+                <span class="text-gray-400">Auto-refresh: <span id="refresh-countdown">30</span>s</span>
+              </div>
+              <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="flex-grow">
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <!-- Header -->
+          <div class="px-4 mb-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900">Payment & Economy Monitoring</h2>
+                <p class="mt-1 text-sm text-gray-600">Real-time insights into the agentic economy</p>
+              </div>
+              <div class="flex gap-2">
+                <button id="refresh-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  <span id="refresh-icon">↻</span> Refresh Now
+                </button>
+                <button id="export-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  ⤓ Export Data
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Metrics Grid -->
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Total Transactions -->
+              <div class="metric-card">
+                <div class="metric-value" id="total-transactions">--</div>
+                <div class="metric-label">Total Transactions</div>
+                <div class="metric-change positive" id="transactions-change">--</div>
+              </div>
+
+              <!-- Total Volume -->
+              <div class="metric-card">
+                <div class="metric-value" id="total-volume">--</div>
+                <div class="metric-label">Total Volume (USDC)</div>
+                <div class="metric-change positive" id="volume-change">--</div>
+              </div>
+
+              <!-- Active Wallets -->
+              <div class="metric-card">
+                <div class="metric-value" id="active-wallets">--</div>
+                <div class="metric-label">Agent Wallets</div>
+                <div class="metric-change positive" id="wallets-change">--</div>
+              </div>
+
+              <!-- Platform Revenue -->
+              <div class="metric-card">
+                <div class="metric-value" id="platform-revenue">--</div>
+                <div class="metric-label">Platform Revenue (2%)</div>
+                <div class="metric-change positive" id="revenue-change">--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Status -->
+          <div class="px-4 mb-6">
+            <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">x402 Service</div>
+                    <div class="text-xs text-gray-500 mt-1" id="x402-details">Checking...</div>
+                  </div>
+                  <span class="status-badge info" id="x402-status">--</span>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">Wallet Service</div>
+                    <div class="text-xs text-gray-500 mt-1" id="wallet-details">Checking...</div>
+                  </div>
+                  <span class="status-badge info" id="wallet-status">--</span>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">Marketplace</div>
+                    <div class="text-xs text-gray-500 mt-1" id="marketplace-details">Checking...</div>
+                  </div>
+                  <span class="status-badge info" id="marketplace-status">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Row -->
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Transaction Volume Chart -->
+              <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Transaction Volume (24h)</h3>
+                <div class="chart-container">
+                  <canvas id="volume-chart"></canvas>
+                </div>
+              </div>
+
+              <!-- Transaction Count Chart -->
+              <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Transaction Count (24h)</h3>
+                <div class="chart-container">
+                  <canvas id="count-chart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Transactions & Marketplace Services -->
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Recent Transactions -->
+              <div class="bg-white rounded-lg shadow border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h3 class="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                  <p class="text-sm text-gray-600 mt-1">Latest payment activity</p>
+                </div>
+                <div class="divide-y divide-gray-200" id="recent-transactions">
+                  <div class="p-6 text-center text-gray-500">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm">Loading transactions...</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Top Services -->
+              <div class="bg-white rounded-lg shadow border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h3 class="text-lg font-semibold text-gray-900">Top Services</h3>
+                  <p class="text-sm text-gray-600 mt-1">Most popular marketplace services</p>
+                </div>
+                <div class="divide-y divide-gray-200" id="top-services">
+                  <div class="p-6 text-center text-gray-500">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm">Loading services...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent Wallets Table -->
+          <div class="px-4 mb-6">
+            <div class="bg-white rounded-lg shadow border border-gray-200">
+              <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">Agent Wallets</h3>
+                  <p class="text-sm text-gray-600 mt-1">Active agent wallet balances and spending</p>
+                </div>
+                <input type="text" id="wallet-search" placeholder="Search wallets..." class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Spent</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Limit</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200" id="wallets-table">
+                    <tr>
+                      <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        <div class="loading-spinner mx-auto mb-2"></div>
+                        <p class="text-sm">Loading wallets...</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p class="text-center text-sm text-gray-500">
+            © 2019-2025 Cenetex Inc. Licensed under MIT License.
+          </p>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // Auto-refresh countdown
+      let refreshCountdown = 30;
+      let refreshInterval;
+      let charts = {};
+
+      // Initialize charts
+      function initCharts() {
+        const volumeCtx = document.getElementById('volume-chart').getContext('2d');
+        const countCtx = document.getElementById('count-chart').getContext('2d');
+
+        charts.volume = new Chart(volumeCtx, {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [{
+              label: 'Volume (USDC)',
+              data: [],
+              borderColor: 'rgb(99, 102, 241)',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+
+        charts.count = new Chart(countCtx, {
+          type: 'bar',
+          data: {
+            labels: [],
+            datasets: [{
+              label: 'Transactions',
+              data: [],
+              backgroundColor: 'rgb(34, 197, 94)',
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Format USDC amount
+      function formatUSDC(amount) {
+        const usd = (amount || 0) / 1e6;
+        return '$' + usd.toFixed(2);
+      }
+
+      // Format address
+      function formatAddress(address) {
+        if (!address) return '--';
+        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+      }
+
+      // Format date
+      function formatDate(date) {
+        if (!date) return '--';
+        const d = new Date(date);
+        return d.toLocaleTimeString() + ' ' + d.toLocaleDateString();
+      }
+
+      // Format relative time
+      function formatRelativeTime(date) {
+        if (!date) return '--';
+        const now = new Date();
+        const diff = now - new Date(date);
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (seconds < 60) return `${seconds}s ago`;
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        return new Date(date).toLocaleDateString();
+      }
+
+      // Load dashboard data
+      async function loadDashboard() {
+        try {
+          // Use the comprehensive dashboard endpoint
+          const response = await fetch('/api/payment/dashboard');
+          const data = await response.json();
+
+          // Update key metrics
+          document.getElementById('total-transactions').textContent = 
+            data.overview.totalTransactions.toLocaleString();
+          document.getElementById('active-wallets').textContent = 
+            data.overview.agentWallets.toLocaleString();
+          document.getElementById('total-volume').textContent = formatUSDC(data.overview.totalVolume);
+          document.getElementById('platform-revenue').textContent = formatUSDC(data.overview.platformRevenue);
+
+          // Update change indicators (calculate from hourly data)
+          updateChangeIndicators(data);
+
+          // Update system status
+          updateSystemStatus(data);
+
+          // Load recent transactions
+          loadRecentTransactions(data.recentTransactions);
+
+          // Load marketplace services
+          await loadMarketplaceServices();
+
+          // Load agent wallets
+          await loadAgentWallets(data.topWallets);
+
+          // Update charts
+          updateCharts(data.hourlyData);
+
+        } catch (error) {
+          console.error('Failed to load dashboard:', error);
+          showError('Failed to load dashboard data. Please refresh the page.');
+        }
+      }
+
+      function updateChangeIndicators(data) {
+        // Calculate 24h change from hourly data
+        const now = new Date();
+        const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+        
+        const recentHours = data.hourlyData.filter(h => {
+          const hourDate = new Date(h._id.replace(/-/g, '/'));
+          return hourDate >= yesterday;
+        });
+
+        const recentCount = recentHours.reduce((sum, h) => sum + h.count, 0);
+        const recentVolume = recentHours.reduce((sum, h) => sum + h.volume, 0);
+
+        // Show 24h activity
+        const txChange = document.getElementById('transactions-change');
+        txChange.textContent = `+${recentCount} in 24h`;
+        txChange.className = 'metric-change positive';
+
+        const volChange = document.getElementById('volume-change');
+        volChange.textContent = `+${formatUSDC(recentVolume)} in 24h`;
+        volChange.className = 'metric-change positive';
+
+        const walletsChange = document.getElementById('wallets-change');
+        walletsChange.textContent = `${data.overview.agentWallets} active`;
+        walletsChange.className = 'metric-change positive';
+
+        const revenueChange = document.getElementById('revenue-change');
+        revenueChange.textContent = `2% platform fee`;
+        revenueChange.className = 'metric-change positive';
+      }
+
+      function updateSystemStatus(data) {
+        // x402 Service status
+        const x402Status = document.getElementById('x402-status');
+        const x402Details = document.getElementById('x402-details');
+        
+        const x402Configured = data.configured?.x402;
+        const hasTransactions = data.overview.x402Transactions > 0;
+        
+        if (!x402Configured) {
+          x402Status.textContent = 'NOT CONFIGURED';
+          x402Status.className = 'status-badge warning';
+          x402Details.textContent = 'Configure CDP credentials in Settings';
+        } else if (hasTransactions) {
+          x402Status.textContent = 'OPERATIONAL';
+          x402Status.className = 'status-badge success';
+          x402Details.textContent = `${data.overview.x402Transactions.toLocaleString()} transactions processed`;
+        } else {
+          x402Status.textContent = 'READY';
+          x402Status.className = 'status-badge success';
+          x402Details.textContent = 'Configured, awaiting first transaction';
+        }
+
+        // Wallet Service status
+        const walletStatus = document.getElementById('wallet-status');
+        const walletDetails = document.getElementById('wallet-details');
+        
+        const walletConfigured = data.configured?.wallet;
+        const hasWallets = data.overview.agentWallets > 0;
+        
+        if (!walletConfigured) {
+          walletStatus.textContent = 'NOT CONFIGURED';
+          walletStatus.className = 'status-badge warning';
+          walletDetails.textContent = 'Configure encryption key in Settings';
+        } else if (hasWallets) {
+          walletStatus.textContent = 'OPERATIONAL';
+          walletStatus.className = 'status-badge success';
+          walletDetails.textContent = `${data.overview.agentWallets} active wallets`;
+        } else {
+          walletStatus.textContent = 'READY';
+          walletStatus.className = 'status-badge success';
+          walletDetails.textContent = 'Configured, no agents yet';
+        }
+
+        // Marketplace status
+        const marketplaceStatus = document.getElementById('marketplace-status');
+        const marketplaceDetails = document.getElementById('marketplace-details');
+        marketplaceStatus.textContent = 'READY';
+        marketplaceStatus.className = 'status-badge success';
+        marketplaceDetails.textContent = 'Service operational';
+      }
+
+      function loadRecentTransactions(transactions) {
+        const container = document.getElementById('recent-transactions');
+        
+        if (!transactions || transactions.length === 0) {
+          container.innerHTML = `
+            <div class="p-6 text-center text-gray-500">
+              <p class="text-sm">No transactions yet</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = transactions.slice(0, 5).map(tx => `
+          <div class="transaction-row">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-900">${formatUSDC(tx.amount)}</div>
+              <div class="text-xs text-gray-500 truncate">${tx.agentId || 'Unknown agent'}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-gray-600">${formatRelativeTime(tx.verifiedAt)}</div>
+              <span class="status-badge ${tx.status === 'settled' ? 'success' : 'warning'}">${tx.status}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      async function loadMarketplaceServices() {
+        try {
+          const response = await fetch('/api/marketplace/services?sortBy=popularity&limit=5');
+          const data = await response.json();
+          const container = document.getElementById('top-services');
+
+          if (!data.services || data.services.length === 0) {
+            container.innerHTML = `
+              <div class="p-6 text-center text-gray-500">
+                <p class="text-sm">No services listed yet</p>
+              </div>
+            `;
+            return;
+          }
+
+          container.innerHTML = data.services.map(service => `
+            <div class="transaction-row">
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900">${service.name}</div>
+                <div class="text-xs text-gray-500">${service.stats.totalRequests} requests · ${formatUSDC(service.stats.totalRevenue)} earned</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-gray-600">${formatUSDC(service.pricing.amount)}</div>
+                <div class="text-xs text-gray-500">⭐ ${service.stats.averageRating.toFixed(1)}</div>
+              </div>
+            </div>
+          `).join('');
+        } catch (error) {
+          console.error('Failed to load marketplace services:', error);
+          document.getElementById('top-services').innerHTML = `
+            <div class="p-6 text-center text-gray-500">
+              <p class="text-sm text-red-600">Failed to load services</p>
+            </div>
+          `;
+        }
+      }
+
+      async function loadAgentWallets(topWallets) {
+        try {
+          const response = await fetch('/api/payment/wallets?limit=10');
+          const data = await response.json();
+          const container = document.getElementById('wallets-table');
+
+          if (!data.wallets || data.wallets.length === 0) {
+            container.innerHTML = `
+              <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                  <p class="text-sm">No wallets found. Agents will create wallets automatically.</p>
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          container.innerHTML = data.wallets.map(wallet => {
+            const dailySpent = wallet.dailySpent || 0;
+            const dailyLimit = wallet.dailySpendLimit || 100 * 1e6;
+            const percentUsed = (dailySpent / dailyLimit) * 100;
+            const statusClass = percentUsed > 90 ? 'warning' : (percentUsed > 75 ? 'info' : 'success');
+            const statusText = percentUsed > 90 ? 'NEAR LIMIT' : 'ACTIVE';
+
+            return `
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  ${wallet.agentId || 'Unknown'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <code class="text-xs">${formatAddress(wallet.address)}</code>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ${formatUSDC(wallet.balance || 0)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  ${formatUSDC(dailySpent)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  ${formatUSDC(dailyLimit)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="status-badge ${statusClass}">${statusText}</span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        } catch (error) {
+          console.error('Failed to load wallets:', error);
+          const container = document.getElementById('wallets-table');
+          container.innerHTML = `
+            <tr>
+              <td colspan="6" class="px-6 py-4 text-center text-red-500">
+                <p class="text-sm">Failed to load wallet data</p>
+              </td>
+            </tr>
+          `;
+        }
+      }
+
+      function updateCharts(hourlyData) {
+        // Generate 24-hour labels
+        const hours = [];
+        const volumeData = [];
+        const countData = [];
+        
+        for (let i = 23; i >= 0; i--) {
+          const hour = new Date();
+          hour.setHours(hour.getHours() - i);
+          const hourLabel = hour.getHours().toString().padStart(2, '0') + ':00';
+          hours.push(hourLabel);
+          
+          // Find matching data from API
+          const hourKey = hour.toISOString().substring(0, 13).replace('T', '-');
+          const matchingData = hourlyData.find(h => h._id.startsWith(hourKey));
+          
+          volumeData.push(matchingData ? matchingData.volume / 1e6 : 0);
+          countData.push(matchingData ? matchingData.count : 0);
+        }
+
+        charts.volume.data.labels = hours;
+        charts.volume.data.datasets[0].data = volumeData;
+        charts.volume.update();
+
+        charts.count.data.labels = hours;
+        charts.count.data.datasets[0].data = countData;
+        charts.count.update();
+      }
+
+      function showError(message) {
+        // Could implement a toast notification system
+        console.error(message);
+      }
+
+      // Refresh functionality
+      function startRefreshCountdown() {
+        refreshInterval = setInterval(() => {
+          refreshCountdown--;
+          document.getElementById('refresh-countdown').textContent = refreshCountdown;
+          
+          if (refreshCountdown <= 0) {
+            refreshCountdown = 30;
+            loadDashboard();
+          }
+        }, 1000);
+      }
+
+      document.getElementById('refresh-btn').addEventListener('click', () => {
+        refreshCountdown = 30;
+        loadDashboard();
+      });
+
+      // Export functionality
+      document.getElementById('export-btn').addEventListener('click', async () => {
+        try {
+          const response = await fetch('/api/payment/dashboard');
+          const data = await response.json();
+          
+          // Create a more comprehensive export
+          const exportData = {
+            exportDate: new Date().toISOString(),
+            overview: data.overview,
+            statusCounts: data.statusCounts,
+            hourlyData: data.hourlyData,
+            recentTransactions: data.recentTransactions,
+            topWallets: data.topWallets,
+          };
+          
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `payment-dashboard-${new Date().toISOString().split('T')[0]}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Export failed:', error);
+          alert('Failed to export data');
+        }
+      });
+
+      // Logout functionality
+      document.getElementById('admin-logout').addEventListener('click', () => {
+        window.location.href = '/admin/login.html';
+      });
+
+      // Wallet search
+      document.getElementById('wallet-search').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#wallets-table tr');
+        
+        rows.forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+      });
+
+      // Initialize on page load
+      window.addEventListener('DOMContentLoaded', () => {
+        initCharts();
+        loadDashboard();
+        startRefreshCountdown();
+      });
+
+      // Cleanup on page unload
+      window.addEventListener('beforeunload', () => {
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+        }
+      });
+    </script>
+  </body>
+</html>
