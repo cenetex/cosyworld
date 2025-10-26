@@ -205,21 +205,30 @@ export class AgentWalletService {
    * Get wallet private key (for signing transactions)
    * @private
    * @param {string} agentId - Agent ID
+   * @param {string} [network='base'] - Network
    * @returns {Promise<string>} Decrypted private key
    */
-  async _getPrivateKey(agentId) {
+  async _getPrivateKey(agentId, network = 'base') {
     const walletsCol = await this._getWalletsCollection();
-    const walletDoc = await walletsCol.findOne({ agentId });
+    const walletDoc = await walletsCol.findOne({ agentId, network });
 
     if (!walletDoc) {
       throw new Error(`No wallet found for agent ${agentId}`);
     }
 
-    return this._decryptPrivateKey(
-      walletDoc.encryptedPrivateKey,
-      walletDoc.iv,
-      walletDoc.authTag
-    );
+    // Support both flat and nested privateKey structures
+    let encryptedKey, iv, authTag;
+    if (walletDoc.privateKey && typeof walletDoc.privateKey === 'object') {
+      encryptedKey = walletDoc.privateKey.encrypted;
+      iv = walletDoc.privateKey.iv;
+      authTag = walletDoc.privateKey.authTag;
+    } else {
+      encryptedKey = walletDoc.encryptedPrivateKey;
+      iv = walletDoc.iv;
+      authTag = walletDoc.authTag;
+    }
+
+    return this._decryptPrivateKey(encryptedKey, iv, authTag);
   }
 
   /**
@@ -252,6 +261,10 @@ export class AgentWalletService {
    * @returns {Promise<Object>} Funding result
    */
   async fundWallet(agentId, amount, network = 'base') {
+    if (amount <= 0) {
+      throw new Error('Amount must be positive');
+    }
+
     const walletsCol = await this._getWalletsCollection();
     
     const result = await walletsCol.updateOne(
@@ -262,8 +275,17 @@ export class AgentWalletService {
       }
     );
 
-    if (result.matchedCount === 0) {
-      throw new Error(`No wallet found for agent ${agentId}`);
+    if (result && result.matchedCount === 0) {
+      // Wallet doesn't exist, create it
+      await this.getOrCreateWallet(agentId, network);
+      // Fund again after creating
+      await walletsCol.updateOne(
+        { agentId, network },
+        { 
+          $inc: { 'balance.usdc': amount },
+          $set: { 'balance.lastUpdated': new Date() }
+        }
+      );
     }
 
     this.logger.info(
@@ -334,47 +356,62 @@ export class AgentWalletService {
   }
 
   /**
-   * Create signed payment transaction
+   * Create a payment transaction (x402-compatible)
    * @param {Object} options
    * @param {string} options.agentId - Agent ID
-   * @param {string} options.to - Recipient address
+   * @param {string} [options.to] - Recipient address
+   * @param {string} [options.destination] - Recipient address (alias for to)
    * @param {number} options.amount - Amount in USDC (6 decimals)
+   * @param {string} [options.network='base'] - Network
    * @param {Object} [options.metadata] - Additional metadata
-   * @returns {Promise<Object>} Signed transaction
+   * @returns {Promise<Object>} Signed x402 payment
    */
-  async createPayment({ agentId, to, amount, metadata = {} }) {
+  async createPayment({ agentId, to, destination, amount, network = 'base', metadata = {} }) {
+    const recipient = destination || to;
+    
+    if (!recipient) {
+      throw new Error('Destination address is required');
+    }
+
+    // Get wallet info
+    const walletsCol = await this._getWalletsCollection();
+    const walletDoc = await walletsCol.findOne({ agentId, network });
+
+    if (!walletDoc) {
+      throw new Error('Wallet not found');
+    }
+
+    // Check balance
+    const balance = await this.getBalance(agentId, network);
+    if (balance < amount) {
+      throw new Error('Insufficient balance');
+    }
+
     // Check spending limit
     const canSpend = await this._checkSpendingLimit(agentId, amount);
     if (!canSpend) {
       throw new Error('Daily spending limit exceeded');
     }
 
-    // Check balance
-    const balance = await this.getBalance(agentId);
-    if (balance < amount) {
-      throw new Error('Insufficient balance');
-    }
-
-    // Get wallet info
-    const walletsCol = await this._getWalletsCollection();
-    const walletDoc = await walletsCol.findOne({ agentId });
-
     // Get private key for signing
-    const privateKey = await this._getPrivateKey(agentId);
+    const privateKey = await this._getPrivateKey(agentId, network);
     const wallet = new Wallet(privateKey);
 
-    // Create transaction (simplified - in production would use proper ERC20 transfer)
-    const txData = {
+    // Create x402-compatible payment payload
+    const nonce = crypto.randomUUID();
+    const paymentData = {
       from: walletDoc.address,
-      to,
+      to: recipient,
       amount,
+      network,
+      nonce,
       timestamp: Date.now(),
       ...metadata,
     };
 
-    // Sign transaction hash
-    const txHash = crypto.createHash('sha256').update(JSON.stringify(txData)).digest('hex');
-    const signature = await wallet.signMessage(txHash);
+    // Sign the payment data
+    const dataHash = crypto.createHash('sha256').update(JSON.stringify(paymentData)).digest('hex');
+    const signature = await wallet.signMessage(dataHash);
 
     // Store transaction
     const transactionsCol = await this._getTransactionsCollection();
@@ -384,53 +421,57 @@ export class AgentWalletService {
       transactionId: txId,
       agentId,
       from: walletDoc.address,
-      to,
+      to: recipient,
       amount,
+      network,
       signature,
-      txHash,
+      dataHash,
       status: 'pending',
       createdAt: new Date(),
       ...metadata,
     });
 
-    // Update daily spending and balance
+    // Update daily spending (balance is updated when payment is settled)
     await this._updateDailySpending(agentId, amount);
-    await walletsCol.updateOne(
-      { agentId },
-      { $inc: { balance: -amount } }
-    );
 
     this.logger.info(
-      `[AgentWalletService] Created payment ${txId} from agent ${agentId} to ${to}: ${amount / 1e6} USDC`
+      `[AgentWalletService] Created payment ${txId} from agent ${agentId} to ${recipient}: ${amount / 1e6} USDC`
     );
 
+    // Return x402-compatible payment structure
     return {
-      transactionId: txId,
-      from: walletDoc.address,
-      to,
-      amount,
-      signature,
-      txHash,
-      status: 'pending',
+      x402Version: 1,
+      scheme: 'exact',
+      network,
+      signedPayload: signature,
+      metadata: {
+        agentId,
+        nonce,
+      },
     };
-  }
-
-  /**
+  }  /**
    * Get transaction history for agent
    * @param {string} agentId - Agent ID
    * @param {Object} [options]
    * @param {number} [options.limit=50] - Max number of transactions
+   * @param {number} [options.offset=0] - Number of transactions to skip (alias for skip)
    * @param {number} [options.skip=0] - Number of transactions to skip
+   * @param {string} [options.network] - Filter by network
    * @returns {Promise<Array>} Transaction history
    */
   async getTransactionHistory(agentId, options = {}) {
     const transactionsCol = await this._getTransactionsCollection();
     
     const limit = options.limit || 50;
-    const skip = options.skip || 0;
+    const skip = options.offset || options.skip || 0;
+
+    const query = { agentId };
+    if (options.network) {
+      query.network = options.network;
+    }
 
     const transactions = await transactionsCol
-      .find({ agentId })
+      .find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

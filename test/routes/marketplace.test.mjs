@@ -33,13 +33,31 @@ describe('Marketplace API Routes', () => {
     };
 
     mockX402Service = {
-      generatePaymentRequired: vi.fn(),
-      verifyPayment: vi.fn(),
-      settlePayment: vi.fn(),
+      generatePaymentRequired: vi.fn().mockReturnValue({
+        x402Version: 1,
+        facilitator: { scheme: 'exact', network: 'base' },
+        price: { usdcAmount: 50000 },
+        paymentDestination: { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb' },
+      }),
+      verifyPayment: vi.fn().mockResolvedValue({
+        verified: true,
+        amount: 50000,
+        settlementId: 'settlement-123',
+      }),
+      settlePayment: vi.fn().mockResolvedValue({
+        settled: true,
+        txHash: '0x...',
+      }),
     };
 
     mockAgentWalletService = {
-      getOrCreateWallet: vi.fn(),
+      getOrCreateWallet: vi.fn().mockResolvedValue({
+        agentId: 'agent-123',
+        network: 'base',
+        address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        balance: { usdc: 100000 },
+      }),
+      fundWallet: vi.fn().mockResolvedValue({ success: true }),
     };
 
     mockLogger = {

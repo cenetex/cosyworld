@@ -221,6 +221,9 @@ describe('AgentWalletService', () => {
     it('should create wallet if not exists', async () => {
       mockDatabaseService.collection.findOne.mockResolvedValue(null);
       mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
+      mockDatabaseService.collection.updateOne
+        .mockResolvedValueOnce({ modifiedCount: 0, matchedCount: 0 }) // First call: wallet doesn't exist
+        .mockResolvedValueOnce({ modifiedCount: 1, matchedCount: 1 }); // Second call: wallet exists after creation
 
       await service.fundWallet('agent-123', 500000, 'base-sepolia');
 
@@ -236,30 +239,39 @@ describe('AgentWalletService', () => {
     it('should log funding transaction', async () => {
       mockDatabaseService.collection.findOne.mockResolvedValue({
         agentId: 'agent-123',
+        network: 'base-sepolia',
         balance: { usdc: 0 },
       });
-      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1, matchedCount: 1 });
 
       await service.fundWallet('agent-123', 500000, 'base-sepolia');
 
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Funded wallet for agent-123')
+      // Check that info was called with a message containing the expected text
+      const calls = mockLogger.info.mock.calls;
+      const hasFundingLog = calls.some(call => 
+        call[0] && call[0].includes('Funded wallet for agent agent-123')
       );
+      expect(hasFundingLog).toBe(true);
     });
   });
 
   describe('createPayment', () => {
     it('should create signed payment transaction', async () => {
+      const testPrivateKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+      const encryptedData = service._encryptPrivateKey(testPrivateKey);
+      
       const mockWallet = {
         agentId: 'agent-123',
         network: 'base-sepolia',
         address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
         privateKey: {
-          encrypted: 'encrypted-key',
-          iv: 'iv',
-          authTag: 'authTag',
+          encrypted: encryptedData.encrypted,
+          iv: encryptedData.iv,
+          authTag: encryptedData.authTag,
         },
         balance: { usdc: 1000000 },
+        dailySpent: 0,
+        dailyLimit: 10000000,
       };
 
       mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
@@ -315,15 +327,21 @@ describe('AgentWalletService', () => {
     });
 
     it('should decrypt private key for signing', async () => {
+      const testPrivateKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+      const encryptedData = service._encryptPrivateKey(testPrivateKey);
+      
       const mockWallet = {
         agentId: 'agent-123',
         address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+        network: 'base-sepolia',
         privateKey: {
-          encrypted: 'encrypted-key',
-          iv: 'aabbccdd',
-          authTag: 'tag',
+          encrypted: encryptedData.encrypted,
+          iv: encryptedData.iv,
+          authTag: encryptedData.authTag,
         },
         balance: { usdc: 1000000 },
+        dailySpent: 0,
+        dailyLimit: 10000000,
       };
 
       mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
@@ -336,7 +354,8 @@ describe('AgentWalletService', () => {
       });
 
       // Private key should never be exposed in logs or errors
-      expect(mockLogger.info.mock.calls.join('')).not.toContain('0x');
+      const logMessages = mockLogger.info.mock.calls.map(call => call[0] || '').join('');
+      expect(logMessages).not.toContain(testPrivateKey);
     });
   });
 
