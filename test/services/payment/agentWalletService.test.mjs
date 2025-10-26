@@ -41,31 +41,49 @@ describe('AgentWalletService', () => {
   describe('Initialization', () => {
     it('should initialize with encryption key', () => {
       expect(service).toBeDefined();
+      expect(service.configured).toBe(true);
       expect(service.encryptionKey).toBeDefined();
     });
 
-    it('should throw error if encryption key missing', () => {
-      mockConfigService.config.payment.agentWallets.encryptionKey = null;
+    it('should not throw error if encryption key missing (log warning instead)', () => {
+      const mockConfig = {
+        config: {
+          payment: {
+            agentWallets: {
+              encryptionKey: null,
+            },
+          },
+        },
+      };
       
-      expect(() => {
-        new AgentWalletService({
-          logger: mockLogger,
-          configService: mockConfigService,
-          databaseService: mockDatabaseService,
-        });
-      }).toThrow('Wallet encryption key not configured');
+      const unconfiguredService = new AgentWalletService({
+        logger: mockLogger,
+        configService: mockConfig,
+        databaseService: mockDatabaseService,
+      });
+      
+      expect(unconfiguredService.configured).toBe(false);
     });
 
-    it('should validate encryption key length', () => {
-      mockConfigService.config.payment.agentWallet.encryptionKey = 'too-short';
+    it('should hash encryption key to correct length', () => {
+      const mockConfig = {
+        config: {
+          payment: {
+            agentWallets: {
+              encryptionKey: 'any-length-key',
+            },
+          },
+        },
+      };
       
-      expect(() => {
-        new AgentWalletService({
-          logger: mockLogger,
-          configService: mockConfigService,
-          databaseService: mockDatabaseService,
-        });
-      }).toThrow('Encryption key must be 32 bytes');
+      const testService = new AgentWalletService({
+        logger: mockLogger,
+        configService: mockConfig,
+        databaseService: mockDatabaseService,
+      });
+      
+      expect(testService.encryptionKey).toBeDefined();
+      expect(testService.encryptionKey.length).toBe(32); // 32 bytes for AES-256
     });
   });
 
@@ -73,19 +91,25 @@ describe('AgentWalletService', () => {
     it('should return existing wallet if found', async () => {
       const existingWallet = {
         agentId: 'agent-123',
-        network: 'base-sepolia',
+        network: 'base',
         address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-        balance: { usdc: 500000, lastUpdated: new Date() },
+        dailyLimit: 100000000,
+        createdAt: new Date(),
       };
 
       mockDatabaseService.collection.findOne.mockResolvedValue(existingWallet);
 
-      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+      const wallet = await service.getOrCreateWallet('agent-123');
 
-      expect(wallet).toEqual(existingWallet);
+      expect(wallet).toEqual({
+        agentId: existingWallet.agentId,
+        address: existingWallet.address,
+        network: existingWallet.network,
+        createdAt: existingWallet.createdAt,
+        dailyLimit: existingWallet.dailyLimit,
+      });
       expect(mockDatabaseService.collection.findOne).toHaveBeenCalledWith({
         agentId: 'agent-123',
-        network: 'base-sepolia',
       });
     });
 
@@ -93,10 +117,10 @@ describe('AgentWalletService', () => {
       mockDatabaseService.collection.findOne.mockResolvedValue(null);
       mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
 
-      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+      const wallet = await service.getOrCreateWallet('agent-123');
 
       expect(wallet.agentId).toBe('agent-123');
-      expect(wallet.network).toBe('base-sepolia');
+      expect(wallet.network).toBe('base'); // Default network
       expect(wallet.address).toMatch(/^0x[a-fA-F0-9]{40}$/); // Valid Ethereum address
       expect(mockDatabaseService.collection.insertOne).toHaveBeenCalled();
     });
@@ -105,35 +129,34 @@ describe('AgentWalletService', () => {
       mockDatabaseService.collection.findOne.mockResolvedValue(null);
       mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
 
-      await service.getOrCreateWallet('agent-123', 'base-sepolia');
+      await service.getOrCreateWallet('agent-123');
 
       const insertCall = mockDatabaseService.collection.insertOne.mock.calls[0][0];
       
-      expect(insertCall.privateKey).toBeDefined();
-      expect(insertCall.privateKey.encrypted).toBeDefined();
-      expect(insertCall.privateKey.iv).toBeDefined();
-      expect(insertCall.privateKey.authTag).toBeDefined();
-      expect(insertCall.privateKey.encrypted).not.toMatch(/^0x[a-fA-F0-9]+$/); // Should be encrypted, not plaintext
+      expect(insertCall.encryptedPrivateKey).toBeDefined();
+      expect(insertCall.iv).toBeDefined();
+      expect(insertCall.authTag).toBeDefined();
+      expect(insertCall.encryptedPrivateKey).not.toMatch(/^0x[a-fA-F0-9]+$/); // Should be encrypted, not plaintext
     });
 
-    it('should initialize balance to zero', async () => {
+    it('should initialize dailySpent to zero', async () => {
       mockDatabaseService.collection.findOne.mockResolvedValue(null);
       mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
 
-      const wallet = await service.getOrCreateWallet('agent-123', 'base-sepolia');
+      await service.getOrCreateWallet('agent-123');
 
-      expect(wallet.balance.usdc).toBe(0);
-      expect(wallet.spending.total).toBe(0);
-      expect(wallet.spending.thisMonth).toBe(0);
+      const insertCall = mockDatabaseService.collection.insertOne.mock.calls[0][0];
+      expect(insertCall.dailySpent).toBe(0);
+      expect(insertCall.dailyLimit).toBeGreaterThan(0);
     });
 
-    it('should use default network if not specified', async () => {
+    it('should use default network (base)', async () => {
       mockDatabaseService.collection.findOne.mockResolvedValue(null);
       mockDatabaseService.collection.insertOne.mockResolvedValue({ insertedId: 'new-id' });
 
       const wallet = await service.getOrCreateWallet('agent-123');
 
-      expect(wallet.network).toBe('base-sepolia');
+      expect(wallet.network).toBe('base'); // Default is base, not base-sepolia
     });
   });
 

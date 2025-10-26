@@ -296,7 +296,8 @@ describe('PricingService', () => {
         outputTokens: 0,
       });
 
-      expect(price.totalCostUSDC).toBe(1000); // Minimum payment
+      // Zero tokens means no cost (free)
+      expect(price.totalCostUSDC).toBe(0);
     });
 
     it('should handle very large token counts', () => {

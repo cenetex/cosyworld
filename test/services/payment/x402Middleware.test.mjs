@@ -37,6 +37,7 @@ describe('x402Middleware', () => {
     mockX402Service = {
       verifyPayment: vi.fn(),
       generatePaymentRequired: vi.fn(),
+      settlePayment: vi.fn().mockResolvedValue({ success: true }),
     };
 
     mockPricingService = {

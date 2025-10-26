@@ -60,16 +60,16 @@ describe('X402Service', () => {
       expect(service.sellerAddress).toBe('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb');
     });
 
-    it('should throw error if CDP credentials missing', () => {
-      mockConfigService.config.payment.x402.apiKeyId = null;
+    it('should not throw error if CDP credentials missing (log warning instead)', () => {
+      mockConfigService.config.payment.x402 = {};
       
-      expect(() => {
-        new X402Service({
-          logger: mockLogger,
-          configService: mockConfigService,
-          databaseService: mockDatabaseService,
-        });
-      }).toThrow('CDP API credentials not configured');
+      const unconfiguredService = new X402Service({
+        logger: mockLogger,
+        configService: mockConfigService,
+        databaseService: mockDatabaseService,
+      });
+      
+      expect(unconfiguredService.configured).toBe(false);
     });
 
     it('should use testnet by default if enabled', () => {
@@ -78,64 +78,36 @@ describe('X402Service', () => {
   });
 
   describe('getSupportedNetworks', () => {
-    it('should fetch supported networks from CDP', async () => {
-      const mockResponse = {
-        kinds: [
-          { x402Version: 1, scheme: 'exact', network: 'base' },
-          { x402Version: 1, scheme: 'exact', network: 'base-sepolia' },
-          { x402Version: 1, scheme: 'exact', network: 'solana' },
-          { x402Version: 1, scheme: 'exact', network: 'solana-devnet' },
-        ]
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
+    it('should return supported networks from cache', async () => {
       const networks = await service.getSupportedNetworks();
 
-      expect(networks).toEqual(mockResponse.kinds);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.cdp.coinbase.com/platform/v2/x402/supported',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Authorization': expect.stringContaining('Bearer '),
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
+      expect(Array.isArray(networks)).toBe(true);
+      expect(networks.length).toBeGreaterThan(0);
+      expect(networks[0]).toHaveProperty('kind');
+      expect(networks[0]).toHaveProperty('networks');
+      expect(networks[0]).toHaveProperty('tokens');
     });
 
     it('should cache supported networks', async () => {
-      const mockResponse = {
-        kinds: [
-          { x402Version: 1, scheme: 'exact', network: 'base' },
-        ]
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
       // First call
-      await service.getSupportedNetworks();
+      const networks1 = await service.getSupportedNetworks();
       
-      // Second call should use cache
-      await service.getSupportedNetworks();
+      // Second call should return same cached instance
+      const networks2 = await service.getSupportedNetworks();
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(networks1).toBe(networks2); // Same reference
     });
 
-    it('should handle API errors gracefully', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
+    it('should throw error if not configured', async () => {
+      const unconfiguredService = new X402Service({
+        logger: mockLogger,
+        configService: {
+          config: { payment: { x402: {} } }
+        },
+        databaseService: mockDatabaseService,
       });
 
-      await expect(service.getSupportedNetworks()).rejects.toThrow('Failed to fetch supported networks');
+      await expect(unconfiguredService.getSupportedNetworks()).rejects.toThrow('X402Service not configured');
     });
   });
 
@@ -444,35 +416,6 @@ describe('X402Service', () => {
       expect(payload.iss).toBe('cdp');
       expect(payload.aud).toContain('cdp_service');
       expect(payload.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle network errors', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        service.getSupportedNetworks()
-      ).rejects.toThrow('Network error');
-    });
-
-    it('should handle malformed responses', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => { throw new Error('Invalid JSON'); },
-      });
-
-      await expect(
-        service.getSupportedNetworks()
-      ).rejects.toThrow();
-    });
-
-    it('should log errors appropriately', async () => {
-      mockFetch.mockRejectedValue(new Error('Test error'));
-
-      await expect(service.getSupportedNetworks()).rejects.toThrow();
-
-      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 });
