@@ -148,6 +148,9 @@ export class BuybotService {
             tokenDecimals: tokenInfo.decimals,
             addedAt: new Date(),
             lastEventAt: null,
+            errorCount: 0, // Initialize error counter
+            lastErrorAt: null,
+            warning: tokenInfo.warning || null, // Store any warnings about the token
           },
         },
         { upsert: true }
@@ -229,15 +232,66 @@ export class BuybotService {
    * @param {string} tokenAddress - Token mint address
    * @returns {Promise<Object|null>} Token info or null
    */
+  /**
+   * Validate Solana token address format
+   * @param {string} address - Token address to validate
+   * @returns {boolean}
+   */
+  isValidSolanaAddress(address) {
+    // Solana addresses are base58 encoded, 32-44 characters
+    if (!address || typeof address !== 'string') return false;
+    if (address.length < 32 || address.length > 44) return false;
+    
+    // Check for valid base58 characters only
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+    return base58Regex.test(address);
+  }
+
+  /**
+   * Get token info from Helius
+   * @param {string} tokenAddress - Token address
+   * @returns {Promise<Object|null>}
+   */
   async getTokenInfo(tokenAddress) {
     try {
       if (!this.helius) return null;
 
-      const asset = await this.helius.getAsset({
-        id: tokenAddress,
-      });
+      // First validate the address format
+      if (!this.isValidSolanaAddress(tokenAddress)) {
+        this.logger.warn(`[BuybotService] Invalid Solana address format: ${tokenAddress}`);
+        return null;
+      }
 
-      if (!asset) return null;
+      // Try to get asset info from Helius
+      let asset;
+      try {
+        asset = await this.helius.getAsset({
+          id: tokenAddress,
+        });
+      } catch (apiError) {
+        // If token not found via getAsset, try alternative method
+        if (apiError.message?.includes('Not Found') || apiError.message?.includes('404')) {
+          this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in Helius DAS API`);
+          
+          // For pump.fun or new tokens, return minimal info
+          // The token might exist but not be indexed yet
+          return {
+            address: tokenAddress,
+            name: 'Unknown Token',
+            symbol: 'UNKNOWN',
+            decimals: 9, // Default for SPL tokens
+            supply: null,
+            image: null,
+            warning: 'Token not yet indexed - may be newly created or invalid',
+          };
+        }
+        throw apiError;
+      }
+
+      if (!asset) {
+        this.logger.warn(`[BuybotService] No asset data returned for ${tokenAddress}`);
+        return null;
+      }
 
       return {
         address: tokenAddress,
@@ -338,20 +392,68 @@ export class BuybotService {
         });
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
-        if (txError.message?.includes('Not Found') || txError.message?.includes('404')) {
-          this.logger.warn(`[BuybotService] Token ${tokenAddress} not found or has no transactions, marking as inactive`);
+        if (txError.message?.includes('Not Found') || 
+            txError.message?.includes('404') ||
+            txError.message?.includes('8100002')) {
           
-          // Mark token as inactive to stop polling
-          await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
-            { channelId, tokenAddress },
-            { $set: { active: false, error: 'Token not found or invalid' } }
-          );
+          this.logger.warn(`[BuybotService] Token ${tokenAddress} not found or has no transactions yet`);
           
-          // Stop polling for this token
-          this.stopPollingToken(channelId, tokenAddress, platform);
-          return;
+          // Check if this is a persistent error (token doesn't exist)
+          const token = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+            channelId,
+            tokenAddress,
+          });
+          
+          // Increment error counter
+          const errorCount = (token.errorCount || 0) + 1;
+          
+          // If we've had too many errors, mark as inactive
+          if (errorCount >= 5) {
+            this.logger.warn(`[BuybotService] Token ${tokenAddress} has failed ${errorCount} times, marking as inactive`);
+            
+            await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+              { channelId, tokenAddress },
+              { 
+                $set: { 
+                  active: false, 
+                  error: 'Token not found or invalid after multiple attempts',
+                  lastErrorAt: new Date(),
+                } 
+              }
+            );
+            
+            // Stop polling for this token
+            this.stopPollingToken(channelId, tokenAddress, platform);
+            
+            // Notify channel about the issue
+            const errorMsg = `⚠️ Stopped tracking token \`${tokenAddress.substring(0, 8)}...\` - Token not found or has no activity. It may be:\n` +
+                           `• An invalid address\n` +
+                           `• A newly created token not yet indexed\n` +
+                           `• A token with no transactions yet\n\n` +
+                           `Try re-adding it later if it's a new token.`;
+            
+            if (platform === 'discord') {
+              await this.sendDiscordNotification(channelId, errorMsg);
+            } else if (platform === 'telegram') {
+              await this.sendTelegramNotification(channelId, errorMsg);
+            }
+            
+            return;
+          } else {
+            // Update error count but keep polling
+            await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+              { channelId, tokenAddress },
+              { 
+                $set: { errorCount, lastErrorAt: new Date() },
+              }
+            );
+            return; // Skip this check cycle
+          }
         }
-        throw txError; // Re-throw other errors
+        
+        // For other errors, log and continue
+        this.logger.error(`[BuybotService] Error fetching transactions for ${tokenAddress}:`, txError.message);
+        return;
       }
 
       if (!transactions || transactions.length === 0) {
