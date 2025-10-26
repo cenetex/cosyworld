@@ -24,6 +24,7 @@ export function setupBuybotTelegramCommands(bot, services) {
   // /ca command - Show tracked tokens
   bot.command('ca', async (ctx) => {
     try {
+      logger?.info?.('[BuybotTelegram] /ca command received');
       const channelId = String(ctx.chat.id);
       const trackedTokens = await buybotService.getTrackedTokens(channelId);
 
@@ -73,6 +74,7 @@ export function setupBuybotTelegramCommands(bot, services) {
   // /ca_add command - Add a token to track
   bot.command('ca_add', async (ctx) => {
     try {
+      logger?.info?.('[BuybotTelegram] /ca_add command received');
       const args = ctx.message.text.split(/\s+/).slice(1);
       const channelId = String(ctx.chat.id);
 
@@ -131,6 +133,7 @@ export function setupBuybotTelegramCommands(bot, services) {
   // /ca_remove command - Remove token
   bot.command('ca_remove', async (ctx) => {
     try {
+      logger?.info?.('[BuybotTelegram] /ca_remove command received');
       const args = ctx.message.text.split(/\s+/).slice(1);
 
       if (args.length === 0) {
@@ -164,6 +167,7 @@ export function setupBuybotTelegramCommands(bot, services) {
   // /ca_help command - Show help
   bot.command('ca_help', async (ctx) => {
     try {
+      logger?.info?.('[BuybotTelegram] /ca_help command received');
       const helpMessage =
         '🤖 *Buybot Help*\n\n' +
         'Track Solana token purchases and transfers in real-time using Helius.\n\n' +
@@ -171,11 +175,16 @@ export function setupBuybotTelegramCommands(bot, services) {
         '• `/ca_add <address>` - Start tracking a token\n' +
         '• `/ca` or `/ca_list` - View tracked tokens\n' +
         '• `/ca_remove <address>` - Stop tracking\n' +
+        '• `/ca_media <address> <image_$> <video_$>` - Set media thresholds\n' +
         '• `/ca_help` - Show this help\n\n' +
         '💰 *How It Works:*\n' +
         'Buybot checks for new transactions every 30 seconds and sends notifications when:\n' +
         '• Tokens are swapped/purchased 💰\n' +
         '• Tokens are transferred 📤\n\n' +
+        '🎬 *Auto Media Generation:*\n' +
+        'Configure when the bot automatically generates celebration media:\n' +
+        '• Default: $100 → Image, $1000 → Video\n' +
+        '• Example: `/ca_media <address> 50 500` (Image at $50, Video at $500)\n\n' +
         '🪙 *Popular Token Addresses:*\n' +
         '• *USDC:* `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n' +
         '• *BONK:* `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`\n' +
@@ -188,6 +197,53 @@ export function setupBuybotTelegramCommands(bot, services) {
       await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
     } catch (error) {
       logger?.error('[BuybotTelegram] /ca_help command error:', error);
+      await ctx.reply('❌ An error occurred. Please try again.');
+    }
+  });
+
+  // /ca_media command - Configure media generation thresholds
+  bot.command('ca_media', async (ctx) => {
+    try {
+      logger?.info?.('[BuybotTelegram] /ca_media command received');
+      const args = ctx.message.text.split(/\s+/).slice(1);
+      const channelId = String(ctx.chat.id);
+
+      if (args.length < 3) {
+        await ctx.reply(
+          '❌ Please provide token address and both thresholds.\n\n' +
+          '*Usage:* `/ca_media <token_address> <image_threshold> <video_threshold>`\n\n' +
+          '*Example:* `/ca_media EPjFW...Dt1v 50 500`\n' +
+          'This sets: $50 → generate image, $500 → generate video\n\n' +
+          '*Tip:* Set to 0 to disable (e.g., `/ca_media <address> 0 0`)',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      const [tokenAddress, imageThreshold, videoThreshold] = args;
+      const imageUsd = parseFloat(imageThreshold);
+      const videoUsd = parseFloat(videoThreshold);
+
+      if (isNaN(imageUsd) || isNaN(videoUsd) || imageUsd < 0 || videoUsd < 0) {
+        await ctx.reply('❌ Thresholds must be valid positive numbers.');
+        return;
+      }
+
+      const result = await buybotService.setMediaThresholds(channelId, tokenAddress, imageUsd, videoUsd);
+
+      if (result.success) {
+        await ctx.reply(
+          `✅ *Media Thresholds Updated*\n\n` +
+          `${result.message}\n\n` +
+          `🖼️ Image: ${imageUsd > 0 ? '$' + imageUsd : 'Disabled'}\n` +
+          `🎬 Video: ${videoUsd > 0 ? '$' + videoUsd : 'Disabled'}`,
+          { parse_mode: 'Markdown' }
+        );
+      } else {
+        await ctx.reply(`❌ ${result.message}`);
+      }
+    } catch (error) {
+      logger?.error('[BuybotTelegram] /ca_media command error:', error);
       await ctx.reply('❌ An error occurred. Please try again.');
     }
   });

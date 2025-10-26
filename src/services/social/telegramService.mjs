@@ -149,20 +149,23 @@ class TelegramService {
         }
       });
       
-      // Set up message handlers for conversations
-      this.setupMessageHandlers();
-      
-      // Setup buybot commands if available
+      // Setup buybot commands BEFORE message handlers (order matters in Telegraf!)
       if (this.buybotService) {
+        this.logger?.info?.('[TelegramService] Setting up buybot commands...');
         setupBuybotTelegramCommands(this.globalBot, {
           buybotService: this.buybotService,
           logger: this.logger,
         });
-        this.logger?.info?.('[TelegramService] Buybot commands registered');
+        this.logger?.info?.('[TelegramService] Buybot command handlers registered');
         
         // Register commands with Telegram for autocomplete
         await this.registerBuybotCommands();
+      } else {
+        this.logger?.warn?.('[TelegramService] Buybot service not available, skipping command setup');
       }
+      
+      // Set up message handlers for conversations (AFTER command handlers)
+      this.setupMessageHandlers();
       
       // Launch the bot with timeout protection
       // Telegram will automatically disconnect any other instance using the same token
@@ -242,6 +245,7 @@ class TelegramService {
         { command: 'ca_add', description: 'Track a new token' },
         { command: 'ca_list', description: 'Show all tracked tokens' },
         { command: 'ca_remove', description: 'Stop tracking a token' },
+        { command: 'ca_media', description: 'Set media generation thresholds' },
         { command: 'ca_help', description: 'Show buybot help' },
       ];
 
@@ -299,6 +303,60 @@ class TelegramService {
     } catch (error) {
       this.logger?.error?.(`[TelegramService] Failed to load conversation history:`, error);
       return [];
+    }
+  }
+
+  /**
+   * Get buybot context for the current channel
+   * Returns summary of tracked tokens and recent activity
+   * @private
+   */
+  async _getBuybotContext(channelId) {
+    try {
+      if (!this.buybotService) return null;
+
+      const db = await this.databaseService.getDatabase();
+      
+      // Get tracked tokens for this channel
+      const trackedTokens = await db.collection('buybot_tracked_tokens')
+        .find({ channelId, active: true })
+        .toArray();
+
+      if (trackedTokens.length === 0) return null;
+
+      // Get recent events (last 10) for tracked tokens
+      const tokenAddresses = trackedTokens.map(t => t.tokenAddress);
+      const recentEvents = await db.collection('buybot_token_events')
+        .find({ 
+          channelId,
+          tokenAddress: { $in: tokenAddresses },
+          timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24h
+        })
+        .sort({ timestamp: -1 })
+        .limit(10)
+        .toArray();
+
+      // Build context summary
+      let context = `Tracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''}:\n`;
+      
+      for (const token of trackedTokens) {
+        const tokenEvents = recentEvents.filter(e => e.tokenAddress === token.tokenAddress);
+        const purchases = tokenEvents.filter(e => e.type === 'swap').length;
+        const transfers = tokenEvents.filter(e => e.type === 'transfer').length;
+        
+        context += `• ${token.tokenSymbol} (${token.tokenName}): ${purchases} purchase${purchases !== 1 ? 's' : ''}, ${transfers} transfer${transfers !== 1 ? 's' : ''} (24h)\n`;
+      }
+
+      if (recentEvents.length > 0) {
+        const latest = recentEvents[0];
+        const timeAgo = Math.floor((Date.now() - latest.timestamp.getTime()) / 60000); // minutes
+        context += `Latest: ${latest.type === 'swap' ? 'Purchase' : 'Transfer'} of ${latest.description || 'token'} (${timeAgo}m ago)`;
+      }
+
+      return context.trim();
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to get buybot context:', error);
+      return null;
     }
   }
 
@@ -410,6 +468,12 @@ class TelegramService {
     
     // Ignore messages from the bot itself
     if (message.from.is_bot) {
+      return;
+    }
+
+    // Ignore commands - they should be handled by command handlers
+    if (message.text && message.text.startsWith('/')) {
+      this.logger?.debug?.(`[TelegramService] Ignoring command in message handler: ${message.text}`);
       return;
     }
 
@@ -630,6 +694,14 @@ class TelegramService {
 Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')}
 Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
 
+      // Get buybot context (tracked tokens and recent activity)
+      const buybotContext = await this._getBuybotContext(channelId);
+      const buybotContextStr = buybotContext ? `
+
+Token Tracking (Buybot):
+${buybotContext}
+You can discuss token activity naturally when relevant to the conversation.` : '';
+
       const systemPrompt = `${botPersonality}
 
 ${botDynamicPrompt}
@@ -637,7 +709,7 @@ ${botDynamicPrompt}
 Conversation mode: ${isMention ? 'Direct mention - respond to their question' : 'General chat - respond naturally'}
 Keep responses brief (2-3 sentences).
 
-${toolCreditContext}
+${toolCreditContext}${buybotContextStr}
 
 Tool usage: When tools are available and user asks for media, provide natural acknowledgment + tool call together.`;
 

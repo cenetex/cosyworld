@@ -146,6 +146,15 @@ export class BuybotService {
             tokenName: tokenInfo.name,
             tokenSymbol: tokenInfo.symbol,
             tokenDecimals: tokenInfo.decimals,
+            usdPrice: tokenInfo.usdPrice || null, // Store USD price if available
+            mediaThresholds: {
+              image: 100,  // Default: $100 for images
+              video: 1000, // Default: $1000 for videos
+            },
+            customMedia: {
+              image: null, // Custom image URL for small buys
+              video: null, // Custom video URL for small buys
+            },
             addedAt: new Date(),
             lastEventAt: null,
             errorCount: 0, // Initialize error counter
@@ -228,6 +237,99 @@ export class BuybotService {
   }
 
   /**
+   * Set media generation thresholds for a tracked token
+   * @param {string} channelId - Channel ID
+   * @param {string} tokenAddress - Token address
+   * @param {number} imageThreshold - USD threshold for image generation
+   * @param {number} videoThreshold - USD threshold for video generation
+   * @returns {Promise<Object>} Result object
+   */
+  async setMediaThresholds(channelId, tokenAddress, imageThreshold, videoThreshold) {
+    try {
+      const token = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+        channelId,
+        tokenAddress,
+        active: true,
+      });
+
+      if (!token) {
+        return { success: false, message: 'Token not currently tracked in this channel.' };
+      }
+
+      await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+        { channelId, tokenAddress },
+        {
+          $set: {
+            mediaThresholds: {
+              image: imageThreshold,
+              video: videoThreshold,
+            },
+          },
+        }
+      );
+
+      this.logger.info(`[BuybotService] Updated media thresholds for ${token.tokenSymbol}: image=$${imageThreshold}, video=$${videoThreshold}`);
+
+      return {
+        success: true,
+        message: `Media thresholds updated for **${token.tokenName}** (${token.tokenSymbol})`,
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to set media thresholds:', error);
+      return { success: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Set custom media for a tracked token (for small buys)
+   * @param {string} channelId - Channel ID
+   * @param {string} tokenAddress - Token address
+   * @param {string} mediaUrl - URL of the media (image or video)
+   * @param {string} mediaType - Type of media ('image' or 'video')
+   * @returns {Promise<Object>} Result object
+   */
+  async setCustomMedia(channelId, tokenAddress, mediaUrl, mediaType) {
+    try {
+      const token = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+        channelId,
+        tokenAddress,
+        active: true,
+      });
+
+      if (!token) {
+        return { success: false, message: 'Token not currently tracked in this channel.' };
+      }
+
+      if (!['image', 'video'].includes(mediaType)) {
+        return { success: false, message: 'Media type must be "image" or "video".' };
+      }
+
+      const updateField = mediaType === 'image' ? 'customMedia.image' : 'customMedia.video';
+
+      await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+        { channelId, tokenAddress },
+        {
+          $set: {
+            [updateField]: mediaUrl,
+          },
+        }
+      );
+
+      this.logger.info(`[BuybotService] Set custom ${mediaType} for ${token.tokenSymbol}: ${mediaUrl}`);
+
+      return {
+        success: true,
+        message: `Custom ${mediaType} set for **${token.tokenName}** (${token.tokenSymbol})`,
+        mediaType,
+        mediaUrl,
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to set custom media:', error);
+      return { success: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
    * Get token information from Helius
    * @param {string} tokenAddress - Token mint address
    * @returns {Promise<Object|null>} Token info or null
@@ -300,6 +402,7 @@ export class BuybotService {
         decimals: asset.token_info?.decimals || 9,
         supply: asset.token_info?.supply,
         image: asset.content?.links?.image,
+        usdPrice: asset.token_info?.price_info?.price_per_token || null, // Price in USD if available
       };
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
@@ -710,30 +813,250 @@ export class BuybotService {
         return;
       }
 
-      const emoji = event.type === 'swap' ? '💰' : '📤';
-      const title = event.type === 'swap' ? 'Purchase' : 'Transfer';
+      const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+      const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
 
-      const message =
-        `${emoji} *${token.tokenSymbol} ${title}*\n\n` +
-        `${event.description}\n\n` +
-  `*Amount:* ${this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals)} ${token.tokenSymbol}\n` +
-        `*From:* \`${this.formatAddress(event.from)}\`\n` +
-        `*To:* \`${this.formatAddress(event.to)}\`\n\n` +
-        `[View Transaction](${event.txUrl})\n\n` +
-        `⚡ Solana • Powered by Helius`;
+      // Build enhanced notification message
+      let message = '';
+      
+      // Title with emoji
+      if (event.type === 'swap') {
+        const emoji = token.tokenSymbol === 'RATi' ? '🐭' : '💰';
+        const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
+        message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
+      } else {
+        message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
+      }
+
+      // Amount and USD value
+      if (usdValue) {
+        message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
+      }
+
+      // Token amount
+      message += `Got *${formattedAmount} ${token.tokenSymbol}*\n\n`;
+
+      // Buyer address (shortened)
+      message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
+
+      // New holder or increase percentage
+      if (event.isNewHolder) {
+        message += `🆕 *New Holder!*\n`;
+      } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
+        const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
+        message += `📈 Increased ${increasePercent}%\n`;
+      }
+
+      // Market cap (if available)
+      if (token.marketCap) {
+        message += `\n📊 Market Cap: $${this.formatLargeNumber(token.marketCap)}\n`;
+      }
+
+      // Links
+      message += `\n`;
+      
+      // Transaction link
+      message += `[Tx](${event.txUrl})`;
+      
+      // DexScreener link
+      const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
+      message += ` • [DexScreener](${dexScreenerUrl})`;
+      
+      // Pump.fun or Jupiter buy link (if RATi or other known token)
+      if (token.tokenSymbol === 'RATi') {
+        const buyUrl = `https://pump.fun/${token.tokenAddress}`;
+        message += ` • [Buy](${buyUrl})`;
+      }
 
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         message,
         {
           parse_mode: 'Markdown',
-          disable_web_page_preview: false,
+          disable_web_page_preview: true,
         }
       );
 
       this.logger.info(`[BuybotService] Sent Telegram notification for ${token.tokenSymbol} ${event.type} to channel ${channelId}`);
+
+      // Check if this is a significant purchase that warrants auto-generated media
+      if (event.type === 'swap' && usdValue) {
+        await this.handleSignificantPurchase(channelId, event, token, usdValue, formattedAmount);
+      }
     } catch (error) {
       this.logger.error('[BuybotService] Failed to send Telegram notification:', error);
+    }
+  }
+
+  /**
+   * Get buy size multiplier emoji/text
+   * @param {number} usdValue - USD value of purchase
+   * @returns {string} Multiplier string
+   */
+  getBuyMultiplier(usdValue) {
+    if (usdValue >= 10000) return '$10,000+';
+    if (usdValue >= 5000) return '$5,000';
+    if (usdValue >= 1000) return '$1,000';
+    if (usdValue >= 500) return '$500';
+    if (usdValue >= 100) return '$100';
+    if (usdValue >= 50) return '$50';
+    if (usdValue >= 10) return '$10';
+    return '';
+  }
+
+  /**
+   * Calculate USD value of a token amount
+   * @param {number} amount - Raw token amount (smallest units)
+   * @param {number} decimals - Token decimals
+   * @param {number} usdPrice - Price per token in USD
+   * @returns {number} USD value
+   */
+  calculateUsdValue(amount, decimals, usdPrice) {
+    const tokenAmount = parseFloat(amount) / Math.pow(10, decimals);
+    return tokenAmount * usdPrice;
+  }
+
+  /**
+   * Handle significant purchases with auto-generated media or custom media for smaller buys
+   * @param {string} channelId - Telegram channel ID
+   * @param {Object} event - Event data
+   * @param {Object} token - Token data
+   * @param {number} usdValue - USD value of the purchase
+   * @param {string} formattedAmount - Formatted token amount
+   */
+  async handleSignificantPurchase(channelId, event, token, usdValue, formattedAmount) {
+    try {
+      const telegramService = this.getTelegramService ? this.getTelegramService() : null;
+      if (!telegramService) return;
+
+      // Get thresholds from token config (with defaults)
+      const imageThreshold = token.mediaThresholds?.image || 100;
+      const videoThreshold = token.mediaThresholds?.video || 1000;
+
+      if (usdValue >= videoThreshold) {
+        // HUGE buy - generate video
+        this.logger.info(`[BuybotService] 🚀 HUGE BUY detected: $${usdValue.toFixed(2)} - generating video`);
+        
+        const videoPrompt = `Epic celebration of a massive ${token.tokenSymbol} purchase! ` +
+          `${formattedAmount} ${token.tokenSymbol} worth $${usdValue.toFixed(0)} just bought! ` +
+          `Cinematic celebration with gold coins, green candles shooting up, ` +
+          `"TO THE MOON" energy, crypto bull market vibes, exciting and triumphant atmosphere`;
+
+        await this.generateAndSendMedia(telegramService, channelId, videoPrompt, 'video', usdValue, token.tokenSymbol);
+        
+      } else if (usdValue >= imageThreshold) {
+        // BIG buy - generate image
+        this.logger.info(`[BuybotService] 💰 BIG BUY detected: $${usdValue.toFixed(2)} - generating image`);
+        
+        const imagePrompt = `Celebration of a significant ${token.tokenSymbol} purchase! ` +
+          `${formattedAmount} ${token.tokenSymbol} worth $${usdValue.toFixed(0)}. ` +
+          `Show green candles, upward trending charts, coins, bulls, ` +
+          `crypto trading success theme, vibrant and exciting`;
+
+        await this.generateAndSendMedia(telegramService, channelId, imagePrompt, 'image', usdValue, token.tokenSymbol);
+        
+      } else if (usdValue > 0) {
+        // Smaller buy - check for custom media
+        // Prefer video for higher values within the small range, then image
+        const customVideo = token.customMedia?.video;
+        const customImage = token.customMedia?.image;
+        
+        if (customVideo) {
+          this.logger.info(`[BuybotService] 📹 Sending custom video for $${usdValue.toFixed(2)} purchase`);
+          try {
+            await telegramService.globalBot.telegram.sendVideo(
+              channelId,
+              customVideo,
+              {
+                caption: `${token.tokenSymbol} purchase! Worth $${usdValue.toFixed(0)}! 🎉`
+              }
+            );
+          } catch (error) {
+            this.logger.error('[BuybotService] Failed to send custom video:', error);
+          }
+        } else if (customImage) {
+          this.logger.info(`[BuybotService] 🖼️ Sending custom image for $${usdValue.toFixed(2)} purchase`);
+          try {
+            await telegramService.globalBot.telegram.sendPhoto(
+              channelId,
+              customImage,
+              {
+                caption: `${token.tokenSymbol} purchase! Worth $${usdValue.toFixed(0)}! 🎉`
+              }
+            );
+          } catch (error) {
+            this.logger.error('[BuybotService] Failed to send custom image:', error);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to handle significant purchase:', error);
+    }
+  }
+
+  /**
+   * Generate and send media (image or video) for significant purchases
+   * @param {Object} telegramService - Telegram service instance
+   * @param {string} channelId - Channel ID
+   * @param {string} prompt - Generation prompt
+   * @param {string} mediaType - 'image' or 'video'
+   * @param {number} usdValue - USD value of purchase
+   * @param {string} tokenSymbol - Token symbol
+   */
+  async generateAndSendMedia(telegramService, channelId, prompt, mediaType, usdValue, tokenSymbol) {
+    try {
+      const message = mediaType === 'video'
+        ? `🚀 *HUGE ${tokenSymbol} BUY ALERT!*\n\n💵 *$${usdValue.toFixed(0)} purchase detected!*\n\nGenerating celebration video...`
+        : `💰 *BIG ${tokenSymbol} BUY!*\n\n💵 *$${usdValue.toFixed(0)} purchase!*\n\nGenerating celebration image...`;
+
+      // Send initial message
+      await telegramService.globalBot.telegram.sendMessage(
+        channelId,
+        message,
+        { parse_mode: 'Markdown' }
+      );
+
+      // Generate media using the appropriate service
+      if (mediaType === 'video' && telegramService.veoService) {
+        this.logger.info(`[BuybotService] Generating video for $${usdValue.toFixed(0)} purchase`);
+        
+        const videoResult = await telegramService.veoService.generateVideo(prompt);
+        
+        if (videoResult?.videoUrl) {
+          await telegramService.globalBot.telegram.sendVideo(
+            channelId,
+            videoResult.videoUrl,
+            {
+              caption: `🎬 Epic ${tokenSymbol} buy celebration! Worth $${usdValue.toFixed(0)}! 🚀`
+            }
+          );
+          this.logger.info(`[BuybotService] Video sent successfully for ${tokenSymbol} purchase`);
+        }
+      } else if (mediaType === 'image' && telegramService.googleAIService) {
+        this.logger.info(`[BuybotService] Generating image for $${usdValue.toFixed(0)} purchase`);
+        
+        const imageResult = await telegramService.googleAIService.generateImage(prompt);
+        
+        if (imageResult?.imageUrl) {
+          await telegramService.globalBot.telegram.sendPhoto(
+            channelId,
+            imageResult.imageUrl,
+            {
+              caption: `🖼️ ${tokenSymbol} big buy celebration! Worth $${usdValue.toFixed(0)}! 💰`
+            }
+          );
+          this.logger.info(`[BuybotService] Image sent successfully for ${tokenSymbol} purchase`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`[BuybotService] Failed to generate/send ${mediaType}:`, error);
+      
+      // Send fallback message
+      await telegramService.globalBot.telegram.sendMessage(
+        channelId,
+        `⚠️ Couldn't generate ${mediaType}, but what a buy! 🚀`,
+        { parse_mode: 'Markdown' }
+      );
     }
   }
 
@@ -786,6 +1109,18 @@ export class BuybotService {
   formatTokenAmount(amount, decimals = 9) {
     const num = parseFloat(amount) / Math.pow(10, decimals);
     return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  }
+
+  /**
+   * Format large numbers in compact form (K, M, B)
+   * @param {number} num - Number to format
+   * @returns {string} Formatted number
+   */
+  formatLargeNumber(num) {
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    return num.toFixed(2);
   }
 
   /**
