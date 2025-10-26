@@ -250,11 +250,11 @@ describe('x402 Payment Middleware', () => {
     let pricingFn;
 
     beforeEach(() => {
-      pricingFn = vi.fn().mockResolvedValue({ usdcAmount: 75000 });
+      pricingFn = vi.fn().mockReturnValue(75000);
 
       middleware = requirePayment({
         x402Service: mockX402Service,
-        priceFn: pricingFn,
+        price: pricingFn,
         sellerAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
       });
     });
