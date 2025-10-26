@@ -384,17 +384,43 @@ export class BuybotService {
       }
 
       // Get recent transactions for the token
+      // Use Helius Enhanced Transactions API to get token transfer history
       let transactions;
       try {
-        transactions = await this.helius.getTransactionsByAddress({
+        // Use enhanced.getTransactionsByAddress for token mint queries
+        const response = await this.helius.enhanced.getTransactionsByAddress({
           address: tokenAddress,
           limit: 10,
         });
+        
+        if (!response || response.length === 0) {
+          // No transactions yet - this is common for very new tokens
+          this.logger.debug(`[BuybotService] No transactions found for ${tokenAddress} yet`);
+          
+          // Reset error counter on successful query with no results
+          await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+            { channelId, tokenAddress },
+            { $set: { errorCount: 0 } }
+          );
+          return;
+        }
+        
+        // Map to our transaction format
+        transactions = response.map(tx => ({
+          signature: tx.signature,
+          timestamp: tx.timestamp,
+          slot: tx.slot,
+          type: tx.type,
+          description: tx.description,
+          tokenTransfers: tx.tokenTransfers || [],
+          events: tx.events || {},
+        }));
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
             txError.message?.includes('404') ||
-            txError.message?.includes('8100002')) {
+            txError.message?.includes('8100002') ||
+            txError.message?.includes('could not find account')) {
           
           this.logger.warn(`[BuybotService] Token ${tokenAddress} not found or has no transactions yet`);
           
@@ -471,7 +497,13 @@ export class BuybotService {
 
         // Parse transaction for token events
         const event = await this.parseTokenTransaction(tx, tokenAddress);
-        
+
+        // If user requested RATi-only purchases, skip non-swap events for RATi
+        if (event && token && token.tokenSymbol === 'RATi' && event.type !== 'swap') {
+          // skip non-purchase events for RATi
+          continue;
+        }
+
         if (event) {
           // Store event
           await this.db.collection(this.TOKEN_EVENTS_COLLECTION).insertOne({
@@ -507,7 +539,7 @@ export class BuybotService {
 
   /**
    * Parse a transaction for token events
-   * @param {Object} tx - Transaction data from Helius
+   * @param {Object} tx - Transaction data from Helius Enhanced API
    * @param {string} tokenAddress - Token address to filter for
    * @returns {Promise<Object|null>} Parsed event or null
    */
@@ -516,31 +548,62 @@ export class BuybotService {
       // Look for token transfers in the transaction
       const tokenTransfers = tx.tokenTransfers || [];
       const relevantTransfers = tokenTransfers.filter(
-        t => t.mint === tokenAddress && parseFloat(t.tokenAmount) > 0
+        t => t.mint === tokenAddress && parseFloat(t.tokenAmount || 0) > 0
       );
 
       if (relevantTransfers.length === 0) return null;
 
       const transfer = relevantTransfers[0];
-      
-      // Determine event type
+
+      // Determine event type (swap vs plain transfer)
       let eventType = 'transfer';
       let description = 'Token Transfer';
-      
-      // Check if it's a swap/trade
-      if (tx.type === 'SWAP' || tx.description?.includes('swap') || tx.description?.includes('trade')) {
+      if (tx.type === 'SWAP' || tx.description?.toLowerCase()?.includes('swap') || tx.description?.toLowerCase()?.includes('trade')) {
         eventType = 'swap';
         description = 'Token Swap/Purchase';
       }
 
+      // Decimals (fallback to 9 if not provided)
+      const decimals = transfer.decimals || 9;
+
+      // tokenAmount from Helius may be a UI amount (e.g. "1.23") or a raw integer string.
+      const tokenAmountUi = parseFloat(transfer.tokenAmount || 0);
+      let rawAmount;
+      if (String(transfer.tokenAmount).includes('.')) {
+        rawAmount = Math.round(Math.abs(tokenAmountUi) * Math.pow(10, decimals));
+      } else {
+        rawAmount = Number(transfer.tokenAmount || 0);
+      }
+
+      // Try to detect holder changes using pre/post balances if available
+      const preBalances = tx.preTokenBalances || [];
+      const postBalances = tx.postTokenBalances || [];
+
+      const toAccount = transfer.toUserAccount || transfer.to || transfer.toAccount || null;
+
+      const pre = preBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
+      const post = postBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
+
+      const preAmountUi = pre ? parseFloat(pre.uiTokenAmount?.uiAmount || 0) : 0;
+      const postAmountUi = post ? parseFloat(post.uiTokenAmount?.uiAmount || 0) : (preAmountUi + Math.abs(tokenAmountUi));
+
+      const isNewHolder = preAmountUi === 0 && postAmountUi > 0;
+      const isIncrease = postAmountUi > preAmountUi;
+
       return {
         type: eventType,
         description: tx.description || description,
-        amount: transfer.tokenAmount,
-        from: transfer.fromUserAccount,
-        to: transfer.toUserAccount,
+        // amount stored as raw smallest-unit integer
+        amount: rawAmount,
+        decimals,
+        preAmountUi,
+        postAmountUi,
+        isNewHolder,
+        isIncrease,
+        from: transfer.fromUserAccount || transfer.from || 'Unknown',
+        to: toAccount || transfer.toUserAccount || transfer.to || 'Unknown',
         txUrl: `https://solscan.io/tx/${tx.signature}`,
-        timestamp: new Date(tx.timestamp * 1000),
+        timestamp: tx.timestamp ? new Date(tx.timestamp * 1000) : new Date(),
       };
     } catch (error) {
       this.logger.error('[BuybotService] Error parsing transaction:', error);
@@ -585,7 +648,7 @@ export class BuybotService {
         fields: [
           {
             name: 'Amount',
-            value: `${this.formatTokenAmount(event.amount, token.tokenDecimals)} ${token.tokenSymbol}`,
+            value: `${this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals)} ${token.tokenSymbol}`,
             inline: true,
           },
           {
@@ -653,7 +716,7 @@ export class BuybotService {
       const message =
         `${emoji} *${token.tokenSymbol} ${title}*\n\n` +
         `${event.description}\n\n` +
-        `*Amount:* ${this.formatTokenAmount(event.amount, token.tokenDecimals)} ${token.tokenSymbol}\n` +
+  `*Amount:* ${this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals)} ${token.tokenSymbol}\n` +
         `*From:* \`${this.formatAddress(event.from)}\`\n` +
         `*To:* \`${this.formatAddress(event.to)}\`\n\n` +
         `[View Transaction](${event.txUrl})\n\n` +

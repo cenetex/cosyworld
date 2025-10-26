@@ -159,6 +159,9 @@ class TelegramService {
           logger: this.logger,
         });
         this.logger?.info?.('[TelegramService] Buybot commands registered');
+        
+        // Register commands with Telegram for autocomplete
+        await this.registerBuybotCommands();
       }
       
       // Launch the bot with timeout protection
@@ -224,6 +227,29 @@ class TelegramService {
     });
 
     this.logger?.debug?.('[TelegramService] Message handlers configured');
+  }
+
+  /**
+   * Register buybot commands with Telegram for autocomplete
+   * This makes the commands appear in the slash command menu
+   */
+  async registerBuybotCommands() {
+    if (!this.globalBot) return;
+
+    try {
+      const commands = [
+        { command: 'ca', description: 'Show tracked tokens' },
+        { command: 'ca_add', description: 'Track a new token' },
+        { command: 'ca_list', description: 'Show all tracked tokens' },
+        { command: 'ca_remove', description: 'Stop tracking a token' },
+        { command: 'ca_help', description: 'Show buybot help' },
+      ];
+
+      await this.globalBot.telegram.setMyCommands(commands);
+      this.logger?.info?.('[TelegramService] Buybot commands registered with Telegram');
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to register commands with Telegram:', error);
+    }
   }
 
   /**

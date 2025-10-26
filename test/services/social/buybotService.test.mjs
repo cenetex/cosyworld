@@ -169,7 +169,9 @@ describe('BuybotService', () => {
     beforeEach(() => {
       buybotService.db = mockDb;
       buybotService.helius = {
-        getTransactionsByAddress: vi.fn(),
+        enhanced: {
+          getTransactionsByAddress: vi.fn(),
+        },
       };
     });
 
@@ -181,8 +183,8 @@ describe('BuybotService', () => {
         active: true,
       });
 
-      buybotService.helius.getTransactionsByAddress.mockRejectedValue(
-        new Error('Not Found')
+      buybotService.helius.enhanced.getTransactionsByAddress.mockRejectedValue(
+        new Error('could not find account')
       );
 
       await buybotService.checkTokenTransactions(
@@ -209,7 +211,7 @@ describe('BuybotService', () => {
         active: true,
       });
 
-      buybotService.helius.getTransactionsByAddress.mockRejectedValue(
+      buybotService.helius.enhanced.getTransactionsByAddress.mockRejectedValue(
         new Error('Solana error #8100002')
       );
 

@@ -21,61 +21,80 @@ export function setupBuybotTelegramCommands(bot, services) {
     return;
   }
 
-  // /ca command - Add or list tokens
+  // /ca command - Show tracked tokens
   bot.command('ca', async (ctx) => {
+    try {
+      const channelId = String(ctx.chat.id);
+      const trackedTokens = await buybotService.getTrackedTokens(channelId);
+
+      if (trackedTokens.length === 0) {
+        await ctx.reply(
+          '📊 *Token Tracking*\n\n' +
+          'No tokens are currently being tracked in this chat.\n\n' +
+          'Use `/ca_add <token_address>` to start tracking a token.\n\n' +
+          '*Example:* `/ca_add EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n\n' +
+          '💡 *Commands:*\n' +
+          '• `/ca_add <address>` - Track a token\n' +
+          '• `/ca` or `/ca_list` - Show tracked tokens\n' +
+          '• `/ca_remove <address>` - Stop tracking\n' +
+          '• `/ca_help` - Show help\n\n' +
+          '🪙 *Popular Tokens:*\n' +
+          '• USDC: `EPjFW...Dt1v`\n' +
+          '• BONK: `DezXA...kX6R`\n' +
+          '• SOL: `So111...1112`',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Format tracked tokens list
+      let message = `📊 *Tracked Tokens*\n\nTracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''} in this chat:\n\n`;
+
+      for (const token of trackedTokens) {
+        const addedTime = formatRelativeTime(token.addedAt);
+        const lastEventTime = token.lastEventAt ? formatRelativeTime(token.lastEventAt) : 'None';
+
+        message += `*${token.tokenSymbol}* - ${token.tokenName}\n`;
+        message += `Address: \`${token.tokenAddress}\`\n`;
+        message += `Added: ${addedTime}\n`;
+        message += `Last Event: ${lastEventTime}\n\n`;
+      }
+
+      message += '💡 Use `/ca_add <address>` to track more tokens\n';
+      message += '💡 Use `/ca_remove <address>` to stop tracking a token';
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      logger?.error('[BuybotTelegram] /ca command error:', error);
+      await ctx.reply('❌ An error occurred. Please try again.');
+    }
+  });
+
+  // /ca_add command - Add a token to track
+  bot.command('ca_add', async (ctx) => {
     try {
       const args = ctx.message.text.split(/\s+/).slice(1);
       const channelId = String(ctx.chat.id);
 
-      // If no arguments, show tracked tokens
       if (args.length === 0) {
-        const trackedTokens = await buybotService.getTrackedTokens(channelId);
-
-        if (trackedTokens.length === 0) {
-          await ctx.reply(
-            '📊 *Token Tracking*\n\n' +
-            'No tokens are currently being tracked in this chat.\n\n' +
-            'Use `/ca <token_address>` to start tracking a token.\n\n' +
-            '*Example:* `/ca EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n\n' +
-            '💡 *Commands:*\n' +
-            '• `/ca <address>` - Track a token\n' +
-            '• `/ca` or `/ca_list` - Show tracked tokens\n' +
-            '• `/ca_remove <address>` - Stop tracking\n' +
-            '• `/ca_help` - Show help\n\n' +
-            '🪙 *Popular Tokens:*\n' +
-            '• USDC: `EPjFW...Dt1v`\n' +
-            '• BONK: `DezXA...kX6R`\n' +
-            '• SOL: `So111...1112`',
-            { parse_mode: 'Markdown' }
-          );
-          return;
-        }
-
-        // Format tracked tokens list
-        let message = `📊 *Tracked Tokens*\n\nTracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''} in this chat:\n\n`;
-
-        for (const token of trackedTokens) {
-          const addedTime = formatRelativeTime(token.addedAt);
-          const lastEventTime = token.lastEventAt ? formatRelativeTime(token.lastEventAt) : 'None';
-
-          message += `*${token.tokenSymbol}* - ${token.tokenName}\n`;
-          message += `Address: \`${token.tokenAddress}\`\n`;
-          message += `Added: ${addedTime}\n`;
-          message += `Last Event: ${lastEventTime}\n\n`;
-        }
-
-        message += '💡 Use `/ca_remove <address>` to stop tracking a token';
-
-        await ctx.reply(message, { parse_mode: 'Markdown' });
+        await ctx.reply(
+          '❌ Please provide a token address to track.\n\n' +
+          '*Usage:* `/ca_add <token_address>`\n\n' +
+          '*Example:* `/ca_add EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n\n' +
+          '🪙 *Popular Tokens:*\n' +
+          '• *USDC:* `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n' +
+          '• *BONK:* `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`\n' +
+          '• *SOL:* `So11111111111111111111111111111111111111112`',
+          { parse_mode: 'Markdown' }
+        );
         return;
       }
 
-      // Add token to track
       const tokenAddress = args[0];
 
       await ctx.reply('⏳ Checking token...');
 
-      const result = await buybotService.addTrackedToken(channelId, tokenAddress);
+      const result = await buybotService.addTrackedToken(channelId, tokenAddress, 'telegram');
 
       if (result.success) {
         let message = `✅ *Token Tracking Added*\n\n${result.message}\n\n`;
@@ -92,7 +111,7 @@ export function setupBuybotTelegramCommands(bot, services) {
         await ctx.reply(`❌ ${result.message}`);
       }
     } catch (error) {
-      logger?.error('[BuybotTelegram] /ca command error:', error);
+      logger?.error('[BuybotTelegram] /ca_add command error:', error);
       await ctx.reply('❌ An error occurred. Please try again.');
     }
   });
@@ -149,7 +168,7 @@ export function setupBuybotTelegramCommands(bot, services) {
         '🤖 *Buybot Help*\n\n' +
         'Track Solana token purchases and transfers in real-time using Helius.\n\n' +
         '📝 *Commands:*\n' +
-        '• `/ca <address>` - Start tracking a token\n' +
+        '• `/ca_add <address>` - Start tracking a token\n' +
         '• `/ca` or `/ca_list` - View tracked tokens\n' +
         '• `/ca_remove <address>` - Stop tracking\n' +
         '• `/ca_help` - Show this help\n\n' +
@@ -162,7 +181,7 @@ export function setupBuybotTelegramCommands(bot, services) {
         '• *BONK:* `DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`\n' +
         '• *SOL:* `So11111111111111111111111111111111111111112`\n\n' +
         '📖 *Example Usage:*\n' +
-        '```\n/ca EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\n```\n' +
+        '```\n/ca_add EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\n```\n' +
         'Starts tracking USDC in this chat.\n\n' +
         '⚡ Powered by Helius';
 
