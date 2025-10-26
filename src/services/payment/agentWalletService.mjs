@@ -225,18 +225,22 @@ export class AgentWalletService {
   /**
    * Get wallet balance (mock - in production would query blockchain)
    * @param {string} agentId - Agent ID
+   * @param {string} [network='base'] - Network (base, base-sepolia, etc.)
    * @returns {Promise<number>} Balance in USDC (6 decimals)
    */
-  async getBalance(agentId) {
+  async getBalance(agentId, network = 'base') {
     const walletsCol = await this._getWalletsCollection();
-    const walletDoc = await walletsCol.findOne({ agentId });
+    const walletDoc = await walletsCol.findOne({ agentId, network });
 
     if (!walletDoc) {
-      throw new Error(`No wallet found for agent ${agentId}`);
+      return 0;
     }
 
     // In production, query blockchain balance
     // For now, return mock balance from database
+    if (typeof walletDoc.balance === 'object' && walletDoc.balance !== null) {
+      return walletDoc.balance.usdc || 0;
+    }
     return walletDoc.balance || 0;
   }
 
@@ -244,14 +248,18 @@ export class AgentWalletService {
    * Fund wallet (mock - in production would transfer USDC)
    * @param {string} agentId - Agent ID
    * @param {number} amount - Amount in USDC (6 decimals)
+   * @param {string} [network='base'] - Network
    * @returns {Promise<Object>} Funding result
    */
-  async fundWallet(agentId, amount) {
+  async fundWallet(agentId, amount, network = 'base') {
     const walletsCol = await this._getWalletsCollection();
     
     const result = await walletsCol.updateOne(
-      { agentId },
-      { $inc: { balance: amount } }
+      { agentId, network },
+      { 
+        $inc: { 'balance.usdc': amount },
+        $set: { 'balance.lastUpdated': new Date() }
+      }
     );
 
     if (result.matchedCount === 0) {
@@ -265,7 +273,7 @@ export class AgentWalletService {
     return {
       success: true,
       amount,
-      newBalance: await this.getBalance(agentId),
+      newBalance: await this.getBalance(agentId, network),
     };
   }
 
