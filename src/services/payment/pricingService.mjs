@@ -132,6 +132,12 @@ export class PricingService {
    * @returns {Object|null} Pricing info or null if not found
    */
   _getModelPricing(modelName) {
+    // Handle null/undefined model
+    if (!modelName) {
+      this.logger.warn('[PricingService] No model specified, using default pricing');
+      return { input: 0.15, output: 0.6, free: false, unknown: true };
+    }
+
     // Check free tier first
     if (this.freeTierModels.has(modelName)) {
       return { input: 0, output: 0, free: true };

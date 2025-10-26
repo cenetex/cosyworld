@@ -398,7 +398,11 @@ describe('AgentWalletService', () => {
       expect(encrypted.encrypted).not.toBe(testPrivateKey);
       
       // Decrypt
-      const decrypted = service._decryptPrivateKey(encrypted);
+      const decrypted = service._decryptPrivateKey(
+        encrypted.encrypted,
+        encrypted.iv,
+        encrypted.authTag
+      );
       
       expect(decrypted).toBe(testPrivateKey);
     });
@@ -417,10 +421,9 @@ describe('AgentWalletService', () => {
       const testPrivateKey = '0xaabbccddee112233445566778899001122334455667788990011223344556677';
       
       const encrypted = service._encryptPrivateKey(testPrivateKey);
-      encrypted.authTag = 'wrong-tag';
       
       expect(() => {
-        service._decryptPrivateKey(encrypted);
+        service._decryptPrivateKey(encrypted.encrypted, encrypted.iv, 'wrong-tag');
       }).toThrow();
     });
   });
@@ -429,20 +432,23 @@ describe('AgentWalletService', () => {
     it('should check daily spending limit', async () => {
       const mockWallet = {
         agentId: 'agent-123',
-        balance: { usdc: 1000000 },
-        limits: { daily: 500000 },
-        spending: { today: 400000 },
+        address: '0xabc123',
+        dailyLimit: 500000,
+        dailySpent: 400000,
+        lastResetDate: new Date().toISOString().split('T')[0],
+        balance: 1000000,
       };
 
       mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ matchedCount: 1 });
 
       // This should succeed (400000 + 50000 < 500000)
-      await service._checkSpendingLimit('agent-123', 50000);
+      const canSpend1 = await service._checkSpendingLimit('agent-123', 50000);
+      expect(canSpend1).toBe(true);
 
       // This should fail (400000 + 200000 > 500000)
-      await expect(
-        service._checkSpendingLimit('agent-123', 200000)
-      ).rejects.toThrow('Daily spending limit exceeded');
+      const canSpend2 = await service._checkSpendingLimit('agent-123', 200000);
+      expect(canSpend2).toBe(false);
     });
 
     it('should reset daily spending at midnight', async () => {
@@ -451,12 +457,13 @@ describe('AgentWalletService', () => {
 
       const mockWallet = {
         agentId: 'agent-123',
-        limits: { daily: 500000 },
-        spending: { today: 1000000, lastReset: yesterday },
+        dailyLimit: 500000,
+        dailySpent: 1000000,
+        lastResetDate: yesterday.toISOString().split('T')[0],
       };
 
       mockDatabaseService.collection.findOne.mockResolvedValue(mockWallet);
-      mockDatabaseService.collection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockDatabaseService.collection.updateOne.mockResolvedValue({ matchedCount: 1 });
 
       await service._checkSpendingLimit('agent-123', 100000);
 
@@ -465,7 +472,8 @@ describe('AgentWalletService', () => {
         { agentId: 'agent-123' },
         expect.objectContaining({
           $set: expect.objectContaining({
-            'spending.today': 0,
+            dailySpent: 0,
+            lastResetDate: expect.any(String),
           }),
         })
       );

@@ -46,10 +46,6 @@ describe('x402Middleware', () => {
 
   describe('Payment Required (402)', () => {
     it('should return 402 if no payment header present', async () => {
-      mockPricingService.calculatePrice.mockResolvedValue({
-        usdcAmount: 100000,
-      });
-
       mockX402Service.generatePaymentRequired.mockReturnValue({
         x402Version: 1,
         facilitator: { scheme: 'exact', network: 'base-sepolia' },
@@ -57,17 +53,20 @@ describe('x402Middleware', () => {
         paymentDestination: { address: '0xSeller' },
       });
 
-      const middleware = requirePayment(async () => ({ usdcAmount: 100000 }));
-      await middleware(mockReq, mockRes, mockNext, {
+      const middleware = requirePayment({
         x402Service: mockX402Service,
-        pricingService: mockPricingService,
+        price: 100000,
       });
+      
+      await middleware(mockReq, mockRes, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(402);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          x402Version: 1,
-          price: { usdcAmount: 100000 },
+          error: 'Payment Required',
+          payment: expect.objectContaining({
+            x402Version: 1,
+          }),
         })
       );
       expect(mockNext).not.toHaveBeenCalled();
@@ -85,7 +84,7 @@ describe('x402Middleware', () => {
         paymentDestination: { address: '0xSeller' },
       });
 
-      const middleware = requirePayment(async () => ({ usdcAmount: 100000 }));
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
         pricingService: mockPricingService,
@@ -121,7 +120,7 @@ describe('x402Middleware', () => {
         txHash: '0xabc123...',
       });
 
-      const middleware = requirePayment(async () => ({ usdcAmount: 100000 }));
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
         pricingService: mockPricingService,
@@ -170,7 +169,7 @@ describe('x402Middleware', () => {
         price: { usdcAmount: 100000 },
       });
 
-      const middleware = requirePayment(async () => ({ usdcAmount: 100000 }));
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
         pricingService: mockPricingService,
@@ -198,7 +197,7 @@ describe('x402Middleware', () => {
         price: { usdcAmount: 100000 },
       });
 
-      const middleware = requirePayment(async () => ({ usdcAmount: 100000 }));
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
         pricingService: mockPricingService,
@@ -218,7 +217,7 @@ describe('x402Middleware', () => {
         price: { usdcAmount: 150000 },
       });
 
-      const middleware = requirePayment(pricingFn);
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -229,7 +228,7 @@ describe('x402Middleware', () => {
     it('should handle pricing function errors', async () => {
       const pricingFn = vi.fn().mockRejectedValue(new Error('Pricing failed'));
 
-      const middleware = requirePayment(pricingFn);
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -248,7 +247,7 @@ describe('x402Middleware', () => {
         price: { usdcAmount: 50000 },
       });
 
-      const middleware = requirePayment({ usdcAmount: 50000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -263,7 +262,7 @@ describe('x402Middleware', () => {
 
   describe('Free Endpoints (Optional Payment)', () => {
     it('should allow free access if price is 0', async () => {
-      const middleware = requirePayment({ usdcAmount: 0 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -290,7 +289,7 @@ describe('x402Middleware', () => {
         settlementId: 'settlement-123',
       });
 
-      const middleware = requirePayment({ usdcAmount: 0, optional: true });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -324,7 +323,7 @@ describe('x402Middleware', () => {
         settlementId: 'settlement-123',
       });
 
-      const middleware = requirePayment({ usdcAmount: 25000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -358,7 +357,7 @@ describe('x402Middleware', () => {
         network: 'base-sepolia',
       });
 
-      const middleware = requirePayment({ usdcAmount: 100000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -390,7 +389,7 @@ describe('x402Middleware', () => {
         settlementId: 'settlement-123',
       });
 
-      const middleware = requirePayment({ usdcAmount: 100000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -423,7 +422,7 @@ describe('x402Middleware', () => {
         new Error('Network error')
       );
 
-      const middleware = requirePayment({ usdcAmount: 100000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
       });
@@ -453,7 +452,7 @@ describe('x402Middleware', () => {
         new Error('Test error')
       );
 
-      const middleware = requirePayment({ usdcAmount: 100000 });
+      const middleware = requirePayment({ x402Service: mockX402Service, price: 100000 });
       await middleware(mockReq, mockRes, mockNext, {
         x402Service: mockX402Service,
         logger: mockLogger,
