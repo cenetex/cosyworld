@@ -48,9 +48,16 @@ export function requirePayment(options) {
           const decoded = Buffer.from(metadataHeader, 'base64').toString('utf8');
           paymentPayload = JSON.parse(decoded);
         } catch (error) {
-          return res.status(400).json({
+          const paymentRequired = x402Service.generatePaymentRequired({
+            amount: priceAmount,
+            destination: sellerAddress,
+            resource: req.path,
+          });
+
+          return res.status(402).json({
             error: 'Invalid X-x402-Metadata header',
             message: error.message,
+            ...paymentRequired,
           });
         }
       }
@@ -63,11 +70,7 @@ export function requirePayment(options) {
           resource: req.path,
         });
 
-        return res.status(402).json({
-          error: 'Payment Required',
-          message: 'This endpoint requires payment',
-          payment: paymentRequired,
-        });
+        return res.status(402).json(paymentRequired);
       }
 
       // If payment provided, verify it
@@ -85,14 +88,17 @@ export function requirePayment(options) {
         });
 
         if (!verification.verified) {
+          const paymentRequired = x402Service.generatePaymentRequired({
+            amount: priceAmount,
+            destination: sellerAddress,
+            resource: req.path,
+          });
+
           return res.status(402).json({
             error: 'Payment verification failed',
             message: verification.reason || 'Payment could not be verified',
-            payment: x402Service.generatePaymentRequired({
-              amount: priceAmount,
-              destination: sellerAddress,
-              resource: req.path,
-            }),
+            reason: verification.reason,
+            ...paymentRequired,
           });
         }
 
@@ -116,11 +122,16 @@ export function requirePayment(options) {
         // Settle payment asynchronously (don't block request)
         if (verification.settlementId) {
           setImmediate(() => {
-            x402Service.settlePayment({
+            const settlement = x402Service.settlePayment({
               settlementId: verification.settlementId,
-            }).catch((error) => {
-              req.log?.error('[x402Middleware] Settlement error:', error);
             });
+            
+            // Only add catch handler if settlement returns a promise
+            if (settlement && typeof settlement.catch === 'function') {
+              settlement.catch((error) => {
+                req.log?.error('[x402Middleware] Settlement error:', error);
+              });
+            }
           });
         }
       }
