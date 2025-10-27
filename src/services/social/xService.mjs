@@ -615,6 +615,7 @@ class XService {
             hourly_cap: 0,
             min_interval: 0,
             unsupported_video: 0,
+            rate_limited: 0,
             error: 0,
             guild_override: 0
           }
@@ -728,6 +729,29 @@ class XService {
       // Simple hour bucket limiter (in-memory). Good enough for MVP; restart resets window.
       const now = Date.now();
       if (!this._globalRate) this._globalRate = { windowStart: now, count: 0 };
+      
+      // Check if we're currently rate limited
+      if (this._globalRate.rateLimited && this._globalRate.rateLimitResetAt) {
+        if (now < this._globalRate.rateLimitResetAt) {
+          const waitSec = Math.ceil((this._globalRate.rateLimitResetAt - now) / 1000);
+          this.logger?.warn?.(`[XService][globalPost] Still rate limited. Wait ${Math.ceil(waitSec / 60)} minutes before posting again.`);
+          this._lastGlobalPostAttempt = { 
+            at: Date.now(), 
+            skipped: true, 
+            reason: 'rate_limited', 
+            waitSec, 
+            mediaUrl 
+          };
+          _bump('rate_limited', { mediaUrl, waitSec });
+          return null;
+        } else {
+          // Rate limit has expired, clear it
+          this._globalRate.rateLimited = false;
+          this._globalRate.rateLimitResetAt = null;
+          this.logger?.info?.('[XService][globalPost] Rate limit expired, resuming normal operation');
+        }
+      }
+      
       const hourMs = 3600_000;
       if (now - this._globalRate.windowStart >= hourMs) {
         this._globalRate.windowStart = now; this._globalRate.count = 0;
@@ -1113,6 +1137,44 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       } catch (apiErr) {
         // Capture common auth failures distinctly for operator visibility
         const code = apiErr?.code || apiErr?.data?.errors?.[0]?.code;
+        
+        // Handle rate limit (429)
+        if (code === 429 || apiErr?.status === 429) {
+          const resetTime = apiErr?.rateLimit?.reset || (Date.now() + 15 * 60 * 1000); // Default 15 min
+          const waitSec = Math.ceil((resetTime * 1000 - Date.now()) / 1000);
+          
+          this.logger?.warn?.(`[XService][globalPost] Rate limit (429). Next reset in ${Math.ceil(waitSec / 60)} minutes`);
+          
+          // Store backoff time
+          if (!this._globalRate) this._globalRate = { windowStart: Date.now(), count: 0 };
+          this._globalRate.rateLimitResetAt = resetTime * 1000;
+          this._globalRate.rateLimited = true;
+          
+          try {
+            const db = await this.databaseService.getDatabase();
+            await db.collection('x_auth').updateOne(
+              { _id: authRecord?._id }, 
+              { 
+                $set: { 
+                  rateLimited: true, 
+                  rateLimitResetAt: new Date(resetTime * 1000),
+                  lastErrorAt: new Date() 
+                } 
+              }
+            );
+          } catch {}
+          
+          this._lastGlobalPostAttempt = { 
+            at: Date.now(), 
+            skipped: true, 
+            reason: 'rate_limited', 
+            waitSec, 
+            mediaUrl: opts.mediaUrl 
+          };
+          
+          throw new Error(`Rate limited. Wait ${Math.ceil(waitSec / 60)} minutes.`);
+        }
+        
         if (code === 401 || apiErr?.status === 401) {
           if (!refreshed && authRecord?.refreshToken && authRecord?.avatarId) {
             this.logger?.warn?.('[XService][globalPost] 401 on tweet -> attempting refresh+retry');

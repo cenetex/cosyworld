@@ -618,7 +618,20 @@ export class GoogleAIService {
     if (options.guildId) uploadOptions.guildId = options.guildId;
     
     // Extract model and purpose before passing to generation config
-    const { purpose: _purpose, model, avatarId: _avatarId, avatarName: _avatarName, avatarEmoji: _avatarEmoji, locationName: _locationName, locationDescription: _locationDescription, guildId: _guildId, context: _context, source: _source, ...genOptions } = options;
+    const { 
+      purpose: _purpose, 
+      model, 
+      avatarId: _avatarId, 
+      avatarName: _avatarName, 
+      avatarEmoji: _avatarEmoji, 
+      locationName: _locationName, 
+      locationDescription: _locationDescription, 
+      guildId: _guildId, 
+      context: _context, 
+      source: _source,
+      prompt: _prompt, // Remove prompt from options if present
+      ...genOptions 
+    } = options;
     
     // Build a single content object with role 'user' and a parts array
     const parts = images.map(img => ({
@@ -634,10 +647,17 @@ export class GoogleAIService {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
   const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-2.5-flash-image-preview' });
-        // Remove penalty fields if present (always for image models)
-        const generationConfig = { ...this.defaultCompletionOptions, ...genOptions, responseModalities: ['text', 'image'] };
-        delete generationConfig.frequencyPenalty;
-        delete generationConfig.presencePenalty;
+        // Remove penalty fields and other unsupported fields (always for image models)
+        // Only include valid generation config fields
+        const validConfigFields = ['temperature', 'maxOutputTokens', 'topP', 'topK', 'responseModalities', 'candidateCount', 'stopSequences'];
+        const generationConfig = {
+          ...Object.fromEntries(
+            Object.entries({ ...this.defaultCompletionOptions, ...genOptions })
+              .filter(([key]) => validConfigFields.includes(key))
+          ),
+          responseModalities: ['text', 'image']
+        };
+        
         const response = await generativeModel.generateContent({
           contents: contents,
           generationConfig,

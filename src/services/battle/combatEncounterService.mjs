@@ -704,6 +704,12 @@ export class CombatEncounterService {
     }
     
     try {
+      // Use the avatar's actual model and persona for authentic dialogue
+      const avatar = combatant.ref;
+      const model = avatar?.model || 'openai/gpt-4o'; // Default to high-quality model
+      const personality = avatar?.personality || 'bold warrior';
+      const description = avatar?.description || '';
+      
       const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${combatant.name}.
 Action: ${action.type}${action.target ? ` against ${action.target.name}` : ''}
 Result: ${result?.result || 'defending'}
@@ -713,18 +719,22 @@ ${result?.critical ? 'CRITICAL HIT!' : ''}
 One-liner (no quotes):`;
       
       const messages = [
-        { role: 'system', content: 'You are a combat narrator. Generate SHORT one-liners (max 15 words) that characters say during battle. Return ONLY the dialogue, no quotes or narration.' },
+        { 
+          role: 'system', 
+          content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.` 
+        },
         { role: 'user', content: prompt }
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
+        model,
         temperature: 0.9,
         max_tokens: 30
       });
       
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes if any
       if (dialogue) {
-        this.logger?.info?.(`[CombatEncounter] AI generated dialogue for ${combatant.name}: "${dialogue}"`);
+        this.logger?.info?.(`[CombatEncounter] AI generated dialogue for ${combatant.name} using ${model}: "${dialogue}"`);
         return dialogue;
       } else {
         this.logger?.info?.(`[CombatEncounter] AI returned empty dialogue, using fallback`);
@@ -827,6 +837,12 @@ One-liner (no quotes):`;
       
       for (const combatant of speakers) {
         try {
+          // Use the avatar's actual model and persona for authentic dialogue
+          const avatar = combatant.ref;
+          const model = avatar?.model || 'openai/gpt-4o';
+          const personality = avatar?.personality || 'bold warrior';
+          const description = avatar?.description || '';
+          
           // Generate pre-combat taunt/challenge
           const opponents = encounter.combatants
             .filter(c => c.avatarId !== combatant.avatarId)
@@ -836,7 +852,7 @@ One-liner (no quotes):`;
           const messages = [
             { 
               role: 'system', 
-              content: `You are ${combatant.name}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.` 
+              content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.` 
             },
             { 
               role: 'user', 
@@ -845,6 +861,7 @@ One-liner (no quotes):`;
           ];
 
           const response = await this.unifiedAIService.chat(messages, {
+            model,
             temperature: 0.95,
             max_tokens: 40
           });
@@ -852,7 +869,7 @@ One-liner (no quotes):`;
           const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
           
           if (dialogue) {
-            this.logger?.info?.(`[CombatEncounter] Pre-combat dialogue for ${combatant.name}: "${dialogue}"`);
+            this.logger?.info?.(`[CombatEncounter] Pre-combat dialogue for ${combatant.name} using ${model}: "${dialogue}"`);
             await this._postAsWebhook(encounter, combatant.ref, dialogue);
             
             // Small delay between speakers for pacing
@@ -885,6 +902,12 @@ One-liner (no quotes):`;
         return;
       }
 
+      // Use the avatar's actual model and persona for authentic dialogue
+      const avatar = winner;
+      const model = avatar?.model || 'openai/gpt-4o';
+      const personality = avatar?.personality || 'bold warrior';
+      const description = avatar?.description || '';
+
       // Get opponents' names
       const opponents = encounter.combatants
         .filter(c => c.avatarId !== winner.avatarId)
@@ -894,7 +917,7 @@ One-liner (no quotes):`;
       const messages = [
         { 
           role: 'system', 
-          content: `You are ${winner.name}, the victor of this battle. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.` 
+          content: `You are ${winner.name}, the victor of this battle. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.` 
         },
         { 
           role: 'user', 
@@ -903,6 +926,7 @@ One-liner (no quotes):`;
       ];
 
       const response = await this.unifiedAIService.chat(messages, {
+        model,
         temperature: 0.95,
         max_tokens: 50
       });
@@ -910,7 +934,7 @@ One-liner (no quotes):`;
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
       
       if (dialogue) {
-        this.logger?.info?.(`[CombatEncounter] Victory dialogue for ${winner.name}: "${dialogue}"`);
+        this.logger?.info?.(`[CombatEncounter] Victory dialogue for ${winner.name} using ${model}: "${dialogue}"`);
         await this._postAsWebhook(encounter, winner.ref, dialogue);
       }
     } catch (e) {
