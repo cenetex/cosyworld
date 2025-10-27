@@ -25,6 +25,85 @@ export function setupBuybotTelegramCommands(bot, services) {
   const userStates = new Map(); // userId -> { action, data, channelId }
   const userChannels = new Map(); // userId -> last channelId they were managing
 
+  // /start command - Handle deep links from groups
+  bot.command('start', async (ctx) => {
+    try {
+      const startPayload = ctx.message.text.split(' ')[1];
+      
+      if (startPayload && startPayload.startsWith('group_')) {
+        // User came from a group via deep link - open settings for that group
+        const channelId = startPayload.replace('group_', '');
+        const userId = String(ctx.from.id);
+        
+        logger?.info?.(`[BuybotTelegram] /start with group context: ${channelId}`);
+        
+        // Store the channelId for this user
+        userChannels.set(userId, channelId);
+        
+        const trackedTokens = await buybotService.getTrackedTokens(channelId);
+
+        if (trackedTokens.length === 0) {
+          await ctx.reply(
+            '⚙️ *Buybot Settings*\n\n' +
+            'No tokens are currently being tracked in your group.\n\n' +
+            'Add your first token below:',
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '➕ Add Token', callback_data: `settings_add_token_${channelId}` }],
+                  [{ text: '❓ Help', callback_data: 'settings_help' }]
+                ]
+              }
+            }
+          );
+          return;
+        }
+
+        // Show main settings menu with tracked tokens
+        const tokenButtons = trackedTokens.map(token => ([
+          { 
+            text: `${token.tokenSymbol} - ${token.tokenName}`, 
+            callback_data: `settings_token_${token.tokenAddress}_${channelId}` 
+          }
+        ]));
+
+        await ctx.reply(
+          '⚙️ *Buybot Settings*\n\n' +
+          `Managing ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''} for your group.\n\n` +
+          'Select a token to configure:',
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                ...tokenButtons,
+                [{ text: '➕ Add Token', callback_data: `settings_add_token_${channelId}` }],
+                [{ text: '❓ Help', callback_data: 'settings_help' }]
+              ]
+            }
+          }
+        );
+      } else {
+        // Regular /start without deep link - show welcome message
+        await ctx.reply(
+          '👋 *Welcome to Buybot!*\n\n' +
+          '🤖 I track Solana token transactions and send real-time notifications.\n\n' +
+          '💡 *To get started:*\n' +
+          '1. Add me to your Telegram group\n' +
+          '2. Type /settings in the group\n' +
+          '3. Click the button to open settings here in DM\n' +
+          '4. Add tokens to track\n\n' +
+          '⚡ Powered by Helius\n\n' +
+          'Type /help for more information.',
+          { parse_mode: 'Markdown' }
+        );
+      }
+    } catch (error) {
+      logger?.error('[BuybotTelegram] /start command error:', error);
+      await ctx.reply('❌ An error occurred. Please try again.');
+    }
+  });
+
   // /settings command - Interactive settings menu (DM only)
   bot.command('settings', async (ctx) => {
     try {

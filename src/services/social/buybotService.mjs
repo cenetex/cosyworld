@@ -352,6 +352,50 @@ export class BuybotService {
   }
 
   /**
+   * Get token price from DexScreener API as fallback
+   * @param {string} tokenAddress - Token address
+   * @returns {Promise<Object|null>}
+   */
+  async getPriceFromDexScreener(tokenAddress) {
+    try {
+      const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+      if (!response.ok) {
+        this.logger.warn(`[BuybotService] DexScreener API returned ${response.status} for ${tokenAddress}`);
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data || !data.pairs || data.pairs.length === 0) {
+        this.logger.debug(`[BuybotService] No pairs found on DexScreener for ${tokenAddress}`);
+        return null;
+      }
+
+      // Get the most liquid pair (highest liquidity)
+      const bestPair = data.pairs.reduce((best, pair) => {
+        const liquidity = pair.liquidity?.usd || 0;
+        const bestLiquidity = best?.liquidity?.usd || 0;
+        return liquidity > bestLiquidity ? pair : best;
+      }, data.pairs[0]);
+
+      if (!bestPair || !bestPair.priceUsd) {
+        this.logger.debug(`[BuybotService] No valid price found on DexScreener for ${tokenAddress}`);
+        return null;
+      }
+
+      this.logger.info(`[BuybotService] Got price from DexScreener: ${bestPair.priceUsd} USD for ${tokenAddress}`);
+      
+      return {
+        usdPrice: parseFloat(bestPair.priceUsd),
+        marketCap: bestPair.fdv || bestPair.marketCap,
+        liquidity: bestPair.liquidity?.usd,
+      };
+    } catch (error) {
+      this.logger.error(`[BuybotService] Failed to fetch price from DexScreener:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get token info from Helius
    * @param {string} tokenAddress - Token address
    * @returns {Promise<Object|null>}
@@ -377,8 +421,10 @@ export class BuybotService {
         if (apiError.message?.includes('Not Found') || apiError.message?.includes('404')) {
           this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in Helius DAS API`);
           
-          // For pump.fun or new tokens, return minimal info
-          // The token might exist but not be indexed yet
+          // Try to get price from DexScreener as fallback
+          const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
+          
+          // For pump.fun or new tokens, return minimal info with DexScreener price if available
           return {
             address: tokenAddress,
             name: 'Unknown Token',
@@ -386,6 +432,8 @@ export class BuybotService {
             decimals: 9, // Default for SPL tokens
             supply: null,
             image: null,
+            usdPrice: dexScreenerData?.usdPrice || null,
+            marketCap: dexScreenerData?.marketCap || null,
             warning: 'Token not yet indexed - may be newly created or invalid',
           };
         }
@@ -397,13 +445,25 @@ export class BuybotService {
         return null;
       }
 
-      // Calculate market cap if we have supply and price
-      let marketCap = null;
+      // Get basic token info
       const supply = asset.token_info?.supply;
       const decimals = asset.token_info?.decimals || 9;
-      const pricePerToken = asset.token_info?.price_info?.price_per_token;
+      let pricePerToken = asset.token_info?.price_info?.price_per_token;
+      let marketCap = null;
+
+      // If Helius doesn't have price data, try DexScreener
+      if (!pricePerToken) {
+        this.logger.info(`[BuybotService] No price from Helius for ${tokenAddress}, trying DexScreener...`);
+        const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
+        if (dexScreenerData) {
+          pricePerToken = dexScreenerData.usdPrice;
+          marketCap = dexScreenerData.marketCap;
+          this.logger.info(`[BuybotService] Using DexScreener price: $${pricePerToken} for ${tokenAddress}`);
+        }
+      }
       
-      if (supply && pricePerToken && decimals) {
+      // Calculate market cap if we have supply and price (and didn't get it from DexScreener)
+      if (!marketCap && supply && pricePerToken && decimals) {
         // Convert supply from raw amount to actual token amount using decimals
         const actualSupply = supply / Math.pow(10, decimals);
         marketCap = actualSupply * pricePerToken;
@@ -644,15 +704,27 @@ export class BuybotService {
         }
 
         if (event) {
-          // Store event
-          await this.db.collection(this.TOKEN_EVENTS_COLLECTION).insertOne({
-            ...event,
-            channelId,
-            tokenAddress,
-            signature: tx.signature,
-            timestamp: new Date(tx.timestamp * 1000),
-            createdAt: new Date(),
-          });
+          // Store event - handle duplicate signature inserts gracefully
+          try {
+            await this.db.collection(this.TOKEN_EVENTS_COLLECTION).insertOne({
+              ...event,
+              channelId,
+              tokenAddress,
+              signature: tx.signature,
+              timestamp: new Date(tx.timestamp * 1000),
+              createdAt: new Date(),
+            });
+          } catch (insertErr) {
+            // Mongo duplicate key (signature already exists) - skip silently
+            if (insertErr && (insertErr.code === 11000 || String(insertErr.message).includes('E11000'))) {
+              this.logger.debug(`[BuybotService] Duplicate token event ${tx.signature} detected, skipping insert`);
+              continue; // skip processing this transaction
+            }
+
+            // Unexpected insert error - log and skip this event
+            this.logger.error(`[BuybotService] Failed to insert token event ${tx.signature}:`, insertErr);
+            continue;
+          }
 
           // Send notification to appropriate platform
           await this.sendEventNotification(channelId, event, token, platform);
@@ -926,6 +998,17 @@ export class BuybotService {
 
       const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
+
+      // Debug logging
+      this.logger.info(`[BuybotService] Sending notification for ${token.tokenSymbol}:`, {
+        tokenAddress: token.tokenAddress,
+        usdPrice: token.usdPrice,
+        marketCap: token.marketCap,
+        usdValue: usdValue,
+        amount: formattedAmount,
+        hasMediaThresholds: !!token.mediaThresholds,
+        hasCustomMedia: !!token.customMedia,
+      });
 
       // Build enhanced notification message
       let message = '';
