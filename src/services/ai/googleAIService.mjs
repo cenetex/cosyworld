@@ -8,17 +8,20 @@ import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';
 import fs from 'fs/promises';
 import { parseWithRetries } from '../../utils/jsonParse.mjs';
+import { CircuitBreaker } from '../../utils/circuitBreaker.mjs';
 
 export class GoogleAIService {
   constructor({
     configService,
   s3Service,
-  aiModelService
+  aiModelService,
+  logger
   }) {
     
     this.configService = configService;
     this.s3Service = s3Service;
   this.aiModelService = aiModelService;
+    this.logger = logger;
     
     const config = this.configService.config.ai.google;
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
@@ -33,6 +36,18 @@ export class GoogleAIService {
     this.model = config.defaultModel || 'gemini-2.0-flash-001';
     this.structured_model = config.structuredModel || this.model;
     this.rawModels = modelsConfig.rawModels;
+    
+    // Initialize circuit breaker for Google AI API
+    this.circuitBreaker = new CircuitBreaker({
+      name: 'GoogleAI',
+      failureThreshold: 5,
+      successThreshold: 2,
+      resetTimeout: 60000, // 1 minute
+      logger: this.logger,
+      onStateChange: (newState, oldState) => {
+        this.logger?.info?.(`[GoogleAI] Circuit breaker: ${oldState} → ${newState}`);
+      }
+    });
 
     // Default options for chat and completion
     this.defaultCompletionOptions = {
@@ -324,9 +339,25 @@ export class GoogleAIService {
   
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await chatSession.sendMessage([{ text: lastMessage.content }]);
+        // Wrap Google AI API call with circuit breaker
+        const result = await this.circuitBreaker.execute(async () => {
+          return await chatSession.sendMessage([{ text: lastMessage.content }]);
+        });
+        
           return options.returnEnvelope ? { text: result.response.text(), raw: result, model: modelId, provider: 'google', error: null } : result.response.text();
       } catch (error) {
+        // Check if error is from circuit breaker
+        if (error.message?.includes('Circuit breaker OPEN')) {
+          this.logger?.warn?.('[GoogleAIService] Circuit breaker is open, skipping retry');
+          return options.returnEnvelope ? { 
+            text: null, 
+            raw: null, 
+            model: modelId, 
+            provider: 'google', 
+            error: { code: 'CIRCUIT_OPEN', message: error.message } 
+          } : null;
+        }
+        
         const retryInfo = this._parseRetryDelay(error);
         if (retryInfo.shouldRetry && attempt < 2) {
           console.warn(`[GoogleAIService] Quota exceeded during chat, retrying after ${retryInfo.delayMs}ms (attempt ${attempt + 1})`);
