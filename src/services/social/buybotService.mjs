@@ -422,33 +422,6 @@ export class BuybotService {
   }
 
   /**
-   * Link a Telegram channel to a Discord channel for volume summaries
-   * @param {string} discordChannelId - Discord channel ID
-   * @param {string} telegramChannelId - Telegram channel ID
-   * @returns {Promise<Object>} Result object
-   */
-  async linkTelegramChannel(discordChannelId, telegramChannelId) {
-    try {
-      // Update all tracked tokens in this Discord channel to include Telegram mapping
-      const result = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateMany(
-        { channelId: discordChannelId, platform: 'discord', active: true },
-        { $set: { telegramChannelId, linkedAt: new Date() } }
-      );
-
-      this.logger.info(`[BuybotService] Linked Discord channel ${discordChannelId} to Telegram ${telegramChannelId} (${result.modifiedCount} tokens updated)`);
-
-      return {
-        success: true,
-        message: `Linked to Telegram channel. Activity summaries will be posted after $${this.VOLUME_THRESHOLD_USD} in volume.`,
-        modifiedCount: result.modifiedCount
-      };
-    } catch (error) {
-      this.logger.error('[BuybotService] Failed to link Telegram channel:', error);
-      return { success: false, message: `Error: ${error.message}` };
-    }
-  }
-
-  /**
    * Track an NFT collection for a channel
    * @param {string} channelId - Telegram channel ID
    * @param {string} collectionAddress - NFT collection address
@@ -1554,12 +1527,9 @@ export class BuybotService {
         const sentMessage = await channel.send({ embeds: [embed], components });
         this.logger.info(`[BuybotService] Sent Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId} (message ID: ${sentMessage.id})`);
         
-        // Track volume for summary posting to Telegram
+        // Track volume for activity summaries
         if (usdValue) {
-          const telegramChannelId = await this.getTelegramChannelForDiscord(channelId);
-          if (telegramChannelId) {
-            await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue, telegramChannelId);
-          }
+          await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue);
         }
       } catch (sendError) {
         this.logger.error(`[BuybotService] Failed to send Discord message to channel ${channelId}:`, {
@@ -2591,10 +2561,6 @@ export class BuybotService {
   generateActivitySummary(tracking) {
     const { totalVolume, events } = tracking;
     
-    // Group events by type
-    const swaps = events.filter(e => e.type === 'swap');
-    const transfers = events.filter(e => e.type === 'transfer');
-    
     // Group by token
     const tokenStats = {};
     for (const event of events) {
@@ -2630,24 +2596,30 @@ export class BuybotService {
   }
 
   /**
-   * Get or create Telegram channel mapping for a Discord channel
-   * This should be configured in tracked tokens or channel config
-   * @param {string} discordChannelId - Discord channel ID
-   * @returns {Promise<string|null>} Telegram channel ID or null
+   * Get recent activity summaries for a token
+   * Used by Telegram bot to provide context about Discord activity
+   * @param {string} tokenAddress - Token address or symbol
+   * @param {number} limit - Number of summaries to retrieve
+   * @returns {Promise<Array>} Recent activity summaries
    */
-  async getTelegramChannelForDiscord(discordChannelId) {
+  async getRecentActivitySummaries(tokenAddress, limit = 5) {
     try {
-      // Check if there's a tracked token with telegram channel mapping
-      const trackedToken = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
-        channelId: discordChannelId,
-        platform: 'discord',
-        telegramChannelId: { $exists: true, $ne: null }
-      });
+      // Match by either tokenAddress or tokenSymbol
+      const summaries = await this.db.collection(this.ACTIVITY_SUMMARIES_COLLECTION)
+        .find({
+          $or: [
+            { tokenAddresses: tokenAddress },
+            { tokenSymbols: tokenAddress }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
 
-      return trackedToken?.telegramChannelId || null;
+      return summaries;
     } catch (error) {
-      this.logger.error('[BuybotService] Error getting Telegram channel mapping:', error);
-      return null;
+      this.logger.error('[BuybotService] Error getting recent summaries:', error);
+      return [];
     }
   }
 

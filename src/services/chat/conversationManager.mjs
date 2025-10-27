@@ -1072,7 +1072,14 @@ export class ConversationManager  {
         
         // Send the cleaned text (without think tags) if there's any content left
         if (cleanedText) {
-          let sentMessage = await this.discordService.sendAsWebhook(channel.id, cleanedText, avatar);
+          // Ensure content doesn't exceed Discord's 2000 character limit
+          let messageToSend = cleanedText;
+          if (messageToSend.length > 2000) {
+            this.logger.warn(`[ConversationManager] Message for ${avatar.name} exceeds 2000 chars (${messageToSend.length}), truncating...`);
+            messageToSend = messageToSend.substring(0, 1997) + '...';
+          }
+          
+          let sentMessage = await this.discordService.sendAsWebhook(channel.id, messageToSend, avatar);
           if (!sentMessage) {
             this.logger.error(`Failed to send message in channel ${channel.id}`);
             return null;

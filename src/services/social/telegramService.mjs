@@ -328,7 +328,7 @@ class TelegramService {
 
   /**
    * Get buybot context for the current channel
-   * Returns summary of tracked tokens and recent activity
+   * Returns summary of tracked tokens and recent activity from Discord channels
    * @private
    */
   async _getBuybotContext(channelId) {
@@ -344,33 +344,27 @@ class TelegramService {
 
       if (trackedTokens.length === 0) return null;
 
-      // Get recent events (last 10) for tracked tokens
+      // Get recent activity summaries from Discord channels for these tokens
       const tokenAddresses = trackedTokens.map(t => t.tokenAddress);
-      const recentEvents = await db.collection('buybot_token_events')
-        .find({ 
-          channelId,
-          tokenAddress: { $in: tokenAddresses },
-          timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24h
+      const recentSummaries = await db.collection('buybot_activity_summaries')
+        .find({
+          tokenAddresses: { $in: tokenAddresses }
         })
-        .sort({ timestamp: -1 })
-        .limit(10)
+        .sort({ createdAt: -1 })
+        .limit(3)  // Last 3 summaries across all tracked tokens
         .toArray();
 
       // Build context summary
-      let context = `Tracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''}:\n`;
+      let context = `Tracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''}: ${trackedTokens.map(t => t.tokenSymbol).join(', ')}\n`;
       
-      for (const token of trackedTokens) {
-        const tokenEvents = recentEvents.filter(e => e.tokenAddress === token.tokenAddress);
-        const purchases = tokenEvents.filter(e => e.type === 'swap').length;
-        const transfers = tokenEvents.filter(e => e.type === 'transfer').length;
-        
-        context += `• ${token.tokenSymbol} (${token.tokenName}): ${purchases} purchase${purchases !== 1 ? 's' : ''}, ${transfers} transfer${transfers !== 1 ? 's' : ''} (24h)\n`;
-      }
-
-      if (recentEvents.length > 0) {
-        const latest = recentEvents[0];
-        const timeAgo = Math.floor((Date.now() - latest.timestamp.getTime()) / 60000); // minutes
-        context += `Latest: ${latest.type === 'swap' ? 'Purchase' : 'Transfer'} of ${latest.description || 'token'} (${timeAgo}m ago)`;
+      if (recentSummaries.length > 0) {
+        context += `\nRecent Discord activity:\n`;
+        for (const summary of recentSummaries) {
+          const timeAgo = Math.floor((Date.now() - summary.createdAt.getTime()) / 60000); // minutes
+          context += `• ${summary.summary} (${timeAgo}m ago)\n`;
+        }
+      } else {
+        context += `\nNo recent Discord activity summaries.`;
       }
 
       return context.trim();
