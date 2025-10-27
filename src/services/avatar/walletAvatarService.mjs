@@ -11,25 +11,20 @@
  */
 
 export class WalletAvatarService {
-  constructor({ databaseService, aiService, logger, avatarService, discordService, services }) {
-    this.databaseService = databaseService;
-    this.aiService = aiService;
-    this.logger = logger || console;
-    this.avatarService = avatarService;
-    this.discordService = discordService;
-    this.services = services; // Container reference for late-bound services
-    
-    this.WALLET_AVATARS_COLLECTION = 'wallet_avatars';
+  constructor(services) {
+    this.services = services;
+    this.databaseService = services.databaseService;
+    this.avatarService = services.avatarService;
+    this.logger = services.logger;
     this.db = null;
     
-    // Default thresholds for creating wallet avatars (can be overridden by configuration)
-    this.DEFAULT_RATI_THRESHOLD = 1_000_000; // 1M tokens for RATi
-    this.DEFAULT_USD_THRESHOLD = 1000; // $1000 USD for other tokens
+    // Thresholds cache (1 minute TTL)
+    this.thresholdsCache = null;
+    this.thresholdsCacheExpiry = 0;
     
-    // Cached thresholds (loaded from config)
-    this._cachedThresholds = null;
-    this._thresholdCacheTime = 0;
-    this._thresholdCacheTTL = 60000; // 1 minute cache
+    // Default thresholds (fallback if no config)
+    this.DEFAULT_RATI_THRESHOLD = 1_000_000;
+    this.DEFAULT_USD_THRESHOLD = 1000;
   }
 
   /**
@@ -144,9 +139,10 @@ export class WalletAvatarService {
 
   /**
    * Get or create an avatar for a wallet address
+   * Stores in main avatars collection with walletAddress field
    * @param {string} walletAddress - Solana wallet address
    * @param {Object} context - Optional context (token, amount, balance, etc)
-   * @returns {Promise<Object|null>} Wallet avatar object or null if below threshold
+   * @returns {Promise<Object|null>} Avatar object or null if error
    */
   async getOrCreateWalletAvatar(walletAddress, context = {}) {
     try {
@@ -154,43 +150,51 @@ export class WalletAvatarService {
         this.db = await this.databaseService.getDatabase();
       }
 
-      // Check if avatar already exists
-      let walletAvatar = await this.db.collection(this.WALLET_AVATARS_COLLECTION)
-        .findOne({ walletAddress });
+      // Check if avatar already exists in main avatars collection
+      let avatar = await this.db.collection('avatars')
+        .findOne({ walletAddress, status: { $ne: 'dead' } });
 
-      if (walletAvatar) {
-        // Update last activity and balance info
-        const setData = {
+      if (avatar) {
+        // Update last activity and token balances
+        const updateSet = {
           lastActivityAt: new Date()
         };
         
-        // Update balance if provided
-        if (context.currentBalance !== undefined) {
-          setData.currentBalance = context.currentBalance;
-        }
-        if (context.orbNftCount !== undefined) {
-          setData.orbNftCount = context.orbNftCount;
+        // Update token balance if provided (flexible schema)
+        if (context.tokenSymbol && context.currentBalance !== undefined) {
+          updateSet[`tokenBalances.${context.tokenSymbol}`] = {
+            balance: context.currentBalance,
+            usdValue: context.usdValue || null,
+            lastUpdated: new Date()
+          };
         }
         
-        await this.db.collection(this.WALLET_AVATARS_COLLECTION).updateOne(
-          { walletAddress },
+        // Update NFT counts if provided
+        if (context.orbNftCount !== undefined) {
+          updateSet[`nftBalances.Orb`] = context.orbNftCount;
+        }
+        
+        await this.db.collection('avatars').updateOne(
+          { _id: avatar._id },
           { 
-            $set: setData,
+            $set: updateSet,
             $inc: { activityCount: 1 }
           }
         );
         
-        // Return updated avatar
-        walletAvatar.lastActivityAt = setData.lastActivityAt;
-        walletAvatar.activityCount = (walletAvatar.activityCount || 0) + 1;
-        if (context.currentBalance !== undefined) {
-          walletAvatar.currentBalance = context.currentBalance;
+        // Return updated avatar with new data
+        avatar.lastActivityAt = updateSet.lastActivityAt;
+        avatar.activityCount = (avatar.activityCount || 0) + 1;
+        if (context.tokenSymbol && context.currentBalance !== undefined) {
+          avatar.tokenBalances = avatar.tokenBalances || {};
+          avatar.tokenBalances[context.tokenSymbol] = updateSet[`tokenBalances.${context.tokenSymbol}`];
         }
         if (context.orbNftCount !== undefined) {
-          walletAvatar.orbNftCount = context.orbNftCount;
+          avatar.nftBalances = avatar.nftBalances || {};
+          avatar.nftBalances.Orb = context.orbNftCount;
         }
         
-        return walletAvatar;
+        return avatar;
       }
 
       // Check if wallet meets threshold for avatar creation
@@ -206,14 +210,14 @@ export class WalletAvatarService {
       if (context.tokenSymbol === 'RATi') {
         // Any RATi holder gets a full avatar
         this.logger.info(`[WalletAvatarService] Creating full avatar for RATi holder ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} RATi`);
-        walletAvatar = await this.createWalletAvatar(walletAddress, context);
+        avatar = await this.createWalletAvatar(walletAddress, context);
       } else {
         // Non-RATi tokens get a partial avatar (name + family only)
         this.logger.info(`[WalletAvatarService] Creating partial avatar for ${context.tokenSymbol} holder ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} tokens (${context.usdValue ? '$' + context.usdValue.toFixed(2) : 'unknown USD value'})`);
-        walletAvatar = await this.createPartialWalletAvatar(walletAddress, context);
+        avatar = await this.createPartialWalletAvatar(walletAddress, context);
       }
       
-      return walletAvatar;
+      return avatar;
     } catch (error) {
       this.logger.error('[WalletAvatarService] getOrCreateWalletAvatar failed:', error);
       return null;
@@ -221,10 +225,11 @@ export class WalletAvatarService {
   }
 
   /**
-   * Create a new wallet avatar using the full AvatarService
+   * Create a new full wallet avatar using AI generation
+   * Stores in main avatars collection with walletAddress field
    * @param {string} walletAddress - Solana wallet address
    * @param {Object} context - Context for avatar creation
-   * @returns {Promise<Object>} Created wallet avatar with full avatar data
+   * @returns {Promise<Object>} Created avatar
    */
   async createWalletAvatar(walletAddress, context = {}) {
     try {
@@ -250,47 +255,46 @@ export class WalletAvatarService {
         return null;
       }
 
-      // Store wallet mapping in our collection
-      const walletAvatarDoc = {
-        walletAddress,
-        avatarId: avatar._id,
-        name: avatar.name,
-        emoji: avatar.emoji,
-        description: avatar.description,
-        personality: avatar.personality,
-        imageUrl: avatar.imageUrl,
-        currentBalance: context.currentBalance || 0,
-        orbNftCount: context.orbNftCount || 0,
-        isPartial: false, // Full avatar
-        createdAt: new Date(),
-        lastActivityAt: new Date(),
-        activityCount: 1,
-        context: {
-          firstSeenToken: context.tokenSymbol || null,
-          firstSeenAmount: context.amount || null,
-          firstSeenUsd: context.usdValue || null,
-          creationBalance: context.currentBalance || 0
+      // Add wallet-specific fields to the avatar document
+      await this.db.collection('avatars').updateOne(
+        { _id: avatar._id },
+        { 
+          $set: {
+            walletAddress,
+            currentBalance: context.currentBalance || 0,
+            orbNftCount: context.orbNftCount || 0,
+            isPartial: false, // Full avatar with AI + image
+            lastActivityAt: new Date(),
+            activityCount: 1,
+            walletContext: {
+              firstSeenToken: context.tokenSymbol || null,
+              firstSeenAmount: context.amount || null,
+              firstSeenUsd: context.usdValue || null,
+              creationBalance: context.currentBalance || 0
+            }
+          }
         }
-      };
-
-      await this.db.collection(this.WALLET_AVATARS_COLLECTION).insertOne(walletAvatarDoc);
+      );
       
-      this.logger.info(`[WalletAvatarService] Created avatar: ${avatar.emoji} ${avatar.name} (${avatar._id}) for ${this.formatAddress(walletAddress)}`);
+      // Reload avatar with updated fields
+      const updatedAvatar = await this.db.collection('avatars').findOne({ _id: avatar._id });
+      
+      this.logger.info(`[WalletAvatarService] Created full avatar: ${updatedAvatar.emoji} ${updatedAvatar.name} (${updatedAvatar._id}) for ${this.formatAddress(walletAddress)}`);
       
       // Activate avatar in Discord channel so it can participate in conversations
       if (context.discordChannelId) {
         try {
-          await this.avatarService.activateAvatarInChannel(context.discordChannelId, String(avatar._id));
-          this.logger.info(`[WalletAvatarService] Activated wallet avatar ${avatar.name} in Discord channel ${context.discordChannelId}`);
+          await this.avatarService.activateAvatarInChannel(context.discordChannelId, String(updatedAvatar._id));
+          this.logger.info(`[WalletAvatarService] Activated wallet avatar ${updatedAvatar.name} in Discord channel ${context.discordChannelId}`);
         } catch (activateError) {
           this.logger.error(`[WalletAvatarService] Failed to activate avatar in channel: ${activateError.message}`);
         }
       }
       
-      // Introduce the new whale avatar across platforms
-      await this.introduceWalletAvatar(walletAvatarDoc, context);
+      // Introduce the new whale avatar across platforms (only for FULL avatars)
+      await this.introduceWalletAvatar(updatedAvatar, context);
       
-      return walletAvatarDoc;
+      return updatedAvatar;
     } catch (error) {
       this.logger.error('[WalletAvatarService] createWalletAvatar failed:', error);
       return null;
@@ -298,11 +302,12 @@ export class WalletAvatarService {
   }
 
   /**
-   * Create a partial wallet avatar (name + family only, no image/AI personality)
+   * Create a partial wallet avatar (name + family + emoji only, no AI/image)
    * Used for non-RATi token holders to avoid expensive AI generation
+   * Stores in main avatars collection with isPartial flag
    * @param {string} walletAddress - Solana wallet address
    * @param {Object} context - Context for avatar creation (must include tokenSymbol)
-   * @returns {Promise<Object>} Created partial wallet avatar
+   * @returns {Promise<Object>} Created partial avatar
    */
   async createPartialWalletAvatar(walletAddress, context = {}) {
     try {
@@ -313,23 +318,28 @@ export class WalletAvatarService {
       // Generate deterministic name and family based on wallet + token
       const { name, family, emoji } = this.generatePartialAvatarIdentity(walletAddress, tokenSymbol);
       
-      // Store minimal wallet mapping (no full avatar, no image)
-      const walletAvatarDoc = {
+      // Store minimal avatar document in main collection (no AI, no image)
+      const avatarDoc = {
         walletAddress,
-        avatarId: null, // No full avatar created
         name,
         emoji,
-        family,
-        description: `A ${tokenSymbol} holder`,
+        family, // Token-specific family
+        description: `A ${tokenSymbol} holder from the ${family}`,
         personality: null, // No AI personality
         imageUrl: null, // No generated image
         currentBalance: context.currentBalance || 0,
         orbNftCount: context.orbNftCount || 0,
-        isPartial: true, // Flag as partial avatar
+        isPartial: true, // Flag as partial avatar (no AI/image)
+        summoner: `wallet:${walletAddress}`,
+        channelId: context.discordChannelId || context.telegramChannelId || context.channelId || null,
+        guildId: context.guildId || null,
+        lives: 3,
+        status: 'alive',
         createdAt: new Date(),
+        updatedAt: new Date(),
         lastActivityAt: new Date(),
         activityCount: 1,
-        context: {
+        walletContext: {
           firstSeenToken: tokenSymbol,
           firstSeenAmount: context.amount || null,
           firstSeenUsd: context.usdValue || null,
@@ -337,18 +347,19 @@ export class WalletAvatarService {
         }
       };
 
-      await this.db.collection(this.WALLET_AVATARS_COLLECTION).insertOne(walletAvatarDoc);
+      const result = await this.db.collection('avatars').insertOne(avatarDoc);
+      avatarDoc._id = result.insertedId;
       
-      this.logger.info(`[WalletAvatarService] Created partial avatar: ${emoji} ${name} from ${family} family for ${this.formatAddress(walletAddress)}`);
+      this.logger.info(`[WalletAvatarService] Created partial avatar: ${emoji} ${name} from ${family} for ${this.formatAddress(walletAddress)}`);
       
-      return walletAvatarDoc;
+      // NO introduction for partial avatars - they're background personas
+      
+      return avatarDoc;
     } catch (error) {
       this.logger.error('[WalletAvatarService] createPartialWalletAvatar failed:', error);
       return null;
     }
-  }
-
-  /**
+  }  /**
    * Generate deterministic name, family, and emoji for partial avatars
    * Each token gets its own themed "family" of avatars with unique naming patterns
    * @param {string} walletAddress - Solana wallet address
@@ -450,27 +461,34 @@ export class WalletAvatarService {
   }
 
   /**
-   * Introduce a newly created wallet avatar across platforms (Telegram + Discord)
-   * @param {Object} walletAvatar - Wallet avatar document
+   * Introduce a newly created full wallet avatar across platforms (Telegram + Discord)
+   * Only called for full avatars, not partial ones
+   * @param {Object} avatar - Avatar document from main avatars collection
    * @param {Object} context - Creation context (channelId, tokenSymbol, etc)
    */
-  async introduceWalletAvatar(walletAvatar, context = {}) {
+  async introduceWalletAvatar(avatar, context = {}) {
     try {
-      const intro = this.buildIntroductionMessage(walletAvatar, context);
+      // Only introduce full avatars (with images and AI)
+      if (avatar.isPartial) {
+        this.logger.debug(`[WalletAvatarService] Skipping introduction for partial avatar ${avatar.name}`);
+        return;
+      }
+      
+      const intro = this.buildIntroductionMessage(avatar, context);
       
       // Post to Telegram if channel tracking this token
       if (context.telegramChannelId) {
-        await this.introduceOnTelegram(context.telegramChannelId, walletAvatar, intro);
+        await this.introduceOnTelegram(context.telegramChannelId, avatar, intro);
       }
       
       // Post to Discord channel tracking this token
       if (context.discordChannelId) {
-        await this.introduceOnDiscord(context.discordChannelId, walletAvatar, intro);
+        await this.introduceOnDiscord(context.discordChannelId, avatar, intro);
       }
       
       // If no specific channels, find channels tracking this token and introduce there
       if (!context.telegramChannelId && !context.discordChannelId && context.tokenAddress) {
-        await this.introduceInTrackingChannels(context.tokenAddress, walletAvatar, intro);
+        await this.introduceInTrackingChannels(context.tokenAddress, avatar, intro);
       }
     } catch (error) {
       this.logger.error('[WalletAvatarService] introduceWalletAvatar failed:', error);
@@ -479,18 +497,18 @@ export class WalletAvatarService {
 
   /**
    * Build introduction message for a new wallet avatar
-   * @param {Object} walletAvatar - Wallet avatar document
+   * @param {Object} avatar - Avatar document
    * @param {Object} context - Context info
    * @returns {string} Introduction message
    */
-  buildIntroductionMessage(walletAvatar, context) {
-    const balanceStr = this.formatLargeNumber(walletAvatar.currentBalance);
-    const orbStr = walletAvatar.orbNftCount > 0 ? ` and ${walletAvatar.orbNftCount} Orb${walletAvatar.orbNftCount > 1 ? 's' : ''}` : '';
+  buildIntroductionMessage(avatar, context) {
+    const balanceStr = this.formatLargeNumber(avatar.currentBalance);
+    const orbStr = avatar.orbNftCount > 0 ? ` and ${avatar.orbNftCount} Orb${avatar.orbNftCount > 1 ? 's' : ''}` : '';
     
-    let intro = `${walletAvatar.emoji} **${walletAvatar.name}** has entered the realm!\n\n`;
-    intro += `*${walletAvatar.description}*\n\n`;
+    let intro = `${avatar.emoji} **${avatar.name}** has entered the realm!\n\n`;
+    intro += `*${avatar.description}*\n\n`;
     intro += `🐋 A legendary whale holder with **${balanceStr} ${context.tokenSymbol || 'RATi'}**${orbStr}.\n\n`;
-    intro += `Wallet: \`${this.formatAddress(walletAvatar.walletAddress)}\``;
+    intro += `Wallet: \`${this.formatAddress(avatar.walletAddress)}\``;
     
     return intro;
   }
@@ -498,10 +516,10 @@ export class WalletAvatarService {
   /**
    * Introduce avatar on Telegram
    * @param {string} channelId - Telegram channel ID
-   * @param {Object} walletAvatar - Wallet avatar document
+   * @param {Object} avatar - Avatar document
    * @param {string} intro - Introduction message
    */
-  async introduceOnTelegram(channelId, walletAvatar, intro) {
+  async introduceOnTelegram(channelId, avatar, intro) {
     try {
       const telegramService = this.getTelegramService();
       
@@ -510,11 +528,11 @@ export class WalletAvatarService {
         return;
       }
 
-      // Send introduction with image if available
-      if (walletAvatar.imageUrl) {
+      // Send introduction with image if available (full avatars only)
+      if (avatar.imageUrl) {
         await telegramService.globalBot.telegram.sendPhoto(
           channelId,
-          walletAvatar.imageUrl,
+          avatar.imageUrl,
           {
             caption: intro,
             parse_mode: 'Markdown'
@@ -528,13 +546,40 @@ export class WalletAvatarService {
         );
       }
       
-      this.logger.info(`[WalletAvatarService] Introduced ${walletAvatar.name} on Telegram channel ${channelId}`);
+      this.logger.info(`[WalletAvatarService] Introduced ${avatar.name} on Telegram channel ${channelId}`);
     } catch (error) {
       this.logger.error('[WalletAvatarService] introduceOnTelegram failed:', error);
     }
   }
 
   /**
+   * Introduce avatar on Discord
+   * @param {string} channelId - Discord channel ID
+   * @param {Object} avatar - Avatar document
+   * @param {string} intro - Introduction message
+   */
+  async introduceOnDiscord(channelId, avatar, intro) {
+    try {
+      const discordService = this.getDiscordService();
+      
+      if (!discordService) {
+        this.logger.warn('[WalletAvatarService] Discord service not available');
+        return;
+      }
+
+      // Send as webhook to match avatar's persona (if they have image + personality)
+      if (avatar.imageUrl && !avatar.isPartial) {
+        await discordService.sendAsWebhook(channelId, intro, avatar);
+      } else {
+        // Simple message for partial avatars or if webhook fails
+        await discordService.sendMessage(channelId, intro);
+      }
+      
+      this.logger.info(`[WalletAvatarService] Introduced ${avatar.name} on Discord channel ${channelId}`);
+    } catch (error) {
+      this.logger.error('[WalletAvatarService] introduceOnDiscord failed:', error);
+    }
+  }  /**
    * Introduce avatar on Discord
    * @param {string} channelId - Discord channel ID
    * @param {Object} walletAvatar - Wallet avatar document

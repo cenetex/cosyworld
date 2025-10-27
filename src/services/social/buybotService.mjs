@@ -1394,9 +1394,138 @@ export class BuybotService {
       });
 
       this.logger.info(`[BuybotService] Sent Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId}`);
+      
+      // Trigger avatar responses for full (non-partial) avatars involved in the trade
+      await this.triggerAvatarTradeResponses(channelId, event, token, {
+        buyerAvatar,
+        senderAvatar,
+        recipientAvatar
+      });
     } catch (error) {
       this.logger.error('[BuybotService] Failed to send Discord notification:', error);
     }
+  }
+
+  /**
+   * Trigger avatar responses after a trade notification
+   * Only full avatars (isPartial=false) will respond
+   * @param {string} channelId - Discord channel ID
+   * @param {Object} event - Trade event data
+   * @param {Object} token - Token information
+   * @param {Object} avatars - { buyerAvatar, senderAvatar, recipientAvatar }
+   */
+  async triggerAvatarTradeResponses(channelId, event, token, avatars) {
+    try {
+      const { buyerAvatar, senderAvatar, recipientAvatar } = avatars;
+      
+      // Collect full (non-partial) avatars involved in this trade
+      // Now avatars are stored directly in main avatars collection with isPartial flag
+      const fullAvatars = [];
+      
+      if (buyerAvatar && buyerAvatar.isPartial === false && buyerAvatar._id) {
+        fullAvatars.push({ avatar: buyerAvatar, role: 'buyer' });
+      }
+      if (senderAvatar && senderAvatar.isPartial === false && senderAvatar._id) {
+        fullAvatars.push({ avatar: senderAvatar, role: 'sender' });
+      }
+      if (recipientAvatar && recipientAvatar.isPartial === false && recipientAvatar._id) {
+        fullAvatars.push({ avatar: recipientAvatar, role: 'recipient' });
+      }
+      
+      if (fullAvatars.length === 0) {
+        this.logger.debug(`[BuybotService] No full avatars in trade, skipping responses`);
+        return;
+      }
+      
+      this.logger.info(`[BuybotService] Triggering responses for ${fullAvatars.length} full avatar(s) in trade`);
+      
+      // Get the channel object
+      const channel = await this.discordService.client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        this.logger.warn(`[BuybotService] Channel ${channelId} not accessible for avatar responses`);
+        return;
+      }
+      
+      // Get ResponseCoordinator from services
+      const responseCoordinator = this.services?.resolve?.('responseCoordinator');
+      if (!responseCoordinator) {
+        this.logger.warn(`[BuybotService] ResponseCoordinator not available for trade responses`);
+        return;
+      }
+      
+      // Trigger each full avatar to respond with context about the trade
+      for (let i = 0; i < fullAvatars.length; i++) {
+        const { avatar, role } = fullAvatars[i];
+        try {
+          // Build trade context prompt for the avatar
+          const tradeContext = this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars);
+          
+          this.logger.info(`[BuybotService] Avatar ${avatar.name} responding to trade as ${role}`);
+          
+          // Generate response with trade context
+          // Use a small delay to avoid rate limits and allow embeds to appear first
+          setTimeout(async () => {
+            try {
+              await responseCoordinator.generateResponse(avatar, channel, null, {
+                overrideCooldown: true,
+                tradeContext,
+                cascadeDepth: 0
+              });
+            } catch (respError) {
+              this.logger.error(`[BuybotService] Failed to generate response for ${avatar.name}: ${respError.message}`);
+            }
+          }, 2000 * (i + 1)); // Stagger responses by 2 seconds each
+          
+        } catch (error) {
+          this.logger.error(`[BuybotService] Error triggering response for avatar: ${error.message}`);
+        }
+      }
+      
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to trigger avatar trade responses:', error);
+    }
+  }
+
+  /**
+   * Build context message for avatar to understand the trade they're involved in
+   * @param {Object} event - Trade event
+   * @param {Object} token - Token info
+   * @param {string} role - Avatar's role (buyer/sender/recipient)
+   * @param {Object} avatar - Avatar document
+   * @param {Array} allAvatars - All full avatars in this trade
+   * @returns {string} Context prompt
+   */
+  buildTradeContextForAvatar(event, token, role, avatar, allAvatars) {
+    const formattedAmount = this.formatLargeNumber(event.amountUi || event.amount);
+    const usdValue = event.usdValue ? `$${event.usdValue.toFixed(2)}` : '';
+    
+    let contextParts = [`You just witnessed a ${token.tokenSymbol} ${event.type} transaction`];
+    
+    if (role === 'buyer') {
+      contextParts.push(`You are the buyer in this transaction`);
+      contextParts.push(`You acquired ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+      if (avatar.currentBalance) {
+        contextParts.push(`Your current balance: ${this.formatLargeNumber(avatar.currentBalance)} ${token.tokenSymbol}`);
+      }
+    } else if (role === 'sender') {
+      contextParts.push(`You are the sender in this transfer`);
+      contextParts.push(`You sent ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+    } else if (role === 'recipient') {
+      contextParts.push(`You are the recipient in this transfer`);
+      contextParts.push(`You received ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+    }
+    
+    // Mention other full avatars if present
+    const otherAvatars = allAvatars.filter(a => a.avatar._id.toString() !== avatar._id.toString());
+    if (otherAvatars.length > 0) {
+      const otherNames = otherAvatars.map(a => `${a.avatar.emoji} ${a.avatar.name}`).join(', ');
+      contextParts.push(`Other avatars involved: ${otherNames}`);
+      contextParts.push(`Feel free to interact with them about this trade`);
+    }
+    
+    contextParts.push(`Comment naturally on this transaction, react to it, or discuss it with others involved`);
+    
+    return `[Trade Context: ${contextParts.join('. ')}.]`;
   }
 
   /**
