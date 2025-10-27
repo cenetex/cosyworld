@@ -7,6 +7,12 @@
  * Global Bot Service
  * Manages the CosyWorld global narrator bot as a first-class avatar
  * with personality, memory, and narrative evolution.
+ * 
+ * Memory System:
+ * - The bot uses a 'remember' tool to autonomously decide what to remember
+ * - Self-generated memories have higher weight (1.5) than automatic ones
+ * - The bot is encouraged to remember significant introductions, locations, and events
+ * - This creates more meaningful, contextual memories vs. automatic recording
  */
 
 export class GlobalBotService {
@@ -168,7 +174,9 @@ Your current thoughts and perspective:
 ${this.bot.dynamicPrompt || ''}
 
 Recent memories and activities:
-${memoryText || 'Just starting my journey as narrator.'}`;
+${memoryText || 'Just starting my journey as narrator.'}
+
+You have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
 
       let userPrompt;
       
@@ -185,7 +193,9 @@ Create a welcoming introduction tweet (max 240 chars) that:
 4. Makes people curious to learn more about them
 5. Use *bold* for the avatar name using Markdown formatting
 
-Be conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.`;
+Be conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.
+
+If this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`;
       } else if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
         // New location discovery
         userPrompt = `A new location has been discovered in CosyWorld: "${mediaPayload.locationName}"
@@ -199,7 +209,9 @@ Create an evocative announcement (max 240 chars) that:
 4. Reflects your narrator personality
 5. Use *bold* for the location name using Markdown formatting
 
-Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.`;
+Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.
+
+Consider using the remember tool if this location discovery is particularly noteworthy.`;
       } else if (mediaPayload.source === 'scene.camera' && (mediaPayload.avatarName || mediaPayload.locationName)) {
         // Scene camera photo
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
@@ -244,12 +256,65 @@ Context: ${mediaPayload.context || mediaPayload.prompt || 'An interesting moment
 Make it compelling and reflect your narrator voice. No quotes or extra hashtags.`;
       }
 
-        const response = await this.aiService.chat([
+      // Define the remember tool for the bot to use
+      const tools = [
+        {
+          type: 'function',
+          function: {
+            name: 'remember',
+            description: 'Record an important memory about your activities, posts, or interactions. Use this to remember significant moments, introductions, or events worth keeping in your memory.',
+            parameters: {
+              type: 'object',
+              properties: {
+                memory: {
+                  type: 'string',
+                  description: 'A concise memory to store (under 280 chars). Should capture the essence of what happened.'
+                }
+              },
+              required: ['memory']
+            }
+          }
+        }
+      ];
+
+      const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-        ], { model: this.bot.model, temperature: 0.8 });
+      ], { 
+        model: this.bot.model, 
+        temperature: 0.8,
+        tools: tools,
+        tool_choice: 'auto'
+      });
 
-      const text = typeof response === 'object' ? response.text : response;
+      // Handle tool calls if the bot wants to remember something
+      const responseObj = typeof response === 'object' ? response : { text: response };
+      
+      if (responseObj.tool_calls && responseObj.tool_calls.length > 0) {
+        for (const toolCall of responseObj.tool_calls) {
+          if (toolCall.function?.name === 'remember') {
+            try {
+              const args = typeof toolCall.function.arguments === 'string' 
+                ? JSON.parse(toolCall.function.arguments)
+                : toolCall.function.arguments;
+              
+              if (args.memory) {
+                await this.memoryService.write({
+                  avatarId: this.botId,
+                  kind: 'self_memory',
+                  text: args.memory,
+                  weight: 1.5 // Self-generated memories get higher weight
+                });
+                this.logger?.info?.(`[GlobalBotService] Bot created memory: ${args.memory}`);
+              }
+            } catch (err) {
+              this.logger?.warn?.(`[GlobalBotService] Failed to process remember tool call: ${err.message}`);
+            }
+          }
+        }
+      }
+
+      const text = typeof responseObj.text === 'string' ? responseObj.text : (typeof response === 'string' ? response : responseObj.text);
       
       // Clean up response
       return String(text || '')
@@ -287,31 +352,15 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
 
   /**
    * Record a post in the bot's memory
-   * @param {string} tweetId - Tweet ID
-   * @param {Object} mediaPayload - Original media payload
-   * @param {string} content - Generated post content
+   * @deprecated Use the 'remember' tool instead - let the bot decide what to remember
+   * @param {string} _tweetId - Tweet ID
+   * @param {Object} _mediaPayload - Original media payload
+   * @param {string} _content - Generated post content
    */
-  async recordPost(tweetId, mediaPayload, content) {
-    try {
-      let memoryText;
-      
-      if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
-        memoryText = `Introduced ${mediaPayload.avatarEmoji || ''} ${mediaPayload.avatarName} (${mediaPayload.avatarId}) to the community. ${content.slice(0, 100)}`;
-      } else {
-        memoryText = `Shared: ${content.slice(0, 150)}`;
-      }
-      
-      await this.memoryService.write({
-        avatarId: this.botId,
-        kind: 'post_memory',
-        text: memoryText,
-        weight: 1.2 // Give posts slightly higher weight
-      });
-      
-      this.logger?.debug?.(`[GlobalBotService] Recorded post memory for tweet ${tweetId}`);
-    } catch (err) {
-      this.logger?.warn?.(`[GlobalBotService] recordPost failed: ${err.message}`);
-    }
+  async recordPost(_tweetId, _mediaPayload, _content) {
+    // Deprecated: The bot now uses the remember tool to decide what to remember
+    // Keeping this method for backward compatibility but it does nothing
+    this.logger?.debug?.(`[GlobalBotService] recordPost called (deprecated) - bot should use remember tool instead`);
   }
 
   /**

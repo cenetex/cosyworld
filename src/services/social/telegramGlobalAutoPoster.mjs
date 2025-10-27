@@ -274,20 +274,21 @@ export function registerTelegramGlobalAutoPoster({ telegramService, aiService, l
         avatarId: payload.avatarId || null,
         avatarName: payload.avatarName || null,
         avatarEmoji: payload.avatarEmoji || null,
-        source: 'x.post',
+        source: payload.source || 'x.post', // Preserve original source
+        context: payload.content, // Preserve original content for better memory
         createdAt: new Date()
       };
       
       // Post to Telegram (using media if available, otherwise text-only)
       const result = await telegramService.postGlobalMediaUpdate(enrichedPayload, { aiService });
       
-      // Record in GlobalBotService
+      // Record in GlobalBotService with the original content, not the URL
       if (result?.messageId && globalBotService) {
         try {
           await globalBotService.recordPost(
             `telegram_x_${payload.tweetId}`,
             enrichedPayload,
-            enrichedPayload.text
+            payload.content // Use original tweet content, not the URL
           );
         } catch (err) {
           logger?.warn?.(`[TelegramGlobalAutoPoster] Failed to record X post in GlobalBotService: ${err.message}`);
