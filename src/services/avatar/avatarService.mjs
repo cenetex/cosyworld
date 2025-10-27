@@ -6,13 +6,91 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 
 // AvatarService.mjs – fully ESM, generic‑filter version
 // -------------------------------------------------------
-//  * requires helpers/buildAvatarQuery.mjs (see previous message)
-//  * remove the bespoke `_buildAvatarQuery` logic; every query is derived
-//    from a flexible `filters` object via buildAvatarQuery()
-//  * public APIs that accepted includeStatus / emoji / traits … now take
-//    a single `{ filters, … }` bag. A tiny compatibility layer still
-//    translates the old signature so existing callers will not break.
-// -------------------------------------------------------
+
+/**
+ * @typedef {Object} Avatar
+ * @property {import('mongodb').ObjectId} _id - Unique avatar ID
+ * @property {string} name - Avatar name (2-50 characters)
+ * @property {string} emoji - Avatar emoji (1-10 characters)
+ * @property {string} description - Avatar description
+ * @property {string} personality - Avatar personality
+ * @property {string|null} imageUrl - Full S3 URL or null for partial avatars
+ * @property {string} model - AI model used ('auto', 'partial', etc)
+ * @property {string} channelId - Discord channel ID
+ * @property {string} summoner - Format: "user:discordId" | "wallet:address" | "system"
+ * @property {number} lives - Remaining lives (default: 3)
+ * @property {'alive'|'dead'} status - Avatar status
+ * @property {Date} createdAt - Creation timestamp
+ * @property {Date} updatedAt - Last update timestamp
+ * @property {string} [guildId] - Discord guild ID (user avatars only)
+ * @property {AvatarStats} [stats] - RPG stats (user avatars only)
+ * @property {AvatarThought[]} [thoughts] - Recent thoughts (user avatars only)
+ * @property {string} [dynamicPersonality] - Evolving personality (user avatars only)
+ * @property {number} [messageCount] - Activity count (user avatars only)
+ * @property {string} [arweave_prompt] - Decentralized prompt storage (user avatars only)
+ * @property {Date} [lastBredAt] - Last breeding timestamp (user avatars only)
+ * @property {string} [walletAddress] - Solana public key (wallet avatars only)
+ * @property {Object.<string, TokenBalance>} [tokenBalances] - Token balances (wallet avatars only)
+ * @property {Object.<string, number>} [nftBalances] - NFT counts by collection (wallet avatars only)
+ * @property {WalletContext} [walletContext] - First-seen metadata (wallet avatars only)
+ * @property {boolean} [isPartial] - True if no image generated (wallet avatars only)
+ * @property {Date} [lastActivityAt] - Last transaction timestamp (wallet avatars only)
+ * @property {number} [activityCount] - Total transaction count (wallet avatars only)
+ * @property {boolean} [_existing] - Flag indicating avatar already existed (internal use)
+ */
+
+/**
+ * @typedef {Object} AvatarStats
+ * @property {number} strength - Strength stat
+ * @property {number} dexterity - Dexterity stat
+ * @property {number} constitution - Constitution stat
+ * @property {number} intelligence - Intelligence stat
+ * @property {number} wisdom - Wisdom stat
+ * @property {number} charisma - Charisma stat
+ */
+
+/**
+ * @typedef {Object} AvatarThought
+ * @property {string} content - Thought content
+ * @property {number} timestamp - Unix timestamp
+ * @property {string} guildName - Guild where thought occurred
+ */
+
+/**
+ * @typedef {Object} TokenBalance
+ * @property {number} balance - Token balance
+ * @property {number|null} usdValue - USD value of balance
+ * @property {Date} lastUpdated - Last update timestamp
+ */
+
+/**
+ * @typedef {Object} WalletContext
+ * @property {string|null} firstSeenToken - Token symbol first seen
+ * @property {number|null} firstSeenAmount - Amount in first transaction
+ * @property {number|null} firstSeenUsd - USD value at creation
+ * @property {number} creationBalance - Balance at creation time
+ */
+
+/**
+ * @typedef {Object} AvatarCreateOptions
+ * @property {string} prompt - Prompt for avatar generation
+ * @property {string} summoner - Who/what summoned this avatar
+ * @property {string} channelId - Discord channel ID
+ * @property {string} [guildId] - Discord guild ID
+ * @property {string} [imageUrl] - Override image URL (skip generation)
+ */
+
+/**
+ * @typedef {Object} WalletAvatarContext
+ * @property {string} tokenSymbol - Token symbol (e.g., 'RATi', 'SOL')
+ * @property {string} tokenAddress - Token mint address
+ * @property {number} amount - Transaction amount
+ * @property {number} [usdValue] - USD value of transaction
+ * @property {number} currentBalance - Current token balance
+ * @property {number} [orbNftCount] - Number of Orb NFTs owned
+ * @property {string} [discordChannelId] - Discord channel for activation
+ * @property {string} [guildId] - Discord guild ID
+ */
 
 import process from 'process';
 import eventBus from '../../utils/eventBus.mjs';
@@ -64,15 +142,29 @@ export class AvatarService {
     this.channelsCollection = this.db.collection('channels');
 
     await Promise.all([
+      // Existing indexes
       this.avatarsCollection.createIndex({ name: 1 }),
       this.avatarsCollection.createIndex({ channelId: 1 }),
       this.avatarsCollection.createIndex({ createdAt: -1 }),
       this.avatarsCollection.createIndex({ messageCount: -1 }),
+      
+      // CRITICAL: Wallet avatar indexes
+      this.avatarsCollection.createIndex({ walletAddress: 1 }, { sparse: true }),
+      this.avatarsCollection.createIndex({ summoner: 1 }),
+      this.avatarsCollection.createIndex({ lastActivityAt: -1 }, { sparse: true }),
+      this.avatarsCollection.createIndex({ 'tokenBalances.RATi.balance': -1 }, { sparse: true }),
+      
+      // Compound indexes for common queries
+      this.avatarsCollection.createIndex({ status: 1, walletAddress: 1 }, { sparse: true }),
+      this.avatarsCollection.createIndex({ status: 1, name: 1 }),
+      this.avatarsCollection.createIndex({ status: 1, channelId: 1 }),
+      
+      // Other collections
       this.messagesCollection.createIndex({ timestamp: 1 }),
       this.channelsCollection.createIndex({ lastActive: 1 }),
     ]);
 
-    this.logger.info('AvatarService database setup completed.');
+    this.logger.info('AvatarService database setup completed with wallet avatar indexes.');
   }
 
   /* -------------------------------------------------- */
@@ -655,6 +747,94 @@ export class AvatarService {
   }
 
   /* -------------------------------------------------- */
+  /*  AVATAR VALIDATION HELPERS                          */
+  /* -------------------------------------------------- */
+
+  /**
+   * Validate and sanitize an avatar name
+   * Centralized validation logic used by both createAvatar() and createPartialAvatar()
+   * @param {string} name - Raw name from AI generation
+   * @param {string} context - Context string for logging (e.g., 'avatar', 'partial avatar')
+   * @returns {string|null} - Sanitized name or null if invalid
+   * @private
+   */
+  _validateAndSanitizeName(name, context = 'avatar') {
+    if (!name || typeof name !== 'string') {
+      this.logger?.error?.(`[AvatarService] Cannot create ${context}: name is not a string`);
+      return null;
+    }
+
+    try {
+      const orig = name.trim();
+      
+      // Pattern checks - detect error-like names
+      const isHttpCode = /^(?:HTTP_)?(4\d\d|5\d\d)$/.test(orig);
+      const isJustDigits = /^\d{3,}$/.test(orig);
+      const hasErrorMarkers = /⚠️|\[Error|No response|failed|invalid/i.test(orig);
+      const hasMarkdown = /^-#|^#/.test(orig);
+      
+      if (!orig || isHttpCode || isJustDigits || hasErrorMarkers || hasMarkdown) {
+        this.logger?.error?.(`[AvatarService] Cannot create ${context}: invalid/error-like name detected: '${orig}'`);
+        return null;
+      }
+      
+      // Strip any accidental 'Error:' prefixes inserted by malformed upstream responses
+      const sanitized = orig.replace(/^Error[:\s-]+/i, '').trim();
+      
+      // Final validation: name must be reasonable length
+      if (sanitized.length < 2 || sanitized.length > 50) {
+        this.logger?.error?.(`[AvatarService] Cannot create ${context}: name length invalid (${sanitized.length}): '${sanitized}'`);
+        return null;
+      }
+      
+      return sanitized;
+    } catch (e) {
+      this.logger?.error?.(`[AvatarService] Name sanitization failed: ${e?.message || e}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check if an avatar with the given name already exists
+   * @param {string} name - Avatar name to check
+   * @returns {Promise<Object|null>} - Existing avatar with _existing flag, or null
+   * @private
+   */
+  async _checkExistingAvatar(name) {
+    const existing = await this.getAvatarByName(name);
+    if (existing) {
+      this.logger?.info?.(`[AvatarService] Avatar "${name}" already exists, returning existing`);
+      return { ...existing, _existing: true };
+    }
+    return null;
+  }
+
+  /**
+   * Get avatar by wallet address (uses indexed query)
+   * @param {string} walletAddress - Solana wallet address
+   * @param {Object} options - Query options
+   * @param {boolean} options.includeInactive - Include dead avatars (default: false)
+   * @returns {Promise<Object|null>} - Avatar document or null
+   */
+  async getAvatarByWalletAddress(walletAddress, { includeInactive = false } = {}) {
+    if (!walletAddress) return null;
+    
+    try {
+      const db = await this._db();
+      const query = { walletAddress };
+      
+      if (!includeInactive) {
+        query.status = { $ne: 'dead' };
+      }
+      
+      return await db.collection(this.AVATARS_COLLECTION).findOne(query);
+    } catch (err) {
+      this.logger?.error?.(`[AvatarService] Failed to get avatar by wallet address: ${err.message}`);
+      return null;
+    }
+  }
+
+  /* -------------------------------------------------- */
   /*  AI‑ASSISTED GENERATION                             */
   /* -------------------------------------------------- */
 
@@ -672,6 +852,31 @@ export class AvatarService {
           model: { type: 'string' },
         },
         required: ['name', 'description', 'personality', 'emoji', 'model'],
+        additionalProperties: false,
+      }
+    };
+    return this.schemaService.executePipeline({ prompt, schema });
+  }
+
+  /**
+   * Generate simple avatar details for partial avatars (no family field required)
+   * Used for lightweight avatar creation without image generation
+   * @param {string} userPrompt - Prompt for avatar generation
+   * @returns {Promise<Object>} Avatar details (name, emoji, description, personality)
+   */
+  async generatePartialAvatarDetails(userPrompt) {
+    const prompt = `Create a simple character based on: "${userPrompt}". Keep it straightforward - just name, emoji, brief description, and personality.`;
+    const schema = {
+      name: 'rati-partial-avatar', strict: true,
+      schema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          description: { type: 'string' },
+          personality: { type: 'string' },
+          emoji: { type: 'string' },
+        },
+        required: ['name', 'description', 'personality', 'emoji'],
         additionalProperties: false,
       }
     };
@@ -742,37 +947,14 @@ export class AvatarService {
       return null;
     }
 
-    // Sanitize name: avoid pure numeric / HTTP status or error-looking tokens.
-    try {
-      const orig = details.name.trim();
-      const isHttpCode = /^(?:HTTP_)?(4\d\d|5\d\d)$/.test(orig);
-      const isJustDigits = /^\d{3,}$/.test(orig);
-      const hasErrorMarkers = /⚠️|\[Error|No response|failed|invalid/i.test(orig);
-      const hasMarkdown = /^-#|^#/.test(orig);
-      
-      if (!orig || isHttpCode || isJustDigits || hasErrorMarkers || hasMarkdown) {
-        this.logger?.error?.(`[AvatarService] Cannot create avatar: invalid/error-like name detected: '${orig}'`);
-        return null;
-      }
-      
-      // Strip any accidental 'Error:' prefixes inserted by malformed upstream responses
-      details.name = details.name.replace(/^Error[:\s-]+/i, '').trim();
-      
-      // Final validation: name must be reasonable length
-      if (details.name.length < 2 || details.name.length > 50) {
-        this.logger?.error?.(`[AvatarService] Cannot create avatar: name length invalid (${details.name.length}): '${details.name}'`);
-        return null;
-      }
-    } catch (e) {
-      this.logger?.error?.(`[AvatarService] Name sanitization failed: ${e?.message || e}`);
-      return null;
-    }
+    // Validate and sanitize name using centralized method
+    const validatedName = this._validateAndSanitizeName(details.name, 'avatar');
+    if (!validatedName) return null;
+    details.name = validatedName;
 
-    const existing = await this.getAvatarByName(details.name);
-  // If an avatar with this generated name already exists, return it and
-  // flag as existing so callers (e.g. SummonTool) can avoid treating it
-  // as freshly created (prevent duplicate introductions, stat overrides, etc.)
-  if (existing) return { ...existing, _existing: true };
+    // Check for existing avatar with same name
+    const existing = await this._checkExistingAvatar(details.name);
+    if (existing) return existing;
 
     let imageUrl = null;
     if (imageUrlOverride) {
@@ -853,6 +1035,65 @@ export class AvatarService {
         }
       }
     } catch (e) { this.logger?.debug?.(`[AvatarService] auto X post (avatar) skipped: ${e.message}`); }
+
+    return { ...doc, _id: insertedId };
+  }
+
+  /**
+   * Create a partial avatar (no image generation, lightweight AI generation)
+   * Used for wallet avatars and other scenarios where we want personality without the cost of image generation
+   * @param {Object} params - Creation parameters
+   * @param {string} params.prompt - Prompt for avatar generation
+   * @param {string} params.summoner - Who/what summoned this avatar
+   * @param {string} params.channelId - Channel ID
+   * @param {string} params.guildId - Guild ID
+   * @param {Object} params.metadata - Additional metadata (walletAddress, tokenBalances, etc)
+   * @returns {Promise<Object>} Created partial avatar
+   */
+  async createPartialAvatar({ prompt, summoner, channelId, guildId: _guildId, metadata = {} }) {
+    let details = null;
+    try {
+      details = await this.generatePartialAvatarDetails(prompt);
+    } catch (err) {
+      this.logger?.warn?.(`generatePartialAvatarDetails failed: ${err?.message || err}`);
+      return null;
+    }
+
+    if (!details?.name || !details?.emoji) {
+      this.logger?.warn?.('[AvatarService] Cannot create partial avatar: no valid details generated');
+      return null;
+    }
+
+    // Validate and sanitize name using centralized method
+    const validatedName = this._validateAndSanitizeName(details.name, 'partial avatar');
+    if (!validatedName) return null;
+    details.name = validatedName;
+
+    // Check for existing avatar with same name
+    const existing = await this._checkExistingAvatar(details.name);
+    if (existing) return existing;
+
+    const doc = {
+      name: details.name,
+      emoji: details.emoji,
+      description: details.description,
+      personality: details.personality,
+      imageUrl: null, // No image for partial avatars
+      model: 'partial', // Mark as partial
+      channelId,
+      summoner,
+      isPartial: true, // Flag for easy filtering
+      lives: 3,
+      status: 'alive',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...metadata // Spread any additional metadata (walletAddress, tokenBalances, etc)
+    };
+
+    const db = await this._db();
+    const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
+
+    this.logger?.info?.(`[AvatarService] Created partial avatar: ${doc.emoji} ${doc.name}`);
 
     return { ...doc, _id: insertedId };
   }
@@ -990,6 +1231,241 @@ export class AvatarService {
       await this.getMapService().updateAvatarPosition(avatar, channelId, avatar.channelId);
 
     return { avatar, isNewAvatar };
+  }
+
+  /* -------------------------------------------------- */
+  /*  WALLET AVATAR CREATION                             */
+  /* -------------------------------------------------- */
+
+  /**
+   * Create or retrieve an avatar for a Solana wallet address
+   * This is the proper service method - replaces the standalone helper
+   * 
+   * @param {string} walletAddress - Solana wallet public key
+   * @param {WalletAvatarContext} context - Context for avatar creation
+   * @returns {Promise<Avatar>} Avatar document
+   */
+  async createAvatarForWallet(walletAddress, context = {}) {
+    const db = await this._db();
+    
+    // Helper to format wallet address
+    const formatAddress = (addr) => {
+      if (!addr || addr.length < 8) return addr;
+      return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+    };
+    
+    const walletShort = formatAddress(walletAddress);
+    
+    // Check if avatar already exists for this wallet (uses indexed query)
+    let avatar = await this.getAvatarByWalletAddress(walletAddress);
+    
+    if (avatar) {
+      // Update last activity and token balances
+      const updateData = {
+        lastActivityAt: new Date()
+      };
+      
+      // Update token balance if provided
+      if (context.tokenSymbol && context.currentBalance !== undefined) {
+        updateData[`tokenBalances.${context.tokenSymbol}`] = {
+          balance: context.currentBalance,
+          usdValue: context.usdValue || null,
+          lastUpdated: new Date()
+        };
+      }
+      
+      // Update NFT count if provided
+      if (context.orbNftCount !== undefined) {
+        updateData['nftBalances.Orb'] = context.orbNftCount;
+      }
+      
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: avatar._id },
+        { 
+          $set: updateData,
+          $inc: { activityCount: 1 }
+        }
+      );
+      
+      // Reload to get updated data
+      avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
+      
+      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}`);
+      return avatar;
+    }
+    
+    // Create new avatar - RATi holders get images, others don't
+    const isRatiHolder = context.tokenSymbol === 'RATi' && context.currentBalance > 0;
+    
+    // Build prompt for avatar creation
+    const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';
+    const formatLargeNumber = (num) => {
+      if (!num) return '0';
+      if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+      if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+      if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
+      return num.toFixed(2);
+    };
+    const balanceInfo = context.currentBalance 
+      ? `with ${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
+      : '';
+    
+    const prompt = `Create a character for wallet ${walletShort}, a Solana ${tokenInfo} ${balanceInfo}. Make them unique and memorable.`;
+    
+    // Create avatar with retries
+    let retries = 0;
+    const maxRetries = 2;
+    
+    while (!avatar && retries < maxRetries) {
+      try {
+        this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, RATi holder: ${isRatiHolder})`);
+        
+        if (isRatiHolder) {
+          // Full avatar with image
+          avatar = await this.createAvatar({
+            prompt,
+            summoner: `wallet:${walletAddress}`,
+            channelId: context.discordChannelId || context.channelId || null,
+            guildId: context.guildId || null
+          });
+        } else {
+          // Partial avatar (no image)
+          avatar = await this.createPartialAvatar({
+            prompt,
+            summoner: `wallet:${walletAddress}`,
+            channelId: context.discordChannelId || context.channelId || null,
+            guildId: context.guildId || null,
+            metadata: {}
+          });
+        }
+        
+        // Validate avatar has required fields
+        if (avatar && (!avatar.name || !avatar.emoji)) {
+          this.logger?.error?.(`[AvatarService] Wallet avatar created but missing required fields - name: "${avatar.name}", emoji: "${avatar.emoji}"`);
+          avatar = null; // Force retry
+        } else if (avatar) {
+          this.logger?.info?.(`[AvatarService] Successfully created wallet avatar "${avatar.name}" ${avatar.emoji} for ${walletShort}`);
+        }
+      } catch (error) {
+        this.logger?.error?.(`[AvatarService] Wallet avatar creation attempt ${retries + 1} failed for ${walletShort}:`, {
+          error: error.message,
+          isRatiHolder
+        });
+      }
+      
+      retries++;
+      if (!avatar && retries < maxRetries) {
+        this.logger?.info?.(`[AvatarService] Retrying wallet avatar creation for ${walletShort}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    if (!avatar) {
+      this.logger?.error?.(`[AvatarService] Failed to create wallet avatar for ${walletShort} after ${maxRetries} attempts`);
+      throw new Error(`Failed to create avatar for wallet ${walletShort}`);
+    }
+    
+    // Add wallet-specific metadata
+    const tokenBalances = {};
+    const nftBalances = {};
+    
+    if (context.tokenSymbol) {
+      tokenBalances[context.tokenSymbol] = {
+        balance: context.currentBalance || 0,
+        usdValue: context.usdValue || null,
+        lastUpdated: new Date()
+      };
+    }
+    
+    if (context.orbNftCount) {
+      nftBalances.Orb = context.orbNftCount;
+    }
+    
+    await db.collection(this.AVATARS_COLLECTION).updateOne(
+      { _id: avatar._id },
+      { 
+        $set: {
+          walletAddress,
+          tokenBalances,
+          nftBalances,
+          lastActivityAt: new Date(),
+          activityCount: 1,
+          walletContext: {
+            firstSeenToken: context.tokenSymbol || null,
+            firstSeenAmount: context.amount || null,
+            firstSeenUsd: context.usdValue || null,
+            creationBalance: context.currentBalance || 0
+          }
+        }
+      }
+    );
+    
+    // Reload with wallet metadata
+    avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
+    
+    this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}`);
+    
+    // Activate in channel and send introduction if RATi holder
+    if (isRatiHolder && context.discordChannelId) {
+      try {
+        // Activate in channel
+        await this.activateAvatarInChannel(
+          context.discordChannelId, 
+          String(avatar._id)
+        );
+        this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${context.discordChannelId}`);
+        
+        // Send introduction message (only for new avatars)
+        if (!avatar._existing && this.configService?.services?.discordService) {
+          try {
+            // Format large numbers for readability
+            const formatLargeNumber = (num) => {
+              if (!num) return '0';
+              if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+              if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+              if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
+              return num.toFixed(2);
+            };
+            
+            const balanceStr = context.currentBalance 
+              ? `${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
+              : `${context.tokenSymbol}`;
+            
+            // Generate brief introduction (1 sentence, trading-themed)
+            const introPrompt = [
+              { 
+                role: 'system', 
+                content: `You are ${avatar.name}, ${avatar.description}. You're a Solana trader with ${balanceStr}.` 
+              },
+              { 
+                role: 'user', 
+                content: `You just made a ${context.tokenSymbol} trade. Introduce yourself briefly in ONE sentence (max 15 words). Be enthusiastic and trading-focused.` 
+              }
+            ];
+            
+            const intro = await this.aiService.chat(introPrompt, { temperature: 0.9 });
+            const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
+            
+            if (introText && introText.length > 5 && !introText.includes('No response')) {
+              // Send as webhook (avatar speaks!)
+              await this.configService.services.discordService.sendAsWebhook(
+                context.discordChannelId,
+                `${avatar.emoji} *${introText.trim()}*`,
+                avatar
+              );
+              
+              this.logger?.info?.(`[AvatarService] Sent introduction for wallet avatar ${avatar.name}`);
+            }
+          } catch (introErr) {
+            this.logger?.warn?.(`[AvatarService] Failed to send introduction: ${introErr.message}`);
+          }
+        }
+      } catch (err) {
+        this.logger?.warn?.(`[AvatarService] Failed to activate wallet avatar: ${err.message}`);
+      }
+    }
+    
+    return avatar;
   }
 
   /* -------------------------------------------------- */

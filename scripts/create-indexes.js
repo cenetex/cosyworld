@@ -341,6 +341,129 @@ async function createIndexes() {
     }
     
     // ========================================================================
+    // BUYBOT TRACKED TOKENS COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for buybot_tracked_tokens collection...');
+    
+    const buybotTokensCollection = db.collection('buybot_tracked_tokens');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingBuybotIndexes = [];
+    let existingBuybotNames = [];
+    try {
+      existingBuybotIndexes = await buybotTokensCollection.indexes();
+      existingBuybotNames = existingBuybotIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingBuybotNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Primary lookup: channelId + active (for listing tracked tokens)
+    if (!existingBuybotNames.includes('channelId_active')) {
+      try {
+        await buybotTokensCollection.createIndex(
+          { channelId: 1, active: 1 },
+          { name: 'channelId_active' }
+        );
+        console.log('  ✓ Created index: channelId + active');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): channelId + active');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: channelId + active');
+    }
+    
+    // Token address lookup
+    if (!existingBuybotNames.includes('tokenAddress')) {
+      try {
+        await buybotTokensCollection.createIndex(
+          { tokenAddress: 1 },
+          { name: 'tokenAddress' }
+        );
+        console.log('  ✓ Created index: tokenAddress');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): tokenAddress');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: tokenAddress');
+    }
+    
+    // ========================================================================
+    // BUYBOT TOKEN EVENTS COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n📊 Creating indexes for buybot_token_events collection...');
+    
+    const buybotEventsCollection = db.collection('buybot_token_events');
+    
+    // Get existing indexes (collection may not exist yet)
+    let existingEventIndexes = [];
+    let existingEventNames = [];
+    try {
+      existingEventIndexes = await buybotEventsCollection.indexes();
+      existingEventNames = existingEventIndexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingEventNames = [];
+      } else {
+        throw error;
+      }
+    }
+    
+    // Primary lookup: channelId + tokenAddress + timestamp (for recent events)
+    if (!existingEventNames.includes('channelId_tokenAddress_timestamp')) {
+      try {
+        await buybotEventsCollection.createIndex(
+          { channelId: 1, tokenAddress: 1, timestamp: -1 },
+          { name: 'channelId_tokenAddress_timestamp' }
+        );
+        console.log('  ✓ Created index: channelId + tokenAddress + timestamp');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): channelId + tokenAddress + timestamp');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: channelId + tokenAddress + timestamp');
+    }
+    
+    // TTL index: auto-delete old events after 30 days
+    if (!existingEventNames.includes('timestamp_ttl')) {
+      try {
+        await buybotEventsCollection.createIndex(
+          { timestamp: 1 },
+          { 
+            name: 'timestamp_ttl',
+            expireAfterSeconds: 30 * 24 * 60 * 60 // 30 days
+          }
+        );
+        console.log('  ✓ Created TTL index: timestamp (30 days)');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  TTL index exists (different name): timestamp');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: timestamp (TTL)');
+    }
+    
+    // ========================================================================
     // UNIFIED CHANNEL SUMMARIES COLLECTION INDEXES
     // ========================================================================
     console.log('\n📊 Creating indexes for unified_channel_summaries collection...');
@@ -594,6 +717,28 @@ async function createIndexes() {
       }
     }
     
+    try {
+      const buybotIndexes = await buybotTokensCollection.indexes();
+      console.log(`  ✓ buybot_tracked_tokens: ${buybotIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  buybot_tracked_tokens: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
+    try {
+      const eventIndexes = await buybotEventsCollection.indexes();
+      console.log(`  ✓ buybot_token_events: ${eventIndexes.length} indexes`);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log(`  ℹ️  buybot_token_events: indexes will be created on first use`);
+      } else {
+        throw error;
+      }
+    }
+    
     console.log('\n✅ All indexes created successfully!');
     console.log('\n📝 Summary:');
     console.log('  - presence: 5 indexes (unique, state, turn timing, summons)');
@@ -601,6 +746,8 @@ async function createIndexes() {
     console.log('  - response_locks: 2 indexes (TTL, lookup)');
     console.log('  - telegram_messages: 2 indexes (channelId+date, TTL 30d)');
     console.log('  - telegram_media_usage: 2 indexes (userId+mediaType+date, TTL 30d)');
+    console.log('  - buybot_tracked_tokens: 2 indexes (channelId+active, tokenAddress)');
+    console.log('  - buybot_token_events: 2 indexes (channelId+tokenAddress+timestamp, TTL 30d)');
     console.log('  - unified_channel_summaries: 4 indexes (unique compositeId, platform+channel, lastUpdated, avatarIds)');
     console.log('  - story_plans: 4 indexes (arcId, status, currentChapter, lastUpdated)');
     console.log('\n🚀 Database is ready for production deployment!');

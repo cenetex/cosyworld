@@ -24,13 +24,14 @@ import {
 } from '../../config/buybotConstants.mjs';
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, discordService, getTelegramService, walletAvatarService }) {
+  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
     this.discordService = discordService;
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
-    this.walletAvatarService = walletAvatarService;
+    this.avatarService = avatarService;
+    this.services = services; // Container for late-bound service resolution
     
     this.helius = null;
     this.connection = null;
@@ -1127,9 +1128,154 @@ export class BuybotService {
       const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
 
+      // Get wallet avatars for addresses FIRST (before building embed)
+      let buyerAvatar = null;
+      let senderAvatar = null;
+      let recipientAvatar = null;
+
+      try {
+        if (event.type === 'swap' && event.to) {
+          this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
+          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+          const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
+          
+          this.logger.info(`[BuybotService] Wallet ${this.formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
+          
+          try {
+            buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, {
+              tokenSymbol: token.tokenSymbol,
+              tokenAddress: token.tokenAddress,
+              amount: formattedAmount,
+              usdValue: usdValue,
+              currentBalance: currentBalance,
+              orbNftCount: orbNftCount,
+              discordChannelId: channelId,
+              guildId: guildId
+            });
+            
+            if (buyerAvatar) {
+              this.logger.info(`[BuybotService] Created/retrieved buyer avatar:`, {
+                emoji: buyerAvatar.emoji,
+                name: buyerAvatar.name,
+                hasImage: !!buyerAvatar.imageUrl,
+                walletAddress: buyerAvatar.walletAddress
+              });
+            } else {
+              this.logger.error(`[BuybotService] Failed to create buyer avatar for ${this.formatAddress(event.to)} - returned null`);
+            }
+          } catch (buyerError) {
+            this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
+              error: buyerError.message,
+              stack: buyerError.stack,
+              wallet: this.formatAddress(event.to)
+            });
+          }
+        } else if (event.type === 'transfer') {
+          if (event.from) {
+            this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
+            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
+            const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
+            
+            this.logger.info(`[BuybotService] Sender ${this.formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
+            
+            try {
+              senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
+                tokenSymbol: token.tokenSymbol,
+                tokenAddress: token.tokenAddress,
+                amount: formattedAmount,
+                usdValue: usdValue,
+                currentBalance: senderBalance,
+                orbNftCount: senderOrbCount,
+                discordChannelId: channelId,
+                guildId: guildId
+              });
+              
+              if (senderAvatar) {
+                this.logger.info(`[BuybotService] Created/retrieved sender avatar:`, {
+                  emoji: senderAvatar.emoji,
+                  name: senderAvatar.name,
+                  hasImage: !!senderAvatar.imageUrl,
+                  walletAddress: senderAvatar.walletAddress
+                });
+              } else {
+                this.logger.error(`[BuybotService] Failed to create sender avatar for ${this.formatAddress(event.from)} - returned null`);
+              }
+            } catch (senderError) {
+              this.logger.error(`[BuybotService] Error creating sender avatar:`, {
+                error: senderError.message,
+                stack: senderError.stack,
+                wallet: this.formatAddress(event.from)
+              });
+            }
+          }
+          if (event.to) {
+            this.logger.info(`[BuybotService] Processing transfer to ${this.formatAddress(event.to)}`);
+            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+            const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
+            
+            this.logger.info(`[BuybotService] Recipient ${this.formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
+            
+            try {
+              recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
+                tokenSymbol: token.tokenSymbol,
+                tokenAddress: token.tokenAddress,
+                amount: formattedAmount,
+                usdValue: usdValue,
+                currentBalance: recipientBalance,
+                orbNftCount: recipientOrbCount,
+                discordChannelId: channelId,
+                guildId: guildId
+              });
+              
+              if (recipientAvatar) {
+                this.logger.info(`[BuybotService] Created/retrieved recipient avatar:`, {
+                  emoji: recipientAvatar.emoji,
+                  name: recipientAvatar.name,
+                  hasImage: !!recipientAvatar.imageUrl,
+                  walletAddress: recipientAvatar.walletAddress
+                });
+              } else {
+                this.logger.error(`[BuybotService] Failed to create recipient avatar for ${this.formatAddress(event.to)} - returned null`);
+              }
+            } catch (recipientError) {
+              this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
+                error: recipientError.message,
+                stack: recipientError.stack,
+                wallet: this.formatAddress(event.to)
+              });
+            }
+          }
+        }
+      } catch (avatarError) {
+        this.logger.error('[BuybotService] Exception while getting wallet avatars:', {
+          error: avatarError.message,
+          stack: avatarError.stack,
+          eventType: event.type
+        });
+      }
+
+      // Build custom description with avatar names instead of wallet addresses
+      let customDescription = event.description;
+      if (event.type === 'swap' && buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
+        // Replace wallet address with avatar name in description
+        customDescription = `${buyerAvatar.emoji} **${buyerAvatar.name}** (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
+      } else if (event.type === 'transfer') {
+        // Build transfer description with avatar names
+        const senderDisplay = senderAvatar && senderAvatar.name && senderAvatar.emoji
+          ? `${senderAvatar.emoji} **${senderAvatar.name}** (\`${this.formatAddress(event.from)}\`)`
+          : `\`${this.formatAddress(event.from)}\``;
+        
+        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientAvatar.emoji
+          ? `${recipientAvatar.emoji} **${recipientAvatar.name}** (\`${this.formatAddress(event.to)}\`)`
+          : `\`${this.formatAddress(event.to)}\``;
+        
+        customDescription = `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}`;
+      }
+
+      // Now create the embed with custom description
       const embed = {
         title: `${emoji} ${token.tokenSymbol} ${event.type === 'swap' ? 'Purchase' : 'Transfer'}`,
-        description: event.description,
+        description: customDescription,
         color: color,
         fields: [],
         timestamp: event.timestamp.toISOString(),
@@ -1170,92 +1316,10 @@ export class BuybotService {
         });
       }
 
-      // Get wallet avatars for addresses
-      let buyerAvatar = null;
-      let senderAvatar = null;
-      let recipientAvatar = null;
-
-      try {
-        if (event.type === 'swap' && event.to) {
-          this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
-          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
-          const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
-          
-          this.logger.info(`[BuybotService] Wallet ${this.formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
-          
-          buyerAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
-            tokenSymbol: token.tokenSymbol,
-            tokenAddress: token.tokenAddress,
-            amount: formattedAmount,
-            usdValue: usdValue,
-            currentBalance: currentBalance,
-            orbNftCount: orbNftCount,
-            discordChannelId: channelId,
-            guildId: guildId
-          });
-          
-          if (buyerAvatar) {
-            this.logger.info(`[BuybotService] Created/retrieved avatar: ${buyerAvatar.emoji} ${buyerAvatar.name}`);
-          } else {
-            this.logger.info(`[BuybotService] No avatar created for ${this.formatAddress(event.to)} (balance: ${currentBalance})`);
-          }
-        } else if (event.type === 'transfer') {
-          if (event.from) {
-            this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
-            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
-            const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
-            
-            this.logger.info(`[BuybotService] Sender ${this.formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
-            
-            senderAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.from, {
-              tokenSymbol: token.tokenSymbol,
-              tokenAddress: token.tokenAddress,
-              amount: formattedAmount,
-              usdValue: usdValue,
-              currentBalance: senderBalance,
-              orbNftCount: senderOrbCount,
-              discordChannelId: channelId,
-              guildId: guildId
-            });
-            
-            if (senderAvatar) {
-              this.logger.info(`[BuybotService] Created/retrieved sender avatar: ${senderAvatar.emoji} ${senderAvatar.name}`);
-            }
-          }
-          if (event.to) {
-            this.logger.info(`[BuybotService] Processing transfer to ${this.formatAddress(event.to)}`);
-            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
-            const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
-            
-            this.logger.info(`[BuybotService] Recipient ${this.formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
-            
-            recipientAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
-              tokenSymbol: token.tokenSymbol,
-              tokenAddress: token.tokenAddress,
-              amount: formattedAmount,
-              usdValue: usdValue,
-              currentBalance: recipientBalance,
-              orbNftCount: recipientOrbCount,
-              discordChannelId: channelId,
-              guildId: guildId
-            });
-            
-            if (recipientAvatar) {
-              this.logger.info(`[BuybotService] Created/retrieved recipient avatar: ${recipientAvatar.emoji} ${recipientAvatar.name}`);
-            }
-          }
-        }
-      } catch (avatarError) {
-        this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
-      }
-
       // From/To addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
         if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
           let buyerInfo = `${buyerAvatar.emoji} **${buyerAvatar.name}**`;
-          if (buyerAvatar.family) {
-            buyerInfo += ` _(${buyerAvatar.family})_`;
-          }
           buyerInfo += `\n\`${this.formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1283,9 +1347,6 @@ export class BuybotService {
         // Transfer - show both parties
         if (senderAvatar && senderAvatar.name && senderAvatar.emoji) {
           let senderInfo = `${senderAvatar.emoji} **${senderAvatar.name}**`;
-          if (senderAvatar.family) {
-            senderInfo += ` _(${senderAvatar.family})_`;
-          }
           senderInfo += `\n\`${this.formatAddress(event.from)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1312,9 +1373,6 @@ export class BuybotService {
         
         if (recipientAvatar && recipientAvatar.name && recipientAvatar.emoji) {
           let recipientInfo = `${recipientAvatar.emoji} **${recipientAvatar.name}**`;
-          if (recipientAvatar.family) {
-            recipientInfo += ` _(${recipientAvatar.family})_`;
-          }
           recipientInfo += `\n\`${this.formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1430,22 +1488,22 @@ export class BuybotService {
     try {
       const { buyerAvatar, senderAvatar, recipientAvatar } = avatars;
       
-      // Collect full (non-partial) avatars involved in this trade
-      // Now avatars are stored directly in main avatars collection with isPartial flag
+      // Collect avatars involved in this trade that have images (full AI-generated avatars)
+      // Avatars with images are likely RATi holders and can participate in conversations
       const fullAvatars = [];
       
-      if (buyerAvatar && buyerAvatar.isPartial === false && buyerAvatar._id) {
+      if (buyerAvatar && buyerAvatar.imageUrl && buyerAvatar._id) {
         fullAvatars.push({ avatar: buyerAvatar, role: 'buyer' });
       }
-      if (senderAvatar && senderAvatar.isPartial === false && senderAvatar._id) {
+      if (senderAvatar && senderAvatar.imageUrl && senderAvatar._id) {
         fullAvatars.push({ avatar: senderAvatar, role: 'sender' });
       }
-      if (recipientAvatar && recipientAvatar.isPartial === false && recipientAvatar._id) {
+      if (recipientAvatar && recipientAvatar.imageUrl && recipientAvatar._id) {
         fullAvatars.push({ avatar: recipientAvatar, role: 'recipient' });
       }
       
       if (fullAvatars.length === 0) {
-        this.logger.debug(`[BuybotService] No full avatars in trade, skipping responses`);
+        this.logger.debug(`[BuybotService] No full avatars (with images) in trade, skipping responses`);
         return;
       }
       
@@ -1465,6 +1523,13 @@ export class BuybotService {
         return;
       }
       
+      // Get ConversationManager once for all avatars
+      const conversationManager = this.services?.resolve?.('conversationManager');
+      if (!conversationManager) {
+        this.logger.warn(`[BuybotService] ConversationManager not available for trade responses`);
+        return;
+      }
+      
       // Trigger each full avatar to respond with context about the trade
       for (let i = 0; i < fullAvatars.length; i++) {
         const { avatar, role } = fullAvatars[i];
@@ -1472,24 +1537,35 @@ export class BuybotService {
           // Build trade context prompt for the avatar
           const tradeContext = this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars);
           
-          this.logger.info(`[BuybotService] Avatar ${avatar.name} responding to trade as ${role}`);
+          this.logger.info(`[BuybotService] Scheduling avatar ${avatar.name} to respond to trade as ${role}`);
           
           // Generate response with trade context
           // Use a small delay to avoid rate limits and allow embeds to appear first
           setTimeout(async () => {
             try {
-              await responseCoordinator.generateResponse(avatar, channel, null, {
+              this.logger.info(`[BuybotService] Triggering response for avatar ${avatar.name}`);
+              
+              // Send response with trade context as preset message to ensure it's used
+              await conversationManager.sendResponse(channel, avatar, tradeContext, {
                 overrideCooldown: true,
-                tradeContext,
                 cascadeDepth: 0
               });
+              
+              this.logger.info(`[BuybotService] Successfully sent response for avatar ${avatar.name}`);
             } catch (respError) {
-              this.logger.error(`[BuybotService] Failed to generate response for ${avatar.name}: ${respError.message}`);
+              this.logger.error(`[BuybotService] Failed to generate response for ${avatar.name}:`, {
+                error: respError.message,
+                stack: respError.stack
+              });
             }
-          }, 2000 * (i + 1)); // Stagger responses by 2 seconds each
+          }, 3000 * (i + 1)); // Stagger responses by 3 seconds each (increased from 2s)
           
         } catch (error) {
-          this.logger.error(`[BuybotService] Error triggering response for avatar: ${error.message}`);
+          this.logger.error(`[BuybotService] Error scheduling response for avatar:`, {
+            error: error.message,
+            stack: error.stack,
+            avatarName: avatar.name
+          });
         }
       }
       
@@ -1508,14 +1584,22 @@ export class BuybotService {
    * @returns {string} Context prompt
    */
   buildTradeContextForAvatar(event, token, role, avatar, allAvatars) {
-    const formattedAmount = this.formatLargeNumber(event.amountUi || event.amount);
-    const usdValue = event.usdValue ? `$${event.usdValue.toFixed(2)}` : '';
+    // Format the amount properly
+    const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+    const amountForDisplay = this.formatLargeNumber(parseFloat(formattedAmount));
+    
+    // Calculate USD value if available
+    let usdValue = '';
+    if (token.usdPrice) {
+      const usdAmount = this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice);
+      usdValue = ` (worth $${usdAmount.toFixed(2)})`;
+    }
     
     let contextParts = [`You just witnessed a ${token.tokenSymbol} ${event.type} transaction`];
     
     if (role === 'buyer') {
       contextParts.push(`You are the buyer in this transaction`);
-      contextParts.push(`You acquired ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+      contextParts.push(`You just acquired ${amountForDisplay} ${token.tokenSymbol}${usdValue}`);
       
       // Get balance from flexible tokenBalances schema
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
@@ -1524,10 +1608,22 @@ export class BuybotService {
       }
     } else if (role === 'sender') {
       contextParts.push(`You are the sender in this transfer`);
-      contextParts.push(`You sent ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+      contextParts.push(`You just sent ${amountForDisplay} ${token.tokenSymbol}${usdValue}`);
+      
+      // Get balance after transfer
+      const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
+      if (tokenBalance?.balance) {
+        contextParts.push(`Your remaining balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
+      }
     } else if (role === 'recipient') {
       contextParts.push(`You are the recipient in this transfer`);
-      contextParts.push(`You received ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
+      contextParts.push(`You just received ${amountForDisplay} ${token.tokenSymbol}${usdValue}`);
+      
+      // Get balance after transfer
+      const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
+      if (tokenBalance?.balance) {
+        contextParts.push(`Your new balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
+      }
     }
     
     // Mention other full avatars if present
@@ -1538,7 +1634,7 @@ export class BuybotService {
       contextParts.push(`Feel free to interact with them about this trade`);
     }
     
-    contextParts.push(`Comment naturally on this transaction, react to it, or discuss it with others involved`);
+    contextParts.push(`React naturally to this transaction - celebrate, comment on the market, or banter with other traders`);
     
     return `[Trade Context: ${contextParts.join('. ')}.]`;
   }
@@ -1572,28 +1668,7 @@ export class BuybotService {
         hasCustomMedia: !!token.customMedia,
       });
 
-      // Build enhanced notification message
-      let message = '';
-      
-      // Title with emoji and type
-      if (event.type === 'swap') {
-        const emoji = token.tokenSymbol === 'RATi' ? '🐭' : '💰';
-        const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
-        message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
-      } else {
-        // Transfer
-        message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
-      }
-
-      // Amount and USD value (for both swaps and transfers)
-      if (usdValue) {
-        message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
-      }
-
-      // Token amount
-      message += `${event.type === 'swap' ? 'Got' : 'Transferred'} *${formattedAmount} ${token.tokenSymbol}*\n\n`;
-
-      // Get wallet avatars for addresses
+      // Get wallet avatars for addresses FIRST (before building message)
       let buyerAvatar = null;
       let senderAvatar = null;
       let recipientAvatar = null;
@@ -1606,7 +1681,7 @@ export class BuybotService {
           // Get wallet's NFT count for all tracked collections in this channel
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
           
-          buyerAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+          buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             amount: formattedAmount,
@@ -1620,7 +1695,7 @@ export class BuybotService {
             const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
-            senderAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.from, {
+            senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               amount: formattedAmount,
@@ -1634,7 +1709,7 @@ export class BuybotService {
             const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
-            recipientAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+            recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               amount: formattedAmount,
@@ -1647,6 +1722,42 @@ export class BuybotService {
         }
       } catch (avatarError) {
         this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
+      }
+
+      // Build enhanced notification message with avatar names
+      let message = '';
+      
+      // Title with emoji and type
+      if (event.type === 'swap') {
+        const emoji = token.tokenSymbol === 'RATi' ? '🐭' : '💰';
+        const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
+        message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
+        
+        // Add description with avatar name
+        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
+          message += `${buyerAvatar.emoji} *${buyerAvatar.name}* (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+        } else {
+          message += `Purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+        }
+      } else {
+        // Transfer
+        message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
+        
+        // Add description with avatar names
+        const senderDisplay = senderAvatar && senderAvatar.name && senderAvatar.emoji
+          ? `${senderAvatar.emoji} *${senderAvatar.name}* (\`${this.formatAddress(event.from)}\`)`
+          : `\`${this.formatAddress(event.from)}\``;
+        
+        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientAvatar.emoji
+          ? `${recipientAvatar.emoji} *${recipientAvatar.name}* (\`${this.formatAddress(event.to)}\`)`
+          : `\`${this.formatAddress(event.to)}\``;
+        
+        message += `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}\n\n`;
+      }
+
+      // Amount and USD value (for both swaps and transfers)
+      if (usdValue) {
+        message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
       }
 
       // Addresses - show wallet avatars with names/emojis
