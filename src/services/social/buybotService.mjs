@@ -45,10 +45,16 @@ export class BuybotService {
     // Token info cache: tokenAddress -> { tokenInfo, timestamp }
     this.tokenInfoCache = new Map();
     
+    // Volume tracking for Discord activity summaries
+    // channelId -> { totalVolume, events: [], lastSummaryAt }
+    this.volumeTracking = new Map();
+    this.VOLUME_THRESHOLD_USD = 100; // Post summary after $100 in volume
+    
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
     this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
+    this.ACTIVITY_SUMMARIES_COLLECTION = 'buybot_activity_summaries'; // New collection for Discord summaries
   }
 
   /**
@@ -411,6 +417,33 @@ export class BuybotService {
       };
     } catch (error) {
       this.logger.error('[BuybotService] Failed to set custom media:', error);
+      return { success: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Link a Telegram channel to a Discord channel for volume summaries
+   * @param {string} discordChannelId - Discord channel ID
+   * @param {string} telegramChannelId - Telegram channel ID
+   * @returns {Promise<Object>} Result object
+   */
+  async linkTelegramChannel(discordChannelId, telegramChannelId) {
+    try {
+      // Update all tracked tokens in this Discord channel to include Telegram mapping
+      const result = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateMany(
+        { channelId: discordChannelId, platform: 'discord', active: true },
+        { $set: { telegramChannelId, linkedAt: new Date() } }
+      );
+
+      this.logger.info(`[BuybotService] Linked Discord channel ${discordChannelId} to Telegram ${telegramChannelId} (${result.modifiedCount} tokens updated)`);
+
+      return {
+        success: true,
+        message: `Linked to Telegram channel. Activity summaries will be posted after $${this.VOLUME_THRESHOLD_USD} in volume.`,
+        modifiedCount: result.modifiedCount
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to link Telegram channel:', error);
       return { success: false, message: `Error: ${error.message}` };
     }
   }
@@ -1520,6 +1553,14 @@ export class BuybotService {
         
         const sentMessage = await channel.send({ embeds: [embed], components });
         this.logger.info(`[BuybotService] Sent Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId} (message ID: ${sentMessage.id})`);
+        
+        // Track volume for summary posting to Telegram
+        if (usdValue) {
+          const telegramChannelId = await this.getTelegramChannelForDiscord(channelId);
+          if (telegramChannelId) {
+            await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue, telegramChannelId);
+          }
+        }
       } catch (sendError) {
         this.logger.error(`[BuybotService] Failed to send Discord message to channel ${channelId}:`, {
           error: sendError.message,
@@ -1859,6 +1900,13 @@ export class BuybotService {
    */
   async sendTelegramNotification(channelId, event, token) {
     try {
+      // Skip individual transfer and swap notifications on Telegram
+      // These are now summarized from Discord and posted periodically
+      if (event.type === 'swap' || event.type === 'transfer') {
+        this.logger.info(`[BuybotService] Skipping individual ${event.type} notification to Telegram ${channelId} (will be included in summary)`);
+        return;
+      }
+
       const telegramService = this.getTelegramService ? this.getTelegramService() : null;
       
       if (!telegramService || !telegramService.globalBot) {
@@ -2441,6 +2489,165 @@ export class BuybotService {
     } catch (error) {
       this.logger.error('[BuybotService] Failed to get wallet NFT count:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Track volume for Discord channel and check if summary should be generated
+   * @param {string} discordChannelId - Discord channel ID
+   * @param {Object} event - Event data
+   * @param {Object} token - Token data
+   * @param {number} usdValue - USD value of transaction
+   */
+  async trackVolumeAndCheckSummary(discordChannelId, event, token, usdValue) {
+    try {
+      if (!usdValue) return;
+
+      // Initialize tracking for this channel if needed
+      if (!this.volumeTracking.has(discordChannelId)) {
+        this.volumeTracking.set(discordChannelId, {
+          totalVolume: 0,
+          events: [],
+          lastSummaryAt: Date.now()
+        });
+      }
+
+      const tracking = this.volumeTracking.get(discordChannelId);
+      
+      // Add this event to tracking
+      tracking.totalVolume += usdValue;
+      tracking.events.push({
+        type: event.type,
+        tokenSymbol: token.tokenSymbol,
+        tokenAddress: token.tokenAddress,
+        amount: this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals),
+        usdValue,
+        timestamp: event.timestamp || new Date(),
+        from: event.from,
+        to: event.to
+      });
+
+      this.logger.info(`[BuybotService] Volume tracking for ${discordChannelId}: $${tracking.totalVolume.toFixed(2)} (threshold: $${this.VOLUME_THRESHOLD_USD})`);
+
+      // Check if we've reached the threshold
+      if (tracking.totalVolume >= this.VOLUME_THRESHOLD_USD) {
+        await this.storeActivitySummary(discordChannelId);
+      }
+    } catch (error) {
+      this.logger.error('[BuybotService] Error tracking volume:', error);
+    }
+  }
+
+  /**
+   * Store Discord activity summary in database for Telegram bot context
+   * @param {string} discordChannelId - Discord channel ID
+   */
+  async storeActivitySummary(discordChannelId) {
+    try {
+      const tracking = this.volumeTracking.get(discordChannelId);
+      if (!tracking || tracking.events.length === 0) return;
+
+      // Generate summary text
+      const summaryText = this.generateActivitySummary(tracking);
+      
+      // Get all token symbols involved
+      const tokenSymbols = [...new Set(tracking.events.map(e => e.tokenSymbol))];
+      const tokenAddresses = [...new Set(tracking.events.map(e => e.tokenAddress))];
+      
+      // Store summary in database
+      await this.db.collection(this.ACTIVITY_SUMMARIES_COLLECTION).insertOne({
+        discordChannelId,
+        tokenSymbols,
+        tokenAddresses,
+        summary: summaryText,
+        totalVolume: tracking.totalVolume,
+        eventCount: tracking.events.length,
+        swapCount: tracking.events.filter(e => e.type === 'swap').length,
+        transferCount: tracking.events.filter(e => e.type === 'transfer').length,
+        periodStart: new Date(tracking.lastSummaryAt),
+        periodEnd: new Date(),
+        createdAt: new Date()
+      });
+
+      this.logger.info(`[BuybotService] Stored activity summary for Discord channel ${discordChannelId}: $${tracking.totalVolume.toFixed(2)}`);
+
+      // Reset tracking for this channel
+      this.volumeTracking.set(discordChannelId, {
+        totalVolume: 0,
+        events: [],
+        lastSummaryAt: Date.now()
+      });
+
+    } catch (error) {
+      this.logger.error('[BuybotService] Error storing activity summary:', error);
+    }
+  }
+
+  /**
+   * Generate a formatted summary of trading activity
+   * @param {Object} tracking - Volume tracking data
+   * @returns {string} Formatted summary message
+   */
+  generateActivitySummary(tracking) {
+    const { totalVolume, events } = tracking;
+    
+    // Group events by type
+    const swaps = events.filter(e => e.type === 'swap');
+    const transfers = events.filter(e => e.type === 'transfer');
+    
+    // Group by token
+    const tokenStats = {};
+    for (const event of events) {
+      if (!tokenStats[event.tokenSymbol]) {
+        tokenStats[event.tokenSymbol] = {
+          swapCount: 0,
+          transferCount: 0,
+          totalUsd: 0
+        };
+      }
+      if (event.type === 'swap') {
+        tokenStats[event.tokenSymbol].swapCount++;
+      } else {
+        tokenStats[event.tokenSymbol].transferCount++;
+      }
+      tokenStats[event.tokenSymbol].totalUsd += event.usdValue;
+    }
+
+    // Build concise summary
+    let summary = `$${totalVolume.toFixed(2)} volume: `;
+    
+    const tokenParts = [];
+    for (const [symbol, stats] of Object.entries(tokenStats)) {
+      const parts = [];
+      if (stats.swapCount > 0) parts.push(`${stats.swapCount} buy`);
+      if (stats.transferCount > 0) parts.push(`${stats.transferCount} transfer`);
+      tokenParts.push(`${symbol} (${parts.join(', ')})`);
+    }
+    
+    summary += tokenParts.join('; ');
+    
+    return summary;
+  }
+
+  /**
+   * Get or create Telegram channel mapping for a Discord channel
+   * This should be configured in tracked tokens or channel config
+   * @param {string} discordChannelId - Discord channel ID
+   * @returns {Promise<string|null>} Telegram channel ID or null
+   */
+  async getTelegramChannelForDiscord(discordChannelId) {
+    try {
+      // Check if there's a tracked token with telegram channel mapping
+      const trackedToken = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+        channelId: discordChannelId,
+        platform: 'discord',
+        telegramChannelId: { $exists: true, $ne: null }
+      });
+
+      return trackedToken?.telegramChannelId || null;
+    } catch (error) {
+      this.logger.error('[BuybotService] Error getting Telegram channel mapping:', error);
+      return null;
     }
   }
 

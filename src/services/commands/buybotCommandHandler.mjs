@@ -102,7 +102,7 @@ export async function handleBuybotCommands(message, services) {
           fields: [
             {
               name: '💡 Available Commands',
-              value: '`!ca <address>` - Track a token\n`!ca` or `!ca-list` - Show tracked tokens\n`!ca-remove <address>` - Stop tracking\n`!ca-help` - Show this help',
+              value: '`!ca <address>` - Track a token\n`!ca` or `!ca-list` - Show tracked tokens\n`!ca-remove <address>` - Stop tracking\n`!ca-link-telegram <id>` - Link Telegram for summaries\n`!ca-help` - Show this help',
               inline: false,
             },
             {
@@ -143,6 +143,40 @@ export async function handleBuybotCommands(message, services) {
       return true;
     }
 
+    // ca-link-telegram <telegram_channel_id> - Link Telegram channel for summaries
+    if (command === 'ca-link-telegram' && parts.length >= 2) {
+      const telegramChannelId = parts[1];
+      
+      await discordService.reactToMessage(message, '⏳');
+      
+      const result = await buybotService.linkTelegramChannel(message.channel.id, telegramChannelId);
+      
+      if (result.success) {
+        await discordService.reactToMessage(message, '✅');
+        
+        const embed = {
+          title: '✅ Telegram Channel Linked',
+          description: result.message,
+          color: 0x00ff00,
+          fields: [
+            {
+              name: '📊 How It Works',
+              value: `Discord activity will be posted to Telegram after **$${buybotService.VOLUME_THRESHOLD_USD}** in trading volume.\n\nIndividual transfer/swap notifications will only appear on Discord.`,
+              inline: false,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+        };
+
+        await message.reply({ embeds: [embed] });
+      } else {
+        await discordService.reactToMessage(message, '❌');
+        await message.reply(`❌ ${result.message}`);
+      }
+      
+      return true;
+    }
+
     // ca-help - Show help information
     if (command === 'ca-help') {
       const embed = {
@@ -152,7 +186,7 @@ export async function handleBuybotCommands(message, services) {
         fields: [
           {
             name: '📝 Commands',
-            value: '`!ca <address>` - Start tracking a token\n`!ca` or `!ca-list` - View tracked tokens\n`!ca-remove <address>` - Stop tracking a token\n`!ca-help` - Show this help message',
+            value: '`!ca <address>` - Start tracking a token\n`!ca` or `!ca-list` - View tracked tokens\n`!ca-remove <address>` - Stop tracking a token\n`!ca-link-telegram <id>` - Link Telegram for summaries\n`!ca-help` - Show this help message',
             inline: false,
           },
           {
