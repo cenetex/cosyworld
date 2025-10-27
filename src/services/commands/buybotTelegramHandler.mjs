@@ -30,17 +30,27 @@ export function setupBuybotTelegramCommands(bot, services) {
     try {
       const startPayload = ctx.message.text.split(' ')[1];
       
+      logger?.info?.(`[BuybotTelegram] /start command received, payload: ${startPayload || 'none'}`);
+      
       if (startPayload && startPayload.startsWith('group_')) {
         // User came from a group via deep link - open settings for that group
-        const channelId = startPayload.replace('group_', '');
+        const encodedChannelId = startPayload.replace('group_', '');
+        
+        // Decode channel ID (convert 'n' prefix back to minus sign for negative IDs)
+        const channelId = encodedChannelId.startsWith('n') 
+          ? '-' + encodedChannelId.substring(1)
+          : encodedChannelId;
+        
         const userId = String(ctx.from.id);
         
-        logger?.info?.(`[BuybotTelegram] /start with group context: ${channelId}`);
+        logger?.info?.(`[BuybotTelegram] Decoded channel ID: ${channelId} (from encoded: ${encodedChannelId})`);
         
         // Store the channelId for this user
         userChannels.set(userId, channelId);
         
         const trackedTokens = await buybotService.getTrackedTokens(channelId);
+        
+        logger?.info?.(`[BuybotTelegram] Found ${trackedTokens.length} tracked tokens for channel ${channelId}`);
 
         if (trackedTokens.length === 0) {
           await ctx.reply(
@@ -61,10 +71,17 @@ export function setupBuybotTelegramCommands(bot, services) {
         }
 
         // Show main settings menu with tracked tokens
-        const tokenButtons = trackedTokens.map(token => ([
+        // Store tokens in user state to avoid callback_data length limits (64 bytes)
+        userStates.set(userId, { 
+          action: 'viewing_tokens', 
+          channelId,
+          tokens: trackedTokens 
+        });
+        
+        const tokenButtons = trackedTokens.map((token, index) => ([
           { 
             text: `${token.tokenSymbol} - ${token.tokenName}`, 
-            callback_data: `settings_token_${token.tokenAddress}_${channelId}` 
+            callback_data: `token_${index}` // Short format: just the index
           }
         ]));
 
@@ -116,6 +133,15 @@ export function setupBuybotTelegramCommands(bot, services) {
         const userId = String(ctx.from.id);
         const groupChannelId = String(ctx.chat.id);
         
+        logger?.info?.(`[BuybotTelegram] /settings in group, channel ID: ${groupChannelId}`);
+        
+        // Encode channel ID for deep link (replace minus sign with 'n' for negative)
+        const encodedChannelId = groupChannelId.startsWith('-') 
+          ? 'n' + groupChannelId.substring(1) 
+          : groupChannelId;
+        
+        logger?.info?.(`[BuybotTelegram] Encoded channel ID: ${encodedChannelId}, deep link: https://t.me/${botUsername}?start=group_${encodedChannelId}`);
+        
         // Store which group the user wants to manage
         userStates.set(userId, { 
           action: 'select_group', 
@@ -131,7 +157,7 @@ export function setupBuybotTelegramCommands(bot, services) {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📱 Open Settings in DM', url: `https://t.me/${botUsername}?start=group_${groupChannelId}` }]
+                [{ text: '📱 Open Settings in DM', url: `https://t.me/${botUsername}?start=group_${encodedChannelId}` }]
               ]
             }
           }
@@ -162,7 +188,7 @@ export function setupBuybotTelegramCommands(bot, services) {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '➕ Add Token', callback_data: `settings_add_token_${channelId}` }],
+                [{ text: '➕ Add Token', callback_data: 'add_token' }],
                 [{ text: '❓ Help', callback_data: 'settings_help' }]
               ]
             }
@@ -171,11 +197,17 @@ export function setupBuybotTelegramCommands(bot, services) {
         return;
       }
 
-      // Show main settings menu with tracked tokens
-      const tokenButtons = trackedTokens.map(token => ([
+      // Store tokens in user state to avoid callback_data length limits
+      userStates.set(userId, { 
+        action: 'viewing_tokens', 
+        channelId,
+        tokens: trackedTokens 
+      });
+      
+      const tokenButtons = trackedTokens.map((token, index) => ([
         { 
           text: `${token.tokenSymbol} - ${token.tokenName}`, 
-          callback_data: `settings_token_${token.tokenAddress}_${channelId}` 
+          callback_data: `token_${index}` // Short format
         }
       ]));
 
@@ -204,6 +236,7 @@ export function setupBuybotTelegramCommands(bot, services) {
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const userId = String(ctx.from.id);
+    const state = userStates.get(userId);
 
     try {
       // Acknowledge the callback immediately
@@ -211,8 +244,9 @@ export function setupBuybotTelegramCommands(bot, services) {
 
       if (data === 'settings_help') {
         await showHelpMenu(ctx);
-      } else if (data.startsWith('settings_add_token_')) {
-        const channelId = data.replace('settings_add_token_', '');
+      } else if (data === 'add_token') {
+        // Get channelId from user state
+        const channelId = state?.channelId || userChannels.get(userId) || String(ctx.chat.id);
         userStates.set(userId, { action: 'add_token', channelId });
         await ctx.reply(
           '➕ *Add Token*\n\n' +
@@ -221,18 +255,26 @@ export function setupBuybotTelegramCommands(bot, services) {
           '⏱️ Send the address in your next message...',
           { parse_mode: 'Markdown' }
         );
-      } else if (data.startsWith('settings_token_')) {
-        // Format: settings_token_<address>_<channelId>
-        const parts = data.replace('settings_token_', '').split('_');
-        const channelId = parts.pop(); // Last part is channelId
-        const tokenAddress = parts.join('_'); // Rest is token address
-        await showTokenSettings(ctx, buybotService, channelId, tokenAddress, logger);
-      } else if (data.startsWith('token_media_')) {
-        // Format: token_media_<address>_<channelId>
-        const parts = data.replace('token_media_', '').split('_');
-        const channelId = parts.pop();
-        const tokenAddress = parts.join('_');
-        userStates.set(userId, { action: 'set_media_thresholds', tokenAddress, channelId });
+      } else if (data.startsWith('token_')) {
+        // Format: token_<index> - look up from user state
+        const index = parseInt(data.replace('token_', ''));
+        if (!state || !state.tokens || !state.tokens[index]) {
+          await ctx.reply('❌ Token not found. Please use /settings to refresh.');
+          return;
+        }
+        const token = state.tokens[index];
+        const channelId = state.channelId;
+        await showTokenSettings(ctx, buybotService, channelId, token.tokenAddress, logger, userStates);
+      } else if (data.startsWith('media_')) {
+        // Format: media_<index>
+        const index = parseInt(data.replace('media_', ''));
+        if (!state || !state.tokens || !state.tokens[index]) {
+          await ctx.reply('❌ Token not found. Please use /settings to refresh.');
+          return;
+        }
+        const token = state.tokens[index];
+        const channelId = state.channelId;
+        userStates.set(userId, { action: 'set_media_thresholds', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
           '🎬 *Media Thresholds*\n\n' +
           'Send two numbers separated by space:\n' +
@@ -242,33 +284,48 @@ export function setupBuybotTelegramCommands(bot, services) {
           '💡 Use `0 0` to disable auto-generation.',
           { parse_mode: 'Markdown' }
         );
-      } else if (data.startsWith('token_custom_image_')) {
-        const parts = data.replace('token_custom_image_', '').split('_');
-        const channelId = parts.pop();
-        const tokenAddress = parts.join('_');
-        userStates.set(userId, { action: 'upload_custom_image', tokenAddress, channelId });
+      } else if (data.startsWith('img_')) {
+        // Format: img_<index>
+        const index = parseInt(data.replace('img_', ''));
+        if (!state || !state.tokens || !state.tokens[index]) {
+          await ctx.reply('❌ Token not found. Please use /settings to refresh.');
+          return;
+        }
+        const token = state.tokens[index];
+        const channelId = state.channelId;
+        userStates.set(userId, { action: 'upload_custom_image', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
           '📸 *Upload Custom Image*\n\n' +
           'Send a photo to use for small purchases.\n\n' +
           '⏱️ Waiting for your image...',
           { parse_mode: 'Markdown' }
         );
-      } else if (data.startsWith('token_custom_video_')) {
-        const parts = data.replace('token_custom_video_', '').split('_');
-        const channelId = parts.pop();
-        const tokenAddress = parts.join('_');
-        userStates.set(userId, { action: 'upload_custom_video', tokenAddress, channelId });
+      } else if (data.startsWith('vid_')) {
+        // Format: vid_<index>
+        const index = parseInt(data.replace('vid_', ''));
+        if (!state || !state.tokens || !state.tokens[index]) {
+          await ctx.reply('❌ Token not found. Please use /settings to refresh.');
+          return;
+        }
+        const token = state.tokens[index];
+        const channelId = state.channelId;
+        userStates.set(userId, { action: 'upload_custom_video', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
           '🎬 *Upload Custom Video*\n\n' +
           'Send a video to use for small purchases.\n\n' +
           '⏱️ Waiting for your video...',
           { parse_mode: 'Markdown' }
         );
-      } else if (data.startsWith('token_remove_')) {
-        const parts = data.replace('token_remove_', '').split('_');
-        const channelId = parts.pop();
-        const tokenAddress = parts.join('_');
-        const result = await buybotService.removeTrackedToken(channelId, tokenAddress);
+      } else if (data.startsWith('remove_')) {
+        // Format: remove_<index>
+        const index = parseInt(data.replace('remove_', ''));
+        if (!state || !state.tokens || !state.tokens[index]) {
+          await ctx.reply('❌ Token not found. Please use /settings to refresh.');
+          return;
+        }
+        const token = state.tokens[index];
+        const channelId = state.channelId;
+        const result = await buybotService.removeTrackedToken(channelId, token.tokenAddress);
         if (result.success) {
           await ctx.editMessageText(
             `✅ ${result.message}\n\nUse /settings to manage other tokens.`,
@@ -283,10 +340,18 @@ export function setupBuybotTelegramCommands(bot, services) {
         const channelId = userChannels.get(userId) || String(ctx.chat.id);
         
         const trackedTokens = await buybotService.getTrackedTokens(channelId);
-        const tokenButtons = trackedTokens.map(token => ([
+        
+        // Update user state with fresh token list
+        userStates.set(userId, { 
+          action: 'viewing_tokens', 
+          channelId,
+          tokens: trackedTokens 
+        });
+        
+        const tokenButtons = trackedTokens.map((token, index) => ([
           { 
             text: `${token.tokenSymbol} - ${token.tokenName}`, 
-            callback_data: `settings_token_${token.tokenAddress}_${channelId}` 
+            callback_data: `token_${index}` 
           }
         ]));
 
@@ -299,6 +364,7 @@ export function setupBuybotTelegramCommands(bot, services) {
             reply_markup: {
               inline_keyboard: [
                 ...tokenButtons,
+                [{ text: '➕ Add Token', callback_data: 'add_token' }],
                 [{ text: '➕ Add Token', callback_data: `settings_add_token_${channelId}` }],
                 [{ text: '❓ Help', callback_data: 'settings_help' }]
               ]
@@ -509,16 +575,27 @@ async function showHelpMenu(ctx) {
  * @param {string} channelId - Channel ID
  * @param {string} tokenAddress - Token address
  * @param {Object} logger - Logger instance
+ * @param {Map} userStates - User states map
  */
-async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, logger) {
+async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, logger, userStates) {
   try {
+    const userId = String(ctx.from.id);
     const trackedTokens = await buybotService.getTrackedTokens(channelId);
     const token = trackedTokens.find(t => t.tokenAddress === tokenAddress);
+    const tokenIndex = trackedTokens.findIndex(t => t.tokenAddress === tokenAddress);
 
-    if (!token) {
+    if (!token || tokenIndex === -1) {
       await ctx.editMessageText('❌ Token not found or no longer tracked.');
       return;
     }
+    
+    // Update user state with current token list for button navigation
+    userStates.set(userId, {
+      action: 'viewing_token_settings',
+      channelId,
+      tokens: trackedTokens,
+      currentTokenIndex: tokenIndex
+    });
 
     const imageThreshold = token.mediaThresholds?.image || 100;
     const videoThreshold = token.mediaThresholds?.video || 1000;
@@ -543,12 +620,12 @@ async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, lo
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎬 Set Media Thresholds', callback_data: `token_media_${tokenAddress}_${channelId}` }],
+          [{ text: '🎬 Set Media Thresholds', callback_data: `media_${tokenIndex}` }],
           [
-            { text: '📸 Upload Custom Image', callback_data: `token_custom_image_${tokenAddress}_${channelId}` },
-            { text: '🎥 Upload Custom Video', callback_data: `token_custom_video_${tokenAddress}_${channelId}` }
+            { text: '📸 Upload Custom Image', callback_data: `img_${tokenIndex}` },
+            { text: '🎥 Upload Custom Video', callback_data: `vid_${tokenIndex}` }
           ],
-          [{ text: '🗑️ Remove Token', callback_data: `token_remove_${tokenAddress}_${channelId}` }],
+          [{ text: '🗑️ Remove Token', callback_data: `remove_${tokenIndex}` }],
           [{ text: '« Back to Settings', callback_data: 'back_to_settings' }]
         ]
       }

@@ -1244,32 +1244,39 @@ export class BuybotService {
       if (mediaType === 'video' && telegramService.veoService) {
         this.logger.info(`[BuybotService] Generating video for $${usdValue.toFixed(0)} purchase`);
         
-        const videoResult = await telegramService.veoService.generateVideo(prompt);
+        const videoUrls = await telegramService.veoService.generateVideos({ 
+          prompt, 
+          config: { numberOfVideos: 1, personGeneration: "allow_adult" } 
+        });
         
-        if (videoResult?.videoUrl) {
+        if (videoUrls && videoUrls.length > 0) {
           await telegramService.globalBot.telegram.sendVideo(
             channelId,
-            videoResult.videoUrl,
+            videoUrls[0],
             {
               caption: `🎬 Epic ${tokenSymbol} buy celebration! Worth $${usdValue.toFixed(0)}! 🚀`
             }
           );
           this.logger.info(`[BuybotService] Video sent successfully for ${tokenSymbol} purchase`);
+        } else {
+          this.logger.warn(`[BuybotService] Video generation returned no URLs for ${tokenSymbol} purchase`);
         }
       } else if (mediaType === 'image' && telegramService.googleAIService) {
         this.logger.info(`[BuybotService] Generating image for $${usdValue.toFixed(0)} purchase`);
         
-        const imageResult = await telegramService.googleAIService.generateImage(prompt);
+        const imageUrl = await telegramService.googleAIService.generateImage(prompt);
         
-        if (imageResult?.imageUrl) {
+        if (imageUrl) {
           await telegramService.globalBot.telegram.sendPhoto(
             channelId,
-            imageResult.imageUrl,
+            imageUrl,
             {
               caption: `🖼️ ${tokenSymbol} big buy celebration! Worth $${usdValue.toFixed(0)}! 💰`
             }
           );
           this.logger.info(`[BuybotService] Image sent successfully for ${tokenSymbol} purchase`);
+        } else {
+          this.logger.warn(`[BuybotService] Image generation returned null for ${tokenSymbol} purchase`);
         }
       }
     } catch (error) {

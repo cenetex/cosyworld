@@ -115,8 +115,22 @@ class TelegramService {
 
       this.globalBot = new Telegraf(token);
       
-      // Set up media usage command
-      this.globalBot.start((ctx) => ctx.reply('Welcome to CosyWorld! 🌍 I\'m here to share stories and chat about our vibrant community.'));
+      // Setup buybot commands FIRST (order matters in Telegraf - first matching handler wins!)
+      if (this.buybotService) {
+        this.logger?.info?.('[TelegramService] Setting up buybot commands...');
+        setupBuybotTelegramCommands(this.globalBot, {
+          buybotService: this.buybotService,
+          logger: this.logger,
+        });
+        this.logger?.info?.('[TelegramService] Buybot command handlers registered');
+        
+        // Register commands with Telegram for autocomplete
+        await this.registerBuybotCommands();
+      } else {
+        this.logger?.warn?.('[TelegramService] Buybot service not available, skipping command setup');
+      }
+      
+      // Set up general bot commands (AFTER buybot so it doesn't override /start)
       this.globalBot.help((ctx) => ctx.reply('I\'m the CosyWorld bot! I can chat about our community and answer questions. Just message me anytime!'));
       this.globalBot.command('usage', async (ctx) => {
         try {
@@ -148,21 +162,6 @@ class TelegramService {
           await ctx.reply('Sorry, I couldn\'t fetch usage stats right now. 😅');
         }
       });
-      
-      // Setup buybot commands BEFORE message handlers (order matters in Telegraf!)
-      if (this.buybotService) {
-        this.logger?.info?.('[TelegramService] Setting up buybot commands...');
-        setupBuybotTelegramCommands(this.globalBot, {
-          buybotService: this.buybotService,
-          logger: this.logger,
-        });
-        this.logger?.info?.('[TelegramService] Buybot command handlers registered');
-        
-        // Register commands with Telegram for autocomplete
-        await this.registerBuybotCommands();
-      } else {
-        this.logger?.warn?.('[TelegramService] Buybot service not available, skipping command setup');
-      }
       
       // Set up message handlers for conversations (AFTER command handlers)
       this.setupMessageHandlers();
