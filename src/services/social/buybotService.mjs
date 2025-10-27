@@ -1257,10 +1257,14 @@ export class BuybotService {
             buyerInfo += ` _(${buyerAvatar.family})_`;
           }
           buyerInfo += `\n\`${this.formatAddress(event.to)}\``;
-          if (buyerAvatar.currentBalance >= 1_000_000) {
-            buyerInfo += `\n🐋 ${this.formatLargeNumber(buyerAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (buyerAvatar.orbNftCount > 0) {
-              buyerInfo += ` • ${buyerAvatar.orbNftCount} Orb${buyerAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            buyerInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = buyerAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              buyerInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
           }
           embed.fields.push({
@@ -1283,10 +1287,14 @@ export class BuybotService {
             senderInfo += ` _(${senderAvatar.family})_`;
           }
           senderInfo += `\n\`${this.formatAddress(event.from)}\``;
-          if (senderAvatar.currentBalance >= 1_000_000) {
-            senderInfo += `\n🐋 ${this.formatLargeNumber(senderAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (senderAvatar.orbNftCount > 0) {
-              senderInfo += ` • ${senderAvatar.orbNftCount} Orb${senderAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            senderInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = senderAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              senderInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
           }
           embed.fields.push({
@@ -1308,10 +1316,14 @@ export class BuybotService {
             recipientInfo += ` _(${recipientAvatar.family})_`;
           }
           recipientInfo += `\n\`${this.formatAddress(event.to)}\``;
-          if (recipientAvatar.currentBalance >= 1_000_000) {
-            recipientInfo += `\n🐋 ${this.formatLargeNumber(recipientAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (recipientAvatar.orbNftCount > 0) {
-              recipientInfo += ` • ${recipientAvatar.orbNftCount} Orb${recipientAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            recipientInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = recipientAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              recipientInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
           }
           embed.fields.push({

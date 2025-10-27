@@ -255,15 +255,31 @@ export class WalletAvatarService {
         return null;
       }
 
+      // Prepare flexible token balances and NFT balances
+      const tokenBalances = {};
+      const nftBalances = {};
+      
+      if (context.tokenSymbol) {
+        tokenBalances[context.tokenSymbol] = {
+          balance: context.currentBalance || 0,
+          usdValue: context.usdValue || null,
+          lastUpdated: new Date()
+        };
+      }
+      
+      if (context.orbNftCount) {
+        nftBalances.Orb = context.orbNftCount;
+      }
+
       // Add wallet-specific fields to the avatar document
       await this.db.collection('avatars').updateOne(
         { _id: avatar._id },
         { 
           $set: {
             walletAddress,
-            currentBalance: context.currentBalance || 0,
-            orbNftCount: context.orbNftCount || 0,
-            isPartial: false, // Full avatar with AI + image
+            tokenBalances,        // Flexible: { RATi: { balance, usdValue, lastUpdated }, SOL: {...}, ... }
+            nftBalances,          // Flexible: { Orb: count, OtherNFT: count, ... }
+            isPartial: false,     // Full avatar with AI + image
             lastActivityAt: new Date(),
             activityCount: 1,
             walletContext: {
@@ -318,6 +334,22 @@ export class WalletAvatarService {
       // Generate deterministic name and family based on wallet + token
       const { name, family, emoji } = this.generatePartialAvatarIdentity(walletAddress, tokenSymbol);
       
+      // Prepare flexible token balances and NFT balances
+      const tokenBalances = {};
+      const nftBalances = {};
+      
+      if (tokenSymbol) {
+        tokenBalances[tokenSymbol] = {
+          balance: context.currentBalance || 0,
+          usdValue: context.usdValue || null,
+          lastUpdated: new Date()
+        };
+      }
+      
+      if (context.orbNftCount) {
+        nftBalances.Orb = context.orbNftCount;
+      }
+      
       // Store minimal avatar document in main collection (no AI, no image)
       const avatarDoc = {
         walletAddress,
@@ -327,9 +359,9 @@ export class WalletAvatarService {
         description: `A ${tokenSymbol} holder from the ${family}`,
         personality: null, // No AI personality
         imageUrl: null, // No generated image
-        currentBalance: context.currentBalance || 0,
-        orbNftCount: context.orbNftCount || 0,
-        isPartial: true, // Flag as partial avatar (no AI/image)
+        tokenBalances,    // Flexible: { SOL: { balance, usdValue, lastUpdated }, BONK: {...}, ... }
+        nftBalances,      // Flexible: { Orb: count, OtherNFT: count, ... }
+        isPartial: true,  // Flag as partial avatar (no AI/image)
         summoner: `wallet:${walletAddress}`,
         channelId: context.discordChannelId || context.telegramChannelId || context.channelId || null,
         guildId: context.guildId || null,
@@ -502,12 +534,33 @@ export class WalletAvatarService {
    * @returns {string} Introduction message
    */
   buildIntroductionMessage(avatar, context) {
-    const balanceStr = this.formatLargeNumber(avatar.currentBalance);
-    const orbStr = avatar.orbNftCount > 0 ? ` and ${avatar.orbNftCount} Orb${avatar.orbNftCount > 1 ? 's' : ''}` : '';
+    // Get primary token balance (the one that triggered avatar creation)
+    const primaryToken = context.tokenSymbol || 'RATi';
+    const tokenBalance = avatar.tokenBalances?.[primaryToken];
+    const balanceStr = tokenBalance ? this.formatLargeNumber(tokenBalance.balance) : '0';
+    
+    // Get NFT counts
+    const orbCount = avatar.nftBalances?.Orb || 0;
+    const orbStr = orbCount > 0 ? ` and ${orbCount} Orb${orbCount > 1 ? 's' : ''}` : '';
     
     let intro = `${avatar.emoji} **${avatar.name}** has entered the realm!\n\n`;
     intro += `*${avatar.description}*\n\n`;
-    intro += `🐋 A legendary whale holder with **${balanceStr} ${context.tokenSymbol || 'RATi'}**${orbStr}.\n\n`;
+    intro += `🐋 A legendary whale holder with **${balanceStr} ${primaryToken}**${orbStr}.\n\n`;
+    
+    // List other significant token holdings if present
+    if (avatar.tokenBalances) {
+      const otherTokens = Object.entries(avatar.tokenBalances)
+        .filter(([symbol]) => symbol !== primaryToken && avatar.tokenBalances[symbol].balance > 0)
+        .slice(0, 3); // Show up to 3 other tokens
+      
+      if (otherTokens.length > 0) {
+        const tokenList = otherTokens.map(([symbol, data]) => 
+          `${this.formatLargeNumber(data.balance)} ${symbol}`
+        ).join(', ');
+        intro += `Also holds: ${tokenList}\n\n`;
+      }
+    }
+    
     intro += `Wallet: \`${this.formatAddress(avatar.walletAddress)}\``;
     
     return intro;
