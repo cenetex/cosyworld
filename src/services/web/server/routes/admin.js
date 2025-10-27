@@ -663,6 +663,93 @@ function createRouter(db, services) {
     }
   }));
 
+  // Get wallet avatar thresholds
+  adminRouter.get('/wallet-avatar-thresholds', asyncHandler(async (req, res) => {
+    try {
+      const { guildId } = req.query;
+      
+      // If guildId provided, get guild-specific config; otherwise get global defaults
+      if (guildId && services?.configService) {
+        const guildConfig = await services.configService.getGuildConfig(guildId);
+        const walletAvatarConfig = guildConfig.walletAvatarThresholds || {};
+        
+        return res.json({
+          ratiThreshold: walletAvatarConfig.ratiThreshold ?? 1_000_000,
+          usdThreshold: walletAvatarConfig.usdThreshold ?? 1000,
+          source: walletAvatarConfig.ratiThreshold !== undefined ? 'guild' : 'global'
+        });
+      }
+      
+      // Return global defaults from config or database
+      const globalConfig = await db.collection('global_config').findOne({ _id: 'walletAvatarThresholds' });
+      
+      res.json({
+        ratiThreshold: globalConfig?.ratiThreshold ?? 1_000_000,
+        usdThreshold: globalConfig?.usdThreshold ?? 1000,
+        source: 'global'
+      });
+    } catch (error) {
+      console.error("Error fetching wallet avatar thresholds:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }));
+
+  // Save wallet avatar thresholds
+  adminRouter.post('/wallet-avatar-thresholds', asyncHandler(async (req, res) => {
+    try {
+      const { ratiThreshold, usdThreshold, guildId } = req.body;
+
+      // Validate inputs
+      if (ratiThreshold !== undefined && (typeof ratiThreshold !== 'number' || ratiThreshold < 0)) {
+        return res.status(400).json({ error: 'RATi threshold must be a non-negative number' });
+      }
+      if (usdThreshold !== undefined && (typeof usdThreshold !== 'number' || usdThreshold < 0)) {
+        return res.status(400).json({ error: 'USD threshold must be a non-negative number' });
+      }
+
+      // Save to guild config or global config
+      if (guildId && services?.configService) {
+        // Guild-specific configuration
+        await services.configService.updateGuildConfig(guildId, {
+          walletAvatarThresholds: {
+            ratiThreshold: ratiThreshold ?? 1_000_000,
+            usdThreshold: usdThreshold ?? 1000
+          }
+        });
+        
+        return res.json({
+          success: true,
+          message: `Wallet avatar thresholds saved for guild ${guildId}`,
+          ratiThreshold: ratiThreshold ?? 1_000_000,
+          usdThreshold: usdThreshold ?? 1000
+        });
+      }
+
+      // Global configuration
+      await db.collection('global_config').updateOne(
+        { _id: 'walletAvatarThresholds' },
+        { 
+          $set: {
+            ratiThreshold: ratiThreshold ?? 1_000_000,
+            usdThreshold: usdThreshold ?? 1000,
+            updatedAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
+
+      res.json({
+        success: true,
+        message: 'Global wallet avatar thresholds saved successfully',
+        ratiThreshold: ratiThreshold ?? 1_000_000,
+        usdThreshold: usdThreshold ?? 1000
+      });
+    } catch (error) {
+      console.error("Error saving wallet avatar thresholds:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }));
+
 
   // Upload endpoint handler
   router.post('/upload-image', upload.single('image'), async (req, res) => {

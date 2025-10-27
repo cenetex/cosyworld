@@ -11,19 +11,112 @@
  */
 
 export class WalletAvatarService {
-  constructor({ databaseService, aiService, logger, avatarService, discordService, getTelegramService }) {
+  constructor({ databaseService, aiService, logger, avatarService, discordService, services }) {
     this.databaseService = databaseService;
     this.aiService = aiService;
     this.logger = logger || console;
     this.avatarService = avatarService;
     this.discordService = discordService;
-    this.getTelegramService = getTelegramService || (() => null);
+    this.services = services; // Container reference for late-bound services
     
     this.WALLET_AVATARS_COLLECTION = 'wallet_avatars';
     this.db = null;
     
-    // Threshold for creating wallet avatars (1M RATi)
-    this.AVATAR_CREATION_THRESHOLD = 1_000_000;
+    // Default thresholds for creating wallet avatars (can be overridden by configuration)
+    this.DEFAULT_RATI_THRESHOLD = 1_000_000; // 1M tokens for RATi
+    this.DEFAULT_USD_THRESHOLD = 1000; // $1000 USD for other tokens
+    
+    // Cached thresholds (loaded from config)
+    this._cachedThresholds = null;
+    this._thresholdCacheTime = 0;
+    this._thresholdCacheTTL = 60000; // 1 minute cache
+  }
+
+  /**
+   * Get TelegramService (late-bound to avoid circular dependency)
+   * @returns {Object|null} TelegramService instance
+   */
+  getTelegramService() {
+    try {
+      return this.services?.resolve?.('telegramService') || null;
+    } catch {
+      return null;
+    }
+  }
+  
+  /**
+   * Get ConfigService (late-bound to avoid circular dependency)
+   * @returns {Object|null} ConfigService instance
+   */
+  getConfigService() {
+    try {
+      return this.services?.resolve?.('configService') || null;
+    } catch {
+      return null;
+    }
+  }
+  
+  /**
+   * Get wallet avatar thresholds from configuration
+   * Supports both guild-specific and global configuration
+   * @param {string} guildId - Optional guild ID for guild-specific thresholds
+   * @returns {Promise<Object>} Thresholds object with ratiThreshold and usdThreshold
+   */
+  async getThresholds(guildId = null) {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (this._cachedThresholds && (now - this._thresholdCacheTime) < this._thresholdCacheTTL) {
+        return this._cachedThresholds;
+      }
+      
+      if (!this.db) {
+        this.db = await this.databaseService.getDatabase();
+      }
+      
+      // Try to get guild-specific config first if guildId provided
+      if (guildId) {
+        const configService = this.getConfigService();
+        if (configService) {
+          try {
+            const guildConfig = await configService.getGuildConfig(guildId);
+            if (guildConfig?.walletAvatarThresholds) {
+              const thresholds = {
+                ratiThreshold: guildConfig.walletAvatarThresholds.ratiThreshold ?? this.DEFAULT_RATI_THRESHOLD,
+                usdThreshold: guildConfig.walletAvatarThresholds.usdThreshold ?? this.DEFAULT_USD_THRESHOLD
+              };
+              this._cachedThresholds = thresholds;
+              this._thresholdCacheTime = now;
+              return thresholds;
+            }
+          } catch (error) {
+            this.logger.warn(`[WalletAvatarService] Failed to get guild config for ${guildId}:`, error);
+          }
+        }
+      }
+      
+      // Fallback to global config
+      const globalConfig = await this.db.collection('global_config')
+        .findOne({ _id: 'walletAvatarThresholds' });
+      
+      const thresholds = {
+        ratiThreshold: globalConfig?.ratiThreshold ?? this.DEFAULT_RATI_THRESHOLD,
+        usdThreshold: globalConfig?.usdThreshold ?? this.DEFAULT_USD_THRESHOLD
+      };
+      
+      // Cache the result
+      this._cachedThresholds = thresholds;
+      this._thresholdCacheTime = now;
+      
+      return thresholds;
+    } catch (error) {
+      this.logger.error('[WalletAvatarService] Failed to get thresholds from config:', error);
+      // Return defaults on error
+      return {
+        ratiThreshold: this.DEFAULT_RATI_THRESHOLD,
+        usdThreshold: this.DEFAULT_USD_THRESHOLD
+      };
+    }
   }
 
   /**
@@ -67,26 +160,28 @@ export class WalletAvatarService {
 
       if (walletAvatar) {
         // Update last activity and balance info
-        const updateData = {
-          lastActivityAt: new Date(),
-          $inc: { activityCount: 1 }
+        const setData = {
+          lastActivityAt: new Date()
         };
         
         // Update balance if provided
         if (context.currentBalance !== undefined) {
-          updateData.currentBalance = context.currentBalance;
+          setData.currentBalance = context.currentBalance;
         }
         if (context.orbNftCount !== undefined) {
-          updateData.orbNftCount = context.orbNftCount;
+          setData.orbNftCount = context.orbNftCount;
         }
         
         await this.db.collection(this.WALLET_AVATARS_COLLECTION).updateOne(
           { walletAddress },
-          { $set: updateData }
+          { 
+            $set: setData,
+            $inc: { activityCount: 1 }
+          }
         );
         
         // Return updated avatar
-        walletAvatar.lastActivityAt = updateData.lastActivityAt;
+        walletAvatar.lastActivityAt = setData.lastActivityAt;
         walletAvatar.activityCount = (walletAvatar.activityCount || 0) + 1;
         if (context.currentBalance !== undefined) {
           walletAvatar.currentBalance = context.currentBalance;
@@ -98,20 +193,25 @@ export class WalletAvatarService {
         return walletAvatar;
       }
 
-      // Check if wallet meets threshold for avatar creation (1M+ RATi)
-      if (context.tokenSymbol === 'RATi' && context.currentBalance !== undefined) {
-        if (context.currentBalance < this.AVATAR_CREATION_THRESHOLD) {
-          this.logger.info(`[WalletAvatarService] Wallet ${this.formatAddress(walletAddress)} has ${context.currentBalance} RATi (below ${this.AVATAR_CREATION_THRESHOLD} threshold)`);
-          return null;
-        }
-      } else {
-        // If no balance info, skip avatar creation
-        this.logger.info(`[WalletAvatarService] No balance info for ${this.formatAddress(walletAddress)}, skipping avatar creation`);
+      // Check if wallet meets threshold for avatar creation
+      if (context.currentBalance === undefined || context.currentBalance === null) {
+        this.logger.info(`[WalletAvatarService] No balance info provided for ${this.formatAddress(walletAddress)}, skipping avatar creation`);
         return null;
       }
 
-      // Create new wallet avatar for whale holders using full avatar service
-      walletAvatar = await this.createWalletAvatar(walletAddress, context);
+      // NEW LOGIC: 
+      // - RATi holders: Create FULL avatar for ANY amount (no minimum threshold)
+      // - Non-RATi tokens: Create PARTIAL avatar (name + family only, no image/personality)
+      
+      if (context.tokenSymbol === 'RATi') {
+        // Any RATi holder gets a full avatar
+        this.logger.info(`[WalletAvatarService] Creating full avatar for RATi holder ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} RATi`);
+        walletAvatar = await this.createWalletAvatar(walletAddress, context);
+      } else {
+        // Non-RATi tokens get a partial avatar (name + family only)
+        this.logger.info(`[WalletAvatarService] Creating partial avatar for ${context.tokenSymbol} holder ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} tokens (${context.usdValue ? '$' + context.usdValue.toFixed(2) : 'unknown USD value'})`);
+        walletAvatar = await this.createPartialWalletAvatar(walletAddress, context);
+      }
       
       return walletAvatar;
     } catch (error) {
@@ -131,14 +231,18 @@ export class WalletAvatarService {
       // Build prompt for avatar creation
       const prompt = this.buildAvatarPrompt(walletAddress, context);
       
-      this.logger.info(`[WalletAvatarService] Creating whale avatar for ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`);
+      this.logger.info(`[WalletAvatarService] Creating full avatar for ${this.formatAddress(walletAddress)} with ${this.formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`);
+      
+      // Normalize channel ID (discordChannelId or telegramChannelId or channelId)
+      const channelId = context.discordChannelId || context.telegramChannelId || context.channelId || null;
+      const guildId = context.guildId || null;
       
       // Use AvatarService to create full avatar with image
       const avatar = await this.avatarService.createAvatar({
         prompt,
         summoner: `wallet:${walletAddress}`, // Mark as wallet-summoned
-        channelId: context.channelId || null,
-        guildId: context.guildId || null
+        channelId: channelId,
+        guildId: guildId
       });
 
       if (!avatar) {
@@ -157,6 +261,7 @@ export class WalletAvatarService {
         imageUrl: avatar.imageUrl,
         currentBalance: context.currentBalance || 0,
         orbNftCount: context.orbNftCount || 0,
+        isPartial: false, // Full avatar
         createdAt: new Date(),
         lastActivityAt: new Date(),
         activityCount: 1,
@@ -172,6 +277,16 @@ export class WalletAvatarService {
       
       this.logger.info(`[WalletAvatarService] Created avatar: ${avatar.emoji} ${avatar.name} (${avatar._id}) for ${this.formatAddress(walletAddress)}`);
       
+      // Activate avatar in Discord channel so it can participate in conversations
+      if (context.discordChannelId) {
+        try {
+          await this.avatarService.activateAvatarInChannel(context.discordChannelId, String(avatar._id));
+          this.logger.info(`[WalletAvatarService] Activated wallet avatar ${avatar.name} in Discord channel ${context.discordChannelId}`);
+        } catch (activateError) {
+          this.logger.error(`[WalletAvatarService] Failed to activate avatar in channel: ${activateError.message}`);
+        }
+      }
+      
       // Introduce the new whale avatar across platforms
       await this.introduceWalletAvatar(walletAvatarDoc, context);
       
@@ -180,6 +295,158 @@ export class WalletAvatarService {
       this.logger.error('[WalletAvatarService] createWalletAvatar failed:', error);
       return null;
     }
+  }
+
+  /**
+   * Create a partial wallet avatar (name + family only, no image/AI personality)
+   * Used for non-RATi token holders to avoid expensive AI generation
+   * @param {string} walletAddress - Solana wallet address
+   * @param {Object} context - Context for avatar creation (must include tokenSymbol)
+   * @returns {Promise<Object>} Created partial wallet avatar
+   */
+  async createPartialWalletAvatar(walletAddress, context = {}) {
+    try {
+      const tokenSymbol = context.tokenSymbol || 'TOKEN';
+      
+      this.logger.info(`[WalletAvatarService] Creating partial avatar for ${this.formatAddress(walletAddress)} (${tokenSymbol} holder)`);
+      
+      // Generate deterministic name and family based on wallet + token
+      const { name, family, emoji } = this.generatePartialAvatarIdentity(walletAddress, tokenSymbol);
+      
+      // Store minimal wallet mapping (no full avatar, no image)
+      const walletAvatarDoc = {
+        walletAddress,
+        avatarId: null, // No full avatar created
+        name,
+        emoji,
+        family,
+        description: `A ${tokenSymbol} holder`,
+        personality: null, // No AI personality
+        imageUrl: null, // No generated image
+        currentBalance: context.currentBalance || 0,
+        orbNftCount: context.orbNftCount || 0,
+        isPartial: true, // Flag as partial avatar
+        createdAt: new Date(),
+        lastActivityAt: new Date(),
+        activityCount: 1,
+        context: {
+          firstSeenToken: tokenSymbol,
+          firstSeenAmount: context.amount || null,
+          firstSeenUsd: context.usdValue || null,
+          creationBalance: context.currentBalance || 0
+        }
+      };
+
+      await this.db.collection(this.WALLET_AVATARS_COLLECTION).insertOne(walletAvatarDoc);
+      
+      this.logger.info(`[WalletAvatarService] Created partial avatar: ${emoji} ${name} from ${family} family for ${this.formatAddress(walletAddress)}`);
+      
+      return walletAvatarDoc;
+    } catch (error) {
+      this.logger.error('[WalletAvatarService] createPartialWalletAvatar failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate deterministic name, family, and emoji for partial avatars
+   * Each token gets its own themed "family" of avatars with unique naming patterns
+   * @param {string} walletAddress - Solana wallet address
+   * @param {string} tokenSymbol - Token symbol (e.g., "USDC", "SOL")
+   * @returns {Object} { name, family, emoji }
+   */
+  generatePartialAvatarIdentity(walletAddress, tokenSymbol) {
+    // Use first 8 chars of wallet for deterministic seed
+    const seed = walletAddress.substring(0, 8);
+    
+    // Token-themed families with distinct character themes
+    const tokenThemes = {
+      'USDC': {
+        family: 'Stablecoin Syndicate',
+        prefixes: ['Steady', 'Fixed', 'Anchored', 'Pegged', 'Balanced', 'Secure'],
+        suffixes: ['Banker', 'Trader', 'Keeper', 'Holder', 'Dealer', 'Merchant'],
+        emojis: ['💵', '💰', '🏦', '💳', '💸', '💴']
+      },
+      'SOL': {
+        family: 'Solar Collective',
+        prefixes: ['Blazing', 'Radiant', 'Luminous', 'Bright', 'Stellar', 'Cosmic'],
+        suffixes: ['Sun', 'Ray', 'Flare', 'Eclipse', 'Dawn', 'Horizon'],
+        emojis: ['☀️', '⚡', '🌞', '🔥', '✨', '🌟']
+      },
+      'BONK': {
+        family: 'Bonk Brigade',
+        prefixes: ['Bonking', 'Barking', 'Howling', 'Loyal', 'Furry', 'Playful'],
+        suffixes: ['Pup', 'Doge', 'Hound', 'Shiba', 'Woof', 'Snout'],
+        emojis: ['🐕', '🐶', '🦴', '🐾', '🎾', '🦮']
+      },
+      'JUP': {
+        family: 'Jupiter Guild',
+        prefixes: ['Swapping', 'Trading', 'Orbital', 'Celestial', 'Routing', 'Bridging'],
+        suffixes: ['Swapper', 'Trader', 'Router', 'Scout', 'Navigator', 'Pilot'],
+        emojis: ['🪐', '🚀', '🌌', '💫', '🔭', '🛸']
+      },
+      'WIF': {
+        family: 'Dogwifhat Clan',
+        prefixes: ['Stylish', 'Dapper', 'Fancy', 'Snazzy', 'Chic', 'Classy'],
+        suffixes: ['Hatter', 'Wearer', 'Fashionista', 'Model', 'Icon', 'Trendsetter'],
+        emojis: ['🎩', '👒', '🧢', '👑', '🎓', '⛑️']
+      },
+      'PYTH': {
+        family: 'Oracle Network',
+        prefixes: ['Prophetic', 'Wise', 'Knowing', 'Seeing', 'Truthful', 'Accurate'],
+        suffixes: ['Oracle', 'Seer', 'Prophet', 'Keeper', 'Reader', 'Diviner'],
+        emojis: ['🔮', '👁️', '📊', '📈', '⚡', '🎯']
+      },
+      'ORCA': {
+        family: 'Ocean Dwellers',
+        prefixes: ['Swimming', 'Diving', 'Flowing', 'Splashing', 'Surfing', 'Cruising'],
+        suffixes: ['Whale', 'Orca', 'Swimmer', 'Diver', 'Navigator', 'Captain'],
+        emojis: ['🐋', '🌊', '💧', '🐚', '⚓', '🏊']
+      },
+      'RAY': {
+        family: 'Raydium Collective',
+        prefixes: ['Liquid', 'Pooled', 'Flowing', 'Farming', 'Staking', 'Yielding'],
+        suffixes: ['Farmer', 'Provider', 'Staker', 'Maker', 'Builder', 'Pooler'],
+        emojis: ['�', '�', '�', '⚡', '�', '💠']
+      },
+      'SAMO': {
+        family: 'Samoyed Squad',
+        prefixes: ['Fluffy', 'Snowy', 'Arctic', 'White', 'Smiling', 'Happy'],
+        suffixes: ['Samo', 'Pup', 'Floof', 'Cloud', 'Snowball', 'Companion'],
+        emojis: ['🐕', '☁️', '❄️', '�', '🐾', '�']
+      },
+      'USDT': {
+        family: 'Tether Alliance',
+        prefixes: ['Tethered', 'Stable', 'Steady', 'Bound', 'Fixed', 'Solid'],
+        suffixes: ['Anchor', 'Tether', 'Holder', 'Keeper', 'Guardian', 'Custodian'],
+        emojis: ['💵', '�', '⚓', '�', '�️', '💼']
+      },
+      'MEME': {
+        family: 'Meme Lords',
+        prefixes: ['Viral', 'Dank', 'Based', 'Memetic', 'Legendary', 'Epic'],
+        suffixes: ['Memer', 'Lord', 'King', 'Legend', 'Master', 'Champion'],
+        emojis: ['�', '🎭', '🃏', '�', '🤡', '�']
+      }
+    };
+    
+    // Get theme for token or use default
+    const theme = tokenThemes[tokenSymbol] || {
+      family: `${tokenSymbol} Holders`,
+      prefixes: ['Swift', 'Bold', 'Silent', 'Wise', 'Fierce', 'Noble'],
+      suffixes: ['Trader', 'Holder', 'Whale', 'Investor', 'Dealer', 'Keeper'],
+      emojis: ['🔷', '💎', '🎯', '⚡', '🌟', '✨']
+    };
+    
+    // Generate deterministic indices from wallet address
+    const prefixIndex = parseInt(seed.substring(0, 2), 16) % theme.prefixes.length;
+    const suffixIndex = parseInt(seed.substring(2, 4), 16) % theme.suffixes.length;
+    const emojiIndex = parseInt(seed.substring(4, 6), 16) % theme.emojis.length;
+    
+    const family = theme.family;
+    const emoji = theme.emojis[emojiIndex];
+    const name = `${theme.prefixes[prefixIndex]} ${theme.suffixes[suffixIndex]}`;
+    
+    return { name, family, emoji };
   }
 
   /**
@@ -236,7 +503,7 @@ export class WalletAvatarService {
    */
   async introduceOnTelegram(channelId, walletAvatar, intro) {
     try {
-      const telegramService = this.getTelegramService ? this.getTelegramService() : null;
+      const telegramService = this.getTelegramService();
       
       if (!telegramService || !telegramService.globalBot) {
         this.logger.warn('[WalletAvatarService] Telegram service not available');

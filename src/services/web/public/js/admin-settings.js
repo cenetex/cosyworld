@@ -621,6 +621,112 @@ function initPaymentConfigHandlers() {
   document.getElementById('toggleEncryptionKeyVisibility')?.addEventListener('click', toggleEncryptionKeyVisibility);
 }
 
+// Wallet Avatar Threshold Configuration Functions
+async function loadWalletAvatarThresholds() {
+  try {
+    const guildId = selectedGuildId || '';
+    const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
+    const response = await fetchJSON(`/api/admin/wallet-avatar-thresholds${qs}`);
+    
+    if (response) {
+      document.getElementById('walletAvatarRatiThreshold').value = response.ratiThreshold || 1000000;
+      document.getElementById('walletAvatarUsdThreshold').value = response.usdThreshold || 1000;
+      
+      // Show indicator if these are guild overrides
+      const statusEl = document.getElementById('walletAvatarThresholdStatus');
+      if (response.source === 'guild' && guildId) {
+        showWalletAvatarStatus(`Using guild-specific thresholds for ${selectedGuildMeta?.name || guildId}`, 'info');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load wallet avatar thresholds:', error);
+    // Set defaults on error
+    document.getElementById('walletAvatarRatiThreshold').value = 1000000;
+    document.getElementById('walletAvatarUsdThreshold').value = 1000;
+  }
+}
+
+async function saveWalletAvatarThresholds() {
+  const ratiThreshold = parseFloat(document.getElementById('walletAvatarRatiThreshold').value);
+  const usdThreshold = parseFloat(document.getElementById('walletAvatarUsdThreshold').value);
+  
+  // Validation
+  if (isNaN(ratiThreshold) || ratiThreshold < 0) {
+    toastError('RATi threshold must be a non-negative number');
+    return;
+  }
+  
+  if (isNaN(usdThreshold) || usdThreshold < 0) {
+    toastError('USD threshold must be a non-negative number');
+    return;
+  }
+  
+  try {
+    const payload = {
+      ratiThreshold,
+      usdThreshold
+    };
+    
+    // Include guildId if we're in guild context
+    if (selectedGuildId) {
+      payload.guildId = selectedGuildId;
+    }
+    
+    const response = await fetchJSON('/api/admin/wallet-avatar-thresholds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.success) {
+      success('Wallet avatar thresholds saved successfully');
+      const scope = selectedGuildId ? `for guild ${selectedGuildMeta?.name || selectedGuildId}` : 'globally';
+      showWalletAvatarStatus(`Thresholds saved ${scope}. RATi: ${ratiThreshold.toLocaleString()}, USD: $${usdThreshold.toLocaleString()}`, 'success');
+    }
+  } catch (error) {
+    console.error('Failed to save wallet avatar thresholds:', error);
+    toastError('Failed to save wallet avatar thresholds: ' + (error.message || 'Unknown error'));
+    showWalletAvatarStatus('Failed to save thresholds: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+function resetWalletAvatarThresholds() {
+  if (!confirm('Reset wallet avatar thresholds to defaults?')) return;
+  
+  document.getElementById('walletAvatarRatiThreshold').value = 1000000;
+  document.getElementById('walletAvatarUsdThreshold').value = 1000;
+  
+  showWalletAvatarStatus('Thresholds reset to defaults. Click Save to apply.', 'info');
+}
+
+function showWalletAvatarStatus(message, type = 'info') {
+  const statusEl = document.getElementById('walletAvatarThresholdStatus');
+  const statusDiv = statusEl?.querySelector('div');
+  if (!statusDiv) return;
+  
+  const colors = {
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+  };
+  
+  statusDiv.className = `p-2 rounded text-sm border ${colors[type] || colors.info}`;
+  statusDiv.textContent = message;
+  statusEl.classList.remove('hidden');
+  
+  setTimeout(() => {
+    statusEl.classList.add('hidden');
+  }, 5000);
+}
+
+function initWalletAvatarThresholdHandlers() {
+  document.getElementById('saveWalletAvatarThresholds')?.addEventListener('click',
+    withButtonLoading(document.getElementById('saveWalletAvatarThresholds'), saveWalletAvatarThresholds)
+  );
+  
+  document.getElementById('resetWalletAvatarThresholds')?.addEventListener('click', resetWalletAvatarThresholds);
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -679,7 +785,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tab === tabSecrets) panelSecrets?.classList.remove('hidden');
   }
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
-  tabSettings?.addEventListener('click', () => activate(tabSettings));
+  tabSettings?.addEventListener('click', () => {
+    activate(tabSettings);
+    loadWalletAvatarThresholds();
+  });
   tabPayments?.addEventListener('click', () => {
     activate(tabPayments);
     loadPaymentConfig();
@@ -689,4 +798,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Payment configuration handlers
   initPaymentConfigHandlers();
+  
+  // Wallet avatar threshold handlers
+  initWalletAvatarThresholdHandlers();
 });
