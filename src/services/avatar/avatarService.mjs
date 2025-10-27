@@ -1260,6 +1260,46 @@ export class AvatarService {
     let avatar = await this.getAvatarByWalletAddress(walletAddress);
     
     if (avatar) {
+      // Check if we need to upgrade a partial avatar to full avatar (add image)
+      const isRatiHolder = context.tokenSymbol === 'RATi' && context.currentBalance > 0;
+      const isPartialAvatar = !avatar.imageUrl;
+      const needsUpgrade = isPartialAvatar && isRatiHolder;
+      
+      if (needsUpgrade) {
+        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (RATi holder with ${context.currentBalance} tokens)`);
+        
+        try {
+          // Generate image for existing avatar
+          const uploadOptions = {
+            source: 'avatar.upgrade',
+            avatarName: avatar.name,
+            avatarEmoji: avatar.emoji,
+            avatarId: avatar._id,
+            prompt: avatar.description,
+            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim()
+          };
+          const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
+          
+          if (imageUrl) {
+            await db.collection(this.AVATARS_COLLECTION).updateOne(
+              { _id: avatar._id },
+              { 
+                $set: { 
+                  imageUrl,
+                  isPartial: false,
+                  upgradedAt: new Date()
+                }
+              }
+            );
+            this.logger?.info?.(`[AvatarService] Successfully upgraded ${avatar.name} to full avatar with image: ${imageUrl}`);
+          } else {
+            this.logger?.error?.(`[AvatarService] Failed to generate image for ${avatar.name}`);
+          }
+        } catch (error) {
+          this.logger?.error?.(`[AvatarService] Error upgrading avatar ${avatar.name}:`, error);
+        }
+      }
+      
       // Update last activity and token balances
       const updateData = {
         lastActivityAt: new Date()
@@ -1290,7 +1330,7 @@ export class AvatarService {
       // Reload to get updated data
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
-      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}`);
+      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''}`);
       return avatar;
     }
     

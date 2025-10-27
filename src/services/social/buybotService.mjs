@@ -1158,6 +1158,9 @@ export class BuybotService {
                 emoji: buyerAvatar.emoji,
                 name: buyerAvatar.name,
                 hasImage: !!buyerAvatar.imageUrl,
+                imageUrl: buyerAvatar.imageUrl,
+                imageUrlType: typeof buyerAvatar.imageUrl,
+                isPartial: buyerAvatar.isPartial,
                 walletAddress: buyerAvatar.walletAddress
               });
             } else {
