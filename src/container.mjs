@@ -116,6 +116,7 @@ import { StoryArchiveService } from './services/story/storyArchiveService.mjs';
 import { CharacterContinuityService } from './services/story/characterContinuityService.mjs';
 import { ChapterContextService } from './services/story/chapterContextService.mjs';
 import { NftMetadataService } from './services/nft/nftMetadataService.mjs';
+import { WalletAvatarService } from './services/avatar/walletAvatarService.mjs';
 import { X402Service } from './services/payment/x402Service.mjs';
 import { AgentWalletService } from './services/payment/agentWalletService.mjs';
 import { PricingService } from './services/payment/pricingService.mjs';
@@ -290,6 +291,18 @@ container.register({ combatNarrativeService: asClass(CombatNarrativeService).sin
  * @since 0.0.8
  */
 container.register({ nftMetadataService: asClass(NftMetadataService).singleton() });
+
+/**
+ * Register Wallet Avatar Service
+ * 
+ * @description
+ * Service for creating and managing 1:1 avatars for Solana wallet addresses.
+ * Similar to Discord user avatars, but for blockchain wallets.
+ * 
+ * @see {@link WalletAvatarService} for wallet avatar management
+ * @since 0.0.12
+ */
+container.register({ walletAvatarService: asClass(WalletAvatarService).singleton() });
 
 /**
  * Make the container itself available for injection.

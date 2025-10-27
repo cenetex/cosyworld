@@ -13,12 +13,13 @@
 import { createHelius } from 'helius-sdk';
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, discordService, getTelegramService }) {
+  constructor({ logger, databaseService, configService, discordService, getTelegramService, walletAvatarService }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
     this.discordService = discordService;
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
+    this.walletAvatarService = walletAvatarService;
     
     this.helius = null;
     this.activeWebhooks = new Map(); // channelId -> webhook data
@@ -27,6 +28,7 @@ export class BuybotService {
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
+    this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
   }
 
   /**
@@ -42,6 +44,11 @@ export class BuybotService {
 
       this.helius = createHelius({ apiKey: heliusApiKey });
       this.db = await this.databaseService.getDatabase();
+      
+      // Initialize wallet avatar service
+      if (this.walletAvatarService) {
+        await this.walletAvatarService.initialize();
+      }
       
       // Create indexes
       await this.ensureIndexes();
@@ -71,6 +78,12 @@ export class BuybotService {
         { key: { tokenAddress: 1, timestamp: -1 }, name: 'token_events' },
         { key: { signature: 1 }, unique: true, name: 'signature_unique' },
         { key: { timestamp: -1 }, name: 'timestamp_lookup' },
+      ]);
+
+      await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).createIndexes([
+        { key: { channelId: 1, collectionAddress: 1 }, unique: true, name: 'channel_collection' },
+        { key: { channelId: 1 }, name: 'collection_channel_lookup' },
+        { key: { collectionAddress: 1 }, name: 'collection_lookup' },
       ]);
 
       this.logger.info('[BuybotService] Database indexes created');
@@ -332,6 +345,128 @@ export class BuybotService {
   }
 
   /**
+   * Track an NFT collection for a channel
+   * @param {string} channelId - Telegram channel ID
+   * @param {string} collectionAddress - NFT collection address
+   * @param {Object} options - Optional settings (name, notifyMint, notifyTransfer, notifySale)
+   * @returns {Promise<Object>} Result object
+   */
+  async trackCollection(channelId, collectionAddress, options = {}) {
+    try {
+      if (!this.isValidSolanaAddress(collectionAddress)) {
+        return { success: false, message: 'Invalid Solana address format.' };
+      }
+
+      // Check if already tracking
+      const existing = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).findOne({
+        channelId,
+        collectionAddress,
+        active: true,
+      });
+
+      if (existing) {
+        return {
+          success: false,
+          message: `Already tracking collection **${existing.collectionName || collectionAddress}**`,
+        };
+      }
+
+      // Get collection info from Helius (if available)
+      let collectionName = options.name || 'Unknown Collection';
+      try {
+        // Try to fetch collection metadata
+        const response = await this.helius.rpc.getAsset({
+          id: collectionAddress
+        });
+        
+        if (response && response.content && response.content.metadata) {
+          collectionName = response.content.metadata.name || collectionName;
+        }
+      } catch (err) {
+        this.logger.warn('[BuybotService] Could not fetch collection metadata:', err.message);
+      }
+
+      // Store tracking info
+      const collectionDoc = {
+        channelId,
+        collectionAddress,
+        collectionName,
+        platform: 'telegram',
+        notifyMint: options.notifyMint !== false, // Default true
+        notifyTransfer: options.notifyTransfer !== false, // Default true
+        notifySale: options.notifySale !== false, // Default true
+        active: true,
+        trackedAt: new Date(),
+      };
+
+      await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).insertOne(collectionDoc);
+
+      this.logger.info(`[BuybotService] Started tracking collection ${collectionName} (${collectionAddress}) in channel ${channelId}`);
+
+      return {
+        success: true,
+        message: `Now tracking **${collectionName}** NFT collection`,
+        collection: collectionDoc,
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to track collection:', error);
+      return { success: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Remove NFT collection from tracking
+   * @param {string} channelId - Channel ID
+   * @param {string} collectionAddress - Collection address
+   * @returns {Promise<Object>} Result object
+   */
+  async removeTrackedCollection(channelId, collectionAddress) {
+    try {
+      const collection = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).findOne({
+        channelId,
+        collectionAddress,
+      });
+
+      if (!collection || !collection.active) {
+        return { success: false, message: 'Collection not currently tracked in this channel.' };
+      }
+
+      // Mark as inactive
+      await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).updateOne(
+        { channelId, collectionAddress },
+        { $set: { active: false, removedAt: new Date() } }
+      );
+
+      this.logger.info(`[BuybotService] Removed tracking for collection ${collection.collectionName} in channel ${channelId}`);
+
+      return {
+        success: true,
+        message: `Stopped tracking **${collection.collectionName}** NFT collection`,
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to remove tracked collection:', error);
+      return { success: false, message: `Error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Get all tracked NFT collections for a channel
+   * @param {string} channelId - Channel ID
+   * @returns {Promise<Array>} Array of tracked collections
+   */
+  async getTrackedCollections(channelId) {
+    try {
+      return await this.db
+        .collection(this.TRACKED_COLLECTIONS_COLLECTION)
+        .find({ channelId, active: true })
+        .toArray();
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get tracked collections:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get token information from Helius
    * @param {string} tokenAddress - Token mint address
    * @returns {Promise<Object|null>} Token info or null
@@ -518,14 +653,14 @@ export class BuybotService {
       return; // Already polling
     }
 
-    // Poll every 30 seconds
+    // Poll every 5 minutes
     const pollInterval = setInterval(async () => {
       try {
         await this.checkTokenTransactions(channelId, tokenAddress, platform);
       } catch (error) {
         this.logger.error(`[BuybotService] Polling error for ${tokenAddress}:`, error);
       }
-    }, 30000);
+    }, 300000);
 
     this.activeWebhooks.set(key, {
       channelId,
@@ -897,18 +1032,126 @@ export class BuybotService {
         });
       }
 
-      // From/To addresses
-      embed.fields.push({
-        name: '📤 From',
-        value: `\`${this.formatAddress(event.from)}\``,
-        inline: true,
-      });
+      // Get wallet avatars for addresses (same as Telegram)
+      let buyerAvatar = null;
+      let senderAvatar = null;
+      let recipientAvatar = null;
 
-      embed.fields.push({
-        name: '📥 To',
-        value: `\`${this.formatAddress(event.to)}\``,
-        inline: true,
-      });
+      try {
+        if (event.type === 'swap' && event.to) {
+          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+          const orbCollectionAddress = '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ';
+          const orbNftCount = await this.getWalletNftCount(event.to, orbCollectionAddress);
+          
+          buyerAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+            tokenSymbol: token.tokenSymbol,
+            tokenAddress: token.tokenAddress,
+            amount: formattedAmount,
+            usdValue: usdValue,
+            currentBalance: currentBalance,
+            orbNftCount: orbNftCount,
+            discordChannelId: channelId // Pass discord channel for introductions
+          });
+        } else if (event.type === 'transfer') {
+          if (event.from) {
+            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
+            const senderOrbCount = await this.getWalletNftCount(event.from, '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ');
+            
+            senderAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.from, {
+              tokenSymbol: token.tokenSymbol,
+              tokenAddress: token.tokenAddress,
+              amount: formattedAmount,
+              usdValue: usdValue,
+              currentBalance: senderBalance,
+              orbNftCount: senderOrbCount,
+              discordChannelId: channelId
+            });
+          }
+          if (event.to) {
+            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+            const recipientOrbCount = await this.getWalletNftCount(event.to, '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ');
+            
+            recipientAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+              tokenSymbol: token.tokenSymbol,
+              tokenAddress: token.tokenAddress,
+              amount: formattedAmount,
+              usdValue: usdValue,
+              currentBalance: recipientBalance,
+              orbNftCount: recipientOrbCount,
+              discordChannelId: channelId
+            });
+          }
+        }
+      } catch (avatarError) {
+        this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
+      }
+
+      // From/To addresses - show wallet avatars with names/emojis
+      if (event.type === 'swap') {
+        if (buyerAvatar) {
+          let buyerInfo = `${buyerAvatar.emoji} **${buyerAvatar.name}**\n\`${this.formatAddress(event.to)}\``;
+          if (buyerAvatar.currentBalance >= 1_000_000) {
+            buyerInfo += `\n🐋 ${this.formatLargeNumber(buyerAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (buyerAvatar.orbNftCount > 0) {
+              buyerInfo += ` • ${buyerAvatar.orbNftCount} Orb${buyerAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+          }
+          embed.fields.push({
+            name: '� Buyer',
+            value: buyerInfo,
+            inline: false,
+          });
+        } else {
+          embed.fields.push({
+            name: '📥 To',
+            value: `\`${this.formatAddress(event.to)}\``,
+            inline: true,
+          });
+        }
+      } else {
+        // Transfer - show both parties
+        if (senderAvatar) {
+          let senderInfo = `${senderAvatar.emoji} **${senderAvatar.name}**\n\`${this.formatAddress(event.from)}\``;
+          if (senderAvatar.currentBalance >= 1_000_000) {
+            senderInfo += `\n🐋 ${this.formatLargeNumber(senderAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (senderAvatar.orbNftCount > 0) {
+              senderInfo += ` • ${senderAvatar.orbNftCount} Orb${senderAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+          }
+          embed.fields.push({
+            name: '📤 From',
+            value: senderInfo,
+            inline: true,
+          });
+        } else {
+          embed.fields.push({
+            name: '�📤 From',
+            value: `\`${this.formatAddress(event.from)}\``,
+            inline: true,
+          });
+        }
+        
+        if (recipientAvatar) {
+          let recipientInfo = `${recipientAvatar.emoji} **${recipientAvatar.name}**\n\`${this.formatAddress(event.to)}\``;
+          if (recipientAvatar.currentBalance >= 1_000_000) {
+            recipientInfo += `\n🐋 ${this.formatLargeNumber(recipientAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (recipientAvatar.orbNftCount > 0) {
+              recipientInfo += ` • ${recipientAvatar.orbNftCount} Orb${recipientAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+          }
+          embed.fields.push({
+            name: '📥 To',
+            value: recipientInfo,
+            inline: true,
+          });
+        } else {
+          embed.fields.push({
+            name: '📥 To',
+            value: `\`${this.formatAddress(event.to)}\``,
+            inline: true,
+          });
+        }
+      }
 
       // Balance changes
       if (event.isNewHolder) {
@@ -1031,14 +1274,109 @@ export class BuybotService {
       // Token amount
       message += `${event.type === 'swap' ? 'Got' : 'Transferred'} *${formattedAmount} ${token.tokenSymbol}*\n\n`;
 
-      // Addresses - show both from and to for transfers
-      if (event.type === 'swap') {
-        message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
-      } else {
-        // Transfer - show both parties
-        message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
-        message += `📥 To: \`${this.formatAddress(event.to)}\`\n`;
+      // Get wallet avatars for addresses
+      let buyerAvatar = null;
+      let senderAvatar = null;
+      let recipientAvatar = null;
+
+      try {
+        if (event.type === 'swap' && event.to) {
+          // Get wallet's current token balance
+          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+          
+          // Get wallet's orb NFT count (hardcoded collection address for now)
+          const orbCollectionAddress = '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ';
+          const orbNftCount = await this.getWalletNftCount(event.to, orbCollectionAddress);
+          
+          buyerAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+            tokenSymbol: token.tokenSymbol,
+            tokenAddress: token.tokenAddress,
+            amount: formattedAmount,
+            usdValue: usdValue,
+            currentBalance: currentBalance,
+            orbNftCount: orbNftCount,
+            telegramChannelId: channelId // Pass telegram channel for introductions
+          });
+        } else if (event.type === 'transfer') {
+          if (event.from) {
+            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
+            const senderOrbCount = await this.getWalletNftCount(event.from, '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ');
+            
+            senderAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.from, {
+              tokenSymbol: token.tokenSymbol,
+              tokenAddress: token.tokenAddress,
+              amount: formattedAmount,
+              usdValue: usdValue,
+              currentBalance: senderBalance,
+              orbNftCount: senderOrbCount,
+              telegramChannelId: channelId
+            });
+          }
+          if (event.to) {
+            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+            const recipientOrbCount = await this.getWalletNftCount(event.to, '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ');
+            
+            recipientAvatar = await this.walletAvatarService.getOrCreateWalletAvatar(event.to, {
+              tokenSymbol: token.tokenSymbol,
+              tokenAddress: token.tokenAddress,
+              amount: formattedAmount,
+              usdValue: usdValue,
+              currentBalance: recipientBalance,
+              orbNftCount: recipientOrbCount,
+              telegramChannelId: channelId
+            });
+          }
+        }
+      } catch (avatarError) {
+        this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
       }
+
+      // Addresses - show wallet avatars with names/emojis
+      if (event.type === 'swap') {
+        if (buyerAvatar) {
+          message += `${buyerAvatar.emoji} Buyer: *${buyerAvatar.name}*\n`;
+          if (buyerAvatar.currentBalance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(buyerAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (buyerAvatar.orbNftCount > 0) {
+              message += ` • ${buyerAvatar.orbNftCount} Orb${buyerAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+            message += `\n`;
+          }
+          message += `    \`${this.formatAddress(event.to)}\`\n`;
+        } else {
+          message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
+        }
+      } else {
+        // Transfer - show both parties with avatars
+        if (senderAvatar) {
+          message += `${senderAvatar.emoji} From: *${senderAvatar.name}*\n`;
+          if (senderAvatar.currentBalance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(senderAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (senderAvatar.orbNftCount > 0) {
+              message += ` • ${senderAvatar.orbNftCount} Orb${senderAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+            message += `\n`;
+          }
+          message += `    \`${this.formatAddress(event.from)}\`\n`;
+        } else {
+          message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
+        }
+        
+        if (recipientAvatar) {
+          message += `${recipientAvatar.emoji} To: *${recipientAvatar.name}*\n`;
+          if (recipientAvatar.currentBalance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(recipientAvatar.currentBalance)} ${token.tokenSymbol}`;
+            if (recipientAvatar.orbNftCount > 0) {
+              message += ` • ${recipientAvatar.orbNftCount} Orb${recipientAvatar.orbNftCount > 1 ? 's' : ''}`;
+            }
+            message += `\n`;
+          }
+          message += `    \`${this.formatAddress(event.to)}\`\n`;
+        } else {
+          message += `📥 To: \`${this.formatAddress(event.to)}\`\n`;
+        }
+      }
+
 
       // Balance changes (new holder, increase, decrease)
       if (event.isNewHolder) {
@@ -1362,6 +1700,91 @@ export class BuybotService {
   formatAddress(address) {
     if (!address || address.length < 8) return address;
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  }
+
+  /**
+   * Get wallet's token balance using Helius
+   * @param {string} walletAddress - Wallet address
+   * @param {string} tokenAddress - Token mint address
+   * @returns {Promise<number>} Token balance (in UI units, e.g., full tokens not lamports)
+   */
+  async getWalletTokenBalance(walletAddress, tokenAddress) {
+    try {
+      if (!this.helius) {
+        this.logger.warn('[BuybotService] Helius not initialized, cannot fetch balance');
+        return 0;
+      }
+
+      // Get token accounts for the wallet
+      const response = await this.helius.rpc.getTokenAccounts({
+        owner: walletAddress,
+        mint: tokenAddress
+      });
+
+      if (!response || !response.token_accounts || response.token_accounts.length === 0) {
+        return 0;
+      }
+
+      // Sum up all token account balances (there might be multiple)
+      const totalBalance = response.token_accounts.reduce((sum, account) => {
+        return sum + parseFloat(account.amount || 0);
+      }, 0);
+
+      // Return balance in UI units (already converted by Helius)
+      return totalBalance;
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get wallet token balance:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get wallet's NFT count for a specific collection using Helius
+   * @param {string} walletAddress - Wallet address
+   * @param {string} collectionAddress - NFT collection address
+   * @returns {Promise<number>} NFT count
+   */
+  async getWalletNftCount(walletAddress, collectionAddress) {
+    try {
+      if (!this.helius) {
+        this.logger.warn('[BuybotService] Helius not initialized, cannot fetch NFTs');
+        return 0;
+      }
+
+      // Get NFTs owned by wallet
+      const response = await this.helius.rpc.getAssetsByOwner({
+        ownerAddress: walletAddress,
+        page: 1,
+        limit: 1000 // Max limit
+      });
+
+      if (!response || !response.items) {
+        return 0;
+      }
+
+      // Filter by collection
+      const nftsInCollection = response.items.filter(nft => {
+        // Check grouping (v1 collection standard)
+        if (nft.grouping) {
+          const collectionGroup = nft.grouping.find(g => g.group_key === 'collection');
+          if (collectionGroup && collectionGroup.group_value === collectionAddress) {
+            return true;
+          }
+        }
+        
+        // Check collection field (newer standard)
+        if (nft.collection && nft.collection.address === collectionAddress) {
+          return true;
+        }
+        
+        return false;
+      });
+
+      return nftsInCollection.length;
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get wallet NFT count:', error);
+      return 0;
+    }
   }
 
   /**
