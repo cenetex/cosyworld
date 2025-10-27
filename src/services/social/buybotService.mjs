@@ -1457,13 +1457,28 @@ export class BuybotService {
         },
       ];
 
-      await this.discordService.client.channels.fetch(channelId).then(channel => {
-        if (channel && channel.isTextBased()) {
-          channel.send({ embeds: [embed], components });
+      // Send the Discord message with proper error handling
+      try {
+        const channel = await this.discordService.client.channels.fetch(channelId);
+        if (!channel) {
+          throw new Error(`Channel ${channelId} not found`);
         }
-      });
-
-      this.logger.info(`[BuybotService] Sent Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId}`);
+        if (!channel.isTextBased()) {
+          throw new Error(`Channel ${channelId} is not a text channel`);
+        }
+        
+        const sentMessage = await channel.send({ embeds: [embed], components });
+        this.logger.info(`[BuybotService] Sent Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId} (message ID: ${sentMessage.id})`);
+      } catch (sendError) {
+        this.logger.error(`[BuybotService] Failed to send Discord message to channel ${channelId}:`, {
+          error: sendError.message,
+          code: sendError.code,
+          channelId,
+          tokenSymbol: token.tokenSymbol,
+          eventType: event.type
+        });
+        throw sendError; // Re-throw to trigger outer catch block
+      }
       
       // Trigger avatar responses for full (non-partial) avatars involved in the trade
       await this.triggerAvatarTradeResponses(channelId, event, token, {
