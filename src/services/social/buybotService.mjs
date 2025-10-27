@@ -41,6 +41,9 @@ export class BuybotService {
     // Price cache: tokenAddress -> { price, marketCap, timestamp }
     this.priceCache = new Map();
     
+    // Token info cache: tokenAddress -> { tokenInfo, timestamp }
+    this.tokenInfoCache = new Map();
+    
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
@@ -667,6 +670,13 @@ export class BuybotService {
    */
   async getTokenInfo(tokenAddress) {
     try {
+      // Check cache first
+      const cached = this.tokenInfoCache.get(tokenAddress);
+      if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL_MS) {
+        this.logger.debug(`[BuybotService] Using cached token info for ${tokenAddress}`);
+        return cached.tokenInfo;
+      }
+      
       if (!this.helius) return null;
 
       // First validate the address format
@@ -690,7 +700,7 @@ export class BuybotService {
           const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
           
           // For pump.fun or new tokens, return minimal info with DexScreener price if available
-          return {
+          const tokenInfo = {
             address: tokenAddress,
             name: 'Unknown Token',
             symbol: 'UNKNOWN',
@@ -701,6 +711,14 @@ export class BuybotService {
             marketCap: dexScreenerData?.marketCap || null,
             warning: 'Token not yet indexed - may be newly created or invalid',
           };
+          
+          // Cache the fallback token info
+          this.tokenInfoCache.set(tokenAddress, {
+            tokenInfo,
+            timestamp: Date.now()
+          });
+          
+          return tokenInfo;
         }
         throw apiError;
       }
@@ -734,7 +752,7 @@ export class BuybotService {
         marketCap = actualSupply * pricePerToken;
       }
 
-      return {
+      const tokenInfo = {
         address: tokenAddress,
         name: asset.content?.metadata?.name || 'Unknown Token',
         symbol: asset.content?.metadata?.symbol || 'UNKNOWN',
@@ -744,6 +762,14 @@ export class BuybotService {
         usdPrice: pricePerToken || null, // Price in USD if available
         marketCap: marketCap, // Market cap calculated from supply * price
       };
+      
+      // Cache the token info
+      this.tokenInfoCache.set(tokenAddress, {
+        tokenInfo,
+        timestamp: Date.now()
+      });
+
+      return tokenInfo;
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
       return null;
@@ -1585,10 +1611,11 @@ export class BuybotService {
             try {
               this.logger.info(`[BuybotService] Triggering response for avatar ${avatar.name}`);
               
-              // Send response with trade context as preset message to ensure it's used
-              await conversationManager.sendResponse(channel, avatar, tradeContext, {
+              // Send response with trade context passed via options (not as preset message)
+              await conversationManager.sendResponse(channel, avatar, null, {
                 overrideCooldown: true,
-                cascadeDepth: 0
+                cascadeDepth: 0,
+                tradeContext: tradeContext  // Pass as additional context for AI
               });
               
               this.logger.info(`[BuybotService] Successfully sent response for avatar ${avatar.name}`);

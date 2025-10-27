@@ -614,7 +614,7 @@ export class ConversationManager  {
   }
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
-  const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
+  const { overrideCooldown = false, cascadeDepth = 0, tradeContext = null } = options || {};
     
     this.logger.info?.(`[ConversationManager] sendResponse called for ${avatar.name} in channel ${channel.id}, overrideCooldown=${overrideCooldown}`);
     this.logger.info?.(`[ConversationManager] Channel object type: ${typeof channel}, has id: ${!!channel?.id}, Avatar object type: ${typeof avatar}, has name: ${!!avatar?.name}`);
@@ -724,6 +724,21 @@ export class ConversationManager  {
       } else {
         chatMessages = await this.promptService.getResponseChatMessages(avatar, channel, channelHistory, channelSummary, this.db);
       }
+      
+      // Inject trade context if provided
+      if (tradeContext) {
+        this.logger.info?.(`[ConversationManager] Injecting trade context for ${avatar.name}: ${tradeContext}`);
+        // Find the user message and prepend the trade context
+        const userMsgIndex = chatMessages.findIndex(msg => msg.role === 'user');
+        if (userMsgIndex !== -1) {
+          const originalContent = typeof chatMessages[userMsgIndex].content === 'string' 
+            ? chatMessages[userMsgIndex].content 
+            : chatMessages[userMsgIndex].content.find(c => c.type === 'text')?.text || '';
+          
+          chatMessages[userMsgIndex].content = `${tradeContext}\n\n${originalContent}`;
+        }
+      }
+      
       let userContent = chatMessages.find(msg => msg.role === 'user').content;
       if (this.aiService.supportsMultimodal && imagePromptParts.length > 0) {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];

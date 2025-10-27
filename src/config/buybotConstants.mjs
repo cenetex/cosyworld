@@ -11,7 +11,7 @@
 export const DEFAULT_ORB_COLLECTION_ADDRESS = process.env.ORB_COLLECTION_ADDRESS || '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ';
 
 // Polling interval for checking token transactions (milliseconds)
-export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 300000; // 5 minutes
+export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 30000; // 30 seconds
 
 // Maximum number of tokens/collections that can be tracked per channel
 export const MAX_TRACKED_TOKENS_PER_CHANNEL = parseInt(process.env.MAX_TRACKED_TOKENS_PER_CHANNEL, 10) || 20;
@@ -25,4 +25,4 @@ export const API_RETRY_MAX_ATTEMPTS = parseInt(process.env.API_RETRY_MAX_ATTEMPT
 export const API_RETRY_BASE_DELAY_MS = parseInt(process.env.API_RETRY_BASE_DELAY_MS, 10) || 1000;
 
 // Price cache TTL (milliseconds)
-export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 60000; // 1 minute
+export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 300000; // 5 minutes
