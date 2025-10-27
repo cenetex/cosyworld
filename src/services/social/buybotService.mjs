@@ -1601,7 +1601,11 @@ export class BuybotService {
         const { avatar, role } = fullAvatars[i];
         try {
           // Build trade context prompt for the avatar
-          const tradeContext = this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars);
+          const tradeContext = this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars, {
+            buyerAvatar,
+            senderAvatar,
+            recipientAvatar
+          });
           
           this.logger.info(`[BuybotService] Scheduling avatar ${avatar.name} to respond to trade as ${role}`);
           
@@ -1648,9 +1652,10 @@ export class BuybotService {
    * @param {string} role - Avatar's role (buyer/sender/recipient)
    * @param {Object} avatar - Avatar document
    * @param {Array} allAvatars - All full avatars in this trade
+   * @param {Object} allParticipants - All participants (buyerAvatar, senderAvatar, recipientAvatar)
    * @returns {string} Context prompt
    */
-  buildTradeContextForAvatar(event, token, role, avatar, allAvatars) {
+  buildTradeContextForAvatar(event, token, role, avatar, allAvatars, allParticipants = {}) {
     // Format the amount properly
     const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
     const amountForDisplay = this.formatLargeNumber(parseFloat(formattedAmount));
@@ -1677,6 +1682,13 @@ export class BuybotService {
       contextParts.push(`You are the sender in this transfer`);
       contextParts.push(`You just sent ${amountForDisplay} ${token.tokenSymbol}${usdValue}`);
       
+      // Add recipient information if available
+      const { recipientAvatar } = allParticipants;
+      if (recipientAvatar) {
+        const recipientName = `${recipientAvatar.emoji} ${recipientAvatar.name}`;
+        contextParts.push(`Recipient: ${recipientName}`);
+      }
+      
       // Get balance after transfer
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
       if (tokenBalance?.balance) {
@@ -1685,6 +1697,13 @@ export class BuybotService {
     } else if (role === 'recipient') {
       contextParts.push(`You are the recipient in this transfer`);
       contextParts.push(`You just received ${amountForDisplay} ${token.tokenSymbol}${usdValue}`);
+      
+      // Add sender information if available
+      const { senderAvatar } = allParticipants;
+      if (senderAvatar) {
+        const senderName = `${senderAvatar.emoji} ${senderAvatar.name}`;
+        contextParts.push(`Sender: ${senderName}`);
+      }
       
       // Get balance after transfer
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
