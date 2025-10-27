@@ -1484,11 +1484,22 @@ export class BuybotService {
       }
       
       // Trigger avatar responses for full (non-partial) avatars involved in the trade
+      this.logger.info(`[BuybotService] About to trigger avatar responses`, {
+        hasBuyerAvatar: !!buyerAvatar,
+        hasSenderAvatar: !!senderAvatar,
+        hasRecipientAvatar: !!recipientAvatar,
+        buyerImage: buyerAvatar?.imageUrl ? 'EXISTS' : 'NULL',
+        senderImage: senderAvatar?.imageUrl ? 'EXISTS' : 'NULL',
+        recipientImage: recipientAvatar?.imageUrl ? 'EXISTS' : 'NULL'
+      });
+      
       await this.triggerAvatarTradeResponses(channelId, event, token, {
         buyerAvatar,
         senderAvatar,
         recipientAvatar
       });
+      
+      this.logger.info(`[BuybotService] Finished triggering avatar responses`);
     } catch (error) {
       this.logger.error('[BuybotService] Failed to send Discord notification:', error);
     }
@@ -1503,6 +1514,17 @@ export class BuybotService {
    * @param {Object} avatars - { buyerAvatar, senderAvatar, recipientAvatar }
    */
   async triggerAvatarTradeResponses(channelId, event, token, avatars) {
+    this.logger.info(`[BuybotService] triggerAvatarTradeResponses CALLED`, {
+      channelId,
+      eventType: event.type,
+      tokenSymbol: token.tokenSymbol,
+      avatarsReceived: {
+        buyerAvatar: !!avatars.buyerAvatar,
+        senderAvatar: !!avatars.senderAvatar,
+        recipientAvatar: !!avatars.recipientAvatar
+      }
+    });
+    
     try {
       const { buyerAvatar, senderAvatar, recipientAvatar } = avatars;
       

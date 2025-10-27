@@ -1265,6 +1265,9 @@ export class AvatarService {
       const isPartialAvatar = !avatar.imageUrl;
       const needsUpgrade = isPartialAvatar && isRatiHolder;
       
+      // Debug logging for upgrade decision
+      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, isRatiHolder: ${isRatiHolder}, needsUpgrade: ${needsUpgrade}`);
+      
       if (needsUpgrade) {
         this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (RATi holder with ${context.currentBalance} tokens)`);
         
@@ -1281,7 +1284,7 @@ export class AvatarService {
           const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
           
           if (imageUrl) {
-            await db.collection(this.AVATARS_COLLECTION).updateOne(
+            const updateResult = await db.collection(this.AVATARS_COLLECTION).updateOne(
               { _id: avatar._id },
               { 
                 $set: { 
@@ -1291,7 +1294,12 @@ export class AvatarService {
                 }
               }
             );
-            this.logger?.info?.(`[AvatarService] Successfully upgraded ${avatar.name} to full avatar with image: ${imageUrl}`);
+            this.logger?.info?.(`[AvatarService] Successfully upgraded ${avatar.name} to full avatar with image: ${imageUrl} (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`);
+            
+            // CRITICAL FIX: Update the in-memory avatar object immediately
+            avatar.imageUrl = imageUrl;
+            avatar.isPartial = false;
+            avatar.upgradedAt = new Date();
           } else {
             this.logger?.error?.(`[AvatarService] Failed to generate image for ${avatar.name}`);
           }
@@ -1330,7 +1338,7 @@ export class AvatarService {
       // Reload to get updated data
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
-      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''}`);
+      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
       return avatar;
     }
     
@@ -1443,7 +1451,7 @@ export class AvatarService {
     // Reload with wallet metadata
     avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
     
-    this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}`);
+    this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
     // Activate in channel and send introduction if RATi holder
     if (isRatiHolder && context.discordChannelId) {

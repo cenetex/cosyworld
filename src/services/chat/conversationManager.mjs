@@ -51,9 +51,14 @@ export class ConversationManager  {
     this.MAX_RESPONSES_PER_MESSAGE = 2;
     this.channelResponders = new Map();
     
-    // Bot rate limiting: Track last bot message time per channel
+    // Bot rate limiting: Track last bot message time per channel with burst support
     this.channelLastBotMessage = new Map(); // channelId -> timestamp
+    this.channelBotBurstCount = new Map(); // channelId -> count of messages in burst window
+    this.channelResponseQueue = new Map(); // channelId -> array of {avatar, presetResponse, options, resolve, reject}
     this.BOT_REPLY_COOLDOWN = Number(process.env.BOT_REPLY_COOLDOWN_MS || 10000); // 10 seconds default between bot replies in same channel
+    this.BOT_BURST_ALLOWED = Number(process.env.BOT_BURST_ALLOWED || 3); // Allow 3 rapid messages before rate limit kicks in
+    this.BOT_BURST_WINDOW_MS = Number(process.env.BOT_BURST_WINDOW_MS || 15000); // 15 second window for burst counting
+    this.queueProcessingIntervals = new Map(); // channelId -> setInterval handle
     
     // In-memory cache for channel summaries to reduce expensive AI calls during combat
     this.summaryCacheMap = new Map(); // key: `${avatarId}:${channelId}` -> { summary, timestamp, lastMessageId }
@@ -519,6 +524,95 @@ export class ConversationManager  {
     return text;
   }
 
+  /**
+   * Queue a response to be sent after rate limit expires
+   * @param {Object} channel - Discord channel
+   * @param {Object} avatar - Avatar to respond
+   * @param {string} presetResponse - Preset response text (if any)
+   * @param {Object} options - Response options
+   * @param {number} delayMs - Milliseconds to delay before sending
+   * @returns {Promise<Object|null>} Resolves when message is sent or fails
+   */
+  async queueResponse(channel, avatar, presetResponse, options, delayMs) {
+    return new Promise((resolve) => {
+      const channelId = channel.id;
+      
+      // Initialize queue if needed
+      if (!this.channelResponseQueue.has(channelId)) {
+        this.channelResponseQueue.set(channelId, []);
+      }
+      
+      const queue = this.channelResponseQueue.get(channelId);
+      
+      // Add to queue
+      queue.push({
+        avatar,
+        presetResponse,
+        options: { ...options, overrideCooldown: false }, // Don't override when processing queue
+        addedAt: Date.now(),
+        delayMs,
+        resolve
+      });
+      
+      this.logger.info?.(`[ConversationManager] Queued response for ${avatar.name} in channel ${channelId} (will send in ${(delayMs / 1000).toFixed(1)}s, queue size: ${queue.length})`);
+      
+      // Start queue processor if not already running
+      if (!this.queueProcessingIntervals.has(channelId)) {
+        this.startQueueProcessor(channelId, channel);
+      }
+    });
+  }
+
+  /**
+   * Start processing queued responses for a channel
+   * @param {string} channelId - Channel ID
+   * @param {Object} channel - Discord channel object
+   */
+  startQueueProcessor(channelId, channel) {
+    // Check queue every 2 seconds
+    const intervalHandle = setInterval(async () => {
+      const queue = this.channelResponseQueue.get(channelId);
+      if (!queue || queue.length === 0) {
+        return; // Keep interval running in case new items are added
+      }
+      
+      const now = Date.now();
+      const lastBotMessageTime = this.channelLastBotMessage.get(channelId) || 0;
+      const timeSinceLastBot = now - lastBotMessageTime;
+      
+      // Check if cooldown has passed
+      if (timeSinceLastBot < this.BOT_REPLY_COOLDOWN) {
+        return; // Still cooling down
+      }
+      
+      // Get next item from queue
+      const queuedItem = queue.shift();
+      if (!queuedItem) return;
+      
+      this.logger.info?.(`[ConversationManager] Processing queued response for ${queuedItem.avatar.name} in channel ${channelId} (queue remaining: ${queue.length})`);
+      
+      try {
+        // Send the response
+        const result = await this.sendResponse(channel, queuedItem.avatar, queuedItem.presetResponse, queuedItem.options);
+        queuedItem.resolve(result);
+      } catch (error) {
+        this.logger.error(`[ConversationManager] Error processing queued response for ${queuedItem.avatar.name}: ${error.message}`);
+        queuedItem.resolve(null);
+      }
+      
+      // Clean up interval if queue is empty and hasn't been used recently
+      if (queue.length === 0 && now - queuedItem.addedAt > 60000) {
+        clearInterval(intervalHandle);
+        this.queueProcessingIntervals.delete(channelId);
+        this.channelResponseQueue.delete(channelId);
+        this.logger.debug?.(`[ConversationManager] Stopped queue processor for channel ${channelId}`);
+      }
+    }, 2000); // Check every 2 seconds
+    
+    this.queueProcessingIntervals.set(channelId, intervalHandle);
+    this.logger.debug?.(`[ConversationManager] Started queue processor for channel ${channelId}`);
+  }
+
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
   const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
     
@@ -554,13 +648,31 @@ export class ConversationManager  {
       return null;
     }
     
-    // Bot reply rate limiting: Ensure minimum time between ANY bot replies in the same channel
+    // Bot reply rate limiting: Burst-aware with queueing
+    // Allow a few rapid messages, then enforce cooldown, with queuing for blocked avatars
+    const now = Date.now();
     const lastBotMessageTime = this.channelLastBotMessage.get(channel.id) || 0;
-    const timeSinceLastBotMessage = Date.now() - lastBotMessageTime;
-    if (!overrideCooldown && timeSinceLastBotMessage < this.BOT_REPLY_COOLDOWN) {
+    const timeSinceLastBotMessage = now - lastBotMessageTime;
+    
+    // Get or initialize burst count
+    let burstInfo = this.channelBotBurstCount.get(channel.id) || { count: 0, windowStart: now };
+    
+    // Reset burst window if it's expired
+    if (now - burstInfo.windowStart > this.BOT_BURST_WINDOW_MS) {
+      burstInfo = { count: 0, windowStart: now };
+      this.channelBotBurstCount.set(channel.id, burstInfo);
+    }
+    
+    // Check if we're within burst allowance
+    const withinBurst = burstInfo.count < this.BOT_BURST_ALLOWED;
+    const shouldAllow = overrideCooldown || withinBurst || timeSinceLastBotMessage >= this.BOT_REPLY_COOLDOWN;
+    
+    if (!shouldAllow) {
       const remainingMs = this.BOT_REPLY_COOLDOWN - timeSinceLastBotMessage;
-      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked by bot rate limit in channel ${channel.id} - ${(remainingMs / 1000).toFixed(1)}s remaining`);
-      return null;
+      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked by bot rate limit in channel ${channel.id} - ${(remainingMs / 1000).toFixed(1)}s remaining (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
+      
+      // Queue the response to be sent after cooldown expires
+      return this.queueResponse(channel, avatar, presetResponse, options, remainingMs);
     }
     
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
@@ -901,9 +1013,20 @@ export class ConversationManager  {
             return null;
           }
           
-          // Update bot message rate limiting timestamp for this channel
-          this.channelLastBotMessage.set(channel.id, Date.now());
-          this.logger.debug(`Updated bot rate limit timestamp for channel ${channel.id}`);
+          // Update bot message rate limiting timestamp and burst count for this channel
+          const now = Date.now();
+          this.channelLastBotMessage.set(channel.id, now);
+          
+          // Update burst count
+          let burstInfo = this.channelBotBurstCount.get(channel.id) || { count: 0, windowStart: now };
+          if (now - burstInfo.windowStart > this.BOT_BURST_WINDOW_MS) {
+            burstInfo = { count: 1, windowStart: now };
+          } else {
+            burstInfo.count++;
+          }
+          this.channelBotBurstCount.set(channel.id, burstInfo);
+          
+          this.logger.debug(`Updated bot rate limit for channel ${channel.id} (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
           
           // Update avatar activity for active avatar management
           try {
