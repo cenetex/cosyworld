@@ -344,27 +344,31 @@ class TelegramService {
 
       if (trackedTokens.length === 0) return null;
 
-      // Get recent activity summaries from Discord channels for these tokens
+      // Build simple context with token info and contract addresses
+      let context = `📊 Tracked Tokens (${trackedTokens.length}):\n`;
+      
+      for (const token of trackedTokens) {
+        context += `\n${token.tokenSymbol} (${token.tokenName})\n`;
+        context += `  CA: \`${token.tokenAddress}\`\n`;
+      }
+
+      // Get recent activity summaries from Discord channels
       const tokenAddresses = trackedTokens.map(t => t.tokenAddress);
       const recentSummaries = await db.collection('buybot_activity_summaries')
         .find({
           tokenAddresses: { $in: tokenAddresses }
         })
         .sort({ createdAt: -1 })
-        .limit(3)  // Last 3 summaries across all tracked tokens
+        .limit(3)  // Last 3 summaries
         .toArray();
-
-      // Build context summary
-      let context = `Tracking ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''}: ${trackedTokens.map(t => t.tokenSymbol).join(', ')}\n`;
       
       if (recentSummaries.length > 0) {
-        context += `\nRecent Discord activity:\n`;
+        context += `\n\n💬 Recent Discord Activity:\n`;
         for (const summary of recentSummaries) {
           const timeAgo = Math.floor((Date.now() - summary.createdAt.getTime()) / 60000); // minutes
-          context += `• ${summary.summary} (${timeAgo}m ago)\n`;
+          const timeStr = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
+          context += `• ${summary.summary} (${timeStr})\n`;
         }
-      } else {
-        context += `\nNo recent Discord activity summaries.`;
       }
 
       return context.trim();
@@ -820,6 +824,23 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         {
           type: 'function',
           function: {
+            name: 'get_token_stats',
+            description: 'Get current market statistics for a tracked Solana token (market cap, price, 24h volume). Use this when users ask about token price, market cap, or stats.',
+            parameters: {
+              type: 'object',
+              properties: {
+                tokenSymbol: {
+                  type: 'string',
+                  description: 'The token symbol (e.g., "RATi", "BONK", "SOL")'
+                }
+              },
+              required: ['tokenSymbol']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
             name: 'generate_image',
             description: 'Generate an image based on a text prompt. Use this when users ask you to create, generate, or make an image or photo.',
             parameters: {
@@ -961,7 +982,11 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
         this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args, userId, username });
 
-        if (functionName === 'generate_image') {
+        if (functionName === 'get_token_stats') {
+          // Fetch token stats using buybotService
+          await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
+          
+        } else if (functionName === 'generate_image') {
           // Check cooldown limit
           const limit = await this.checkMediaGenerationLimit(null, 'image');
           if (!limit.allowed) {
@@ -1254,6 +1279,75 @@ Your caption:`;
         }
       }
       await ctx.reply(errorText);
+    }
+  }
+
+  /**
+   * Execute token stats lookup and send to channel
+   * @param {Object} ctx - Telegram context
+   * @param {string} tokenSymbol - Token symbol to look up
+   * @param {string} channelId - Channel ID for context
+   */
+  async executeTokenStatsLookup(ctx, tokenSymbol, channelId) {
+    try {
+      this.logger?.info?.(`[TelegramService] Looking up stats for ${tokenSymbol}`);
+      
+      if (!this.buybotService) {
+        await ctx.reply('📊 Token tracking service is not available right now.');
+        return;
+      }
+
+      // Get tracked tokens for this channel
+      const db = await this.databaseService.getDatabase();
+      const trackedToken = await db.collection('buybot_tracked_tokens')
+        .findOne({ 
+          channelId, 
+          active: true, 
+          tokenSymbol: { $regex: new RegExp(`^${tokenSymbol}$`, 'i') }
+        });
+
+      if (!trackedToken) {
+        await ctx.reply(`📊 ${tokenSymbol} is not currently tracked in this channel.\n\nUse /settings to add it!`);
+        return;
+      }
+
+      // Fetch current price and market data
+      const priceData = await this.buybotService.getTokenPrice(trackedToken.tokenAddress);
+      
+      if (!priceData || !priceData.price) {
+        await ctx.reply(`📊 Unable to fetch current stats for ${tokenSymbol}. The token may not have pricing data available.`);
+        return;
+      }
+
+      // Format numbers for readability
+      const formatNumber = (num) => {
+        if (!num) return 'N/A';
+        if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
+        if (num >= 1_000) return `$${(num / 1_000).toFixed(2)}K`;
+        return `$${num.toFixed(2)}`;
+      };
+
+      const formatPrice = (price) => {
+        if (!price) return 'N/A';
+        if (price < 0.01) return `$${price.toFixed(6)}`;
+        return `$${price.toFixed(4)}`;
+      };
+
+      const message = 
+        `📊 *${trackedToken.tokenSymbol}* (${trackedToken.tokenName})\n\n` +
+        `💰 Price: ${formatPrice(priceData.price)}\n` +
+        `📈 Market Cap: ${formatNumber(priceData.marketCap)}\n` +
+        `📊 24h Volume: ${formatNumber(priceData.volume24h)}\n\n` +
+        `🔗 CA: \`${trackedToken.tokenAddress}\``;
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+      
+      this.logger?.info?.(`[TelegramService] Sent stats for ${tokenSymbol}: price=$${priceData.price}, mcap=$${priceData.marketCap}`);
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Token stats lookup failed:', error);
+      await ctx.reply(`❌ Sorry, I couldn't fetch stats for ${tokenSymbol}. Please try again later.`);
     }
   }
 

@@ -1499,7 +1499,7 @@ export class AvatarService {
             const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
             
             if (introText && introText.length > 5 && !introText.includes('No response')) {
-              // Send as webhook (avatar speaks!)
+              // Send to Discord as webhook (avatar speaks!)
               await this.configService.services.discordService.sendAsWebhook(
                 context.discordChannelId,
                 `${avatar.emoji} *${introText.trim()}*`,
@@ -1519,7 +1519,30 @@ export class AvatarService {
                 }
               }, 500);
               
-              this.logger?.info?.(`[AvatarService] Sent introduction for wallet avatar ${avatar.name}`);
+              this.logger?.info?.(`[AvatarService] Sent Discord introduction for wallet avatar ${avatar.name}`);
+              
+              // Also send to Telegram channel if configured
+              if (context.telegramChannelId) {
+                try {
+                  const telegramService = this.configService?.services?.telegramService;
+                  if (telegramService) {
+                    const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
+                    const telegramMessage = 
+                      `${avatar.emoji} *New Trader: ${avatar.name}*\n\n` +
+                      `_${introText.trim()}_\n\n` +
+                      `🔗 Wallet: \`${walletSlug}\`\n` +
+                      `💰 Balance: ${balanceStr}`;
+                    
+                    await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
+                      parse_mode: 'Markdown'
+                    });
+                    
+                    this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
+                  }
+                } catch (telegramErr) {
+                  this.logger?.warn?.(`[AvatarService] Failed to send Telegram introduction: ${telegramErr.message}`);
+                }
+              }
             }
           } catch (introErr) {
             this.logger?.warn?.(`[AvatarService] Failed to send introduction: ${introErr.message}`);
