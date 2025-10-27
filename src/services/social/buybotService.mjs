@@ -24,13 +24,14 @@ import {
 } from '../../config/buybotConstants.mjs';
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, services }) {
+  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
     this.discordService = discordService;
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
     this.avatarService = avatarService;
+    this.avatarRelationshipService = avatarRelationshipService;
     this.services = services; // Container for late-bound service resolution
     
     this.helius = null;
@@ -1596,6 +1597,11 @@ export class BuybotService {
       
       this.logger.info(`[BuybotService] Triggering responses for ${fullAvatars.length} full avatar(s) in trade`);
       
+      // Record relationships between avatars involved in this trade
+      if (fullAvatars.length >= 2 && this.avatarRelationshipService) {
+        await this.recordTradeRelationships(fullAvatars, event, token);
+      }
+      
       // Get the channel object
       const channel = await this.discordService.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) {
@@ -1621,8 +1627,8 @@ export class BuybotService {
       for (let i = 0; i < fullAvatars.length; i++) {
         const { avatar, role } = fullAvatars[i];
         try {
-          // Build trade context prompt for the avatar
-          const tradeContext = this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars, {
+          // Build trade context prompt for the avatar (async now includes relationship data)
+          const tradeContext = await this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars, {
             buyerAvatar,
             senderAvatar,
             recipientAvatar
@@ -1667,6 +1673,77 @@ export class BuybotService {
   }
 
   /**
+   * Record trade relationships between avatars
+   * @param {Array} fullAvatars - Array of {avatar, role} objects
+   * @param {Object} event - Trade event
+   * @param {Object} token - Token info
+   */
+  async recordTradeRelationships(fullAvatars, event, token) {
+    try {
+      if (!this.avatarRelationshipService) {
+        return;
+      }
+
+      // Calculate trade amount and USD value
+      const decimals = event.decimals || token.tokenDecimals || 9;
+      const tokenAmount = parseFloat(event.amount) / Math.pow(10, decimals);
+      const usdValue = token.usdPrice ? tokenAmount * token.usdPrice : 0;
+
+      // For transfers, record relationship between sender and recipient
+      if (event.type === 'transfer' && fullAvatars.length === 2) {
+        const sender = fullAvatars.find(a => a.role === 'sender');
+        const recipient = fullAvatars.find(a => a.role === 'recipient');
+
+        if (sender && recipient) {
+          await this.avatarRelationshipService.recordTrade({
+            avatar1Id: String(sender.avatar._id),
+            avatar1Name: sender.avatar.name,
+            avatar2Id: String(recipient.avatar._id),
+            avatar2Name: recipient.avatar.name,
+            tokenSymbol: token.tokenSymbol,
+            amount: tokenAmount,
+            usdValue: usdValue,
+            tradeType: 'transfer',
+            direction: 'sent', // From sender's perspective
+            txSignature: event.signature || 'unknown'
+          });
+
+          this.logger.info(`[BuybotService] Recorded transfer relationship: ${sender.avatar.name} -> ${recipient.avatar.name}`);
+        }
+      }
+
+      // For swaps with multiple participants, record all pairwise relationships
+      if (event.type === 'swap' && fullAvatars.length >= 2) {
+        const buyer = fullAvatars.find(a => a.role === 'buyer');
+        
+        if (buyer) {
+          // Record relationship with all other participants
+          for (const other of fullAvatars) {
+            if (other.avatar._id.toString() !== buyer.avatar._id.toString()) {
+              await this.avatarRelationshipService.recordTrade({
+                avatar1Id: String(buyer.avatar._id),
+                avatar1Name: buyer.avatar.name,
+                avatar2Id: String(other.avatar._id),
+                avatar2Name: other.avatar.name,
+                tokenSymbol: token.tokenSymbol,
+                amount: tokenAmount,
+                usdValue: usdValue,
+                tradeType: 'swap',
+                direction: 'received', // Buyer received tokens
+                txSignature: event.signature || 'unknown'
+              });
+
+              this.logger.debug(`[BuybotService] Recorded swap relationship: ${buyer.avatar.name} <-> ${other.avatar.name}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to record trade relationships:', error);
+    }
+  }
+
+  /**
    * Build context message for avatar to understand the trade they're involved in
    * @param {Object} event - Trade event
    * @param {Object} token - Token info
@@ -1674,9 +1751,9 @@ export class BuybotService {
    * @param {Object} avatar - Avatar document
    * @param {Array} allAvatars - All full avatars in this trade
    * @param {Object} allParticipants - All participants (buyerAvatar, senderAvatar, recipientAvatar)
-   * @returns {string} Context prompt
+   * @returns {Promise<string>} Context prompt
    */
-  buildTradeContextForAvatar(event, token, role, avatar, allAvatars, allParticipants = {}) {
+  async buildTradeContextForAvatar(event, token, role, avatar, allAvatars, allParticipants = {}) {
     // Calculate the actual token amount in UI units (not raw amount)
     const decimals = event.decimals || token.tokenDecimals || 9;
     const tokenAmount = parseFloat(event.amount) / Math.pow(10, decimals);
@@ -1736,9 +1813,34 @@ export class BuybotService {
       }
     }
     
-    // Mention other full avatars if present
+    // Add relationship context for other avatars involved
     const otherAvatars = allAvatars.filter(a => a.avatar._id.toString() !== avatar._id.toString());
-    if (otherAvatars.length > 0) {
+    if (otherAvatars.length > 0 && this.avatarRelationshipService) {
+      contextParts.push(`\nOther avatars in this trade:`);
+      
+      for (const other of otherAvatars) {
+        const otherName = `${other.avatar.emoji} ${other.avatar.name}`;
+        
+        // Get relationship context
+        try {
+          const relationshipContext = await this.avatarRelationshipService.getRelationshipContext(
+            String(avatar._id),
+            String(other.avatar._id)
+          );
+          
+          if (relationshipContext) {
+            contextParts.push(`\n${relationshipContext}`);
+          } else {
+            contextParts.push(`${otherName}: This is your first interaction together`);
+          }
+        } catch (err) {
+          this.logger.warn(`[BuybotService] Failed to get relationship context: ${err.message}`);
+          contextParts.push(otherName);
+        }
+      }
+      
+      contextParts.push(`Feel free to interact with them about this trade, drawing on your shared history`);
+    } else if (otherAvatars.length > 0) {
       const otherNames = otherAvatars.map(a => `${a.avatar.emoji} ${a.avatar.name}`).join(', ');
       contextParts.push(`Other avatars involved: ${otherNames}`);
       contextParts.push(`Feel free to interact with them about this trade`);

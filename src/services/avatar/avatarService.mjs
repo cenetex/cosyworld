@@ -1261,7 +1261,9 @@ export class AvatarService {
     
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
-      const isRatiHolder = context.tokenSymbol === 'RATi' && context.currentBalance > 0;
+      // Normalize token symbol by removing $ prefix if present
+      const normalizedTokenSymbol = context.tokenSymbol?.replace(/^\$/, '');
+      const isRatiHolder = normalizedTokenSymbol === 'RATi' && context.currentBalance > 0;
       const isPartialAvatar = !avatar.imageUrl;
       const needsUpgrade = isPartialAvatar && isRatiHolder;
       
@@ -1343,7 +1345,9 @@ export class AvatarService {
     }
     
     // Create new avatar - RATi holders get images, others don't
-    const isRatiHolder = context.tokenSymbol === 'RATi' && context.currentBalance > 0;
+    // Normalize token symbol by removing $ prefix if present
+    const normalizedTokenSymbol = context.tokenSymbol?.replace(/^\$/, '');
+    const isRatiHolder = normalizedTokenSymbol === 'RATi' && context.currentBalance > 0;
     
     // Build prompt for avatar creation
     const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';

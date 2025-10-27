@@ -717,12 +717,62 @@ export class ConversationManager  {
       }
       const channelHistory = await this.getChannelContext(channel.id, 50);
       const channelSummary = await this.getChannelSummary(avatar._id, channel.id);
+      
+      // Get relationship context for other avatars in recent conversation
+      let relationshipContext = '';
+      if (this.configService?.services?.avatarRelationshipService && channelHistory.length > 0) {
+        try {
+          const relationshipService = this.configService.services.avatarRelationshipService;
+          const recentAuthors = new Set();
+          
+          // Get unique avatar IDs from recent messages (last 10)
+          for (const msg of channelHistory.slice(0, 10)) {
+            if (msg.authorId && msg.authorId !== String(avatar._id) && msg.authorIsBot) {
+              recentAuthors.add(msg.authorId);
+            }
+          }
+          
+          // Fetch relationship context for each recent avatar (limit to 3 most recent)
+          const recentAuthorsList = Array.from(recentAuthors).slice(0, 3);
+          for (const authorId of recentAuthorsList) {
+            const context = await relationshipService.getRelationshipContext(
+              String(avatar._id),
+              authorId
+            );
+            
+            if (context) {
+              relationshipContext += `\n${context}\n`;
+            }
+          }
+          
+          if (relationshipContext) {
+            this.logger.debug?.(`[ConversationManager] Loaded relationship context for ${avatar.name} with ${recentAuthorsList.length} avatar(s)`);
+          }
+        } catch (relErr) {
+          this.logger.debug?.(`Failed to load relationship context: ${relErr.message}`);
+        }
+      }
+      
       let chatMessages;
       const useV2 = this.promptService?.promptAssembler && String(process.env.MEMORY_RECALL_ENABLED || 'true') === 'true';
       if (useV2 && typeof this.promptService.getResponseChatMessagesV2 === 'function') {
         chatMessages = await this.promptService.getResponseChatMessagesV2(avatar, channel, channelHistory, channelSummary, this.db);
       } else {
         chatMessages = await this.promptService.getResponseChatMessages(avatar, channel, channelHistory, channelSummary, this.db);
+      }
+      
+      // Inject relationship context if available
+      if (relationshipContext) {
+        this.logger.info?.(`[ConversationManager] Injecting relationship context for ${avatar.name}`);
+        // Find the user message and prepend the relationship context
+        const userMsgIndex = chatMessages.findIndex(msg => msg.role === 'user');
+        if (userMsgIndex !== -1) {
+          const originalContent = typeof chatMessages[userMsgIndex].content === 'string' 
+            ? chatMessages[userMsgIndex].content 
+            : chatMessages[userMsgIndex].content.find(c => c.type === 'text')?.text || '';
+          
+          chatMessages[userMsgIndex].content = `[Relationship Context:\n${relationshipContext}]\n\n${originalContent}`;
+        }
       }
       
       // Inject trade context if provided
@@ -1164,6 +1214,26 @@ export class ConversationManager  {
             await this.presenceService.grantNewSummonTurns(channel.id, `${target._id}`, 1);
           }
         } catch {}
+        
+        // Record conversation relationship between speaking avatar and mentioned avatar
+        if (this.configService?.services?.avatarRelationshipService) {
+          try {
+            const relationshipService = this.configService.services.avatarRelationshipService;
+            await relationshipService.recordConversation({
+              avatar1Id: String(speakingAvatar._id),
+              avatar1Name: speakingAvatar.name,
+              avatar2Id: String(target._id),
+              avatar2Name: target.name,
+              messageId: 'mention', // Could be enhanced with actual message ID
+              content: text.substring(0, 200),
+              context: `${speakingAvatar.name} mentioned ${target.name} in conversation`,
+              sentiment: 'neutral' // Could enhance with sentiment detection
+            });
+          } catch (relErr) {
+            this.logger.debug?.(`Failed to record conversation relationship: ${relErr.message}`);
+          }
+        }
+        
         // Attempt immediate reply (overrideCooldown to keep flow natural)
         await this.sendResponse(channel, target, null, { overrideCooldown: true, cascadeDepth: cascadeDepth + 1 });
       } catch (e) {
