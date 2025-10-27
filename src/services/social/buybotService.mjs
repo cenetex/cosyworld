@@ -1516,8 +1516,11 @@ export class BuybotService {
     if (role === 'buyer') {
       contextParts.push(`You are the buyer in this transaction`);
       contextParts.push(`You acquired ${formattedAmount} ${token.tokenSymbol}${usdValue ? ` worth ${usdValue}` : ''}`);
-      if (avatar.currentBalance) {
-        contextParts.push(`Your current balance: ${this.formatLargeNumber(avatar.currentBalance)} ${token.tokenSymbol}`);
+      
+      // Get balance from flexible tokenBalances schema
+      const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
+      if (tokenBalance?.balance) {
+        contextParts.push(`Your current balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
       }
     } else if (role === 'sender') {
       contextParts.push(`You are the sender in this transfer`);
@@ -1650,10 +1653,14 @@ export class BuybotService {
       if (event.type === 'swap') {
         if (buyerAvatar) {
           message += `${buyerAvatar.emoji} Buyer: *${buyerAvatar.name}*\n`;
-          if (buyerAvatar.currentBalance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(buyerAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (buyerAvatar.orbNftCount > 0) {
-              message += ` • ${buyerAvatar.orbNftCount} Orb${buyerAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = buyerAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
@@ -1665,10 +1672,14 @@ export class BuybotService {
         // Transfer - show both parties with avatars
         if (senderAvatar) {
           message += `${senderAvatar.emoji} From: *${senderAvatar.name}*\n`;
-          if (senderAvatar.currentBalance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(senderAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (senderAvatar.orbNftCount > 0) {
-              message += ` • ${senderAvatar.orbNftCount} Orb${senderAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = senderAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
@@ -1679,10 +1690,14 @@ export class BuybotService {
         
         if (recipientAvatar) {
           message += `${recipientAvatar.emoji} To: *${recipientAvatar.name}*\n`;
-          if (recipientAvatar.currentBalance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(recipientAvatar.currentBalance)} ${token.tokenSymbol}`;
-            if (recipientAvatar.orbNftCount > 0) {
-              message += ` • ${recipientAvatar.orbNftCount} Orb${recipientAvatar.orbNftCount > 1 ? 's' : ''}`;
+          
+          // Get balance from flexible tokenBalances schema
+          const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
+          if (tokenBalance && tokenBalance.balance >= 1_000_000) {
+            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            const orbCount = recipientAvatar.nftBalances?.Orb || 0;
+            if (orbCount > 0) {
+              message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
