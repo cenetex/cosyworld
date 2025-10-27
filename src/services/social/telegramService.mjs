@@ -242,13 +242,7 @@ class TelegramService {
     try {
       const commands = [
         { command: 'settings', description: '⚙️ Manage buybot settings' },
-        { command: 'ca', description: 'Show tracked tokens' },
-        { command: 'ca_add', description: 'Track a new token' },
-        { command: 'ca_list', description: 'Show all tracked tokens' },
-        { command: 'ca_remove', description: 'Stop tracking a token' },
-        { command: 'ca_media', description: 'Set media generation thresholds' },
-        { command: 'ca_set_media', description: 'Upload custom media for small buys' },
-        { command: 'ca_help', description: 'Show buybot help' },
+        { command: 'help', description: '❓ Show help' },
       ];
 
       await this.globalBot.telegram.setMyCommands(commands);

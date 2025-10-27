@@ -147,6 +147,8 @@ export class BuybotService {
             tokenSymbol: tokenInfo.symbol,
             tokenDecimals: tokenInfo.decimals,
             usdPrice: tokenInfo.usdPrice || null, // Store USD price if available
+            marketCap: tokenInfo.marketCap || null, // Store market cap if available
+            lastPriceUpdate: new Date(), // Track when price was last updated
             mediaThresholds: {
               image: 100,  // Default: $100 for images
               video: 1000, // Default: $1000 for videos
@@ -395,14 +397,27 @@ export class BuybotService {
         return null;
       }
 
+      // Calculate market cap if we have supply and price
+      let marketCap = null;
+      const supply = asset.token_info?.supply;
+      const decimals = asset.token_info?.decimals || 9;
+      const pricePerToken = asset.token_info?.price_info?.price_per_token;
+      
+      if (supply && pricePerToken && decimals) {
+        // Convert supply from raw amount to actual token amount using decimals
+        const actualSupply = supply / Math.pow(10, decimals);
+        marketCap = actualSupply * pricePerToken;
+      }
+
       return {
         address: tokenAddress,
         name: asset.content?.metadata?.name || 'Unknown Token',
         symbol: asset.content?.metadata?.symbol || 'UNKNOWN',
-        decimals: asset.token_info?.decimals || 9,
-        supply: asset.token_info?.supply,
+        decimals: decimals,
+        supply: supply,
         image: asset.content?.links?.image,
-        usdPrice: asset.token_info?.price_info?.price_per_token || null, // Price in USD if available
+        usdPrice: pricePerToken || null, // Price in USD if available
+        marketCap: marketCap, // Market cap calculated from supply * price
       };
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
@@ -484,6 +499,27 @@ export class BuybotService {
         // Token was removed, stop polling
         this.stopPollingToken(channelId, tokenAddress, platform);
         return;
+      }
+
+      // Fetch fresh token info (including current price) for notifications
+      const freshTokenInfo = await this.getTokenInfo(tokenAddress);
+      
+      // Update token with fresh price and market data
+      if (freshTokenInfo && freshTokenInfo.usdPrice) {
+        await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+          { channelId, tokenAddress },
+          { 
+            $set: { 
+              usdPrice: freshTokenInfo.usdPrice,
+              marketCap: freshTokenInfo.marketCap || null,
+              lastPriceUpdate: new Date(),
+            } 
+          }
+        );
+        
+        // Merge fresh data into token object for notifications
+        token.usdPrice = freshTokenInfo.usdPrice;
+        token.marketCap = freshTokenInfo.marketCap;
       }
 
       // Get recent transactions for the token
@@ -743,35 +779,98 @@ export class BuybotService {
     try {
       const emoji = event.type === 'swap' ? '💰' : '📤';
       const color = event.type === 'swap' ? 0x00ff00 : 0x0099ff;
+      const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+      const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
 
       const embed = {
         title: `${emoji} ${token.tokenSymbol} ${event.type === 'swap' ? 'Purchase' : 'Transfer'}`,
         description: event.description,
         color: color,
-        fields: [
-          {
-            name: 'Amount',
-            value: `${this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals)} ${token.tokenSymbol}`,
-            inline: true,
-          },
-          {
-            name: 'From',
-            value: this.formatAddress(event.from),
-            inline: true,
-          },
-          {
-            name: 'To',
-            value: this.formatAddress(event.to),
-            inline: true,
-          },
-        ],
+        fields: [],
         timestamp: event.timestamp.toISOString(),
         footer: {
           text: 'Solana • Powered by Helius',
         },
       };
 
-      // Add transaction link as button
+      // Amount with USD value
+      if (usdValue) {
+        embed.fields.push({
+          name: '💵 Value',
+          value: `$${usdValue.toFixed(2)}`,
+          inline: true,
+        });
+      }
+
+      embed.fields.push({
+        name: '📦 Amount',
+        value: `${formattedAmount} ${token.tokenSymbol}`,
+        inline: true,
+      });
+
+      // Price and market cap
+      if (token.usdPrice) {
+        embed.fields.push({
+          name: '💲 Price',
+          value: `$${token.usdPrice.toFixed(6)}`,
+          inline: true,
+        });
+      }
+
+      if (token.marketCap) {
+        embed.fields.push({
+          name: '📊 Market Cap',
+          value: `$${this.formatLargeNumber(token.marketCap)}`,
+          inline: true,
+        });
+      }
+
+      // From/To addresses
+      embed.fields.push({
+        name: '📤 From',
+        value: `\`${this.formatAddress(event.from)}\``,
+        inline: true,
+      });
+
+      embed.fields.push({
+        name: '📥 To',
+        value: `\`${this.formatAddress(event.to)}\``,
+        inline: true,
+      });
+
+      // Balance changes
+      if (event.isNewHolder) {
+        embed.fields.push({
+          name: '🆕 Status',
+          value: 'New Holder!',
+          inline: false,
+        });
+      } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
+        const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
+        const preFormatted = this.formatLargeNumber(event.preAmountUi);
+        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+        embed.fields.push({
+          name: '📈 Balance Change',
+          value: `+${increasePercent}% (${preFormatted} → ${postFormatted} ${token.tokenSymbol})`,
+          inline: false,
+        });
+      } else if (event.preAmountUi && event.postAmountUi && event.postAmountUi < event.preAmountUi) {
+        const decreasePercent = ((event.preAmountUi - event.postAmountUi) / event.preAmountUi * 100).toFixed(1);
+        const preFormatted = this.formatLargeNumber(event.preAmountUi);
+        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+        embed.fields.push({
+          name: '📉 Balance Change',
+          value: `-${decreasePercent}% (${preFormatted} → ${postFormatted} ${token.tokenSymbol})`,
+          inline: false,
+        });
+      }
+
+      // Add links as buttons
+      const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
+      const jupiterUrl = token.tokenSymbol === 'RATi' 
+        ? `https://pump.fun/${token.tokenAddress}`
+        : `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+
       const components = [
         {
           type: 1,
@@ -781,6 +880,18 @@ export class BuybotService {
               style: 5,
               label: 'View Transaction',
               url: event.txUrl,
+            },
+            {
+              type: 2,
+              style: 5,
+              label: 'DexScreener',
+              url: dexScreenerUrl,
+            },
+            {
+              type: 2,
+              style: 5,
+              label: token.tokenSymbol === 'RATi' ? 'Buy on Pump.fun' : 'Swap on Jupiter',
+              url: jupiterUrl,
             },
           ],
         },
@@ -819,37 +930,63 @@ export class BuybotService {
       // Build enhanced notification message
       let message = '';
       
-      // Title with emoji
+      // Title with emoji and type
       if (event.type === 'swap') {
         const emoji = token.tokenSymbol === 'RATi' ? '🐭' : '💰';
         const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
         message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
       } else {
+        // Transfer
         message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
       }
 
-      // Amount and USD value
+      // Amount and USD value (for both swaps and transfers)
       if (usdValue) {
         message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
       }
 
       // Token amount
-      message += `Got *${formattedAmount} ${token.tokenSymbol}*\n\n`;
+      message += `${event.type === 'swap' ? 'Got' : 'Transferred'} *${formattedAmount} ${token.tokenSymbol}*\n\n`;
 
-      // Buyer address (shortened)
-      message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
+      // Addresses - show both from and to for transfers
+      if (event.type === 'swap') {
+        message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
+      } else {
+        // Transfer - show both parties
+        message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
+        message += `📥 To: \`${this.formatAddress(event.to)}\`\n`;
+      }
 
-      // New holder or increase percentage
+      // Balance changes (new holder, increase, decrease)
       if (event.isNewHolder) {
         message += `🆕 *New Holder!*\n`;
       } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
         const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
-        message += `📈 Increased ${increasePercent}%\n`;
+        message += `📈 Balance increased ${increasePercent}%\n`;
+        
+        // Show before/after for significant changes
+        if (event.preAmountUi > 0) {
+          const preFormatted = this.formatLargeNumber(event.preAmountUi);
+          const postFormatted = this.formatLargeNumber(event.postAmountUi);
+          message += `   ${preFormatted} → ${postFormatted} ${token.tokenSymbol}\n`;
+        }
+      } else if (event.preAmountUi && event.postAmountUi && event.postAmountUi < event.preAmountUi) {
+        // Handle decreases (outgoing transfers)
+        const decreasePercent = ((event.preAmountUi - event.postAmountUi) / event.preAmountUi * 100).toFixed(1);
+        message += `📉 Balance decreased ${decreasePercent}%\n`;
+        
+        const preFormatted = this.formatLargeNumber(event.preAmountUi);
+        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+        message += `   ${preFormatted} → ${postFormatted} ${token.tokenSymbol}\n`;
       }
 
-      // Market cap (if available)
+      // Market cap and price info
+      message += `\n`;
+      if (token.usdPrice) {
+        message += `💲 Price: $${token.usdPrice.toFixed(6)}\n`;
+      }
       if (token.marketCap) {
-        message += `\n📊 Market Cap: $${this.formatLargeNumber(token.marketCap)}\n`;
+        message += `📊 Market Cap: $${this.formatLargeNumber(token.marketCap)}\n`;
       }
 
       // Links
@@ -862,10 +999,14 @@ export class BuybotService {
       const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
       message += ` • [DexScreener](${dexScreenerUrl})`;
       
-      // Pump.fun or Jupiter buy link (if RATi or other known token)
+      // Pump.fun or Jupiter buy link
       if (token.tokenSymbol === 'RATi') {
         const buyUrl = `https://pump.fun/${token.tokenAddress}`;
         message += ` • [Buy](${buyUrl})`;
+      } else {
+        // Generic Jupiter swap link for other tokens
+        const jupiterUrl = `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+        message += ` • [Swap](${jupiterUrl})`;
       }
 
       await telegramService.globalBot.telegram.sendMessage(
