@@ -159,10 +159,30 @@ export class ConversationManager  {
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
   this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
-  let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId });
+  let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId, returnEnvelope: true });
+  
+  // Handle model not found fallback
+  if (narrative && typeof narrative === 'object' && narrative.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+    const { fallbackModel, originalModel } = narrative.error;
+    this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name} narrative, updating to fallback model '${fallbackModel}'`);
+    
+    // Update avatar's model to the fallback
+    avatar.model = fallbackModel;
+    try {
+      await this.avatarService.updateAvatar(avatar);
+      this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+    } catch (updateError) {
+      this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+    }
+    
+    // Retry the narrative generation with the new model
+    this.logger.info?.(`[ConversationManager] Retrying narrative for ${avatar.name} with fallback model ${fallbackModel}`);
+    narrative = await ai.chat(chatMessages, { model: fallbackModel, corrId, returnEnvelope: true });
+  }
+  
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
-      // Scrub any <think> tags that may have leaked from providers
-      try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
+  // Scrub any <think> tags that may have leaked from providers
+  try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
       if (!narrative) {
         this.logger.error(`No narrative generated for ${avatar.name}.`);
         return null;
@@ -433,7 +453,30 @@ export class ConversationManager  {
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
-  ], { model: avatar.model, corrId });
+  ], { model: avatar.model, corrId, returnEnvelope: true });
+  
+  // Handle model not found fallback
+  if (summary && typeof summary === 'object' && summary.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+    const { fallbackModel, originalModel } = summary.error;
+    this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name} summary, updating to fallback model '${fallbackModel}'`);
+    
+    // Update avatar's model to the fallback
+    avatar.model = fallbackModel;
+    try {
+      await this.avatarService.updateAvatar(avatar);
+      this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+    } catch (updateError) {
+      this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+    }
+    
+    // Retry the summary generation with the new model
+    this.logger.info?.(`[ConversationManager] Retrying summary for ${avatar.name} with fallback model ${fallbackModel}`);
+    summary = await ai.chat([
+      { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
+      { role: 'user', content: prompt }
+    ], { model: fallbackModel, corrId, returnEnvelope: true });
+  }
+  
   if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
     try { if (typeof summary === 'string') summary = summary.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
     if (!summary) {
@@ -657,7 +700,8 @@ export class ConversationManager  {
   
   // Build chat options
   // Increased max_tokens to accommodate models with extended reasoning (e.g., Nemotron with reasoning mode)
-  const chatOptions = { model: avatar.model, max_tokens: 1024, corrId };
+  // returnEnvelope: true allows us to detect and handle model errors (like 404 model not found)
+  const chatOptions = { model: avatar.model, max_tokens: 1024, corrId, returnEnvelope: true };
   
   // Execute tools if meta-prompting decided on any
   if (toolCalls.length > 0) {
@@ -743,6 +787,27 @@ export class ConversationManager  {
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
       
       this.logger.info?.(`[ConversationManager] AI chat returned for ${avatar.name}, result type: ${typeof result}, is null/undefined: ${result == null}`);
+      
+      // Handle model not found fallback
+      if (result && typeof result === 'object' && result.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+        const { fallbackModel, originalModel } = result.error;
+        this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name}, updating to fallback model '${fallbackModel}'`);
+        
+        // Update avatar's model to the fallback
+        avatar.model = fallbackModel;
+        try {
+          await this.avatarService.updateAvatar(avatar);
+          this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+        } catch (updateError) {
+          this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+        }
+        
+        // Retry the chat with the new model
+        chatOptions.model = fallbackModel;
+        this.logger.info?.(`[ConversationManager] Retrying chat for ${avatar.name} with fallback model ${fallbackModel}`);
+        result = await ai.chat(chatMessages, chatOptions);
+        resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
+      }
       
       // Log non-string/atypical shapes for diagnostics
       try {

@@ -710,12 +710,47 @@ export class OpenRouterAIService {
       const parsed = parseProviderError(error);
       this.logger.error('[OpenRouter][Chat] error', parsed);
       const status = parsed.status;
+      
       // Retry if the error is a rate limit error
       if (status === 429 && retries > 0) {
         this.logger.error('Retrying chat with OpenRouter in 5 seconds...');
         await new Promise(resolve => setTimeout(resolve, 5000));
         return this.chat(messages, options, retries - 1);
       }
+      
+      // Handle model not found error (404) by selecting a new random model
+      if (status === 404 && parsed.userMessage === 'Model not found' && retries > 0) {
+        this.logger.warn(`[OpenRouter][Chat] Model '${mergedOptions.model}' not found (404), selecting fallback model...`);
+        
+        try {
+          // Select a new random model from available models
+          const fallbackModel = await this.selectRandomModel();
+          
+          if (fallbackModel && fallbackModel !== mergedOptions.model) {
+            this.logger.info(`[OpenRouter][Chat] Fallback model selected: '${fallbackModel}' (was: '${mergedOptions.model}')`);
+            
+            // Return special response indicating model needs to be updated
+            // The caller (conversationManager) should update the avatar's model
+            return options.returnEnvelope 
+              ? { 
+                  text: '', 
+                  raw: null, 
+                  model: fallbackModel, 
+                  provider: 'openrouter', 
+                  error: { 
+                    code: 'MODEL_NOT_FOUND_FALLBACK', 
+                    message: 'Model not found, fallback selected',
+                    originalModel: mergedOptions.model,
+                    fallbackModel: fallbackModel
+                  } 
+                } 
+              : null;
+          }
+        } catch (fallbackError) {
+          this.logger.error(`[OpenRouter][Chat] Failed to select fallback model: ${fallbackError.message}`);
+        }
+      }
+      
       // No fallback attempts retained.
       return options.returnEnvelope ? { text: '', raw: null, model: mergedOptions.model, provider: 'openrouter', error: { code: parsed.code || (status === 429 ? 'RATE_LIMIT' : 'CHAT_ERROR'), message: parsed.userMessage } } : null;
     }
