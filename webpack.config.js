@@ -109,6 +109,7 @@ export default (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           // Root HTML
+          { from: path.resolve(__dirname, 'src/services/web/public/landing.html'), to: path.resolve(__dirname, 'dist/landing.html') },
           { from: path.resolve(__dirname, 'src/services/web/public/index.html'), to: path.resolve(__dirname, 'dist/index.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/checkout.html'), to: path.resolve(__dirname, 'dist/checkout.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/api-docs.html'), to: path.resolve(__dirname, 'dist/api-docs.html'), transform: transformHtml },

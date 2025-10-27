@@ -349,14 +349,37 @@ async function initializeApp(services) {
       });
     });
 
-    // SPA fallback (only if serving a frontend)
+    // Root landing page - branded entry point
+    app.get('/', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'landing.html'), (err) => {
+        if (err) {
+          logger.error('Failed to serve landing page:', err);
+          next(err);
+        }
+      });
+    });
+
+    // Swarm UI application
+    app.get('/app', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // SPA fallback for app routes (only if serving a frontend)
+    app.get('/app/*', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // Catch-all for other paths
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api/') || path.extname(req.path)) {
         return next();
       }
-      res.sendFile('index.html', { root: staticDir }, (err) => {
-        if (err) next(err);
-      });
+      // Redirect unknown routes to landing page
+      res.redirect('/');
     });
 
     // Global error handler

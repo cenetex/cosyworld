@@ -1,5 +1,5 @@
 <!--
-  Copyright (c) 2019-2024 Cenetex Inc.
+  Copyright (c) 2019-2025 Cenetex Inc.
   Licensed under the MIT License.
 -->
 
@@ -8,273 +8,366 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard</title>
+    <title>RATi Admin Dashboard :: Moonstone Sanctum</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
     <link href="/css/admin-common.css" rel="stylesheet" />
+    <style>
+      /* Custom RATi Theme */
+      :root {
+        --rati-purple: #9333ea;
+        --rati-purple-dark: #7e22ce;
+        --rati-purple-light: #c084fc;
+      }
+      
+      body {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        min-height: 100vh;
+      }
+      
+      .card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(147, 51, 234, 0.2);
+      }
+      
+      .stat-card {
+        background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(192, 132, 252, 0.1) 100%);
+        border: 1px solid rgba(147, 51, 234, 0.2);
+      }
+      
+      .pulse-dot {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      
+      .gradient-text {
+        background: linear-gradient(135deg, #9333ea 0%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      .quick-action-btn {
+        background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+        transition: all 0.3s;
+      }
+      
+      .quick-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(147, 51, 234, 0.4);
+      }
+      
+      .nav-glass {
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .fade-in {
+        animation: fadeIn 0.6s ease-out;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .activity-item {
+        border-left: 3px solid var(--rati-purple);
+        transition: all 0.2s;
+      }
+      
+      .activity-item:hover {
+        background: rgba(147, 51, 234, 0.05);
+        border-left-width: 4px;
+      }
+    </style>
   </head>
-  <body class="bg-gray-100">
+  <body>
     <div class="min-h-screen flex flex-col">
-  <!-- Legacy nav will be replaced by admin-shell.js if present -->
-  <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+      <!-- Modern Navigation -->
+      <nav class="nav-glass text-white shadow-lg sticky top-0 z-50" data-legacy-nav>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16">
             <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
-              </div>
-              <div class="ml-10 flex items-baseline space-x-4">
-                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Dashboard</a>
-                <a href="/admin/payment-monitoring" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Payments</a>
-                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
-                <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
-                <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
-                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              <img src="/images/image.png" alt="RATi" class="w-10 h-10 rounded-lg mr-3" onerror="this.style.display='none'" />
+              <div>
+                <h1 class="text-xl font-bold gradient-text">RATi Admin</h1>
+                <p class="text-xs text-gray-400">Moonstone Sanctum</p>
               </div>
             </div>
-            <div>
-              <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
+            <div class="hidden md:flex items-baseline space-x-4">
+              <a href="/admin" class="px-3 py-2 rounded-lg text-sm font-medium bg-purple-700 bg-opacity-50">Dashboard</a>
+              <a href="/admin/entity-management" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Entities</a>
+              <a href="/admin/x-accounts" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">X Accounts</a>
+              <a href="/admin/collections" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Collections</a>
+              <a href="/admin/settings" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Settings</a>
+            </div>
+            <div class="flex items-center space-x-3">
+              <div class="wallet-container"></div>
+              <button id="admin-logout" class="px-3 py-1 text-sm bg-white bg-opacity-10 hover:bg-opacity-20 rounded-lg transition">Logout</button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main class="flex-grow">
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div class="px-4 py-6 sm:px-0">
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div class="px-4 py-5 sm:px-6">
-                <h2 class="text-lg leading-6 font-medium text-gray-900">
-                  Administration Tools
-                </h2>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500">
-                  Manage various aspects of your application
-                </p>
-                <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4" id="admin-stats">
-                  <div class="p-4 bg-gray-50 rounded border">
-                    <div class="text-xs text-gray-500">Avatars</div>
-                    <div class="text-2xl font-semibold" id="stat-avatars">--</div>
-                  </div>
-                  <div class="p-4 bg-gray-50 rounded border">
-                    <div class="text-xs text-gray-500">Items</div>
-                    <div class="text-2xl font-semibold" id="stat-items">--</div>
-                  </div>
-                  <div class="p-4 bg-gray-50 rounded border">
-                    <div class="text-xs text-gray-500">Locations</div>
-                    <div class="text-2xl font-semibold" id="stat-locations">--</div>
-                  </div>
-                  <div class="p-4 bg-gray-50 rounded border">
-                    <div class="text-xs text-gray-500">Memories</div>
-                    <div class="text-2xl font-semibold" id="stat-memories">--</div>
-                  </div>
-                </div>
-                
-                <!-- Payment Stats Section -->
-                <div class="mt-4 bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-4 rounded-lg border border-indigo-200">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <h3 class="text-sm font-medium text-gray-900">💰 Agentic Economy</h3>
-                      <span id="payment-status-badge" class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">Loading...</span>
-                    </div>
-                    <a href="/admin/payment-monitoring" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                      View Dashboard →
-                    </a>
-                  </div>
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div class="bg-white/70 rounded p-3">
-                      <div class="text-xs text-gray-600">Transactions</div>
-                      <div class="text-lg font-bold text-gray-900" id="payment-stat-transactions">--</div>
-                    </div>
-                    <div class="bg-white/70 rounded p-3">
-                      <div class="text-xs text-gray-600">Total Volume</div>
-                      <div class="text-lg font-bold text-gray-900" id="payment-stat-volume">--</div>
-                    </div>
-                    <div class="bg-white/70 rounded p-3">
-                      <div class="text-xs text-gray-600">Agent Wallets</div>
-                      <div class="text-lg font-bold text-gray-900" id="payment-stat-wallets">--</div>
-                    </div>
-                    <div class="bg-white/70 rounded p-3">
-                      <div class="text-xs text-gray-600">Platform Revenue</div>
-                      <div class="text-lg font-bold text-gray-900" id="payment-stat-revenue">--</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="mt-4 flex items-center justify-between bg-gray-50 px-4 py-3 rounded border">
-                  <div>
-                    <div class="text-sm font-medium text-gray-700">Admin login</div>
-                    <div class="text-xs text-gray-500" id="admin-login-status">Connect with Phantom to access admin features</div>
-                  </div>
-                  <div class="wallet-container"></div>
-                </div>
-
-                <!-- Unified Global X Posting & Account Panel -->
-                <div class="mt-4 bg-gray-50 px-4 py-4 rounded border" id="x-global-panel">
-                  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <h3 class="text-sm font-medium text-gray-700">Global X Auto Posting</h3>
-                        <span id="global-x-state-pill" class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">--</span>
-                      </div>
-                      <p class="text-xs text-gray-500 mt-1 max-w-2xl">Automatically posts newly generated images or videos using the connected admin X account (single global account). Toggle only controls enable/disable.</p>
-                      <div id="global-x-hint" class="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2 mt-2 hidden"></div>
-                      <div id="x-profile-wrapper" class="mt-3 hidden">
-                        <div class="flex items-center gap-3">
-                          <img id="admin-x-avatar" src="" alt="X avatar" class="w-12 h-12 rounded-full border bg-white object-cover" />
-                          <div class="min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                              <div id="admin-x-name" class="text-sm font-medium text-gray-800 truncate max-w-xs"></div>
-                              <div id="admin-x-username" class="text-xs text-gray-500"></div>
-                              <!-- Global badge removed: single admin account implicitly global -->
-                            </div>
-                            <div id="admin-x-expiry" class="text-xs text-gray-400"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex flex-col items-end gap-2 shrink-0">
-                      <label class="inline-flex items-center cursor-pointer select-none">
-                        <input type="checkbox" id="global-x-enabled" class="h-5 w-5 text-indigo-600 border-gray-300 rounded" />
-                        <span class="ml-2 text-sm text-gray-700">Enabled</span>
-                      </label>
-                      <div class="flex gap-2">
-                        <button id="admin-x-connect" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Connect</button>
-                        <button id="admin-x-disconnect" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm hidden">Disconnect</button>
-                        <!-- Auto-save enabled: save button removed; profile auto-refresh logic handles state (no manual refresh) -->
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- OAuth 1.0a Credentials for Media Upload -->
-                  <div class="mt-4 pt-4 border-t border-gray-200">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="text-sm font-medium text-gray-700">OAuth 1.0a Credentials (Required for Media Upload)</h4>
-                      <button id="oauth1-toggle" class="text-xs text-blue-600 hover:text-blue-700">Show</button>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-3">Twitter's media upload API requires OAuth 1.0a credentials. Get these from your Twitter Developer Portal under "Keys and tokens".</p>
-                    
-                    <div id="oauth1-form" class="hidden space-y-3">
-                      <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">API Key (Consumer Key)</label>
-                        <input type="text" id="oauth1-api-key" placeholder="Your API Key" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">API Secret (Consumer Secret)</label>
-                        <input type="password" id="oauth1-api-secret" placeholder="Your API Secret" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Access Token</label>
-                        <input type="text" id="oauth1-access-token" placeholder="Your Access Token" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
-                      </div>
-                      <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Access Token Secret</label>
-                        <input type="password" id="oauth1-access-token-secret" placeholder="Your Access Token Secret" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
-                      </div>
-                      <div class="flex gap-2">
-                        <button id="oauth1-save" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm">Save Credentials</button>
-                        <button id="oauth1-test" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Test Upload</button>
-                      </div>
-                      <div id="oauth1-status" class="text-xs hidden"></div>
-                    </div>
-                  </div>
-                </div>
+      <!-- Main Content -->
+      <main class="flex-grow py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <!-- Welcome Header -->
+          <div class="card p-6 mb-8 fade-in">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-3xl font-bold text-gray-900">Welcome Back</h2>
+                <p class="text-gray-600 mt-1">Manage your AI swarm from the command center</p>
               </div>
-              <div class="border-t border-gray-200"
-                <div
-                  class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
-                >
-                  <dt class="text-sm font-medium text-gray-500">
-                    Discord Server Management
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    <a
-                      href="/admin/settings"
-                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      Settings
-                    </a>
-                    <p class="mt-1 text-xs text-gray-500">
-                      Configure settings for Discord servers, including summon
-                      emojis, prompts, and permissions
-                    </p>
-                  </dd>
-                </div>
-
-                <!-- X Accounts Management Section -->
-                <div
-                  class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
-                >
-                  <dt class="text-sm font-medium text-gray-500">
-                    X Account Management
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    <a
-                      href="/admin/x-accounts"
-                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Manage X Accounts
-                    </a>
-                    <p class="mt-1 text-xs text-gray-500">
-                      View and manage X (Twitter) accounts linked to avatars
-                    </p>
-                  </dd>
-                </div>
-
-                <!-- Global Bot Management Section -->
-                <div
-                  class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
-                >
-                  <dt class="text-sm font-medium text-gray-500">
-                    Global Bot Management
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    <a
-                      href="/admin/global-bot"
-                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                    >
-                      Manage Global Bot
-                    </a>
-                    <p class="mt-1 text-xs text-gray-500">
-                      Configure the global bot's persona, model, memories, and view posting history
-                    </p>
-                  </dd>
-                </div>
-
-                <!-- Entity Management Section -->
-                <div
-                  class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6"
-                >
-                  <dt class="text-sm font-medium text-gray-500">
-                    Entity Management
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    <a
-                      href="/admin/entity-management"
-                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
-                      Manage Entities
-                    </a>
-                    <p class="mt-1 text-xs text-gray-500">
-                      Manage avatars, locations, and items in one place
-                    </p>
-                  </dd>
-                </div>
-
-                <!-- Additional admin tools can be added here -->
+              <div class="flex items-center space-x-2">
+                <div class="pulse-dot w-3 h-3 bg-green-500 rounded-full"></div>
+                <span class="text-sm text-gray-600">System Online</span>
               </div>
             </div>
           </div>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 fade-in" style="animation-delay: 0.1s">
+            <!-- Avatar Stats -->
+            <div class="card stat-card p-6">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-4xl">🤖</div>
+                <div class="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">ACTIVE</div>
+              </div>
+              <div class="text-3xl font-bold text-gray-900" id="stat-avatars">--</div>
+              <div class="text-sm text-gray-600 mt-1">Avatars</div>
+            </div>
+
+            <!-- Items Stats -->
+            <div class="card stat-card p-6">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-4xl">💎</div>
+                <div class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">INVENTORY</div>
+              </div>
+              <div class="text-3xl font-bold text-gray-900" id="stat-items">--</div>
+              <div class="text-sm text-gray-600 mt-1">Items</div>
+            </div>
+
+            <!-- Locations Stats -->
+            <div class="card stat-card p-6">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-4xl">🗺️</div>
+                <div class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold">WORLD</div>
+              </div>
+              <div class="text-3xl font-bold text-gray-900" id="stat-locations">--</div>
+              <div class="text-sm text-gray-600 mt-1">Locations</div>
+            </div>
+
+            <!-- Memories Stats -->
+            <div class="card stat-card p-6">
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-4xl">🧠</div>
+                <div class="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full font-semibold">MEMORY</div>
+              </div>
+              <div class="text-3xl font-bold text-gray-900" id="stat-memories">--</div>
+              <div class="text-sm text-gray-600 mt-1">Memories</div>
+            </div>
+          </div>
+
+          <!-- Agentic Economy Panel -->
+          <div class="card p-6 mb-8 fade-in" style="animation-delay: 0.2s">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                  💰 Agentic Economy
+                  <span id="payment-status-badge" class="ml-3 text-xs px-3 py-1 rounded-full bg-gray-200 text-gray-700">Loading...</span>
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">Real-time transaction and wallet monitoring</p>
+              </div>
+              <a href="/admin/payment-monitoring" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium">
+                View Dashboard →
+              </a>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-white bg-opacity-50 rounded-lg p-4 border border-purple-200">
+                <div class="text-xs text-gray-600 mb-1">Transactions</div>
+                <div class="text-2xl font-bold text-gray-900" id="payment-stat-transactions">--</div>
+              </div>
+              <div class="bg-white bg-opacity-50 rounded-lg p-4 border border-purple-200">
+                <div class="text-xs text-gray-600 mb-1">Total Volume</div>
+                <div class="text-2xl font-bold text-gray-900" id="payment-stat-volume">--</div>
+              </div>
+              <div class="bg-white bg-opacity-50 rounded-lg p-4 border border-purple-200">
+                <div class="text-xs text-gray-600 mb-1">Agent Wallets</div>
+                <div class="text-2xl font-bold text-gray-900" id="payment-stat-wallets">--</div>
+              </div>
+              <div class="bg-white bg-opacity-50 rounded-lg p-4 border border-purple-200">
+                <div class="text-xs text-gray-600 mb-1">Platform Revenue</div>
+                <div class="text-2xl font-bold text-gray-900" id="payment-stat-revenue">--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 fade-in" style="animation-delay: 0.3s">
+            <div class="card p-6">
+              <div class="text-3xl mb-3">🎭</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Entity Management</h3>
+              <p class="text-sm text-gray-600 mb-4">Manage avatars, locations, and items in one place</p>
+              <a href="/admin/entity-management" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage Entities
+              </a>
+            </div>
+
+            <div class="card p-6">
+              <div class="text-3xl mb-3">🐦</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">X Account Management</h3>
+              <p class="text-sm text-gray-600 mb-4">View and manage X (Twitter) accounts linked to avatars</p>
+              <a href="/admin/x-accounts" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage X Accounts
+              </a>
+            </div>
+
+            <div class="card p-6">
+              <div class="text-3xl mb-3">🤖</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Global Bot</h3>
+              <p class="text-sm text-gray-600 mb-4">Configure the global bot's persona, model, and memories</p>
+              <a href="/admin/global-bot" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage Global Bot
+              </a>
+            </div>
+
+            <div class="card p-6">
+              <div class="text-3xl mb-3">💎</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">NFT Collections</h3>
+              <p class="text-sm text-gray-600 mb-4">Manage NFT collections and avatar linking</p>
+              <a href="/admin/collections" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage Collections
+              </a>
+            </div>
+
+            <div class="card p-6">
+              <div class="text-3xl mb-3">⚙️</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Server Settings</h3>
+              <p class="text-sm text-gray-600 mb-4">Configure Discord servers, summon emojis, and permissions</p>
+              <a href="/admin/settings" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Settings
+              </a>
+            </div>
+
+            <div class="card p-6">
+              <div class="text-3xl mb-3">🔐</div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Secrets & Keys</h3>
+              <p class="text-sm text-gray-600 mb-4">Manage API keys and sensitive configuration</p>
+              <a href="/admin/secrets" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage Secrets
+              </a>
+            </div>
+          </div>
+
+          <!-- Global X Posting Panel -->
+          <div class="card p-6 mb-8 fade-in" style="animation-delay: 0.4s" id="x-global-panel">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h3 class="text-xl font-bold text-gray-900">🐦 Global X Auto Posting</h3>
+                  <span id="global-x-state-pill" class="text-xs px-3 py-1 rounded-full bg-gray-200 text-gray-700">--</span>
+                </div>
+                <p class="text-sm text-gray-600">Automatically posts newly generated images or videos using the connected admin X account</p>
+              </div>
+              <label class="inline-flex items-center cursor-pointer select-none">
+                <input type="checkbox" id="global-x-enabled" class="h-5 w-5 text-purple-600 border-gray-300 rounded" />
+                <span class="ml-2 text-sm font-medium text-gray-700">Enabled</span>
+              </label>
+            </div>
+
+            <div id="global-x-hint" class="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 hidden"></div>
+
+            <div id="x-profile-wrapper" class="hidden bg-white bg-opacity-50 rounded-lg p-4 border border-purple-200">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <img id="admin-x-avatar" src="" alt="X avatar" class="w-14 h-14 rounded-full border-2 border-purple-200 bg-white object-cover" />
+                  <div>
+                    <div class="flex items-center gap-2 mb-1">
+                      <div id="admin-x-name" class="text-base font-bold text-gray-900"></div>
+                      <div id="admin-x-username" class="text-sm text-gray-500"></div>
+                    </div>
+                    <div id="admin-x-expiry" class="text-xs text-gray-400"></div>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button id="admin-x-connect" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">Connect</button>
+                  <button id="admin-x-disconnect" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium hidden transition">Disconnect</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- OAuth 1.0a Credentials -->
+            <div class="mt-4 pt-4 border-t border-gray-200">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-base font-bold text-gray-900">OAuth 1.0a Credentials</h4>
+                <button id="oauth1-toggle" class="text-sm text-purple-600 hover:text-purple-700 font-medium">Show</button>
+              </div>
+              <p class="text-sm text-gray-600 mb-4">Required for media upload. Get these from your Twitter Developer Portal under "Keys and tokens".</p>
+              
+              <div id="oauth1-form" class="hidden space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key (Consumer Key)</label>
+                    <input type="text" id="oauth1-api-key" placeholder="Your API Key" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API Secret (Consumer Secret)</label>
+                    <input type="password" id="oauth1-api-secret" placeholder="Your API Secret" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Access Token</label>
+                    <input type="text" id="oauth1-access-token" placeholder="Your Access Token" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Access Token Secret</label>
+                    <input type="password" id="oauth1-access-token-secret" placeholder="Your Access Token Secret" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                  </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                  <button id="oauth1-save" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">Save Credentials</button>
+                  <button id="oauth1-test" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">Test Upload</button>
+                </div>
+                <div id="oauth1-status" class="text-sm hidden"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </main>
 
-      <footer class="bg-white">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <p class="text-center text-sm text-gray-500">
-            RATi Swarm Admin Panel © 2024
-          </p>
+      <!-- Footer -->
+      <footer class="bg-black bg-opacity-30 backdrop-filter backdrop-blur-lg border-t border-white border-opacity-10">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between">
+            <p class="text-sm text-gray-400">
+              RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025
+            </p>
+            <div class="flex items-center space-x-4">
+              <a href="/" class="text-sm text-gray-400 hover:text-white transition">Home</a>
+              <a href="/app" class="text-sm text-gray-400 hover:text-white transition">Swarm UI</a>
+              <a href="https://github.com/cenetex/cosyworld" target="_blank" class="text-sm text-gray-400 hover:text-white transition">GitHub</a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
-  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
-  <script type="module" src="/js/admin-dashboard.js"></script>
+    
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/admin-dashboard.js"></script>
   </body>
 </html>
