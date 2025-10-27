@@ -1086,11 +1086,32 @@ export class BuybotService {
       const pre = preBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
       const post = postBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
 
-      const preAmountUi = pre ? parseFloat(pre.uiTokenAmount?.uiAmount || 0) : 0;
-      const postAmountUi = post ? parseFloat(post.uiTokenAmount?.uiAmount || 0) : (preAmountUi + Math.abs(tokenAmountUi));
+      // Only calculate balance changes if we have reliable pre/post balance data
+      let preAmountUi = null;
+      let postAmountUi = null;
+      let isNewHolder = false;
+      let isIncrease = false;
 
-      const isNewHolder = preAmountUi === 0 && postAmountUi > 0;
-      const isIncrease = postAmountUi > preAmountUi;
+      if (pre && post) {
+        // We have both pre and post balances - can reliably determine holder status
+        preAmountUi = parseFloat(pre.uiTokenAmount?.uiAmount || 0);
+        postAmountUi = parseFloat(post.uiTokenAmount?.uiAmount || 0);
+        isNewHolder = preAmountUi === 0 && postAmountUi > 0;
+        isIncrease = postAmountUi > preAmountUi;
+      } else if (post) {
+        // Only have post balance - can check if they're a new holder if post > 0 and no pre balance found
+        postAmountUi = parseFloat(post.uiTokenAmount?.uiAmount || 0);
+        // Only mark as new holder if post balance exists and it's the first time we see this account
+        // Be conservative - don't mark as new holder without pre-balance confirmation
+        isNewHolder = false;
+        isIncrease = postAmountUi > 0;
+      } else {
+        // No reliable balance data - skip holder status detection
+        preAmountUi = null;
+        postAmountUi = null;
+        isNewHolder = false;
+        isIncrease = false;
+      }
 
       return {
         type: eventType,
@@ -1656,14 +1677,17 @@ export class BuybotService {
    * @returns {string} Context prompt
    */
   buildTradeContextForAvatar(event, token, role, avatar, allAvatars, allParticipants = {}) {
-    // Format the amount properly
-    const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
-    const amountForDisplay = this.formatLargeNumber(parseFloat(formattedAmount));
+    // Calculate the actual token amount in UI units (not raw amount)
+    const decimals = event.decimals || token.tokenDecimals || 9;
+    const tokenAmount = parseFloat(event.amount) / Math.pow(10, decimals);
+    
+    // Format for display
+    const amountForDisplay = this.formatLargeNumber(tokenAmount);
     
     // Calculate USD value if available
     let usdValue = '';
     if (token.usdPrice) {
-      const usdAmount = this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice);
+      const usdAmount = tokenAmount * token.usdPrice;
       usdValue = ` (worth $${usdAmount.toFixed(2)})`;
     }
     
