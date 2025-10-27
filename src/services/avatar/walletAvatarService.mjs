@@ -332,7 +332,17 @@ export class WalletAvatarService {
       this.logger.info(`[WalletAvatarService] Creating partial avatar for ${this.formatAddress(walletAddress)} (${tokenSymbol} holder)`);
       
       // Generate deterministic name and family based on wallet + token
-      const { name, family, emoji } = this.generatePartialAvatarIdentity(walletAddress, tokenSymbol);
+      const identity = this.generatePartialAvatarIdentity(walletAddress, tokenSymbol);
+      
+      // Validate that we have all required fields
+      if (!identity || !identity.name || !identity.emoji || !identity.family) {
+        this.logger.error(`[WalletAvatarService] generatePartialAvatarIdentity returned invalid data:`, identity);
+        throw new Error(`Invalid partial avatar identity generated for wallet ${walletAddress}`);
+      }
+      
+      const { name, family, emoji } = identity;
+      
+      this.logger.info(`[WalletAvatarService] Generated identity: ${emoji} ${name} from ${family}`);
       
       // Prepare flexible token balances and NFT balances
       const tokenBalances = {};
@@ -379,6 +389,8 @@ export class WalletAvatarService {
         }
       };
 
+      this.logger.info(`[WalletAvatarService] Inserting partial avatar document:`, { name, emoji, family, walletAddress });
+
       const result = await this.db.collection('avatars').insertOne(avatarDoc);
       avatarDoc._id = result.insertedId;
       
@@ -389,6 +401,7 @@ export class WalletAvatarService {
       return avatarDoc;
     } catch (error) {
       this.logger.error('[WalletAvatarService] createPartialWalletAvatar failed:', error);
+      this.logger.error('[WalletAvatarService] Context:', context);
       return null;
     }
   }  /**

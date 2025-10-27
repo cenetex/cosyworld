@@ -1251,7 +1251,7 @@ export class BuybotService {
 
       // From/To addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
-        if (buyerAvatar) {
+        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
           let buyerInfo = `${buyerAvatar.emoji} **${buyerAvatar.name}**`;
           if (buyerAvatar.family) {
             buyerInfo += ` _(${buyerAvatar.family})_`;
@@ -1281,7 +1281,7 @@ export class BuybotService {
         }
       } else {
         // Transfer - show both parties
-        if (senderAvatar) {
+        if (senderAvatar && senderAvatar.name && senderAvatar.emoji) {
           let senderInfo = `${senderAvatar.emoji} **${senderAvatar.name}**`;
           if (senderAvatar.family) {
             senderInfo += ` _(${senderAvatar.family})_`;
@@ -1310,7 +1310,7 @@ export class BuybotService {
           });
         }
         
-        if (recipientAvatar) {
+        if (recipientAvatar && recipientAvatar.name && recipientAvatar.emoji) {
           let recipientInfo = `${recipientAvatar.emoji} **${recipientAvatar.name}**`;
           if (recipientAvatar.family) {
             recipientInfo += ` _(${recipientAvatar.family})_`;
@@ -1651,7 +1651,7 @@ export class BuybotService {
 
       // Addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
-        if (buyerAvatar) {
+        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
           message += `${buyerAvatar.emoji} Buyer: *${buyerAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
@@ -1670,7 +1670,7 @@ export class BuybotService {
         }
       } else {
         // Transfer - show both parties with avatars
-        if (senderAvatar) {
+        if (senderAvatar && senderAvatar.name && senderAvatar.emoji) {
           message += `${senderAvatar.emoji} From: *${senderAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
@@ -1688,7 +1688,7 @@ export class BuybotService {
           message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
         }
         
-        if (recipientAvatar) {
+        if (recipientAvatar && recipientAvatar.name && recipientAvatar.emoji) {
           message += `${recipientAvatar.emoji} To: *${recipientAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
