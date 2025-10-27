@@ -141,7 +141,7 @@ async function initializeApp(services) {
     app.get('/test', (req, res) => res.json({ message: 'Test route working' }));
   app.use('/api/leaderboard', (await import('./routes/leaderboard.js')).default(db));
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
-    app.use('/api/health', (await import('./routes/health.js')).default(db));
+    app.use('/api/health', (await import('./routes/health.js')).default(db, services));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
     app.use('/api/nft', (await import('./routes/nft.js')).default);
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));

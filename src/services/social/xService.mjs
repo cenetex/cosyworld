@@ -36,11 +36,13 @@ class XService {
     databaseService,
     configService,
     secretsService,
+    metricsService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
     this.configService = configService;
     this.secretsService = secretsService;
+    this.metricsService = metricsService;
   }
 
   // --- Client-side methods (for browser, can be static or moved elsewhere if needed) ---
@@ -749,6 +751,12 @@ class XService {
           this._globalRate.rateLimited = false;
           this._globalRate.rateLimitResetAt = null;
           this.logger?.info?.('[XService][globalPost] Rate limit expired, resuming normal operation');
+          
+          // Update health status
+          this.metricsService?.recordHealth('xService', {
+            status: 'healthy',
+            message: 'Rate limit expired, normal operation resumed'
+          });
         }
       }
       
@@ -1132,6 +1140,10 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
           return postClient.tweet(payload);
         }
       };
+      
+      // Track post attempt
+      this.metricsService?.increment('xService', 'posts_attempted');
+      
       try {
         tweet = await sendTweet();
       } catch (apiErr) {
@@ -1144,6 +1156,15 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
           const waitSec = Math.ceil((resetTime * 1000 - Date.now()) / 1000);
           
           this.logger?.warn?.(`[XService][globalPost] Rate limit (429). Next reset in ${Math.ceil(waitSec / 60)} minutes`);
+          
+          // Track rate limit metrics
+          this.metricsService?.increment('xService', 'rate_limited_count');
+          this.metricsService?.gauge('xService', 'backoff_duration_ms', waitSec * 1000);
+          this.metricsService?.recordHealth('xService', {
+            status: 'degraded',
+            message: `Rate limited for ${Math.ceil(waitSec / 60)} minutes`,
+            details: { resetTime, waitSec }
+          });
           
           // Store backoff time
           if (!this._globalRate) this._globalRate = { windowStart: Date.now(), count: 0 };
@@ -1216,6 +1237,10 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
 
       this._globalRate.count++;
   try { this._globalRate.lastPostedAt = Date.now(); } catch {}
+      
+      // Track successful post metrics
+      this.metricsService?.increment('xService', 'posts_successful');
+      this.metricsService?.gauge('xService', 'last_successful_post', Date.now());
 
       // store basic record
       try {
@@ -1282,6 +1307,9 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       
       return { tweetId: tweet.data.id, tweetUrl };
     } catch (err) {
+      // Track failed post
+      this.metricsService?.increment('xService', 'posts_failed');
+      
       // If we got here due to diagnostics already logged, avoid duplicate generic noise
       if (!(err?.code === 401 || err?.code === 215 || (err?.data?.errors||[]).some(e=>e.code===215))) {
         this.logger?.error?.('[XService][globalPost] failed:', err?.message || err);
@@ -1468,6 +1496,37 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       this.logger?.warn?.('[XService] fetchAndCacheGlobalProfile error: ' + (err?.message || err));
       return null;
     }
+  }
+
+  /**
+   * Get health status for X service
+   * @returns {Object} Health status information
+   */
+  async healthCheck() {
+    const metrics = this.metricsService?.getServiceMetrics('xService') || {};
+    const isRateLimited = this._globalRate?.rateLimited && 
+                          this._globalRate?.rateLimitResetAt && 
+                          Date.now() < this._globalRate.rateLimitResetAt;
+    
+    const status = isRateLimited ? 'degraded' : 'healthy';
+    const errorRate = metrics.posts_attempted > 0 
+      ? (metrics.posts_failed || 0) / metrics.posts_attempted 
+      : 0;
+    
+    return {
+      service: 'xService',
+      status,
+      rateLimited: isRateLimited,
+      resetAt: this._globalRate?.rateLimitResetAt || null,
+      lastSuccess: metrics.last_successful_post || null,
+      errorRate: Math.round(errorRate * 100) / 100,
+      metrics: {
+        posts_attempted: metrics.posts_attempted || 0,
+        posts_successful: metrics.posts_successful || 0,
+        posts_failed: metrics.posts_failed || 0,
+        rate_limited_count: metrics.rate_limited_count || 0
+      }
+    };
   }
 }
 

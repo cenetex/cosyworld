@@ -121,6 +121,7 @@ import { AgentWalletService } from './services/payment/agentWalletService.mjs';
 import { PricingService } from './services/payment/pricingService.mjs';
 import { MarketplaceService } from './services/payment/marketplaceService.mjs';
 import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceServiceRegistry.mjs';
+import { MetricsService } from './services/monitoring/metricsService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -433,6 +434,7 @@ async function initializeContainer() {
 
   // Explicitly register core services in a known order
   container.register({
+    metricsService: asClass(MetricsService).singleton(),
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
     xService: asClass(XService).singleton(),
