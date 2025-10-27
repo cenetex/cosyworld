@@ -172,17 +172,6 @@ async function main() {
         logTiming('Telegram bot initialized');
         if (initialized) {
           logger.log('[startup] Telegram global bot initialized');
-          
-          // Start proactive messaging
-          try {
-            const schedulingService = container.resolve('schedulingService');
-            if (schedulingService) {
-              telegramService.startProactiveMessaging(schedulingService);
-              logger.log('[startup] Telegram proactive messaging started');
-            }
-          } catch (e) {
-            logger.warn(`[startup] Telegram proactive messaging not started: ${e.message}`);
-          }
         } else {
           logger.debug('[startup] Telegram global bot not configured (optional)');
         }

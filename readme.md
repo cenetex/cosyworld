@@ -100,7 +100,6 @@ Understand your community with:
 #### Telegram Integration
 - Global bot configuration
 - Channel and group management
-- Proactive messaging and conversation starters
 - Media posting with AI-generated captions
 - Rate limiting and spam prevention
 
