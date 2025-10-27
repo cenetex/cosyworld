@@ -163,6 +163,12 @@ export class SummonTool extends BasicTool {
               context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
             };
             existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
+            
+            // Save the regenerated image to the database immediately
+            if (existingAvatar.imageUrl) {
+              await this.avatarService.updateAvatar(existingAvatar);
+              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
+            }
           } catch (e) {
             this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
           }

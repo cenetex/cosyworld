@@ -1502,6 +1502,19 @@ export class AvatarService {
                 avatar
               );
               
+              // Send avatar embed to show their profile
+              setTimeout(async () => {
+                try {
+                  await this.configService.services.discordService.sendMiniAvatarEmbed(
+                    avatar,
+                    context.discordChannelId,
+                    `New trader detected!`
+                  );
+                } catch (embedError) {
+                  this.logger?.warn?.(`[AvatarService] Failed to send avatar embed: ${embedError.message}`);
+                }
+              }, 500);
+              
               this.logger?.info?.(`[AvatarService] Sent introduction for wallet avatar ${avatar.name}`);
             }
           } catch (introErr) {
