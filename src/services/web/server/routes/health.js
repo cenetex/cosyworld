@@ -10,7 +10,74 @@ export default function healthRoutes(db, services = {}) {
   const router = Router();
 
   /**
-   * Basic health check
+   * Liveness probe - K8s/Docker health check (is app alive?)
+   * GET /api/health/live
+   */
+  router.get('/live', (req, res) => {
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: Math.round(process.uptime()),
+    });
+  });
+
+  /**
+   * Readiness probe - K8s readiness check (can app serve traffic?)
+   * GET /api/health/ready
+   */
+  router.get('/ready', async (req, res) => {
+    const checks = {
+      database: { healthy: false, latency: null },
+      ai: { healthy: false },
+    };
+
+    const startTime = Date.now();
+
+    try {
+      // Check database
+      if (db) {
+        try {
+          const dbStart = Date.now();
+          await db.command({ ping: 1 });
+          checks.database.healthy = true;
+          checks.database.latency = Date.now() - dbStart;
+        } catch (error) {
+          checks.database.error = error.message;
+        }
+      }
+
+      // Check AI service
+      try {
+        const { aiService, unifiedAIService } = services;
+        const ai = unifiedAIService || aiService;
+        checks.ai.healthy = !!ai;
+        checks.ai.provider = ai?.activeProvider || 'unknown';
+      } catch (error) {
+        checks.ai.error = error.message;
+      }
+
+      const healthy = checks.database.healthy && checks.ai.healthy;
+      const statusCode = healthy ? 200 : 503;
+
+      res.status(statusCode).json({
+        status: healthy ? 'ready' : 'not_ready',
+        checks,
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime,
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: 'error',
+        error: error.message,
+        checks,
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime,
+      });
+    }
+  });
+
+  /**
+   * Basic health check (legacy endpoint)
    * GET /api/health
    */
   router.get('/', async (req, res) => {
