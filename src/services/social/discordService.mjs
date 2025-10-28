@@ -170,6 +170,15 @@ export class DiscordService {
             
             if (!result.success) {
               this.logger.warn?.(`[DiscordService] Battle video generation failed: ${result.error}`);
+              
+              // Provide user-friendly feedback for specific errors
+              if (result.error === 'Video generation already in progress') {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '⏳ Video generation is already in progress. Please wait for it to complete.' });
+              } else if (result.error === 'Video already generated for this combat') {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '✅ Battle recap video has already been generated for this combat.' });
+              }
             }
             
           } catch (error) {

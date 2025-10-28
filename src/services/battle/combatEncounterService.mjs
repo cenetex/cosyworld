@@ -1783,6 +1783,20 @@ Requirements:
         }
       }
 
+      // Prevent duplicate video generation
+      if (encounter.videoGenerationInProgress) {
+        this.logger?.warn?.(`[CombatEncounter][${channelId}] Video generation already in progress, ignoring duplicate request`);
+        return { success: false, error: 'Video generation already in progress' };
+      }
+      
+      if (encounter.videoGenerated) {
+        this.logger?.warn?.(`[CombatEncounter][${channelId}] Video already generated for this combat, ignoring duplicate request`);
+        return { success: false, error: 'Video already generated for this combat' };
+      }
+
+      // Mark video generation as in progress
+      encounter.videoGenerationInProgress = true;
+
       const channel = this._getChannel(encounter);
       if (!channel) {
         return { success: false, error: 'Channel not found' };
@@ -1807,11 +1821,17 @@ Requirements:
       const videos = await this._generateBattleRecapVideosWithProgress(encounter, statusMessage);
       
       if (!videos || videos.length === 0) {
+        // Clear the in-progress flag on failure
+        encounter.videoGenerationInProgress = false;
         await statusMessage.edit({
           content: '❌ **Battle Recap Generation Failed**\nNo videos could be generated. The battle may not have enough data.'
         });
         return { success: false, error: 'No videos generated', videos: [] };
       }
+      
+      // Mark video as successfully generated
+      encounter.videoGenerated = true;
+      encounter.videoGenerationInProgress = false;
       
       // Update final status
       await statusMessage.edit({
@@ -1885,6 +1905,11 @@ Requirements:
       
     } catch (e) {
       this.logger.error?.(`[CombatEncounter] Battle recap generation failed: ${e.message}`);
+      // Clear the in-progress flag on error
+      const encounter = this.getEncounter(channelId) || this.completedEncounters.get(channelId);
+      if (encounter) {
+        encounter.videoGenerationInProgress = false;
+      }
       return { success: false, error: e.message, videos: [] };
     }
   }
