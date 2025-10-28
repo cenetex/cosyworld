@@ -26,6 +26,7 @@ const assetsToCopy = [
   { src: 'css/tribe-styles.css', dest: 'css/tribe-styles.css' },
   // Root HTML
   { src: 'index.html', dest: 'index.html', transform: true },
+  { src: 'app.html', dest: 'app.html', transform: true },
   { src: 'checkout.html', dest: 'checkout.html', transform: true },
   { src: 'api-docs.html', dest: 'api-docs.html', transform: true },
   { src: 'rati.html', dest: 'rati.html', transform: false },

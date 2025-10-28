@@ -25,20 +25,32 @@ export async function loadContent() {
   try {
     content.innerHTML = `
       <div class="max-w-7xl mx-auto px-4">
-        <h1 class="text-3xl font-bold mb-4">Leaderboard</h1>
-        <div class="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input id="lb-filter-collection" class="bg-surface-800 rounded px-3 py-2" placeholder="Filter by collection id..." />
-          <input id="lb-filter-emoji" class="bg-surface-800 rounded px-3 py-2" placeholder="Filter by emoji (e.g., 🧬)" />
-          <select id="lb-filter-claimed" class="bg-surface-800 rounded px-3 py-2">
-            <option value="">All</option>
-            <option value="true">Claimed</option>
-            <option value="false">Unclaimed</option>
+        <div class="mb-6">
+          <h1 class="text-4xl font-bold mb-2">Top Avatars</h1>
+          <p class="text-gray-400">Discover and claim the most active community members</p>
+        </div>
+        
+        <div class="mb-6 flex gap-3 flex-wrap">
+          <input 
+            id="lb-filter-collection" 
+            class="bg-gray-800 rounded-lg px-4 py-2 flex-1 min-w-[200px] border border-gray-700 focus:border-purple-500 focus:outline-none" 
+            placeholder="🔍 Search by collection..." 
+          />
+          <select 
+            id="lb-filter-claimed" 
+            class="bg-gray-800 rounded-lg px-4 py-2 border border-gray-700 focus:border-purple-500 focus:outline-none"
+          >
+            <option value="">All Avatars</option>
+            <option value="false">Available Only</option>
+            <option value="true">Claimed Only</option>
           </select>
         </div>
-        <div id="leaderboard-items" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
-        <div id="leaderboard-loader" class="text-center py-8 hidden">
-          <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
-          <p class="mt-2 text-gray-400">Loading more avatars...</p>
+        
+        <div id="leaderboard-items" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+        
+        <div id="leaderboard-loader" class="text-center py-12 hidden">
+          <div class="animate-spin rounded-full h-10 w-10 border-4 border-purple-600 border-t-transparent mx-auto"></div>
+          <p class="mt-4 text-gray-400">Loading more avatars...</p>
         </div>
       </div>`;
 
@@ -65,7 +77,10 @@ export async function loadContent() {
     const loader = document.getElementById("leaderboard-loader");
 
     if (!data.avatars || data.avatars.length === 0) {
-      setEmpty(leaderboardItems, { title: 'No Leaderboard Data Available', description: 'Check back later for updated rankings.' });
+      setEmpty(leaderboardItems, { 
+        title: 'No Avatars Found', 
+        description: 'Try adjusting your filters or check back later for new avatars.' 
+      });
       return;
     }
 
@@ -103,7 +118,10 @@ export async function loadContent() {
  * @param {HTMLElement} container - Container element
  */
 function renderEmptyState(container) {
-  setEmpty(container, { title: 'No Leaderboard Data Available', description: 'Check back later for updated rankings.' });
+  setEmpty(container, { 
+    title: 'No Avatars Found', 
+    description: 'Try adjusting your filters or check back later for new avatars.' 
+  });
 }
 
 /**
@@ -135,53 +153,50 @@ function renderLeaderboardItems(container, avatars) {
  * @returns {string} - Leaderboard card HTML
  */
 function defaultRenderLeaderboardCard(avatar, isClaimed) {
-  const getTier = (model) => {
-    if (!model) return "U";
-    if (model.includes("gpt-4")) return "S";
-    if (model.includes("gpt-3.5")) return "A";
-    if (model.includes("claude")) return "B";
-    return "C";
-  };
-
-  const getTierColor = (model) => {
-    const tier = getTier(model);
-    const colors = {
-      S: "bg-purple-600",
-      A: "bg-blue-600",
-      B: "bg-green-600",
-      C: "bg-yellow-600",
-      U: "bg-gray-600",
-    };
-    return colors[tier] || colors.U;
-  };
-
   const safeName = escapeHtml(avatar.name || 'Unknown');
   const initial = safeName.charAt(0).toUpperCase();
   const fallbackSrc = generateFallbackAvatar(initial);
+  
+  // Simplify activity display
+  const getActivityBadge = (lastActive) => {
+    if (!lastActive) return { text: 'Inactive', color: 'bg-gray-500' };
+    const hoursSince = (Date.now() - new Date(lastActive)) / (1000 * 60 * 60);
+    if (hoursSince < 1) return { text: 'Active now', color: 'bg-green-500' };
+    if (hoursSince < 24) return { text: 'Active today', color: 'bg-blue-500' };
+    if (hoursSince < 168) return { text: 'This week', color: 'bg-purple-500' };
+    return { text: 'Inactive', color: 'bg-gray-500' };
+  };
+  
+  const activity = getActivityBadge(avatar.lastActiveAt);
+  const score = avatar.score || 0;
 
   return `
-    <div class="avatar-card bg-gray-800 p-3 rounded-lg hover:bg-gray-700 transition-colors ${isClaimed ? 'border-l-2 border-green-500' : ''}">
-      <div class="flex gap-3 items-center">
-        <div class="relative">
+    <div class="avatar-card bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-all hover:scale-105 ${isClaimed ? 'ring-2 ring-green-500' : ''}">
+      <div class="flex gap-4 items-start">
+        <div class="relative flex-shrink-0">
           <img 
             src="${avatar.thumbnailUrl || avatar.imageUrl}" 
             alt="${safeName}" 
-            class="w-16 h-16 object-cover rounded-full border-2 border-gray-600"
+            class="w-20 h-20 object-cover rounded-full border-2 border-gray-600"
             onerror="this.onerror=null; this.src='${fallbackSrc}';"
           >
-          ${isClaimed ? `<div class="absolute -top-1 -right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center text-xs">✓</div>` : ''}
+          ${isClaimed ? `<div class="absolute -top-1 -right-1 bg-green-500 rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-lg">✓</div>` : ''}
         </div>
         
         <div class="flex-1 min-w-0">
-          <h3 class="text-sm font-semibold truncate">${safeName}</h3>
-          <p class="text-xs text-gray-400">Score: ${avatar.score || 0}</p>
-          
-          <div class="flex items-center gap-2 mt-1">
-            <span class="px-1.5 py-0.5 rounded text-xs font-bold ${getTierColor(avatar.model)}">
-              Tier ${getTier(avatar.model)}
-            </span>
-            ${isClaimed ? `<span class="text-xs text-green-400">Claimed</span>` : ''}
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="text-lg font-bold truncate">${safeName}</h3>
+            <span class="text-2xl font-bold text-purple-400">${score}</span>
           </div>
+          
+          <div class="flex items-center gap-2 mt-2">
+            <span class="px-2 py-1 rounded text-xs font-medium ${activity.color} text-white">
+              ${activity.text}
+            </span>
+            ${isClaimed ? `<span class="px-2 py-1 rounded text-xs font-medium bg-green-900 text-green-300">Claimed</span>` : `<span class="px-2 py-1 rounded text-xs font-medium bg-blue-900 text-blue-300">Available</span>`}
+          </div>
+          
+          ${avatar.personality ? `<p class="text-xs text-gray-400 mt-2 line-clamp-2">${escapeHtml(avatar.personality.substring(0, 80))}...</p>` : ''}
         </div>
       </div>
     </div>
@@ -286,17 +301,15 @@ function setupInfiniteScroll(loader, container) {
 
 function getFilters() {
   const collection = document.getElementById('lb-filter-collection')?.value?.trim();
-  const emoji = document.getElementById('lb-filter-emoji')?.value?.trim();
   const claimed = document.getElementById('lb-filter-claimed')?.value;
   const params = {};
   if (collection) params.collection = collection;
-  if (emoji) params.emoji = emoji;
   if (claimed) params.claimed = claimed;
   return params;
 }
 
 function setupFilterHandlers(onChange) {
-  const ids = ['lb-filter-collection', 'lb-filter-emoji', 'lb-filter-claimed'];
+  const ids = ['lb-filter-collection', 'lb-filter-claimed'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

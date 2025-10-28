@@ -82,8 +82,8 @@ async function initializeApp(services) {
       next();
     });
 
-    // Static files (optional, only if needed)
-    app.use(express.static(staticDir, { maxAge: '1h', etag: false }));
+    // Static files (disable index.html auto-serving so we can control routing)
+    app.use(express.static(staticDir, { maxAge: '1h', etag: false, index: false }));
 
     // Serve generated thumbnails regardless of environment
     const thumbsDir = process.env.NODE_ENV === 'production'
@@ -349,9 +349,9 @@ async function initializeApp(services) {
       });
     });
 
-    // Root landing page - branded entry point
+    // Root path - serves the landing page with links (index.html)
     app.get('/', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'landing.html'), (err) => {
+      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
         if (err) {
           logger.error('Failed to serve landing page:', err);
           next(err);
@@ -359,16 +359,35 @@ async function initializeApp(services) {
       });
     });
 
-    // Swarm UI application
-    app.get('/app', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+    // Console path - serves the swarm interface app (app.html)
+    app.get('/console', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
-    // SPA fallback for app routes (only if serving a frontend)
+    // Health dashboard page
+    app.get('/health', (req, res, next) => {
+      res.sendFile(path.join(process.cwd(), 'public', 'health.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // Keep /app as alias for backwards compatibility
+    app.get('/app', (req, res, next) => {
+      res.redirect('/console');
+    });
+
+    // SPA fallback for console routes
+    app.get('/console/*', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'app.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // SPA fallback for app routes (backwards compatibility)
     app.get('/app/*', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+      res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
