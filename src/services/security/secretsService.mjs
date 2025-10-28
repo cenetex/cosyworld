@@ -16,18 +16,20 @@ export class SecretsService {
     this.logger = logger || console;
     const key = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
     
-    // In production, warn but allow startup so wizard can run
+    // In production, enforce strong encryption keys (32+ bytes)
     if (process.env.NODE_ENV === 'production') {
-      if (!key || key.length < 16) {
-        const msg = '[secrets] ⚠️  Weak or missing ENCRYPTION_KEY. Please complete setup wizard to secure your secrets.';
-        this.logger?.warn?.(msg);
-        // Don't throw - let the wizard handle configuration
+      if (!key || key.length < 32) {
+        const msg = '[secrets] 🔒 FATAL: ENCRYPTION_KEY must be at least 32 bytes in production. ' +
+          'Generate a strong key with: openssl rand -base64 32';
+        this.logger?.error?.(msg);
+        throw new Error('ENCRYPTION_KEY too weak for production use. Minimum 32 bytes required.');
       }
+      this.logger.info('[secrets] ✓ Strong encryption key detected (32+ bytes)');
     } else if (!key || key.length < 16) {
       this.logger.warn('[secrets] Weak or missing ENCRYPTION_KEY; using a dev fallback. Do NOT use this in production.');
     }
     
-    // normalize key to 32 bytes
+    // Normalize key to 32 bytes (uses SHA-256 for consistency)
     this.key = crypto.createHash('sha256').update(key || 'dev-secret').digest();
     this.cache = new Map(); // in-memory encrypted store { compositeKey -> encB64 }
     this.db = null;
@@ -271,4 +273,73 @@ export class SecretsService {
     }
     return { value: undefined, source: null };
   }
+
+  /**
+   * Rotate encryption key - re-encrypt all secrets with a new key
+   * @param {string} newKey - New encryption key (must be 32+ bytes in production)
+   * @returns {Promise<{success: boolean, reencrypted: number, errors: number}>}
+   * @example
+   * const stats = await secretsService.rotateKey(process.env.NEW_ENCRYPTION_KEY);
+   * console.log(`Re-encrypted ${stats.reencrypted} secrets`);
+   */
+  async rotateKey(newKey) {
+    if (!newKey || newKey.length < 32) {
+      throw new Error('New encryption key must be at least 32 bytes');
+    }
+
+    this.logger.info('[secrets] 🔄 Starting key rotation...');
+    const stats = { success: true, reencrypted: 0, errors: 0 };
+    const decrypted = new Map(); // Store decrypted values temporarily
+
+    try {
+      // Step 1: Decrypt all secrets with old key
+      for (const [compositeKey, encryptedValue] of this.cache.entries()) {
+        try {
+          const plainValue = this.decrypt(encryptedValue);
+          decrypted.set(compositeKey, plainValue);
+        } catch (error) {
+          this.logger.error(`[secrets] Failed to decrypt ${compositeKey}:`, error.message);
+          stats.errors++;
+        }
+      }
+
+      // Step 2: Update to new key
+      const oldKey = this.key;
+      this.key = crypto.createHash('sha256').update(newKey).digest();
+
+      // Step 3: Re-encrypt all secrets with new key
+      for (const [compositeKey, plainValue] of decrypted.entries()) {
+        try {
+          const newEncrypted = this.encrypt(plainValue);
+          this.cache.set(compositeKey, newEncrypted);
+
+          // Update in database if attached
+          if (this.collection) {
+            const { name, scope, guildId } = this._parseCk(compositeKey);
+            const filter = { key: name, scope: scope || 'global', guildId: guildId || null };
+            await this.collection.updateOne(
+              filter,
+              { $set: { value: newEncrypted, updatedAt: new Date() } }
+            );
+          }
+
+          stats.reencrypted++;
+        } catch (error) {
+          this.logger.error(`[secrets] Failed to re-encrypt ${compositeKey}:`, error.message);
+          stats.errors++;
+          // Rollback to old key on any error
+          this.key = oldKey;
+          stats.success = false;
+          throw new Error(`Key rotation failed: ${error.message}`);
+        }
+      }
+
+      this.logger.info(`[secrets] ✓ Key rotation complete: ${stats.reencrypted} secrets re-encrypted`);
+      return stats;
+    } catch (error) {
+      this.logger.error('[secrets] Key rotation failed:', error.message);
+      throw error;
+    }
+  }
 }
+

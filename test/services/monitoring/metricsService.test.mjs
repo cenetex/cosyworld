@@ -158,7 +158,7 @@ describe('MetricsService', () => {
       expect(allMetrics.services.service1.requests).toBe(10);
       expect(allMetrics.services.service1.memory).toBe(512);
       expect(allMetrics.services.service2.requests).toBe(20);
-      expect(allMetrics.uptime).toBeGreaterThan(0);
+      expect(allMetrics.uptime).toBeGreaterThanOrEqual(0); // Can be 0 in fast tests
     });
   });
 
