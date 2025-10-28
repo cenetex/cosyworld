@@ -32,9 +32,9 @@ export async function loadContent() {
         
         <div class="mb-6 flex gap-3 flex-wrap">
           <input 
-            id="lb-filter-collection" 
+            id="lb-filter-name" 
             class="bg-gray-800 rounded-lg px-4 py-2 flex-1 min-w-[200px] border border-gray-700 focus:border-purple-500 focus:outline-none" 
-            placeholder="🔍 Search by collection..." 
+            placeholder="🔍 Search by name..." 
           />
           <select 
             id="lb-filter-claimed" 
@@ -300,16 +300,16 @@ function setupInfiniteScroll(loader, container) {
 }
 
 function getFilters() {
-  const collection = document.getElementById('lb-filter-collection')?.value?.trim();
+  const name = document.getElementById('lb-filter-name')?.value?.trim();
   const claimed = document.getElementById('lb-filter-claimed')?.value;
   const params = {};
-  if (collection) params.collection = collection;
+  if (name) params.name = name;
   if (claimed) params.claimed = claimed;
   return params;
 }
 
 function setupFilterHandlers(onChange) {
-  const ids = ['lb-filter-collection', 'lb-filter-claimed'];
+  const ids = ['lb-filter-name', 'lb-filter-claimed'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;

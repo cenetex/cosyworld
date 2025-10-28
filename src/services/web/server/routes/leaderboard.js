@@ -63,7 +63,7 @@ export default function leaderboardRoutes(db) {
   router.get('/', async (req, res) => {
     console.log('Leaderboard request:', req.query);
     try {
-  const { tier, lastMessageCount, lastId, limit: limitStr, includeZeroMessages, collection, emoji, claimed } = req.query; // filters
+  const { tier, lastMessageCount, lastId, limit: limitStr, includeZeroMessages, collection, emoji, claimed, name } = req.query; // filters
       const limit = Math.min(parseInt(limitStr, 10) || 24, 100);
       const dayAgo = new Date(Date.now() - 1000 * 60 * 60 * 24);
 
@@ -216,6 +216,15 @@ export default function leaderboardRoutes(db) {
         // Emoji filter
         if (emoji) {
           pipeline.push({ $match: { 'variants.emoji': emoji } });
+        }
+
+        // Name filter (case-insensitive partial match)
+        if (name) {
+          pipeline.push({ 
+            $match: { 
+              'variants.name': { $regex: name, $options: 'i' } 
+            } 
+          });
         }
 
         // Claimed filter: requires join with avatar_claims
