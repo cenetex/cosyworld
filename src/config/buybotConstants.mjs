@@ -24,5 +24,11 @@ export const MAX_TOTAL_ACTIVE_WEBHOOKS = parseInt(process.env.MAX_TOTAL_ACTIVE_W
 export const API_RETRY_MAX_ATTEMPTS = parseInt(process.env.API_RETRY_MAX_ATTEMPTS, 10) || 3;
 export const API_RETRY_BASE_DELAY_MS = parseInt(process.env.API_RETRY_BASE_DELAY_MS, 10) || 1000;
 
+// Rate limit configuration for Helius API
+export const RATE_LIMIT_MAX_ATTEMPTS = parseInt(process.env.RATE_LIMIT_MAX_ATTEMPTS, 10) || 5;
+export const RATE_LIMIT_BASE_DELAY_MS = parseInt(process.env.RATE_LIMIT_BASE_DELAY_MS, 10) || 5000; // 5 seconds
+export const RATE_LIMIT_MAX_DELAY_MS = parseInt(process.env.RATE_LIMIT_MAX_DELAY_MS, 10) || 300000; // 5 minutes
+export const RATE_LIMIT_COOLDOWN_MS = parseInt(process.env.RATE_LIMIT_COOLDOWN_MS, 10) || 60000; // 1 minute
+
 // Price cache TTL (milliseconds)
 export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 300000; // 5 minutes

@@ -20,6 +20,8 @@ import {
   MAX_TOTAL_ACTIVE_WEBHOOKS,
   API_RETRY_MAX_ATTEMPTS,
   API_RETRY_BASE_DELAY_MS,
+  RATE_LIMIT_BASE_DELAY_MS,
+  RATE_LIMIT_MAX_DELAY_MS,
   PRICE_CACHE_TTL_MS
 } from '../../config/buybotConstants.mjs';
 
@@ -44,6 +46,12 @@ export class BuybotService {
     
     // Token info cache: tokenAddress -> { tokenInfo, timestamp }
     this.tokenInfoCache = new Map();
+    
+    // Rate limiting state
+    this.rateLimitedUntil = null; // Timestamp when rate limit will expire
+    this.rateLimitHits = new Map(); // tokenAddress -> { count, lastHit }
+    this.requestQueue = []; // Queue of pending requests
+    this.isProcessingQueue = false;
     
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
@@ -109,6 +117,14 @@ export class BuybotService {
       } catch (error) {
         lastError = error;
         
+        // Check if this is a rate limit error (429)
+        if (this.isRateLimitError(error)) {
+          this.logger.warn(`[BuybotService] Rate limit hit on attempt ${attempt + 1}/${maxAttempts}`);
+          await this.handleRateLimit(error);
+          // Don't retry immediately after rate limit - let the rate limit handler manage it
+          throw error;
+        }
+        
         if (attempt < maxAttempts - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
           this.logger.warn(`[BuybotService] Retry attempt ${attempt + 1}/${maxAttempts} after ${delay}ms`);
@@ -118,6 +134,98 @@ export class BuybotService {
     }
     
     throw lastError;
+  }
+
+  /**
+   * Check if an error is a rate limit error
+   * @param {Error} error - Error to check
+   * @returns {boolean}
+   */
+  isRateLimitError(error) {
+    const errorMessage = error?.message || '';
+    const errorCode = error?.code;
+    
+    return (
+      errorMessage.includes('429') ||
+      errorMessage.includes('Too Many Requests') ||
+      errorMessage.includes('max usage reached') ||
+      errorCode === 429 ||
+      error?.status === 429 ||
+      error?.statusCode === 429 ||
+      errorMessage.includes('8100002') // Solana error code for rate limit
+    );
+  }
+
+  /**
+   * Handle rate limit error by implementing backoff
+   * @param {Error} _error - Rate limit error (unused but kept for API consistency)
+   */
+  async handleRateLimit(_error) {
+    // Calculate backoff time - start with base delay and increase exponentially
+    const now = Date.now();
+    
+    // If already rate limited, extend the cooldown
+    if (this.rateLimitedUntil && this.rateLimitedUntil > now) {
+      const remainingTime = this.rateLimitedUntil - now;
+      const newDelay = Math.min(remainingTime * 1.5, RATE_LIMIT_MAX_DELAY_MS);
+      this.rateLimitedUntil = now + newDelay;
+      this.logger.warn(`[BuybotService] Extending rate limit cooldown to ${(newDelay / 1000).toFixed(0)}s`);
+    } else {
+      // First rate limit hit - set initial cooldown
+      this.rateLimitedUntil = now + RATE_LIMIT_BASE_DELAY_MS;
+      this.logger.warn(`[BuybotService] Rate limited! Cooling down for ${(RATE_LIMIT_BASE_DELAY_MS / 1000).toFixed(0)}s`);
+    }
+  }
+
+  /**
+   * Check if currently rate limited
+   * @returns {boolean}
+   */
+  isRateLimited() {
+    if (!this.rateLimitedUntil) return false;
+    
+    const now = Date.now();
+    if (now >= this.rateLimitedUntil) {
+      // Cooldown expired
+      this.rateLimitedUntil = null;
+      this.logger.info('[BuybotService] Rate limit cooldown expired, resuming normal operation');
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Get remaining rate limit cooldown time in milliseconds
+   * @returns {number}
+   */
+  getRateLimitRemaining() {
+    if (!this.rateLimitedUntil) return 0;
+    return Math.max(0, this.rateLimitedUntil - Date.now());
+  }
+
+  /**
+   * Execute a Helius API call with rate limit protection
+   * @param {Function} fn - Async function that makes the API call
+   * @param {string} context - Context for logging (e.g., 'getTokenInfo', 'getTransactions')
+   * @returns {Promise<any>}
+   */
+  async executeWithRateLimit(fn, context = 'API call') {
+    // Check if we're currently rate limited
+    if (this.isRateLimited()) {
+      const remaining = this.getRateLimitRemaining();
+      this.logger.debug(`[BuybotService] Skipping ${context} - rate limited for ${(remaining / 1000).toFixed(0)}s more`);
+      throw new Error(`Rate limited - retry after ${(remaining / 1000).toFixed(0)}s`);
+    }
+
+    try {
+      return await fn();
+    } catch (error) {
+      if (this.isRateLimitError(error)) {
+        await this.handleRateLimit(error);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -326,6 +434,35 @@ export class BuybotService {
       this.logger.error('[BuybotService] Failed to get tracked tokens:', error);
       return [];
     }
+  }
+
+  /**
+   * Get service status including rate limit information
+   * @returns {Object} Status object
+   */
+  getServiceStatus() {
+    const status = {
+      isRateLimited: this.isRateLimited(),
+      rateLimitRemaining: this.getRateLimitRemaining(),
+      activeWebhooks: this.activeWebhooks.size,
+      cachedPrices: this.priceCache.size,
+      cachedTokenInfo: this.tokenInfoCache.size,
+    };
+
+    if (status.isRateLimited) {
+      status.rateLimitRemainingFormatted = `${Math.ceil(status.rateLimitRemaining / 1000)}s`;
+    }
+
+    return status;
+  }
+
+  /**
+   * Clear rate limit state (admin/debug function)
+   * Use with caution - should only be called manually when needed
+   */
+  clearRateLimit() {
+    this.rateLimitedUntil = null;
+    this.logger.info('[BuybotService] Rate limit state cleared manually');
   }
 
   /**
@@ -692,13 +829,30 @@ export class BuybotService {
         return null;
       }
 
-      // Try to get asset info from Helius
+      // Check if we're rate limited before making the call
+      if (this.isRateLimited()) {
+        const remaining = this.getRateLimitRemaining();
+        this.logger.warn(`[BuybotService] Skipping getTokenInfo for ${tokenAddress} - rate limited for ${(remaining / 1000).toFixed(0)}s`);
+        // Return cached data even if expired, or null
+        return cached?.tokenInfo || null;
+      }
+
+      // Try to get asset info from Helius with rate limit protection
       let asset;
       try {
-        asset = await this.helius.getAsset({
-          id: tokenAddress,
-        });
+        asset = await this.executeWithRateLimit(async () => {
+          return await this.helius.getAsset({
+            id: tokenAddress,
+          });
+        }, `getTokenInfo(${tokenAddress})`);
       } catch (apiError) {
+        // Check if it's a rate limit error
+        if (this.isRateLimitError(apiError)) {
+          this.logger.warn(`[BuybotService] Rate limited when fetching token info for ${tokenAddress}`);
+          // Return cached data if available
+          return cached?.tokenInfo || null;
+        }
+        
         // If token not found via getAsset, try alternative method
         if (apiError.message?.includes('Not Found') || apiError.message?.includes('404')) {
           this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in Helius DAS API`);
@@ -816,24 +970,64 @@ export class BuybotService {
       return; // Already polling
     }
 
-    // Poll at configured interval
-    const pollInterval = setInterval(async () => {
+    // Use adaptive polling interval based on rate limit state
+    const getNextInterval = () => {
+      if (this.isRateLimited()) {
+        const remaining = this.getRateLimitRemaining();
+        // Wait for rate limit to clear plus buffer
+        return remaining + 10000; // Add 10s buffer
+      }
+      return POLLING_INTERVAL_MS;
+    };
+
+    // Initial poll
+    const doPoll = async () => {
       try {
         await this.checkTokenTransactions(channelId, tokenAddress, platform);
       } catch (error) {
         this.logger.error(`[BuybotService] Polling error for ${tokenAddress}:`, error);
       }
-    }, POLLING_INTERVAL_MS);
+      
+      // Schedule next poll with adaptive interval
+      const nextInterval = getNextInterval();
+      const webhookData = this.activeWebhooks.get(key);
+      if (webhookData) {
+        webhookData.pollTimeout = setTimeout(doPoll, nextInterval);
+        webhookData.lastChecked = Date.now();
+      }
+    };
 
-    this.activeWebhooks.set(key, {
+    // Store webhook data
+    const webhookData = {
       channelId,
       tokenAddress,
       platform,
-      pollInterval,
+      pollTimeout: setTimeout(doPoll, getNextInterval()),
       lastChecked: Date.now(),
-    });
+    };
+    
+    this.activeWebhooks.set(key, webhookData);
 
     this.logger.info(`[BuybotService] Started polling for ${tokenAddress} in channel ${channelId} (${platform})`);
+  }
+
+  /**
+   * Stop polling for a specific token
+   * @param {string} channelId - Channel ID  
+   * @param {string} tokenAddress - Token address
+   * @param {string} platform - Platform type
+   */
+  stopPollingToken(channelId, tokenAddress, platform) {
+    const key = `${channelId}:${tokenAddress}`;
+    const webhookData = this.activeWebhooks.get(key);
+    
+    if (webhookData) {
+      if (webhookData.pollTimeout) {
+        clearTimeout(webhookData.pollTimeout);
+      }
+      this.activeWebhooks.delete(key);
+      this.logger.info(`[BuybotService] Stopped polling for ${tokenAddress} in channel ${channelId} (${platform})`);
+    }
   }
 
   /**
@@ -884,11 +1078,20 @@ export class BuybotService {
       // Use Helius Enhanced Transactions API to get token transfer history
       let transactions;
       try {
-        // Use enhanced.getTransactionsByAddress for token mint queries
-        const response = await this.helius.enhanced.getTransactionsByAddress({
-          address: tokenAddress,
-          limit: 10,
-        });
+        // Check if we're rate limited before making the call
+        if (this.isRateLimited()) {
+          const remaining = this.getRateLimitRemaining();
+          this.logger.debug(`[BuybotService] Skipping transaction check for ${tokenAddress} - rate limited for ${(remaining / 1000).toFixed(0)}s`);
+          return; // Skip this polling cycle
+        }
+
+        // Use enhanced.getTransactionsByAddress for token mint queries with rate limit protection
+        const response = await this.executeWithRateLimit(async () => {
+          return await this.helius.enhanced.getTransactionsByAddress({
+            address: tokenAddress,
+            limit: 10,
+          });
+        }, `getTransactionsByAddress(${tokenAddress})`);
         
         if (!response || response.length === 0) {
           // No transactions yet - this is common for very new tokens
@@ -913,6 +1116,13 @@ export class BuybotService {
           events: tx.events || {},
         }));
       } catch (txError) {
+        // Check if it's a rate limit error
+        if (this.isRateLimitError(txError)) {
+          this.logger.warn(`[BuybotService] Rate limited when fetching transactions for ${tokenAddress}`);
+          // Don't increment error count for rate limits, just skip this cycle
+          return;
+        }
+        
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
             txError.message?.includes('404') ||
@@ -2331,7 +2541,7 @@ export class BuybotService {
         // Stop all polling for this token
         for (const [_key, webhook] of this.activeWebhooks.entries()) {
           if (webhook.tokenAddress === tokenAddress) {
-            this.stopPollingToken(webhook.channelId, tokenAddress);
+            this.stopPollingToken(webhook.channelId, tokenAddress, webhook.platform || 'discord');
           }
         }
       }
