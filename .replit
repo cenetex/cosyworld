@@ -14,8 +14,12 @@ build = ["sh", "-c", "npm run build"]
 localPort = 3000
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 80
+
 [workflows]
-runButton = "Production"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Development"
@@ -52,6 +56,27 @@ args = "npm run build"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_ENV=production npm run serve:prod"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Server"
+
+[[workflows.workflow]]
+name = "Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "WEB_PORT=5000 npm start"
+waitForPort = 5000
 
 [agent]
 expertMode = true

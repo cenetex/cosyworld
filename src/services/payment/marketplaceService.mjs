@@ -135,8 +135,18 @@ export class MarketplaceService {
       throw new Error(`Validation failed: ${errors.join(', ')}`);
     }
 
-    // Get or create wallet for provider
-    const providerWallet = await this.agentWalletService.getOrCreateWallet(providerId);
+    // Get or create wallet for provider (if wallet service is configured)
+    let paymentDestination = null;
+    if (this.agentWalletService && this.agentWalletService.isConfigured()) {
+      try {
+        const providerWallet = await this.agentWalletService.getOrCreateWallet(providerId);
+        paymentDestination = providerWallet.address;
+      } catch (error) {
+        this.logger.warn(`[MarketplaceService] Could not create wallet for provider ${providerId}: ${error.message}`);
+      }
+    } else {
+      this.logger.debug('[MarketplaceService] AgentWalletService not configured, using null payment destination');
+    }
 
     const serviceId = this._generateServiceId();
     const servicesCol = await this._getServicesCollection();
@@ -155,7 +165,7 @@ export class MarketplaceService {
       },
       endpoint,
       network,
-      paymentDestination: providerWallet.address,
+      paymentDestination,
       stats: {
         totalRequests: 0,
         totalRevenue: 0,
