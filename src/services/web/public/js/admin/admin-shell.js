@@ -27,6 +27,12 @@ const FOOTER_ID = 'admin-shared-footer';
 const FOOTER_HTML = `<footer class="footer" id="${FOOTER_ID}">RATi Swarm Admin © 2025</footer>`;
 
 function injectShell() {
+  // Skip injection on login and setup pages
+  const pathname = window.location.pathname;
+  if (pathname === '/admin/login' || pathname === '/admin/setup') {
+    return;
+  }
+
   // Mark body for shared styling
   document.body.classList.add('admin-shell');
 
