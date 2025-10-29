@@ -142,6 +142,9 @@ export class MessageHandler  {
   // Analyze images and enhance message object BEFORE persisting so captions are saved
   await this.handleImageAnalysis(message);
 
+  // Handle reply tracking - detect if this message is a reply to an avatar
+  await this.handleReplyTracking(message);
+
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
 
@@ -339,6 +342,202 @@ export class MessageHandler  {
     message.hasImages = hasImages;
     message.imageUrls = imageUrls;
     message.primaryImageUrl = primaryImageUrl;
+  }
+
+  /**
+   * Handles Discord message reply tracking to identify which avatar should respond.
+   * When a user replies to an avatar's message, we want that avatar to respond immediately.
+   * @param {Object} message - The Discord message object to analyze.
+   */
+  async handleReplyTracking(message) {
+    // Check if this message is a reply
+    if (!message.reference?.messageId) {
+      this.logger.debug(`[ReplyTracking] No message.reference found - not a reply`);
+      return;
+    }
+
+    this.logger.info(`[ReplyTracking] 🔗 Detected reply to message ${message.reference.messageId}`);
+
+    try {
+      // Find the avatar that sent this message by looking up in the database
+      const db = await this.databaseService.getDatabase();
+      if (!db) {
+        this.logger.error(`[ReplyTracking] Database not available`);
+        return;
+      }
+
+      // FAST PATH: Look up the original message in our database by messageId
+      // This gives us the avatarId directly without name matching issues
+      const originalMessage = await db.collection('messages').findOne({
+        messageId: message.reference.messageId
+      });
+
+      this.logger.info(`[ReplyTracking] Database lookup result: ${originalMessage ? 'found' : 'not found'}, avatarId: ${originalMessage?.avatarId || 'none'}`);
+
+      let avatar = null;
+
+      if (originalMessage?.avatarId) {
+        this.logger.info(`[ReplyTracking] ✅ Found original message in DB with avatarId: ${originalMessage.avatarId}`);
+        
+        // Get the avatar directly by ID
+        const ObjectId = (await import('mongodb')).ObjectId;
+        avatar = await db.collection('avatars').findOne({
+          _id: typeof originalMessage.avatarId === 'string' && ObjectId.isValid(originalMessage.avatarId)
+            ? new ObjectId(originalMessage.avatarId)
+            : originalMessage.avatarId
+        });
+
+        if (avatar) {
+          this.logger.info(`[ReplyTracking] ✅ Direct avatar lookup successful: ${avatar.name}`);
+        } else {
+          this.logger.warn(`[ReplyTracking] Avatar ID ${originalMessage.avatarId} found in message but avatar doesn't exist`);
+        }
+      } else {
+        this.logger.info(`[ReplyTracking] Original message not in DB or no avatarId, falling back to Discord API lookup`);
+      }
+
+      // FALLBACK: If we don't have the message in DB or no avatarId, fetch from Discord
+      if (!avatar) {
+        this.logger.info(`[ReplyTracking] Fetching message from Discord API`);
+        
+        // Fetch the original message being replied to
+        const repliedToMessage = await message.channel.messages.fetch(message.reference.messageId);
+        if (!repliedToMessage) {
+          this.logger.warn(`[ReplyTracking] Could not fetch replied-to message ${message.reference.messageId}`);
+          return;
+        }
+
+        this.logger.info(`[ReplyTracking] Fetched original message from ${repliedToMessage.author.username} (webhookId: ${repliedToMessage.webhookId || 'none'}, bot: ${repliedToMessage.author.bot})`);
+
+        // Check if the replied-to message was from our bot (webhook or bot user)
+        const isFromBot = repliedToMessage.webhookId || repliedToMessage.author.bot;
+        if (!isFromBot) {
+          this.logger.info(`[ReplyTracking] Replied-to message is not from an avatar (user message)`);
+          return;
+        }
+
+        // Look up the avatar by matching the message in our database
+        // Webhook messages use the avatar's name as the author username
+        // Format: "Name" or "Name🔮" (name + emoji)
+        const webhookUsername = repliedToMessage.author.username;
+        if (!webhookUsername) {
+          this.logger.warn(`[ReplyTracking] No username found in replied-to message`);
+          return;
+        }
+
+        this.logger.info(`[ReplyTracking] Looking up avatar with webhook username: "${webhookUsername}" in guild ${message.guild.id}`);
+
+        // Try multiple lookup strategies since webhook username = name + emoji
+        // Strategy 1: Exact match on name (if webhook didn't include emoji)
+        avatar = await db.collection('avatars').findOne({
+          name: webhookUsername,
+          guildId: message.guild.id
+        });
+
+        // Strategy 2: Try removing common emoji patterns and match on name
+        if (!avatar) {
+          // Remove trailing emojis (most common pattern: "Name🔮")
+          const nameWithoutEmoji = webhookUsername.replace(/[\p{Emoji}\p{Emoji_Modifier}\p{Emoji_Component}\p{Emoji_Presentation}]+$/gu, '').trim();
+          if (nameWithoutEmoji && nameWithoutEmoji !== webhookUsername) {
+            this.logger.info(`[ReplyTracking] Trying without emoji: "${nameWithoutEmoji}"`);
+            avatar = await db.collection('avatars').findOne({
+              name: nameWithoutEmoji,
+              guildId: message.guild.id
+            });
+          }
+        }
+
+        // Strategy 3: Match where webhook username = name + emoji concatenated
+        if (!avatar) {
+          this.logger.info(`[ReplyTracking] Trying to match name+emoji pattern`);
+          const avatarsInGuild = await db.collection('avatars')
+            .find({ guildId: message.guild.id })
+            .limit(100)
+            .toArray();
+          
+          // Check if any avatar's name+emoji matches the webhook username
+          avatar = avatarsInGuild.find(av => {
+            const nameWithEmoji = `${av.name}${av.emoji || ''}`;
+            return nameWithEmoji === webhookUsername;
+          });
+
+          if (avatar) {
+            this.logger.info(`[ReplyTracking] Found match via name+emoji concatenation: ${avatar.name}`);
+          }
+        }
+
+        // Strategy 4: Try matching by name only (without guildId) if still not found
+        // This handles cases where the avatar exists but in a different guild context
+        if (!avatar) {
+          this.logger.info(`[ReplyTracking] Trying name-only lookup (no guildId restriction)`);
+          
+          // Try exact match
+          avatar = await db.collection('avatars').findOne({
+            name: webhookUsername
+          });
+          
+          // Try without emoji
+          if (!avatar) {
+            const nameWithoutEmoji = webhookUsername.replace(/[\p{Emoji}\p{Emoji_Modifier}\p{Emoji_Component}\p{Emoji_Presentation}]+$/gu, '').trim();
+            if (nameWithoutEmoji && nameWithoutEmoji !== webhookUsername) {
+              avatar = await db.collection('avatars').findOne({
+                name: nameWithoutEmoji
+              });
+            }
+          }
+          
+          // Try name+emoji pattern
+          if (!avatar) {
+            const allAvatars = await db.collection('avatars')
+              .find({})
+              .limit(200)
+              .toArray();
+            
+            avatar = allAvatars.find(av => {
+              const nameWithEmoji = `${av.name}${av.emoji || ''}`;
+              return nameWithEmoji === webhookUsername;
+            });
+          }
+          
+          if (avatar) {
+            this.logger.info(`[ReplyTracking] ✅ Found match via name-only lookup: ${avatar.name} (guildId: ${avatar.guildId}, channelId: ${avatar.channelId})`);
+          }
+        }
+
+        if (!avatar) {
+          this.logger.warn(`[ReplyTracking] ❌ Could not find avatar with webhook username "${webhookUsername}" in guild ${message.guild.id}`);
+          // Try to find any avatar with similar name for debugging
+          const allAvatars = await db.collection('avatars').find({ guildId: message.guild.id }).limit(10).toArray();
+          this.logger.info(`[ReplyTracking] Available avatars in guild: ${allAvatars.map(a => `${a.name}${a.emoji || ''}`).join(', ')}`);
+        }
+      }
+
+      if (avatar) {
+        this.logger.info(`[ReplyTracking] ✅ User ${message.author.username} replied to avatar ${avatar.name}'s message - MARKING FOR PRIORITY RESPONSE`);
+        
+        // Add reply context to message for ResponseCoordinator to use
+        message.repliedToAvatarId = avatar._id.toString();
+        message.repliedToAvatarName = avatar.name;
+        
+        this.logger.info(`[ReplyTracking] Set message.repliedToAvatarId = ${message.repliedToAvatarId}`);
+        
+        // Also record affinity if decisionMaker is available
+        if (this.decisionMaker?._recordAffinity && !message.author.bot) {
+          try {
+            this.decisionMaker._recordAffinity(
+              message.channel.id,
+              message.author.id,
+              avatar._id.toString()
+            );
+            this.logger.info(`[ReplyTracking] Affinity recorded for reply: user ${message.author.id} -> avatar ${avatar.name}`);
+          } catch (e) {
+            this.logger.warn(`[ReplyTracking] Failed to record affinity for reply: ${e.message}`);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`[ReplyTracking] Error handling reply tracking: ${error.message}`, error.stack);
+    }
   }
 
   /**

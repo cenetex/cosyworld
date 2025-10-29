@@ -452,12 +452,27 @@ export class DiscordService {
         });
       }
       this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
+      
+      // Store avatar ID for reply tracking
+      const avatarId = (avatar._id || avatar.id).toString();
       sentMessage.rati = {
-        avatarId: avatar.id,
+        avatarId: avatarId,
       };
+      this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
+      
       sentMessage.guild = channel.guild;
       sentMessage.channel = channel;
-      this.databaseService.saveMessage(sentMessage);
+      
+      // Log message object details before saving
+      this.logger.debug?.(`[DiscordService] Saving message: id=${sentMessage.id}, guild=${sentMessage.guild?.id}, channel=${sentMessage.channel?.id}, webhookId=${sentMessage.webhookId}`);
+      
+      try {
+        await this.databaseService.saveMessage(sentMessage);
+        this.logger.debug?.(`[DiscordService] Message ${sentMessage.id} saved successfully`);
+      } catch (saveError) {
+        this.logger.error(`[DiscordService] Failed to save message ${sentMessage.id}: ${saveError.message}`);
+      }
+      
       this.logger.debug?.(`Saved message to database with ID ${sentMessage.id}`);
       return sentMessage;
     } catch (error) {

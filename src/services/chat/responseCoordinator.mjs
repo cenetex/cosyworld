@@ -197,6 +197,73 @@ export class ResponseCoordinator {
   async selectResponders(channel, message, eligibleAvatars, trigger, _context = {}) {
     const channelId = channel.id;
 
+    // PRIORITY 0 (HIGHEST): User replied to an avatar's message
+    // This is the most direct form of engagement and should trigger immediate response
+    if (message?.repliedToAvatarId) {
+      this.logger.info?.(`[ResponseCoordinator] 🔗 REPLY DETECTED - Message is a reply to avatar ${message.repliedToAvatarName} (ID: ${message.repliedToAvatarId})`);
+      
+      try {
+        // Find the replied-to avatar in eligible avatars
+        let repliedToAvatar = eligibleAvatars.find(
+          av => `${av._id || av.id}` === `${message.repliedToAvatarId}`
+        );
+
+        if (!repliedToAvatar) {
+          this.logger.warn?.(`[ResponseCoordinator] Replied-to avatar ${message.repliedToAvatarName} not in eligible avatars list (${eligibleAvatars.length} avatars), attempting to fetch`);
+        } else {
+          this.logger.info?.(`[ResponseCoordinator] ✅ Found replied-to avatar ${repliedToAvatar.name} in eligible avatars`);
+        }
+
+        // If avatar is not in channel, try to fetch and move them
+        if (!repliedToAvatar) {
+          try {
+            repliedToAvatar = await this.avatarService.getAvatarById(message.repliedToAvatarId);
+            if (repliedToAvatar) {
+              this.logger.info?.(`[ResponseCoordinator] Fetched replied-to avatar ${repliedToAvatar.name} from database`);
+              
+              // Move avatar to this channel if they exist elsewhere
+              if (String(repliedToAvatar.channelId) !== String(channelId)) {
+                this.logger.info?.(`[ResponseCoordinator] Moving replied-to avatar ${repliedToAvatar.name} from channel ${repliedToAvatar.channelId} to ${channelId}`);
+                const mapService = this.avatarService.mapService;
+                if (mapService?.updateAvatarPosition) {
+                  await mapService.updateAvatarPosition(repliedToAvatar, channelId, repliedToAvatar.channelId);
+                  this.logger.info?.(`[ResponseCoordinator] Used MapService to move avatar`);
+                } else {
+                  // Direct update if no map service
+                  const db = await this.databaseService.getDatabase();
+                  await db.collection('avatars').updateOne(
+                    { _id: repliedToAvatar._id },
+                    { $set: { channelId: channelId, updatedAt: new Date() } }
+                  );
+                  this.logger.info?.(`[ResponseCoordinator] Direct DB update to move avatar`);
+                }
+                repliedToAvatar.channelId = channelId;
+              }
+              
+              // Activate the avatar in this channel
+              await this.avatarService.activateAvatarInChannel(channelId, message.repliedToAvatarId);
+              this.logger.info?.(`[ResponseCoordinator] ✅ Activated replied-to avatar ${repliedToAvatar.name} in channel`);
+            }
+          } catch (fetchErr) {
+            this.logger.error?.(`[ResponseCoordinator] Failed to fetch/move replied-to avatar: ${fetchErr.message}`);
+          }
+        }
+
+        if (repliedToAvatar) {
+          // Even if avatar is on cooldown, we should respond to direct replies
+          // This creates a natural conversation flow
+          this.logger.info?.(`[ResponseCoordinator] 🎯 REPLY PRIORITY: ${repliedToAvatar.name} will respond to reply (overriding all other priorities)`);
+          return [repliedToAvatar];
+        } else {
+          this.logger.error?.(`[ResponseCoordinator] ❌ Could not find or fetch replied-to avatar ${message.repliedToAvatarName} (ID: ${message.repliedToAvatarId})`);
+        }
+      } catch (e) {
+        this.logger.error?.(`[ResponseCoordinator] Reply detection failed: ${e.message}`, e.stack);
+      }
+    } else {
+      this.logger.debug?.(`[ResponseCoordinator] No reply detected (message.repliedToAvatarId: ${message?.repliedToAvatarId || 'undefined'})`);
+    }
+
     // PRIORITY 1: Explicit summon with guaranteed turns
     if (trigger.type === 'mention' || trigger.type === 'human_message') {
       try {

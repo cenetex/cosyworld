@@ -143,8 +143,19 @@ export class DatabaseService {
           imageDescriptions: Array.isArray(message.imageDescriptions) ? message.imageDescriptions : null,
           imageUrls: Array.isArray(message.imageUrls) ? message.imageUrls : null,
           primaryImageUrl: message.primaryImageUrl || null,
+          // Track reply information if this is a reply to another message
+          replyToMessageId: message.reference?.messageId || null,
+          replyToChannelId: message.reference?.channelId || null,
+          replyToGuildId: message.reference?.guildId || null,
+          // Track which avatar sent this message (for webhook messages)
+          avatarId: message.rati?.avatarId || message.avatarId || null,
           timestamp: message.createdTimestamp,
         };
+
+        // Debug logging for avatarId tracking
+        if (message.author.bot || message.webhookId) {
+          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, rati=${JSON.stringify(message.rati || {})}`);
+        }
   
         if (!messageData.messageId || !messageData.channelId) {
           this.logger.error("Missing required message data:", messageData);
@@ -153,15 +164,30 @@ export class DatabaseService {
         await this.markChannelActive(message.channel.id, message.guild.id);
 
         // Insert the message into the database using updateOne with upsert
+        // Use $setOnInsert for most fields (only set when creating new document)
+        // Use $set for avatarId (update even if message already exists)
+        const updateOps = {
+          $setOnInsert: { ...messageData },
+        };
+        
+        // If avatarId is present, always update it (even for existing messages)
+        // This handles the race condition where messageCreate fires before we set avatarId
+        if (messageData.avatarId) {
+          updateOps.$set = { avatarId: messageData.avatarId };
+        }
+        
         const result = await messagesCollection.updateOne(
           { messageId: messageData.messageId },
-          { $setOnInsert: messageData },
+          updateOps,
           { upsert: true }
         );
         
         // Check if a new document was inserted
         if (result.upsertedCount === 1) {
           this.logger.debug("💾 Message saved to database");
+          return true;
+        } else if (messageData.avatarId && result.modifiedCount === 1) {
+          this.logger.debug(`Message ${messageData.messageId} updated with avatarId`);
           return true;
         } else {
           this.logger.debug(`Message ${messageData.messageId} already exists in the database.`);
@@ -276,6 +302,8 @@ export class DatabaseService {
           { key: { messageId: 1 }, unique: true },
           { key: { channelId: 1 }, background: true },
           { key: { channelId: 1, timestamp: -1 }, name: 'messages_channel_timestamp', background: true },
+          { key: { replyToMessageId: 1 }, name: 'messages_reply_to', background: true, sparse: true },
+          { key: { messageId: 1, avatarId: 1 }, name: 'messages_id_avatar', background: true },
         ]),
         db.collection('agent_events').createIndexes([
           { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
