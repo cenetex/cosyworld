@@ -105,7 +105,7 @@ import { XService } from './services/social/xService.mjs';
 import { TelegramService } from './services/social/telegramService.mjs';
 import { GlobalBotService } from './services/social/globalBotService.mjs';
 import { PromptAssembler } from './services/ai/promptAssembler.mjs';
-import { UnifiedAIService } from './services/ai/UnifiedAIService.mjs';
+import { UnifiedAIService } from './services/ai/unifiedAIService.mjs';
 import { StoryStateService } from './services/story/storyStateService.mjs';
 import { WorldContextService } from './services/story/worldContextService.mjs';
 import { NarrativeGeneratorService } from './services/story/narrativeGeneratorService.mjs';
@@ -216,13 +216,13 @@ container.register({
  * @see {@link ConfigService} for configuration management
  * @since 0.0.1
  */
-const logger        = new Logger();
+const logger = new Logger();
 const secretsService = new SecretsService({ logger });
 
 // Hydrate secrets from environment variables for initial decryption capability
 secretsService.hydrateFromEnv([
-  'OPENROUTER_API_KEY','OPENROUTER_API_TOKEN','GOOGLE_API_KEY','GOOGLE_AI_API_KEY',
-  'REPLICATE_API_TOKEN','MONGO_URI','DISCORD_BOT_TOKEN','DISCORD_CLIENT_ID',
+  'OPENROUTER_API_KEY', 'OPENROUTER_API_TOKEN', 'GOOGLE_API_KEY', 'GOOGLE_AI_API_KEY',
+  'REPLICATE_API_TOKEN', 'MONGO_URI', 'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID',
 ]);
 
 const configService = new ConfigService({ logger, secretsService });
@@ -230,7 +230,7 @@ const configService = new ConfigService({ logger, secretsService });
 // Pre-register core values; other services will be loaded during containerReady
 container.register({
   container: asValue(container), // Register container itself for services that need it
-  logger:        asValue(logger),
+  logger: asValue(logger),
   secretsService: asValue(secretsService),
   configService: asValue(configService),
   // Keep ItemService explicit as an example singleton
@@ -400,7 +400,7 @@ container.register({ services: asValue(container) });
 async function initializeContainer() {
   try { validateEnv(logger); } catch (e) { logger.error('[container] Env validation threw:', e.message); }
   await configService.loadConfig();
-  
+
   // Check ffmpeg availability (required for video concatenation)
   try {
     const { checkFfmpegAvailable } = await import('./utils/videoUtils.mjs');
@@ -471,16 +471,16 @@ async function initializeContainer() {
     const databaseService = container.resolve('databaseService');
     const db = await databaseService.getDatabase();
     const settingsCollection = db.collection('settings');
-    const paymentSettings = await settingsCollection.find({ 
+    const paymentSettings = await settingsCollection.find({
       key: { $regex: /^payment\./ },
-      scope: 'global' 
+      scope: 'global'
     }).toArray();
-    
+
     if (paymentSettings.length > 0) {
       if (!configService.config.payment) {
         configService.config.payment = { x402: {}, agentWallets: {} };
       }
-      
+
       for (const setting of paymentSettings) {
         const keys = setting.key.split('.');
         if (keys[0] === 'payment' && keys[1] === 'x402') {
@@ -489,7 +489,7 @@ async function initializeContainer() {
           configService.config.payment.agentWallets[keys[2]] = setting.value;
         }
       }
-      
+
       logger.info('[container] ✅ Loaded payment configuration from database');
       logger.debug('[container] Payment x402 config:', configService.config.payment.x402);
     }
@@ -525,8 +525,8 @@ async function initializeContainer() {
       if (!ServiceClass) continue; // skip modules that don't export a class
       const fileName = path.basename(file, '.mjs');
       const camelName = fileName.charAt(0).toLowerCase() + fileName.slice(1);
-  // Skip registering if a value already exists with same name (honor core order)
-  if (container.registrations[camelName]) continue;
+      // Skip registering if a value already exists with same name (honor core order)
+      if (container.registrations[camelName]) continue;
       container.register(camelName, asClass(ServiceClass).singleton());
     } catch (err) {
       console.error(`Failed to register service from ${file}:`, err);
@@ -561,7 +561,7 @@ async function initializeContainer() {
   // Late-binding unifiedAIService if not already registered (after dynamic services loaded)
   try {
     // Always bind unifiedAIService to the best available chat provider, preferring OpenRouter.
-  const preferred = ['openrouterAIService','ollamaAIService','googleAIService'];
+    const preferred = ['openrouterAIService', 'ollamaAIService', 'googleAIService'];
     let wrappedName = null;
     for (const name of preferred) {
       if (container.registrations[name]) { wrappedName = name; break; }
@@ -573,7 +573,7 @@ async function initializeContainer() {
       // Overwrite any previous registration to ensure correct provider
       container.register({ unifiedAIService: asValue(unifiedAIService) });
       console.log('[container] Registered unifiedAIService wrapping', wrappedName);
-  // If decisionMaker already instantiated, inject adapter reference
+      // If decisionMaker already instantiated, inject adapter reference
       try {
         if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
           container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
@@ -651,13 +651,13 @@ async function initializeContainer() {
       await storyState.createIndexes();
       console.log('[container] StoryStateService indexes created.');
     }
-    
+
     if (container.registrations.storyPlannerService) {
       const storyPlanner = container.resolve('storyPlannerService');
       await storyPlanner.initialize();
       console.log('[container] StoryPlannerService initialized.');
     }
-    
+
     if (container.registrations.storySchedulerService) {
       const storyScheduler = container.resolve('storySchedulerService');
       await storyScheduler.initialize();
@@ -744,7 +744,7 @@ export const containerReady = initializeContainer();
  * @since 0.0.10
  */
 container.register({
-  promptAssembler: asFunction(({ logger, memoryService, configService }) => 
+  promptAssembler: asFunction(({ logger, memoryService, configService }) =>
     new PromptAssembler({ logger, memoryService, configService })
   ).singleton(),
 });
