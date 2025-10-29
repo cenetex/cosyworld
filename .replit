@@ -12,11 +12,11 @@ build = ["sh", "-c", "npm run build"]
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
+externalPort = 80
 
 [[ports]]
 localPort = 3001
-externalPort = 80
+externalPort = 3001
 
 [workflows]
 runButton = "Production"
@@ -24,6 +24,10 @@ runButton = "Production"
 [[workflows.workflow]]
 name = "Development"
 mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -43,8 +47,15 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
+args = "npm install"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
 args = "npm run build"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_ENV=production npm run serve:prod"
+
+[agent]
+expertMode = true
