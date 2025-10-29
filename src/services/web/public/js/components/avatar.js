@@ -374,8 +374,22 @@ export function renderAvatarDetails(avatar, options = {}) {
       <div class="md:w-2/3">
         <h2 class="text-2xl font-bold">${avatar.name}</h2>
         
+        ${avatar.personality ? `
+          <div class="mt-3 bg-gray-800/50 p-3 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">Personality</h3>
+            <p class="text-gray-300 leading-relaxed">${avatar.personality}</p>
+          </div>
+        ` : ''}
+        
         ${avatar.description ? `
-          <p class="text-gray-300 mt-2">${avatar.description}</p>
+          <div class="mt-3 bg-gray-800/50 p-3 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">Description</h3>
+            <p class="text-gray-300 leading-relaxed">${avatar.description}</p>
+          </div>
+        ` : ''}
+        
+        ${!avatar.personality && !avatar.description ? `
+          <p class="text-gray-500 italic mt-3">No profile information available.</p>
         ` : ''}
         
         <!-- Stats -->

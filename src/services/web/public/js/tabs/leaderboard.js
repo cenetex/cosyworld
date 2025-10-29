@@ -170,33 +170,47 @@ function defaultRenderLeaderboardCard(avatar, isClaimed) {
   const activity = getActivityBadge(avatar.lastActiveAt);
   const score = avatar.score || 0;
 
+  // Prefer thumbnail, fallback to imageUrl
+  const avatarImageUrl = avatar.thumbnailUrl || (avatar.variants && avatar.variants[0]?.thumbnailUrl) || avatar.imageUrl;
+  
+  // Format description/personality with proper truncation
+  const getProfileText = () => {
+    const text = avatar.personality || avatar.description || '';
+    if (!text) return '';
+    return text.length > 120 ? text.substring(0, 120) + '…' : text;
+  };
+  
+  const profileText = getProfileText();
+  
   return `
     <div class="avatar-card bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-all hover:scale-105 ${isClaimed ? 'ring-2 ring-green-500' : ''}">
       <div class="flex gap-4 items-start">
         <div class="relative flex-shrink-0">
           <img 
-            src="${avatar.thumbnailUrl || avatar.imageUrl}" 
+            src="${avatarImageUrl}" 
             alt="${safeName}" 
-            class="w-20 h-20 object-cover rounded-full border-2 border-gray-600"
+            class="w-16 h-16 object-cover rounded-full border-2 border-gray-600"
             onerror="this.onerror=null; this.src='${fallbackSrc}';"
           >
           ${isClaimed ? `<div class="absolute -top-1 -right-1 bg-green-500 rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-lg">✓</div>` : ''}
         </div>
         
         <div class="flex-1 min-w-0">
-          <div class="flex items-start justify-between gap-2">
+          <div class="flex items-start justify-between gap-2 mb-1">
             <h3 class="text-lg font-bold truncate">${safeName}</h3>
             <span class="text-2xl font-bold text-purple-400">${score}</span>
           </div>
           
-          <div class="flex items-center gap-2 mt-2">
+          <div class="flex items-center gap-2 mb-2">
             <span class="px-2 py-1 rounded text-xs font-medium ${activity.color} text-white">
               ${activity.text}
             </span>
             ${isClaimed ? `<span class="px-2 py-1 rounded text-xs font-medium bg-green-900 text-green-300">Claimed</span>` : `<span class="px-2 py-1 rounded text-xs font-medium bg-blue-900 text-blue-300">Available</span>`}
           </div>
           
-          ${avatar.personality ? `<p class="text-xs text-gray-400 mt-2 line-clamp-2">${escapeHtml(avatar.personality.substring(0, 80))}...</p>` : ''}
+          ${profileText ? `<p class="text-xs text-gray-400 leading-relaxed line-clamp-2">${escapeHtml(profileText)}</p>` : '<p class="text-xs text-gray-500 italic">No profile information available</p>'}
+          
+          ${avatar.emoji ? `<div class="mt-2 text-xl">${escapeHtml(avatar.emoji)}</div>` : ''}
         </div>
       </div>
     </div>

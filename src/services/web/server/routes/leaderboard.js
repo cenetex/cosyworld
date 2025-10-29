@@ -170,7 +170,10 @@ export default function leaderboardRoutes(db) {
                     emoji: 1,
                     parents: 1,
                     model: 1,
-                    createdAt: 1
+                    createdAt: 1,
+                    personality: 1,
+                    description: 1,
+                    lastActiveAt: 1
                   }
                 }
               ],
