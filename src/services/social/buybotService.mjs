@@ -11,7 +11,6 @@
  * Uses AWS Lambda endpoint for transaction monitoring instead of direct Helius polling
  */
 
-import { PublicKey, Connection } from '@solana/web3.js';
 import {
   DEFAULT_ORB_COLLECTION_ADDRESS,
   POLLING_INTERVAL_MS,
@@ -80,7 +79,6 @@ export class BuybotService {
     
     // AWS Lambda endpoint for transaction monitoring
     this.lambdaEndpoint = null;
-    this.connection = null;
     this.activeWebhooks = new Map(); // channelId -> webhook data
     this.db = null;
     
@@ -90,6 +88,10 @@ export class BuybotService {
     // Token info cache: tokenAddress -> { tokenInfo, timestamp }
     this.tokenInfoCache = new Map();
     
+  // Wallet balance cache to avoid hammering the Lambda balances endpoint
+  this.walletBalanceCache = new Map();
+  this.WALLET_BALANCE_CACHE_TTL_MS = 30_000;
+
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
     this.volumeTracking = new Map();
@@ -114,13 +116,6 @@ export class BuybotService {
       }
 
       this.lambdaEndpoint = lambdaEndpoint;
-      
-      // Create Solana connection for balance checks (using public RPC or Helius if available)
-      const heliusApiKey = process.env.HELIUS_API_KEY;
-      const rpcUrl = heliusApiKey 
-        ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
-        : 'https://api.mainnet-beta.solana.com';
-      this.connection = new Connection(rpcUrl, 'confirmed');
       
       this.db = await this.databaseService.getDatabase();
       
@@ -1307,6 +1302,7 @@ export class BuybotService {
       const color = event.type === 'swap' ? 0x00ff00 : 0x0099ff;
       const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
+      const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
       // Get wallet avatars for addresses FIRST (before building embed)
       let buyerAvatar = null;
@@ -1316,7 +1312,7 @@ export class BuybotService {
       try {
         if (event.type === 'swap' && event.to) {
           this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
-          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
           
           this.logger.info(`[BuybotService] Wallet ${this.formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
@@ -1356,7 +1352,7 @@ export class BuybotService {
         } else if (event.type === 'transfer') {
           if (event.from) {
             this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
-            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
+            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress, tokenDecimals);
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             this.logger.info(`[BuybotService] Sender ${this.formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
@@ -1393,7 +1389,7 @@ export class BuybotService {
           }
           if (event.to) {
             this.logger.info(`[BuybotService] Processing transfer to ${this.formatAddress(event.to)}`);
-            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             this.logger.info(`[BuybotService] Recipient ${this.formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
@@ -2029,8 +2025,9 @@ export class BuybotService {
         return;
       }
 
-      const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
-      const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
+    const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+    const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
+    const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
       // Debug logging
       this.logger.info(`[BuybotService] Sending notification for ${token.tokenSymbol}:`, {
@@ -2051,7 +2048,7 @@ export class BuybotService {
       try {
         if (event.type === 'swap' && event.to) {
           // Get wallet's current token balance
-          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
           
           // Get wallet's NFT count for all tracked collections in this channel
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
@@ -2067,7 +2064,7 @@ export class BuybotService {
           });
         } else if (event.type === 'transfer') {
           if (event.from) {
-            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress);
+            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress, tokenDecimals);
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
@@ -2081,7 +2078,7 @@ export class BuybotService {
             });
           }
           if (event.to) {
-            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress);
+            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
@@ -2558,42 +2555,82 @@ export class BuybotService {
   }
 
   /**
-   * Get wallet's token balance using Solana RPC
+   * Get wallet's token balance using the Lambda balances endpoint
    * @param {string} walletAddress - Wallet address
    * @param {string} tokenAddress - Token mint address
-   * @returns {Promise<number>} Token balance (in UI units, e.g., full tokens not lamports)
+   * @param {number} [tokenDecimals=9] - Token decimal precision
+   * @returns {Promise<number>} Token balance (UI units)
    */
-  async getWalletTokenBalance(walletAddress, tokenAddress) {
-    try {
-      if (!this.connection) {
-        this.logger.warn('[BuybotService] Connection not initialized, cannot fetch balance');
-        return 0;
-      }
-
-      this.logger.debug(`[BuybotService] Fetching balance for ${this.formatAddress(walletAddress)} token ${this.formatAddress(tokenAddress)}`);
-
-      // Use Solana Connection to get parsed token accounts
-      const accounts = await this.connection.getParsedTokenAccountsByOwner(
-        new PublicKey(walletAddress),
-        { mint: new PublicKey(tokenAddress) }
-      );
-
-      if (!accounts || !accounts.value || accounts.value.length === 0) {
-        this.logger.debug(`[BuybotService] No token accounts found for ${this.formatAddress(walletAddress)}`);
-        return 0;
-      }
-
-      // Sum up all token account balances (there might be multiple)
-      const totalBalance = accounts.value.reduce((sum, account) => {
-        const amount = account.account?.data?.parsed?.info?.tokenAmount?.uiAmount || 0;
-        return sum + amount;
-      }, 0);
-
-      this.logger.debug(`[BuybotService] Balance for ${this.formatAddress(walletAddress)}: ${totalBalance}`);
-      return totalBalance;
-    } catch (error) {
-      this.logger.error(`[BuybotService] Failed to get wallet token balance for ${this.formatAddress(walletAddress)}:`, error);
+  async getWalletTokenBalance(walletAddress, tokenAddress, tokenDecimals = 9) {
+    if (!walletAddress || !tokenAddress) {
       return 0;
+    }
+
+    const decimals = typeof tokenDecimals === 'number' && Number.isFinite(tokenDecimals)
+      ? tokenDecimals
+      : 9;
+    const cacheKey = `${walletAddress}:${tokenAddress}:${decimals}`;
+    const cached = this.walletBalanceCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.WALLET_BALANCE_CACHE_TTL_MS) {
+      return cached.balance;
+    }
+
+    if (!this.lambdaEndpoint) {
+      this.logger.warn('[BuybotService] Lambda endpoint not configured; returning cached balance if available');
+      return cached ? cached.balance : 0;
+    }
+
+    const trimmedEndpoint = this.lambdaEndpoint.endsWith('/')
+      ? this.lambdaEndpoint.slice(0, -1)
+      : this.lambdaEndpoint;
+    const url = new URL(`${trimmedEndpoint}/balances`);
+    url.searchParams.set('wallet', walletAddress);
+
+    try {
+      const response = await this.retryWithBackoff(async () => {
+        const res = await fetch(url.toString(), {
+          headers: { accept: 'application/json' },
+        });
+
+        if (res.ok) {
+          return res;
+        }
+
+        // Surface rate-limit details so backoff logic can handle retrying
+        const errorText = await res.text().catch(() => '');
+        throw new Error(`Lambda balances request failed (${res.status}): ${errorText}`);
+      }, 3, 500);
+
+      const payload = await response.json().catch(() => ({}));
+      const entries = Array.isArray(payload?.data) ? payload.data : [];
+      const balanceEntry = entries.find(entry => entry.mint === tokenAddress);
+
+      let balance = 0;
+      if (balanceEntry) {
+        if (balanceEntry.uiAmount && balanceEntry.uiAmount !== '') {
+          balance = Number(balanceEntry.uiAmount) || 0;
+        } else if (balanceEntry.amount) {
+          const rawAmount = Number(balanceEntry.amount);
+          if (Number.isFinite(rawAmount)) {
+            balance = rawAmount / Math.pow(10, decimals);
+          }
+        }
+      } else {
+        this.logger.debug(`[BuybotService] No Lambda balance entry for ${this.formatAddress(walletAddress)} ${this.formatAddress(tokenAddress)}`);
+      }
+
+      this.walletBalanceCache.set(cacheKey, { balance, timestamp: Date.now() });
+      if (this.walletBalanceCache.size > 500) {
+        const oldestKey = this.walletBalanceCache.keys().next().value;
+        if (oldestKey) {
+          this.walletBalanceCache.delete(oldestKey);
+        }
+      }
+
+      return balance;
+    } catch (error) {
+      this.logger.error(`[BuybotService] Failed to fetch wallet balance from Lambda for ${this.formatAddress(walletAddress)}:`, error);
+      return cached ? cached.balance : 0;
     }
   }
 
