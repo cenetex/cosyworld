@@ -4,13 +4,13 @@
  */
 
 /**
- * BuybotService - Real-time token tracking using Helius SDK
+ * BuybotService - Real-time token tracking using AWS Lambda monitoring
  * 
  * Monitors Solana token purchases and transfers for designated tokens
  * Provides Discord commands to manage tracked tokens per channel
+ * Uses AWS Lambda endpoint for transaction monitoring instead of direct Helius polling
  */
 
-import { createHelius } from 'helius-sdk';
 import { PublicKey, Connection } from '@solana/web3.js';
 import {
   DEFAULT_ORB_COLLECTION_ADDRESS,
@@ -20,8 +20,6 @@ import {
   MAX_TOTAL_ACTIVE_WEBHOOKS,
   API_RETRY_MAX_ATTEMPTS,
   API_RETRY_BASE_DELAY_MS,
-  RATE_LIMIT_BASE_DELAY_MS,
-  RATE_LIMIT_MAX_DELAY_MS,
   PRICE_CACHE_TTL_MS
 } from '../../config/buybotConstants.mjs';
 
@@ -36,7 +34,8 @@ export class BuybotService {
     this.avatarRelationshipService = avatarRelationshipService;
     this.services = services; // Container for late-bound service resolution
     
-    this.helius = null;
+    // AWS Lambda endpoint for transaction monitoring
+    this.lambdaEndpoint = null;
     this.connection = null;
     this.activeWebhooks = new Map(); // channelId -> webhook data
     this.db = null;
@@ -46,12 +45,6 @@ export class BuybotService {
     
     // Token info cache: tokenAddress -> { tokenInfo, timestamp }
     this.tokenInfoCache = new Map();
-    
-    // Rate limiting state
-    this.rateLimitedUntil = null; // Timestamp when rate limit will expire
-    this.rateLimitHits = new Map(); // tokenAddress -> { count, lastHit }
-    this.requestQueue = []; // Queue of pending requests
-    this.isProcessingQueue = false;
     
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
@@ -66,21 +59,24 @@ export class BuybotService {
   }
 
   /**
-   * Initialize the service and Helius SDK
+   * Initialize the service and Lambda endpoint connection
    */
   async initialize() {
     try {
-      const heliusApiKey = process.env.HELIUS_API_KEY;
-      if (!heliusApiKey) {
-        this.logger.warn('[BuybotService] HELIUS_API_KEY not configured, service disabled');
+      const lambdaEndpoint = process.env.BUYBOT_LAMBDA_ENDPOINT;
+      if (!lambdaEndpoint) {
+        this.logger.warn('[BuybotService] BUYBOT_LAMBDA_ENDPOINT not configured, service disabled');
         return;
       }
 
-      this.helius = createHelius({ apiKey: heliusApiKey });
+      this.lambdaEndpoint = lambdaEndpoint;
       
-      // Create Solana connection using Helius RPC endpoint
-      const heliusRpcUrl = `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
-      this.connection = new Connection(heliusRpcUrl, 'confirmed');
+      // Create Solana connection for balance checks (using public RPC or Helius if available)
+      const heliusApiKey = process.env.HELIUS_API_KEY;
+      const rpcUrl = heliusApiKey 
+        ? `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`
+        : 'https://api.mainnet-beta.solana.com';
+      this.connection = new Connection(rpcUrl, 'confirmed');
       
       this.db = await this.databaseService.getDatabase();
       
@@ -95,7 +91,7 @@ export class BuybotService {
       // Load existing tracked tokens and setup webhooks
       await this.restoreTrackedTokens();
       
-      this.logger.info('[BuybotService] Initialized successfully');
+      this.logger.info('[BuybotService] Initialized successfully with Lambda endpoint:', this.lambdaEndpoint);
     } catch (error) {
       this.logger.error('[BuybotService] Initialization failed:', error);
     }
@@ -117,14 +113,6 @@ export class BuybotService {
       } catch (error) {
         lastError = error;
         
-        // Check if this is a rate limit error (429)
-        if (this.isRateLimitError(error)) {
-          this.logger.warn(`[BuybotService] Rate limit hit on attempt ${attempt + 1}/${maxAttempts}`);
-          await this.handleRateLimit(error);
-          // Don't retry immediately after rate limit - let the rate limit handler manage it
-          throw error;
-        }
-        
         if (attempt < maxAttempts - 1) {
           const delay = baseDelay * Math.pow(2, attempt);
           this.logger.warn(`[BuybotService] Retry attempt ${attempt + 1}/${maxAttempts} after ${delay}ms`);
@@ -134,98 +122,6 @@ export class BuybotService {
     }
     
     throw lastError;
-  }
-
-  /**
-   * Check if an error is a rate limit error
-   * @param {Error} error - Error to check
-   * @returns {boolean}
-   */
-  isRateLimitError(error) {
-    const errorMessage = error?.message || '';
-    const errorCode = error?.code;
-    
-    return (
-      errorMessage.includes('429') ||
-      errorMessage.includes('Too Many Requests') ||
-      errorMessage.includes('max usage reached') ||
-      errorCode === 429 ||
-      error?.status === 429 ||
-      error?.statusCode === 429 ||
-      errorMessage.includes('8100002') // Solana error code for rate limit
-    );
-  }
-
-  /**
-   * Handle rate limit error by implementing backoff
-   * @param {Error} _error - Rate limit error (unused but kept for API consistency)
-   */
-  async handleRateLimit(_error) {
-    // Calculate backoff time - start with base delay and increase exponentially
-    const now = Date.now();
-    
-    // If already rate limited, extend the cooldown
-    if (this.rateLimitedUntil && this.rateLimitedUntil > now) {
-      const remainingTime = this.rateLimitedUntil - now;
-      const newDelay = Math.min(remainingTime * 1.5, RATE_LIMIT_MAX_DELAY_MS);
-      this.rateLimitedUntil = now + newDelay;
-      this.logger.warn(`[BuybotService] Extending rate limit cooldown to ${(newDelay / 1000).toFixed(0)}s`);
-    } else {
-      // First rate limit hit - set initial cooldown
-      this.rateLimitedUntil = now + RATE_LIMIT_BASE_DELAY_MS;
-      this.logger.warn(`[BuybotService] Rate limited! Cooling down for ${(RATE_LIMIT_BASE_DELAY_MS / 1000).toFixed(0)}s`);
-    }
-  }
-
-  /**
-   * Check if currently rate limited
-   * @returns {boolean}
-   */
-  isRateLimited() {
-    if (!this.rateLimitedUntil) return false;
-    
-    const now = Date.now();
-    if (now >= this.rateLimitedUntil) {
-      // Cooldown expired
-      this.rateLimitedUntil = null;
-      this.logger.info('[BuybotService] Rate limit cooldown expired, resuming normal operation');
-      return false;
-    }
-    
-    return true;
-  }
-
-  /**
-   * Get remaining rate limit cooldown time in milliseconds
-   * @returns {number}
-   */
-  getRateLimitRemaining() {
-    if (!this.rateLimitedUntil) return 0;
-    return Math.max(0, this.rateLimitedUntil - Date.now());
-  }
-
-  /**
-   * Execute a Helius API call with rate limit protection
-   * @param {Function} fn - Async function that makes the API call
-   * @param {string} context - Context for logging (e.g., 'getTokenInfo', 'getTransactions')
-   * @returns {Promise<any>}
-   */
-  async executeWithRateLimit(fn, context = 'API call') {
-    // Check if we're currently rate limited
-    if (this.isRateLimited()) {
-      const remaining = this.getRateLimitRemaining();
-      this.logger.debug(`[BuybotService] Skipping ${context} - rate limited for ${(remaining / 1000).toFixed(0)}s more`);
-      throw new Error(`Rate limited - retry after ${(remaining / 1000).toFixed(0)}s`);
-    }
-
-    try {
-      return await fn();
-    } catch (error) {
-      if (this.isRateLimitError(error)) {
-        await this.handleRateLimit(error);
-      }
-      throw error;
-    }
   }
 
   /**
@@ -287,8 +183,8 @@ export class BuybotService {
    */
   async addTrackedToken(channelId, tokenAddress, platform = 'discord') {
     try {
-      if (!this.helius) {
-        return { success: false, message: 'Buybot service not configured. Please set HELIUS_API_KEY.' };
+      if (!this.lambdaEndpoint) {
+        return { success: false, message: 'Buybot service not configured. Please set BUYBOT_LAMBDA_ENDPOINT.' };
       }
 
       // Check if total active webhooks limit reached
@@ -315,7 +211,7 @@ export class BuybotService {
         return { success: false, message: 'Invalid Solana token address format.' };
       }
 
-      // Fetch token metadata using Helius
+      // Fetch token metadata
       const tokenInfo = await this.getTokenInfo(tokenAddress);
       if (!tokenInfo) {
         return { success: false, message: 'Could not fetch token information. Verify the address is correct.' };
@@ -437,32 +333,16 @@ export class BuybotService {
   }
 
   /**
-   * Get service status including rate limit information
+   * Get service status
    * @returns {Object} Status object
    */
   getServiceStatus() {
-    const status = {
-      isRateLimited: this.isRateLimited(),
-      rateLimitRemaining: this.getRateLimitRemaining(),
+    return {
+      lambdaEndpoint: this.lambdaEndpoint,
       activeWebhooks: this.activeWebhooks.size,
       cachedPrices: this.priceCache.size,
       cachedTokenInfo: this.tokenInfoCache.size,
     };
-
-    if (status.isRateLimited) {
-      status.rateLimitRemainingFormatted = `${Math.ceil(status.rateLimitRemaining / 1000)}s`;
-    }
-
-    return status;
-  }
-
-  /**
-   * Clear rate limit state (admin/debug function)
-   * Use with caution - should only be called manually when needed
-   */
-  clearRateLimit() {
-    this.rateLimitedUntil = null;
-    this.logger.info('[BuybotService] Rate limit state cleared manually');
   }
 
   /**
@@ -596,20 +476,12 @@ export class BuybotService {
         };
       }
 
-      // Get collection info from Helius (if available)
+      // Get collection info from DexScreener or use provided name
       let collectionName = options.name || 'Unknown Collection';
-      try {
-        // Try to fetch collection metadata
-        const response = await this.helius.getAsset({
-          id: collectionAddress
-        });
-        
-        if (response && response.content && response.content.metadata) {
-          collectionName = response.content.metadata.name || collectionName;
-        }
-      } catch (err) {
-        this.logger.warn('[BuybotService] Could not fetch collection metadata:', err.message);
-      }
+      
+      // Note: NFT collection metadata fetching not currently implemented
+      // Using provided name or default
+      this.logger.debug(`[BuybotService] Using collection name: ${collectionName}`);
 
       // Store tracking info
       const collectionDoc = {
@@ -721,11 +593,6 @@ export class BuybotService {
   }
 
   /**
-   * Get token information from Helius
-   * @param {string} tokenAddress - Token mint address
-   * @returns {Promise<Object|null>} Token info or null
-   */
-  /**
    * Validate Solana token address format
    * @param {string} address - Token address to validate
    * @returns {boolean}
@@ -754,7 +621,10 @@ export class BuybotService {
         return {
           usdPrice: cached.price,
           marketCap: cached.marketCap,
-          liquidity: cached.liquidity
+          liquidity: cached.liquidity,
+          name: cached.name,
+          symbol: cached.symbol,
+          image: cached.image
         };
       }
 
@@ -788,6 +658,9 @@ export class BuybotService {
         usdPrice: parseFloat(bestPair.priceUsd),
         marketCap: bestPair.fdv || bestPair.marketCap,
         liquidity: bestPair.liquidity?.usd,
+        name: bestPair.baseToken?.name || 'Unknown Token',
+        symbol: bestPair.baseToken?.symbol || 'UNKNOWN',
+        image: bestPair.info?.imageUrl || null,
       };
 
       // Cache the result
@@ -795,10 +668,13 @@ export class BuybotService {
         price: result.usdPrice,
         marketCap: result.marketCap,
         liquidity: result.liquidity,
+        name: result.name,
+        symbol: result.symbol,
+        image: result.image,
         timestamp: Date.now()
       });
 
-      this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${tokenAddress}`);
+      this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
       
       return result;
     } catch (error) {
@@ -808,7 +684,7 @@ export class BuybotService {
   }
 
   /**
-   * Get token info from Helius
+   * Get token info from DexScreener
    * @param {string} tokenAddress - Token address
    * @returns {Promise<Object|null>}
    */
@@ -821,115 +697,58 @@ export class BuybotService {
         return cached.tokenInfo;
       }
       
-      if (!this.helius) return null;
-
       // First validate the address format
       if (!this.isValidSolanaAddress(tokenAddress)) {
         this.logger.warn(`[BuybotService] Invalid Solana address format: ${tokenAddress}`);
         return null;
       }
 
-      // Check if we're rate limited before making the call
-      if (this.isRateLimited()) {
-        const remaining = this.getRateLimitRemaining();
-        this.logger.warn(`[BuybotService] Skipping getTokenInfo for ${tokenAddress} - rate limited for ${(remaining / 1000).toFixed(0)}s`);
-        // Return cached data even if expired, or null
-        return cached?.tokenInfo || null;
-      }
-
-      // Try to get asset info from Helius with rate limit protection
-      let asset;
-      try {
-        asset = await this.executeWithRateLimit(async () => {
-          return await this.helius.getAsset({
-            id: tokenAddress,
-          });
-        }, `getTokenInfo(${tokenAddress})`);
-      } catch (apiError) {
-        // Check if it's a rate limit error
-        if (this.isRateLimitError(apiError)) {
-          this.logger.warn(`[BuybotService] Rate limited when fetching token info for ${tokenAddress}`);
-          // Return cached data if available
-          return cached?.tokenInfo || null;
-        }
-        
-        // If token not found via getAsset, try alternative method
-        if (apiError.message?.includes('Not Found') || apiError.message?.includes('404')) {
-          this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in Helius DAS API`);
-          
-          // Try to get price from DexScreener as fallback
-          const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
-          
-          // For pump.fun or new tokens, return minimal info with DexScreener price if available
-          const tokenInfo = {
-            address: tokenAddress,
-            name: 'Unknown Token',
-            symbol: 'UNKNOWN',
-            decimals: 9, // Default for SPL tokens
-            supply: null,
-            image: null,
-            usdPrice: dexScreenerData?.usdPrice || null,
-            marketCap: dexScreenerData?.marketCap || null,
-            warning: 'Token not yet indexed - may be newly created or invalid',
-          };
-          
-          // Cache the fallback token info
-          this.tokenInfoCache.set(tokenAddress, {
-            tokenInfo,
-            timestamp: Date.now()
-          });
-          
-          return tokenInfo;
-        }
-        throw apiError;
-      }
-
-      if (!asset) {
-        this.logger.warn(`[BuybotService] No asset data returned for ${tokenAddress}`);
-        return null;
-      }
-
-      // Get basic token info
-      const supply = asset.token_info?.supply;
-      const decimals = asset.token_info?.decimals || 9;
-      let pricePerToken = asset.token_info?.price_info?.price_per_token;
-      let marketCap = null;
-
-      // If Helius doesn't have price data, try DexScreener
-      if (!pricePerToken) {
-        this.logger.info(`[BuybotService] No price from Helius for ${tokenAddress}, trying DexScreener...`);
-        const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
-        if (dexScreenerData) {
-          pricePerToken = dexScreenerData.usdPrice;
-          marketCap = dexScreenerData.marketCap;
-          this.logger.info(`[BuybotService] Using DexScreener price: $${pricePerToken} for ${tokenAddress}`);
-        }
-      }
+      // Use DexScreener as primary source for token info
+      this.logger.info(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
+      const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
       
-      // Calculate market cap if we have supply and price (and didn't get it from DexScreener)
-      if (!marketCap && supply && pricePerToken && decimals) {
-        // Convert supply from raw amount to actual token amount using decimals
-        const actualSupply = supply / Math.pow(10, decimals);
-        marketCap = actualSupply * pricePerToken;
+      if (dexScreenerData) {
+        const tokenInfo = {
+          address: tokenAddress,
+          name: dexScreenerData.name || 'Unknown Token',
+          symbol: dexScreenerData.symbol || 'UNKNOWN',
+          decimals: 9, // Default for SPL tokens
+          supply: null,
+          image: dexScreenerData.image || null,
+          usdPrice: dexScreenerData.usdPrice || null,
+          marketCap: dexScreenerData.marketCap || null,
+        };
+        
+        // Cache the token info
+        this.tokenInfoCache.set(tokenAddress, {
+          tokenInfo,
+          timestamp: Date.now()
+        });
+        
+        this.logger.info(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
+        return tokenInfo;
       }
 
+      // If DexScreener doesn't have the token, return minimal info
+      this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
       const tokenInfo = {
         address: tokenAddress,
-        name: asset.content?.metadata?.name || 'Unknown Token',
-        symbol: asset.content?.metadata?.symbol || 'UNKNOWN',
-        decimals: decimals,
-        supply: supply,
-        image: asset.content?.links?.image,
-        usdPrice: pricePerToken || null, // Price in USD if available
-        marketCap: marketCap, // Market cap calculated from supply * price
+        name: 'Unknown Token',
+        symbol: 'UNKNOWN',
+        decimals: 9, // Default for SPL tokens
+        supply: null,
+        image: null,
+        usdPrice: null,
+        marketCap: null,
+        warning: 'Token not found - may be newly created or invalid',
       };
       
-      // Cache the token info
+      // Cache the fallback token info
       this.tokenInfoCache.set(tokenAddress, {
         tokenInfo,
         timestamp: Date.now()
       });
-
+      
       return tokenInfo;
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
@@ -938,17 +757,16 @@ export class BuybotService {
   }
 
   /**
-   * Setup Helius webhook for token tracking
+   * Setup Lambda-based monitoring for token tracking
    * @param {string} channelId - Channel ID
    * @param {string} tokenAddress - Token address to track
    * @param {string} platform - Platform type ('discord' or 'telegram')
    */
   async setupTokenWebhook(channelId, tokenAddress, platform = 'discord') {
     try {
-      if (!this.helius) return;
+      if (!this.lambdaEndpoint) return;
 
-      // Use Helius enhanced transactions API to monitor token transfers
-      // We'll poll for now, but could setup webhooks for production
+      // Use Lambda endpoint to monitor token transfers via polling
       this.startPollingToken(channelId, tokenAddress, platform);
 
       this.logger.info(`[BuybotService] Setup monitoring for ${tokenAddress} in ${channelId} (${platform})`);
@@ -970,17 +788,7 @@ export class BuybotService {
       return; // Already polling
     }
 
-    // Use adaptive polling interval based on rate limit state
-    const getNextInterval = () => {
-      if (this.isRateLimited()) {
-        const remaining = this.getRateLimitRemaining();
-        // Wait for rate limit to clear plus buffer
-        return remaining + 10000; // Add 10s buffer
-      }
-      return POLLING_INTERVAL_MS;
-    };
-
-    // Initial poll
+    // Poll at regular intervals
     const doPoll = async () => {
       try {
         await this.checkTokenTransactions(channelId, tokenAddress, platform);
@@ -988,11 +796,10 @@ export class BuybotService {
         this.logger.error(`[BuybotService] Polling error for ${tokenAddress}:`, error);
       }
       
-      // Schedule next poll with adaptive interval
-      const nextInterval = getNextInterval();
+      // Schedule next poll
       const webhookData = this.activeWebhooks.get(key);
       if (webhookData) {
-        webhookData.pollTimeout = setTimeout(doPoll, nextInterval);
+        webhookData.pollTimeout = setTimeout(doPoll, POLLING_INTERVAL_MS);
         webhookData.lastChecked = Date.now();
       }
     };
@@ -1002,7 +809,7 @@ export class BuybotService {
       channelId,
       tokenAddress,
       platform,
-      pollTimeout: setTimeout(doPoll, getNextInterval()),
+      pollTimeout: setTimeout(doPoll, POLLING_INTERVAL_MS),
       lastChecked: Date.now(),
     };
     
@@ -1038,7 +845,7 @@ export class BuybotService {
    */
   async checkTokenTransactions(channelId, tokenAddress, platform = 'discord') {
     try {
-      if (!this.helius) return;
+      if (!this.lambdaEndpoint) return;
 
       // Get the last checked timestamp
       const token = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
@@ -1074,26 +881,19 @@ export class BuybotService {
         token.marketCap = freshTokenInfo.marketCap;
       }
 
-      // Get recent transactions for the token
-      // Use Helius Enhanced Transactions API to get token transfer history
+      // Get recent transactions for the token from Lambda endpoint
       let transactions;
       try {
-        // Check if we're rate limited before making the call
-        if (this.isRateLimited()) {
-          const remaining = this.getRateLimitRemaining();
-          this.logger.debug(`[BuybotService] Skipping transaction check for ${tokenAddress} - rate limited for ${(remaining / 1000).toFixed(0)}s`);
-          return; // Skip this polling cycle
-        }
-
-        // Use enhanced.getTransactionsByAddress for token mint queries with rate limit protection
-        const response = await this.executeWithRateLimit(async () => {
-          return await this.helius.enhanced.getTransactionsByAddress({
-            address: tokenAddress,
-            limit: 10,
-          });
-        }, `getTransactionsByAddress(${tokenAddress})`);
+        // Call Lambda endpoint to get token transactions
+        const response = await this.retryWithBackoff(async () => {
+          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/transactions/${tokenAddress}?limit=10`);
+          if (!lambdaResponse.ok) {
+            throw new Error(`Lambda API returned ${lambdaResponse.status}: ${await lambdaResponse.text()}`);
+          }
+          return await lambdaResponse.json();
+        });
         
-        if (!response || response.length === 0) {
+        if (!response || !response.transactions || response.transactions.length === 0) {
           // No transactions yet - this is common for very new tokens
           this.logger.debug(`[BuybotService] No transactions found for ${tokenAddress} yet`);
           
@@ -1105,24 +905,9 @@ export class BuybotService {
           return;
         }
         
-        // Map to our transaction format
-        transactions = response.map(tx => ({
-          signature: tx.signature,
-          timestamp: tx.timestamp,
-          slot: tx.slot,
-          type: tx.type,
-          description: tx.description,
-          tokenTransfers: tx.tokenTransfers || [],
-          events: tx.events || {},
-        }));
+        // Use transactions from Lambda response (already in our format)
+        transactions = response.transactions;
       } catch (txError) {
-        // Check if it's a rate limit error
-        if (this.isRateLimitError(txError)) {
-          this.logger.warn(`[BuybotService] Rate limited when fetching transactions for ${tokenAddress}`);
-          // Don't increment error count for rate limits, just skip this cycle
-          return;
-        }
-        
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
             txError.message?.includes('404') ||
@@ -1221,6 +1006,7 @@ export class BuybotService {
               signature: tx.signature,
               timestamp: new Date(tx.timestamp * 1000),
               createdAt: new Date(),
+              createdAt: new Date(),
             });
           } catch (insertErr) {
             // Mongo duplicate key (signature already exists) - skip silently
@@ -1258,7 +1044,7 @@ export class BuybotService {
 
   /**
    * Parse a transaction for token events
-   * @param {Object} tx - Transaction data from Helius Enhanced API
+   * @param {Object} tx - Transaction data from Lambda API
    * @param {string} tokenAddress - Token address to filter for
    * @returns {Promise<Object|null>} Parsed event or null
    */
@@ -1285,7 +1071,7 @@ export class BuybotService {
       // Decimals (fallback to 9 if not provided)
       const decimals = transfer.decimals || 9;
 
-      // tokenAmount from Helius may be a UI amount (e.g. "1.23") or a raw integer string.
+      // tokenAmount may be a UI amount (e.g. "1.23") or a raw integer string.
       const tokenAmountUi = parseFloat(transfer.tokenAmount || 0);
       let rawAmount;
       if (String(transfer.tokenAmount).includes('.')) {
@@ -1547,7 +1333,7 @@ export class BuybotService {
         fields: [],
         timestamp: event.timestamp.toISOString(),
         footer: {
-          text: 'Solana • Powered by Helius',
+          text: 'Solana • Powered by DexScreener',
         },
       };
 
@@ -2584,7 +2370,7 @@ export class BuybotService {
   }
 
   /**
-   * Get wallet's token balance using Helius
+   * Get wallet's token balance using Solana RPC
    * @param {string} walletAddress - Wallet address
    * @param {string} tokenAddress - Token mint address
    * @returns {Promise<number>} Token balance (in UI units, e.g., full tokens not lamports)
@@ -2624,52 +2410,16 @@ export class BuybotService {
   }
 
   /**
-   * Get wallet's NFT count for a specific collection using Helius
-   * @param {string} walletAddress - Wallet address
-   * @param {string} collectionAddress - NFT collection address
+   * Get wallet's NFT count for a specific collection
+   * @param {string} _walletAddress - Wallet address
+   * @param {string} _collectionAddress - NFT collection address
    * @returns {Promise<number>} NFT count
    */
-  async getWalletNftCount(walletAddress, collectionAddress) {
-    try {
-      if (!this.helius) {
-        this.logger.warn('[BuybotService] Helius not initialized, cannot fetch NFTs');
-        return 0;
-      }
-
-      // Use Helius DAS API to get assets
-      const response = await this.helius.getAssetsByOwner({
-        ownerAddress: walletAddress,
-        page: 1,
-        limit: 1000
-      });
-
-      if (!response || !response.items) {
-        return 0;
-      }
-
-      // Filter by collection
-      const nftsInCollection = response.items.filter(nft => {
-        // Check grouping (v1 collection standard)
-        if (nft.grouping) {
-          const collectionGroup = nft.grouping.find(g => g.group_key === 'collection');
-          if (collectionGroup && collectionGroup.group_value === collectionAddress) {
-            return true;
-          }
-        }
-        
-        // Check collection field (newer standard)
-        if (nft.collection && nft.collection.address === collectionAddress) {
-          return true;
-        }
-        
-        return false;
-      });
-
-      return nftsInCollection.length;
-    } catch (error) {
-      this.logger.error('[BuybotService] Failed to get wallet NFT count:', error);
-      return 0;
-    }
+  async getWalletNftCount(_walletAddress, _collectionAddress) {
+    // NFT tracking not currently supported without Helius
+    // TODO: Implement alternative NFT data source if needed
+    this.logger.debug('[BuybotService] NFT tracking not currently supported');
+    return 0;
   }
 
   /**
