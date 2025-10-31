@@ -1241,9 +1241,29 @@ export class BuybotService {
         isIncrease = postAmountUi > 0;
       }
 
+      const participants = Array.isArray(tx.participants) ? tx.participants : [];
+      const participantWallets = new Set(participants.map(p => p.wallet).filter(Boolean));
+      const uniqueMints = new Set(relevantTransfers.map(t => t.mint || tokenAddress).filter(Boolean));
+
+      const isBasicTransfer = relevantTransfers.length === 1 &&
+        participantWallets.size === 2 &&
+        fromWallet &&
+        toWallet &&
+        fromWallet !== toWallet &&
+        !relevantTransfers.some(t => t.isMint || t.isBurn);
+
+      const feeLamports = typeof tx.feeLamports === 'number' ? tx.feeLamports : null;
+      const feeThreshold = Number(process.env.BUYBOT_TRANSFER_FEE_THRESHOLD_LAMPORTS || 10_000);
+      const isLowFee = feeLamports !== null ? feeLamports <= feeThreshold : false;
+      const isLikelyTransfer = isBasicTransfer && uniqueMints.size === 1 && (feeLamports === null || isLowFee);
+
+      const inferredType = isLikelyTransfer ? 'transfer' : eventType;
+      const displayDescription = isLikelyTransfer ? 'Token Transfer' : (tx.description || description);
+
       return {
         type: eventType,
         description: tx.description || description,
+        displayDescription,
         amount: rawAmount,
         decimals,
         preAmountUi,
@@ -1256,6 +1276,9 @@ export class BuybotService {
         toWallet,
         txUrl: `https://solscan.io/tx/${tx.signature}`,
         timestamp: tx.timestamp ? new Date(tx.timestamp * 1000) : new Date(),
+        feeLamports,
+        inferredType,
+        isLikelyTransfer,
       };
     } catch (error) {
       this.logger.error('[BuybotService] Error parsing transaction:', error);
@@ -1299,8 +1322,11 @@ export class BuybotService {
         this.logger.warn(`[BuybotService] Could not fetch guild for channel ${channelId}`);
       }
       
-      const emoji = event.type === 'swap' ? '💰' : '📤';
-      const color = event.type === 'swap' ? 0x00ff00 : 0x0099ff;
+      const effectiveType = event?.inferredType || event.type;
+      const displayDescription = event?.displayDescription || event.description;
+
+      const emoji = effectiveType === 'swap' ? '💰' : '📤';
+      const color = effectiveType === 'swap' ? 0x00ff00 : 0x0099ff;
       const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
@@ -1311,7 +1337,7 @@ export class BuybotService {
       let recipientAvatar = null;
 
       try {
-        if (event.type === 'swap' && event.to) {
+        if (effectiveType === 'swap' && event.to) {
           this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
           const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
           const currentBalance = buyerWalletContext.currentBalance;
@@ -1354,7 +1380,7 @@ export class BuybotService {
               wallet: this.formatAddress(event.to)
             });
           }
-        } else if (event.type === 'transfer') {
+        } else if (effectiveType === 'transfer') {
           if (event.from) {
             this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
             const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
@@ -1451,11 +1477,11 @@ export class BuybotService {
       const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
 
       // Build custom description with avatar names instead of wallet addresses
-      let customDescription = event.description;
-      if (event.type === 'swap' && buyerAvatar && buyerAvatar.name && buyerEmoji) {
+      let customDescription = displayDescription;
+      if (effectiveType === 'swap' && buyerAvatar && buyerAvatar.name && buyerEmoji) {
         // Replace wallet address with avatar name in description
         customDescription = `${buyerEmoji} **${buyerAvatar.name}** (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
-      } else if (event.type === 'transfer') {
+      } else if (effectiveType === 'transfer') {
         // Build transfer description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
           ? `${senderEmoji} **${senderAvatar.name}** (\`${this.formatAddress(event.from)}\`)`
@@ -1470,7 +1496,7 @@ export class BuybotService {
 
       // Now create the embed with custom description
       const embed = {
-        title: `${emoji} ${token.tokenSymbol} ${event.type === 'swap' ? 'Purchase' : 'Transfer'}`,
+        title: `${emoji} ${token.tokenSymbol} ${effectiveType === 'swap' ? 'Purchase' : 'Transfer'}`,
         description: customDescription,
         color: color,
         fields: [],
@@ -1513,7 +1539,7 @@ export class BuybotService {
       }
 
       // From/To addresses - show wallet avatars with names/emojis
-      if (event.type === 'swap') {
+      if (effectiveType === 'swap') {
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
           let buyerInfo = `${buyerEmoji} **${buyerAvatar.name}**`;
           buyerInfo += `\n\`${this.formatAddress(event.to)}\``;
@@ -1691,7 +1717,9 @@ export class BuybotService {
         recipientImage: recipientAvatar?.imageUrl ? 'EXISTS' : 'NULL'
       });
       
-      await this.triggerAvatarTradeResponses(channelId, event, token, {
+      const eventForResponses = { ...event, type: effectiveType, description: customDescription };
+
+      await this.triggerAvatarTradeResponses(channelId, eventForResponses, token, {
         buyerAvatar,
         senderAvatar,
         recipientAvatar
