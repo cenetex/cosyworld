@@ -12,11 +12,11 @@ export default [
     "rarity": "legendary"
   },
   {
-    "model": "openai/gpt-4",
+    "model": "openai/gpt-4-0314",
     "rarity": "legendary"
   },
   {
-    "model": "openai/gpt-4-0314",
+    "model": "openai/gpt-4",
     "rarity": "legendary"
   },
   {
@@ -73,6 +73,10 @@ export default [
   },
   {
     "model": "openai/gpt-4o-2024-05-13",
+    "rarity": "rare"
+  },
+  {
+    "model": "perplexity/sonar-pro-search",
     "rarity": "rare"
   },
   {
@@ -296,19 +300,11 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "openai/o1-mini-2024-09-12",
-    "rarity": "uncommon"
-  },
-  {
-    "model": "openai/o1-mini",
+    "model": "anthropic/claude-3.5-haiku-20241022",
     "rarity": "uncommon"
   },
   {
     "model": "anthropic/claude-3.5-haiku",
-    "rarity": "uncommon"
-  },
-  {
-    "model": "anthropic/claude-3.5-haiku-20241022",
     "rarity": "uncommon"
   },
   {
@@ -396,10 +392,6 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "z-ai/glm-4.6:exacto",
-    "rarity": "uncommon"
-  },
-  {
     "model": "mistralai/mistral-medium-3.1",
     "rarity": "uncommon"
   },
@@ -420,7 +412,7 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "deepseek/deepseek-r1",
+    "model": "z-ai/glm-4.6:exacto",
     "rarity": "uncommon"
   },
   {
@@ -560,6 +552,10 @@ export default [
     "rarity": "uncommon"
   },
   {
+    "model": "deepseek/deepseek-r1",
+    "rarity": "uncommon"
+  },
+  {
     "model": "qwen/qwen3-vl-32b-instruct",
     "rarity": "uncommon"
   },
@@ -589,10 +585,6 @@ export default [
   },
   {
     "model": "deepseek/deepseek-v3.1-terminus:exacto",
-    "rarity": "uncommon"
-  },
-  {
-    "model": "deepseek/deepseek-chat-v3.1",
     "rarity": "uncommon"
   },
   {
@@ -636,11 +628,19 @@ export default [
     "rarity": "uncommon"
   },
   {
+    "model": "deepseek/deepseek-chat-v3.1",
+    "rarity": "uncommon"
+  },
+  {
     "model": "z-ai/glm-4.5-air",
     "rarity": "uncommon"
   },
   {
     "model": "qwen/qwen3-next-80b-a3b-instruct",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "nvidia/nemotron-nano-12b-v2-vl",
     "rarity": "uncommon"
   },
   {
@@ -768,6 +768,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "tencent/hunyuan-a13b-instruct",
+    "rarity": "common"
+  },
+  {
     "model": "qwen/qwen3-235b-a22b-thinking-2507",
     "rarity": "common"
   },
@@ -796,6 +800,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "minimax/minimax-m2",
+    "rarity": "common"
+  },
+  {
     "model": "ai21/jamba-mini-1.7",
     "rarity": "common"
   },
@@ -812,11 +820,11 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "deepseek/deepseek-r1-distill-qwen-32b",
+    "model": "qwen/qwq-32b",
     "rarity": "common"
   },
   {
-    "model": "qwen/qwq-32b",
+    "model": "deepseek/deepseek-r1-distill-qwen-32b",
     "rarity": "common"
   },
   {
@@ -880,6 +888,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "mistralai/voxtral-small-24b-2507",
+    "rarity": "common"
+  },
+  {
     "model": "aion-labs/aion-rp-llama-3.1-8b",
     "rarity": "common"
   },
@@ -893,6 +905,10 @@ export default [
   },
   {
     "model": "meta-llama/llama-4-scout",
+    "rarity": "common"
+  },
+  {
+    "model": "openai/gpt-oss-safeguard-20b",
     "rarity": "common"
   },
   {
@@ -1080,6 +1096,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "openai/text-embedding-3-large",
+    "rarity": "common"
+  },
+  {
     "model": "google/gemma-3-12b-it",
     "rarity": "common"
   },
@@ -1140,10 +1160,6 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "tencent/hunyuan-a13b-instruct",
-    "rarity": "common"
-  },
-  {
     "model": "meta-llama/llama-3.1-8b-instruct",
     "rarity": "common"
   },
@@ -1164,11 +1180,11 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "minimax/minimax-m2:free",
+    "model": "nvidia/nemotron-nano-12b-v2-vl:free",
     "rarity": "common"
   },
   {
-    "model": "openrouter/andromeda-alpha",
+    "model": "minimax/minimax-m2:free",
     "rarity": "common"
   },
   {
@@ -1209,10 +1225,6 @@ export default [
   },
   {
     "model": "google/gemma-3n-e2b-it:free",
-    "rarity": "common"
-  },
-  {
-    "model": "tencent/hunyuan-a13b-instruct:free",
     "rarity": "common"
   },
   {
