@@ -1317,16 +1317,60 @@ export class AvatarService {
       
       // Update token balance if provided
       if (context.tokenSymbol && context.currentBalance !== undefined) {
-        updateData[`tokenBalances.${context.tokenSymbol}`] = {
-          balance: context.currentBalance,
-          usdValue: context.usdValue || null,
+        const mainBalance = {
+          balance: Number.isFinite(context.currentBalance) ? context.currentBalance : 0,
+          usdValue: Number.isFinite(context.usdValue) ? context.usdValue : null,
           lastUpdated: new Date()
         };
+
+        if (context.tokenAddress) {
+          mainBalance.mint = context.tokenAddress;
+        }
+        if (context.tokenPriceUsd !== undefined) {
+          mainBalance.priceUsd = Number.isFinite(context.tokenPriceUsd) ? context.tokenPriceUsd : null;
+        }
+
+        updateData[`tokenBalances.${context.tokenSymbol}`] = mainBalance;
       }
       
       // Update NFT count if provided
       if (context.orbNftCount !== undefined) {
         updateData['nftBalances.Orb'] = context.orbNftCount;
+      }
+
+      if (context.additionalTokenBalances && typeof context.additionalTokenBalances === 'object') {
+        for (const [symbol, balanceData] of Object.entries(context.additionalTokenBalances)) {
+          const extraBalance = {
+            balance: Number.isFinite(balanceData.balance) ? balanceData.balance : 0,
+            usdValue: Number.isFinite(balanceData.usdValue) ? balanceData.usdValue : null,
+            lastUpdated: balanceData.lastUpdated ? new Date(balanceData.lastUpdated) : new Date()
+          };
+
+          if (balanceData.mint) {
+            extraBalance.mint = balanceData.mint;
+          }
+          if (balanceData.priceUsd !== undefined) {
+            extraBalance.priceUsd = Number.isFinite(balanceData.priceUsd) ? balanceData.priceUsd : null;
+          }
+          if (balanceData.decimals !== undefined && balanceData.decimals !== null) {
+            extraBalance.decimals = balanceData.decimals;
+          }
+
+          updateData[`tokenBalances.${symbol}`] = extraBalance;
+        }
+      }
+
+      if (Array.isArray(context.walletTopTokens)) {
+        updateData.walletTopTokens = context.walletTopTokens.map(holding => ({
+          symbol: holding.symbol,
+          name: holding.name,
+          mint: holding.mint,
+          amount: Number.isFinite(holding.amount) ? holding.amount : 0,
+          usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
+          price: Number.isFinite(holding.price) ? holding.price : null,
+          decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+          updatedAt: new Date()
+        }));
       }
       
       await db.collection(this.AVATARS_COLLECTION).updateOne(
@@ -1423,10 +1467,25 @@ export class AvatarService {
     
     if (context.tokenSymbol) {
       tokenBalances[context.tokenSymbol] = {
-        balance: context.currentBalance || 0,
-        usdValue: context.usdValue || null,
-        lastUpdated: new Date()
+        balance: Number.isFinite(context.currentBalance) ? context.currentBalance : 0,
+        usdValue: Number.isFinite(context.usdValue) ? context.usdValue : null,
+        lastUpdated: new Date(),
+        mint: context.tokenAddress || null,
+        priceUsd: Number.isFinite(context.tokenPriceUsd) ? context.tokenPriceUsd : null,
       };
+    }
+
+    if (context.additionalTokenBalances && typeof context.additionalTokenBalances === 'object') {
+      for (const [symbol, balanceData] of Object.entries(context.additionalTokenBalances)) {
+        tokenBalances[symbol] = {
+          balance: Number.isFinite(balanceData.balance) ? balanceData.balance : 0,
+          usdValue: Number.isFinite(balanceData.usdValue) ? balanceData.usdValue : null,
+          lastUpdated: balanceData.lastUpdated ? new Date(balanceData.lastUpdated) : new Date(),
+          mint: balanceData.mint || null,
+          priceUsd: Number.isFinite(balanceData.priceUsd) ? balanceData.priceUsd : null,
+          decimals: Number.isFinite(balanceData.decimals) ? balanceData.decimals : null,
+        };
+      }
     }
     
     if (context.orbNftCount) {
@@ -1440,6 +1499,18 @@ export class AvatarService {
           walletAddress,
           tokenBalances,
           nftBalances,
+          walletTopTokens: Array.isArray(context.walletTopTokens)
+            ? context.walletTopTokens.map(holding => ({
+                symbol: holding.symbol,
+                name: holding.name,
+                mint: holding.mint,
+                amount: Number.isFinite(holding.amount) ? holding.amount : 0,
+                usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
+                price: Number.isFinite(holding.price) ? holding.price : null,
+                decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+                updatedAt: new Date()
+              }))
+            : [],
           lastActivityAt: new Date(),
           activityCount: 1,
           walletContext: {

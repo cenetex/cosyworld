@@ -91,6 +91,7 @@ export class BuybotService {
   // Wallet balance cache to avoid hammering the Lambda balances endpoint
   this.walletBalanceCache = new Map();
   this.WALLET_BALANCE_CACHE_TTL_MS = 30_000;
+  this.WALLET_BALANCE_CACHE_MAX_ENTRIES = 100;
 
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
@@ -1312,7 +1313,8 @@ export class BuybotService {
       try {
         if (event.type === 'swap' && event.to) {
           this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
-          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
+          const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
+          const currentBalance = buyerWalletContext.currentBalance;
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
           
           this.logger.info(`[BuybotService] Wallet ${this.formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
@@ -1322,11 +1324,14 @@ export class BuybotService {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               amount: formattedAmount,
-              usdValue: usdValue,
+              usdValue: buyerWalletContext.currentBalanceUsd,
               currentBalance: currentBalance,
               orbNftCount: orbNftCount,
               discordChannelId: channelId,
-              guildId: guildId
+              guildId: guildId,
+              tokenPriceUsd: token.usdPrice || null,
+              additionalTokenBalances: buyerWalletContext.additionalTokenBalances,
+              walletTopTokens: buyerWalletContext.holdingsSnapshot,
             });
             
             if (buyerAvatar) {
@@ -1352,7 +1357,8 @@ export class BuybotService {
         } else if (event.type === 'transfer') {
           if (event.from) {
             this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
-            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress, tokenDecimals);
+            const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
+            const senderBalance = senderWalletContext.currentBalance;
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             this.logger.info(`[BuybotService] Sender ${this.formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
@@ -1362,11 +1368,14 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 amount: formattedAmount,
-                usdValue: usdValue,
+                usdValue: senderWalletContext.currentBalanceUsd,
                 currentBalance: senderBalance,
                 orbNftCount: senderOrbCount,
                 discordChannelId: channelId,
-                guildId: guildId
+                guildId: guildId,
+                tokenPriceUsd: token.usdPrice || null,
+                additionalTokenBalances: senderWalletContext.additionalTokenBalances,
+                walletTopTokens: senderWalletContext.holdingsSnapshot,
               });
               
               if (senderAvatar) {
@@ -1389,7 +1398,8 @@ export class BuybotService {
           }
           if (event.to) {
             this.logger.info(`[BuybotService] Processing transfer to ${this.formatAddress(event.to)}`);
-            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
+            const recipientWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
+            const recipientBalance = recipientWalletContext.currentBalance;
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             this.logger.info(`[BuybotService] Recipient ${this.formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
@@ -1399,11 +1409,14 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 amount: formattedAmount,
-                usdValue: usdValue,
+                usdValue: recipientWalletContext.currentBalanceUsd,
                 currentBalance: recipientBalance,
                 orbNftCount: recipientOrbCount,
                 discordChannelId: channelId,
-                guildId: guildId
+                guildId: guildId,
+                tokenPriceUsd: token.usdPrice || null,
+                additionalTokenBalances: recipientWalletContext.additionalTokenBalances,
+                walletTopTokens: recipientWalletContext.holdingsSnapshot,
               });
               
               if (recipientAvatar) {
@@ -1955,6 +1968,33 @@ export class BuybotService {
         contextParts.push(`Your new balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
       }
     }
+
+    const tokenBalances = avatar.tokenBalances || {};
+    const notableHoldings = Object.entries(tokenBalances)
+      .map(([symbol, info]) => {
+        const usdValue = Number(info?.usdValue);
+        const balanceValue = Number(info?.balance);
+        return {
+          symbol,
+          usdValue: Number.isFinite(usdValue) ? usdValue : null,
+          balance: Number.isFinite(balanceValue) ? balanceValue : null,
+        };
+      })
+      .filter(entry => entry.usdValue !== null && entry.usdValue >= 5)
+      .sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))
+      .slice(0, 3);
+
+    if (notableHoldings.length > 0) {
+      const holdingsText = notableHoldings
+        .map(entry => {
+          const balanceText = entry.balance !== null
+            ? entry.balance.toLocaleString(undefined, { maximumFractionDigits: 3 })
+            : 'unknown amount';
+          return `${entry.symbol}: ${balanceText} (~$${entry.usdValue.toFixed(2)})`;
+        })
+        .join('; ');
+      contextParts.push(`Your notable holdings include ${holdingsText}`);
+    }
     
     // Add relationship context for other avatars involved
     const otherAvatars = allAvatars.filter(a => a.avatar._id.toString() !== avatar._id.toString());
@@ -2048,7 +2088,8 @@ export class BuybotService {
       try {
         if (event.type === 'swap' && event.to) {
           // Get wallet's current token balance
-          const currentBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
+          const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
+          const currentBalance = buyerWalletContext.currentBalance;
           
           // Get wallet's NFT count for all tracked collections in this channel
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
@@ -2057,38 +2098,49 @@ export class BuybotService {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             amount: formattedAmount,
-            usdValue: usdValue,
+            usdValue: buyerWalletContext.currentBalanceUsd,
             currentBalance: currentBalance,
             orbNftCount: orbNftCount,
-            telegramChannelId: channelId // Pass telegram channel for introductions
+            telegramChannelId: channelId, // Pass telegram channel for introductions
+            tokenPriceUsd: token.usdPrice || null,
+            additionalTokenBalances: buyerWalletContext.additionalTokenBalances,
+            walletTopTokens: buyerWalletContext.holdingsSnapshot,
           });
         } else if (event.type === 'transfer') {
           if (event.from) {
-            const senderBalance = await this.getWalletTokenBalance(event.from, token.tokenAddress, tokenDecimals);
+            const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
+            const senderBalance = senderWalletContext.currentBalance;
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               amount: formattedAmount,
-              usdValue: usdValue,
+              usdValue: senderWalletContext.currentBalanceUsd,
               currentBalance: senderBalance,
               orbNftCount: senderOrbCount,
-              telegramChannelId: channelId
+              telegramChannelId: channelId,
+              tokenPriceUsd: token.usdPrice || null,
+              additionalTokenBalances: senderWalletContext.additionalTokenBalances,
+              walletTopTokens: senderWalletContext.holdingsSnapshot,
             });
           }
           if (event.to) {
-            const recipientBalance = await this.getWalletTokenBalance(event.to, token.tokenAddress, tokenDecimals);
+            const recipientWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
+            const recipientBalance = recipientWalletContext.currentBalance;
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               amount: formattedAmount,
-              usdValue: usdValue,
+              usdValue: recipientWalletContext.currentBalanceUsd,
               currentBalance: recipientBalance,
               orbNftCount: recipientOrbCount,
-              telegramChannelId: channelId
+              telegramChannelId: channelId,
+              tokenPriceUsd: token.usdPrice || null,
+              additionalTokenBalances: recipientWalletContext.additionalTokenBalances,
+              walletTopTokens: recipientWalletContext.holdingsSnapshot,
             });
           }
         }
@@ -2328,6 +2380,309 @@ export class BuybotService {
   calculateUsdValue(amount, decimals, usdPrice) {
     const tokenAmount = parseFloat(amount) / Math.pow(10, decimals);
     return tokenAmount * usdPrice;
+  }
+
+  /**
+   * Fetch all SPL token balances for a wallet from the Lambda balances endpoint
+   * @param {string} walletAddress - Wallet address to query
+   * @returns {Promise<Array>} Array of balance entries
+   */
+  async fetchWalletBalances(walletAddress) {
+    if (!walletAddress) {
+      return [];
+    }
+
+    const cached = this.walletBalanceCache.get(walletAddress);
+    if (cached && (Date.now() - cached.timestamp) < this.WALLET_BALANCE_CACHE_TTL_MS) {
+      return cached.entries;
+    }
+
+    if (!this.lambdaEndpoint) {
+      return cached ? cached.entries : [];
+    }
+
+    const trimmedEndpoint = this.lambdaEndpoint.endsWith('/')
+      ? this.lambdaEndpoint.slice(0, -1)
+      : this.lambdaEndpoint;
+
+    const url = new URL(`${trimmedEndpoint}/balances`);
+    url.searchParams.set('wallet', walletAddress);
+
+    try {
+      const response = await this.retryWithBackoff(async () => {
+        const res = await fetch(url.toString(), { headers: { accept: 'application/json' } });
+        if (res.ok) {
+          return res;
+        }
+
+        const errorBody = await res.text().catch(() => '');
+        throw new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
+      }, 3, 500);
+
+      const payload = await response.json().catch(() => ({}));
+      const entries = Array.isArray(payload?.data) ? payload.data : [];
+
+      this.walletBalanceCache.set(walletAddress, {
+        entries,
+        timestamp: Date.now(),
+      });
+
+      if (this.walletBalanceCache.size > this.WALLET_BALANCE_CACHE_MAX_ENTRIES) {
+        let oldestKey = null;
+        let oldestTs = Number.POSITIVE_INFINITY;
+        for (const [key, value] of this.walletBalanceCache.entries()) {
+          if (value.timestamp < oldestTs) {
+            oldestTs = value.timestamp;
+            oldestKey = key;
+          }
+        }
+        if (oldestKey) {
+          this.walletBalanceCache.delete(oldestKey);
+        }
+      }
+
+      return entries;
+    } catch (error) {
+      this.logger.error(`[BuybotService] Failed to fetch wallet balances for ${this.formatAddress(walletAddress)}:`, error);
+      return cached ? cached.entries : [];
+    }
+  }
+
+  /**
+   * Convert a Lambda balance entry into UI amount using token decimals
+   * @param {Object} entry - Balance entry from Lambda
+   * @param {number} decimals - Token decimals
+   * @returns {number} UI amount (full tokens)
+   */
+  calculateUiAmountFromEntry(entry, decimals = 9) {
+    if (!entry) {
+      return 0;
+    }
+
+    if (entry.uiAmount !== undefined && entry.uiAmount !== null && entry.uiAmount !== '') {
+      const uiAmount = Number(entry.uiAmount);
+      if (Number.isFinite(uiAmount)) {
+        return uiAmount;
+      }
+    }
+
+    const rawAmount = Number(entry.amount ?? entry.rawAmount ?? 0);
+    if (!Number.isFinite(rawAmount) || rawAmount === 0) {
+      return 0;
+    }
+
+    const tokenDecimals = Number.isFinite(entry.decimals)
+      ? Number(entry.decimals)
+      : decimals;
+
+    return rawAmount / Math.pow(10, tokenDecimals);
+  }
+
+  /**
+   * Get wallet's token balance using cached Lambda balances
+   * @param {string} walletAddress - Wallet address
+   * @param {string} tokenAddress - Token mint address
+   * @param {number} [tokenDecimals=9] - Token decimals
+   * @returns {Promise<number>} Token balance (UI units)
+   */
+  async getWalletTokenBalance(walletAddress, tokenAddress, tokenDecimals = 9) {
+    if (!walletAddress || !tokenAddress) {
+      return 0;
+    }
+
+    const entries = await this.fetchWalletBalances(walletAddress);
+    const balanceEntry = entries.find(entry => entry?.mint === tokenAddress);
+    if (!balanceEntry) {
+      return 0;
+    }
+
+    let decimals = Number.isFinite(tokenDecimals) ? tokenDecimals : null;
+    if (!Number.isFinite(decimals)) {
+      const tokenInfo = await this.getTokenInfo(tokenAddress);
+      decimals = tokenInfo?.decimals ?? 9;
+    }
+
+    const uiAmount = this.calculateUiAmountFromEntry(balanceEntry, decimals);
+    return Number.isFinite(uiAmount) ? uiAmount : 0;
+  }
+
+  /**
+   * Determine the top token holdings for a wallet above a USD threshold
+   * @param {string} walletAddress - Wallet address
+   * @param {Object} [options]
+   * @param {number} [options.minUsd=5] - Minimum USD value to include
+   * @param {number} [options.limit=5] - Maximum number of tokens to return
+   * @param {number} [options.maxLookups=12] - Maximum number of tokens to price check
+   * @returns {Promise<Array>} Array of holdings sorted by USD value desc
+   */
+  async getWalletTopTokens(walletAddress, options = {}) {
+    const { minUsd = 5, limit = 5, maxLookups = 12 } = options;
+    const entries = await this.fetchWalletBalances(walletAddress);
+
+    if (!entries.length) {
+      return [];
+    }
+
+    const sortedEntries = entries
+      .filter(entry => {
+        const amount = Number(entry?.amount ?? entry?.uiAmount ?? 0);
+        return Number.isFinite(amount) && amount > 0;
+      })
+      .sort((a, b) => {
+        const amountA = Number(a.amount ?? 0);
+        const amountB = Number(b.amount ?? 0);
+        return amountB - amountA;
+      })
+      .slice(0, maxLookups);
+
+    const topTokens = [];
+
+    for (const entry of sortedEntries) {
+      const mint = entry?.mint;
+      if (!mint) {
+        continue;
+      }
+
+      let tokenInfo = null;
+      try {
+        tokenInfo = await this.getTokenInfo(mint);
+      } catch (err) {
+        this.logger.warn(`[BuybotService] Failed to fetch token info for mint ${this.formatAddress(mint)}: ${err.message}`);
+        continue;
+      }
+
+      if (!tokenInfo || !tokenInfo.usdPrice) {
+        continue;
+      }
+
+      const decimals = Number.isFinite(entry.decimals)
+        ? Number(entry.decimals)
+        : tokenInfo.decimals ?? 9;
+
+      const uiAmount = this.calculateUiAmountFromEntry(entry, decimals);
+      if (!Number.isFinite(uiAmount) || uiAmount <= 0) {
+        continue;
+      }
+
+      const usdValue = tokenInfo.usdPrice * uiAmount;
+      if (usdValue < minUsd) {
+        continue;
+      }
+
+      topTokens.push({
+        symbol: tokenInfo.symbol || mint.slice(0, 6),
+        name: tokenInfo.name || tokenInfo.symbol || mint.slice(0, 12),
+        mint,
+        amount: uiAmount,
+        usdValue,
+        price: tokenInfo.usdPrice,
+        decimals,
+      });
+
+      if (topTokens.length >= limit) {
+        break;
+      }
+    }
+
+    return topTokens.sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0));
+  }
+
+  /**
+   * Build additional token balance map suitable for avatar persistence
+   * @param {Array} topTokens - Array of token holding summaries
+   * @param {string} [primarySymbol] - Symbol of the primary token to exclude
+   * @returns {Object|null} Map of token symbol -> balance metadata
+   */
+  buildAdditionalTokenBalances(topTokens = [], primarySymbol = null) {
+    if (!Array.isArray(topTokens) || topTokens.length === 0) {
+      return null;
+    }
+
+    const additionalBalances = {};
+
+    for (const holding of topTokens) {
+      const symbol = holding?.symbol || holding?.mint;
+      if (!symbol) {
+        continue;
+      }
+
+      if (primarySymbol && symbol === primarySymbol) {
+        continue;
+      }
+
+      additionalBalances[symbol] = {
+        balance: Number.isFinite(holding.amount) ? holding.amount : 0,
+        usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
+        mint: holding.mint || null,
+        priceUsd: Number.isFinite(holding.price) ? holding.price : null,
+        decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+        lastUpdated: new Date(),
+      };
+    }
+
+    return Object.keys(additionalBalances).length ? additionalBalances : null;
+  }
+
+  /**
+   * Build wallet context data for avatar creation/update, including top holdings
+   * @param {string} walletAddress - Wallet address
+   * @param {Object} token - Primary token metadata
+   * @param {number} tokenDecimals - Token decimals for primary token
+   * @param {Object} [options] - Options for holdings calculation
+   * @returns {Promise<Object>} Context with balance, USD value, holdings snapshot
+   */
+  async buildWalletAvatarContext(walletAddress, token, tokenDecimals, options = {}) {
+    const { minUsd = 5, limit = 5 } = options;
+
+    const currentBalance = await this.getWalletTokenBalance(walletAddress, token.tokenAddress, tokenDecimals);
+    const topTokens = await this.getWalletTopTokens(walletAddress, { minUsd, limit });
+
+    const currentBalanceUsd = token.usdPrice ? currentBalance * token.usdPrice : null;
+    const includePrimary = Number.isFinite(currentBalanceUsd) && currentBalanceUsd >= minUsd;
+
+    const primaryEntry = {
+      symbol: token.tokenSymbol || token.tokenAddress?.slice(0, 6) || 'TOKEN',
+      name: token.tokenName || token.tokenSymbol || token.tokenAddress,
+      mint: token.tokenAddress,
+      amount: currentBalance,
+      usdValue: currentBalanceUsd,
+      price: token.usdPrice || null,
+      decimals: tokenDecimals,
+    };
+
+    const holdingsSnapshot = [...topTokens];
+    const existingIndex = holdingsSnapshot.findIndex(holding => holding.mint === token.tokenAddress);
+
+    if (includePrimary) {
+      if (existingIndex >= 0) {
+        holdingsSnapshot[existingIndex] = primaryEntry;
+      } else {
+        holdingsSnapshot.unshift(primaryEntry);
+      }
+    }
+
+    const sanitizedSnapshot = holdingsSnapshot
+      .map(holding => ({
+        symbol: holding.symbol || holding.mint,
+        name: holding.name || holding.symbol || holding.mint,
+        mint: holding.mint,
+  amount: Number.isFinite(holding.amount) ? Math.round(holding.amount * 1e4) / 1e4 : 0,
+        usdValue: Number.isFinite(holding.usdValue) ? Math.round(holding.usdValue * 100) / 100 : null,
+        price: Number.isFinite(holding.price) ? Math.round(holding.price * 1e6) / 1e6 : null,
+        decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+      }))
+      .filter(holding => holding.symbol && holding.mint)
+      .sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))
+      .slice(0, limit);
+
+    const additionalTokenBalances = this.buildAdditionalTokenBalances(sanitizedSnapshot, token.tokenSymbol);
+
+    return {
+      currentBalance,
+      currentBalanceUsd,
+      holdingsSnapshot: sanitizedSnapshot,
+      additionalTokenBalances,
+    };
   }
 
   /**
