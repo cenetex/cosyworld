@@ -23,6 +23,50 @@ import {
   PRICE_CACHE_TTL_MS
 } from '../../config/buybotConstants.mjs';
 
+const EMOJI_SHORTCODE_MAP = Object.freeze({
+  fire: '🔥',
+  rocket: '🚀',
+  moneybag: '💰',
+  money_mouth_face: '🤑',
+  coin: '🪙',
+  sparkles: '✨',
+  star: '⭐️',
+  stars: '🌟',
+  trophy: '🏆',
+  crown: '👑',
+  dragon: '🐉',
+  tiger: '🐯',
+  fox: '🦊',
+  wolf: '🐺',
+  panda_face: '🐼',
+  koala: '🐨',
+  whale: '🐋',
+  shark: '🦈',
+  dolphin: '🐬',
+  unicorn: '🦄',
+  robot: '🤖',
+  alien: '👽',
+  wizard: '🧙',
+  mage: '🧙',
+  crystal_ball: '🔮',
+  diamond: '💎',
+  boom: '💥',
+  zap: '⚡️',
+  lightning: '⚡️',
+  sun: '☀️',
+  moon: '🌙',
+  comet: '☄️',
+  cyclone: '🌀',
+  snowflake: '❄️',
+  anchor: '⚓️',
+  globe: '🌐',
+  earth_africa: '🌍',
+  earth_americas: '🌎',
+  earth_asia: '🌏',
+  satellite: '🛰️',
+  astronaut: '🧑‍🚀',
+});
+
 export class BuybotService {
   constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, services }) {
     this.logger = logger || console;
@@ -842,21 +886,30 @@ export class BuybotService {
    * @param {Object} tx - Transaction data from Lambda API
    * @returns {string} Transaction type
    */
-  determineTransactionType(tx) {
-    // Check if there are any transfers
-    if (!tx.transfers || tx.transfers.length === 0) {
+  determineTransactionType(tx, transfers = []) {
+    const transferList = transfers.length ? transfers : tx?.transfers || [];
+
+    if (!transferList || transferList.length === 0) {
       return 'UNKNOWN';
     }
 
-    // Look for swap indicators in transfers
-    // Typically swaps involve multiple token transfers (e.g., SOL <-> Token)
-    const hasMultipleTokens = new Set(tx.transfers.map(t => t.mint)).size > 1;
-    
-    if (hasMultipleTokens) {
+    const uniqueMints = new Set(transferList.map(t => t.mint).filter(Boolean));
+    if (uniqueMints.size > 1) {
       return 'SWAP';
     }
 
-    // Single token transfer is likely a simple transfer
+    // Heuristic: if we have distinct sender/recipient wallets, treat as swap/purchase
+    const walletPairs = transferList.map(t => ({ from: t.fromWallet, to: t.toWallet }));
+    const hasDistinctWallets = walletPairs.some(pair => pair.from && pair.to && pair.from !== pair.to);
+
+    const hasParticipants = Array.isArray(tx?.participants) &&
+      tx.participants.some(p => p.direction === 'out') &&
+      tx.participants.some(p => p.direction === 'in');
+
+    if (hasDistinctWallets && hasParticipants) {
+      return 'SWAP';
+    }
+
     return 'TRANSFER';
   }
 
@@ -865,14 +918,24 @@ export class BuybotService {
    * @param {Object} tx - Transaction data from Lambda API
    * @returns {string} Transaction description
    */
-  generateTransactionDescription(tx) {
-    if (!tx.transfers || tx.transfers.length === 0) {
+  generateTransactionDescription(tx, transfers = []) {
+    const transferList = transfers.length ? transfers : tx?.transfers || [];
+
+    if (!transferList || transferList.length === 0) {
       return 'Unknown Transaction';
     }
 
-    const hasMultipleTokens = new Set(tx.transfers.map(t => t.mint)).size > 1;
-    
+    const uniqueMints = new Set(transferList.map(t => t.mint).filter(Boolean));
+    const hasMultipleTokens = uniqueMints.size > 1;
+
     if (hasMultipleTokens) {
+      return 'Token Swap/Purchase';
+    }
+
+    const walletPairs = transferList.map(t => ({ from: t.fromWallet, to: t.toWallet }));
+    const hasDistinctWallets = walletPairs.some(pair => pair.from && pair.to && pair.from !== pair.to);
+
+    if (hasDistinctWallets) {
       return 'Token Swap/Purchase';
     }
 
@@ -948,15 +1011,35 @@ export class BuybotService {
         }
         
         // Map Lambda API response to our transaction format
-        transactions = response.data.map(tx => ({
-          signature: tx.signature,
-          timestamp: tx.blockTime || Math.floor(Date.now() / 1000),
-          slot: tx.slot,
-          type: this.determineTransactionType(tx),
-          description: this.generateTransactionDescription(tx),
-          tokenTransfers: tx.transfers || [],
-          events: {},
-        }));
+        transactions = response.data.map(tx => {
+          const normalizedTransfers = (tx.transfers || []).map(transfer => ({
+            ...transfer,
+            mint: transfer.mint || tokenAddress,
+            tokenAmount: transfer.tokenAmount || transfer.amount || transfer.rawAmount || '0',
+            rawAmount: transfer.rawAmount ?? null,
+            decimals: typeof transfer.decimals === 'number' ? transfer.decimals : 9,
+            fromUserAccount: transfer.fromUserAccount || transfer.fromTokenAccount || null,
+            toUserAccount: transfer.toUserAccount || transfer.toTokenAccount || null,
+            fromWallet: transfer.fromWallet || transfer.fromUserAccount || transfer.fromTokenAccount || null,
+            toWallet: transfer.toWallet || transfer.toUserAccount || transfer.toTokenAccount || null,
+          }));
+
+          const normalizedTx = {
+            ...tx,
+            transfers: normalizedTransfers,
+          };
+
+          return {
+            signature: tx.signature,
+            timestamp: tx.blockTime || Math.floor(Date.now() / 1000),
+            slot: tx.slot,
+            type: this.determineTransactionType(normalizedTx, normalizedTransfers),
+            description: this.generateTransactionDescription(normalizedTx, normalizedTransfers),
+            tokenTransfers: normalizedTransfers,
+            participants: tx.participants || [],
+            events: {},
+          };
+        });
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
@@ -1100,11 +1183,13 @@ export class BuybotService {
    */
   async parseTokenTransaction(tx, tokenAddress) {
     try {
-      // Lambda API uses 'tokenTransfers' field
-      const tokenTransfers = tx.tokenTransfers || [];
-      const relevantTransfers = tokenTransfers.filter(
-        t => t.mint === tokenAddress && parseFloat(t.tokenAmount || 0) > 0
-      );
+      const tokenTransfers = tx.tokenTransfers || tx.transfers || [];
+      const relevantTransfers = tokenTransfers.filter(transfer => {
+        if (!transfer) return false;
+        const matchesMint = !transfer.mint || transfer.mint === tokenAddress;
+        const amountValue = parseFloat(transfer.tokenAmount || transfer.amount || transfer.rawAmount || '0');
+        return matchesMint && amountValue > 0;
+      });
 
       if (relevantTransfers.length === 0) {
         this.logger.debug(`[BuybotService] No relevant transfers found for ${tokenAddress} in tx ${tx.signature}`);
@@ -1116,49 +1201,47 @@ export class BuybotService {
       // Determine event type (swap vs plain transfer)
       let eventType = 'transfer';
       let description = 'Token Transfer';
-      if (tx.type === 'SWAP' || tx.description?.toLowerCase()?.includes('swap') || tx.description?.toLowerCase()?.includes('trade')) {
+      if (tx.type === 'SWAP' || tx.type === 'swap' || tx.description?.toLowerCase()?.includes('swap') || tx.description?.toLowerCase()?.includes('trade')) {
+        eventType = 'swap';
+        description = 'Token Swap/Purchase';
+      } else if (this.determineTransactionType(tx, tokenTransfers) === 'SWAP') {
         eventType = 'swap';
         description = 'Token Swap/Purchase';
       }
 
-      // Decimals (fallback to 9 if not provided)
-      const decimals = transfer.decimals || 9;
+      const decimals = typeof transfer.decimals === 'number' ? transfer.decimals : 9;
 
-      // tokenAmount may be a UI amount (e.g. "1.23") or a raw integer string.
-      const tokenAmountUi = parseFloat(transfer.tokenAmount || 0);
+      const tokenAmountUi = parseFloat(transfer.tokenAmount || transfer.amount || transfer.rawAmount || '0');
       let rawAmount;
-      if (String(transfer.tokenAmount).includes('.')) {
+      if (transfer.rawAmount) {
+        rawAmount = Number(transfer.rawAmount);
+      } else if (Number.isFinite(tokenAmountUi)) {
         rawAmount = Math.round(Math.abs(tokenAmountUi) * Math.pow(10, decimals));
       } else {
-        rawAmount = Number(transfer.tokenAmount || 0);
+        rawAmount = 0;
       }
 
-      // Try to detect holder changes using pre/post balances if available
       const preBalances = tx.preTokenBalances || [];
       const postBalances = tx.postTokenBalances || [];
 
-      const toAccount = transfer.toUserAccount || transfer.toWallet || transfer.to || null;
-      const fromAccount = transfer.fromUserAccount || transfer.fromWallet || transfer.from || null;
+      const toWallet = transfer.toWallet || transfer.toUserAccount || transfer.to || null;
+      const fromWallet = transfer.fromWallet || transfer.fromUserAccount || transfer.from || null;
 
-      const pre = preBalances.find(b => b.owner === toAccount || b.account === toAccount) || null;
-      const post = postBalances.find(b => b.owner === toAccount || b.account === toAccount) || null;
+      const pre = preBalances.find(b => b.owner === toWallet || b.account === toWallet) || null;
+      const post = postBalances.find(b => b.owner === toWallet || b.account === toWallet) || null;
 
-      // Only calculate balance changes if we have reliable pre/post balance data
       let preAmountUi = null;
       let postAmountUi = null;
       let isNewHolder = false;
       let isIncrease = false;
 
       if (pre && post) {
-        // We have both pre and post balances - can reliably determine holder status
         preAmountUi = parseFloat(pre.uiTokenAmount?.uiAmount || 0);
         postAmountUi = parseFloat(post.uiTokenAmount?.uiAmount || 0);
         isNewHolder = preAmountUi === 0 && postAmountUi > 0;
         isIncrease = postAmountUi > preAmountUi;
       } else if (post) {
-        // Only have post balance - can check if they're a new holder if post > 0 and no pre balance found
         postAmountUi = parseFloat(post.uiTokenAmount?.uiAmount || 0);
-        isNewHolder = false;
         isIncrease = postAmountUi > 0;
       }
 
@@ -1171,8 +1254,10 @@ export class BuybotService {
         postAmountUi,
         isNewHolder,
         isIncrease,
-        from: fromAccount || 'Unknown',
-        to: toAccount || 'Unknown',
+        from: fromWallet || 'Unknown',
+        to: toWallet || 'Unknown',
+        fromWallet,
+        toWallet,
         txUrl: `https://solscan.io/tx/${tx.signature}`,
         timestamp: tx.timestamp ? new Date(tx.timestamp * 1000) : new Date(),
       };
@@ -1352,19 +1437,23 @@ export class BuybotService {
         });
       }
 
+      const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
+      const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
+      const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
+
       // Build custom description with avatar names instead of wallet addresses
       let customDescription = event.description;
-      if (event.type === 'swap' && buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
+      if (event.type === 'swap' && buyerAvatar && buyerAvatar.name && buyerEmoji) {
         // Replace wallet address with avatar name in description
-        customDescription = `${buyerAvatar.emoji} **${buyerAvatar.name}** (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
+        customDescription = `${buyerEmoji} **${buyerAvatar.name}** (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
       } else if (event.type === 'transfer') {
         // Build transfer description with avatar names
-        const senderDisplay = senderAvatar && senderAvatar.name && senderAvatar.emoji
-          ? `${senderAvatar.emoji} **${senderAvatar.name}** (\`${this.formatAddress(event.from)}\`)`
+        const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
+          ? `${senderEmoji} **${senderAvatar.name}** (\`${this.formatAddress(event.from)}\`)`
           : `\`${this.formatAddress(event.from)}\``;
         
-        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientAvatar.emoji
-          ? `${recipientAvatar.emoji} **${recipientAvatar.name}** (\`${this.formatAddress(event.to)}\`)`
+        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
+          ? `${recipientEmoji} **${recipientAvatar.name}** (\`${this.formatAddress(event.to)}\`)`
           : `\`${this.formatAddress(event.to)}\``;
         
         customDescription = `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}`;
@@ -1416,8 +1505,8 @@ export class BuybotService {
 
       // From/To addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
-        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
-          let buyerInfo = `${buyerAvatar.emoji} **${buyerAvatar.name}**`;
+        if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
+          let buyerInfo = `${buyerEmoji} **${buyerAvatar.name}**`;
           buyerInfo += `\n\`${this.formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1430,7 +1519,7 @@ export class BuybotService {
             }
           }
           embed.fields.push({
-            name: '� Buyer',
+            name: '💸 Buyer',
             value: buyerInfo,
             inline: false,
           });
@@ -1443,8 +1532,8 @@ export class BuybotService {
         }
       } else {
         // Transfer - show both parties
-        if (senderAvatar && senderAvatar.name && senderAvatar.emoji) {
-          let senderInfo = `${senderAvatar.emoji} **${senderAvatar.name}**`;
+        if (senderAvatar && senderAvatar.name && senderEmoji) {
+          let senderInfo = `${senderEmoji} **${senderAvatar.name}**`;
           senderInfo += `\n\`${this.formatAddress(event.from)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1463,14 +1552,14 @@ export class BuybotService {
           });
         } else {
           embed.fields.push({
-            name: '�📤 From',
+            name: '📤 From',
             value: `\`${this.formatAddress(event.from)}\``,
             inline: true,
           });
         }
         
-        if (recipientAvatar && recipientAvatar.name && recipientAvatar.emoji) {
-          let recipientInfo = `${recipientAvatar.emoji} **${recipientAvatar.name}**`;
+        if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
+          let recipientInfo = `${recipientEmoji} **${recipientAvatar.name}**`;
           recipientInfo += `\n\`${this.formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
@@ -1838,7 +1927,10 @@ export class BuybotService {
       // Add recipient information if available
       const { recipientAvatar } = allParticipants;
       if (recipientAvatar) {
-        const recipientName = `${recipientAvatar.emoji} ${recipientAvatar.name}`;
+        const recipientEmoji = recipientAvatar.emoji ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
+        const recipientName = recipientEmoji && recipientAvatar.name
+          ? `${recipientEmoji} ${recipientAvatar.name}`
+          : recipientAvatar.name || this.formatAddress(event.to);
         contextParts.push(`Recipient: ${recipientName}`);
       }
       
@@ -1854,7 +1946,10 @@ export class BuybotService {
       // Add sender information if available
       const { senderAvatar } = allParticipants;
       if (senderAvatar) {
-        const senderName = `${senderAvatar.emoji} ${senderAvatar.name}`;
+        const senderEmoji = senderAvatar.emoji ? this.getDisplayEmoji(senderAvatar.emoji) : null;
+        const senderName = senderEmoji && senderAvatar.name
+          ? `${senderEmoji} ${senderAvatar.name}`
+          : senderAvatar.name || this.formatAddress(event.from);
         contextParts.push(`Sender: ${senderName}`);
       }
       
@@ -1871,7 +1966,10 @@ export class BuybotService {
       contextParts.push(`\nOther avatars in this trade:`);
       
       for (const other of otherAvatars) {
-        const otherName = `${other.avatar.emoji} ${other.avatar.name}`;
+        const otherEmoji = other.avatar.emoji ? this.getDisplayEmoji(other.avatar.emoji) : null;
+        const otherName = otherEmoji && other.avatar.name
+          ? `${otherEmoji} ${other.avatar.name}`
+          : other.avatar.name || this.formatAddress(other.avatar.walletAddress);
         
         // Get relationship context
         try {
@@ -1893,7 +1991,13 @@ export class BuybotService {
       
       contextParts.push(`Feel free to interact with them about this trade, drawing on your shared history`);
     } else if (otherAvatars.length > 0) {
-      const otherNames = otherAvatars.map(a => `${a.avatar.emoji} ${a.avatar.name}`).join(', ');
+      const otherNames = otherAvatars.map(({ avatar }) => {
+        const otherEmoji = avatar.emoji ? this.getDisplayEmoji(avatar.emoji) : null;
+        if (otherEmoji && avatar.name) {
+          return `${otherEmoji} ${avatar.name}`;
+        }
+        return avatar.name || this.formatAddress(avatar.walletAddress);
+      }).join(', ');
       contextParts.push(`Other avatars involved: ${otherNames}`);
       contextParts.push(`Feel free to interact with them about this trade`);
     }
@@ -1995,6 +2099,10 @@ export class BuybotService {
         this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
       }
 
+      const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
+      const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
+      const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
+
       // Build enhanced notification message with avatar names
       let message = '';
       
@@ -2005,8 +2113,8 @@ export class BuybotService {
         message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
         
         // Add description with avatar name
-        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
-          message += `${buyerAvatar.emoji} *${buyerAvatar.name}* (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+        if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
+          message += `${buyerEmoji} *${buyerAvatar.name}* (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         } else {
           message += `Purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         }
@@ -2015,12 +2123,12 @@ export class BuybotService {
         message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
         
         // Add description with avatar names
-        const senderDisplay = senderAvatar && senderAvatar.name && senderAvatar.emoji
-          ? `${senderAvatar.emoji} *${senderAvatar.name}* (\`${this.formatAddress(event.from)}\`)`
+        const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
+          ? `${senderEmoji} *${senderAvatar.name}* (\`${this.formatAddress(event.from)}\`)`
           : `\`${this.formatAddress(event.from)}\``;
         
-        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientAvatar.emoji
-          ? `${recipientAvatar.emoji} *${recipientAvatar.name}* (\`${this.formatAddress(event.to)}\`)`
+        const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
+          ? `${recipientEmoji} *${recipientAvatar.name}* (\`${this.formatAddress(event.to)}\`)`
           : `\`${this.formatAddress(event.to)}\``;
         
         message += `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}\n\n`;
@@ -2033,8 +2141,8 @@ export class BuybotService {
 
       // Addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
-        if (buyerAvatar && buyerAvatar.name && buyerAvatar.emoji) {
-          message += `${buyerAvatar.emoji} Buyer: *${buyerAvatar.name}*\n`;
+        if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
+          message += `${buyerEmoji} Buyer: *${buyerAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
@@ -2052,8 +2160,8 @@ export class BuybotService {
         }
       } else {
         // Transfer - show both parties with avatars
-        if (senderAvatar && senderAvatar.name && senderAvatar.emoji) {
-          message += `${senderAvatar.emoji} From: *${senderAvatar.name}*\n`;
+        if (senderAvatar && senderAvatar.name && senderEmoji) {
+          message += `${senderEmoji} From: *${senderAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
@@ -2070,8 +2178,8 @@ export class BuybotService {
           message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
         }
         
-        if (recipientAvatar && recipientAvatar.name && recipientAvatar.emoji) {
-          message += `${recipientAvatar.emoji} To: *${recipientAvatar.name}*\n`;
+        if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
+          message += `${recipientEmoji} To: *${recipientAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
@@ -2176,6 +2284,41 @@ export class BuybotService {
     if (usdValue >= 50) return '$50';
     if (usdValue >= 10) return '$10';
     return '';
+  }
+
+  /**
+   * Normalize emoji strings coming from avatar metadata.
+   * Converts shortcode formats like :fire: and extracts actual pictographs from mixed strings.
+   * @param {string} rawEmoji - Raw emoji value from avatar document
+   * @param {string} [fallback='✨'] - Emoji to use when normalization fails
+   * @returns {string} Display-safe emoji
+   */
+  getDisplayEmoji(rawEmoji, fallback = '✨') {
+    if (!rawEmoji || typeof rawEmoji !== 'string') {
+      return fallback;
+    }
+
+    const cleaned = rawEmoji.trim();
+    if (!cleaned) {
+      return fallback;
+    }
+
+    const shortcodeMatch = cleaned.match(/^:([a-z0-9_+\-]{1,30}):$/i);
+    if (shortcodeMatch) {
+      const emoji = EMOJI_SHORTCODE_MAP[shortcodeMatch[1].toLowerCase()];
+      if (emoji) {
+        return emoji;
+      }
+    }
+
+    const pictographs = cleaned.match(/\p{Extended_Pictographic}/gu);
+    if (pictographs && pictographs.length > 0) {
+      // Join the first grapheme or sequence (some emojis use multiple code points)
+      return pictographs.slice(0, 2).join('');
+    }
+
+    // Fall back to the first visible character to avoid empty strings
+    return cleaned[0] || fallback;
   }
 
   /**
