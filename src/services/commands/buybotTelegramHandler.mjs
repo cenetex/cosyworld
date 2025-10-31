@@ -616,20 +616,43 @@ async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, lo
       `• Buys ≥ $${imageThreshold}: Auto-generate image\n` +
       `• Buys < $${imageThreshold}: ${hasCustomImage || hasCustomVideo ? 'Send custom media' : 'Text only'}`;
 
-    await ctx.editMessageText(message, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🎬 Set Media Thresholds', callback_data: `media_${tokenIndex}` }],
-          [
-            { text: '📸 Upload Custom Image', callback_data: `img_${tokenIndex}` },
-            { text: '🎥 Upload Custom Video', callback_data: `vid_${tokenIndex}` }
-          ],
-          [{ text: '🗑️ Remove Token', callback_data: `remove_${tokenIndex}` }],
-          [{ text: '« Back to Settings', callback_data: 'back_to_settings' }]
-        ]
+    const replyMarkup = {
+      inline_keyboard: [
+        [{ text: '🎬 Set Media Thresholds', callback_data: `media_${tokenIndex}` }],
+        [
+          { text: '📸 Upload Custom Image', callback_data: `img_${tokenIndex}` },
+          { text: '🎥 Upload Custom Video', callback_data: `vid_${tokenIndex}` }
+        ],
+        [{ text: '🗑️ Remove Token', callback_data: `remove_${tokenIndex}` }],
+        [{ text: '« Back to Settings', callback_data: 'back_to_settings' }]
+      ]
+    };
+
+    const currentMessage = ctx.callbackQuery?.message;
+    if (currentMessage) {
+      const currentText = currentMessage.text ?? currentMessage.caption ?? '';
+      const currentMarkupJson = currentMessage.reply_markup ? JSON.stringify(currentMessage.reply_markup) : null;
+      const nextMarkupJson = JSON.stringify(replyMarkup);
+
+      if (currentText === message && currentMarkupJson === nextMarkupJson) {
+        logger?.debug('[BuybotTelegram] Token settings message already up to date; skipping edit.');
+        return;
       }
-    });
+    }
+
+    try {
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: replyMarkup,
+      });
+    } catch (editError) {
+      // Telegram returns 400 when the message content and keyboard are unchanged – safely ignore
+      if (String(editError)?.includes('message is not modified')) {
+        logger?.debug('[BuybotTelegram] Telegram reported "message is not modified"; ignoring.');
+        return;
+      }
+      throw editError;
+    }
   } catch (error) {
     logger?.error('[BuybotTelegram] showTokenSettings error:', error);
     await ctx.reply('❌ An error occurred. Please try again.');
