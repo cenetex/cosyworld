@@ -166,14 +166,20 @@ export class DatabaseService {
         // Insert the message into the database using updateOne with upsert
         // Use $setOnInsert for most fields (only set when creating new document)
         // Use $set for avatarId (update even if message already exists)
+        
+        // Extract avatarId from messageData to handle separately
+        const avatarId = messageData.avatarId;
+        const messageDataWithoutAvatarId = { ...messageData };
+        delete messageDataWithoutAvatarId.avatarId;
+        
         const updateOps = {
-          $setOnInsert: { ...messageData },
+          $setOnInsert: messageDataWithoutAvatarId,
         };
         
         // If avatarId is present, always update it (even for existing messages)
         // This handles the race condition where messageCreate fires before we set avatarId
-        if (messageData.avatarId) {
-          updateOps.$set = { avatarId: messageData.avatarId };
+        if (avatarId) {
+          updateOps.$set = { avatarId };
         }
         
         const result = await messagesCollection.updateOne(

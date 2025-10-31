@@ -838,6 +838,48 @@ export class BuybotService {
   }
 
   /**
+   * Determine transaction type from Lambda API response
+   * @param {Object} tx - Transaction data from Lambda API
+   * @returns {string} Transaction type
+   */
+  determineTransactionType(tx) {
+    // Check if there are any transfers
+    if (!tx.transfers || tx.transfers.length === 0) {
+      return 'UNKNOWN';
+    }
+
+    // Look for swap indicators in transfers
+    // Typically swaps involve multiple token transfers (e.g., SOL <-> Token)
+    const hasMultipleTokens = new Set(tx.transfers.map(t => t.mint)).size > 1;
+    
+    if (hasMultipleTokens) {
+      return 'SWAP';
+    }
+
+    // Single token transfer is likely a simple transfer
+    return 'TRANSFER';
+  }
+
+  /**
+   * Generate transaction description from Lambda API response
+   * @param {Object} tx - Transaction data from Lambda API
+   * @returns {string} Transaction description
+   */
+  generateTransactionDescription(tx) {
+    if (!tx.transfers || tx.transfers.length === 0) {
+      return 'Unknown Transaction';
+    }
+
+    const hasMultipleTokens = new Set(tx.transfers.map(t => t.mint)).size > 1;
+    
+    if (hasMultipleTokens) {
+      return 'Token Swap/Purchase';
+    }
+
+    return 'Token Transfer';
+  }
+
+  /**
    * Check for new token transactions
    * @param {string} channelId - Channel ID
    * @param {string} tokenAddress - Token address
@@ -1058,13 +1100,16 @@ export class BuybotService {
    */
   async parseTokenTransaction(tx, tokenAddress) {
     try {
-      // Look for token transfers in the transaction
+      // Lambda API uses 'tokenTransfers' field
       const tokenTransfers = tx.tokenTransfers || [];
       const relevantTransfers = tokenTransfers.filter(
         t => t.mint === tokenAddress && parseFloat(t.tokenAmount || 0) > 0
       );
 
-      if (relevantTransfers.length === 0) return null;
+      if (relevantTransfers.length === 0) {
+        this.logger.debug(`[BuybotService] No relevant transfers found for ${tokenAddress} in tx ${tx.signature}`);
+        return null;
+      }
 
       const transfer = relevantTransfers[0];
 
@@ -1092,10 +1137,11 @@ export class BuybotService {
       const preBalances = tx.preTokenBalances || [];
       const postBalances = tx.postTokenBalances || [];
 
-      const toAccount = transfer.toUserAccount || transfer.to || transfer.toAccount || null;
+      const toAccount = transfer.toUserAccount || transfer.toWallet || transfer.to || null;
+      const fromAccount = transfer.fromUserAccount || transfer.fromWallet || transfer.from || null;
 
-      const pre = preBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
-      const post = postBalances.find(b => b.owner === toAccount || b.account === toAccount || b.accountIndex === transfer.toAccountIndex) || null;
+      const pre = preBalances.find(b => b.owner === toAccount || b.account === toAccount) || null;
+      const post = postBalances.find(b => b.owner === toAccount || b.account === toAccount) || null;
 
       // Only calculate balance changes if we have reliable pre/post balance data
       let preAmountUi = null;
@@ -1112,30 +1158,21 @@ export class BuybotService {
       } else if (post) {
         // Only have post balance - can check if they're a new holder if post > 0 and no pre balance found
         postAmountUi = parseFloat(post.uiTokenAmount?.uiAmount || 0);
-        // Only mark as new holder if post balance exists and it's the first time we see this account
-        // Be conservative - don't mark as new holder without pre-balance confirmation
         isNewHolder = false;
         isIncrease = postAmountUi > 0;
-      } else {
-        // No reliable balance data - skip holder status detection
-        preAmountUi = null;
-        postAmountUi = null;
-        isNewHolder = false;
-        isIncrease = false;
       }
 
       return {
         type: eventType,
         description: tx.description || description,
-        // amount stored as raw smallest-unit integer
         amount: rawAmount,
         decimals,
         preAmountUi,
         postAmountUi,
         isNewHolder,
         isIncrease,
-        from: transfer.fromUserAccount || transfer.from || 'Unknown',
-        to: toAccount || transfer.toUserAccount || transfer.to || 'Unknown',
+        from: fromAccount || 'Unknown',
+        to: toAccount || 'Unknown',
         txUrl: `https://solscan.io/tx/${tx.signature}`,
         timestamp: tx.timestamp ? new Date(tx.timestamp * 1000) : new Date(),
       };
