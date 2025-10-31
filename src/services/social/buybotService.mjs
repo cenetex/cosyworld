@@ -886,14 +886,14 @@ export class BuybotService {
       try {
         // Call Lambda endpoint to get token transactions
         const response = await this.retryWithBackoff(async () => {
-          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/transactions/${tokenAddress}?limit=10`);
+          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/stats/recent-transactions?mint=${tokenAddress}&limit=10`);
           if (!lambdaResponse.ok) {
             throw new Error(`Lambda API returned ${lambdaResponse.status}: ${await lambdaResponse.text()}`);
           }
           return await lambdaResponse.json();
         });
         
-        if (!response || !response.transactions || response.transactions.length === 0) {
+        if (!response || !response.data || response.data.length === 0) {
           // No transactions yet - this is common for very new tokens
           this.logger.debug(`[BuybotService] No transactions found for ${tokenAddress} yet`);
           
@@ -905,8 +905,16 @@ export class BuybotService {
           return;
         }
         
-        // Use transactions from Lambda response (already in our format)
-        transactions = response.transactions;
+        // Map Lambda API response to our transaction format
+        transactions = response.data.map(tx => ({
+          signature: tx.signature,
+          timestamp: tx.blockTime || Math.floor(Date.now() / 1000),
+          slot: tx.slot,
+          type: this.determineTransactionType(tx),
+          description: this.generateTransactionDescription(tx),
+          tokenTransfers: tx.transfers || [],
+          events: {},
+        }));
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
