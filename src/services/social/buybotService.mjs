@@ -1323,27 +1323,29 @@ export class BuybotService {
       try {
         if (effectiveType === 'swap' && event.to) {
           this.logger.info(`[BuybotService] Processing swap for wallet ${formatAddress(event.to)}`);
-          const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
-          const currentBalance = buyerWalletContext.currentBalance;
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
-          
-          this.logger.info(`[BuybotService] Wallet ${formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
-          
+
+          const buyerContext = {
+            tokenSymbol: token.tokenSymbol,
+            tokenAddress: token.tokenAddress,
+            tokenDecimals,
+            amount: formattedAmount,
+            currentBalance: null,
+            usdValue: null,
+            orbNftCount,
+            discordChannelId: channelId,
+            guildId,
+            tokenPriceUsd: token.usdPrice || null,
+          };
+
           try {
-            buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, {
-              tokenSymbol: token.tokenSymbol,
-              tokenAddress: token.tokenAddress,
-              amount: formattedAmount,
-              usdValue: buyerWalletContext.currentBalanceUsd,
-              currentBalance: currentBalance,
-              orbNftCount: orbNftCount,
-              discordChannelId: channelId,
-              guildId: guildId,
-              tokenPriceUsd: token.usdPrice || null,
-              additionalTokenBalances: buyerWalletContext.additionalTokenBalances,
-              walletTopTokens: buyerWalletContext.holdingsSnapshot,
-            });
-            
+            buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, buyerContext);
+
+            const buyerTokenBalance = buyerAvatar?.tokenBalances?.[token.tokenSymbol];
+            const buyerBalance = Number.isFinite(buyerTokenBalance?.balance) ? buyerTokenBalance.balance : null;
+
+            this.logger.info(`[BuybotService] Wallet ${formatAddress(event.to)} balance: ${buyerBalance ?? 0} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
+
             if (buyerAvatar) {
               this.logger.info(`[BuybotService] Created/retrieved buyer avatar:`, {
                 emoji: buyerAvatar.emoji,
@@ -1367,27 +1369,27 @@ export class BuybotService {
         } else if (effectiveType === 'transfer') {
           if (event.from) {
             this.logger.info(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
-            const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
-            const senderBalance = senderWalletContext.currentBalance;
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
-            
-            this.logger.info(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
             
             try {
               senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
+                tokenDecimals,
                 amount: formattedAmount,
-                usdValue: senderWalletContext.currentBalanceUsd,
-                currentBalance: senderBalance,
+                currentBalance: null,
+                usdValue: null,
                 orbNftCount: senderOrbCount,
                 discordChannelId: channelId,
-                guildId: guildId,
+                guildId,
                 tokenPriceUsd: token.usdPrice || null,
-                additionalTokenBalances: senderWalletContext.additionalTokenBalances,
-                walletTopTokens: senderWalletContext.holdingsSnapshot,
               });
-              
+
+              const senderTokenBalance = senderAvatar?.tokenBalances?.[token.tokenSymbol];
+              const senderBalance = Number.isFinite(senderTokenBalance?.balance) ? senderTokenBalance.balance : null;
+
+              this.logger.info(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance ?? 0} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
+
               if (senderAvatar) {
                 this.logger.info(`[BuybotService] Created/retrieved sender avatar:`, {
                   emoji: senderAvatar.emoji,
@@ -1408,27 +1410,27 @@ export class BuybotService {
           }
           if (event.to) {
             this.logger.info(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
-            const recipientWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
-            const recipientBalance = recipientWalletContext.currentBalance;
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
-            
-            this.logger.info(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
             
             try {
               recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
+                tokenDecimals,
                 amount: formattedAmount,
-                usdValue: recipientWalletContext.currentBalanceUsd,
-                currentBalance: recipientBalance,
+                currentBalance: null,
+                usdValue: null,
                 orbNftCount: recipientOrbCount,
                 discordChannelId: channelId,
-                guildId: guildId,
+                guildId,
                 tokenPriceUsd: token.usdPrice || null,
-                additionalTokenBalances: recipientWalletContext.additionalTokenBalances,
-                walletTopTokens: recipientWalletContext.holdingsSnapshot,
               });
-              
+
+              const recipientTokenBalance = recipientAvatar?.tokenBalances?.[token.tokenSymbol];
+              const recipientBalance = Number.isFinite(recipientTokenBalance?.balance) ? recipientTokenBalance.balance : null;
+
+              this.logger.info(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance ?? 0} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
+
               if (recipientAvatar) {
                 this.logger.info(`[BuybotService] Created/retrieved recipient avatar:`, {
                   emoji: recipientAvatar.emoji,
@@ -2099,60 +2101,49 @@ export class BuybotService {
 
       try {
         if (event.type === 'swap' && event.to) {
-          // Get wallet's current token balance
-          const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
-          const currentBalance = buyerWalletContext.currentBalance;
-          
           // Get wallet's NFT count for all tracked collections in this channel
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
-          
+
           buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
+            tokenDecimals,
             amount: formattedAmount,
-            usdValue: buyerWalletContext.currentBalanceUsd,
-            currentBalance: currentBalance,
-            orbNftCount: orbNftCount,
+            currentBalance: null,
+            usdValue: null,
+            orbNftCount,
             telegramChannelId: channelId, // Pass telegram channel for introductions
             tokenPriceUsd: token.usdPrice || null,
-            additionalTokenBalances: buyerWalletContext.additionalTokenBalances,
-            walletTopTokens: buyerWalletContext.holdingsSnapshot,
           });
         } else if (event.type === 'transfer') {
           if (event.from) {
-            const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
-            const senderBalance = senderWalletContext.currentBalance;
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
+              tokenDecimals,
               amount: formattedAmount,
-              usdValue: senderWalletContext.currentBalanceUsd,
-              currentBalance: senderBalance,
+              currentBalance: null,
+              usdValue: null,
               orbNftCount: senderOrbCount,
               telegramChannelId: channelId,
               tokenPriceUsd: token.usdPrice || null,
-              additionalTokenBalances: senderWalletContext.additionalTokenBalances,
-              walletTopTokens: senderWalletContext.holdingsSnapshot,
             });
           }
           if (event.to) {
-            const recipientWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
-            const recipientBalance = recipientWalletContext.currentBalance;
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
+              tokenDecimals,
               amount: formattedAmount,
-              usdValue: recipientWalletContext.currentBalanceUsd,
-              currentBalance: recipientBalance,
+              currentBalance: null,
+              usdValue: null,
               orbNftCount: recipientOrbCount,
               telegramChannelId: channelId,
               tokenPriceUsd: token.usdPrice || null,
-              additionalTokenBalances: recipientWalletContext.additionalTokenBalances,
-              walletTopTokens: recipientWalletContext.holdingsSnapshot,
             });
           }
         }
