@@ -1241,6 +1241,108 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   /**
+   * Build wallet holdings context using the shared insights helper when available.
+   * Falls back to empty defaults if insights cannot be resolved.
+   * @param {string} walletAddress
+   * @param {Object} token
+   * @param {number} tokenDecimals
+   * @param {Object} [options]
+   * @returns {Promise<{ currentBalance: number, currentBalanceUsd: number|null, holdingsSnapshot: Array, additionalTokenBalances: Object|null }>}
+   */
+  async buildWalletAvatarContext(walletAddress, token = {}, tokenDecimals = 9, options = {}) {
+    if (!this.walletInsights || !walletAddress || !token?.tokenAddress) {
+      return {
+        currentBalance: 0,
+        currentBalanceUsd: null,
+        holdingsSnapshot: [],
+        additionalTokenBalances: null,
+      };
+    }
+
+    try {
+      return await this.walletInsights.buildWalletAvatarContext(walletAddress, token, tokenDecimals, options);
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Wallet context generation failed for ${formatAddress(walletAddress)}: ${error.message}`);
+      return {
+        currentBalance: 0,
+        currentBalanceUsd: null,
+        holdingsSnapshot: [],
+        additionalTokenBalances: null,
+      };
+    }
+  }
+
+  /**
+   * Enrich provided wallet context with current balances/top tokens if missing.
+   * @param {string} walletAddress
+   * @param {Object} context
+   * @returns {Promise<Object>}
+   */
+  async enrichWalletContext(walletAddress, context = {}) {
+    if (!this.walletInsights || !walletAddress || context?.populateWalletContext === false) {
+      return context;
+    }
+
+    const tokenAddress = context.tokenAddress;
+    const tokenSymbol = context.tokenSymbol;
+    if (!tokenAddress || !tokenSymbol) {
+      return context;
+    }
+
+    const needsPrimaryBalance = !Number.isFinite(context.currentBalance);
+    const needsTopTokens = !Array.isArray(context.walletTopTokens) || context.walletTopTokens.length === 0;
+    const needsAdditional = !context.additionalTokenBalances || Object.keys(context.additionalTokenBalances).length === 0;
+
+    if (!needsPrimaryBalance && !needsTopTokens && !needsAdditional) {
+      return context;
+    }
+
+    const tokenDecimals = context.tokenDecimals ?? context.decimals ?? 9;
+    const tokenMeta = {
+      tokenAddress,
+      tokenSymbol,
+      tokenName: context.tokenName || tokenSymbol || tokenAddress,
+      usdPrice: context.tokenPriceUsd ?? context.usdPricePerToken ?? context.usdPrice ?? null,
+    };
+
+    try {
+      const walletContext = await this.buildWalletAvatarContext(walletAddress, tokenMeta, tokenDecimals, {
+        minUsd: context.minUsd ?? 5,
+        limit: context.limit ?? 5,
+      });
+
+      const nextContext = { ...context };
+
+      if (needsPrimaryBalance && Number.isFinite(walletContext.currentBalance)) {
+        nextContext.currentBalance = walletContext.currentBalance;
+        nextContext.usdValue = Number.isFinite(walletContext.currentBalanceUsd)
+          ? walletContext.currentBalanceUsd
+          : nextContext.usdValue;
+      }
+
+      if (needsTopTokens && Array.isArray(walletContext.holdingsSnapshot)) {
+        nextContext.walletTopTokens = walletContext.holdingsSnapshot;
+      }
+
+      if (needsAdditional && walletContext.additionalTokenBalances) {
+        nextContext.additionalTokenBalances = walletContext.additionalTokenBalances;
+      }
+
+      if (nextContext.tokenPriceUsd === undefined && Array.isArray(walletContext.holdingsSnapshot)) {
+        const primary = walletContext.holdingsSnapshot.find(entry => entry.mint === tokenAddress);
+        if (primary && Number.isFinite(primary.price)) {
+          nextContext.tokenPriceUsd = primary.price;
+        }
+      }
+
+      return nextContext;
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Failed to enrich wallet context for ${formatAddress(walletAddress)}: ${error.message}`);
+      return context;
+    }
+  }
+
+  /**
    * Create or retrieve an avatar for a Solana wallet address
    * This is the proper service method - replaces the standalone helper
    * 
@@ -1252,6 +1354,8 @@ export class AvatarService {
     const db = await this._db();
     
     const walletShort = formatAddress(walletAddress);
+
+    context = await this.enrichWalletContext(walletAddress, context);
     
     // Check if avatar already exists for this wallet (uses indexed query)
     let avatar = await this.getAvatarByWalletAddress(walletAddress);

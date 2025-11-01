@@ -34,7 +34,7 @@ import { WalletInsights } from './buybot/walletInsights.mjs';
 
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, services }) {
+  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
@@ -56,11 +56,15 @@ export class BuybotService {
     this.tokenInfoCache = new Map();
     
     // Wallet insights helper encapsulates Lambda polling + caching
-    this.walletInsights = new WalletInsights({
-      logger: this.logger,
+    this.walletInsights = walletInsights || new WalletInsights({ logger: this.logger });
+    this.walletInsights.configure({
+      cacheTtlMs: 30_000,
+      cacheMaxEntries: 100,
+    });
+    this.walletInsights.setResolvers({
       getLambdaEndpoint: () => this.lambdaEndpoint,
-      retryWithBackoff: (...args) => this.retryWithBackoff(...args),
-      getTokenInfo: (...args) => this.getTokenInfo(...args),
+      retryWithBackoff: (fn, maxAttempts = API_RETRY_MAX_ATTEMPTS, baseDelay = API_RETRY_BASE_DELAY_MS) => this.retryWithBackoff(fn, maxAttempts, baseDelay),
+      getTokenInfo: (tokenAddress) => this.getTokenInfo(tokenAddress),
     });
 
     // Volume tracking for Discord activity summaries
@@ -2420,6 +2424,13 @@ export class BuybotService {
    * @returns {Promise<Object>} Context with balance, USD value, holdings snapshot
    */
   async buildWalletAvatarContext(walletAddress, token, tokenDecimals, options = {}) {
+    if (this.avatarService?.buildWalletAvatarContext) {
+      try {
+        return await this.avatarService.buildWalletAvatarContext(walletAddress, token, tokenDecimals, options);
+      } catch (error) {
+        this.logger.warn(`[BuybotService] AvatarService wallet context failed for ${formatAddress(walletAddress)}: ${error.message}`);
+      }
+    }
     return this.walletInsights.buildWalletAvatarContext(walletAddress, token, tokenDecimals, options);
   }
 

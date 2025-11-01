@@ -38,6 +38,23 @@ export class WalletInsights {
   }
 
   /**
+   * Override resolver callbacks used for external integrations.
+   * @param {{ getLambdaEndpoint?: Function, retryWithBackoff?: Function, getTokenInfo?: Function }} resolvers
+   */
+  setResolvers(resolvers = {}) {
+    const { getLambdaEndpoint, retryWithBackoff, getTokenInfo } = resolvers;
+    if (typeof getLambdaEndpoint === 'function') {
+      this.getLambdaEndpoint = getLambdaEndpoint;
+    }
+    if (typeof retryWithBackoff === 'function') {
+      this.retryWithBackoff = retryWithBackoff;
+    }
+    if (typeof getTokenInfo === 'function') {
+      this.getTokenInfo = getTokenInfo;
+    }
+  }
+
+  /**
    * Drop all cached wallet balances.
    */
   clearCache() {
