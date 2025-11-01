@@ -27,7 +27,12 @@ function updateStatusUI(message, type = 'waiting') {
       error: 'text-red-500'
     };
     
-    statusIcon.className = `h-5 w-5 ${colors[type] || colors.waiting}`;
+    const classValue = `h-5 w-5 ${colors[type] || colors.waiting}`;
+    if (statusIcon.namespaceURI === 'http://www.w3.org/2000/svg') {
+      statusIcon.setAttribute('class', classValue);
+    } else {
+      statusIcon.className = classValue;
+    }
     statusIcon.innerHTML = iconSvgs[type] || iconSvgs.waiting;
   }
 }
