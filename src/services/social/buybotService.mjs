@@ -20,7 +20,8 @@ import {
   API_RETRY_MAX_ATTEMPTS,
   API_RETRY_BASE_DELAY_MS,
   PRICE_CACHE_TTL_MS,
-  RECENT_TRANSACTIONS_LIMIT
+  RECENT_TRANSACTIONS_LIMIT,
+  RECENT_TRANSACTIONS_MAX_PAGES
 } from '../../config/buybotConstants.mjs';
 import {
   formatTokenAmount,
@@ -935,6 +936,11 @@ export class BuybotService {
         return;
       }
 
+      // Ensure the token document always carries the address for downstream consumers.
+      if (!token.tokenAddress) {
+        token.tokenAddress = tokenAddress;
+      }
+
       // Fetch fresh token info (including current price) for notifications
       const freshTokenInfo = await this.getTokenInfo(tokenAddress);
       
@@ -956,39 +962,122 @@ export class BuybotService {
         token.marketCap = freshTokenInfo.marketCap;
       }
 
-      // Get recent transactions for the token from Lambda endpoint
-      let transactions;
+      // Build incremental parameters for Solana monitor queries
+      const normalizedLastSeenSlotValue = Number.isFinite(token.lastSeenSlot)
+        ? token.lastSeenSlot
+        : Number(token.lastSeenSlot);
+      const lastSeenSlot = Number.isFinite(normalizedLastSeenSlotValue) && normalizedLastSeenSlotValue > 0
+        ? normalizedLastSeenSlotValue
+        : null;
+
+      const lastSeenSignature = typeof token.lastSeenSignature === 'string' && token.lastSeenSignature.length > 0
+        ? token.lastSeenSignature
+        : null;
+
+      const lastSeenAtDate = token.lastSeenAt ? new Date(token.lastSeenAt) : null;
+      const lastEventAtDate = token.lastEventAt ? new Date(token.lastEventAt) : null;
+      const lastSeenBlockTime = lastSeenAtDate && !Number.isNaN(lastSeenAtDate.getTime())
+        ? Math.floor(lastSeenAtDate.getTime() / 1000)
+        : (lastEventAtDate && !Number.isNaN(lastEventAtDate.getTime())
+          ? Math.floor(lastEventAtDate.getTime() / 1000)
+          : null);
+
+      const baseUrl = new URL(`${this.lambdaEndpoint}/stats/recent-transactions`);
+      baseUrl.searchParams.set('mint', tokenAddress);
+      baseUrl.searchParams.set('limit', RECENT_TRANSACTIONS_LIMIT.toString());
+      baseUrl.searchParams.set('refresh', 'if-stale');
+
+      if (lastSeenSlot) {
+        baseUrl.searchParams.set('sinceSlot', String(lastSeenSlot));
+      }
+      if (lastSeenBlockTime) {
+        baseUrl.searchParams.set('sinceBlockTime', String(lastSeenBlockTime));
+      }
+      if (lastSeenSignature) {
+        baseUrl.searchParams.set('sinceSignature', lastSeenSignature);
+      }
+
+  const rawTransactions = [];
+  let transactions = [];
+      let paginationCursor = null;
+      let pageCount = 0;
+      let hitInitialPageLimit = false;
+      let morePagesAvailable = false;
+
       try {
-        // Call Lambda endpoint to get token transactions
-        const response = await this.retryWithBackoff(async () => {
-          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/stats/recent-transactions?mint=${tokenAddress}&limit=${RECENT_TRANSACTIONS_LIMIT}`);
-          if (!lambdaResponse.ok) {
-            throw new Error(`Lambda API returned ${lambdaResponse.status}: ${await lambdaResponse.text()}`);
+        while (pageCount < RECENT_TRANSACTIONS_MAX_PAGES) {
+          const pageUrl = new URL(baseUrl);
+          if (paginationCursor) {
+            pageUrl.searchParams.set('paginationToken', paginationCursor);
           }
-          return await lambdaResponse.json();
-        });
-        
-        if (!response || !response.data || response.data.length === 0) {
-          // No transactions yet - this is common for very new tokens
-          this.logger.debug(`[BuybotService] No transactions found for ${tokenAddress} yet`);
-          
-          // Reset error counter on successful query with no results
+
+          const payload = await this.retryWithBackoff(async () => {
+            const lambdaResponse = await fetch(pageUrl.toString(), { headers: { accept: 'application/json' } });
+            if (!lambdaResponse.ok) {
+              throw new Error(`Lambda API returned ${lambdaResponse.status}: ${await lambdaResponse.text()}`);
+            }
+            return await lambdaResponse.json();
+          });
+
+          const pageData = Array.isArray(payload?.data) ? payload.data : [];
+          if (pageCount === 0 && pageData.length >= RECENT_TRANSACTIONS_LIMIT) {
+            hitInitialPageLimit = true;
+          }
+          rawTransactions.push(...pageData);
+
+          pageCount += 1;
+
+          const hasNextPage = Boolean(payload?.paginationToken);
+          const fetchedFullPage = pageData.length >= RECENT_TRANSACTIONS_LIMIT;
+
+          if (!hasNextPage || !fetchedFullPage) {
+            break;
+          }
+
+          paginationCursor = payload.paginationToken;
+
+          if (pageCount >= RECENT_TRANSACTIONS_MAX_PAGES) {
+            morePagesAvailable = true;
+            break;
+          }
+        }
+
+        if (morePagesAvailable) {
+          this.logger.warn(
+            `[BuybotService] High volume detected for ${tokenAddress} — fetched ${rawTransactions.length} transactions but additional pages remain (max=${RECENT_TRANSACTIONS_MAX_PAGES}). ` +
+            'Remaining activity will be captured on the next poll.'
+          );
+        } else if (hitInitialPageLimit && !lastSeenSlot) {
+          this.logger.warn(
+            `[BuybotService] Initial transaction sync for ${tokenAddress} reached the page limit (${RECENT_TRANSACTIONS_LIMIT}). ` +
+            'Consider increasing BUYBOT_RECENT_TRANSACTIONS_LIMIT for deeper history.'
+          );
+        }
+
+        if (rawTransactions.length === 0) {
+          this.logger.debug(`[BuybotService] No transactions found for ${tokenAddress} with current filters`);
           await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
             { channelId, tokenAddress },
-            { $set: { errorCount: 0 } }
+            { $set: { errorCount: 0, lastCheckedAt: new Date() } }
           );
           return;
         }
 
-        if (response.data.length >= RECENT_TRANSACTIONS_LIMIT) {
-          this.logger.warn(
-            `[BuybotService] Recent transaction query for ${tokenAddress} returned ${response.data.length} rows (limit=${RECENT_TRANSACTIONS_LIMIT}). ` +
-            'Consider increasing BUYBOT_RECENT_TRANSACTIONS_LIMIT to avoid dropping buys during high volume periods.'
-          );
+        let maxObservedSlot = lastSeenSlot ?? 0;
+        const initialBlockTime = lastSeenBlockTime ?? 0;
+        let maxObservedBlockTime = initialBlockTime;
+
+        for (const rawTx of rawTransactions) {
+          if (Number.isFinite(rawTx?.slot) && rawTx.slot > maxObservedSlot) {
+            maxObservedSlot = rawTx.slot;
+          }
+          if (Number.isFinite(rawTx?.blockTime) && rawTx.blockTime > maxObservedBlockTime) {
+            maxObservedBlockTime = rawTx.blockTime;
+          }
         }
-        
+
         // Map Lambda API response to our transaction format
-        transactions = response.data.map(tx => {
+  transactions = rawTransactions.map(tx => {
           const normalizedTransfers = (tx.transfers || []).map(transfer => ({
             ...transfer,
             mint: transfer.mint || tokenAddress,
@@ -1020,6 +1109,32 @@ export class BuybotService {
 
         // Oldest-first processing so we don't skip intermediate buys
         transactions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        const pollMetadataUpdate = {
+          lastCheckedAt: new Date(),
+          errorCount: 0,
+        };
+
+        if (maxObservedSlot && (!lastSeenSlot || maxObservedSlot > lastSeenSlot)) {
+          pollMetadataUpdate.lastSeenSlot = maxObservedSlot;
+        }
+
+        if (maxObservedBlockTime && maxObservedBlockTime > (lastSeenBlockTime ?? 0)) {
+          pollMetadataUpdate.lastSeenAt = new Date(maxObservedBlockTime * 1000);
+        }
+
+        if (transactions.length > 0) {
+          pollMetadataUpdate.lastSeenSignature = transactions[transactions.length - 1].signature;
+        }
+
+        await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+          { channelId, tokenAddress },
+          { $set: pollMetadataUpdate }
+        );
+
+        if (!transactions || transactions.length === 0) {
+          return;
+        }
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 

@@ -101,6 +101,7 @@ import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
 import { MemoryScheduler } from './services/memory/memoryScheduler.mjs';
+import WalletInsights from './services/social/buybot/walletInsights.mjs';
 import { XService } from './services/social/xService.mjs';
 import { TelegramService } from './services/social/telegramService.mjs';
 import { GlobalBotService } from './services/social/globalBotService.mjs';
@@ -434,6 +435,13 @@ async function initializeContainer() {
 
   // Explicitly register core services in a known order
   container.register({
+    walletInsights: asClass(WalletInsights).singleton().inject(() => ({
+      getLambdaEndpoint: () => null,
+      retryWithBackoff: async (fn) => fn(),
+      getTokenInfo: () => null,
+      cacheTtlMs: undefined,
+      cacheMaxEntries: undefined,
+    })),
     metricsService: asClass(MetricsService).singleton(),
     databaseService: asClass(DatabaseService).singleton(),
     aiModelService: asClass(AIModelService).singleton(),

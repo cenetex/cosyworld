@@ -35,3 +35,6 @@ export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) |
 
 // Maximum number of recent transactions to request per poll (higher value reduces missed buys during bursts)
 export const RECENT_TRANSACTIONS_LIMIT = parseInt(process.env.BUYBOT_RECENT_TRANSACTIONS_LIMIT, 10) || 100;
+
+// Maximum number of paginated requests to fetch per poll when the recent transactions endpoint returns more than the limit
+export const RECENT_TRANSACTIONS_MAX_PAGES = parseInt(process.env.BUYBOT_RECENT_TRANSACTIONS_MAX_PAGES, 10) || 5;

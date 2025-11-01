@@ -10,16 +10,16 @@ export class WalletInsights {
   constructor(options = {}) {
     const {
       logger = console,
-      getLambdaEndpoint = () => null,
-      retryWithBackoff = async (fn) => fn(),
+      getLambdaEndpoint,
+      retryWithBackoff,
       getTokenInfo,
       cacheTtlMs = DEFAULT_CACHE_TTL_MS,
       cacheMaxEntries = DEFAULT_CACHE_MAX_ENTRIES,
     } = options;
     this.logger = logger;
-    this.getLambdaEndpoint = getLambdaEndpoint;
-    this.retryWithBackoff = retryWithBackoff;
-    this.getTokenInfo = getTokenInfo;
+    this.getLambdaEndpoint = typeof getLambdaEndpoint === 'function' ? getLambdaEndpoint : () => null;
+    this.retryWithBackoff = typeof retryWithBackoff === 'function' ? retryWithBackoff : async (fn) => fn();
+    this.getTokenInfo = typeof getTokenInfo === 'function' ? getTokenInfo : null;
     this.cacheTtlMs = cacheTtlMs;
     this.cacheMaxEntries = cacheMaxEntries;
     this.walletBalanceCache = new Map();
@@ -328,11 +328,15 @@ export class WalletInsights {
         continue;
       }
 
+      const infoDecimals = Number.isFinite(tokenInfo?.decimals)
+        ? Number(tokenInfo.decimals)
+        : null;
+
       const decimals = Number.isFinite(entry.decimals)
         ? Number(entry.decimals)
-        : tokenInfo.decimals ?? Number.isFinite(entry.tokenAmount?.decimals)
+        : infoDecimals ?? (Number.isFinite(entry.tokenAmount?.decimals)
           ? Number(entry.tokenAmount.decimals)
-          : 9;
+          : 9);
 
       const effectiveAmount = Number.isFinite(uiAmount)
         ? uiAmount
