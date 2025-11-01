@@ -890,6 +890,37 @@ export class AvatarService {
     return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
   }
 
+  /**
+   * Resolve a suitable chat model for hydrated avatars. Falls back through configured defaults.
+   * @param {string|null} currentModel
+   * @returns {Promise<string>}
+   */
+  async _resolveHydratedModel(currentModel = null) {
+    if (currentModel && currentModel !== 'partial') {
+      return currentModel;
+    }
+
+    let selectedModel = null;
+
+    if (this.aiService?.selectRandomModel) {
+      try {
+        selectedModel = await this.aiService.selectRandomModel();
+      } catch (error) {
+        this.logger?.warn?.(`[AvatarService] Failed to select random model for upgrade: ${error.message}`);
+      }
+    }
+
+    if (!selectedModel || selectedModel === 'partial') {
+      selectedModel = this.aiService?.defaultChatOptions?.model
+        || this.aiService?.defaultCompletionOptions?.model
+        || process.env.OPENROUTER_CHAT_MODEL
+        || process.env.GOOGLE_AI_CHAT_MODEL
+        || 'meta-llama/llama-3.2-1b-instruct';
+    }
+
+    return selectedModel;
+  }
+
   /* -------------------------------------------------- */
   /*  CRUD                                               */
   /* -------------------------------------------------- */
@@ -1387,14 +1418,22 @@ export class AvatarService {
           const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
           
           if (imageUrl) {
+            const upgradedAt = new Date();
+            const hydratedModel = await this._resolveHydratedModel(avatar.model);
+            const upgradeFields = {
+              imageUrl,
+              isPartial: false,
+              upgradedAt,
+            };
+
+            if (hydratedModel && hydratedModel !== avatar.model) {
+              upgradeFields.model = hydratedModel;
+            }
+
             const updateResult = await db.collection(this.AVATARS_COLLECTION).updateOne(
               { _id: avatar._id },
               { 
-                $set: { 
-                  imageUrl,
-                  isPartial: false,
-                  upgradedAt: new Date()
-                }
+                $set: upgradeFields
               }
             );
             this.logger?.info?.(`[AvatarService] Successfully upgraded ${avatar.name} to full avatar with image: ${imageUrl} (matched: ${updateResult.matchedCount}, modified: ${updateResult.modifiedCount})`);
@@ -1402,7 +1441,11 @@ export class AvatarService {
             // CRITICAL FIX: Update the in-memory avatar object immediately
             avatar.imageUrl = imageUrl;
             avatar.isPartial = false;
-            avatar.upgradedAt = new Date();
+            avatar.upgradedAt = upgradedAt;
+            if (upgradeFields.model) {
+              avatar.model = upgradeFields.model;
+              this.logger?.info?.(`[AvatarService] Assigned upgraded model ${upgradeFields.model} to ${avatar.name}`);
+            }
           } else {
             this.logger?.error?.(`[AvatarService] Failed to generate image for ${avatar.name}`);
           }

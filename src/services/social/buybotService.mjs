@@ -150,12 +150,27 @@ export class BuybotService {
         { key: { tokenAddress: 1 }, name: 'token_lookup' },
       ]);
 
-      await this.db.collection(this.TOKEN_EVENTS_COLLECTION).createIndexes([
+      const tokenEventsCollection = this.db.collection(this.TOKEN_EVENTS_COLLECTION);
+      const existingIndexes = await tokenEventsCollection.indexes();
+
+      const signatureIndex = existingIndexes.find(index => index.name === 'signature_unique');
+      const expectedKey = { signature: 1, channelId: 1 };
+      const indexNeedsUpdate = !signatureIndex
+        || JSON.stringify(signatureIndex.key) !== JSON.stringify(expectedKey)
+        || signatureIndex.unique !== true;
+
+      if (signatureIndex && indexNeedsUpdate) {
+        await tokenEventsCollection.dropIndex('signature_unique');
+      }
+
+      const indexDefinitions = [
         { key: { channelId: 1, timestamp: -1 }, name: 'channel_events' },
         { key: { tokenAddress: 1, timestamp: -1 }, name: 'token_events' },
-        { key: { signature: 1 }, unique: true, name: 'signature_unique' },
+        { key: expectedKey, unique: true, name: 'signature_unique' },
         { key: { timestamp: -1 }, name: 'timestamp_lookup' },
-      ]);
+      ];
+
+      await tokenEventsCollection.createIndexes(indexDefinitions);
 
       await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).createIndexes([
         { key: { channelId: 1, collectionAddress: 1 }, unique: true, name: 'channel_collection' },
@@ -1211,6 +1226,7 @@ export class BuybotService {
         // Skip if we've already processed this transaction
         const existing = await this.db.collection(this.TOKEN_EVENTS_COLLECTION).findOne({
           signature: tx.signature,
+          channelId,
         });
 
         if (existing) continue;
@@ -1239,7 +1255,7 @@ export class BuybotService {
           } catch (insertErr) {
             // Mongo duplicate key (signature already exists) - skip silently
             if (insertErr && (insertErr.code === 11000 || String(insertErr.message).includes('E11000'))) {
-              this.logger.debug(`[BuybotService] Duplicate token event ${tx.signature} detected, skipping insert`);
+              this.logger.debug(`[BuybotService] Duplicate token event ${tx.signature} detected for channel ${channelId}, skipping insert`);
               continue; // skip processing this transaction
             }
 
@@ -1854,32 +1870,42 @@ export class BuybotService {
     
     try {
       const { buyerAvatar, senderAvatar, recipientAvatar } = avatars;
-      
-      // Collect avatars involved in this trade that have images (full AI-generated avatars)
-      // Avatars with images are likely RATi holders and can participate in conversations
+
+      // Track all avatars involved for relationship context, even if some are still partial
+      const relationshipParticipants = [];
+
       const fullAvatars = [];
+
+      if (buyerAvatar && buyerAvatar._id) {
+        relationshipParticipants.push({ avatar: buyerAvatar, role: 'buyer' });
+        if (buyerAvatar.imageUrl) {
+          fullAvatars.push({ avatar: buyerAvatar, role: 'buyer' });
+        }
+      }
+      if (senderAvatar && senderAvatar._id) {
+        relationshipParticipants.push({ avatar: senderAvatar, role: 'sender' });
+        if (senderAvatar.imageUrl) {
+          fullAvatars.push({ avatar: senderAvatar, role: 'sender' });
+        }
+      }
+      if (recipientAvatar && recipientAvatar._id) {
+        relationshipParticipants.push({ avatar: recipientAvatar, role: 'recipient' });
+        if (recipientAvatar.imageUrl) {
+          fullAvatars.push({ avatar: recipientAvatar, role: 'recipient' });
+        }
+      }
       
-      if (buyerAvatar && buyerAvatar.imageUrl && buyerAvatar._id) {
-        fullAvatars.push({ avatar: buyerAvatar, role: 'buyer' });
+      // Record relationships between avatars involved in this trade
+      if (relationshipParticipants.length >= 2 && this.avatarRelationshipService) {
+        await this.recordTradeRelationships(relationshipParticipants, event, token);
       }
-      if (senderAvatar && senderAvatar.imageUrl && senderAvatar._id) {
-        fullAvatars.push({ avatar: senderAvatar, role: 'sender' });
-      }
-      if (recipientAvatar && recipientAvatar.imageUrl && recipientAvatar._id) {
-        fullAvatars.push({ avatar: recipientAvatar, role: 'recipient' });
-      }
-      
+
       if (fullAvatars.length === 0) {
         this.logger.debug(`[BuybotService] No full avatars (with images) in trade, skipping responses`);
         return;
       }
       
       this.logger.info(`[BuybotService] Triggering responses for ${fullAvatars.length} full avatar(s) in trade`);
-      
-      // Record relationships between avatars involved in this trade
-      if (fullAvatars.length >= 2 && this.avatarRelationshipService) {
-        await this.recordTradeRelationships(fullAvatars, event, token);
-      }
       
       // Get the channel object
       const channel = await this.discordService.client.channels.fetch(channelId);
@@ -1907,7 +1933,7 @@ export class BuybotService {
         const { avatar, role } = fullAvatars[i];
         try {
           // Build trade context prompt for the avatar (async now includes relationship data)
-          const tradeContext = await this.buildTradeContextForAvatar(event, token, role, avatar, fullAvatars, {
+          const tradeContext = await this.buildTradeContextForAvatar(event, token, role, avatar, relationshipParticipants, {
             buyerAvatar,
             senderAvatar,
             recipientAvatar
@@ -1953,13 +1979,21 @@ export class BuybotService {
 
   /**
    * Record trade relationships between avatars
-   * @param {Array} fullAvatars - Array of {avatar, role} objects
+  * @param {Array} avatarsInTrade - Array of {avatar, role} objects
    * @param {Object} event - Trade event
    * @param {Object} token - Token info
    */
-  async recordTradeRelationships(fullAvatars, event, token) {
+  async recordTradeRelationships(avatarsInTrade, event, token) {
     try {
       if (!this.avatarRelationshipService) {
+        return;
+      }
+
+      const participants = Array.isArray(avatarsInTrade)
+        ? avatarsInTrade.filter(entry => entry?.avatar?._id)
+        : [];
+      
+      if (participants.length < 2) {
         return;
       }
 
@@ -1969,9 +2003,9 @@ export class BuybotService {
       const usdValue = token.usdPrice ? tokenAmount * token.usdPrice : 0;
 
       // For transfers, record relationship between sender and recipient
-      if (event.type === 'transfer' && fullAvatars.length === 2) {
-        const sender = fullAvatars.find(a => a.role === 'sender');
-        const recipient = fullAvatars.find(a => a.role === 'recipient');
+      if (event.type === 'transfer') {
+        const sender = participants.find(a => a.role === 'sender');
+        const recipient = participants.find(a => a.role === 'recipient');
 
         if (sender && recipient) {
           await this.avatarRelationshipService.recordTrade({
@@ -1992,12 +2026,12 @@ export class BuybotService {
       }
 
       // For swaps with multiple participants, record all pairwise relationships
-      if (event.type === 'swap' && fullAvatars.length >= 2) {
-        const buyer = fullAvatars.find(a => a.role === 'buyer');
+      if (event.type === 'swap' && participants.length >= 2) {
+        const buyer = participants.find(a => a.role === 'buyer');
         
         if (buyer) {
           // Record relationship with all other participants
-          for (const other of fullAvatars) {
+          for (const other of participants) {
             if (other.avatar._id.toString() !== buyer.avatar._id.toString()) {
               await this.avatarRelationshipService.recordTrade({
                 avatar1Id: String(buyer.avatar._id),
@@ -2028,11 +2062,11 @@ export class BuybotService {
    * @param {Object} token - Token info
    * @param {string} role - Avatar's role (buyer/sender/recipient)
    * @param {Object} avatar - Avatar document
-   * @param {Array} allAvatars - All full avatars in this trade
+  * @param {Array} avatarsInTrade - All avatars in this trade (full or partial)
    * @param {Object} allParticipants - All participants (buyerAvatar, senderAvatar, recipientAvatar)
    * @returns {Promise<string>} Context prompt
    */
-  async buildTradeContextForAvatar(event, token, role, avatar, allAvatars, allParticipants = {}) {
+  async buildTradeContextForAvatar(event, token, role, avatar, avatarsInTrade, allParticipants = {}) {
     // Calculate the actual token amount in UI units (not raw amount)
     const decimals = event.decimals || token.tokenDecimals || 9;
     const tokenAmount = parseFloat(event.amount) / Math.pow(10, decimals);
@@ -2126,7 +2160,7 @@ export class BuybotService {
     }
     
     // Add relationship context for other avatars involved
-    const otherAvatars = allAvatars.filter(a => a.avatar._id.toString() !== avatar._id.toString());
+  const otherAvatars = avatarsInTrade.filter(a => a.avatar._id.toString() !== avatar._id.toString());
     if (otherAvatars.length > 0 && this.avatarRelationshipService) {
       contextParts.push(`\nOther avatars in this trade:`);
       
