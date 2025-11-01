@@ -633,20 +633,46 @@ function initPaymentConfigHandlers() {
 }
 
 function normalizeWalletAvatarDefaults(raw = {}) {
+  const numericValue = Number(raw.minBalanceForFullAvatar);
+  const sanitizedBalance = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
   return {
     createFullAvatar: !!raw.createFullAvatar,
-    minBalanceForFullAvatar: Number.isFinite(Number(raw.minBalanceForFullAvatar)) ? Number(raw.minBalanceForFullAvatar) : 0,
+    minBalanceForFullAvatar: sanitizedBalance,
     autoActivate: !!raw.autoActivate,
     sendIntro: !!raw.sendIntro
   };
 }
 
 function normalizeWalletAvatarOverride(raw = {}) {
+  const aliasSource = Array.isArray(raw.aliasSymbols)
+    ? raw.aliasSymbols
+    : Array.isArray(raw.symbols)
+      ? raw.symbols
+      : [];
+  const aliasSeen = new Set();
+  const aliasSymbols = aliasSource
+    .map(alias => (typeof alias === 'string' ? alias.trim().toUpperCase() : ''))
+    .filter(alias => {
+      if (!alias) return false;
+      if (aliasSeen.has(alias)) return false;
+      aliasSeen.add(alias);
+      return true;
+    });
+  const addressesSource = Array.isArray(raw.addresses) ? raw.addresses : [];
+  const addressSeen = new Set();
+  const addresses = addressesSource
+    .map(addr => (addr ? String(addr).trim().toLowerCase() : ''))
+    .filter(addr => {
+      if (!addr) return false;
+      if (addressSeen.has(addr)) return false;
+      addressSeen.add(addr);
+      return true;
+    });
   return {
-    symbol: raw.symbol || '',
+    symbol: typeof raw.symbol === 'string' ? raw.symbol.trim().toUpperCase() : '',
     displayEmoji: raw.displayEmoji ?? null,
-    aliasSymbols: Array.isArray(raw.aliasSymbols) ? raw.aliasSymbols : Array.isArray(raw.symbols) ? raw.symbols : [],
-    addresses: Array.isArray(raw.addresses) ? raw.addresses : [],
+    aliasSymbols,
+    addresses,
     walletAvatar: normalizeWalletAvatarDefaults(raw.walletAvatar || {})
   };
 }
@@ -775,8 +801,11 @@ function renderWalletAvatarOverrides() {
     const safeEmoji = escapeHtml(displayEmoji || '🪙');
     const aliasText = aliasSymbols && aliasSymbols.length ? aliasSymbols.map(val => escapeHtml(val)).join(', ') : '';
     const addressesText = addresses && addresses.length ? addresses.map(val => escapeHtml(val)).join(', ') : '';
+    const minBalanceValue = Number(walletAvatar.minBalanceForFullAvatar);
+    const minBalanceSanitized = Number.isFinite(minBalanceValue) && minBalanceValue >= 0 ? minBalanceValue : 0;
+    const minBalanceDisplay = minBalanceSanitized.toLocaleString(undefined, { maximumFractionDigits: 4 });
     const summary = [
-      `Min balance: ${walletAvatar.minBalanceForFullAvatar.toLocaleString(undefined, { maximumFractionDigits: 4 })}`,
+      `Min balance: ${minBalanceDisplay}`,
       `Full avatars: ${walletAvatar.createFullAvatar ? 'Enabled' : 'Disabled'}`,
       `Auto-activate: ${walletAvatar.autoActivate ? 'Yes' : 'No'}`,
       `Intro: ${walletAvatar.sendIntro ? 'Yes' : 'No'}`
@@ -833,6 +862,176 @@ function parseListInput(value, { toLower = false } = {}) {
     .filter((entry, index, self) => self.indexOf(entry) === index);
 }
 
+function getRegisteredTokenOptions() {
+  const map = new Map();
+  if (!walletAvatarPrefsState) return [];
+
+  const addToken = (input = {}) => {
+    const symbol = typeof input.symbol === 'string' ? input.symbol.trim().toUpperCase() : '';
+    const aliasSource = Array.isArray(input.aliasSymbols)
+      ? input.aliasSymbols
+      : Array.isArray(input.symbols)
+        ? input.symbols
+        : [];
+    const aliasSymbols = aliasSource
+      .map(alias => (typeof alias === 'string' ? alias.trim().toUpperCase() : ''))
+      .filter(Boolean);
+    const addressesSource = Array.isArray(input.addresses) ? input.addresses : [];
+    const addresses = addressesSource
+      .map(addr => (addr ? String(addr).trim().toLowerCase() : ''))
+      .filter(Boolean);
+    const primaryAddress = input.primaryAddress ? String(input.primaryAddress).trim().toLowerCase() : (addresses[0] || '');
+    const key = symbol || primaryAddress;
+    if (!key) return;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        symbol,
+        name: typeof input.name === 'string' ? input.name : '',
+        addresses: new Set(),
+        aliasSymbols: new Set(),
+        displayEmoji: typeof input.displayEmoji === 'string' ? input.displayEmoji : '',
+        sources: new Set(),
+        primaryAddress: primaryAddress || ''
+      });
+    }
+    const entry = map.get(key);
+    if (symbol) entry.symbol = symbol;
+    if (input.name && !entry.name) entry.name = input.name;
+    if (input.displayEmoji && !entry.displayEmoji) entry.displayEmoji = input.displayEmoji;
+    if (primaryAddress) entry.primaryAddress = primaryAddress;
+    addresses.forEach(addr => entry.addresses.add(addr));
+    aliasSymbols.forEach(alias => {
+      if (alias && alias !== entry.symbol) entry.aliasSymbols.add(alias);
+    });
+    const sources = Array.isArray(input.sources)
+      ? input.sources
+      : typeof input.source === 'string'
+        ? [input.source]
+        : [];
+    sources.forEach(source => {
+      if (source) entry.sources.add(source);
+    });
+  };
+
+  const registeredTokens = Array.isArray(walletAvatarPrefsState.registeredTokens)
+    ? walletAvatarPrefsState.registeredTokens
+    : [];
+  registeredTokens.forEach(token => addToken(token));
+
+  const overrides = Array.isArray(walletAvatarPrefsState.overrides)
+    ? walletAvatarPrefsState.overrides
+    : [];
+  overrides.forEach(override => {
+    addToken({
+      symbol: override.symbol,
+      aliasSymbols: override.aliasSymbols,
+      addresses: override.addresses,
+      displayEmoji: override.displayEmoji,
+      source: 'override'
+    });
+  });
+
+  const prioritySymbols = Array.isArray(walletAvatarPrefsState.prioritySymbols)
+    ? walletAvatarPrefsState.prioritySymbols
+    : [];
+  prioritySymbols.forEach(symbol => addToken({ symbol, source: 'priority' }));
+
+  return Array.from(map.values()).map(entry => {
+    const addresses = Array.from(entry.addresses);
+    const aliasSymbols = Array.from(entry.aliasSymbols);
+    const sources = Array.from(entry.sources);
+    const parts = [];
+    if (entry.displayEmoji) parts.push(entry.displayEmoji);
+    const primaryLabel = entry.symbol || entry.primaryAddress || addresses[0] || entry.key;
+    if (primaryLabel) parts.push(primaryLabel);
+    const nameLabel = entry.name ? `- ${entry.name}` : '';
+    const label = nameLabel ? `${parts.join(' ')} ${nameLabel}` : parts.join(' ');
+    return {
+      key: entry.key,
+      symbol: entry.symbol,
+      name: entry.name,
+      addresses,
+      aliasSymbols,
+      displayEmoji: entry.displayEmoji,
+      sources,
+      primaryAddress: entry.primaryAddress,
+      label: label || entry.key
+    };
+  }).sort((a, b) => {
+    const aKey = a.symbol || a.primaryAddress || a.label;
+    const bKey = b.symbol || b.primaryAddress || b.label;
+    return aKey.localeCompare(bKey);
+  });
+}
+
+function renderWalletAvatarTokenPicker(editor, formState) {
+  const picker = editor.querySelector('#walletAvatarTokenPicker');
+  if (!picker) return;
+  const options = getRegisteredTokenOptions();
+  if (!options.length) {
+    picker.innerHTML = '<p class="text-xs text-gray-500">No registered tokens discovered yet. Configure tracked tokens or priority symbols to enable quick selection.</p>';
+    return;
+  }
+
+  picker.innerHTML = `
+    <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarTokenSelect">Registered Token</label>
+    <div class="flex flex-col md:flex-row gap-2 md:items-center">
+      <select id="walletAvatarTokenSelect" class="w-full md:w-auto border rounded px-3 py-2 text-sm">
+        <option value="">Select registered token</option>
+      </select>
+      <button type="button" id="walletAvatarTokenApply" class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">Apply Token Details</button>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">Applying fills symbol, aliases, addresses, and emoji when available.</p>
+  `;
+
+  const select = picker.querySelector('#walletAvatarTokenSelect');
+  options.forEach(option => {
+    const opt = document.createElement('option');
+    opt.value = option.key;
+    opt.textContent = option.label;
+    select.appendChild(opt);
+  });
+
+  const initialSymbol = formState.symbol ? formState.symbol.trim().toUpperCase() : '';
+  const initialAddresses = Array.isArray(formState.addresses)
+    ? formState.addresses.map(addr => (addr ? String(addr).trim().toLowerCase() : '')).filter(Boolean)
+    : [];
+  let initialOption = options.find(option => option.symbol === initialSymbol);
+  if (!initialOption && initialAddresses.length) {
+    initialOption = options.find(option => option.addresses.some(addr => initialAddresses.includes(addr)));
+  }
+  if (initialOption) select.value = initialOption.key;
+
+  const applyBtn = picker.querySelector('#walletAvatarTokenApply');
+  applyBtn?.addEventListener('click', () => {
+    if (!select.value) {
+      toastError('Select a registered token first');
+      return;
+    }
+    const chosen = options.find(option => option.key === select.value);
+    if (!chosen) return;
+    const symbolInput = editor.querySelector('#walletAvatarSymbol');
+    const emojiInput = editor.querySelector('#walletAvatarEmoji');
+    const aliasesInput = editor.querySelector('#walletAvatarAliases');
+    const addressesInput = editor.querySelector('#walletAvatarAddresses');
+    if (symbolInput && chosen.symbol) {
+      symbolInput.value = chosen.symbol;
+    }
+    if (emojiInput) {
+      emojiInput.value = chosen.displayEmoji || '';
+    }
+    if (aliasesInput) {
+      aliasesInput.value = chosen.aliasSymbols.length ? chosen.aliasSymbols.join(', ') : '';
+    }
+    if (addressesInput) {
+      addressesInput.value = chosen.addresses.length ? chosen.addresses.join(', ') : '';
+    }
+    showWalletAvatarPreferencesStatus('Token details applied from registry', 'info');
+  });
+}
+
 function openWalletAvatarEditor(symbol = null) {
   const editor = document.getElementById('walletAvatarEditor');
   if (!editor) return;
@@ -863,6 +1062,7 @@ function openWalletAvatarEditor(symbol = null) {
       <button type="button" id="walletAvatarEditorClose" class="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div id="walletAvatarTokenPicker" class="md:col-span-2"></div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarSymbol">Token Symbol</label>
         <input id="walletAvatarSymbol" type="text" class="w-full px-3 py-2 border rounded text-sm uppercase" placeholder="e.g. PROJECT89" value="${safeSymbol}" />
@@ -909,6 +1109,8 @@ function openWalletAvatarEditor(symbol = null) {
 
   editor.querySelector('#walletAvatarEditorClose')?.addEventListener('click', closeWalletAvatarEditor);
   editor.querySelector('#walletAvatarEditorCancel')?.addEventListener('click', closeWalletAvatarEditor);
+
+  renderWalletAvatarTokenPicker(editor, formState);
 
   const saveBtn = editor.querySelector('#walletAvatarEditorSave');
   saveBtn?.addEventListener('click', withButtonLoading(saveBtn, async () => {
@@ -991,7 +1193,11 @@ async function loadWalletAvatarPreferences() {
     const data = await apiFetch('/api/admin/token-preferences');
     walletAvatarPrefsState = {
       defaults: data?.defaults || { walletAvatar: { ...DEFAULT_WALLET_AVATAR_PREFS } },
-      overrides: Array.isArray(data?.overrides) ? data.overrides.map(normalizeWalletAvatarOverride) : []
+      overrides: Array.isArray(data?.overrides) ? data.overrides.map(normalizeWalletAvatarOverride) : [],
+      prioritySymbols: Array.isArray(data?.prioritySymbols)
+        ? data.prioritySymbols.map(symbol => (typeof symbol === 'string' ? symbol.trim().toUpperCase() : symbol)).filter(Boolean)
+        : [],
+      registeredTokens: Array.isArray(data?.registeredTokens) ? data.registeredTokens : []
     };
     renderWalletAvatarDefaults();
     renderWalletAvatarOverrides();

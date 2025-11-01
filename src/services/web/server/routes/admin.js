@@ -708,6 +708,15 @@ function createRouter(db, services) {
       const defaults = tokensConfig.defaults || {};
       const overrides = tokensConfig.overrides || {};
 
+      const normalizeSet = (items) => {
+        const set = new Set();
+        for (const item of items || []) {
+          const normalized = normalizeSymbol(item);
+          if (normalized) set.add(normalized);
+        }
+        return Array.from(set);
+      };
+
       const normalizedDefaults = {
         walletAvatar: {
           createFullAvatar: !!defaults.walletAvatar?.createFullAvatar,
@@ -730,10 +739,121 @@ function createRouter(db, services) {
         }
       }));
 
+      const registryMap = new Map();
+      const registerToken = ({ symbol, name, address, aliasSymbols = [], addresses = [], displayEmoji = null, source = 'config' }) => {
+        const normalizedSymbol = normalizeSymbol(symbol);
+        const normalizedAddress = address ? String(address).toLowerCase() : null;
+        const key = normalizedSymbol || normalizedAddress;
+        if (!key) return;
+        if (!registryMap.has(key)) {
+          registryMap.set(key, {
+            symbol: normalizedSymbol,
+            name: name || null,
+            addresses: new Set(),
+            aliasSymbols: new Set(),
+            displayEmoji: displayEmoji || null,
+            sources: new Set(),
+            primaryAddress: normalizedAddress || null
+          });
+        }
+        const entry = registryMap.get(key);
+        if (!entry.symbol && normalizedSymbol) entry.symbol = normalizedSymbol;
+        if (!entry.name && name) entry.name = name;
+        if (!entry.displayEmoji && displayEmoji) entry.displayEmoji = displayEmoji;
+        if (normalizedAddress) {
+          entry.addresses.add(normalizedAddress);
+          if (!entry.primaryAddress) entry.primaryAddress = normalizedAddress;
+        }
+        aliasSymbols.forEach(alias => {
+          const normalizedAlias = normalizeSymbol(alias);
+          if (normalizedAlias && normalizedAlias !== entry.symbol) {
+            entry.aliasSymbols.add(normalizedAlias);
+          }
+        });
+        addresses.forEach(addr => {
+          const normalized = addr ? String(addr).toLowerCase() : null;
+          if (normalized) entry.addresses.add(normalized);
+        });
+        entry.sources.add(source);
+      };
+
+      // Seed registry with overrides
+      for (const override of normalizedOverrides) {
+        registerToken({
+          symbol: override.symbol,
+          aliasSymbols: override.aliasSymbols || [],
+          addresses: override.addresses || [],
+          displayEmoji: override.displayEmoji || null,
+          source: 'override'
+        });
+      }
+
+      const prioritySymbolsRaw = Array.isArray(tokensConfig.prioritySymbols) ? tokensConfig.prioritySymbols : [];
+      const prioritySymbols = normalizeSet(prioritySymbolsRaw);
+      prioritySymbols.forEach(symbol => {
+        registerToken({ symbol, source: 'priority' });
+      });
+
+      // Include tracked tokens from BuyBot (if collection available)
+      try {
+        const trackedTokens = await db.collection('buybot_tracked_tokens')
+          .aggregate([
+            {
+              $match: {
+                tokenAddress: { $exists: true, $ne: null },
+                active: { $ne: false }
+              }
+            },
+            {
+              $group: {
+                _id: '$tokenAddress',
+                tokenAddress: { $first: '$tokenAddress' },
+                tokenSymbol: { $first: '$tokenSymbol' },
+                tokenName: { $first: '$tokenName' }
+              }
+            },
+            {
+              $sort: {
+                tokenSymbol: 1,
+                tokenName: 1
+              }
+            }
+          ]).toArray();
+
+        for (const tracked of trackedTokens) {
+          registerToken({
+            symbol: tracked.tokenSymbol,
+            name: tracked.tokenName,
+            address: tracked.tokenAddress,
+            source: 'tracked'
+          });
+        }
+      } catch (trackedError) {
+        console.warn('[Admin] Failed to include tracked tokens in registry:', trackedError?.message || trackedError);
+      }
+
+      const registeredTokens = Array.from(registryMap.values()).map(entry => ({
+        symbol: entry.symbol,
+        name: entry.name,
+        addresses: Array.from(entry.addresses),
+        aliasSymbols: Array.from(entry.aliasSymbols),
+        displayEmoji: entry.displayEmoji,
+        sources: Array.from(entry.sources),
+        primaryAddress: entry.primaryAddress
+      })).sort((a, b) => {
+        const symbolA = a.symbol || '';
+        const symbolB = b.symbol || '';
+        if (symbolA === symbolB) {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return symbolA.localeCompare(symbolB);
+      });
+
       res.json({
         defaults: normalizedDefaults,
         overrides: normalizedOverrides,
-        prioritySymbols: Array.isArray(tokensConfig.prioritySymbols) ? tokensConfig.prioritySymbols : []
+        prioritySymbols,
+        registeredTokens
       });
     } catch (error) {
       console.error('Error fetching token preferences:', error);

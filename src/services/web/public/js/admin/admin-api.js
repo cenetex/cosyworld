@@ -54,7 +54,9 @@ export async function apiFetch(path, { method = 'GET', body, headers = {}, requi
       const signed = await auth.getSignedHeaders(signMeta || {});
       Object.assign(opts.headers, signed);
     } catch (e) {
-      console.warn('[admin-api] failed to attach signed headers:', e.message);
+      const normalized = normalizeError(e);
+      const message = normalized.message || 'Wallet signature required';
+      throw { ...normalized, message };
     }
   }
   let res;
