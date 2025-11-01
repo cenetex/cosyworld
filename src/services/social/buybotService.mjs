@@ -33,6 +33,32 @@ import {
 } from './buybot/utils/formatters.mjs';
 import { WalletInsights } from './buybot/walletInsights.mjs';
 
+const DEFAULT_TOKEN_PREFERENCES = {
+  displayEmoji: '\uD83D\uDCB0',
+  transferEmoji: '\uD83D\uDCE4',
+  buttons: {
+    primary: {
+      label: 'Swap on Jupiter',
+      urlTemplate: 'https://jup.ag/swap/SOL-{address}'
+    }
+  },
+  telegram: {
+    linkLabel: 'Swap',
+    linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
+  },
+  notifications: {
+    onlySwapEvents: false
+  },
+  walletAvatar: {
+    createFullAvatar: false,
+    minBalanceForFullAvatar: 0,
+    autoActivate: false,
+    sendIntro: false
+  }
+};
+
+const cloneDefaultTokenPreferences = () => JSON.parse(JSON.stringify(DEFAULT_TOKEN_PREFERENCES));
+
 
 export class BuybotService {
   constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
@@ -213,6 +239,9 @@ export class BuybotService {
    */
   async addTrackedToken(channelId, tokenAddress, platform = 'discord') {
     try {
+      const normalizedPlatform = platform || 'discord';
+      const normalizedTokenAddress = typeof tokenAddress === 'string' ? tokenAddress.trim() : tokenAddress;
+
       if (!this.lambdaEndpoint) {
         return { success: false, message: 'Buybot service not configured. Please set BUYBOT_LAMBDA_ENDPOINT.' };
       }
@@ -226,10 +255,25 @@ export class BuybotService {
       }
 
       // Check per-channel limit
-      const channelTokenCount = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
-        .countDocuments({ channelId, active: true });
-      
-      if (channelTokenCount >= MAX_TRACKED_TOKENS_PER_CHANNEL) {
+      const channelTokenQuery = {
+        channelId,
+        active: true,
+      };
+
+      if (normalizedPlatform === 'discord') {
+        channelTokenQuery.$or = [
+          { platform: 'discord' },
+          { platform: null },
+          { platform: { $exists: false } },
+        ];
+      } else {
+        channelTokenQuery.platform = normalizedPlatform;
+      }
+
+      let channelTokenCount = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
+        .countDocuments(channelTokenQuery);
+
+      if (normalizedPlatform !== 'discord' && channelTokenCount >= MAX_TRACKED_TOKENS_PER_CHANNEL) {
         return {
           success: false,
           message: `Channel limit reached: maximum ${MAX_TRACKED_TOKENS_PER_CHANNEL} tokens per channel. Remove some before adding more.`
@@ -237,36 +281,131 @@ export class BuybotService {
       }
 
       // Validate token address format (basic check)
-      if (!tokenAddress || tokenAddress.length < 32 || tokenAddress.length > 44) {
+      if (!normalizedTokenAddress || normalizedTokenAddress.length < 32 || normalizedTokenAddress.length > 44) {
         return { success: false, message: 'Invalid Solana token address format.' };
       }
 
       // Fetch token metadata
-      const tokenInfo = await this.getTokenInfo(tokenAddress);
+      const tokenInfo = await this.getTokenInfo(normalizedTokenAddress);
       if (!tokenInfo) {
         return { success: false, message: 'Could not fetch token information. Verify the address is correct.' };
       }
 
+      // Prevent the same token from being tracked in multiple Discord channels
+      if (normalizedPlatform === 'discord') {
+        const conflictingChannel = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+          tokenAddress: normalizedTokenAddress,
+          active: true,
+          channelId: { $ne: channelId },
+          $or: [
+            { platform: 'discord' },
+            { platform: null },
+            { platform: { $exists: false } },
+          ],
+        });
+
+        if (conflictingChannel) {
+          const channelMention = typeof conflictingChannel.channelId === 'string' && /^\d+$/.test(conflictingChannel.channelId)
+            ? `<#${conflictingChannel.channelId}>`
+            : conflictingChannel.channelId;
+
+          return {
+            success: false,
+            message: `That token is already being tracked in Discord channel ${channelMention}. Ask them to run !ca-remove before adding it here.`
+          };
+        }
+      }
+
       // Check if already tracking
-      const existing = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne({
+      const existingQuery = {
         channelId,
-        tokenAddress,
-      });
+        tokenAddress: normalizedTokenAddress,
+      };
+
+      if (normalizedPlatform === 'discord') {
+        existingQuery.$or = [
+          { platform: 'discord' },
+          { platform: null },
+          { platform: { $exists: false } },
+        ];
+      } else {
+        existingQuery.platform = normalizedPlatform;
+      }
+
+      const existing = await this.db.collection(this.TRACKED_TOKENS_COLLECTION).findOne(existingQuery);
 
       if (existing && existing.active) {
         return { 
           success: false, 
-          message: `Already tracking ${tokenInfo.name || tokenAddress} in this channel.` 
+          message: `Already tracking ${tokenInfo.name || normalizedTokenAddress} in this channel.` 
+        };
+      }
+
+      const replacedTokens = [];
+
+      // For Discord, ensure the channel only tracks this token going forward
+      if (normalizedPlatform === 'discord') {
+        const replacementCandidates = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
+          .find({
+            channelId,
+            active: true,
+            tokenAddress: { $ne: normalizedTokenAddress },
+            $or: [
+              { platform: 'discord' },
+              { platform: null },
+              { platform: { $exists: false } },
+            ],
+          })
+          .toArray();
+
+        if (replacementCandidates.length > 0) {
+          const removalIds = replacementCandidates.map(token => token._id).filter(Boolean);
+          const uniqueAddresses = [...new Set(replacementCandidates.map(token => token.tokenAddress))];
+
+          if (removalIds.length > 0) {
+            await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateMany(
+              { _id: { $in: removalIds } },
+              { $set: { active: false, removedAt: new Date(), removalReason: 'channel_token_replaced' } }
+            );
+          }
+
+          for (const candidate of replacementCandidates) {
+            this.stopPollingToken(channelId, candidate.tokenAddress, candidate.platform || 'discord');
+            replacedTokens.push({
+              tokenAddress: candidate.tokenAddress,
+              tokenSymbol: candidate.tokenSymbol,
+              tokenName: candidate.tokenName,
+            });
+          }
+
+          for (const address of uniqueAddresses) {
+            await this.cleanupTokenWebhook(address);
+          }
+
+          channelTokenCount = 0;
+        }
+      } else if (channelTokenCount >= MAX_TRACKED_TOKENS_PER_CHANNEL) {
+        return {
+          success: false,
+          message: `Channel limit reached: maximum ${MAX_TRACKED_TOKENS_PER_CHANNEL} tokens per channel. Remove some before adding more.`
         };
       }
 
       // Add or update token tracking
+      const upsertQuery = existing && existing._id
+        ? { _id: existing._id }
+        : {
+            channelId,
+            tokenAddress: normalizedTokenAddress,
+            platform: normalizedPlatform,
+          };
+
       await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
-        { channelId, tokenAddress },
+        upsertQuery,
         {
           $set: {
             active: true,
-            platform: platform || 'discord',
+            platform: normalizedPlatform,
             tokenName: tokenInfo.name,
             tokenSymbol: tokenInfo.symbol,
             tokenDecimals: tokenInfo.decimals,
@@ -292,14 +431,20 @@ export class BuybotService {
       );
 
       // Setup webhook for tracking
-      await this.setupTokenWebhook(channelId, tokenAddress, platform);
+      await this.setupTokenWebhook(channelId, normalizedTokenAddress, normalizedPlatform);
 
-      this.logger.info(`[BuybotService] Added tracking for ${tokenInfo.symbol} (${tokenAddress}) in channel ${channelId}`);
+      if (replacedTokens.length > 0) {
+        const replacedSummary = replacedTokens.map(token => token.tokenSymbol || token.tokenAddress).join(', ');
+        this.logger.info(`[BuybotService] Replaced existing tracked tokens [${replacedSummary}] in channel ${channelId}`);
+      }
+
+      this.logger.info(`[BuybotService] Added tracking for ${tokenInfo.symbol} (${normalizedTokenAddress}) in channel ${channelId}`);
 
       return {
         success: true,
         message: `Now tracking **${tokenInfo.name}** (${tokenInfo.symbol})`,
         tokenInfo,
+        replacedTokens,
       };
     } catch (error) {
       this.logger.error('[BuybotService] Failed to add tracked token:', error);
@@ -970,6 +1115,9 @@ export class BuybotService {
         return;
       }
 
+      const tokenPreferences = this.getTokenPreferences(token);
+      token.tokenPreferences = tokenPreferences;
+
       // Ensure the token document always carries the address for downstream consumers.
       if (!token.tokenAddress) {
         token.tokenAddress = tokenAddress;
@@ -1253,9 +1401,8 @@ export class BuybotService {
         // Parse transaction for token events
         const event = await this.parseTokenTransaction(tx, tokenAddress);
 
-        // If user requested RATi-only purchases, skip non-swap events for RATi
-        if (event && token && token.tokenSymbol === 'RATi' && event.type !== 'swap') {
-          // skip non-purchase events for RATi
+        // Skip non-purchase events when configured for swap-only notifications
+        if (event && tokenPreferences?.notifications?.onlySwapEvents && event.type !== 'swap') {
           continue;
         }
 
@@ -1456,12 +1603,15 @@ export class BuybotService {
         this.logger.warn(`[BuybotService] Could not fetch guild for channel ${channelId}`);
       }
       
+      const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
       const effectiveType = event?.inferredType || event.type;
       const displayDescription = event?.displayDescription || event.description;
 
-      const emoji = effectiveType === 'swap' ? '💰' : '📤';
+      const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
+      const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
+      const emoji = effectiveType === 'swap' ? swapEmoji : transferEmoji;
       const color = effectiveType === 'swap' ? 0x00ff00 : 0x0099ff;
-  const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+      const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
@@ -1608,9 +1758,9 @@ export class BuybotService {
         });
       }
 
-      const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
-      const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
-      const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
+    const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
+    const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
+    const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
 
       // Build custom description with avatar names instead of wallet addresses
       let customDescription = displayDescription;
@@ -1785,9 +1935,9 @@ export class BuybotService {
 
       // Add links as buttons
       const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
-      const jupiterUrl = token.tokenSymbol === 'RATi' 
-        ? `https://pump.fun/${token.tokenAddress}`
-        : `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+  const primaryButton = tokenPreferences?.buttons?.primary || {};
+      const primaryUrl = this.resolveUrlTemplate(primaryButton.urlTemplate, token) || `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+      const primaryLabel = primaryButton.label || 'Swap on Jupiter';
 
       const components = [
         {
@@ -1804,16 +1954,19 @@ export class BuybotService {
               style: 5,
               label: 'DexScreener',
               url: dexScreenerUrl,
-            },
-            {
-              type: 2,
-              style: 5,
-              label: token.tokenSymbol === 'RATi' ? 'Buy on Pump.fun' : 'Swap on Jupiter',
-              url: jupiterUrl,
-            },
+            }
           ],
         },
       ];
+
+      if (primaryUrl) {
+        components[0].components.push({
+          type: 2,
+          style: 5,
+          label: primaryLabel,
+          url: primaryUrl,
+        });
+      }
 
       // Send the Discord message with proper error handling
       try {
@@ -2319,16 +2472,20 @@ export class BuybotService {
         this.logger.error('[BuybotService] Failed to get wallet avatars:', avatarError);
       }
 
-      const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
-      const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
-      const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
+  const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
+  const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
+  const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
 
-      // Build enhanced notification message with avatar names
+  const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
+  const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
+  const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
+
+  // Build enhanced notification message with avatar names
       let message = '';
       
       // Title with emoji and type
       if (event.type === 'swap') {
-        const emoji = token.tokenSymbol === 'RATi' ? '🐭' : '💰';
+        const emoji = swapEmoji;
         const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
         message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
         
@@ -2340,7 +2497,7 @@ export class BuybotService {
         }
       } else {
         // Transfer
-        message += `📤 *${token.tokenSymbol} Transfer*\n\n`;
+  message += `${transferEmoji} *${token.tokenSymbol} Transfer*\n\n`;
         
         // Add description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
@@ -2459,15 +2616,12 @@ export class BuybotService {
       // DexScreener link
       const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
       message += ` • [DexScreener](${dexScreenerUrl})`;
-      
-      // Pump.fun or Jupiter buy link
-      if (token.tokenSymbol === 'RATi') {
-        const buyUrl = `https://pump.fun/${token.tokenAddress}`;
-        message += ` • [Buy](${buyUrl})`;
-      } else {
-        // Generic Jupiter swap link for other tokens
-        const jupiterUrl = `https://jup.ag/swap/SOL-${token.tokenAddress}`;
-        message += ` • [Swap](${jupiterUrl})`;
+
+  const telegramLink = tokenPreferences?.telegram || {};
+      const telegramLinkUrl = this.resolveUrlTemplate(telegramLink.linkUrlTemplate, token) || `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+      const telegramLinkLabel = telegramLink.linkLabel || 'Swap';
+      if (telegramLinkUrl) {
+        message += ` • [${telegramLinkLabel}](${telegramLinkUrl})`;
       }
 
       await telegramService.globalBot.telegram.sendMessage(
@@ -2519,6 +2673,42 @@ export class BuybotService {
    */
   calculateUsdValue(amount, decimals, usdPrice) {
     return computeUsdValue(amount, decimals, usdPrice);
+  }
+
+  getTokenPreferences(token) {
+    try {
+      if (!this.configService?.getTokenPreferences) {
+        return cloneDefaultTokenPreferences();
+      }
+
+      const preferences = this.configService.getTokenPreferences({
+        symbol: token?.tokenSymbol || token?.symbol,
+        address: token?.tokenAddress || token?.mint
+      });
+
+      if (!preferences || typeof preferences !== 'object') {
+        return cloneDefaultTokenPreferences();
+      }
+
+      return preferences;
+    } catch (error) {
+      this.logger?.warn?.(`[BuybotService] getTokenPreferences failed: ${error.message}`);
+      return cloneDefaultTokenPreferences();
+    }
+  }
+
+  resolveUrlTemplate(template, token) {
+    if (!template) {
+      return null;
+    }
+
+    const address = token?.tokenAddress || token?.mint || '';
+    const symbol = token?.tokenSymbol || token?.symbol || '';
+
+    return template
+      .replace(/\{address\}/gi, address)
+      .replace(/\{mint\}/gi, address)
+      .replace(/\{symbol\}/gi, symbol);
   }
 
   /**

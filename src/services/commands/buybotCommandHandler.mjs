@@ -33,7 +33,12 @@ export async function handleBuybotCommands(message, services) {
   try {
     // ca <token_address> - Add token to track
     if (command === 'ca' && parts.length >= 2) {
-      const tokenAddress = parts[1];
+      const tokenAddress = parts[1].trim();
+
+      if (!tokenAddress) {
+        await message.reply('❌ Please include a token address. Example: `!ca EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`');
+        return true;
+      }
       
       await discordService.reactToMessage(message, '⏳');
       
@@ -42,6 +47,8 @@ export async function handleBuybotCommands(message, services) {
       if (result.success) {
         await discordService.reactToMessage(message, '✅');
         
+        const replacedTokens = Array.isArray(result.replacedTokens) ? result.replacedTokens : [];
+
         const embed = {
           title: '✅ Token Tracking Added',
           description: result.message,
@@ -61,6 +68,19 @@ export async function handleBuybotCommands(message, services) {
           thumbnail: result.tokenInfo?.image ? { url: result.tokenInfo.image } : undefined,
           timestamp: new Date().toISOString(),
         };
+
+        if (replacedTokens.length > 0) {
+          const replacedSummary = replacedTokens
+            .map(token => `• ${token.tokenSymbol || token.tokenAddress}`)
+            .join('\n');
+
+          embed.fields = embed.fields || [];
+          embed.fields.push({
+            name: 'Replaced Previous Tokens',
+            value: replacedSummary,
+            inline: false,
+          });
+        }
 
         await message.reply({ embeds: [embed] });
       } else {

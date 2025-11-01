@@ -116,7 +116,34 @@ export class ConfigService {
           guildConfigs: 'guild_configs'
         }
       },
-      webhooks: {}
+      webhooks: {},
+      tokens: {
+        defaults: {
+          displayEmoji: '\uD83D\uDCB0', // 💰
+          transferEmoji: '\uD83D\uDCE4', // 📤
+          buttons: {
+            primary: {
+              label: 'Swap on Jupiter',
+              urlTemplate: 'https://jup.ag/swap/SOL-{address}'
+            }
+          },
+          telegram: {
+            linkLabel: 'Swap',
+            linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
+          },
+          notifications: {
+            onlySwapEvents: false
+          },
+          walletAvatar: {
+            createFullAvatar: false,
+            minBalanceForFullAvatar: 0,
+            autoActivate: false,
+            sendIntro: false
+          }
+        },
+        prioritySymbols: [],
+        overrides: {}
+      }
     };
 
     this.guildConfigCache = new Map(); // Cache for guild configurations
@@ -160,6 +187,87 @@ export class ConfigService {
     }
     console.warn(`Unknown AI service: ${service}. Defaulting to openrouter.`);
     return this.config.ai.openrouter;
+  }
+
+  getTokenPreferences(lookup = {}) {
+    try {
+      const tokensConfig = this.config.tokens || {};
+      const defaults = tokensConfig.defaults || {};
+      const overrides = tokensConfig.overrides || {};
+      const clone = JSON.parse(JSON.stringify(defaults));
+
+      const normalizedSymbol = lookup.symbol
+        ? String(lookup.symbol).replace(/^\$/, '').toUpperCase()
+        : null;
+      const lookupAddress = lookup.address
+        ? String(lookup.address).toLowerCase()
+        : null;
+
+      let override = null;
+
+      const overrideEntries = Object.entries(overrides || {});
+      for (const [key, value] of overrideEntries) {
+        const normalizedKey = String(key).replace(/^\$/, '').toUpperCase();
+        const aliasSymbols = Array.isArray(value?.symbols)
+          ? value.symbols.map(sym => String(sym).replace(/^\$/, '').toUpperCase())
+          : [];
+
+        if (normalizedSymbol && (normalizedKey === normalizedSymbol || aliasSymbols.includes(normalizedSymbol))) {
+          override = value;
+          break;
+        }
+
+        if (lookupAddress && Array.isArray(value?.addresses)) {
+          const normalizedAddresses = value.addresses
+            .filter(Boolean)
+            .map(addr => String(addr).toLowerCase());
+          if (normalizedAddresses.includes(lookupAddress)) {
+            override = value;
+            break;
+          }
+        }
+      }
+
+      if (override) {
+        return ConfigService.deepMerge(clone, override);
+      }
+
+      return clone;
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] getTokenPreferences failed: ${error.message}`);
+      return {
+        displayEmoji: '\uD83D\uDCB0',
+        transferEmoji: '\uD83D\uDCE4',
+        buttons: {
+          primary: {
+            label: 'Swap on Jupiter',
+            urlTemplate: 'https://jup.ag/swap/SOL-{address}'
+          }
+        },
+        telegram: {
+          linkLabel: 'Swap',
+          linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
+        },
+        notifications: {
+          onlySwapEvents: false
+        },
+        walletAvatar: {
+          createFullAvatar: false,
+          minBalanceForFullAvatar: 0,
+          autoActivate: false,
+          sendIntro: false
+        }
+      };
+    }
+  }
+
+  getPriorityTokenSymbols() {
+    const tokensConfig = this.config.tokens || {};
+    const priority = tokensConfig.prioritySymbols;
+    if (!Array.isArray(priority)) {
+      return [];
+    }
+    return priority.map(symbol => String(symbol));
   }
 
   // Load global configuration from JSON files

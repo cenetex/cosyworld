@@ -16,5 +16,9 @@
   "rateLimit": {
     "messages": 5,
     "interval": 60000
+  },
+  "tokens": {
+    "prioritySymbols": [],
+    "overrides": {}
   }
 }
