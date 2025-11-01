@@ -19,8 +19,10 @@ import {
   MAX_TOTAL_ACTIVE_WEBHOOKS,
   API_RETRY_MAX_ATTEMPTS,
   API_RETRY_BASE_DELAY_MS,
-  PRICE_CACHE_TTL_MS
+  PRICE_CACHE_TTL_MS,
+  RECENT_TRANSACTIONS_LIMIT
 } from '../../config/buybotConstants.mjs';
+import { formatTokenAmount, formatLargeNumber, formatAddress } from '../../utils/walletFormatters.mjs';
 
 const EMOJI_SHORTCODE_MAP = Object.freeze({
   fire: '🔥',
@@ -987,7 +989,7 @@ export class BuybotService {
       try {
         // Call Lambda endpoint to get token transactions
         const response = await this.retryWithBackoff(async () => {
-          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/stats/recent-transactions?mint=${tokenAddress}&limit=10`);
+          const lambdaResponse = await fetch(`${this.lambdaEndpoint}/stats/recent-transactions?mint=${tokenAddress}&limit=${RECENT_TRANSACTIONS_LIMIT}`);
           if (!lambdaResponse.ok) {
             throw new Error(`Lambda API returned ${lambdaResponse.status}: ${await lambdaResponse.text()}`);
           }
@@ -1004,6 +1006,13 @@ export class BuybotService {
             { $set: { errorCount: 0 } }
           );
           return;
+        }
+
+        if (response.data.length >= RECENT_TRANSACTIONS_LIMIT) {
+          this.logger.warn(
+            `[BuybotService] Recent transaction query for ${tokenAddress} returned ${response.data.length} rows (limit=${RECENT_TRANSACTIONS_LIMIT}). ` +
+            'Consider increasing BUYBOT_RECENT_TRANSACTIONS_LIMIT to avoid dropping buys during high volume periods.'
+          );
         }
         
         // Map Lambda API response to our transaction format
@@ -1036,6 +1045,9 @@ export class BuybotService {
             events: {},
           };
         });
+
+        // Oldest-first processing so we don't skip intermediate buys
+        transactions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       } catch (txError) {
         // Handle 404 Not Found - token might not exist or have no transactions
         if (txError.message?.includes('Not Found') || 
@@ -1327,7 +1339,7 @@ export class BuybotService {
 
       const emoji = effectiveType === 'swap' ? '💰' : '📤';
       const color = effectiveType === 'swap' ? 0x00ff00 : 0x0099ff;
-      const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+  const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
@@ -1338,12 +1350,12 @@ export class BuybotService {
 
       try {
         if (effectiveType === 'swap' && event.to) {
-          this.logger.info(`[BuybotService] Processing swap for wallet ${this.formatAddress(event.to)}`);
+          this.logger.info(`[BuybotService] Processing swap for wallet ${formatAddress(event.to)}`);
           const buyerWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
           const currentBalance = buyerWalletContext.currentBalance;
           const orbNftCount = await this.getWalletNftCountForChannel(event.to, channelId);
           
-          this.logger.info(`[BuybotService] Wallet ${this.formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
+          this.logger.info(`[BuybotService] Wallet ${formatAddress(event.to)} balance: ${currentBalance} ${token.tokenSymbol}, NFTs: ${orbNftCount}`);
           
           try {
             buyerAvatar = await this.avatarService.createAvatarForWallet(event.to, {
@@ -1371,23 +1383,23 @@ export class BuybotService {
                 walletAddress: buyerAvatar.walletAddress
               });
             } else {
-              this.logger.error(`[BuybotService] Failed to create buyer avatar for ${this.formatAddress(event.to)} - returned null`);
+              this.logger.error(`[BuybotService] Failed to create buyer avatar for ${formatAddress(event.to)} - returned null`);
             }
           } catch (buyerError) {
             this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
               error: buyerError.message,
               stack: buyerError.stack,
-              wallet: this.formatAddress(event.to)
+              wallet: formatAddress(event.to)
             });
           }
         } else if (effectiveType === 'transfer') {
           if (event.from) {
-            this.logger.info(`[BuybotService] Processing transfer from ${this.formatAddress(event.from)}`);
+            this.logger.info(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
             const senderWalletContext = await this.buildWalletAvatarContext(event.from, token, tokenDecimals, { minUsd: 5, limit: 5 });
             const senderBalance = senderWalletContext.currentBalance;
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
-            this.logger.info(`[BuybotService] Sender ${this.formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
+            this.logger.info(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
             
             try {
               senderAvatar = await this.avatarService.createAvatarForWallet(event.from, {
@@ -1412,23 +1424,23 @@ export class BuybotService {
                   walletAddress: senderAvatar.walletAddress
                 });
               } else {
-                this.logger.error(`[BuybotService] Failed to create sender avatar for ${this.formatAddress(event.from)} - returned null`);
+                this.logger.error(`[BuybotService] Failed to create sender avatar for ${formatAddress(event.from)} - returned null`);
               }
             } catch (senderError) {
               this.logger.error(`[BuybotService] Error creating sender avatar:`, {
                 error: senderError.message,
                 stack: senderError.stack,
-                wallet: this.formatAddress(event.from)
+                wallet: formatAddress(event.from)
               });
             }
           }
           if (event.to) {
-            this.logger.info(`[BuybotService] Processing transfer to ${this.formatAddress(event.to)}`);
+            this.logger.info(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
             const recipientWalletContext = await this.buildWalletAvatarContext(event.to, token, tokenDecimals, { minUsd: 5, limit: 5 });
             const recipientBalance = recipientWalletContext.currentBalance;
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
-            this.logger.info(`[BuybotService] Recipient ${this.formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
+            this.logger.info(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
             
             try {
               recipientAvatar = await this.avatarService.createAvatarForWallet(event.to, {
@@ -1453,13 +1465,13 @@ export class BuybotService {
                   walletAddress: recipientAvatar.walletAddress
                 });
               } else {
-                this.logger.error(`[BuybotService] Failed to create recipient avatar for ${this.formatAddress(event.to)} - returned null`);
+                this.logger.error(`[BuybotService] Failed to create recipient avatar for ${formatAddress(event.to)} - returned null`);
               }
             } catch (recipientError) {
               this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
                 error: recipientError.message,
                 stack: recipientError.stack,
-                wallet: this.formatAddress(event.to)
+                wallet: formatAddress(event.to)
               });
             }
           }
@@ -1480,16 +1492,16 @@ export class BuybotService {
       let customDescription = displayDescription;
       if (effectiveType === 'swap' && buyerAvatar && buyerAvatar.name && buyerEmoji) {
         // Replace wallet address with avatar name in description
-        customDescription = `${buyerEmoji} **${buyerAvatar.name}** (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
+  customDescription = `${buyerEmoji} **${buyerAvatar.name}** (\`${formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}`;
       } else if (effectiveType === 'transfer') {
         // Build transfer description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
-          ? `${senderEmoji} **${senderAvatar.name}** (\`${this.formatAddress(event.from)}\`)`
-          : `\`${this.formatAddress(event.from)}\``;
+          ? `${senderEmoji} **${senderAvatar.name}** (\`${formatAddress(event.from)}\`)`
+          : `\`${formatAddress(event.from)}\``;
         
         const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
-          ? `${recipientEmoji} **${recipientAvatar.name}** (\`${this.formatAddress(event.to)}\`)`
-          : `\`${this.formatAddress(event.to)}\``;
+          ? `${recipientEmoji} **${recipientAvatar.name}** (\`${formatAddress(event.to)}\`)`
+          : `\`${formatAddress(event.to)}\``;
         
         customDescription = `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}`;
       }
@@ -1533,7 +1545,7 @@ export class BuybotService {
       if (token.marketCap) {
         embed.fields.push({
           name: '📊 Market Cap',
-          value: `$${this.formatLargeNumber(token.marketCap)}`,
+          value: `$${formatLargeNumber(token.marketCap)}`,
           inline: true,
         });
       }
@@ -1542,12 +1554,12 @@ export class BuybotService {
       if (effectiveType === 'swap') {
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
           let buyerInfo = `${buyerEmoji} **${buyerAvatar.name}**`;
-          buyerInfo += `\n\`${this.formatAddress(event.to)}\``;
+          buyerInfo += `\n\`${formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            buyerInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            buyerInfo += `\n🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = buyerAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               buyerInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
@@ -1561,7 +1573,7 @@ export class BuybotService {
         } else {
           embed.fields.push({
             name: '📥 To',
-            value: `\`${this.formatAddress(event.to)}\``,
+            value: `\`${formatAddress(event.to)}\``,
             inline: true,
           });
         }
@@ -1569,12 +1581,12 @@ export class BuybotService {
         // Transfer - show both parties
         if (senderAvatar && senderAvatar.name && senderEmoji) {
           let senderInfo = `${senderEmoji} **${senderAvatar.name}**`;
-          senderInfo += `\n\`${this.formatAddress(event.from)}\``;
+          senderInfo += `\n\`${formatAddress(event.from)}\``;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            senderInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            senderInfo += `\n🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = senderAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               senderInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
@@ -1588,19 +1600,19 @@ export class BuybotService {
         } else {
           embed.fields.push({
             name: '📤 From',
-            value: `\`${this.formatAddress(event.from)}\``,
+            value: `\`${formatAddress(event.from)}\``,
             inline: true,
           });
         }
         
         if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
           let recipientInfo = `${recipientEmoji} **${recipientAvatar.name}**`;
-          recipientInfo += `\n\`${this.formatAddress(event.to)}\``;
+          recipientInfo += `\n\`${formatAddress(event.to)}\``;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            recipientInfo += `\n🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            recipientInfo += `\n🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = recipientAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               recipientInfo += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
@@ -1614,7 +1626,7 @@ export class BuybotService {
         } else {
           embed.fields.push({
             name: '📥 To',
-            value: `\`${this.formatAddress(event.to)}\``,
+            value: `\`${formatAddress(event.to)}\``,
             inline: true,
           });
         }
@@ -1629,8 +1641,8 @@ export class BuybotService {
         });
       } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
         const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
-        const preFormatted = this.formatLargeNumber(event.preAmountUi);
-        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+  const preFormatted = formatLargeNumber(event.preAmountUi);
+  const postFormatted = formatLargeNumber(event.postAmountUi);
         embed.fields.push({
           name: '📈 Balance Change',
           value: `+${increasePercent}% (${preFormatted} → ${postFormatted} ${token.tokenSymbol})`,
@@ -1638,8 +1650,8 @@ export class BuybotService {
         });
       } else if (event.preAmountUi && event.postAmountUi && event.postAmountUi < event.preAmountUi) {
         const decreasePercent = ((event.preAmountUi - event.postAmountUi) / event.preAmountUi * 100).toFixed(1);
-        const preFormatted = this.formatLargeNumber(event.preAmountUi);
-        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+  const preFormatted = formatLargeNumber(event.preAmountUi);
+  const postFormatted = formatLargeNumber(event.postAmountUi);
         embed.fields.push({
           name: '📉 Balance Change',
           value: `-${decreasePercent}% (${preFormatted} → ${postFormatted} ${token.tokenSymbol})`,
@@ -1937,7 +1949,7 @@ export class BuybotService {
     const tokenAmount = parseFloat(event.amount) / Math.pow(10, decimals);
     
     // Format for display
-    const amountForDisplay = this.formatLargeNumber(tokenAmount);
+  const amountForDisplay = formatLargeNumber(tokenAmount);
     
     // Calculate USD value if available
     let usdValue = '';
@@ -1955,7 +1967,7 @@ export class BuybotService {
       // Get balance from flexible tokenBalances schema
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
       if (tokenBalance?.balance) {
-        contextParts.push(`Your current balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
+  contextParts.push(`Your current balance: ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
       }
     } else if (role === 'sender') {
       contextParts.push(`You are the sender in this transfer`);
@@ -1967,14 +1979,14 @@ export class BuybotService {
         const recipientEmoji = recipientAvatar.emoji ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
         const recipientName = recipientEmoji && recipientAvatar.name
           ? `${recipientEmoji} ${recipientAvatar.name}`
-          : recipientAvatar.name || this.formatAddress(event.to);
+          : recipientAvatar.name || formatAddress(event.to);
         contextParts.push(`Recipient: ${recipientName}`);
       }
       
       // Get balance after transfer
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
       if (tokenBalance?.balance) {
-        contextParts.push(`Your remaining balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
+  contextParts.push(`Your remaining balance: ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
       }
     } else if (role === 'recipient') {
       contextParts.push(`You are the recipient in this transfer`);
@@ -1986,14 +1998,14 @@ export class BuybotService {
         const senderEmoji = senderAvatar.emoji ? this.getDisplayEmoji(senderAvatar.emoji) : null;
         const senderName = senderEmoji && senderAvatar.name
           ? `${senderEmoji} ${senderAvatar.name}`
-          : senderAvatar.name || this.formatAddress(event.from);
+          : senderAvatar.name || formatAddress(event.from);
         contextParts.push(`Sender: ${senderName}`);
       }
       
       // Get balance after transfer
       const tokenBalance = avatar.tokenBalances?.[token.tokenSymbol];
       if (tokenBalance?.balance) {
-        contextParts.push(`Your new balance: ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
+  contextParts.push(`Your new balance: ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`);
       }
     }
 
@@ -2033,7 +2045,7 @@ export class BuybotService {
         const otherEmoji = other.avatar.emoji ? this.getDisplayEmoji(other.avatar.emoji) : null;
         const otherName = otherEmoji && other.avatar.name
           ? `${otherEmoji} ${other.avatar.name}`
-          : other.avatar.name || this.formatAddress(other.avatar.walletAddress);
+          : other.avatar.name || formatAddress(other.avatar.walletAddress);
         
         // Get relationship context
         try {
@@ -2060,7 +2072,7 @@ export class BuybotService {
         if (otherEmoji && avatar.name) {
           return `${otherEmoji} ${avatar.name}`;
         }
-        return avatar.name || this.formatAddress(avatar.walletAddress);
+  return avatar.name || formatAddress(avatar.walletAddress);
       }).join(', ');
       contextParts.push(`Other avatars involved: ${otherNames}`);
       contextParts.push(`Feel free to interact with them about this trade`);
@@ -2093,7 +2105,7 @@ export class BuybotService {
         return;
       }
 
-    const formattedAmount = this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
+  const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
     const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
     const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
@@ -2191,7 +2203,7 @@ export class BuybotService {
         
         // Add description with avatar name
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
-          message += `${buyerEmoji} *${buyerAvatar.name}* (\`${this.formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+          message += `${buyerEmoji} *${buyerAvatar.name}* (\`${formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         } else {
           message += `Purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         }
@@ -2201,12 +2213,12 @@ export class BuybotService {
         
         // Add description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
-          ? `${senderEmoji} *${senderAvatar.name}* (\`${this.formatAddress(event.from)}\`)`
-          : `\`${this.formatAddress(event.from)}\``;
+          ? `${senderEmoji} *${senderAvatar.name}* (\`${formatAddress(event.from)}\`)`
+          : `\`${formatAddress(event.from)}\``;
         
         const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
-          ? `${recipientEmoji} *${recipientAvatar.name}* (\`${this.formatAddress(event.to)}\`)`
-          : `\`${this.formatAddress(event.to)}\``;
+          ? `${recipientEmoji} *${recipientAvatar.name}* (\`${formatAddress(event.to)}\`)`
+          : `\`${formatAddress(event.to)}\``;
         
         message += `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}\n\n`;
       }
@@ -2224,16 +2236,16 @@ export class BuybotService {
           // Get balance from flexible tokenBalances schema
           const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            message += `    🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = buyerAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
-          message += `    \`${this.formatAddress(event.to)}\`\n`;
+          message += `    \`${formatAddress(event.to)}\`\n`;
         } else {
-          message += `👤 Buyer: \`${this.formatAddress(event.to)}\`\n`;
+          message += `👤 Buyer: \`${formatAddress(event.to)}\`\n`;
         }
       } else {
         // Transfer - show both parties with avatars
@@ -2243,16 +2255,16 @@ export class BuybotService {
           // Get balance from flexible tokenBalances schema
           const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            message += `    🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = senderAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
-          message += `    \`${this.formatAddress(event.from)}\`\n`;
+          message += `    \`${formatAddress(event.from)}\`\n`;
         } else {
-          message += `📤 From: \`${this.formatAddress(event.from)}\`\n`;
+          message += `📤 From: \`${formatAddress(event.from)}\`\n`;
         }
         
         if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
@@ -2261,16 +2273,16 @@ export class BuybotService {
           // Get balance from flexible tokenBalances schema
           const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
           if (tokenBalance && tokenBalance.balance >= 1_000_000) {
-            message += `    🐋 ${this.formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
+            message += `    🐋 ${formatLargeNumber(tokenBalance.balance)} ${token.tokenSymbol}`;
             const orbCount = recipientAvatar.nftBalances?.Orb || 0;
             if (orbCount > 0) {
               message += ` • ${orbCount} Orb${orbCount > 1 ? 's' : ''}`;
             }
             message += `\n`;
           }
-          message += `    \`${this.formatAddress(event.to)}\`\n`;
+          message += `    \`${formatAddress(event.to)}\`\n`;
         } else {
-          message += `📥 To: \`${this.formatAddress(event.to)}\`\n`;
+          message += `📥 To: \`${formatAddress(event.to)}\`\n`;
         }
       }
 
@@ -2284,8 +2296,8 @@ export class BuybotService {
         
         // Show before/after for significant changes
         if (event.preAmountUi > 0) {
-          const preFormatted = this.formatLargeNumber(event.preAmountUi);
-          const postFormatted = this.formatLargeNumber(event.postAmountUi);
+          const preFormatted = formatLargeNumber(event.preAmountUi);
+          const postFormatted = formatLargeNumber(event.postAmountUi);
           message += `   ${preFormatted} → ${postFormatted} ${token.tokenSymbol}\n`;
         }
       } else if (event.preAmountUi && event.postAmountUi && event.postAmountUi < event.preAmountUi) {
@@ -2293,8 +2305,8 @@ export class BuybotService {
         const decreasePercent = ((event.preAmountUi - event.postAmountUi) / event.preAmountUi * 100).toFixed(1);
         message += `📉 Balance decreased ${decreasePercent}%\n`;
         
-        const preFormatted = this.formatLargeNumber(event.preAmountUi);
-        const postFormatted = this.formatLargeNumber(event.postAmountUi);
+  const preFormatted = formatLargeNumber(event.preAmountUi);
+  const postFormatted = formatLargeNumber(event.postAmountUi);
         message += `   ${preFormatted} → ${postFormatted} ${token.tokenSymbol}\n`;
       }
 
@@ -2304,7 +2316,7 @@ export class BuybotService {
         message += `💲 Price: $${token.usdPrice.toFixed(6)}\n`;
       }
       if (token.marketCap) {
-        message += `📊 Market Cap: $${this.formatLargeNumber(token.marketCap)}\n`;
+  message += `📊 Market Cap: $${formatLargeNumber(token.marketCap)}\n`;
       }
 
       // Links
@@ -2471,7 +2483,7 @@ export class BuybotService {
 
       return entries;
     } catch (error) {
-      this.logger.error(`[BuybotService] Failed to fetch wallet balances for ${this.formatAddress(walletAddress)}:`, error);
+  this.logger.error(`[BuybotService] Failed to fetch wallet balances for ${formatAddress(walletAddress)}:`, error);
       return cached ? cached.entries : [];
     }
   }
@@ -2575,7 +2587,7 @@ export class BuybotService {
       try {
         tokenInfo = await this.getTokenInfo(mint);
       } catch (err) {
-        this.logger.warn(`[BuybotService] Failed to fetch token info for mint ${this.formatAddress(mint)}: ${err.message}`);
+  this.logger.warn(`[BuybotService] Failed to fetch token info for mint ${formatAddress(mint)}: ${err.message}`);
         continue;
       }
 
@@ -2865,23 +2877,6 @@ export class BuybotService {
   }
 
   /**
-   * Stop polling for a token
-   * @param {string} channelId - Channel ID
-   * @param {string} tokenAddress - Token address
-   * @param {string} platform - Platform type
-   */
-  stopPollingToken(channelId, tokenAddress, platform) {
-    const key = `${channelId}:${tokenAddress}`;
-    const webhook = this.activeWebhooks.get(key);
-
-    if (webhook && webhook.pollInterval) {
-      clearInterval(webhook.pollInterval);
-      this.activeWebhooks.delete(key);
-      this.logger.info(`[BuybotService] Stopped polling for ${tokenAddress} in channel ${channelId} (${platform || 'unknown'})`);
-    }
-  }
-
-  /**
    * Cleanup webhook if no channels are tracking the token
    * @param {string} tokenAddress - Token address
    */
@@ -2903,120 +2898,6 @@ export class BuybotService {
       this.logger.error('[BuybotService] Failed to cleanup webhook:', error);
     }
   }
-
-  /**
-   * Format token amount with decimals
-   * @param {string|number} amount - Raw amount
-   * @param {number} decimals - Token decimals
-   * @returns {string} Formatted amount
-   */
-  formatTokenAmount(amount, decimals = 9) {
-    const num = parseFloat(amount) / Math.pow(10, decimals);
-    return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
-  }
-
-  /**
-   * Format large numbers in compact form (K, M, B)
-   * @param {number} num - Number to format
-   * @returns {string} Formatted number
-   */
-  formatLargeNumber(num) {
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-    return num.toFixed(2);
-  }
-
-  /**
-   * Format Solana address for display
-   * @param {string} address - Full address
-   * @returns {string} Formatted address
-   */
-  formatAddress(address) {
-    if (!address || address.length < 8) return address;
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  }
-
-  /**
-   * Get wallet's token balance using the Lambda balances endpoint
-   * @param {string} walletAddress - Wallet address
-   * @param {string} tokenAddress - Token mint address
-   * @param {number} [tokenDecimals=9] - Token decimal precision
-   * @returns {Promise<number>} Token balance (UI units)
-   */
-  async getWalletTokenBalance(walletAddress, tokenAddress, tokenDecimals = 9) {
-    if (!walletAddress || !tokenAddress) {
-      return 0;
-    }
-
-    const decimals = typeof tokenDecimals === 'number' && Number.isFinite(tokenDecimals)
-      ? tokenDecimals
-      : 9;
-    const cacheKey = `${walletAddress}:${tokenAddress}:${decimals}`;
-    const cached = this.walletBalanceCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < this.WALLET_BALANCE_CACHE_TTL_MS) {
-      return cached.balance;
-    }
-
-    if (!this.lambdaEndpoint) {
-      this.logger.warn('[BuybotService] Lambda endpoint not configured; returning cached balance if available');
-      return cached ? cached.balance : 0;
-    }
-
-    const trimmedEndpoint = this.lambdaEndpoint.endsWith('/')
-      ? this.lambdaEndpoint.slice(0, -1)
-      : this.lambdaEndpoint;
-    const url = new URL(`${trimmedEndpoint}/balances`);
-    url.searchParams.set('wallet', walletAddress);
-
-    try {
-      const response = await this.retryWithBackoff(async () => {
-        const res = await fetch(url.toString(), {
-          headers: { accept: 'application/json' },
-        });
-
-        if (res.ok) {
-          return res;
-        }
-
-        // Surface rate-limit details so backoff logic can handle retrying
-        const errorText = await res.text().catch(() => '');
-        throw new Error(`Lambda balances request failed (${res.status}): ${errorText}`);
-      }, 3, 500);
-
-      const payload = await response.json().catch(() => ({}));
-      const entries = Array.isArray(payload?.data) ? payload.data : [];
-      const balanceEntry = entries.find(entry => entry.mint === tokenAddress);
-
-      let balance = 0;
-      if (balanceEntry) {
-        if (balanceEntry.uiAmount && balanceEntry.uiAmount !== '') {
-          balance = Number(balanceEntry.uiAmount) || 0;
-        } else if (balanceEntry.amount) {
-          const rawAmount = Number(balanceEntry.amount);
-          if (Number.isFinite(rawAmount)) {
-            balance = rawAmount / Math.pow(10, decimals);
-          }
-        }
-      } else {
-        this.logger.debug(`[BuybotService] No Lambda balance entry for ${this.formatAddress(walletAddress)} ${this.formatAddress(tokenAddress)}`);
-      }
-
-      this.walletBalanceCache.set(cacheKey, { balance, timestamp: Date.now() });
-      if (this.walletBalanceCache.size > 500) {
-        const oldestKey = this.walletBalanceCache.keys().next().value;
-        if (oldestKey) {
-          this.walletBalanceCache.delete(oldestKey);
-        }
-      }
-
-      return balance;
-    } catch (error) {
-      this.logger.error(`[BuybotService] Failed to fetch wallet balance from Lambda for ${this.formatAddress(walletAddress)}:`, error);
-      return cached ? cached.balance : 0;
-    }
-  }
-
   /**
    * Get wallet's NFT count for a specific collection
    * @param {string} _walletAddress - Wallet address
@@ -3057,8 +2938,8 @@ export class BuybotService {
       tracking.events.push({
         type: event.type,
         tokenSymbol: token.tokenSymbol,
-        tokenAddress: token.tokenAddress,
-        amount: this.formatTokenAmount(event.amount, event.decimals || token.tokenDecimals),
+    tokenAddress: token.tokenAddress,
+    amount: formatTokenAmount(event.amount, event.decimals || token.tokenDecimals),
         usdValue,
         timestamp: event.timestamp || new Date(),
         from: event.from,
@@ -3198,8 +3079,8 @@ export class BuybotService {
     try {
       // Stop all polling
       for (const [_key, webhook] of this.activeWebhooks.entries()) {
-        if (webhook.pollInterval) {
-          clearInterval(webhook.pollInterval);
+        if (webhook.pollTimeout) {
+          clearTimeout(webhook.pollTimeout);
         }
       }
       this.activeWebhooks.clear();

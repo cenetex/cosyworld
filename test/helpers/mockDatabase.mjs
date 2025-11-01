@@ -122,6 +122,7 @@ export function createMockConfigService(config = {}) {
  */
 export function createMockAgentWalletService() {
   return {
+    isConfigured: vi.fn().mockReturnValue(true),
     getOrCreateWallet: vi.fn().mockResolvedValue({
       agentId: 'agent-123',
       network: 'base',

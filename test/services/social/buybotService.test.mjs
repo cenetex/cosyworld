@@ -108,24 +108,18 @@ describe('BuybotService', () => {
 
   describe('Token Info Fetching', () => {
     it('should handle token not found errors gracefully', async () => {
-      buybotService.helius = {
-        getAsset: vi.fn().mockRejectedValue(new Error('Not Found')),
-      };
+      buybotService.getPriceFromDexScreener = vi.fn().mockResolvedValue(null);
 
       // Use a properly formatted but non-existent token address
       const fakeAddress = 'FakE11111111111111111111111111111111111111';
       const tokenInfo = await buybotService.getTokenInfo(fakeAddress);
 
       expect(tokenInfo).not.toBeNull();
-      expect(tokenInfo.warning).toContain('not yet indexed');
+        expect(tokenInfo.warning).toContain('Token not found');
       expect(tokenInfo.address).toBe(fakeAddress);
     });
 
     it('should return null for invalid addresses', async () => {
-      buybotService.helius = {
-        getAsset: vi.fn(),
-      };
-
       const tokenInfo = await buybotService.getTokenInfo('invalid');
 
       expect(tokenInfo).toBeNull();
@@ -135,44 +129,48 @@ describe('BuybotService', () => {
     });
 
     it('should successfully fetch token info for valid tokens', async () => {
-      const mockAsset = {
-        content: {
-          metadata: {
-            name: 'Test Token',
-            symbol: 'TEST',
-          },
-          links: {
-            image: 'https://example.com/image.png',
-          },
-        },
-        token_info: {
-          decimals: 6,
-          supply: 1000000,
-        },
-      };
-
-      buybotService.helius = {
-        getAsset: vi.fn().mockResolvedValue(mockAsset),
-      };
+      buybotService.getPriceFromDexScreener = vi.fn().mockResolvedValue({
+        usdPrice: 0.5,
+        marketCap: 1_000_000,
+        liquidity: 50_000,
+        name: 'Test Token',
+        symbol: 'TEST',
+        image: 'https://example.com/image.png',
+      });
 
       const tokenInfo = await buybotService.getTokenInfo('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
       expect(tokenInfo).not.toBeNull();
       expect(tokenInfo.name).toBe('Test Token');
       expect(tokenInfo.symbol).toBe('TEST');
-      expect(tokenInfo.decimals).toBe(6);
-      expect(tokenInfo.supply).toBe(1000000);
+      expect(tokenInfo.decimals).toBe(9);
+      expect(tokenInfo.usdPrice).toBe(0.5);
+      expect(tokenInfo.marketCap).toBe(1_000_000);
+      expect(tokenInfo.image).toBe('https://example.com/image.png');
     });
   });
 
   describe('Error Handling', () => {
+    const originalFetch = globalThis.fetch;
+    let fetchSpy;
+
     beforeEach(() => {
       buybotService.db = mockDb;
-      buybotService.helius = {
-        enhanced: {
-          getTransactionsByAddress: vi.fn(),
-        },
-      };
+      buybotService.lambdaEndpoint = 'https://lambda.example.com';
+      buybotService.getTokenInfo = vi.fn().mockResolvedValue({
+        tokenSymbol: 'TEST',
+        tokenDecimals: 9,
+        tokenAddress: 'test-token',
+        usdPrice: null,
+        marketCap: null,
+      });
+      fetchSpy = vi.fn();
+      globalThis.fetch = fetchSpy;
+      buybotService.retryWithBackoff = vi.fn(async (fn) => fn());
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
     });
 
     it('should increment error counter on 404 errors', async () => {
@@ -183,9 +181,7 @@ describe('BuybotService', () => {
         active: true,
       });
 
-      buybotService.helius.enhanced.getTransactionsByAddress.mockRejectedValue(
-        new Error('could not find account')
-      );
+      fetchSpy.mockRejectedValue(new Error('could not find account'));
 
       await buybotService.checkTokenTransactions(
         'test-channel',
@@ -211,9 +207,7 @@ describe('BuybotService', () => {
         active: true,
       });
 
-      buybotService.helius.enhanced.getTransactionsByAddress.mockRejectedValue(
-        new Error('Solana error #8100002')
-      );
+      fetchSpy.mockRejectedValue(new Error('Solana error #8100002'));
 
       buybotService.sendDiscordNotification = vi.fn();
       buybotService.stopPollingToken = vi.fn();

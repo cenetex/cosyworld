@@ -32,3 +32,6 @@ export const RATE_LIMIT_COOLDOWN_MS = parseInt(process.env.RATE_LIMIT_COOLDOWN_M
 
 // Price cache TTL (milliseconds)
 export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 300000; // 5 minutes
+
+// Maximum number of recent transactions to request per poll (higher value reduces missed buys during bursts)
+export const RECENT_TRANSACTIONS_LIMIT = parseInt(process.env.BUYBOT_RECENT_TRANSACTIONS_LIMIT, 10) || 100;

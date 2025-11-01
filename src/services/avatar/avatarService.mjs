@@ -1,4 +1,5 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
+import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -1248,12 +1249,6 @@ export class AvatarService {
   async createAvatarForWallet(walletAddress, context = {}) {
     const db = await this._db();
     
-    // Helper to format wallet address
-    const formatAddress = (addr) => {
-      if (!addr || addr.length < 8) return addr;
-      return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-    };
-    
     const walletShort = formatAddress(walletAddress);
     
     // Check if avatar already exists for this wallet (uses indexed query)
@@ -1395,13 +1390,6 @@ export class AvatarService {
     
     // Build prompt for avatar creation
     const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';
-    const formatLargeNumber = (num) => {
-      if (!num) return '0';
-      if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
-      if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-      if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-      return num.toFixed(2);
-    };
     const balanceInfo = context.currentBalance 
       ? `with ${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
       : '';
@@ -1541,15 +1529,6 @@ export class AvatarService {
         // Send introduction message (only for new avatars)
         if (!avatar._existing && this.configService?.services?.discordService) {
           try {
-            // Format large numbers for readability
-            const formatLargeNumber = (num) => {
-              if (!num) return '0';
-              if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
-              if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-              if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-              return num.toFixed(2);
-            };
-            
             const balanceStr = context.currentBalance 
               ? `${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
               : `${context.tokenSymbol}`;
