@@ -65,6 +65,10 @@ export class AvatarRelationshipService {
     
     this.db = null;
     this.RELATIONSHIPS_COLLECTION = 'avatar_relationships';
+
+  this.initialized = false;
+  this.initializingPromise = null;
+  this.indexesEnsured = false;
     
     // Summary regeneration threshold (7 days)
     this.SUMMARY_UPDATE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
@@ -75,13 +79,40 @@ export class AvatarRelationshipService {
     this.MAX_KEY_MEMORIES = 3;
   }
 
+  async ensureInitialized() {
+    if (this.initialized && this.db) {
+      return;
+    }
+
+    if (this.initializingPromise) {
+      await this.initializingPromise;
+      return;
+    }
+
+    this.initializingPromise = (async () => {
+      try {
+        if (!this.db) {
+          this.db = await this.databaseService.getDatabase();
+        }
+        await this.ensureIndexes();
+        this.initialized = true;
+      } catch (err) {
+        this.logger.error('[AvatarRelationshipService] Failed to initialize database connection:', err);
+        throw err;
+      } finally {
+        this.initializingPromise = null;
+      }
+    })();
+
+    await this.initializingPromise;
+  }
+
   /**
    * Initialize the service
    */
   async initialize() {
     try {
-      this.db = await this.databaseService.getDatabase();
-      await this.ensureIndexes();
+      await this.ensureInitialized();
       this.logger.info('[AvatarRelationshipService] Initialized successfully');
     } catch (error) {
       this.logger.error('[AvatarRelationshipService] Initialization failed:', error);
@@ -92,6 +123,10 @@ export class AvatarRelationshipService {
    * Create database indexes
    */
   async ensureIndexes() {
+    if (this.indexesEnsured && this.db) {
+      return;
+    }
+
     try {
       await this.db.collection(this.RELATIONSHIPS_COLLECTION).createIndexes([
         { 
@@ -105,6 +140,7 @@ export class AvatarRelationshipService {
       ]);
       
       this.logger.info('[AvatarRelationshipService] Database indexes created');
+      this.indexesEnsured = true;
     } catch (error) {
       this.logger.error('[AvatarRelationshipService] Failed to create indexes:', error);
     }
@@ -126,6 +162,8 @@ export class AvatarRelationshipService {
    */
   async recordTrade(params) {
     try {
+      await this.ensureInitialized();
+
       const {
         avatar1Id,
         avatar1Name,
@@ -180,6 +218,8 @@ export class AvatarRelationshipService {
    */
   async recordConversation(params) {
     try {
+      await this.ensureInitialized();
+
       const {
         avatar1Id,
         avatar1Name,
@@ -224,6 +264,7 @@ export class AvatarRelationshipService {
    */
   async updateRelationship(avatarId, avatarName, relatedAvatarId, relatedAvatarName, update) {
     try {
+      await this.ensureInitialized();
       const now = new Date();
       
       const existingRelationship = await this.db.collection(this.RELATIONSHIPS_COLLECTION).findOne({
@@ -366,6 +407,7 @@ export class AvatarRelationshipService {
    */
   async generateRelationshipSummary(avatarId, relatedAvatarId) {
     try {
+      await this.ensureInitialized();
       const relationship = await this.db.collection(this.RELATIONSHIPS_COLLECTION).findOne({
         avatarId,
         relatedAvatarId
@@ -534,7 +576,7 @@ Format your response as JSON:
         };
       }
     } catch (error) {
-      this.logger.warn('[AvatarRelationshipService] Failed to parse JSON response, using text as summary');
+      this.logger.warn('[AvatarRelationshipService] Failed to parse JSON response, using text as summary', error);
     }
 
     // Fallback to text-based summary
@@ -554,6 +596,7 @@ Format your response as JSON:
    */
   async getRelationshipContext(avatarId, relatedAvatarId) {
     try {
+      await this.ensureInitialized();
       const relationship = await this.db.collection(this.RELATIONSHIPS_COLLECTION).findOne({
         avatarId,
         relatedAvatarId
@@ -613,6 +656,7 @@ Format your response as JSON:
    */
   async getAvatarRelationships(avatarId, limit = 10) {
     try {
+      await this.ensureInitialized();
       return await this.db.collection(this.RELATIONSHIPS_COLLECTION)
         .find({ avatarId })
         .sort({ lastInteraction: -1 })
