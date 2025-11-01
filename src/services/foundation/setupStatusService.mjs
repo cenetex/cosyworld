@@ -16,20 +16,51 @@ export class SetupStatusService {
     this.databaseService = databaseService;
     this.secrets = secretsService;
     this.collection = null;
+    this._initPromise = null;
   }
 
   async initialize() {
-    try {
-      this.db = await this.databaseService.getDatabase();
-      this.collection = this.db.collection('system_setup');
-      
-      // Create index for quick lookup
-      await this.collection.createIndex({ key: 1 }, { unique: true });
-      
-      this.logger?.info?.('[SetupStatus] Initialized');
-    } catch (error) {
-      this.logger?.error?.('[SetupStatus] Initialization failed:', error.message);
+    await this._ensureInitialized();
+  }
+
+  async _ensureInitialized() {
+    if (this.collection) return this.collection;
+    if (this._initPromise) {
+      try {
+        await this._initPromise;
+      } catch {
+        // Initialization already logged; allow caller to proceed with graceful fallback
+      }
+      return this.collection;
     }
+
+    this._initPromise = (async () => {
+      try {
+        if (!this.db) {
+          this.db = await this.databaseService?.getDatabase?.();
+        }
+        if (!this.db) {
+          throw new Error('Database unavailable');
+        }
+        this.collection = this.db.collection('system_setup');
+        await this.collection.createIndex({ key: 1 }, { unique: true });
+        this.logger?.info?.('[SetupStatus] Initialized');
+      } catch (error) {
+        this.logger?.error?.('[SetupStatus] Initialization failed:', error.message);
+        this.collection = null;
+        throw error;
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+
+    try {
+      await this._initPromise;
+    } catch {
+      // Already logged
+    }
+
+    return this.collection;
   }
 
   /**
@@ -38,6 +69,7 @@ export class SetupStatusService {
    */
   async getSetupStatus() {
     try {
+      await this._ensureInitialized();
       const doc = await this.collection?.findOne({ key: 'setup_complete' });
       
       if (doc && doc.value === true) {
@@ -95,6 +127,10 @@ export class SetupStatusService {
    */
   async markSetupComplete(adminWallet) {
     try {
+      await this._ensureInitialized();
+      if (!this.collection) {
+        throw new Error('Setup status store unavailable');
+      }
       await this.collection?.updateOne(
         { key: 'setup_complete' },
         {
@@ -129,7 +165,11 @@ export class SetupStatusService {
    */
   async resetSetup() {
     try {
-      await this.collection?.deleteOne({ key: 'setup_complete' });
+      await this._ensureInitialized();
+      if (!this.collection) {
+        throw new Error('Setup status store unavailable');
+      }
+      await this.collection.deleteOne({ key: 'setup_complete' });
       this.logger?.warn?.('[SetupStatus] Setup status reset - will require re-configuration');
       return true;
     } catch (error) {
@@ -145,7 +185,11 @@ export class SetupStatusService {
    */
   async updateAdminWallet(newWallet) {
     try {
-      await this.collection?.updateOne(
+      await this._ensureInitialized();
+      if (!this.collection) {
+        throw new Error('Setup status store unavailable');
+      }
+      await this.collection.updateOne(
         { key: 'setup_complete' },
         {
           $set: {
@@ -177,6 +221,7 @@ export class SetupStatusService {
     if (!wallet) return false;
 
     try {
+      await this._ensureInitialized();
       const status = await this.getSetupStatus();
       return status.adminWallet === wallet;
     } catch (error) {
