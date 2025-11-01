@@ -110,6 +110,7 @@ export class AvatarService {
     statService,
     schemaService,
     logger,
+    walletInsights,
   }) {
     this.databaseService = databaseService;
     this.configService = configService;
@@ -120,6 +121,7 @@ export class AvatarService {
     this.statService = statService;
     this.schemaService = schemaService;
     this.logger = logger;
+  this.walletInsights = walletInsights;
 
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
