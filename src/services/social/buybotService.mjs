@@ -22,51 +22,16 @@ import {
   PRICE_CACHE_TTL_MS,
   RECENT_TRANSACTIONS_LIMIT
 } from '../../config/buybotConstants.mjs';
-import { formatTokenAmount, formatLargeNumber, formatAddress } from '../../utils/walletFormatters.mjs';
+import {
+  formatTokenAmount,
+  formatLargeNumber,
+  formatAddress,
+  getDisplayEmoji as normalizeDisplayEmoji,
+  getBuyMultiplier as resolveBuyMultiplier,
+  calculateUsdValue as computeUsdValue
+} from './buybot/utils/formatters.mjs';
+import { WalletInsights } from './buybot/walletInsights.mjs';
 
-const EMOJI_SHORTCODE_MAP = Object.freeze({
-  fire: '🔥',
-  rocket: '🚀',
-  moneybag: '💰',
-  money_mouth_face: '🤑',
-  coin: '🪙',
-  sparkles: '✨',
-  star: '⭐️',
-  stars: '🌟',
-  trophy: '🏆',
-  crown: '👑',
-  dragon: '🐉',
-  tiger: '🐯',
-  fox: '🦊',
-  wolf: '🐺',
-  panda_face: '🐼',
-  koala: '🐨',
-  whale: '🐋',
-  shark: '🦈',
-  dolphin: '🐬',
-  unicorn: '🦄',
-  robot: '🤖',
-  alien: '👽',
-  wizard: '🧙',
-  mage: '🧙',
-  crystal_ball: '🔮',
-  diamond: '💎',
-  boom: '💥',
-  zap: '⚡️',
-  lightning: '⚡️',
-  sun: '☀️',
-  moon: '🌙',
-  comet: '☄️',
-  cyclone: '🌀',
-  snowflake: '❄️',
-  anchor: '⚓️',
-  globe: '🌐',
-  earth_africa: '🌍',
-  earth_americas: '🌎',
-  earth_asia: '🌏',
-  satellite: '🛰️',
-  astronaut: '🧑‍🚀',
-});
 
 export class BuybotService {
   constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, services }) {
@@ -90,10 +55,13 @@ export class BuybotService {
     // Token info cache: tokenAddress -> { tokenInfo, timestamp }
     this.tokenInfoCache = new Map();
     
-  // Wallet balance cache to avoid hammering the Lambda balances endpoint
-  this.walletBalanceCache = new Map();
-  this.WALLET_BALANCE_CACHE_TTL_MS = 30_000;
-  this.WALLET_BALANCE_CACHE_MAX_ENTRIES = 100;
+    // Wallet insights helper encapsulates Lambda polling + caching
+    this.walletInsights = new WalletInsights({
+      logger: this.logger,
+      getLambdaEndpoint: () => this.lambdaEndpoint,
+      retryWithBackoff: (...args) => this.retryWithBackoff(...args),
+      getTokenInfo: (...args) => this.getTokenInfo(...args),
+    });
 
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
@@ -2365,14 +2333,7 @@ export class BuybotService {
    * @returns {string} Multiplier string
    */
   getBuyMultiplier(usdValue) {
-    if (usdValue >= 10000) return '$10,000+';
-    if (usdValue >= 5000) return '$5,000';
-    if (usdValue >= 1000) return '$1,000';
-    if (usdValue >= 500) return '$500';
-    if (usdValue >= 100) return '$100';
-    if (usdValue >= 50) return '$50';
-    if (usdValue >= 10) return '$10';
-    return '';
+    return resolveBuyMultiplier(usdValue);
   }
 
   /**
@@ -2383,31 +2344,7 @@ export class BuybotService {
    * @returns {string} Display-safe emoji
    */
   getDisplayEmoji(rawEmoji, fallback = '✨') {
-    if (!rawEmoji || typeof rawEmoji !== 'string') {
-      return fallback;
-    }
-
-    const cleaned = rawEmoji.trim();
-    if (!cleaned) {
-      return fallback;
-    }
-
-    const shortcodeMatch = cleaned.match(/^:([a-z0-9_+\-]{1,30}):$/i);
-    if (shortcodeMatch) {
-      const emoji = EMOJI_SHORTCODE_MAP[shortcodeMatch[1].toLowerCase()];
-      if (emoji) {
-        return emoji;
-      }
-    }
-
-    const pictographs = cleaned.match(/\p{Extended_Pictographic}/gu);
-    if (pictographs && pictographs.length > 0) {
-      // Join the first grapheme or sequence (some emojis use multiple code points)
-      return pictographs.slice(0, 2).join('');
-    }
-
-    // Fall back to the first visible character to avoid empty strings
-    return cleaned[0] || fallback;
+    return normalizeDisplayEmoji(rawEmoji, fallback);
   }
 
   /**
@@ -2418,8 +2355,7 @@ export class BuybotService {
    * @returns {number} USD value
    */
   calculateUsdValue(amount, decimals, usdPrice) {
-    const tokenAmount = parseFloat(amount) / Math.pow(10, decimals);
-    return tokenAmount * usdPrice;
+    return computeUsdValue(amount, decimals, usdPrice);
   }
 
   /**
@@ -2428,64 +2364,7 @@ export class BuybotService {
    * @returns {Promise<Array>} Array of balance entries
    */
   async fetchWalletBalances(walletAddress) {
-    if (!walletAddress) {
-      return [];
-    }
-
-    const cached = this.walletBalanceCache.get(walletAddress);
-    if (cached && (Date.now() - cached.timestamp) < this.WALLET_BALANCE_CACHE_TTL_MS) {
-      return cached.entries;
-    }
-
-    if (!this.lambdaEndpoint) {
-      return cached ? cached.entries : [];
-    }
-
-    const trimmedEndpoint = this.lambdaEndpoint.endsWith('/')
-      ? this.lambdaEndpoint.slice(0, -1)
-      : this.lambdaEndpoint;
-
-    const url = new URL(`${trimmedEndpoint}/balances`);
-    url.searchParams.set('wallet', walletAddress);
-
-    try {
-      const response = await this.retryWithBackoff(async () => {
-        const res = await fetch(url.toString(), { headers: { accept: 'application/json' } });
-        if (res.ok) {
-          return res;
-        }
-
-        const errorBody = await res.text().catch(() => '');
-        throw new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
-      }, 3, 500);
-
-      const payload = await response.json().catch(() => ({}));
-      const entries = Array.isArray(payload?.data) ? payload.data : [];
-
-      this.walletBalanceCache.set(walletAddress, {
-        entries,
-        timestamp: Date.now(),
-      });
-
-      if (this.walletBalanceCache.size > this.WALLET_BALANCE_CACHE_MAX_ENTRIES) {
-        let oldestKey = null;
-        let oldestTs = Number.POSITIVE_INFINITY;
-        for (const [key, value] of this.walletBalanceCache.entries()) {
-          if (value.timestamp < oldestTs) {
-            oldestTs = value.timestamp;
-            oldestKey = key;
-          }
-        }
-        if (oldestKey) {
-          this.walletBalanceCache.delete(oldestKey);
-        }
-      }
-
-      return entries;
-    } catch (error) {
-  this.logger.error(`[BuybotService] Failed to fetch wallet balances for ${formatAddress(walletAddress)}:`, error);
-      return cached ? cached.entries : [];
-    }
+    return this.walletInsights.fetchWalletBalances(walletAddress);
   }
 
   /**
@@ -2495,27 +2374,7 @@ export class BuybotService {
    * @returns {number} UI amount (full tokens)
    */
   calculateUiAmountFromEntry(entry, decimals = 9) {
-    if (!entry) {
-      return 0;
-    }
-
-    if (entry.uiAmount !== undefined && entry.uiAmount !== null && entry.uiAmount !== '') {
-      const uiAmount = Number(entry.uiAmount);
-      if (Number.isFinite(uiAmount)) {
-        return uiAmount;
-      }
-    }
-
-    const rawAmount = Number(entry.amount ?? entry.rawAmount ?? 0);
-    if (!Number.isFinite(rawAmount) || rawAmount === 0) {
-      return 0;
-    }
-
-    const tokenDecimals = Number.isFinite(entry.decimals)
-      ? Number(entry.decimals)
-      : decimals;
-
-    return rawAmount / Math.pow(10, tokenDecimals);
+    return this.walletInsights.calculateUiAmountFromEntry(entry, decimals);
   }
 
   /**
@@ -2526,24 +2385,7 @@ export class BuybotService {
    * @returns {Promise<number>} Token balance (UI units)
    */
   async getWalletTokenBalance(walletAddress, tokenAddress, tokenDecimals = 9) {
-    if (!walletAddress || !tokenAddress) {
-      return 0;
-    }
-
-    const entries = await this.fetchWalletBalances(walletAddress);
-    const balanceEntry = entries.find(entry => entry?.mint === tokenAddress);
-    if (!balanceEntry) {
-      return 0;
-    }
-
-    let decimals = Number.isFinite(tokenDecimals) ? tokenDecimals : null;
-    if (!Number.isFinite(decimals)) {
-      const tokenInfo = await this.getTokenInfo(tokenAddress);
-      decimals = tokenInfo?.decimals ?? 9;
-    }
-
-    const uiAmount = this.calculateUiAmountFromEntry(balanceEntry, decimals);
-    return Number.isFinite(uiAmount) ? uiAmount : 0;
+    return this.walletInsights.getWalletTokenBalance(walletAddress, tokenAddress, tokenDecimals);
   }
 
   /**
@@ -2556,75 +2398,7 @@ export class BuybotService {
    * @returns {Promise<Array>} Array of holdings sorted by USD value desc
    */
   async getWalletTopTokens(walletAddress, options = {}) {
-    const { minUsd = 5, limit = 5, maxLookups = 12 } = options;
-    const entries = await this.fetchWalletBalances(walletAddress);
-
-    if (!entries.length) {
-      return [];
-    }
-
-    const sortedEntries = entries
-      .filter(entry => {
-        const amount = Number(entry?.amount ?? entry?.uiAmount ?? 0);
-        return Number.isFinite(amount) && amount > 0;
-      })
-      .sort((a, b) => {
-        const amountA = Number(a.amount ?? 0);
-        const amountB = Number(b.amount ?? 0);
-        return amountB - amountA;
-      })
-      .slice(0, maxLookups);
-
-    const topTokens = [];
-
-    for (const entry of sortedEntries) {
-      const mint = entry?.mint;
-      if (!mint) {
-        continue;
-      }
-
-      let tokenInfo = null;
-      try {
-        tokenInfo = await this.getTokenInfo(mint);
-      } catch (err) {
-  this.logger.warn(`[BuybotService] Failed to fetch token info for mint ${formatAddress(mint)}: ${err.message}`);
-        continue;
-      }
-
-      if (!tokenInfo || !tokenInfo.usdPrice) {
-        continue;
-      }
-
-      const decimals = Number.isFinite(entry.decimals)
-        ? Number(entry.decimals)
-        : tokenInfo.decimals ?? 9;
-
-      const uiAmount = this.calculateUiAmountFromEntry(entry, decimals);
-      if (!Number.isFinite(uiAmount) || uiAmount <= 0) {
-        continue;
-      }
-
-      const usdValue = tokenInfo.usdPrice * uiAmount;
-      if (usdValue < minUsd) {
-        continue;
-      }
-
-      topTokens.push({
-        symbol: tokenInfo.symbol || mint.slice(0, 6),
-        name: tokenInfo.name || tokenInfo.symbol || mint.slice(0, 12),
-        mint,
-        amount: uiAmount,
-        usdValue,
-        price: tokenInfo.usdPrice,
-        decimals,
-      });
-
-      if (topTokens.length >= limit) {
-        break;
-      }
-    }
-
-    return topTokens.sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0));
+    return this.walletInsights.getWalletTopTokens(walletAddress, options);
   }
 
   /**
@@ -2634,33 +2408,7 @@ export class BuybotService {
    * @returns {Object|null} Map of token symbol -> balance metadata
    */
   buildAdditionalTokenBalances(topTokens = [], primarySymbol = null) {
-    if (!Array.isArray(topTokens) || topTokens.length === 0) {
-      return null;
-    }
-
-    const additionalBalances = {};
-
-    for (const holding of topTokens) {
-      const symbol = holding?.symbol || holding?.mint;
-      if (!symbol) {
-        continue;
-      }
-
-      if (primarySymbol && symbol === primarySymbol) {
-        continue;
-      }
-
-      additionalBalances[symbol] = {
-        balance: Number.isFinite(holding.amount) ? holding.amount : 0,
-        usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
-        mint: holding.mint || null,
-        priceUsd: Number.isFinite(holding.price) ? holding.price : null,
-        decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
-        lastUpdated: new Date(),
-      };
-    }
-
-    return Object.keys(additionalBalances).length ? additionalBalances : null;
+    return this.walletInsights.buildAdditionalTokenBalances(topTokens, primarySymbol);
   }
 
   /**
@@ -2672,57 +2420,7 @@ export class BuybotService {
    * @returns {Promise<Object>} Context with balance, USD value, holdings snapshot
    */
   async buildWalletAvatarContext(walletAddress, token, tokenDecimals, options = {}) {
-    const { minUsd = 5, limit = 5 } = options;
-
-    const currentBalance = await this.getWalletTokenBalance(walletAddress, token.tokenAddress, tokenDecimals);
-    const topTokens = await this.getWalletTopTokens(walletAddress, { minUsd, limit });
-
-    const currentBalanceUsd = token.usdPrice ? currentBalance * token.usdPrice : null;
-    const includePrimary = Number.isFinite(currentBalanceUsd) && currentBalanceUsd >= minUsd;
-
-    const primaryEntry = {
-      symbol: token.tokenSymbol || token.tokenAddress?.slice(0, 6) || 'TOKEN',
-      name: token.tokenName || token.tokenSymbol || token.tokenAddress,
-      mint: token.tokenAddress,
-      amount: currentBalance,
-      usdValue: currentBalanceUsd,
-      price: token.usdPrice || null,
-      decimals: tokenDecimals,
-    };
-
-    const holdingsSnapshot = [...topTokens];
-    const existingIndex = holdingsSnapshot.findIndex(holding => holding.mint === token.tokenAddress);
-
-    if (includePrimary) {
-      if (existingIndex >= 0) {
-        holdingsSnapshot[existingIndex] = primaryEntry;
-      } else {
-        holdingsSnapshot.unshift(primaryEntry);
-      }
-    }
-
-    const sanitizedSnapshot = holdingsSnapshot
-      .map(holding => ({
-        symbol: holding.symbol || holding.mint,
-        name: holding.name || holding.symbol || holding.mint,
-        mint: holding.mint,
-  amount: Number.isFinite(holding.amount) ? Math.round(holding.amount * 1e4) / 1e4 : 0,
-        usdValue: Number.isFinite(holding.usdValue) ? Math.round(holding.usdValue * 100) / 100 : null,
-        price: Number.isFinite(holding.price) ? Math.round(holding.price * 1e6) / 1e6 : null,
-        decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
-      }))
-      .filter(holding => holding.symbol && holding.mint)
-      .sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))
-      .slice(0, limit);
-
-    const additionalTokenBalances = this.buildAdditionalTokenBalances(sanitizedSnapshot, token.tokenSymbol);
-
-    return {
-      currentBalance,
-      currentBalanceUsd,
-      holdingsSnapshot: sanitizedSnapshot,
-      additionalTokenBalances,
-    };
+    return this.walletInsights.buildWalletAvatarContext(walletAddress, token, tokenDecimals, options);
   }
 
   /**
