@@ -1986,14 +1986,28 @@ export class BuybotService {
           await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue);
         }
       } catch (sendError) {
-        this.logger.error(`[BuybotService] Failed to send Discord message to channel ${channelId}:`, {
-          error: sendError.message,
-          code: sendError.code,
-          channelId,
-          tokenSymbol: token.tokenSymbol,
-          eventType: event.type
-        });
-        throw sendError; // Re-throw to trigger outer catch block
+        const isMissingPermissions =
+          sendError?.code === 50013 ||
+          sendError?.status === 403 ||
+          (typeof sendError?.message === 'string' && /missing permissions/i.test(sendError.message));
+
+        if (isMissingPermissions) {
+          this.logger.warn(`[BuybotService] Missing permissions to post trade embed in channel ${channelId}; skipping notification and triggering avatar responses only.`, {
+            channelId,
+            tokenSymbol: token.tokenSymbol,
+            eventType: event.type
+          });
+          // Continue without rethrowing so avatars can still respond
+        } else {
+          this.logger.error(`[BuybotService] Failed to send Discord message to channel ${channelId}:`, {
+            error: sendError.message,
+            code: sendError.code,
+            channelId,
+            tokenSymbol: token.tokenSymbol,
+            eventType: event.type
+          });
+          throw sendError; // Re-throw to trigger outer catch block
+        }
       }
       
       // Trigger avatar responses for full (non-partial) avatars involved in the trade
