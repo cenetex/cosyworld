@@ -8,7 +8,28 @@ import { BasicTool } from '../BasicTool.mjs';
 const MAX_RESULTS = 5;
 const MAX_HISTORY = 5;
 const MAX_OPENED = 5;
-const SEARCH_MODEL = process.env.OPENROUTER_WEB_SEARCH_MODEL || 'openai/gpt-4o';
+const PRIMARY_SEARCH_MODEL = (process.env.OPENROUTER_WEB_SEARCH_MODEL || '').trim() || 'perplexity/llama-3.1-sonar-large-128k-online';
+const CONFIGURED_FALLBACK_MODELS = (process.env.OPENROUTER_WEB_SEARCH_FALLBACKS || '')
+  .split(',')
+  .map(value => value.trim())
+  .filter(Boolean);
+const DEFAULT_FALLBACK_MODELS = [
+  'perplexity/llama-3.1-sonar-medium-128k-online',
+  'perplexity/llama-3.1-sonar-small-128k-online',
+  'perplexity/sonar-reasoning'
+];
+const ENABLE_EXA_PLUGIN = /^true$/i.test(process.env.OPENROUTER_WEB_SEARCH_USE_PLUGIN || 'false');
+
+const uniqueCaseInsensitive = (list) => {
+  const seen = new Set();
+  return list.filter(item => {
+    if (!item) return false;
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 const clipText = (value = '', limit = 220) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -34,6 +55,16 @@ export class WebSearchTool extends BasicTool {
     this.emoji = '🕸️';
     this.parameters = '<query | open <result-number>>';
     this.cooldownMs = 5 * 1000;
+
+    this.primaryModel = PRIMARY_SEARCH_MODEL;
+    const fallbackPool = uniqueCaseInsensitive([
+      ...CONFIGURED_FALLBACK_MODELS,
+      ...DEFAULT_FALLBACK_MODELS
+    ]);
+    const primaryKey = this.primaryModel.toLowerCase();
+    this.fallbackModels = fallbackPool
+      .filter(model => model.toLowerCase() !== primaryKey);
+    this.enableExaPlugin = ENABLE_EXA_PLUGIN;
   }
 
   getDescription() {
@@ -103,25 +134,15 @@ Focus on high-quality, current sources.`;
     };
 
     let structured;
+    let modelUsed = this.primaryModel;
     try {
-      structured = await this.schemaService.executePipeline({
+      const result = await this._runStructuredRequest({
         prompt,
         schema,
-        options: {
-          model: SEARCH_MODEL,
-          temperature: 0.2,
-          plugins: [
-            {
-              id: 'web',
-              engine: 'exa',
-              max_results: MAX_RESULTS
-            }
-          ],
-          web_search_options: {
-            search_context_size: 'medium'
-          }
-        }
+        mode: 'search'
       });
+      structured = result.data;
+      modelUsed = result.model;
     } catch (err) {
       this.logger?.error?.(`[WebSearchTool] search failed: ${err.message}`);
       return `-# [ ❌ Web search failed: ${clipText(err.message, 90)} ]`;
@@ -144,7 +165,8 @@ Focus on high-quality, current sources.`;
       query: structured?.query || query,
       summary: clipText(structured?.summary || '', 280),
       results: normalizedResults,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      model: modelUsed
     };
 
     webContext.latestSearch = entry;
@@ -220,25 +242,15 @@ Keep the tone neutral and factual.`;
     };
 
     let structured;
+    let modelUsed = this.primaryModel;
     try {
-      structured = await this.schemaService.executePipeline({
+      const result = await this._runStructuredRequest({
         prompt,
         schema,
-        options: {
-          model: SEARCH_MODEL,
-          temperature: 0.2,
-          plugins: [
-            {
-              id: 'web',
-              engine: 'exa',
-              max_results: 3
-            }
-          ],
-          web_search_options: {
-            search_context_size: 'medium'
-          }
-        }
+        mode: 'open'
       });
+      structured = result.data;
+      modelUsed = result.model;
     } catch (err) {
       this.logger?.error?.(`[WebSearchTool] open failed: ${err.message}`);
       return `-# [ ❌ Failed to summarize ${target.url}: ${clipText(err.message, 90)} ]`;
@@ -254,7 +266,8 @@ Keep the tone neutral and factual.`;
       followUp: Array.isArray(structured?.follow_up)
         ? structured.follow_up.map(item => clipText(item, 160)).filter(Boolean)
         : [],
-      openedAt: Date.now()
+      openedAt: Date.now(),
+      model: modelUsed
     };
 
     webContext.latestOpened = summaryEntry;
@@ -287,5 +300,85 @@ Keep the tone neutral and factual.`;
       avatar.webContext = {};
     }
     return avatar.webContext;
+  }
+
+  async _runStructuredRequest({ prompt, schema, mode }) {
+    const attempts = this._buildAttemptConfigs(mode);
+    let lastError = null;
+
+    for (const attempt of attempts) {
+      try {
+        const data = await this.schemaService.executePipeline({
+          prompt,
+          schema,
+          options: attempt.options
+        });
+
+        if (attempt.isFallback) {
+          this.logger?.info?.(`[WebSearchTool] ${mode} succeeded with fallback model ${attempt.model}`);
+        }
+
+        return { data, model: attempt.model };
+      } catch (err) {
+        lastError = err;
+        const message = err?.message || String(err);
+        this.logger?.warn?.(`[WebSearchTool] ${mode} attempt failed (${attempt.model}): ${message}`);
+      }
+    }
+
+    if (lastError) throw lastError;
+    throw new Error('Unable to generate structured output');
+  }
+
+  _buildAttemptConfigs(mode) {
+    const attempts = [];
+    const pushAttempt = (model, isFallback) => {
+      if (!model) return;
+      const key = `${model}|${isFallback}`;
+      if (attempts.some(entry => entry.key === key)) return;
+      attempts.push({
+        key,
+        model,
+        isFallback,
+        options: this._createOptionsForModel(model, mode, this._shouldUsePlugin(model))
+      });
+    };
+
+    pushAttempt(this.primaryModel, false);
+    this.fallbackModels.forEach(model => pushAttempt(model, true));
+
+    return attempts;
+  }
+
+  _createOptionsForModel(model, mode, usePlugin) {
+    const maxResults = mode === 'search' ? MAX_RESULTS : 3;
+    const options = {
+      model,
+      temperature: 0.2,
+      web_search_options: {
+        search_context_size: 'medium'
+      }
+    };
+
+    if (usePlugin) {
+      options.plugins = [
+        {
+          id: 'web',
+          engine: 'exa',
+          max_results: maxResults
+        }
+      ];
+    }
+
+    return options;
+  }
+
+  _shouldUsePlugin(model) {
+    if (!this.enableExaPlugin) return false;
+    if (!model) return false;
+    const lower = model.toLowerCase();
+    if (lower.startsWith('perplexity/')) return false;
+    if (lower === 'openrouter/auto') return false;
+    return true;
   }
 }
