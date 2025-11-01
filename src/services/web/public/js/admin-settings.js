@@ -1,7 +1,8 @@
 // Refactored to use shared AdminAPI/AdminUI wrappers
 // NOTE: Converted previously absolute /js/admin/* imports to relative paths for bundler compatibility
-import { apiFetch, safeApi } from './admin/admin-api.js';
+import { apiFetch } from './admin/admin-api.js';
 import { success, error as toastError, withButtonLoading } from './admin/admin-ui.js';
+import { escapeHtml } from './utils/dom.js';
 
 async function fetchJSON(url, opts) {
   // Backward compatibility shim (will migrate all calls to apiFetch gradually)
@@ -17,6 +18,16 @@ function scopeLabel(source) {
 let selectedGuildId = '';
 let guildListData = [];
 let selectedGuildMeta = null; // { id, name, authorized, iconUrl }
+
+const DEFAULT_WALLET_AVATAR_PREFS = {
+  createFullAvatar: false,
+  minBalanceForFullAvatar: 0,
+  autoActivate: false,
+  sendIntro: false
+};
+
+let walletAvatarPrefsState = null;
+let walletAvatarEditorOriginalSymbol = null;
 
 function getGuildMetaById(id) {
   if (!id) return { id: '', name: 'Global Defaults', authorized: true };
@@ -621,110 +632,378 @@ function initPaymentConfigHandlers() {
   document.getElementById('toggleEncryptionKeyVisibility')?.addEventListener('click', toggleEncryptionKeyVisibility);
 }
 
-// Wallet Avatar Threshold Configuration Functions
-async function loadWalletAvatarThresholds() {
-  try {
-    const guildId = selectedGuildId || '';
-    const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
-    const response = await fetchJSON(`/api/admin/wallet-avatar-thresholds${qs}`);
-    
-    if (response) {
-      document.getElementById('walletAvatarRatiThreshold').value = response.ratiThreshold || 1000000;
-      document.getElementById('walletAvatarUsdThreshold').value = response.usdThreshold || 1000;
-      
-      // Show indicator if these are guild overrides
-      const statusEl = document.getElementById('walletAvatarThresholdStatus');
-      if (response.source === 'guild' && guildId) {
-        showWalletAvatarStatus(`Using guild-specific thresholds for ${selectedGuildMeta?.name || guildId}`, 'info');
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load wallet avatar thresholds:', error);
-    // Set defaults on error
-    document.getElementById('walletAvatarRatiThreshold').value = 1000000;
-    document.getElementById('walletAvatarUsdThreshold').value = 1000;
-  }
+function normalizeWalletAvatarDefaults(raw = {}) {
+  return {
+    createFullAvatar: !!raw.createFullAvatar,
+    minBalanceForFullAvatar: Number.isFinite(Number(raw.minBalanceForFullAvatar)) ? Number(raw.minBalanceForFullAvatar) : 0,
+    autoActivate: !!raw.autoActivate,
+    sendIntro: !!raw.sendIntro
+  };
 }
 
-async function saveWalletAvatarThresholds() {
-  const ratiThreshold = parseFloat(document.getElementById('walletAvatarRatiThreshold').value);
-  const usdThreshold = parseFloat(document.getElementById('walletAvatarUsdThreshold').value);
-  
-  // Validation
-  if (isNaN(ratiThreshold) || ratiThreshold < 0) {
-    toastError('RATi threshold must be a non-negative number');
-    return;
-  }
-  
-  if (isNaN(usdThreshold) || usdThreshold < 0) {
-    toastError('USD threshold must be a non-negative number');
-    return;
-  }
-  
-  try {
-    const payload = {
-      ratiThreshold,
-      usdThreshold
-    };
-    
-    // Include guildId if we're in guild context
-    if (selectedGuildId) {
-      payload.guildId = selectedGuildId;
-    }
-    
-    const response = await fetchJSON('/api/admin/wallet-avatar-thresholds', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (response.success) {
-      success('Wallet avatar thresholds saved successfully');
-      const scope = selectedGuildId ? `for guild ${selectedGuildMeta?.name || selectedGuildId}` : 'globally';
-      showWalletAvatarStatus(`Thresholds saved ${scope}. RATi: ${ratiThreshold.toLocaleString()}, USD: $${usdThreshold.toLocaleString()}`, 'success');
-    }
-  } catch (error) {
-    console.error('Failed to save wallet avatar thresholds:', error);
-    toastError('Failed to save wallet avatar thresholds: ' + (error.message || 'Unknown error'));
-    showWalletAvatarStatus('Failed to save thresholds: ' + (error.message || 'Unknown error'), 'error');
-  }
+function normalizeWalletAvatarOverride(raw = {}) {
+  return {
+    symbol: raw.symbol || '',
+    displayEmoji: raw.displayEmoji ?? null,
+    aliasSymbols: Array.isArray(raw.aliasSymbols) ? raw.aliasSymbols : Array.isArray(raw.symbols) ? raw.symbols : [],
+    addresses: Array.isArray(raw.addresses) ? raw.addresses : [],
+    walletAvatar: normalizeWalletAvatarDefaults(raw.walletAvatar || {})
+  };
 }
 
-function resetWalletAvatarThresholds() {
-  if (!confirm('Reset wallet avatar thresholds to defaults?')) return;
-  
-  document.getElementById('walletAvatarRatiThreshold').value = 1000000;
-  document.getElementById('walletAvatarUsdThreshold').value = 1000;
-  
-  showWalletAvatarStatus('Thresholds reset to defaults. Click Save to apply.', 'info');
+function getWalletAvatarDefaultsState() {
+  if (!walletAvatarPrefsState?.defaults?.walletAvatar) {
+    return { ...DEFAULT_WALLET_AVATAR_PREFS };
+  }
+  const normalized = normalizeWalletAvatarDefaults(walletAvatarPrefsState.defaults.walletAvatar);
+  return { ...DEFAULT_WALLET_AVATAR_PREFS, ...normalized };
 }
 
-function showWalletAvatarStatus(message, type = 'info') {
-  const statusEl = document.getElementById('walletAvatarThresholdStatus');
+function showWalletAvatarPreferencesStatus(message, type = 'info') {
+  const statusEl = document.getElementById('walletAvatarStatus');
   const statusDiv = statusEl?.querySelector('div');
   if (!statusDiv) return;
-  
-  const colors = {
-    success: 'bg-green-50 border-green-200 text-green-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
+  const palette = {
+    success: 'bg-green-50 border border-green-200 text-green-800',
+    error: 'bg-red-50 border border-red-200 text-red-800',
+    info: 'bg-blue-50 border border-blue-200 text-blue-800'
   };
-  
-  statusDiv.className = `p-2 rounded text-sm border ${colors[type] || colors.info}`;
+  statusDiv.className = `p-2 rounded text-sm ${palette[type] || palette.info}`;
   statusDiv.textContent = message;
   statusEl.classList.remove('hidden');
-  
-  setTimeout(() => {
-    statusEl.classList.add('hidden');
-  }, 5000);
+  setTimeout(() => statusEl.classList.add('hidden'), 5000);
 }
 
-function initWalletAvatarThresholdHandlers() {
-  document.getElementById('saveWalletAvatarThresholds')?.addEventListener('click',
-    withButtonLoading(document.getElementById('saveWalletAvatarThresholds'), saveWalletAvatarThresholds)
-  );
-  
-  document.getElementById('resetWalletAvatarThresholds')?.addEventListener('click', resetWalletAvatarThresholds);
+function renderWalletAvatarDefaults() {
+  const container = document.getElementById('walletAvatarDefaults');
+  if (!container) return;
+  const defaults = getWalletAvatarDefaultsState();
+
+  container.innerHTML = `
+    <div class="bg-white border rounded-lg p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h5 class="text-sm font-semibold text-gray-800">Global Defaults</h5>
+        <span class="text-xs text-gray-500">Applied when no token override exists</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="walletAvatarDefaultCreateFull" class="rounded" />
+          Generate full avatars by default
+        </label>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarDefaultMinBalance">Minimum Balance</label>
+          <input type="number" id="walletAvatarDefaultMinBalance" min="0" step="0.0001" class="w-full px-3 py-2 border rounded text-sm" />
+          <p class="text-xs text-gray-500 mt-1">Token balance required before generating a full avatar.</p>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="walletAvatarDefaultAutoActivate" class="rounded" />
+          Auto-activate avatars in Discord
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="walletAvatarDefaultSendIntro" class="rounded" />
+          Send introduction message on creation
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" id="walletAvatarDefaultsReset" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Revert</button>
+        <button type="button" id="walletAvatarDefaultsSave" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save Defaults</button>
+      </div>
+    </div>
+  `;
+
+  container.querySelector('#walletAvatarDefaultCreateFull').checked = !!defaults.createFullAvatar;
+  container.querySelector('#walletAvatarDefaultMinBalance').value = defaults.minBalanceForFullAvatar ?? 0;
+  container.querySelector('#walletAvatarDefaultAutoActivate').checked = !!defaults.autoActivate;
+  container.querySelector('#walletAvatarDefaultSendIntro').checked = !!defaults.sendIntro;
+
+  container.querySelector('#walletAvatarDefaultsReset')?.addEventListener('click', () => renderWalletAvatarDefaults());
+
+  const saveBtn = container.querySelector('#walletAvatarDefaultsSave');
+  saveBtn?.addEventListener('click', withButtonLoading(saveBtn, async () => {
+    const minBalanceInput = container.querySelector('#walletAvatarDefaultMinBalance');
+    const minBalance = Number(minBalanceInput.value);
+    if (!Number.isFinite(minBalance) || minBalance < 0) {
+      toastError('Minimum balance must be a non-negative number');
+      minBalanceInput.focus();
+      return;
+    }
+
+    const payload = {
+      walletAvatar: {
+        createFullAvatar: container.querySelector('#walletAvatarDefaultCreateFull').checked,
+        minBalanceForFullAvatar: minBalance,
+        autoActivate: container.querySelector('#walletAvatarDefaultAutoActivate').checked,
+        sendIntro: container.querySelector('#walletAvatarDefaultSendIntro').checked
+      }
+    };
+
+    try {
+      await apiFetch('/api/admin/token-preferences/defaults', {
+        method: 'PUT',
+        body: payload,
+        requireCsrf: true,
+        sign: true
+      });
+      showWalletAvatarPreferencesStatus('Wallet avatar defaults saved', 'success');
+      await loadWalletAvatarPreferences();
+    } catch (error) {
+      console.error('Failed to save wallet avatar defaults:', error);
+      toastError(error.message || 'Failed to save defaults');
+      showWalletAvatarPreferencesStatus(error.message || 'Failed to save defaults', 'error');
+    }
+  }));
+}
+
+function renderWalletAvatarOverrides() {
+  const container = document.getElementById('walletAvatarOverrides');
+  if (!container) return;
+  const overrides = Array.isArray(walletAvatarPrefsState?.overrides)
+    ? walletAvatarPrefsState.overrides.slice().sort((a, b) => a.symbol.localeCompare(b.symbol))
+    : [];
+
+  if (!overrides.length) {
+    container.innerHTML = '<div class="text-sm text-gray-500">No token overrides configured. Use "Add Token Override" to customize behaviour for specific tokens.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  overrides.forEach(override => {
+    const card = document.createElement('div');
+    card.className = 'bg-white border rounded-lg p-4';
+    const { symbol, displayEmoji, aliasSymbols, addresses, walletAvatar } = override;
+    const safeSymbol = escapeHtml(symbol || '');
+    const safeEmoji = escapeHtml(displayEmoji || '🪙');
+    const aliasText = aliasSymbols && aliasSymbols.length ? aliasSymbols.map(val => escapeHtml(val)).join(', ') : '';
+    const addressesText = addresses && addresses.length ? addresses.map(val => escapeHtml(val)).join(', ') : '';
+    const summary = [
+      `Min balance: ${walletAvatar.minBalanceForFullAvatar.toLocaleString(undefined, { maximumFractionDigits: 4 })}`,
+      `Full avatars: ${walletAvatar.createFullAvatar ? 'Enabled' : 'Disabled'}`,
+      `Auto-activate: ${walletAvatar.autoActivate ? 'Yes' : 'No'}`,
+      `Intro: ${walletAvatar.sendIntro ? 'Yes' : 'No'}`
+    ].join(' • ');
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 text-gray-900 font-medium">
+            <span class="text-lg">${safeEmoji}</span>
+            <span>${safeSymbol}</span>
+          </div>
+          <div class="text-xs text-gray-500">${summary}</div>
+          ${aliasText ? `<div class="text-xs text-gray-500">Aliases: ${aliasText}</div>` : ''}
+          ${addressesText ? `<div class="text-xs text-gray-500">Addresses: ${addressesText}</div>` : ''}
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button type="button" class="wallet-avatar-edit px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200">Edit</button>
+          <button type="button" class="wallet-avatar-delete px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">Delete</button>
+        </div>
+      </div>
+    `;
+
+    const editBtn = card.querySelector('.wallet-avatar-edit');
+    if (editBtn) {
+      editBtn.dataset.symbol = symbol;
+      editBtn.addEventListener('click', () => openWalletAvatarEditor(symbol));
+    }
+    const deleteBtn = card.querySelector('.wallet-avatar-delete');
+    deleteBtn?.addEventListener('click', withButtonLoading(deleteBtn, async () => {
+      await deleteWalletAvatarOverride(symbol);
+    }));
+    if (deleteBtn) deleteBtn.dataset.symbol = symbol;
+
+    container.appendChild(card);
+  });
+}
+
+function closeWalletAvatarEditor() {
+  const editor = document.getElementById('walletAvatarEditor');
+  if (!editor) return;
+  editor.classList.add('hidden');
+  editor.innerHTML = '';
+  walletAvatarEditorOriginalSymbol = null;
+}
+
+function parseListInput(value, { toLower = false } = {}) {
+  if (!value) return [];
+  return value
+    .split(/[,\n\s]+/)
+    .map(entry => entry.trim())
+    .filter(Boolean)
+    .map(entry => (toLower ? entry.toLowerCase() : entry))
+    .filter((entry, index, self) => self.indexOf(entry) === index);
+}
+
+function openWalletAvatarEditor(symbol = null) {
+  const editor = document.getElementById('walletAvatarEditor');
+  if (!editor) return;
+
+  const existing = symbol ? walletAvatarPrefsState?.overrides?.find(o => o.symbol === symbol) : null;
+  walletAvatarEditorOriginalSymbol = existing?.symbol || null;
+  const formState = existing
+    ? { ...existing, walletAvatar: normalizeWalletAvatarDefaults(existing.walletAvatar) }
+    : {
+        symbol: '',
+        displayEmoji: '',
+        aliasSymbols: [],
+        addresses: [],
+        walletAvatar: { ...DEFAULT_WALLET_AVATAR_PREFS }
+      };
+
+  const safeSymbol = escapeHtml(formState.symbol || '');
+  const safeEmoji = escapeHtml(formState.displayEmoji || '');
+  const safeAliases = escapeHtml(formState.aliasSymbols.join(', '));
+  const safeAddresses = escapeHtml(formState.addresses.join(', '));
+
+  editor.className = 'border rounded-lg bg-white p-4';
+  editor.classList.remove('hidden');
+
+  editor.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <h5 class="text-sm font-semibold text-gray-800">${existing ? `Edit ${existing.symbol}` : 'Add Token Override'}</h5>
+      <button type="button" id="walletAvatarEditorClose" class="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarSymbol">Token Symbol</label>
+        <input id="walletAvatarSymbol" type="text" class="w-full px-3 py-2 border rounded text-sm uppercase" placeholder="e.g. PROJECT89" value="${safeSymbol}" />
+        <p class="text-xs text-gray-500 mt-1">Primary symbol (stored in uppercase).</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarEmoji">Display Emoji</label>
+        <input id="walletAvatarEmoji" type="text" maxlength="10" class="w-full px-3 py-2 border rounded text-sm" placeholder="Optional" value="${safeEmoji}" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarAliases">Alias Symbols</label>
+        <input id="walletAvatarAliases" type="text" class="w-full px-3 py-2 border rounded text-sm" placeholder="RATi,$RATi" value="${safeAliases}" />
+        <p class="text-xs text-gray-500 mt-1">Comma or space separated alternate symbols.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarAddresses">Token Addresses</label>
+        <input id="walletAvatarAddresses" type="text" class="w-full px-3 py-2 border rounded text-sm" placeholder="Optional mint addresses" value="${safeAddresses}" />
+        <p class="text-xs text-gray-500 mt-1">Comma or space separated list (stored in lowercase).</p>
+      </div>
+    </div>
+    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="walletAvatarCreateFull" class="rounded" ${formState.walletAvatar.createFullAvatar ? 'checked' : ''} />
+        Generate full avatars
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="walletAvatarAutoActivate" class="rounded" ${formState.walletAvatar.autoActivate ? 'checked' : ''} />
+        Auto-activate in Discord
+      </label>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarMinBalance">Minimum Balance</label>
+        <input type="number" id="walletAvatarMinBalance" min="0" step="0.0001" class="w-full px-3 py-2 border rounded text-sm" value="${formState.walletAvatar.minBalanceForFullAvatar}" />
+      </div>
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="walletAvatarSendIntro" class="rounded" ${formState.walletAvatar.sendIntro ? 'checked' : ''} />
+        Send introduction message
+      </label>
+    </div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button type="button" id="walletAvatarEditorCancel" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Cancel</button>
+      <button type="button" id="walletAvatarEditorSave" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save Override</button>
+    </div>
+  `;
+
+  editor.querySelector('#walletAvatarEditorClose')?.addEventListener('click', closeWalletAvatarEditor);
+  editor.querySelector('#walletAvatarEditorCancel')?.addEventListener('click', closeWalletAvatarEditor);
+
+  const saveBtn = editor.querySelector('#walletAvatarEditorSave');
+  saveBtn?.addEventListener('click', withButtonLoading(saveBtn, async () => {
+    await submitWalletAvatarOverride(editor);
+  }));
+}
+
+async function submitWalletAvatarOverride(editor) {
+  const symbolInput = editor.querySelector('#walletAvatarSymbol');
+  const minBalanceInput = editor.querySelector('#walletAvatarMinBalance');
+  if (!symbolInput) return;
+
+  const symbol = symbolInput.value.trim();
+  if (!symbol) {
+    toastError('Token symbol is required');
+    symbolInput.focus();
+    return;
+  }
+
+  const normalizedSymbol = symbol.toUpperCase();
+
+  const minBalance = Number(minBalanceInput?.value ?? 0);
+  if (!Number.isFinite(minBalance) || minBalance < 0) {
+    toastError('Minimum balance must be a non-negative number');
+    minBalanceInput.focus();
+    return;
+  }
+
+  const payload = {
+    symbol: normalizedSymbol,
+    originalSymbol: walletAvatarEditorOriginalSymbol,
+    displayEmoji: editor.querySelector('#walletAvatarEmoji')?.value.trim() || null,
+    aliasSymbols: parseListInput(editor.querySelector('#walletAvatarAliases')?.value || '').map(val => val.toUpperCase()),
+    addresses: parseListInput(editor.querySelector('#walletAvatarAddresses')?.value || '', { toLower: true }),
+    walletAvatar: {
+      createFullAvatar: editor.querySelector('#walletAvatarCreateFull')?.checked || false,
+      minBalanceForFullAvatar: minBalance,
+      autoActivate: editor.querySelector('#walletAvatarAutoActivate')?.checked || false,
+      sendIntro: editor.querySelector('#walletAvatarSendIntro')?.checked || false
+    }
+  };
+
+  try {
+    await apiFetch('/api/admin/token-preferences', {
+      method: 'PUT',
+      body: payload,
+      requireCsrf: true,
+      sign: true
+    });
+  showWalletAvatarPreferencesStatus(`Token override saved for ${payload.symbol}`, 'success');
+    closeWalletAvatarEditor();
+    await loadWalletAvatarPreferences();
+  } catch (error) {
+    console.error('Failed to save token override:', error);
+    toastError(error.message || 'Failed to save token override');
+    showWalletAvatarPreferencesStatus(error.message || 'Failed to save token override', 'error');
+  }
+}
+
+async function deleteWalletAvatarOverride(symbol) {
+  if (!symbol) return;
+  if (!confirm(`Delete wallet avatar override for ${symbol}?`)) return;
+  try {
+    await apiFetch(`/api/admin/token-preferences/${encodeURIComponent(symbol)}`, {
+      method: 'DELETE',
+      requireCsrf: true,
+      sign: true
+    });
+    showWalletAvatarPreferencesStatus(`Override removed for ${symbol}`, 'success');
+    await loadWalletAvatarPreferences();
+  } catch (error) {
+    console.error('Failed to delete token override:', error);
+    toastError(error.message || 'Failed to delete override');
+    showWalletAvatarPreferencesStatus(error.message || 'Failed to delete override', 'error');
+  }
+}
+
+async function loadWalletAvatarPreferences() {
+  try {
+    const data = await apiFetch('/api/admin/token-preferences');
+    walletAvatarPrefsState = {
+      defaults: data?.defaults || { walletAvatar: { ...DEFAULT_WALLET_AVATAR_PREFS } },
+      overrides: Array.isArray(data?.overrides) ? data.overrides.map(normalizeWalletAvatarOverride) : []
+    };
+    renderWalletAvatarDefaults();
+    renderWalletAvatarOverrides();
+    closeWalletAvatarEditor();
+  } catch (error) {
+    console.error('Failed to load token preferences:', error);
+    toastError('Failed to load wallet avatar preferences');
+  }
+}
+
+function initWalletAvatarPreferenceHandlers() {
+  document.getElementById('addWalletAvatarOverride')?.addEventListener('click', () => openWalletAvatarEditor());
 }
 
 // Init
@@ -787,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
   tabSettings?.addEventListener('click', () => {
     activate(tabSettings);
-    loadWalletAvatarThresholds();
+    loadWalletAvatarPreferences();
   });
   tabPayments?.addEventListener('click', () => {
     activate(tabPayments);
@@ -798,7 +1077,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Payment configuration handlers
   initPaymentConfigHandlers();
-  
-  // Wallet avatar threshold handlers
-  initWalletAvatarThresholdHandlers();
+
+  // Wallet avatar preference handlers
+  initWalletAvatarPreferenceHandlers();
+
+  // Preload wallet avatar preferences for initial render
+  await loadWalletAvatarPreferences();
 });

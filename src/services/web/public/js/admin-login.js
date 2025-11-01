@@ -43,7 +43,7 @@ async function runLogin() {
       updateStatusUI('Requesting nonce…', 'processing');
       let nonceData;
       try {
-        nonceData = await apiFetch('/api/auth/nonce', { method: 'POST', body: { address }, requireCsrf: true });
+  nonceData = await apiFetch('/api/auth/nonce', { method: 'POST', body: { address } });
       } catch (e) { 
         throw new Error(e.message || 'Failed to get nonce'); 
       }
@@ -60,7 +60,7 @@ async function runLogin() {
       updateStatusUI('Verifying signature…', 'processing');
       let data;
       try {
-        data = await apiFetch('/api/auth/verify', { method: 'POST', body: { address, nonce, signature: Array.from(signature) }, requireCsrf: true });
+  data = await apiFetch('/api/auth/verify', { method: 'POST', body: { address, nonce, signature: Array.from(signature) } });
       } catch (e) { 
         // Check if it's an authorization error
         if (e.message.includes('401') || e.message.includes('Unauthorized')) {

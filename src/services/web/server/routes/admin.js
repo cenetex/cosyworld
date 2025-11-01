@@ -85,6 +85,43 @@ async function saveUserConfig(config) {
   }
 }
 
+function parseNonNegativeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : fallback;
+}
+
+function normalizeSymbol(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/^\$/, '').toUpperCase();
+}
+
+function sanitizeSymbolList(list = []) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list
+    .map(entry => normalizeSymbol(entry))
+    .filter(Boolean)
+    .filter(entry => {
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
+}
+
+function sanitizeStringList(list = [], { toLower = false } = {}) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list
+    .map(entry => String(entry).trim())
+    .filter(Boolean)
+    .map(entry => (toLower ? entry.toLowerCase() : entry))
+    .filter(entry => {
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
+}
+
 function createRouter(db, services) {
   const router = express.Router();
   const avatarsCollection = db.collection('avatars');
@@ -663,90 +700,171 @@ function createRouter(db, services) {
     }
   }));
 
-  // Get wallet avatar thresholds
-  adminRouter.get('/wallet-avatar-thresholds', asyncHandler(async (req, res) => {
+  // Wallet avatar token preference routes
+  adminRouter.get('/token-preferences', asyncHandler(async (req, res) => {
     try {
-      const { guildId } = req.query;
-      
-      // If guildId provided, get guild-specific config; otherwise get global defaults
-      if (guildId && services?.configService) {
-        const guildConfig = await services.configService.getGuildConfig(guildId);
-        const walletAvatarConfig = guildConfig.walletAvatarThresholds || {};
-        
-        return res.json({
-          ratiThreshold: walletAvatarConfig.ratiThreshold ?? 1_000_000,
-          usdThreshold: walletAvatarConfig.usdThreshold ?? 1000,
-          source: walletAvatarConfig.ratiThreshold !== undefined ? 'guild' : 'global'
-        });
-      }
-      
-      // Return global defaults from config or database
-      const globalConfig = await db.collection('global_config').findOne({ _id: 'walletAvatarThresholds' });
-      
+      const config = await loadConfig();
+      const tokensConfig = config.tokens || {};
+      const defaults = tokensConfig.defaults || {};
+      const overrides = tokensConfig.overrides || {};
+
+      const normalizedDefaults = {
+        walletAvatar: {
+          createFullAvatar: !!defaults.walletAvatar?.createFullAvatar,
+          minBalanceForFullAvatar: parseNonNegativeNumber(defaults.walletAvatar?.minBalanceForFullAvatar),
+          autoActivate: !!defaults.walletAvatar?.autoActivate,
+          sendIntro: !!defaults.walletAvatar?.sendIntro
+        }
+      };
+
+      const normalizedOverrides = Object.entries(overrides).map(([symbol, value]) => ({
+        symbol,
+        displayEmoji: value?.displayEmoji ?? null,
+        aliasSymbols: Array.isArray(value?.symbols) ? value.symbols : [],
+        addresses: Array.isArray(value?.addresses) ? value.addresses : [],
+        walletAvatar: {
+          createFullAvatar: !!value?.walletAvatar?.createFullAvatar,
+          minBalanceForFullAvatar: parseNonNegativeNumber(value?.walletAvatar?.minBalanceForFullAvatar),
+          autoActivate: !!value?.walletAvatar?.autoActivate,
+          sendIntro: !!value?.walletAvatar?.sendIntro
+        }
+      }));
+
       res.json({
-        ratiThreshold: globalConfig?.ratiThreshold ?? 1_000_000,
-        usdThreshold: globalConfig?.usdThreshold ?? 1000,
-        source: 'global'
+        defaults: normalizedDefaults,
+        overrides: normalizedOverrides,
+        prioritySymbols: Array.isArray(tokensConfig.prioritySymbols) ? tokensConfig.prioritySymbols : []
       });
     } catch (error) {
-      console.error("Error fetching wallet avatar thresholds:", error);
-      res.status(500).json({ error: error.message });
+      console.error('Error fetching token preferences:', error);
+      res.status(500).json({ error: error.message || 'Failed to load token preferences' });
     }
   }));
 
-  // Save wallet avatar thresholds
-  adminRouter.post('/wallet-avatar-thresholds', asyncHandler(async (req, res) => {
+  adminRouter.put('/token-preferences/defaults', express.json(), asyncHandler(async (req, res) => {
     try {
-      const { ratiThreshold, usdThreshold, guildId } = req.body;
-
-      // Validate inputs
-      if (ratiThreshold !== undefined && (typeof ratiThreshold !== 'number' || ratiThreshold < 0)) {
-        return res.status(400).json({ error: 'RATi threshold must be a non-negative number' });
-      }
-      if (usdThreshold !== undefined && (typeof usdThreshold !== 'number' || usdThreshold < 0)) {
-        return res.status(400).json({ error: 'USD threshold must be a non-negative number' });
+      const { walletAvatar } = req.body || {};
+      if (!walletAvatar || typeof walletAvatar !== 'object') {
+        return res.status(400).json({ error: 'walletAvatar payload is required' });
       }
 
-      // Save to guild config or global config
-      if (guildId && services?.configService) {
-        // Guild-specific configuration
-        await services.configService.updateGuildConfig(guildId, {
-          walletAvatarThresholds: {
-            ratiThreshold: ratiThreshold ?? 1_000_000,
-            usdThreshold: usdThreshold ?? 1000
-          }
-        });
-        
-        return res.json({
-          success: true,
-          message: `Wallet avatar thresholds saved for guild ${guildId}`,
-          ratiThreshold: ratiThreshold ?? 1_000_000,
-          usdThreshold: usdThreshold ?? 1000
-        });
-      }
+      const config = await loadConfig();
+      config.tokens = config.tokens || {};
+      config.tokens.defaults = config.tokens.defaults || {};
 
-      // Global configuration
-      await db.collection('global_config').updateOne(
-        { _id: 'walletAvatarThresholds' },
-        { 
-          $set: {
-            ratiThreshold: ratiThreshold ?? 1_000_000,
-            usdThreshold: usdThreshold ?? 1000,
-            updatedAt: new Date()
-          }
-        },
-        { upsert: true }
-      );
+      const normalized = {
+        createFullAvatar: !!walletAvatar.createFullAvatar,
+        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar.minBalanceForFullAvatar),
+        autoActivate: !!walletAvatar.autoActivate,
+        sendIntro: !!walletAvatar.sendIntro
+      };
+
+      config.tokens.defaults.walletAvatar = {
+        ...(config.tokens.defaults.walletAvatar || {}),
+        ...normalized
+      };
+
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
 
       res.json({
         success: true,
-        message: 'Global wallet avatar thresholds saved successfully',
-        ratiThreshold: ratiThreshold ?? 1_000_000,
-        usdThreshold: usdThreshold ?? 1000
+        defaults: {
+          walletAvatar: config.tokens.defaults.walletAvatar
+        }
       });
     } catch (error) {
-      console.error("Error saving wallet avatar thresholds:", error);
-      res.status(500).json({ error: error.message });
+      console.error('Error saving wallet avatar defaults:', error);
+      res.status(500).json({ error: error.message || 'Failed to save wallet avatar defaults' });
+    }
+  }));
+
+  adminRouter.put('/token-preferences', express.json(), asyncHandler(async (req, res) => {
+    try {
+      const { symbol, originalSymbol, displayEmoji, aliasSymbols, addresses, walletAvatar } = req.body || {};
+      if (!symbol || typeof symbol !== 'string') {
+        return res.status(400).json({ error: 'symbol is required' });
+      }
+
+      const normalizedSymbol = normalizeSymbol(symbol);
+      if (!normalizedSymbol) {
+        return res.status(400).json({ error: 'Invalid symbol' });
+      }
+      const normalizedOriginal = normalizeSymbol(originalSymbol);
+
+      const config = await loadConfig();
+      config.tokens = config.tokens || {};
+      config.tokens.overrides = config.tokens.overrides || {};
+
+      const sanitizedSymbols = sanitizeSymbolList(aliasSymbols);
+      const sanitizedAddresses = sanitizeStringList(addresses, { toLower: true });
+
+      const override = config.tokens.overrides[normalizedSymbol] ? { ...config.tokens.overrides[normalizedSymbol] } : {};
+
+      if (displayEmoji === null || displayEmoji === undefined || displayEmoji === '') {
+        delete override.displayEmoji;
+      } else {
+        override.displayEmoji = String(displayEmoji);
+      }
+
+      override.symbols = sanitizedSymbols.length ? sanitizedSymbols : undefined;
+      if (!override.symbols) delete override.symbols;
+
+      override.addresses = sanitizedAddresses.length ? sanitizedAddresses : undefined;
+      if (!override.addresses) delete override.addresses;
+
+      override.walletAvatar = {
+        createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
+        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
+        autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
+        sendIntro: !!(walletAvatar && walletAvatar.sendIntro)
+      };
+
+      config.tokens.overrides[normalizedSymbol] = override;
+
+      if (normalizedOriginal && normalizedOriginal !== normalizedSymbol) {
+        delete config.tokens.overrides[normalizedOriginal];
+      }
+
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
+
+      res.json({
+        success: true,
+        override: {
+          symbol: normalizedSymbol,
+          displayEmoji: override.displayEmoji ?? null,
+          aliasSymbols: override.symbols || [],
+          addresses: override.addresses || [],
+          walletAvatar: override.walletAvatar
+        }
+      });
+    } catch (error) {
+      console.error('Error saving token preference override:', error);
+      res.status(500).json({ error: error.message || 'Failed to save token preference' });
+    }
+  }));
+
+  adminRouter.delete('/token-preferences/:symbol', asyncHandler(async (req, res) => {
+    try {
+      const normalizedSymbol = normalizeSymbol(req.params.symbol);
+      if (!normalizedSymbol) {
+        return res.status(400).json({ error: 'Invalid symbol' });
+      }
+
+      const config = await loadConfig();
+      if (!config.tokens?.overrides?.[normalizedSymbol]) {
+        return res.status(404).json({ error: 'Override not found' });
+      }
+
+      delete config.tokens.overrides[normalizedSymbol];
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting token preference override:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete token preference' });
     }
   }));
 
