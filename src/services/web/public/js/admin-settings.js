@@ -2,6 +2,7 @@
 // NOTE: Converted previously absolute /js/admin/* imports to relative paths for bundler compatibility
 import { apiFetch } from './admin/admin-api.js';
 import { success, error as toastError, withButtonLoading } from './admin/admin-ui.js';
+import { ensureWallet } from './admin/admin-auth.js';
 import { escapeHtml } from './utils/dom.js';
 
 async function fetchJSON(url, opts) {
@@ -754,6 +755,13 @@ function renderWalletAvatarDefaults() {
       return;
     }
 
+    const walletStatus = await ensureWallet();
+    if (!walletStatus?.ok) {
+      const msg = walletStatus?.error?.message || 'Connect your wallet before saving defaults';
+      toastError(msg);
+      return;
+    }
+
     const payload = {
       walletAvatar: {
         createFullAvatar: container.querySelector('#walletAvatarDefaultCreateFull').checked,
@@ -1154,6 +1162,13 @@ async function submitWalletAvatarOverride(editor) {
   };
 
   try {
+    const walletStatus = await ensureWallet();
+    if (!walletStatus?.ok) {
+      const msg = walletStatus?.error?.message || 'Connect your wallet before saving overrides';
+      toastError(msg);
+      return;
+    }
+
     await apiFetch('/api/admin/token-preferences', {
       method: 'PUT',
       body: payload,
@@ -1174,6 +1189,13 @@ async function deleteWalletAvatarOverride(symbol) {
   if (!symbol) return;
   if (!confirm(`Delete wallet avatar override for ${symbol}?`)) return;
   try {
+    const walletStatus = await ensureWallet();
+    if (!walletStatus?.ok) {
+      const msg = walletStatus?.error?.message || 'Connect your wallet before deleting overrides';
+      toastError(msg);
+      return;
+    }
+
     await apiFetch(`/api/admin/token-preferences/${encodeURIComponent(symbol)}`, {
       method: 'DELETE',
       requireCsrf: true,
