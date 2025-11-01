@@ -1406,7 +1406,9 @@ export class AvatarService {
       ? walletAvatarPrefs.minBalanceForFullAvatar
       : 0;
 
-    const isHolder = Boolean(walletAvatarPrefs.createFullAvatar) && normalizedBalance > minBalanceForFullAvatar;
+    const hasPositiveBalance = normalizedBalance > 0;
+    const meetsFullAvatarThreshold = normalizedBalance > minBalanceForFullAvatar;
+    const isEligibleForFullAvatar = Boolean(walletAvatarPrefs.createFullAvatar) && meetsFullAvatarThreshold;
     const shouldAutoActivate = Boolean(walletAvatarPrefs.autoActivate);
     const shouldSendIntro = Boolean(walletAvatarPrefs.sendIntro);
 
@@ -1416,10 +1418,10 @@ export class AvatarService {
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
       const isPartialAvatar = !avatar.imageUrl;
-      const needsUpgrade = isPartialAvatar && isHolder;
+      const needsUpgrade = isPartialAvatar && isEligibleForFullAvatar;
       
-    // Debug logging for upgrade decision
-    this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, eligibleHolder: ${isHolder}, needsUpgrade: ${needsUpgrade}`);
+      // Debug logging for upgrade decision
+      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
       
       if (needsUpgrade) {
         const balanceDescription = context.tokenSymbol
@@ -1586,9 +1588,9 @@ export class AvatarService {
     
     while (!avatar && retries < maxRetries) {
       try {
-        this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, fullAvatarEligible: ${isHolder})`);
+  this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, hasBalance: ${hasPositiveBalance}, meetsThreshold: ${meetsFullAvatarThreshold}, fullAvatarEligible: ${isEligibleForFullAvatar})`);
         
-        if (isHolder) {
+  if (isEligibleForFullAvatar) {
           // Full avatar with image
           avatar = await this.createAvatar({
             prompt,
@@ -1617,7 +1619,7 @@ export class AvatarService {
       } catch (error) {
         this.logger?.error?.(`[AvatarService] Wallet avatar creation attempt ${retries + 1} failed for ${walletShort}:`, {
           error: error.message,
-          fullAvatarEligible: isHolder
+          fullAvatarEligible: isEligibleForFullAvatar
         });
       }
       
