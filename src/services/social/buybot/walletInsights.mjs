@@ -7,14 +7,15 @@ const DEFAULT_CACHE_MAX_ENTRIES = 100;
  * Encapsulates wallet balance fetching/caching and holdings insights.
  */
 export class WalletInsights {
-  constructor({
-    logger = console,
-    getLambdaEndpoint = () => null,
-    retryWithBackoff = async (fn) => fn(),
-    getTokenInfo,
-    cacheTtlMs = DEFAULT_CACHE_TTL_MS,
-    cacheMaxEntries = DEFAULT_CACHE_MAX_ENTRIES,
-  } = {}) {
+  constructor(options = {}) {
+    const {
+      logger = console,
+      getLambdaEndpoint = () => null,
+      retryWithBackoff = async (fn) => fn(),
+      getTokenInfo,
+      cacheTtlMs = DEFAULT_CACHE_TTL_MS,
+      cacheMaxEntries = DEFAULT_CACHE_MAX_ENTRIES,
+    } = options;
     this.logger = logger;
     this.getLambdaEndpoint = getLambdaEndpoint;
     this.retryWithBackoff = retryWithBackoff;
@@ -22,6 +23,101 @@ export class WalletInsights {
     this.cacheTtlMs = cacheTtlMs;
     this.cacheMaxEntries = cacheMaxEntries;
     this.walletBalanceCache = new Map();
+  }
+
+  /**
+   * Normalize lambda payload into cached snapshot shape.
+   * @param {Object} payload
+   * @returns {{ tokens: Array, assets: Array, meta: Object|null }}
+   */
+  #normalizeSnapshot(payload = {}) {
+    const tokens = Array.isArray(payload?.tokens)
+      ? payload.tokens
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.balances)
+          ? payload.balances
+          : [];
+
+    const assets = Array.isArray(payload?.assets) ? payload.assets : [];
+
+    const meta = {
+      wallet: payload?.wallet || null,
+      fetchedAt: payload?.fetchedAt || payload?.cache?.lastUpdatedISO || null,
+      source: payload?.source || payload?.cache?.state || null,
+      cache: payload?.cache || null,
+    };
+
+    return { tokens, assets, meta };
+  }
+
+  /**
+   * Ensure we have a fresh snapshot for a wallet, fetching from Lambda if needed.
+   * @param {string} walletAddress
+   * @param {{ refresh?: 'force'|'if-stale'|'cache-only', bypassCache?: boolean }} options
+   * @returns {Promise<{ tokens: Array, assets: Array, meta: Object|null, timestamp: number }>}
+   */
+  async #ensureWalletSnapshot(walletAddress, options = {}) {
+    if (!walletAddress) {
+      return { tokens: [], assets: [], meta: null, timestamp: Date.now() };
+    }
+
+    const { refresh = null, bypassCache = false } = options;
+    const cached = this.walletBalanceCache.get(walletAddress);
+
+    const shouldUseCache = !bypassCache
+      && refresh !== 'force'
+      && cached
+      && (Date.now() - cached.timestamp) < this.cacheTtlMs;
+
+    if (shouldUseCache) {
+      return cached;
+    }
+
+    const lambdaEndpoint = this.getLambdaEndpoint?.();
+    if (!lambdaEndpoint) {
+      return cached || { tokens: [], assets: [], meta: null, timestamp: Date.now() };
+    }
+
+    const trimmedEndpoint = lambdaEndpoint.endsWith('/')
+      ? lambdaEndpoint.slice(0, -1)
+      : lambdaEndpoint;
+
+    const url = new URL(`${trimmedEndpoint}/balances`);
+    url.searchParams.set('wallet', walletAddress);
+    if (refresh) {
+      url.searchParams.set('refresh', refresh);
+    }
+
+    try {
+      const response = await this.retryWithBackoff(async () => {
+        const res = await fetch(url.toString(), { headers: { accept: 'application/json' } });
+        if (res.ok) {
+          return res;
+        }
+
+        const errorBody = await res.text().catch(() => '');
+        throw new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
+      }, 3, 500);
+
+      const payload = await response.json().catch(() => ({}));
+      const snapshot = this.#normalizeSnapshot(payload);
+      const entry = {
+        ...snapshot,
+        timestamp: Date.now(),
+      };
+
+      this.walletBalanceCache.set(walletAddress, entry);
+      this.#evictIfNeeded();
+
+      return entry;
+    } catch (error) {
+      this.logger?.error?.(
+        `[WalletInsights] Failed to fetch balances for ${formatAddress(walletAddress)}:`,
+        error,
+      );
+      return cached || { tokens: [], assets: [], meta: null, timestamp: Date.now() };
+    }
   }
 
   /**
@@ -66,57 +162,9 @@ export class WalletInsights {
    * @param {string} walletAddress
    * @returns {Promise<Array>}
    */
-  async fetchWalletBalances(walletAddress) {
-    if (!walletAddress) {
-      return [];
-    }
-
-    const cached = this.walletBalanceCache.get(walletAddress);
-    if (cached && (Date.now() - cached.timestamp) < this.cacheTtlMs) {
-      return cached.entries;
-    }
-
-    const lambdaEndpoint = this.getLambdaEndpoint?.();
-    if (!lambdaEndpoint) {
-      return cached ? cached.entries : [];
-    }
-
-    const trimmedEndpoint = lambdaEndpoint.endsWith('/')
-      ? lambdaEndpoint.slice(0, -1)
-      : lambdaEndpoint;
-
-    const url = new URL(`${trimmedEndpoint}/balances`);
-    url.searchParams.set('wallet', walletAddress);
-
-    try {
-      const response = await this.retryWithBackoff(async () => {
-        const res = await fetch(url.toString(), { headers: { accept: 'application/json' } });
-        if (res.ok) {
-          return res;
-        }
-
-        const errorBody = await res.text().catch(() => '');
-        throw new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
-      }, 3, 500);
-
-      const payload = await response.json().catch(() => ({}));
-      const entries = Array.isArray(payload?.data) ? payload.data : [];
-
-      this.walletBalanceCache.set(walletAddress, {
-        entries,
-        timestamp: Date.now(),
-      });
-
-      this.#evictIfNeeded();
-
-      return entries;
-    } catch (error) {
-      this.logger?.error?.(
-        `[WalletInsights] Failed to fetch balances for ${formatAddress(walletAddress)}:`,
-        error,
-      );
-      return cached ? cached.entries : [];
-    }
+  async fetchWalletBalances(walletAddress, options = {}) {
+    const snapshot = await this.#ensureWalletSnapshot(walletAddress, options);
+    return snapshot.tokens;
   }
 
   /**
@@ -130,23 +178,70 @@ export class WalletInsights {
       return 0;
     }
 
-    if (entry.uiAmount !== undefined && entry.uiAmount !== null && entry.uiAmount !== '') {
-      const uiAmount = Number(entry.uiAmount);
-      if (Number.isFinite(uiAmount)) {
-        return uiAmount;
+    const explicitUiCandidates = [
+      entry.uiAmount,
+      entry.uiAmountString,
+      entry.tokenAmount?.uiAmount,
+      entry.tokenAmount?.uiAmountString,
+    ];
+
+    for (const candidate of explicitUiCandidates) {
+      if (candidate !== undefined && candidate !== null && candidate !== '') {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
       }
     }
 
-    const rawAmount = Number(entry.amount ?? entry.rawAmount ?? 0);
-    if (!Number.isFinite(rawAmount) || rawAmount === 0) {
-      return 0;
+    const candidateDecimals = Number.isFinite(entry.decimals)
+      ? Number(entry.decimals)
+      : Number.isFinite(entry.tokenAmount?.decimals)
+        ? Number(entry.tokenAmount.decimals)
+        : decimals;
+
+    const rawCandidates = [
+      entry.rawAmount,
+      entry.tokenAmount?.rawAmount,
+      entry.tokenAmount?.amount,
+    ];
+    for (const rawCandidate of rawCandidates) {
+      if (rawCandidate === undefined || rawCandidate === null || rawCandidate === '') {
+        continue;
+      }
+      const rawValue = Number(rawCandidate);
+      if (!Number.isFinite(rawValue)) {
+        continue;
+      }
+
+      if (!Number.isFinite(candidateDecimals) || candidateDecimals < 0) {
+        continue;
+      }
+
+      return rawValue / Math.pow(10, candidateDecimals);
     }
 
-    const tokenDecimals = Number.isFinite(entry.decimals)
-      ? Number(entry.decimals)
-      : decimals;
+    const amountCandidate = entry.amount ?? entry.balance;
+    if (amountCandidate !== undefined && amountCandidate !== null && amountCandidate !== '') {
+      const parsedAmount = Number(amountCandidate);
+      if (Number.isFinite(parsedAmount)) {
+        const treatAsUi = (typeof amountCandidate === 'string' && amountCandidate.includes('.'))
+          || !Number.isInteger(parsedAmount)
+          || candidateDecimals === 0;
 
-    return rawAmount / Math.pow(10, tokenDecimals);
+        if (treatAsUi) {
+          return parsedAmount;
+        }
+
+        if (!Number.isFinite(candidateDecimals) || candidateDecimals < 0) {
+          return parsedAmount;
+        }
+
+        return parsedAmount / Math.pow(10, candidateDecimals);
+      }
+    }
+
+    return 0;
   }
 
   /**
@@ -161,8 +256,8 @@ export class WalletInsights {
       return 0;
     }
 
-    const entries = await this.fetchWalletBalances(walletAddress);
-    const balanceEntry = entries.find(entry => entry?.mint === tokenAddress);
+    const snapshot = await this.#ensureWalletSnapshot(walletAddress);
+    const balanceEntry = snapshot.tokens.find(entry => entry?.mint === tokenAddress);
     if (!balanceEntry) {
       return 0;
     }
@@ -190,27 +285,30 @@ export class WalletInsights {
    */
   async getWalletTopTokens(walletAddress, options = {}) {
     const { minUsd = 5, limit = 5, maxLookups = 12 } = options;
-    const entries = await this.fetchWalletBalances(walletAddress);
+    const snapshot = await this.#ensureWalletSnapshot(walletAddress);
+    const entries = snapshot.tokens;
 
     if (!entries.length) {
       return [];
     }
 
-    const sortedEntries = entries
-      .filter(entry => {
-        const amount = Number(entry?.amount ?? entry?.uiAmount ?? 0);
-        return Number.isFinite(amount) && amount > 0;
+    const candidateEntries = entries
+      .map(entry => {
+        const entryDecimals = Number.isFinite(entry?.decimals)
+          ? Number(entry.decimals)
+          : Number.isFinite(entry?.tokenAmount?.decimals)
+            ? Number(entry.tokenAmount.decimals)
+            : 9;
+        const uiAmount = this.calculateUiAmountFromEntry(entry, entryDecimals);
+        return { entry, uiAmount };
       })
-      .sort((a, b) => {
-        const amountA = Number(a.amount ?? 0);
-        const amountB = Number(b.amount ?? 0);
-        return amountB - amountA;
-      })
+      .filter(item => Number.isFinite(item.uiAmount) && item.uiAmount > 0)
+      .sort((a, b) => b.uiAmount - a.uiAmount)
       .slice(0, maxLookups);
 
     const topTokens = [];
 
-    for (const entry of sortedEntries) {
+    for (const { entry, uiAmount } of candidateEntries) {
       const mint = entry?.mint;
       if (!mint) {
         continue;
@@ -232,14 +330,18 @@ export class WalletInsights {
 
       const decimals = Number.isFinite(entry.decimals)
         ? Number(entry.decimals)
-        : tokenInfo.decimals ?? 9;
+        : tokenInfo.decimals ?? Number.isFinite(entry.tokenAmount?.decimals)
+          ? Number(entry.tokenAmount.decimals)
+          : 9;
 
-      const uiAmount = this.calculateUiAmountFromEntry(entry, decimals);
-      if (!Number.isFinite(uiAmount) || uiAmount <= 0) {
+      const effectiveAmount = Number.isFinite(uiAmount)
+        ? uiAmount
+        : this.calculateUiAmountFromEntry(entry, decimals);
+      if (!Number.isFinite(effectiveAmount) || effectiveAmount <= 0) {
         continue;
       }
 
-      const usdValue = tokenInfo.usdPrice * uiAmount;
+      const usdValue = tokenInfo.usdPrice * effectiveAmount;
       if (usdValue < minUsd) {
         continue;
       }
@@ -248,7 +350,7 @@ export class WalletInsights {
         symbol: tokenInfo.symbol || mint.slice(0, 6),
         name: tokenInfo.name || tokenInfo.symbol || mint.slice(0, 12),
         mint,
-        amount: uiAmount,
+        amount: effectiveAmount,
         usdValue,
         price: tokenInfo.usdPrice,
         decimals,
@@ -358,6 +460,16 @@ export class WalletInsights {
       holdingsSnapshot: sanitizedSnapshot,
       additionalTokenBalances,
     };
+  }
+
+  async getWalletAssets(walletAddress, options = {}) {
+    const snapshot = await this.#ensureWalletSnapshot(walletAddress, options);
+    return snapshot.assets || [];
+  }
+
+  getWalletSnapshotMetadata(walletAddress) {
+    const cached = this.walletBalanceCache.get(walletAddress);
+    return cached?.meta || null;
   }
 
   #evictIfNeeded() {

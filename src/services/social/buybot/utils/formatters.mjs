@@ -1,4 +1,4 @@
-import { formatAddress, formatLargeNumber, formatTokenAmount } from '../../../utils/walletFormatters.mjs';
+import { formatAddress, formatLargeNumber, formatTokenAmount } from '../../../../utils/walletFormatters.mjs';
 
 export const EMOJI_SHORTCODE_MAP = Object.freeze({
   fire: '🔥',

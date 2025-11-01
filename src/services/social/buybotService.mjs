@@ -2604,11 +2604,96 @@ export class BuybotService {
    * @param {string} _collectionAddress - NFT collection address
    * @returns {Promise<number>} NFT count
    */
-  async getWalletNftCount(_walletAddress, _collectionAddress) {
-    // NFT tracking not currently supported without Helius
-    // TODO: Implement alternative NFT data source if needed
-    this.logger.debug('[BuybotService] NFT tracking not currently supported');
-    return 0;
+  async getWalletNftCount(walletAddress, collectionAddress) {
+    if (!walletAddress || !collectionAddress) {
+      return 0;
+    }
+
+    if (!this.walletInsights || typeof this.walletInsights.getWalletAssets !== 'function') {
+      this.logger.debug('[BuybotService] Wallet insights unavailable for NFT counting');
+      return 0;
+    }
+
+    try {
+      const assets = await this.walletInsights.getWalletAssets(walletAddress);
+      if (!Array.isArray(assets) || assets.length === 0) {
+        return 0;
+      }
+
+      const normalizedCollection = collectionAddress.toLowerCase();
+
+      const matchesCollection = (asset = {}) => {
+        const rawValues = [
+          asset.collectionAddress,
+          asset.collectionMint,
+          asset.collectionId,
+          asset.collection,
+          asset.groupingValue,
+          asset.groupValue,
+          asset.group,
+          asset.grouping?.value,
+          asset.grouping?.groupValue,
+          asset.collectionInfo?.address,
+          asset.collectionInfo?.collectionAddress,
+          asset.collectionInfo?.id,
+          asset.collectionInfo?.mint,
+          asset.collection?.address,
+          asset.collection?.id,
+          asset.collection?.mint,
+        ].filter(value => typeof value === 'string' && this.isValidSolanaAddress(value));
+
+        const normalizedValues = rawValues.map(value => value.toLowerCase());
+        if (normalizedValues.includes(normalizedCollection)) {
+          return true;
+        }
+
+        const groupingArray = Array.isArray(asset.grouping)
+          ? asset.grouping
+          : Array.isArray(asset.groupings)
+            ? asset.groupings
+            : null;
+
+        if (groupingArray) {
+          for (const group of groupingArray) {
+            const groupKey = group?.group_key || group?.groupKey || group?.key;
+            const groupingValue = group?.group_value || group?.groupValue || group?.value;
+            if (groupKey && groupKey !== 'collection') {
+              continue;
+            }
+            if (typeof groupingValue === 'string' && this.isValidSolanaAddress(groupingValue) && groupingValue.toLowerCase() === normalizedCollection) {
+              return true;
+            }
+          }
+        }
+
+        const collectionArray = Array.isArray(asset.collections) ? asset.collections : null;
+        if (collectionArray) {
+          for (const collection of collectionArray) {
+            const values = [
+              collection?.address,
+              collection?.id,
+              collection?.mint,
+            ]
+              .filter(value => typeof value === 'string' && this.isValidSolanaAddress(value))
+              .map(value => value.toLowerCase());
+            if (values.includes(normalizedCollection)) {
+              return true;
+            }
+          }
+        }
+
+        return false;
+      };
+
+      const count = assets.reduce((total, asset) => {
+        return matchesCollection(asset) ? total + 1 : total;
+      }, 0);
+
+      return count;
+    } catch (error) {
+      this.logger.warn(`[BuybotService] Failed to calculate NFT count for ${formatAddress(walletAddress)}: ${error.message}`);
+      return 0;
+    }
   }
 
   /**
