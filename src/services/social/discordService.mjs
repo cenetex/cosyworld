@@ -453,12 +453,17 @@ export class DiscordService {
       }
       this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
       
-      // Store avatar ID for reply tracking
-      const avatarId = (avatar._id || avatar.id).toString();
-      sentMessage.rati = {
-        avatarId: avatarId,
-      };
-      this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
+      // Store avatar ID for reply tracking when available (older encounters may omit avatar ids)
+      const rawAvatarId = avatar?._id ?? avatar?.id;
+      if (rawAvatarId !== undefined && rawAvatarId !== null) {
+        const avatarId = rawAvatarId.toString();
+        sentMessage.rati = {
+          avatarId,
+        };
+        this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
+      } else {
+        this.logger.warn?.(`[DiscordService] Missing avatar id for ${avatar.name}; skipping avatarId attachment on message ${sentMessage.id}`);
+      }
       
       sentMessage.guild = channel.guild;
       sentMessage.channel = channel;
