@@ -32,7 +32,7 @@ async function main() {
     const wallets = [
       {
         address: '7Xg2gNoQ6HcF9xUwZEMhvK1XkZKmg5zGx9Qd3mK9pump',
-        context: { tokenSymbol: 'RATi', amount: '1000', usdValue: 500 }
+        context: { tokenSymbol: 'PRIME', amount: '1000', usdValue: 500 }
       },
       {
         address: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG7pqBvX',

@@ -84,7 +84,7 @@ import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.m
 
 /**
  * @typedef {Object} WalletAvatarContext
- * @property {string} tokenSymbol - Token symbol (e.g., 'RATi', 'SOL')
+ * @property {string} tokenSymbol - Token symbol (e.g., 'BONK', 'SOL')
  * @property {string} tokenAddress - Token mint address
  * @property {number} amount - Transaction amount
  * @property {number} [usdValue] - USD value of transaction
@@ -122,7 +122,7 @@ export class AvatarService {
     this.statService = statService;
     this.schemaService = schemaService;
     this.logger = logger;
-  this.walletInsights = walletInsights;
+        this.walletInsights = walletInsights;
 
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
@@ -156,7 +156,7 @@ export class AvatarService {
       this.avatarsCollection.createIndex({ walletAddress: 1 }, { sparse: true }),
       this.avatarsCollection.createIndex({ summoner: 1 }),
       this.avatarsCollection.createIndex({ lastActivityAt: -1 }, { sparse: true }),
-      this.avatarsCollection.createIndex({ 'tokenBalances.RATi.balance': -1 }, { sparse: true }),
+  this.avatarsCollection.createIndex({ 'tokenBalances.$**': 1 }, { sparse: true }),
       
       // Compound indexes for common queries
       this.avatarsCollection.createIndex({ status: 1, walletAddress: 1 }, { sparse: true }),
@@ -1388,23 +1388,44 @@ export class AvatarService {
     const walletShort = formatAddress(walletAddress);
 
     context = await this.enrichWalletContext(walletAddress, context);
-    
+
+    const normalizedTokenSymbol = context.tokenSymbol?.replace(/^\$/, '');
+    const normalizedBalance = Number.isFinite(context.currentBalance)
+      ? context.currentBalance
+      : Number.parseFloat(context.currentBalance ?? 0) || 0;
+
+    const tokenPreferences = this.configService?.getTokenPreferences
+      ? this.configService.getTokenPreferences({
+          symbol: normalizedTokenSymbol,
+          address: context.tokenAddress
+        })
+      : null;
+
+    const walletAvatarPrefs = tokenPreferences?.walletAvatar || {};
+    const minBalanceForFullAvatar = Number.isFinite(walletAvatarPrefs.minBalanceForFullAvatar)
+      ? walletAvatarPrefs.minBalanceForFullAvatar
+      : 0;
+
+    const isHolder = Boolean(walletAvatarPrefs.createFullAvatar) && normalizedBalance > minBalanceForFullAvatar;
+    const shouldAutoActivate = Boolean(walletAvatarPrefs.autoActivate);
+    const shouldSendIntro = Boolean(walletAvatarPrefs.sendIntro);
+
     // Check if avatar already exists for this wallet (uses indexed query)
     let avatar = await this.getAvatarByWalletAddress(walletAddress);
     
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
-      // Normalize token symbol by removing $ prefix if present
-      const normalizedTokenSymbol = context.tokenSymbol?.replace(/^\$/, '');
-      const isRatiHolder = normalizedTokenSymbol === 'RATi' && context.currentBalance > 0;
       const isPartialAvatar = !avatar.imageUrl;
-      const needsUpgrade = isPartialAvatar && isRatiHolder;
+      const needsUpgrade = isPartialAvatar && isHolder;
       
-      // Debug logging for upgrade decision
-      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, isRatiHolder: ${isRatiHolder}, needsUpgrade: ${needsUpgrade}`);
+    // Debug logging for upgrade decision
+    this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, eligibleHolder: ${isHolder}, needsUpgrade: ${needsUpgrade}`);
       
       if (needsUpgrade) {
-        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (RATi holder with ${context.currentBalance} tokens)`);
+        const balanceDescription = context.tokenSymbol
+          ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol}`
+          : `${formatLargeNumber(normalizedBalance)} tokens`;
+        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (eligible holder with ${balanceDescription})`);
         
         try {
           // Generate image for existing avatar
@@ -1549,15 +1570,12 @@ export class AvatarService {
       return avatar;
     }
     
-    // Create new avatar - RATi holders get images, others don't
-    // Normalize token symbol by removing $ prefix if present
-    const normalizedTokenSymbol = context.tokenSymbol?.replace(/^\$/, '');
-    const isRatiHolder = normalizedTokenSymbol === 'RATi' && context.currentBalance > 0;
+  // Create new avatar - token preferences decide whether to generate a full image
     
     // Build prompt for avatar creation
     const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';
-    const balanceInfo = context.currentBalance 
-      ? `with ${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
+    const balanceInfo = normalizedBalance 
+      ? `with ${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
       : '';
     
     const prompt = `Create a character for wallet ${walletShort}, a Solana ${tokenInfo} ${balanceInfo}. Make them unique and memorable.`;
@@ -1568,9 +1586,9 @@ export class AvatarService {
     
     while (!avatar && retries < maxRetries) {
       try {
-        this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, RATi holder: ${isRatiHolder})`);
+        this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, fullAvatarEligible: ${isHolder})`);
         
-        if (isRatiHolder) {
+        if (isHolder) {
           // Full avatar with image
           avatar = await this.createAvatar({
             prompt,
@@ -1599,7 +1617,7 @@ export class AvatarService {
       } catch (error) {
         this.logger?.error?.(`[AvatarService] Wallet avatar creation attempt ${retries + 1} failed for ${walletShort}:`, {
           error: error.message,
-          isRatiHolder
+          fullAvatarEligible: isHolder
         });
       }
       
@@ -1690,8 +1708,8 @@ export class AvatarService {
     
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
-    // Activate in channel and send introduction if RATi holder
-    if (isRatiHolder && context.discordChannelId) {
+    // Activate in channel and optionally send introduction per token preferences
+    if (shouldAutoActivate && context.discordChannelId) {
       try {
         // Activate in channel
         await this.activateAvatarInChannel(
@@ -1701,11 +1719,11 @@ export class AvatarService {
         this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${context.discordChannelId}`);
         
         // Send introduction message (only for new avatars)
-        if (!avatar._existing && this.configService?.services?.discordService) {
+        if (shouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
           try {
-            const balanceStr = context.currentBalance 
-              ? `${formatLargeNumber(context.currentBalance)} ${context.tokenSymbol}`
-              : `${context.tokenSymbol}`;
+            const balanceStr = normalizedBalance
+              ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
+              : `${context.tokenSymbol || 'their token position'}`;
             
             // Generate brief introduction (1 sentence, trading-themed)
             const introPrompt = [
