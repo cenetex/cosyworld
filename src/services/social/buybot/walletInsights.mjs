@@ -350,6 +350,8 @@ export class WalletInsights {
         continue;
       }
 
+      const priceChange = tokenInfo?.priceChange || {};
+
       topTokens.push({
         symbol: tokenInfo.symbol || mint.slice(0, 6),
         name: tokenInfo.name || tokenInfo.symbol || mint.slice(0, 12),
@@ -358,6 +360,10 @@ export class WalletInsights {
         usdValue,
         price: tokenInfo.usdPrice,
         decimals,
+        change1h: Number.isFinite(priceChange?.h1) ? priceChange.h1 : null,
+        change24h: Number.isFinite(priceChange?.h24) ? priceChange.h24 : null,
+        change7d: Number.isFinite(priceChange?.d7) ? priceChange.d7 : null,
+        change30d: Number.isFinite(priceChange?.d30) ? priceChange.d30 : null,
       });
 
       if (topTokens.length >= limit) {
@@ -397,6 +403,10 @@ export class WalletInsights {
         mint: holding.mint || null,
         priceUsd: Number.isFinite(holding.price) ? holding.price : null,
         decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+        change1h: Number.isFinite(holding.change1h) ? holding.change1h : null,
+        change24h: Number.isFinite(holding.change24h) ? holding.change24h : null,
+        change7d: Number.isFinite(holding.change7d) ? holding.change7d : null,
+        change30d: Number.isFinite(holding.change30d) ? holding.change30d : null,
         lastUpdated: new Date(),
       };
     }
@@ -451,6 +461,10 @@ export class WalletInsights {
         usdValue: Number.isFinite(holding.usdValue) ? Math.round(holding.usdValue * 100) / 100 : null,
         price: Number.isFinite(holding.price) ? Math.round(holding.price * 1e6) / 1e6 : null,
         decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+        change1h: Number.isFinite(holding.change1h) ? Math.round(holding.change1h * 100) / 100 : null,
+        change24h: Number.isFinite(holding.change24h) ? Math.round(holding.change24h * 100) / 100 : null,
+        change7d: Number.isFinite(holding.change7d) ? Math.round(holding.change7d * 100) / 100 : null,
+        change30d: Number.isFinite(holding.change30d) ? Math.round(holding.change30d * 100) / 100 : null,
       }))
       .filter(holding => holding.symbol && holding.mint)
       .sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))

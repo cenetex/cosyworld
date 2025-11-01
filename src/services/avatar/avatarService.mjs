@@ -1500,6 +1500,18 @@ export class AvatarService {
           if (balanceData.decimals !== undefined && balanceData.decimals !== null) {
             extraBalance.decimals = balanceData.decimals;
           }
+          if (balanceData.change1h !== undefined) {
+            extraBalance.change1h = Number.isFinite(balanceData.change1h) ? balanceData.change1h : null;
+          }
+          if (balanceData.change24h !== undefined) {
+            extraBalance.change24h = Number.isFinite(balanceData.change24h) ? balanceData.change24h : null;
+          }
+          if (balanceData.change7d !== undefined) {
+            extraBalance.change7d = Number.isFinite(balanceData.change7d) ? balanceData.change7d : null;
+          }
+          if (balanceData.change30d !== undefined) {
+            extraBalance.change30d = Number.isFinite(balanceData.change30d) ? balanceData.change30d : null;
+          }
 
           updateData[`tokenBalances.${symbol}`] = extraBalance;
         }
@@ -1514,6 +1526,10 @@ export class AvatarService {
           usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
           price: Number.isFinite(holding.price) ? holding.price : null,
           decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+          change1h: Number.isFinite(holding.change1h) ? holding.change1h : null,
+          change24h: Number.isFinite(holding.change24h) ? holding.change24h : null,
+          change7d: Number.isFinite(holding.change7d) ? holding.change7d : null,
+          change30d: Number.isFinite(holding.change30d) ? holding.change30d : null,
           updatedAt: new Date()
         }));
       }
@@ -1622,6 +1638,10 @@ export class AvatarService {
           mint: balanceData.mint || null,
           priceUsd: Number.isFinite(balanceData.priceUsd) ? balanceData.priceUsd : null,
           decimals: Number.isFinite(balanceData.decimals) ? balanceData.decimals : null,
+          change1h: Number.isFinite(balanceData.change1h) ? balanceData.change1h : null,
+          change24h: Number.isFinite(balanceData.change24h) ? balanceData.change24h : null,
+          change7d: Number.isFinite(balanceData.change7d) ? balanceData.change7d : null,
+          change30d: Number.isFinite(balanceData.change30d) ? balanceData.change30d : null,
         };
       }
     }
@@ -1646,6 +1666,10 @@ export class AvatarService {
                 usdValue: Number.isFinite(holding.usdValue) ? holding.usdValue : null,
                 price: Number.isFinite(holding.price) ? holding.price : null,
                 decimals: Number.isFinite(holding.decimals) ? holding.decimals : null,
+                change1h: Number.isFinite(holding.change1h) ? holding.change1h : null,
+                change24h: Number.isFinite(holding.change24h) ? holding.change24h : null,
+                change7d: Number.isFinite(holding.change7d) ? holding.change7d : null,
+                change30d: Number.isFinite(holding.change30d) ? holding.change30d : null,
                 updatedAt: new Date()
               }))
             : [],

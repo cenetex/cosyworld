@@ -49,7 +49,29 @@ export class PromptService  {
       const text = String(value).replace(/\s+/g, ' ').trim();
       return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
     };
-    
+    const toNumber = (value) => {
+      if (value === null || value === undefined) return null;
+      const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+    const formatNumber = (value, maximumFractionDigits = 2) => {
+      const num = toNumber(value);
+      if (num === null) return 'n/a';
+      return num.toLocaleString('en-US', { maximumFractionDigits });
+    };
+    const formatUsd = (value, maximumFractionDigits = 2) => {
+      const num = toNumber(value);
+      if (num === null) return 'n/a';
+      return `$${num.toLocaleString('en-US', { maximumFractionDigits })}`;
+    };
+    const formatChange = (value) => {
+      const num = toNumber(value);
+      if (num === null) return 'n/a';
+      const fixed = Math.abs(num) >= 10 ? num.toFixed(1) : num.toFixed(2);
+      const sign = num > 0 ? '+' : num < 0 ? '' : '';
+      return `${sign}${fixed}%`;
+    };
+
     // Resolve a real location document for the avatar's current channel (creates one if missing)
     let location = null;
     try {
@@ -114,6 +136,41 @@ export class PromptService  {
         ? locationDesc.substring(0, 200) + '...' 
         : locationDesc;
       parts.push(`Location: ${location.name}${truncatedDesc ? ' - ' + truncatedDesc : ''}`);
+    }
+
+    if (avatar.walletAddress) {
+      const topTokensSource = Array.isArray(avatar.walletTopTokens) && avatar.walletTopTokens.length
+        ? avatar.walletTopTokens
+        : Array.isArray(avatar.walletContext?.walletTopTokens) ? avatar.walletContext.walletTopTokens : [];
+
+      const normalizedTokens = topTokensSource
+        .map(token => ({
+          symbol: token?.symbol || token?.mint?.slice(0, 6) || 'TOKEN',
+          amount: toNumber(token?.amount),
+          usdValue: toNumber(token?.usdValue),
+          price: toNumber(token?.price ?? token?.priceUsd),
+          change24h: toNumber(token?.change24h ?? token?.change24H),
+          change7d: toNumber(token?.change7d ?? token?.change7D),
+          change30d: toNumber(token?.change30d ?? token?.change30D),
+        }))
+        .filter(token => token.symbol)
+        .sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0))
+        .slice(0, 3);
+
+      if (normalizedTokens.length) {
+        parts.push('Top Tokens:');
+        normalizedTokens.forEach(token => {
+          const amountStr = formatNumber(token.amount, 3);
+          const usdStr = formatUsd(token.usdValue, 0);
+          const priceStr = token.price !== null ? formatUsd(token.price, token.price < 1 ? 4 : 2) : 'n/a';
+          const changeSummary = [
+            `24h ${formatChange(token.change24h)}`,
+            `7d ${formatChange(token.change7d)}`,
+            `30d ${formatChange(token.change30d)}`
+          ].join(', ');
+          parts.push(`- ${token.symbol}: ${amountStr} (${usdStr} @ ${priceStr}) - ${changeSummary}`);
+        });
+      }
     }
     
     // Include latest web search context to ground current knowledge

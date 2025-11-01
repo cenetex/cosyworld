@@ -654,7 +654,8 @@ export class BuybotService {
           liquidity: cached.liquidity,
           name: cached.name,
           symbol: cached.symbol,
-          image: cached.image
+          image: cached.image,
+          priceChange: cached.priceChange || null
         };
       }
 
@@ -684,6 +685,20 @@ export class BuybotService {
         return null;
       }
 
+      const toNumber = (value) => {
+        if (value === null || value === undefined) return null;
+        const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+        return Number.isFinite(num) ? num : null;
+      };
+
+      const priceChange = {
+        h1: toNumber(bestPair?.priceChange?.h1),
+        h6: toNumber(bestPair?.priceChange?.h6),
+        h24: toNumber(bestPair?.priceChange?.h24),
+        d7: toNumber(bestPair?.priceChange?.d7),
+        d30: toNumber(bestPair?.priceChange?.d30),
+      };
+
       const result = {
         usdPrice: parseFloat(bestPair.priceUsd),
         marketCap: bestPair.fdv || bestPair.marketCap,
@@ -691,6 +706,7 @@ export class BuybotService {
         name: bestPair.baseToken?.name || 'Unknown Token',
         symbol: bestPair.baseToken?.symbol || 'UNKNOWN',
         image: bestPair.info?.imageUrl || null,
+        priceChange,
       };
 
       // Cache the result
@@ -701,12 +717,13 @@ export class BuybotService {
         name: result.name,
         symbol: result.symbol,
         image: result.image,
+        priceChange,
         timestamp: Date.now()
       });
 
       this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
       
-      return result;
+  return result;
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch price from DexScreener:`, error);
       return null;
@@ -747,6 +764,7 @@ export class BuybotService {
           image: dexScreenerData.image || null,
           usdPrice: dexScreenerData.usdPrice || null,
           marketCap: dexScreenerData.marketCap || null,
+          priceChange: dexScreenerData.priceChange || null,
         };
         
         // Cache the token info
@@ -770,6 +788,7 @@ export class BuybotService {
         image: null,
         usdPrice: null,
         marketCap: null,
+        priceChange: null,
         warning: 'Token not found - may be newly created or invalid',
       };
       
