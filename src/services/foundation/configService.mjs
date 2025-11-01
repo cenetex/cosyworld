@@ -274,8 +274,8 @@ export class ConfigService {
         itemCreation: true
       },
       viewDetailsEnabled: true,
-      enableForumTool: false, // ForumTool disabled by default
-      forumToolChannelId: null // Optional channel restriction
+      enableWebSearchTool: true,
+      webSearchToolChannelId: null
     };
   }
 

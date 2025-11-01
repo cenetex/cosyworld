@@ -37,6 +37,7 @@ import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.m
  * @property {boolean} [isPartial] - True if no image generated (wallet avatars only)
  * @property {Date} [lastActivityAt] - Last transaction timestamp (wallet avatars only)
  * @property {number} [activityCount] - Total transaction count (wallet avatars only)
+ * @property {Object} [webContext] - Latest web search context (history, opened summaries)
  * @property {boolean} [_existing] - Flag indicating avatar already existed (internal use)
  */
 

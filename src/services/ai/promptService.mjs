@@ -44,6 +44,11 @@ export class PromptService  {
    */
   async getFullSystemPrompt(avatar, _db) {
     const latestThought = await this.getLatestThought(avatar);
+    const clip = (value, limit = 160) => {
+      if (!value) return '';
+      const text = String(value).replace(/\s+/g, ' ').trim();
+      return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+    };
     
     // Resolve a real location document for the avatar's current channel (creates one if missing)
     let location = null;
@@ -111,6 +116,28 @@ export class PromptService  {
       parts.push(`Location: ${location.name}${truncatedDesc ? ' - ' + truncatedDesc : ''}`);
     }
     
+    // Include latest web search context to ground current knowledge
+    const webContext = avatar.webContext || {};
+    const latestSearch = webContext.latestSearch;
+    if (latestSearch?.query) {
+      const when = latestSearch.timestamp ? new Date(latestSearch.timestamp).toISOString().split('T')[0] : 'recently';
+      parts.push(`Recent web search (${when}): "${latestSearch.query}"`);
+      (latestSearch.results || []).slice(0, 2).forEach((result, idx) => {
+        const headline = clip(result?.title || `Result ${idx + 1}`, 120);
+        const snippet = clip(result?.snippet || result?.reason || '', 160);
+        parts.push(`Result ${idx + 1}: ${headline}${snippet ? ' - ' + snippet : ''}`);
+      });
+    }
+
+    const latestOpened = webContext.latestOpened;
+    if (latestOpened?.summary) {
+      const openedWhen = latestOpened.openedAt ? new Date(latestOpened.openedAt).toISOString().split('T')[0] : 'recently';
+      parts.push(`Opened source (${openedWhen}): ${clip(latestOpened.title, 120)} - ${clip(latestOpened.summary, 200)}`);
+      if (Array.isArray(latestOpened.keyPoints) && latestOpened.keyPoints.length) {
+        parts.push(`Key takeaways: ${latestOpened.keyPoints.slice(0, 3).map(point => clip(point, 90)).join(' | ')}`);
+      }
+    }
+
     // Add tool context
     if (toolContext) {
       parts.push(toolContext);

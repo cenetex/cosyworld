@@ -17,8 +17,8 @@ const ALLOWED_KEYS = [
   'features.combat',
   'features.itemCreation',
   'viewDetailsEnabled',
-  'enableForumTool',
-  'forumToolChannelId',
+  'enableWebSearchTool',
+  'webSearchToolChannelId',
   'summonEmoji'
 ];
 
