@@ -81,6 +81,13 @@ async function main() {
     const config = container.resolve('configService');
     config.db = await db.getDatabase(); // your system relies on this
 
+    try {
+      await config.refreshTokenPreferences({ force: true, seedIfMissing: true });
+      logger.log('[startup] Token preferences loaded');
+    } catch (e) {
+      logger.warn(`[startup] Token preferences not loaded: ${e.message}`);
+    }
+
     // Attach SecretsService to Mongo so secrets persist in the 'secrets' collection
     try {
       const secrets = container.resolve('secretsService');

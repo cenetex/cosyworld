@@ -35,7 +35,7 @@ const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 // Config utility functions
-async function loadConfig() {
+async function loadConfig(services = null) {
   const fallback = {
     whitelistedGuilds: [],
     emojis: { summon: "🔮", breed: "🏹", attack: "⚔️", defend: "🛡️" },
@@ -64,7 +64,25 @@ async function loadConfig() {
       await fs.writeFile(userPath, JSON.stringify(initial, null, 2));
       userConfig = initial;
     }
-    return { ...fallback, ...defaultConfig, ...userConfig };
+    const merged = { ...fallback, ...defaultConfig, ...userConfig };
+
+    if (services?.configService?.getTokenPreferencesSnapshot) {
+      try {
+        const tokenSnapshot = await services.configService.getTokenPreferencesSnapshot({ refresh: true });
+        if (tokenSnapshot) {
+          merged.tokens = {
+            ...(merged.tokens || {}),
+            defaults: tokenSnapshot.defaults || merged.tokens?.defaults || {},
+            overrides: tokenSnapshot.overrides || merged.tokens?.overrides || {},
+            prioritySymbols: tokenSnapshot.prioritySymbols || merged.tokens?.prioritySymbols || []
+          };
+        }
+      } catch (error) {
+        console.warn('[admin] Failed to hydrate token preferences from database:', error.message);
+      }
+    }
+
+    return merged;
   } catch (error) {
     // Final fallback without logging noise
     return fallback;
@@ -456,7 +474,7 @@ function createRouter(db, services) {
   // ===== Configuration Routes =====
   router.get('/config', asyncHandler(async (req, res) => {
     try {
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       res.json(config);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -466,7 +484,7 @@ function createRouter(db, services) {
   router.post('/whitelist/guild', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.body;
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (!config.whitelistedGuilds) {
         config.whitelistedGuilds = [];
@@ -486,7 +504,7 @@ function createRouter(db, services) {
   router.delete('/whitelist/guild/:guildId', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.params;
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (config.whitelistedGuilds) {
         config.whitelistedGuilds = config.whitelistedGuilds.filter(id => id !== guildId);
@@ -559,7 +577,7 @@ function createRouter(db, services) {
         .toArray();
 
       // Get blacklisted users
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       const blacklistedUsers = await db.collection('user_spam_penalties')
         .find({})
         .sort({ strikeCount: -1 })
@@ -617,7 +635,7 @@ function createRouter(db, services) {
         }
       ];
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       res.json({
         success: true,
@@ -641,7 +659,7 @@ function createRouter(db, services) {
     try {
       const { features, rateLimit, prompts, adminRoles } = req.body;
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (features) config.features = features;
       if (rateLimit) config.rateLimit = rateLimit;
@@ -668,7 +686,7 @@ function createRouter(db, services) {
         return res.status(400).json({ error: 'Emoji configuration is required' });
       }
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       config.emojis = emojis;
       await saveUserConfig(config);
 
@@ -703,10 +721,29 @@ function createRouter(db, services) {
   // Wallet avatar token preference routes
   adminRouter.get('/token-preferences', asyncHandler(async (req, res) => {
     try {
-      const config = await loadConfig();
-      const tokensConfig = config.tokens || {};
-      const defaults = tokensConfig.defaults || {};
-      const overrides = tokensConfig.overrides || {};
+      const configService = services?.configService;
+      let tokenSnapshot = null;
+
+      if (configService?.getTokenPreferencesSnapshot) {
+        try {
+          tokenSnapshot = await configService.getTokenPreferencesSnapshot({ refresh: true });
+        } catch (snapshotError) {
+          console.warn('[Admin] Falling back to file-based token preferences:', snapshotError?.message || snapshotError);
+        }
+      }
+
+      if (!tokenSnapshot) {
+        const config = await loadConfig(services);
+        const tokensConfig = config.tokens || {};
+        tokenSnapshot = {
+          defaults: tokensConfig.defaults || {},
+          overrides: tokensConfig.overrides || {},
+          prioritySymbols: tokensConfig.prioritySymbols || []
+        };
+      }
+
+      const defaults = tokenSnapshot.defaults || {};
+      const overrides = tokenSnapshot.overrides || {};
 
       const normalizeSet = (items) => {
         const set = new Set();
@@ -788,7 +825,7 @@ function createRouter(db, services) {
         });
       }
 
-      const prioritySymbolsRaw = Array.isArray(tokensConfig.prioritySymbols) ? tokensConfig.prioritySymbols : [];
+      const prioritySymbolsRaw = Array.isArray(tokenSnapshot.prioritySymbols) ? tokenSnapshot.prioritySymbols : [];
       const prioritySymbols = normalizeSet(prioritySymbolsRaw);
       prioritySymbols.forEach(symbol => {
         registerToken({ symbol, source: 'priority' });
@@ -868,10 +905,6 @@ function createRouter(db, services) {
         return res.status(400).json({ error: 'walletAvatar payload is required' });
       }
 
-      const config = await loadConfig();
-      config.tokens = config.tokens || {};
-      config.tokens.defaults = config.tokens.defaults || {};
-
       const normalized = {
         createFullAvatar: !!walletAvatar.createFullAvatar,
         minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar.minBalanceForFullAvatar),
@@ -879,6 +912,25 @@ function createRouter(db, services) {
         sendIntro: !!walletAvatar.sendIntro
       };
 
+      const configService = services?.configService;
+
+      if (configService?.updateTokenDefaults) {
+        try {
+          const snapshot = await configService.updateTokenDefaults({ walletAvatar: normalized });
+          return res.json({
+            success: true,
+            defaults: {
+              walletAvatar: snapshot?.defaults?.walletAvatar || normalized
+            }
+          });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file defaults:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
+      config.tokens = config.tokens || {};
+      config.tokens.defaults = config.tokens.defaults || {};
       config.tokens.defaults.walletAvatar = {
         ...(config.tokens.defaults.walletAvatar || {}),
         ...normalized
@@ -886,6 +938,11 @@ function createRouter(db, services) {
 
       await saveUserConfig(config);
       await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token defaults after file write:', refreshError?.message || refreshError);
+      }
 
       res.json({
         success: true,
@@ -912,19 +969,59 @@ function createRouter(db, services) {
       }
       const normalizedOriginal = normalizeSymbol(originalSymbol);
 
-      const config = await loadConfig();
-      config.tokens = config.tokens || {};
-      config.tokens.overrides = config.tokens.overrides || {};
-
       const sanitizedSymbols = sanitizeSymbolList(aliasSymbols);
       const sanitizedAddresses = sanitizeStringList(addresses, { toLower: true });
 
+      const overridePayload = {
+        aliasSymbols: sanitizedSymbols,
+        addresses: sanitizedAddresses,
+        walletAvatar: {
+          createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
+          minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
+          autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
+          sendIntro: !!(walletAvatar && walletAvatar.sendIntro)
+        }
+      };
+
+      const trimmedEmoji = typeof displayEmoji === 'string' ? displayEmoji.trim() : displayEmoji;
+      if (trimmedEmoji) {
+        overridePayload.displayEmoji = String(trimmedEmoji);
+      }
+
+      const configService = services?.configService;
+      if (configService?.upsertTokenOverride) {
+        try {
+          const storedOverride = await configService.upsertTokenOverride(
+            normalizedSymbol,
+            overridePayload,
+            { originalSymbol: normalizedOriginal }
+          );
+
+          return res.json({
+            success: true,
+            override: {
+              symbol: storedOverride.symbol,
+              displayEmoji: storedOverride.displayEmoji ?? null,
+              aliasSymbols: storedOverride.symbols || [],
+              addresses: storedOverride.addresses || [],
+              walletAvatar: storedOverride.walletAvatar || overridePayload.walletAvatar
+            }
+          });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file override persistence:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
+      config.tokens = config.tokens || {};
+      config.tokens.overrides = config.tokens.overrides || {};
+
       const override = config.tokens.overrides[normalizedSymbol] ? { ...config.tokens.overrides[normalizedSymbol] } : {};
 
-      if (displayEmoji === null || displayEmoji === undefined || displayEmoji === '') {
+      if (trimmedEmoji === null || trimmedEmoji === undefined || trimmedEmoji === '') {
         delete override.displayEmoji;
-      } else {
-        override.displayEmoji = String(displayEmoji);
+      } else if (trimmedEmoji) {
+        override.displayEmoji = String(trimmedEmoji);
       }
 
       override.symbols = sanitizedSymbols.length ? sanitizedSymbols : undefined;
@@ -933,12 +1030,7 @@ function createRouter(db, services) {
       override.addresses = sanitizedAddresses.length ? sanitizedAddresses : undefined;
       if (!override.addresses) delete override.addresses;
 
-      override.walletAvatar = {
-        createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
-        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
-        autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
-        sendIntro: !!(walletAvatar && walletAvatar.sendIntro)
-      };
+      override.walletAvatar = overridePayload.walletAvatar;
 
       config.tokens.overrides[normalizedSymbol] = override;
 
@@ -948,6 +1040,11 @@ function createRouter(db, services) {
 
       await saveUserConfig(config);
       await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token overrides after file write:', refreshError?.message || refreshError);
+      }
 
       res.json({
         success: true,
@@ -972,7 +1069,20 @@ function createRouter(db, services) {
         return res.status(400).json({ error: 'Invalid symbol' });
       }
 
-      const config = await loadConfig();
+      const configService = services?.configService;
+      if (configService?.deleteTokenOverride) {
+        try {
+          const deleted = await configService.deleteTokenOverride(normalizedSymbol);
+          if (!deleted) {
+            return res.status(404).json({ error: 'Override not found' });
+          }
+          return res.json({ success: true });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file override delete:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
       if (!config.tokens?.overrides?.[normalizedSymbol]) {
         return res.status(404).json({ error: 'Override not found' });
       }
@@ -980,6 +1090,11 @@ function createRouter(db, services) {
       delete config.tokens.overrides[normalizedSymbol];
       await saveUserConfig(config);
       await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token overrides after delete:', refreshError?.message || refreshError);
+      }
 
       res.json({ success: true });
     } catch (error) {
