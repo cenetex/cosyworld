@@ -124,6 +124,8 @@ export class AvatarService {
     this.logger = logger;
         this.walletInsights = walletInsights;
 
+  this.registeredCollectionCache = { keys: [], expiresAt: 0 };
+
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
     this.avatarActivityCount = new Map(); // avatarId  → integer
@@ -884,6 +886,374 @@ export class AvatarService {
     return nftBacked || claimed[0];
   }
 
+  async getRegisteredNftCollectionKeys({ refresh = false } = {}) {
+    const now = Date.now();
+    if (!refresh && this.registeredCollectionCache && now < this.registeredCollectionCache.expiresAt) {
+      return this.registeredCollectionCache.keys;
+    }
+
+    try {
+      const db = await this._db();
+      const configs = await db
+        .collection('collection_configs')
+        .find({}, {
+          projection: {
+            key: 1,
+            aliases: 1,
+            addresses: 1,
+            alternateKeys: 1,
+            collectionAddress: 1,
+            collectionAddresses: 1,
+            contractAddress: 1,
+            contractAddresses: 1,
+            mint: 1,
+            mintAddresses: 1,
+            gateTarget: 1,
+          }
+        })
+        .toArray();
+
+      const collected = new Set();
+      const addValue = (value) => {
+        if (typeof value !== 'string') {
+          return;
+        }
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return;
+        }
+        collected.add(trimmed);
+      };
+
+      for (const cfg of configs) {
+        if (!cfg || typeof cfg !== 'object') {
+          continue;
+        }
+
+        addValue(cfg.key);
+        addValue(cfg.collectionAddress);
+        addValue(cfg.contractAddress);
+        addValue(cfg.mint);
+        addValue(cfg.gateTarget);
+
+        const candidateArrays = [
+          cfg.aliases,
+          cfg.addresses,
+          cfg.alternateKeys,
+          cfg.collectionAddresses,
+          cfg.contractAddresses,
+          cfg.mintAddresses,
+        ];
+
+        for (const arr of candidateArrays) {
+          if (!Array.isArray(arr)) {
+            continue;
+          }
+          for (const entry of arr) {
+            addValue(entry);
+          }
+        }
+      }
+
+      const keys = Array.from(collected);
+      this.registeredCollectionCache = {
+        keys,
+        expiresAt: now + 5 * 60_000,
+      };
+
+      return keys;
+    } catch (error) {
+      // collection configs might not exist yet; cache empty result briefly
+      this.logger?.debug?.(`[AvatarService] getRegisteredNftCollectionKeys fallback: ${error.message}`);
+      this.registeredCollectionCache = {
+        keys: [],
+        expiresAt: now + 60_000,
+      };
+      return [];
+    }
+  }
+
+  _extractCollectionIdentifiersFromAsset(asset) {
+    if (!asset || typeof asset !== 'object') {
+      return [];
+    }
+
+    const values = new Set();
+    const pushValue = (value) => {
+      if (typeof value !== 'string') {
+        return;
+      }
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return;
+      }
+      values.add(trimmed);
+    };
+
+    pushValue(asset.collectionAddress);
+    pushValue(asset.collectionMint);
+    pushValue(asset.collectionId);
+    pushValue(asset.collectionKey);
+    pushValue(asset.collectionSlug);
+    pushValue(asset.collectionName);
+    if (typeof asset.collection === 'string') {
+      pushValue(asset.collection);
+    }
+
+    const inspectObject = (obj) => {
+      if (!obj || typeof obj !== 'object') {
+        return;
+      }
+      pushValue(obj.address);
+      pushValue(obj.id);
+      pushValue(obj.mint);
+      pushValue(obj.collectionAddress);
+      pushValue(obj.contractAddress);
+      pushValue(obj.collection);
+      pushValue(obj.key);
+      if (Array.isArray(obj.addresses)) {
+        obj.addresses.forEach(pushValue);
+      }
+    };
+
+    inspectObject(asset.collection);
+    inspectObject(asset.collectionInfo);
+    inspectObject(asset.collection_data);
+    inspectObject(asset.collectionData);
+
+    const inspectArray = (arr) => {
+      if (!Array.isArray(arr)) {
+        return;
+      }
+      for (const entry of arr) {
+        if (typeof entry === 'string') {
+          pushValue(entry);
+        } else {
+          inspectObject(entry);
+        }
+      }
+    };
+
+    inspectArray(asset.collections);
+    inspectArray(asset.collectionAddresses);
+    inspectArray(asset.collectionIds);
+
+    const groupingCandidates = [];
+    if (Array.isArray(asset.grouping)) groupingCandidates.push(asset.grouping);
+    if (Array.isArray(asset.groupings)) groupingCandidates.push(asset.groupings);
+
+    for (const groups of groupingCandidates) {
+      for (const group of groups) {
+        const rawKey = group?.group_key || group?.groupKey || group?.key || '';
+        const normalizedKey = typeof rawKey === 'string' ? rawKey.toLowerCase() : '';
+        if (normalizedKey && normalizedKey !== 'collection') {
+          continue;
+        }
+        pushValue(group?.group_value || group?.groupValue || group?.value);
+      }
+    }
+
+    if (asset.grouping && !Array.isArray(asset.grouping) && typeof asset.grouping === 'object') {
+      const rawKey = asset.grouping.group_key || asset.grouping.groupKey || asset.grouping.key || '';
+      const normalizedKey = typeof rawKey === 'string' ? rawKey.toLowerCase() : '';
+      if (!normalizedKey || normalizedKey === 'collection') {
+        pushValue(asset.grouping.group_value || asset.grouping.groupValue || asset.grouping.value);
+      }
+    }
+
+    return Array.from(values);
+  }
+
+  _extractTokenIdentifiersFromAsset(asset) {
+    if (!asset || typeof asset !== 'object') {
+      return [];
+    }
+
+    const values = new Set();
+    const addValue = (value) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      if (typeof value === 'bigint') {
+        values.add(value.toString());
+        return;
+      }
+      if (typeof value === 'number') {
+        values.add(value.toString());
+        return;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) {
+          values.add(trimmed);
+        }
+      }
+    };
+
+    addValue(asset.tokenId);
+    addValue(asset.token_id);
+    addValue(asset.tokenID);
+    addValue(asset.tokenIDHex);
+    addValue(asset.tokenIDNumeric);
+    addValue(asset.id);
+    addValue(asset.mint);
+    addValue(asset.mintAddress);
+    addValue(asset.mint_address);
+    addValue(asset.address);
+    addValue(asset.assetId);
+    addValue(asset.nftId);
+    addValue(asset.nft_id);
+    addValue(asset.programId);
+
+    const inspectObject = (obj) => {
+      if (!obj || typeof obj !== 'object') {
+        return;
+      }
+      addValue(obj.tokenId);
+      addValue(obj.token_id);
+      addValue(obj.id);
+      addValue(obj.mint);
+      addValue(obj.address);
+      addValue(obj.nftId);
+    };
+
+    inspectObject(asset.token);
+    inspectObject(asset.nft);
+    inspectObject(asset.metadata);
+    inspectObject(asset.content);
+
+    if (Array.isArray(asset.tokenIds)) {
+      asset.tokenIds.forEach(addValue);
+    }
+
+    return Array.from(values);
+  }
+
+  async findRandomOwnedCollectionAvatar(walletAddress) {
+    if (!walletAddress) {
+      return null;
+    }
+
+    if (!this.walletInsights || typeof this.walletInsights.getWalletAssets !== 'function') {
+      return null;
+    }
+
+    const registeredKeys = await this.getRegisteredNftCollectionKeys();
+    if (!registeredKeys.length) {
+      return null;
+    }
+
+    const normalizedCollections = new Set(
+      registeredKeys
+        .map(value => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+        .filter(Boolean)
+    );
+
+    let assets;
+    try {
+      assets = await this.walletInsights.getWalletAssets(walletAddress, { refresh: 'if-stale' });
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Failed to load wallet assets for ${formatAddress(walletAddress)}: ${error.message}`);
+      return null;
+    }
+
+    if (!Array.isArray(assets) || assets.length === 0) {
+      return null;
+    }
+
+    const tokenQueryValues = new Set();
+    const tokenToCollections = new Map();
+
+    for (const asset of assets) {
+      const collectionIdentifiers = this._extractCollectionIdentifiersFromAsset(asset)
+        .map(value => value.toLowerCase())
+        .filter(value => normalizedCollections.has(value));
+
+      if (!collectionIdentifiers.length) {
+        continue;
+      }
+
+      const tokenIdentifiers = this._extractTokenIdentifiersFromAsset(asset);
+      if (!tokenIdentifiers.length) {
+        continue;
+      }
+
+      for (const tokenIdentifier of tokenIdentifiers) {
+        const tokenString = String(tokenIdentifier).trim();
+        if (!tokenString) {
+          continue;
+        }
+
+        const normalizedToken = tokenString.toLowerCase();
+        tokenQueryValues.add(tokenString);
+        tokenQueryValues.add(normalizedToken);
+
+        let collectionSet = tokenToCollections.get(normalizedToken);
+        if (!collectionSet) {
+          collectionSet = new Set();
+          tokenToCollections.set(normalizedToken, collectionSet);
+        }
+
+        for (const collection of collectionIdentifiers) {
+          collectionSet.add(collection);
+        }
+      }
+    }
+
+    if (tokenQueryValues.size === 0) {
+      return null;
+    }
+
+    let candidateAvatars = [];
+    try {
+      const db = await this._db();
+      candidateAvatars = await db.collection(this.AVATARS_COLLECTION)
+        .find({
+          'nft.tokenId': { $in: Array.from(tokenQueryValues) },
+          status: { $ne: 'dead' }
+        })
+        .toArray();
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Failed to load NFT avatars for ${formatAddress(walletAddress)}: ${error.message}`);
+      return null;
+    }
+
+    if (!candidateAvatars.length) {
+      return null;
+    }
+
+    const filtered = candidateAvatars.filter(avatar => {
+      const tokenIdRaw = avatar?.nft?.tokenId;
+      if (!tokenIdRaw && !avatar?.nft?.mint) {
+        return false;
+      }
+      const tokenIdString = (tokenIdRaw || avatar?.nft?.mint)?.toString?.().trim?.() || '';
+      if (!tokenIdString) {
+        return false;
+      }
+      const normalizedToken = tokenIdString.toLowerCase();
+      const collectionSet = tokenToCollections.get(normalizedToken);
+      if (!collectionSet || collectionSet.size === 0) {
+        return false;
+      }
+      const avatarCollection = (avatar?.nft?.collection || avatar?.collection || '')
+        .toString()
+        .trim()
+        .toLowerCase();
+      if (!avatarCollection) {
+        return false;
+      }
+      return collectionSet.has(avatarCollection);
+    });
+
+    if (!filtered.length) {
+      return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * filtered.length);
+    return filtered[randomIndex];
+  }
+
   /* -------------------------------------------------- */
   /*  AI‑ASSISTED GENERATION                             */
   /* -------------------------------------------------- */
@@ -1472,6 +1842,15 @@ export class AvatarService {
       avatar = claimedAvatar;
       claimedSource = true;
       this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
+    }
+
+    if (!avatar) {
+      const ownedCollectionAvatar = await this.findRandomOwnedCollectionAvatar(walletAddress);
+      if (ownedCollectionAvatar) {
+        avatar = ownedCollectionAvatar;
+        claimedSource = true;
+        this.logger?.info?.(`[AvatarService] Wallet ${walletShort} owns registered collection avatar ${ownedCollectionAvatar.emoji || '🛸'} ${ownedCollectionAvatar.name || 'Unnamed'}`);
+      }
     }
 
     if (!avatar && requireClaimedAvatar) {
