@@ -252,7 +252,8 @@ export class ConfigService {
           linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
         },
         notifications: {
-          onlySwapEvents: false
+          onlySwapEvents: false,
+          transferAggregationUsdThreshold: 0
         },
         walletAvatar: {
           createFullAvatar: false,
@@ -726,7 +727,19 @@ export class ConfigService {
     }
 
     if (override.notifications && typeof override.notifications === 'object') {
-      sanitized.notifications = override.notifications;
+      const notifications = {};
+      if (Object.prototype.hasOwnProperty.call(override.notifications, 'onlySwapEvents')) {
+        notifications.onlySwapEvents = !!override.notifications.onlySwapEvents;
+      }
+      if (Object.prototype.hasOwnProperty.call(override.notifications, 'transferAggregationUsdThreshold')) {
+        const threshold = Number(override.notifications.transferAggregationUsdThreshold);
+        if (Number.isFinite(threshold) && threshold >= 0) {
+          notifications.transferAggregationUsdThreshold = threshold;
+        }
+      }
+      if (Object.keys(notifications).length > 0) {
+        sanitized.notifications = notifications;
+      }
     }
 
     return sanitized;

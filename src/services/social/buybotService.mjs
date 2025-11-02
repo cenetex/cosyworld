@@ -47,7 +47,8 @@ const DEFAULT_TOKEN_PREFERENCES = {
     linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
   },
   notifications: {
-    onlySwapEvents: false
+    onlySwapEvents: false,
+    transferAggregationUsdThreshold: 0
   },
   walletAvatar: {
     createFullAvatar: false,
@@ -105,6 +106,10 @@ export class BuybotService {
     // channelId -> { totalVolume, events: [], lastSummaryAt }
     this.volumeTracking = new Map();
     this.VOLUME_THRESHOLD_USD = 100; // Post summary after $100 in volume
+
+  // Aggregation cache for low-value transfers before posting summary
+  this.transferAggregationBuckets = new Map();
+  this.TRANSFER_AGGREGATION_TTL_MS = 15 * 60_000; // Flush cached transfers after 15 minutes
     
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
@@ -1814,6 +1819,252 @@ export class BuybotService {
   }
 
   /**
+   * Remove expired transfer aggregation buckets to avoid stale memory.
+   * @param {number} [now=Date.now()] - Current timestamp in milliseconds
+   */
+  cleanupExpiredTransferAggregations(now = Date.now()) {
+    for (const [key, bucket] of this.transferAggregationBuckets.entries()) {
+      if (!bucket || !bucket.expireAt || bucket.expireAt <= now) {
+        this.transferAggregationBuckets.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Build a cache key for aggregating transfers.
+   * @param {string} channelId
+   * @param {Object} token
+   * @param {Object} event
+   * @returns {string|null}
+   */
+  getTransferAggregationKey(channelId, token, event) {
+    if (!channelId || !event?.from || !event?.to) {
+      return null;
+    }
+
+    const tokenKey = String(
+      token?.tokenAddress || token?.mint || token?.address || token?.tokenSymbol || token?.symbol || ''
+    ).toLowerCase();
+    const from = String(event.from).toLowerCase();
+    const to = String(event.to).toLowerCase();
+
+    if (!from || !to) {
+      return null;
+    }
+
+    return `${channelId}:${tokenKey}:${from}>${to}`;
+  }
+
+  /**
+   * Cache low-value transfers and emit a rolled-up summary when the configured threshold is reached.
+   * @param {string} channelId
+   * @param {Object} event
+   * @param {Object} token
+   * @param {Object} tokenPreferences
+   * @param {number|null} usdValue
+   * @returns {'continue'|'suppress'|'handled'}
+   */
+  async handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue) {
+    const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
+    const threshold = Number(thresholdRaw);
+
+    if (!Number.isFinite(threshold) || threshold <= 0) {
+      return 'continue';
+    }
+
+    if (!Number.isFinite(usdValue) || usdValue <= 0) {
+      return 'continue';
+    }
+
+    const key = this.getTransferAggregationKey(channelId, token, event);
+    if (!key) {
+      return 'continue';
+    }
+
+    // If this transfer alone exceeds the threshold, post immediately
+    if (usdValue >= threshold) {
+      if (this.transferAggregationBuckets.has(key)) {
+        this.transferAggregationBuckets.delete(key);
+      }
+      return 'continue';
+    }
+
+    this.cleanupExpiredTransferAggregations();
+
+    const decimals = event.decimals || token.tokenDecimals || 9;
+    const now = Date.now();
+    let bucket = this.transferAggregationBuckets.get(key);
+
+    if (!bucket) {
+      bucket = {
+        channelId,
+        tokenAddress: token?.tokenAddress || token?.mint || null,
+        tokenSymbol: token?.tokenSymbol || token?.symbol || '',
+        from: event.from,
+        to: event.to,
+        decimals,
+        totalUsd: 0,
+        totalAmount: 0,
+        events: [],
+        firstTimestamp: now,
+        lastTimestamp: now,
+        expireAt: now + this.TRANSFER_AGGREGATION_TTL_MS
+      };
+    }
+
+    const amountNumeric = Number(event.amount || 0);
+    bucket.totalUsd += usdValue;
+    if (Number.isFinite(amountNumeric)) {
+      bucket.totalAmount += amountNumeric;
+    }
+    bucket.events.push({
+      usdValue,
+      amount: event.amount,
+      formattedAmount: formatTokenAmount(event.amount, decimals),
+      timestamp: event.timestamp instanceof Date ? event.timestamp : new Date()
+    });
+    bucket.lastTimestamp = now;
+    bucket.expireAt = now + this.TRANSFER_AGGREGATION_TTL_MS;
+
+    this.transferAggregationBuckets.set(key, bucket);
+
+    if (bucket.totalUsd >= threshold) {
+      this.transferAggregationBuckets.delete(key);
+      await this.sendTransferAggregationSummary(channelId, token, bucket, threshold, tokenPreferences);
+      return 'handled';
+    }
+
+    this.logger?.debug?.('[BuybotService] Cached low-value transfer for aggregation', {
+      channelId,
+      token: bucket.tokenSymbol,
+      from: formatAddress(bucket.from),
+      to: formatAddress(bucket.to),
+      cachedUsd: bucket.totalUsd,
+      threshold
+    });
+
+    return 'suppress';
+  }
+
+  /**
+   * Format aggregation window for embed display.
+   * @param {number} startMs
+   * @param {number} endMs
+   * @returns {string}
+   */
+  formatAggregationWindow(startMs, endMs) {
+    const start = new Date(startMs);
+    const end = new Date(endMs);
+    if (start.toDateString() === end.toDateString()) {
+      return `${start.toLocaleTimeString()} → ${end.toLocaleTimeString()}`;
+    }
+    return `${start.toLocaleString()} → ${end.toLocaleString()}`;
+  }
+
+  /**
+   * Emit a Discord summary for aggregated low-value transfers.
+   * @param {string} channelId
+   * @param {Object} token
+   * @param {Object} bucket
+   * @param {number} threshold
+   * @param {Object} tokenPreferences
+   */
+  async sendTransferAggregationSummary(channelId, token, bucket, threshold, tokenPreferences) {
+    try {
+      const transferEmoji = tokenPreferences?.transferEmoji || '\uD83D\uDCE4';
+      const totalAmountDisplay = formatTokenAmount(bucket.totalAmount, bucket.decimals);
+      const windowLabel = this.formatAggregationWindow(bucket.firstTimestamp, bucket.lastTimestamp);
+      const minUsd = bucket.events.reduce((min, evt) => Math.min(min, evt.usdValue), Number.POSITIVE_INFINITY);
+      const maxUsd = bucket.events.reduce((max, evt) => Math.max(max, evt.usdValue), 0);
+
+      const recentTransfers = bucket.events
+        .slice(-5)
+        .map(evt => `• $${evt.usdValue.toFixed(2)} (${evt.formattedAmount} ${token.tokenSymbol})`)
+        .join('\n');
+
+      const embed = {
+        title: `${transferEmoji} ${token.tokenSymbol} Transfer Summary`,
+        description: `Multiple low-value transfers between \`${formatAddress(bucket.from)}\` and \`${formatAddress(bucket.to)}\` exceeded the configured $${threshold.toFixed(2)} threshold.`,
+        color: 0x0099ff,
+        fields: [
+          { name: 'Transfers', value: `${bucket.events.length}`, inline: true },
+          { name: 'Total USD', value: `$${bucket.totalUsd.toFixed(2)}`, inline: true },
+          { name: 'Total Amount', value: `${totalAmountDisplay} ${token.tokenSymbol}`, inline: true },
+          { name: 'Window', value: windowLabel, inline: false },
+          { name: 'Threshold', value: `$${threshold.toFixed(2)}`, inline: true }
+        ],
+        timestamp: new Date(bucket.lastTimestamp).toISOString(),
+        footer: {
+          text: 'Batched transfer summary • Buybot'
+        }
+      };
+
+      if (Number.isFinite(minUsd) && Number.isFinite(maxUsd) && bucket.events.length > 1) {
+        embed.fields.push({
+          name: 'Individual Range',
+          value: `$${minUsd.toFixed(2)} - $${maxUsd.toFixed(2)}`,
+          inline: true
+        });
+      }
+
+      if (recentTransfers) {
+        embed.fields.push({
+          name: 'Recent Transfers',
+          value: recentTransfers,
+          inline: false
+        });
+      }
+
+      const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
+      const primaryButton = tokenPreferences?.buttons?.primary || {};
+      const primaryUrl = this.resolveUrlTemplate(primaryButton.urlTemplate, token) || `https://jup.ag/swap/SOL-${token.tokenAddress}`;
+      const components = [
+        {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              style: 5,
+              label: 'DexScreener',
+              url: dexScreenerUrl
+            }
+          ]
+        }
+      ];
+
+      if (primaryUrl) {
+        components[0].components.push({
+          type: 2,
+          style: 5,
+          label: primaryButton.label || 'Swap on Jupiter',
+          url: primaryUrl
+        });
+      }
+
+      const channel = await this.discordService.client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        throw new Error(`Channel ${channelId} unavailable for aggregated transfer summary`);
+      }
+
+      const sentMessage = await channel.send({ embeds: [embed], components });
+      this.logger.info(`[BuybotService] Sent aggregated transfer summary for ${token.tokenSymbol} to channel ${channelId} (message ID: ${sentMessage.id})`);
+
+      const summaryEvent = {
+        type: 'transfer',
+        amount: bucket.totalAmount,
+        decimals: bucket.decimals,
+        timestamp: new Date(bucket.lastTimestamp),
+        from: bucket.from,
+        to: bucket.to
+      };
+
+      await this.trackVolumeAndCheckSummary(channelId, summaryEvent, token, bucket.totalUsd);
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to send aggregated transfer summary:', error);
+    }
+  }
+
+  /**
    * Send event notification to Discord or Telegram channel
    * @param {string} channelId - Channel ID
    * @param {Object} event - Event data
@@ -1862,6 +2113,13 @@ export class BuybotService {
       const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
+
+      if (effectiveType === 'transfer') {
+        const aggregationOutcome = await this.handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue);
+        if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
+          return;
+        }
+      }
 
       // Get wallet avatars for addresses FIRST (before building embed)
       let buyerAvatar = null;

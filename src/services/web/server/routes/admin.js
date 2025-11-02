@@ -796,6 +796,10 @@ function createRouter(db, services) {
           collectionKeys: Array.isArray(defaults.walletAvatar?.collectionKeys)
             ? defaults.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
             : []
+        },
+        notifications: {
+          onlySwapEvents: !!defaults.notifications?.onlySwapEvents,
+          transferAggregationUsdThreshold: parseNonNegativeNumber(defaults.notifications?.transferAggregationUsdThreshold)
         }
       };
 
@@ -814,6 +818,10 @@ function createRouter(db, services) {
           collectionKeys: Array.isArray(value?.walletAvatar?.collectionKeys)
             ? value.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
             : []
+        },
+        notifications: {
+          onlySwapEvents: !!value?.notifications?.onlySwapEvents,
+          transferAggregationUsdThreshold: parseNonNegativeNumber(value?.notifications?.transferAggregationUsdThreshold)
         }
       }));
 
@@ -1004,7 +1012,7 @@ function createRouter(db, services) {
 
   adminRouter.put('/token-preferences', express.json(), asyncHandler(async (req, res) => {
     try {
-      const { symbol, originalSymbol, displayEmoji, aliasSymbols, addresses, walletAvatar } = req.body || {};
+  const { symbol, originalSymbol, displayEmoji, aliasSymbols, addresses, walletAvatar, notifications } = req.body || {};
       if (!symbol || typeof symbol !== 'string') {
         return res.status(400).json({ error: 'symbol is required' });
       }
@@ -1030,10 +1038,16 @@ function createRouter(db, services) {
           : []
       };
 
+      const normalizedNotifications = {
+        onlySwapEvents: !!(notifications && notifications.onlySwapEvents),
+        transferAggregationUsdThreshold: parseNonNegativeNumber(notifications?.transferAggregationUsdThreshold)
+      };
+
       const overridePayload = {
         aliasSymbols: sanitizedSymbols,
         addresses: sanitizedAddresses,
-        walletAvatar: normalizedWalletAvatar
+        walletAvatar: normalizedWalletAvatar,
+        notifications: normalizedNotifications
       };
 
       const trimmedEmoji = typeof displayEmoji === 'string' ? displayEmoji.trim() : displayEmoji;
@@ -1069,7 +1083,13 @@ function createRouter(db, services) {
                       ? storedOverride.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
                       : []
                   }
-                : normalizedWalletAvatar
+                : normalizedWalletAvatar,
+              notifications: storedOverride.notifications
+                ? {
+                    onlySwapEvents: !!storedOverride.notifications.onlySwapEvents,
+                    transferAggregationUsdThreshold: parseNonNegativeNumber(storedOverride.notifications.transferAggregationUsdThreshold)
+                  }
+                : normalizedNotifications
             }
           });
         } catch (serviceError) {
@@ -1096,6 +1116,7 @@ function createRouter(db, services) {
       if (!override.addresses) delete override.addresses;
 
       override.walletAvatar = overridePayload.walletAvatar;
+  override.notifications = normalizedNotifications;
 
       config.tokens.overrides[normalizedSymbol] = override;
 
@@ -1118,7 +1139,8 @@ function createRouter(db, services) {
           displayEmoji: override.displayEmoji ?? null,
           aliasSymbols: override.symbols || [],
           addresses: override.addresses || [],
-          walletAvatar: override.walletAvatar
+          walletAvatar: override.walletAvatar,
+          notifications: override.notifications || normalizedNotifications
         }
       });
     } catch (error) {

@@ -16,6 +16,18 @@ function scopeLabel(source) {
   return 'Global';
 }
 
+function sanitizeNonNegativeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : fallback;
+}
+
+function normalizeNotificationPrefs(raw = {}) {
+  return {
+    onlySwapEvents: !!raw.onlySwapEvents,
+    transferAggregationUsdThreshold: sanitizeNonNegativeNumber(raw.transferAggregationUsdThreshold)
+  };
+}
+
 let selectedGuildId = '';
 let guildListData = [];
 let selectedGuildMeta = null; // { id, name, authorized, iconUrl }
@@ -28,6 +40,11 @@ const DEFAULT_WALLET_AVATAR_PREFS = {
   requireClaimedAvatar: false,
   requireCollectionOwnership: false,
   collectionKeys: []
+};
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  onlySwapEvents: false,
+  transferAggregationUsdThreshold: 0
 };
 
 let walletAvatarPrefsState = null;
@@ -684,7 +701,8 @@ function normalizeWalletAvatarOverride(raw = {}) {
     displayEmoji: raw.displayEmoji ?? null,
     aliasSymbols,
     addresses,
-    walletAvatar: normalizeWalletAvatarDefaults(raw.walletAvatar || {})
+    walletAvatar: normalizeWalletAvatarDefaults(raw.walletAvatar || {}),
+    notifications: normalizeNotificationPrefs(raw.notifications || {})
   };
 }
 
@@ -820,7 +838,7 @@ function renderWalletAvatarOverrides() {
   overrides.forEach(override => {
     const card = document.createElement('div');
     card.className = 'bg-white border rounded-lg p-4';
-    const { symbol, displayEmoji, aliasSymbols, addresses, walletAvatar } = override;
+    const { symbol, displayEmoji, aliasSymbols, addresses, walletAvatar, notifications } = override;
     const safeSymbol = escapeHtml(symbol || '');
     const safeEmoji = escapeHtml(displayEmoji || '🪙');
     const aliasText = aliasSymbols && aliasSymbols.length ? aliasSymbols.map(val => escapeHtml(val)).join(', ') : '';
@@ -828,6 +846,9 @@ function renderWalletAvatarOverrides() {
     const minBalanceValue = Number(walletAvatar.minBalanceForFullAvatar);
     const minBalanceSanitized = Number.isFinite(minBalanceValue) && minBalanceValue >= 0 ? minBalanceValue : 0;
     const minBalanceDisplay = minBalanceSanitized.toLocaleString(undefined, { maximumFractionDigits: 4 });
+
+    const transferThresholdValue = sanitizeNonNegativeNumber(notifications?.transferAggregationUsdThreshold);
+    const transferThresholdDisplay = transferThresholdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
     const collectionKeys = Array.isArray(walletAvatar.collectionKeys) ? walletAvatar.collectionKeys : [];
     const collectionsText = collectionKeys.length 
@@ -855,6 +876,11 @@ function renderWalletAvatarOverrides() {
     if (walletAvatar.requireCollectionOwnership) {
       summaryParts.push('Collection NFTs required');
     }
+    summaryParts.push(
+      transferThresholdValue > 0
+        ? `Discord transfer summary at $${transferThresholdDisplay}`
+        : 'Discord transfer summary disabled'
+    );
     const summary = summaryParts.join(' • ');
 
     card.innerHTML = `
@@ -896,6 +922,7 @@ function closeWalletAvatarEditor() {
   if (!editor) return;
   editor.classList.add('hidden');
   editor.innerHTML = '';
+  delete editor.__tokenFormState;
   walletAvatarEditorOriginalSymbol = null;
 }
 
@@ -1086,19 +1113,26 @@ function openWalletAvatarEditor(symbol = null) {
   const existing = symbol ? walletAvatarPrefsState?.overrides?.find(o => o.symbol === symbol) : null;
   walletAvatarEditorOriginalSymbol = existing?.symbol || null;
   const formState = existing
-    ? { ...existing, walletAvatar: normalizeWalletAvatarDefaults(existing.walletAvatar) }
+    ? {
+        ...existing,
+        walletAvatar: normalizeWalletAvatarDefaults(existing.walletAvatar),
+        notifications: normalizeNotificationPrefs(existing.notifications || {})
+      }
     : {
         symbol: '',
         displayEmoji: '',
         aliasSymbols: [],
         addresses: [],
-        walletAvatar: { ...DEFAULT_WALLET_AVATAR_PREFS }
+        walletAvatar: { ...DEFAULT_WALLET_AVATAR_PREFS },
+        notifications: { ...DEFAULT_NOTIFICATION_PREFS }
       };
 
   const safeSymbol = escapeHtml(formState.symbol || '');
   const safeEmoji = escapeHtml(formState.displayEmoji || '');
   const safeAliases = escapeHtml(formState.aliasSymbols.join(', '));
   const safeAddresses = escapeHtml(formState.addresses.join(', '));
+  const transferThresholdValue = sanitizeNonNegativeNumber(formState.notifications?.transferAggregationUsdThreshold);
+  const safeTransferThreshold = transferThresholdValue.toString();
 
   const collectionKeys = Array.isArray(formState.walletAvatar?.collectionKeys)
     ? formState.walletAvatar.collectionKeys
@@ -1208,6 +1242,11 @@ function openWalletAvatarEditor(symbol = null) {
         <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarMinBalance">Minimum Balance</label>
         <input type="number" id="walletAvatarMinBalance" min="0" step="0.0001" class="w-full px-3 py-2 border rounded text-sm" value="${formState.walletAvatar.minBalanceForFullAvatar}" />
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarTransferThreshold">Discord Transfer Threshold (USD)</label>
+        <input type="number" id="walletAvatarTransferThreshold" min="0" step="0.01" class="w-full px-3 py-2 border rounded text-sm" value="${safeTransferThreshold}" />
+        <p class="text-xs text-gray-500 mt-1">Transfers below this USD amount are batched until cumulative volume between the same wallets passes the threshold.</p>
+      </div>
       <label class="flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" id="walletAvatarSendIntro" class="rounded" ${formState.walletAvatar.sendIntro ? 'checked' : ''} />
         Send introduction message
@@ -1218,6 +1257,17 @@ function openWalletAvatarEditor(symbol = null) {
       <button type="button" id="walletAvatarEditorSave" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save Override</button>
     </div>
   `;
+
+  editor.__tokenFormState = {
+    ...formState,
+    aliasSymbols: [...formState.aliasSymbols],
+    addresses: [...formState.addresses],
+    walletAvatar: {
+      ...formState.walletAvatar,
+      collectionKeys: [...selectedCollectionKeys]
+    },
+    notifications: { ...formState.notifications }
+  };
 
   editor.querySelector('#walletAvatarEditorClose')?.addEventListener('click', closeWalletAvatarEditor);
   editor.querySelector('#walletAvatarEditorCancel')?.addEventListener('click', closeWalletAvatarEditor);
@@ -1233,6 +1283,7 @@ function openWalletAvatarEditor(symbol = null) {
 async function submitWalletAvatarOverride(editor) {
   const symbolInput = editor.querySelector('#walletAvatarSymbol');
   const minBalanceInput = editor.querySelector('#walletAvatarMinBalance');
+  const transferThresholdInput = editor.querySelector('#walletAvatarTransferThreshold');
   if (!symbolInput) return;
 
   const symbol = symbolInput.value.trim();
@@ -1250,6 +1301,21 @@ async function submitWalletAvatarOverride(editor) {
     minBalanceInput.focus();
     return;
   }
+
+  const transferThresholdRaw = transferThresholdInput?.value ?? '';
+  const transferThresholdNumber = Number(transferThresholdRaw);
+  if (transferThresholdRaw && (!Number.isFinite(transferThresholdNumber) || transferThresholdNumber < 0)) {
+    toastError('Discord transfer threshold must be a non-negative number');
+    transferThresholdInput?.focus();
+    return;
+  }
+
+  const currentFormState = editor.__tokenFormState || {};
+  const baseNotifications = normalizeNotificationPrefs(currentFormState.notifications || {});
+  const notifications = {
+    ...baseNotifications,
+    transferAggregationUsdThreshold: sanitizeNonNegativeNumber(transferThresholdRaw, 0)
+  };
 
   // Extract selected collections from checkbox list
   const selectedCollections = Array.from(
@@ -1271,7 +1337,17 @@ async function submitWalletAvatarOverride(editor) {
       requireClaimedAvatar: editor.querySelector('#walletAvatarRequireClaimed')?.checked || false,
       requireCollectionOwnership: editor.querySelector('#walletAvatarRequireCollection')?.checked || false,
       collectionKeys: selectedCollections
-    }
+    },
+    notifications
+  };
+
+  editor.__tokenFormState = {
+    ...currentFormState,
+    ...payload,
+    aliasSymbols: [...payload.aliasSymbols],
+    addresses: [...payload.addresses],
+    walletAvatar: { ...payload.walletAvatar, collectionKeys: [...selectedCollections] },
+    notifications: { ...notifications }
   };
 
   try {
@@ -1288,7 +1364,7 @@ async function submitWalletAvatarOverride(editor) {
       requireCsrf: true,
       sign: true
     });
-  showWalletAvatarPreferencesStatus(`Token override saved for ${payload.symbol}`, 'success');
+    showWalletAvatarPreferencesStatus(`Token override saved for ${payload.symbol}`, 'success');
     closeWalletAvatarEditor();
     await loadWalletAvatarPreferences();
   } catch (error) {
