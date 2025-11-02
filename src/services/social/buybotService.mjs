@@ -324,6 +324,16 @@ export class BuybotService {
         updates.threadParentName = expectedParentName;
       }
 
+      const expectedChannelName = context.channelName || null;
+      if (token.channelName !== expectedChannelName) {
+        updates.channelName = expectedChannelName;
+      }
+
+      const expectedIsThread = Boolean(context.isThread);
+      if (typeof token.isThread === 'undefined' || Boolean(token.isThread) !== expectedIsThread) {
+        updates.isThread = expectedIsThread;
+      }
+
       if (token.guildId !== context.guildId) {
         updates.guildId = context.guildId || null;
       }
@@ -807,7 +817,7 @@ export class BuybotService {
       const channelCollectionCount = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION)
         .countDocuments({
           active: true,
-          $and: [baseChannelScopeFilter],
+          ...baseChannelScopeFilter,
         });
       
       if (channelCollectionCount >= MAX_TRACKED_COLLECTIONS_PER_CHANNEL) {
@@ -821,7 +831,7 @@ export class BuybotService {
       const existing = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).findOne({
         collectionAddress,
         active: true,
-        $and: [baseChannelScopeFilter],
+        ...baseChannelScopeFilter,
       });
 
       if (existing) {
