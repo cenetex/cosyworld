@@ -65,6 +65,10 @@ export class WalletInsights {
     const { refresh = null, bypassCache = false } = options;
     const cached = this.walletBalanceCache.get(walletAddress);
 
+    if (refresh === 'cache-only') {
+      return cached || { tokens: [], assets: [], meta: null, timestamp: Date.now() };
+    }
+
     const shouldUseCache = !bypassCache
       && refresh !== 'force'
       && cached
@@ -83,13 +87,36 @@ export class WalletInsights {
       ? lambdaEndpoint.slice(0, -1)
       : lambdaEndpoint;
 
-    const url = new URL(`${trimmedEndpoint}/balances`);
-    url.searchParams.set('wallet', walletAddress);
-    if (refresh) {
-      url.searchParams.set('refresh', refresh);
-    }
+    const buildUrl = (mode) => {
+      const requestUrl = new URL(`${trimmedEndpoint}/balances`);
+      requestUrl.searchParams.set('wallet', walletAddress);
+      if (mode) {
+        requestUrl.searchParams.set('refresh', mode);
+      }
+      return requestUrl;
+    };
 
-    try {
+    const fetchModes = [];
+    const seenModes = new Set();
+    const enqueueMode = (mode) => {
+      const key = mode ?? 'default';
+      if (seenModes.has(key)) {
+        return;
+      }
+      seenModes.add(key);
+      fetchModes.push(mode);
+    };
+
+    if (refresh && refresh !== 'cache-only') {
+      enqueueMode(refresh);
+      if (refresh === 'force') {
+        enqueueMode('if-stale');
+      }
+    }
+    enqueueMode(null);
+
+    const requestSnapshot = async (mode) => {
+      const url = buildUrl(mode);
       const response = await this.retryWithBackoff(async () => {
         const res = await fetch(url.toString(), { headers: { accept: 'application/json' } });
         if (res.ok) {
@@ -97,27 +124,61 @@ export class WalletInsights {
         }
 
         const errorBody = await res.text().catch(() => '');
-        throw new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
+        const err = new Error(`Lambda balances request failed (${res.status}): ${errorBody}`);
+        err.status = res.status;
+        err.body = errorBody;
+        err.refreshMode = mode;
+        throw err;
       }, 3, 500);
 
       const payload = await response.json().catch(() => ({}));
       const snapshot = this.#normalizeSnapshot(payload);
-      const entry = {
+      return {
         ...snapshot,
         timestamp: Date.now(),
       };
+    };
 
-      this.walletBalanceCache.set(walletAddress, entry);
-      this.#evictIfNeeded();
+    let lastError = null;
 
-      return entry;
-    } catch (error) {
+    for (const mode of fetchModes) {
+      try {
+        const entry = await requestSnapshot(mode);
+        this.walletBalanceCache.set(walletAddress, entry);
+        this.#evictIfNeeded();
+        return entry;
+      } catch (error) {
+        lastError = error;
+
+        const status = error?.status ?? null;
+        const body = error?.body ?? '';
+        const message = error?.message ?? '';
+        const isForbidden = status === 403
+          || /forbidden/i.test(body)
+          || /\(403\)/.test(message)
+          || /forbidden/i.test(message);
+
+        if (mode === 'force' && isForbidden) {
+          this.logger?.warn?.(
+            `[WalletInsights] Lambda denied force refresh for ${formatAddress(walletAddress)}; retrying without force`,
+          );
+          continue;
+        }
+
+        this.logger?.warn?.(
+          `[WalletInsights] Lambda balances request failed for ${formatAddress(walletAddress)} (mode: ${mode ?? 'default'}): ${message}`,
+        );
+      }
+    }
+
+    if (lastError) {
       this.logger?.error?.(
         `[WalletInsights] Failed to fetch balances for ${formatAddress(walletAddress)}:`,
-        error,
+        lastError,
       );
-      return cached || { tokens: [], assets: [], meta: null, timestamp: Date.now() };
     }
+
+    return cached || { tokens: [], assets: [], meta: null, timestamp: Date.now() };
   }
 
   /**
