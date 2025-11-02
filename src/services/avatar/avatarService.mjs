@@ -1129,7 +1129,7 @@ export class AvatarService {
     return Array.from(values);
   }
 
-  async findRandomOwnedCollectionAvatar(walletAddress) {
+  async findRandomOwnedCollectionAvatar(walletAddress, { restrictToCollections = null } = {}) {
     if (!walletAddress) {
       return null;
     }
@@ -1138,7 +1138,13 @@ export class AvatarService {
       return null;
     }
 
-    const registeredKeys = await this.getRegisteredNftCollectionKeys();
+    let registeredKeys;
+    if (Array.isArray(restrictToCollections) && restrictToCollections.length > 0) {
+      registeredKeys = restrictToCollections.map(key => String(key).trim()).filter(Boolean);
+    } else {
+      registeredKeys = await this.getRegisteredNftCollectionKeys();
+    }
+
     if (!registeredKeys.length) {
       return null;
     }
@@ -1845,11 +1851,18 @@ export class AvatarService {
     }
 
     if (!avatar) {
-      const ownedCollectionAvatar = await this.findRandomOwnedCollectionAvatar(walletAddress);
+      const collectionKeys = Array.isArray(walletAvatarPrefs?.collectionKeys) && walletAvatarPrefs.collectionKeys.length > 0
+        ? walletAvatarPrefs.collectionKeys
+        : null;
+      
+      const ownedCollectionAvatar = await this.findRandomOwnedCollectionAvatar(walletAddress, {
+        restrictToCollections: collectionKeys
+      });
+      
       if (ownedCollectionAvatar) {
         avatar = ownedCollectionAvatar;
         claimedSource = true;
-        this.logger?.info?.(`[AvatarService] Wallet ${walletShort} owns registered collection avatar ${ownedCollectionAvatar.emoji || '🛸'} ${ownedCollectionAvatar.name || 'Unnamed'}`);
+        this.logger?.info?.(`[AvatarService] Wallet ${walletShort} owns registered collection avatar ${ownedCollectionAvatar.emoji || '🛸'} ${ownedCollectionAvatar.name || 'Unnamed'}${collectionKeys ? ` (restricted to: ${collectionKeys.join(', ')})` : ''}`);
       }
     }
 
