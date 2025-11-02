@@ -3,9 +3,11 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const api = window.AdminAPI || {};
-  const ui = window.AdminUI || { success: console.log, error: console.error };
-  const auth = window.AdminAuth || {};
+  const fallbackUi = { success: console.log, error: console.error };
+
+  const getApi = () => window.AdminAPI || {};
+  const getUi = () => window.AdminUI || fallbackUi;
+  const getAuth = () => window.AdminAuth || null;
 
   const els = {
     enabled: document.getElementById('cfg-enabled'),
@@ -30,15 +32,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function apiFetch(url, opts = {}) {
+    const api = getApi();
     if (api.apiFetch) return api.apiFetch(url, opts);
-    const res = await fetch(url, opts);
+    const fetchOptions = { credentials: 'same-origin', ...opts };
+    const res = await fetch(url, fetchOptions);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
   async function getSignedHeaders(meta = {}) {
-    if (auth.getSignedHeaders) return auth.getSignedHeaders(meta);
-    return {}; // fallback (dev only)
+    const auth = getAuth();
+    if (auth?.getSignedHeaders) return auth.getSignedHeaders(meta);
+    console.warn('[x-global-posting] AdminAuth not ready; proceeding without signed headers (dev fallback)');
+    return {};
   }
 
   async function loadConfig() {
@@ -53,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setForm(cfg);
     } catch (e) {
-      ui.error(e.message || 'Failed to load config');
+      getUi().error(e.message || 'Failed to load config');
       els.status.textContent = 'Load failed';
     }
   }
@@ -87,11 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-      ui.success('Configuration saved');
+      getUi().success('Configuration saved');
       els.status.textContent = 'Saved at ' + new Date().toLocaleTimeString();
       setForm(data.config || {});
     } catch (e) {
-      ui.error(e.message || 'Save failed');
+      getUi().error(e.message || 'Save failed');
       els.status.textContent = 'Save failed';
     }
   }
@@ -106,9 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
       els.diag.textContent = JSON.stringify(data, null, 2);
-      ui.success('Test path executed');
+      getUi().success('Test path executed');
     } catch (e) {
-      ui.error(e.message || 'Test failed');
+      getUi().error(e.message || 'Test failed');
       appendDiag('Test failed: ' + (e.message || e));
     }
   }

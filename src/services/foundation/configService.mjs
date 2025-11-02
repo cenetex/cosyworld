@@ -701,13 +701,19 @@ export class ConfigService {
     }
 
     if (override.walletAvatar && typeof override.walletAvatar === 'object') {
+      const minBalance = Number(override.walletAvatar.minBalanceForFullAvatar);
+      const sanitizedCollectionKeys = Array.isArray(override.walletAvatar.collectionKeys)
+        ? override.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+        : [];
+
       sanitized.walletAvatar = {
         createFullAvatar: !!override.walletAvatar.createFullAvatar,
-        minBalanceForFullAvatar: Number.isFinite(Number(override.walletAvatar.minBalanceForFullAvatar))
-          ? Number(override.walletAvatar.minBalanceForFullAvatar)
-          : 0,
+        minBalanceForFullAvatar: Number.isFinite(minBalance) ? minBalance : 0,
         autoActivate: !!override.walletAvatar.autoActivate,
-        sendIntro: !!override.walletAvatar.sendIntro
+        sendIntro: !!override.walletAvatar.sendIntro,
+        requireClaimedAvatar: !!override.walletAvatar.requireClaimedAvatar,
+        requireCollectionOwnership: !!override.walletAvatar.requireCollectionOwnership,
+        collectionKeys: sanitizedCollectionKeys
       };
     }
 
