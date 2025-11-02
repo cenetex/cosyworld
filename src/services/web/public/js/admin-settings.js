@@ -824,8 +824,14 @@ function renderWalletAvatarOverrides() {
     const collectionKeys = Array.isArray(walletAvatar.collectionKeys) ? walletAvatar.collectionKeys : [];
     const collectionsText = collectionKeys.length 
       ? collectionKeys.map(key => {
-          const coll = availableCollections.find(c => c.key === key);
-          return escapeHtml(coll?.displayName || key);
+          const coll = availableCollections.find(c => {
+            const comparisonKey = typeof c?.key === 'string' ? c.key.trim() : String(c?.key || '');
+            return comparisonKey === key;
+          });
+          const label = coll
+            ? (typeof coll.displayName === 'string' && coll.displayName.trim() ? coll.displayName.trim() : coll.key || key)
+            : `${key} (not configured)`;
+          return escapeHtml(label);
         }).join(', ')
       : '';
     
@@ -1083,16 +1089,57 @@ function openWalletAvatarEditor(symbol = null) {
   const safeAliases = escapeHtml(formState.aliasSymbols.join(', '));
   const safeAddresses = escapeHtml(formState.addresses.join(', '));
 
-  // Build collection options HTML
-  const collectionKeys = Array.isArray(formState.walletAvatar?.collectionKeys) 
-    ? formState.walletAvatar.collectionKeys 
+  const collectionKeys = Array.isArray(formState.walletAvatar?.collectionKeys)
+    ? formState.walletAvatar.collectionKeys
+        .map(key => (typeof key === 'string' ? key.trim() : ''))
+        .filter(Boolean)
     : [];
-  const collectionOptionsHTML = availableCollections.map(coll => {
-    const key = coll.key || '';
-    const displayName = coll.displayName || key;
-    const selected = collectionKeys.includes(key) ? 'selected' : '';
-    return `<option value="${escapeHtml(key)}" ${selected}>${escapeHtml(displayName)}</option>`;
-  }).join('');
+  const selectedCollectionKeys = new Set(collectionKeys);
+
+  const renderedCollectionCheckboxes = availableCollections
+    .map(coll => {
+      const normalizedKey = typeof coll?.key === 'string' ? coll.key.trim() : String(coll?.key || '');
+      if (!normalizedKey) return '';
+      const checked = selectedCollectionKeys.has(normalizedKey) ? 'checked' : '';
+      const primaryLabel = typeof coll?.displayName === 'string' && coll.displayName.trim()
+        ? coll.displayName.trim()
+        : normalizedKey;
+      const metaLabelParts = [];
+      if (coll?.chain) metaLabelParts.push(escapeHtml(String(coll.chain).toUpperCase()));
+      if (coll?.provider) metaLabelParts.push(escapeHtml(String(coll.provider)));
+      const metaSuffix = metaLabelParts.length ? ` <span class="text-xs text-gray-400">(${metaLabelParts.join(' • ')})</span>` : '';
+      return `
+        <label class="flex items-start gap-2 text-sm text-gray-700">
+          <input type="checkbox" class="wallet-avatar-collection rounded mt-1" value="${escapeHtml(normalizedKey)}" ${checked} />
+          <span>
+            <span class="font-medium">${escapeHtml(primaryLabel)}</span>
+            <span class="block text-xs text-gray-500">${escapeHtml(normalizedKey)}${metaSuffix}</span>
+          </span>
+        </label>
+      `;
+    })
+    .filter(Boolean)
+    .join('');
+
+  const missingCollectionKeys = [...selectedCollectionKeys].filter(key => !availableCollections.some(coll => {
+    const comparisonKey = typeof coll?.key === 'string' ? coll.key.trim() : String(coll?.key || '');
+    return comparisonKey === key;
+  }));
+  const missingCollectionCheckboxes = missingCollectionKeys
+    .map(key => `
+        <label class="flex items-start gap-2 text-sm text-yellow-700">
+          <input type="checkbox" class="wallet-avatar-collection rounded mt-1" value="${escapeHtml(key)}" checked />
+          <span>
+            <span class="font-medium">${escapeHtml(key)}</span>
+            <span class="block text-xs text-yellow-600">No matching collection configuration found</span>
+          </span>
+        </label>
+      `)
+    .join('');
+
+  const collectionsSectionContent = (renderedCollectionCheckboxes || missingCollectionCheckboxes)
+    ? `<div id="walletAvatarCollections" class="flex flex-col gap-2 max-h-52 overflow-y-auto border border-gray-200 rounded px-3 py-2 bg-gray-50">${renderedCollectionCheckboxes}${missingCollectionCheckboxes}</div>`
+    : `<div id="walletAvatarCollections" class="text-xs text-gray-500 border border-dashed border-gray-300 rounded px-3 py-2 bg-gray-50">No NFT collections configured yet. Add collections from the Collections admin page.</div>`;
 
   editor.className = 'border rounded-lg bg-white p-4';
   editor.classList.remove('hidden');
@@ -1123,13 +1170,11 @@ function openWalletAvatarEditor(symbol = null) {
         <input id="walletAvatarAddresses" type="text" class="w-full px-3 py-2 border rounded text-sm" placeholder="Optional mint addresses" value="${safeAddresses}" />
         <p class="text-xs text-gray-500 mt-1">Comma or space separated list (stored in lowercase).</p>
       </div>
-      <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarCollections">NFT Collections</label>
-        <select id="walletAvatarCollections" multiple class="w-full px-3 py-2 border rounded text-sm" style="min-height: 100px;">
-          ${collectionOptionsHTML}
-        </select>
-        <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple collections. Only avatars from these collections will respond for this token.</p>
-      </div>
+      <fieldset class="md:col-span-2">
+        <legend class="block text-sm font-medium text-gray-700 mb-1">NFT Collections</legend>
+        ${collectionsSectionContent}
+        <p class="text-xs text-gray-500 mt-1">Check the collections that should trigger wallet avatars for this token. Leave all unchecked to allow any registered collection.</p>
+      </fieldset>
     </div>
     <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
       <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -1191,11 +1236,11 @@ async function submitWalletAvatarOverride(editor) {
     return;
   }
 
-  // Extract selected collections from multi-select
-  const collectionsSelect = editor.querySelector('#walletAvatarCollections');
-  const selectedCollections = collectionsSelect 
-    ? Array.from(collectionsSelect.selectedOptions).map(opt => opt.value).filter(Boolean)
-    : [];
+  // Extract selected collections from checkbox list
+  const selectedCollections = Array.from(
+    editor.querySelectorAll('.wallet-avatar-collection:checked'),
+    input => (typeof input.value === 'string' ? input.value.trim() : '')
+  ).filter(Boolean);
 
   const payload = {
     symbol: normalizedSymbol,
