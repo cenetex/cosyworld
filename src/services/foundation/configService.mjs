@@ -258,7 +258,9 @@ export class ConfigService {
           createFullAvatar: false,
           minBalanceForFullAvatar: 0,
           autoActivate: false,
-          sendIntro: false
+          sendIntro: false,
+          requireClaimedAvatar: false,
+          collectionKeys: []
         }
       };
     }

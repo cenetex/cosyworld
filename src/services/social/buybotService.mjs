@@ -54,7 +54,8 @@ const DEFAULT_TOKEN_PREFERENCES = {
     minBalanceForFullAvatar: 0,
     autoActivate: false,
     sendIntro: false,
-    requireClaimedAvatar: false
+    requireClaimedAvatar: false,
+    collectionKeys: []
   }
 };
 
