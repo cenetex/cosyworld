@@ -201,6 +201,7 @@ async function wireAdminX() {
   async function refresh() {
     try {
       hideHint();
+      const placeholderImg = '/images/x-placeholder.svg';
       let targetAvatarId = null;
       try {
         const t = await fetchJson('/api/xauth/admin/target');
@@ -228,33 +229,36 @@ async function wireAdminX() {
       }
       // No secondary search: only admin target matters now
 
+      const img = document.getElementById('admin-x-avatar');
+      const name = document.getElementById('admin-x-name');
+      const user = document.getElementById('admin-x-username');
+      const exp = document.getElementById('admin-x-expiry');
+
       if (status?.authorized) {
-  connectBtn?.classList.add('hidden');
-  disconnectBtn?.classList.remove('hidden');
+        connectBtn?.classList.add('hidden');
+        disconnectBtn?.classList.remove('hidden');
         profileWrapper?.classList.remove('hidden');
         const p = status.profile || {};
-        const img = document.getElementById('admin-x-avatar');
-        const name = document.getElementById('admin-x-name');
-        const user = document.getElementById('admin-x-username');
-        const exp = document.getElementById('admin-x-expiry');
         if (img) {
-          const placeholder = '/images/x-placeholder.svg';
           if (p.profile_image_url) {
             img.src = p.profile_image_url;
-            img.onerror = () => { img.src = placeholder; };
+            img.onerror = () => { img.src = placeholderImg; };
           } else {
-            img.src = placeholder;
+            img.src = placeholderImg;
           }
         }
         if (name) name.textContent = p.name || (p.username ? p.username : 'X Account');
         if (user) user.textContent = p.username ? `@${p.username}` : '';
-        if (exp && status.expiresAt) exp.textContent = `Token expires: ${new Date(status.expiresAt).toLocaleString()}`;
-        // Badge/pill removed
+        if (exp) exp.textContent = status.expiresAt ? `Token expires: ${new Date(status.expiresAt).toLocaleString()}` : '';
         hideHint();
       } else {
-  disconnectBtn?.classList.add('hidden');
-  connectBtn?.classList.remove('hidden');
-        profileWrapper?.classList.add('hidden');
+        if (img) img.src = placeholderImg;
+        if (name) name.textContent = 'No X account connected';
+        if (user) user.textContent = '';
+        if (exp) exp.textContent = '';
+        connectBtn?.classList.remove('hidden');
+        disconnectBtn?.classList.add('hidden');
+        profileWrapper?.classList.remove('hidden');
         showHint('No authorized X account. Connect to enable auto posting.');
       }
     } catch (e) {
