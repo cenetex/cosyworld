@@ -53,7 +53,8 @@ const DEFAULT_TOKEN_PREFERENCES = {
     createFullAvatar: false,
     minBalanceForFullAvatar: 0,
     autoActivate: false,
-    sendIntro: false
+    sendIntro: false,
+    requireClaimedAvatar: false
   }
 };
 
@@ -1849,6 +1850,7 @@ export class BuybotService {
       const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
       const effectiveType = event?.inferredType || event.type;
       const displayDescription = event?.displayDescription || event.description;
+  const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
 
       const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
       const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
@@ -1879,6 +1881,7 @@ export class BuybotService {
             discordChannelId: channelId,
             guildId,
             tokenPriceUsd: token.usdPrice || null,
+            requireClaimedAvatar,
           };
 
           try {
@@ -1926,6 +1929,7 @@ export class BuybotService {
                 discordChannelId: channelId,
                 guildId,
                 tokenPriceUsd: token.usdPrice || null,
+                requireClaimedAvatar,
               });
 
               const senderTokenBalance = senderAvatar?.tokenBalances?.[token.tokenSymbol];
@@ -1967,6 +1971,7 @@ export class BuybotService {
                 discordChannelId: channelId,
                 guildId,
                 tokenPriceUsd: token.usdPrice || null,
+                requireClaimedAvatar,
               });
 
               const recipientTokenBalance = recipientAvatar?.tokenBalances?.[token.tokenSymbol];
@@ -2269,6 +2274,8 @@ export class BuybotService {
         buyerAvatar,
         senderAvatar,
         recipientAvatar
+      }, {
+        requireClaimedOnly: requireClaimedAvatar
       });
       
       this.logger.info(`[BuybotService] Finished triggering avatar responses`);
@@ -2285,7 +2292,7 @@ export class BuybotService {
    * @param {Object} token - Token information
    * @param {Object} avatars - { buyerAvatar, senderAvatar, recipientAvatar }
    */
-  async triggerAvatarTradeResponses(channelId, event, token, avatars) {
+  async triggerAvatarTradeResponses(channelId, event, token, avatars, options = {}) {
     this.logger.info(`[BuybotService] triggerAvatarTradeResponses CALLED`, {
       channelId,
       eventType: event.type,
@@ -2299,6 +2306,7 @@ export class BuybotService {
     
     try {
       const { buyerAvatar, senderAvatar, recipientAvatar } = avatars;
+      const requireClaimedOnly = Boolean(options.requireClaimedOnly);
 
       // Track all avatars involved for relationship context, even if some are still partial
       const relationshipParticipants = [];
@@ -2307,19 +2315,22 @@ export class BuybotService {
 
       if (buyerAvatar && buyerAvatar._id) {
         relationshipParticipants.push({ avatar: buyerAvatar, role: 'buyer' });
-        if (buyerAvatar.imageUrl) {
+        const isClaimedBuyer = buyerAvatar.claimed === true || Boolean(buyerAvatar.claimedBy);
+        if (buyerAvatar.imageUrl && (!requireClaimedOnly || isClaimedBuyer)) {
           fullAvatars.push({ avatar: buyerAvatar, role: 'buyer' });
         }
       }
       if (senderAvatar && senderAvatar._id) {
         relationshipParticipants.push({ avatar: senderAvatar, role: 'sender' });
-        if (senderAvatar.imageUrl) {
+        const isClaimedSender = senderAvatar.claimed === true || Boolean(senderAvatar.claimedBy);
+        if (senderAvatar.imageUrl && (!requireClaimedOnly || isClaimedSender)) {
           fullAvatars.push({ avatar: senderAvatar, role: 'sender' });
         }
       }
       if (recipientAvatar && recipientAvatar._id) {
         relationshipParticipants.push({ avatar: recipientAvatar, role: 'recipient' });
-        if (recipientAvatar.imageUrl) {
+        const isClaimedRecipient = recipientAvatar.claimed === true || Boolean(recipientAvatar.claimedBy);
+        if (recipientAvatar.imageUrl && (!requireClaimedOnly || isClaimedRecipient)) {
           fullAvatars.push({ avatar: recipientAvatar, role: 'recipient' });
         }
       }
@@ -2357,10 +2368,65 @@ export class BuybotService {
         return;
       }
       
+      const fallbackChannel = channel;
+      const channelCache = new Map();
+      if (fallbackChannel?.id) {
+        channelCache.set(fallbackChannel.id, fallbackChannel);
+      }
+
+      const fetchChannelById = async (targetChannelId) => {
+        if (!targetChannelId) {
+          return null;
+        }
+        if (channelCache.has(targetChannelId)) {
+          return channelCache.get(targetChannelId);
+        }
+
+        try {
+          const fetchedChannel = await this.discordService.client.channels.fetch(targetChannelId);
+          if (fetchedChannel && typeof fetchedChannel.isTextBased === 'function' && fetchedChannel.isTextBased()) {
+            channelCache.set(targetChannelId, fetchedChannel);
+            return fetchedChannel;
+          }
+
+          this.logger.warn(`[BuybotService] Activation channel ${targetChannelId} is not text-based or unavailable`);
+        } catch (fetchError) {
+          this.logger.warn(`[BuybotService] Failed to fetch activation channel ${targetChannelId}: ${fetchError.message}`);
+        }
+
+        return null;
+      };
+
+      const resolveChannelForAvatar = async (avatar) => {
+        const desiredChannelId = avatar?.activationChannelId;
+
+        if (desiredChannelId && desiredChannelId !== fallbackChannel?.id) {
+          const desiredChannel = await fetchChannelById(desiredChannelId);
+          if (desiredChannel) {
+            return desiredChannel;
+          }
+
+          this.logger.debug(`[BuybotService] Falling back to trade channel for avatar ${avatar?.name || avatar?._id}`, {
+            activationChannelId: desiredChannelId,
+          });
+        }
+
+        return fallbackChannel;
+      };
+
       // Trigger each full avatar to respond with context about the trade
       for (let i = 0; i < fullAvatars.length; i++) {
         const { avatar, role } = fullAvatars[i];
         try {
+          const targetChannel = await resolveChannelForAvatar(avatar);
+          if (!targetChannel || (typeof targetChannel.isTextBased === 'function' && !targetChannel.isTextBased())) {
+            this.logger.warn(`[BuybotService] Cannot resolve channel for avatar response`, {
+              avatarId: avatar?._id?.toString?.(),
+              activationChannelId: avatar?.activationChannelId,
+            });
+            continue;
+          }
+
           // Build trade context prompt for the avatar (async now includes relationship data)
           const tradeContext = await this.buildTradeContextForAvatar(event, token, role, avatar, relationshipParticipants, {
             buyerAvatar,
@@ -2377,7 +2443,7 @@ export class BuybotService {
               this.logger.info(`[BuybotService] Triggering response for avatar ${avatar.name}`);
               
               // Send response with trade context passed via options (not as preset message)
-              await conversationManager.sendResponse(channel, avatar, null, {
+              await conversationManager.sendResponse(targetChannel, avatar, null, {
                 overrideCooldown: true,
                 cascadeDepth: 0,
                 tradeContext: tradeContext  // Pass as additional context for AI

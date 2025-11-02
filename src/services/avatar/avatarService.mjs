@@ -1457,18 +1457,26 @@ export class AvatarService {
     const isEligibleForFullAvatar = Boolean(walletAvatarPrefs.createFullAvatar) && meetsFullAvatarThreshold;
     const shouldAutoActivate = Boolean(walletAvatarPrefs.autoActivate);
     const shouldSendIntro = Boolean(walletAvatarPrefs.sendIntro);
+    const requireClaimedAvatar = context.requireClaimedAvatar === true;
 
     // Check if avatar already exists for this wallet (uses indexed query)
-    let avatar = await this.getAvatarByWalletAddress(walletAddress);
+    let avatar = null;
     let claimedSource = false;
 
-    if (!avatar) {
-      const claimedAvatar = await this.getPrimaryClaimedAvatarForWallet(walletAddress);
-      if (claimedAvatar) {
-        avatar = claimedAvatar;
-        claimedSource = true;
-        this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
-      }
+    if (!requireClaimedAvatar) {
+      avatar = await this.getAvatarByWalletAddress(walletAddress);
+    }
+
+    const claimedAvatar = await this.getPrimaryClaimedAvatarForWallet(walletAddress);
+    if (claimedAvatar) {
+      avatar = claimedAvatar;
+      claimedSource = true;
+      this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
+    }
+
+    if (!avatar && requireClaimedAvatar) {
+      this.logger?.info?.(`[AvatarService] requireClaimedAvatar enabled but no claimed avatar found for ${walletShort}`);
+      return null;
     }
 
     const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
@@ -1634,10 +1642,11 @@ export class AvatarService {
       
       this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
 
-      if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && context.discordChannelId) {
+      const claimedActivationTarget = avatar.channelId || context.discordChannelId;
+      if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && claimedActivationTarget) {
         try {
-          await this.activateAvatarInChannel(context.discordChannelId, String(avatar._id));
-          this.logger?.info?.(`[AvatarService] Ensured claimed NFT avatar ${avatar.name} is active in channel ${context.discordChannelId}`);
+          await this.activateAvatarInChannel(claimedActivationTarget, String(avatar._id));
+          this.logger?.info?.(`[AvatarService] Ensured claimed NFT avatar ${avatar.name} is active in channel ${claimedActivationTarget}`);
         } catch (activationError) {
           this.logger?.warn?.(`[AvatarService] Failed to activate claimed avatar ${avatar.name} in channel ${context.discordChannelId}: ${activationError.message}`);
         }
@@ -1784,17 +1793,19 @@ export class AvatarService {
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
     // Activate in channel and optionally send introduction per token preferences
-  if (effectiveShouldAutoActivate && context.discordChannelId) {
+    const activationTargetChannel = avatar.channelId || context.discordChannelId || context.channelId || null;
+
+    if (effectiveShouldAutoActivate && activationTargetChannel) {
       try {
         // Activate in channel
         await this.activateAvatarInChannel(
-          context.discordChannelId, 
+          activationTargetChannel, 
           String(avatar._id)
         );
-        this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${context.discordChannelId}`);
+        this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${activationTargetChannel}`);
         
         // Send introduction message (only for new avatars)
-  if (effectiveShouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
+        if (effectiveShouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
           try {
             const balanceStr = normalizedBalance
               ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
@@ -1818,7 +1829,7 @@ export class AvatarService {
             if (introText && introText.length > 5 && !introText.includes('No response')) {
               // Send to Discord as webhook (avatar speaks!)
               await this.configService.services.discordService.sendAsWebhook(
-                context.discordChannelId,
+                activationTargetChannel,
                 `${avatar.emoji} *${introText.trim()}*`,
                 avatar
               );
@@ -1828,7 +1839,7 @@ export class AvatarService {
                 try {
                   await this.configService.services.discordService.sendMiniAvatarEmbed(
                     avatar,
-                    context.discordChannelId,
+                    activationTargetChannel,
                     `New trader detected!`
                   );
                 } catch (embedError) {
