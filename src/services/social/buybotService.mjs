@@ -55,6 +55,7 @@ const DEFAULT_TOKEN_PREFERENCES = {
     autoActivate: false,
     sendIntro: false,
     requireClaimedAvatar: false,
+    requireCollectionOwnership: false,
     collectionKeys: []
   }
 };
@@ -1852,6 +1853,7 @@ export class BuybotService {
       const effectiveType = event?.inferredType || event.type;
       const displayDescription = event?.displayDescription || event.description;
   const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
+      const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
 
       const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
       const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
@@ -1883,6 +1885,7 @@ export class BuybotService {
             guildId,
             tokenPriceUsd: token.usdPrice || null,
             requireClaimedAvatar,
+            requireCollectionOwnership,
           };
 
           try {
@@ -1931,6 +1934,7 @@ export class BuybotService {
                 guildId,
                 tokenPriceUsd: token.usdPrice || null,
                 requireClaimedAvatar,
+                requireCollectionOwnership,
               });
 
               const senderTokenBalance = senderAvatar?.tokenBalances?.[token.tokenSymbol];
@@ -1973,6 +1977,7 @@ export class BuybotService {
                 guildId,
                 tokenPriceUsd: token.usdPrice || null,
                 requireClaimedAvatar,
+                requireCollectionOwnership,
               });
 
               const recipientTokenBalance = recipientAvatar?.tokenBalances?.[token.tokenSymbol];
@@ -2727,6 +2732,9 @@ export class BuybotService {
   const formattedAmount = formatTokenAmount(event.amount, event.decimals || token.tokenDecimals);
     const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
     const tokenDecimals = event.decimals || token.tokenDecimals || 9;
+    const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
+    const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
+    const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
 
       // Debug logging
       this.logger.info(`[BuybotService] Sending notification for ${token.tokenSymbol}:`, {
@@ -2759,6 +2767,8 @@ export class BuybotService {
             orbNftCount,
             telegramChannelId: channelId, // Pass telegram channel for introductions
             tokenPriceUsd: token.usdPrice || null,
+            requireClaimedAvatar,
+            requireCollectionOwnership,
           });
         } else if (event.type === 'transfer') {
           if (event.from) {
@@ -2774,6 +2784,8 @@ export class BuybotService {
               orbNftCount: senderOrbCount,
               telegramChannelId: channelId,
               tokenPriceUsd: token.usdPrice || null,
+              requireClaimedAvatar,
+              requireCollectionOwnership,
             });
           }
           if (event.to) {
@@ -2789,6 +2801,8 @@ export class BuybotService {
               orbNftCount: recipientOrbCount,
               telegramChannelId: channelId,
               tokenPriceUsd: token.usdPrice || null,
+              requireClaimedAvatar,
+              requireCollectionOwnership,
             });
           }
         }
@@ -2800,7 +2814,6 @@ export class BuybotService {
   const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
   const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
 
-  const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
   const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
   const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
 

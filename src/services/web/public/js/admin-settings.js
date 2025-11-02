@@ -26,6 +26,7 @@ const DEFAULT_WALLET_AVATAR_PREFS = {
   autoActivate: false,
   sendIntro: false,
   requireClaimedAvatar: false,
+  requireCollectionOwnership: false,
   collectionKeys: []
 };
 
@@ -648,6 +649,7 @@ function normalizeWalletAvatarDefaults(raw = {}) {
     autoActivate: !!raw.autoActivate,
     sendIntro: !!raw.sendIntro,
     requireClaimedAvatar: !!raw.requireClaimedAvatar,
+    requireCollectionOwnership: !!raw.requireCollectionOwnership,
     collectionKeys
   };
 }
@@ -738,6 +740,10 @@ function renderWalletAvatarDefaults() {
           <input type="checkbox" id="walletAvatarDefaultSendIntro" class="rounded" />
           Send introduction message on creation
         </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" id="walletAvatarDefaultRequireCollection" class="rounded" />
+          Only respond for wallets that hold collection NFTs
+        </label>
       </div>
       <div class="flex justify-end gap-2 mt-4">
         <button type="button" id="walletAvatarDefaultsReset" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Revert</button>
@@ -750,6 +756,7 @@ function renderWalletAvatarDefaults() {
   container.querySelector('#walletAvatarDefaultMinBalance').value = defaults.minBalanceForFullAvatar ?? 0;
   container.querySelector('#walletAvatarDefaultAutoActivate').checked = !!defaults.autoActivate;
   container.querySelector('#walletAvatarDefaultSendIntro').checked = !!defaults.sendIntro;
+  container.querySelector('#walletAvatarDefaultRequireCollection').checked = !!defaults.requireCollectionOwnership;
 
   container.querySelector('#walletAvatarDefaultsReset')?.addEventListener('click', () => renderWalletAvatarDefaults());
 
@@ -775,7 +782,8 @@ function renderWalletAvatarDefaults() {
         createFullAvatar: container.querySelector('#walletAvatarDefaultCreateFull').checked,
         minBalanceForFullAvatar: minBalance,
         autoActivate: container.querySelector('#walletAvatarDefaultAutoActivate').checked,
-        sendIntro: container.querySelector('#walletAvatarDefaultSendIntro').checked
+          sendIntro: container.querySelector('#walletAvatarDefaultSendIntro').checked,
+          requireCollectionOwnership: container.querySelector('#walletAvatarDefaultRequireCollection').checked
       }
     };
 
@@ -843,6 +851,9 @@ function renderWalletAvatarOverrides() {
     ];
     if (walletAvatar.requireClaimedAvatar) {
       summaryParts.push('Claimed NFTs only');
+    }
+    if (walletAvatar.requireCollectionOwnership) {
+      summaryParts.push('Collection NFTs required');
     }
     const summary = summaryParts.join(' • ');
 
@@ -1182,6 +1193,10 @@ function openWalletAvatarEditor(symbol = null) {
         Only allow claimed NFT avatars
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="walletAvatarRequireCollection" class="rounded" ${formState.walletAvatar.requireCollectionOwnership ? 'checked' : ''} />
+        Only respond for wallets that hold collection NFTs
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" id="walletAvatarCreateFull" class="rounded" ${formState.walletAvatar.createFullAvatar ? 'checked' : ''} />
         Generate full avatars
       </label>
@@ -1254,6 +1269,7 @@ async function submitWalletAvatarOverride(editor) {
       autoActivate: editor.querySelector('#walletAvatarAutoActivate')?.checked || false,
       sendIntro: editor.querySelector('#walletAvatarSendIntro')?.checked || false,
       requireClaimedAvatar: editor.querySelector('#walletAvatarRequireClaimed')?.checked || false,
+      requireCollectionOwnership: editor.querySelector('#walletAvatarRequireCollection')?.checked || false,
       collectionKeys: selectedCollections
     }
   };

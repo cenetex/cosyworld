@@ -260,6 +260,7 @@ export class ConfigService {
           autoActivate: false,
           sendIntro: false,
           requireClaimedAvatar: false,
+          requireCollectionOwnership: false,
           collectionKeys: []
         }
       };

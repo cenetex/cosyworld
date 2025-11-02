@@ -790,7 +790,12 @@ function createRouter(db, services) {
           createFullAvatar: !!defaults.walletAvatar?.createFullAvatar,
           minBalanceForFullAvatar: parseNonNegativeNumber(defaults.walletAvatar?.minBalanceForFullAvatar),
           autoActivate: !!defaults.walletAvatar?.autoActivate,
-          sendIntro: !!defaults.walletAvatar?.sendIntro
+          sendIntro: !!defaults.walletAvatar?.sendIntro,
+          requireClaimedAvatar: !!defaults.walletAvatar?.requireClaimedAvatar,
+          requireCollectionOwnership: !!defaults.walletAvatar?.requireCollectionOwnership,
+          collectionKeys: Array.isArray(defaults.walletAvatar?.collectionKeys)
+            ? defaults.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+            : []
         }
       };
 
@@ -803,7 +808,12 @@ function createRouter(db, services) {
           createFullAvatar: !!value?.walletAvatar?.createFullAvatar,
           minBalanceForFullAvatar: parseNonNegativeNumber(value?.walletAvatar?.minBalanceForFullAvatar),
           autoActivate: !!value?.walletAvatar?.autoActivate,
-          sendIntro: !!value?.walletAvatar?.sendIntro
+          sendIntro: !!value?.walletAvatar?.sendIntro,
+          requireClaimedAvatar: !!value?.walletAvatar?.requireClaimedAvatar,
+          requireCollectionOwnership: !!value?.walletAvatar?.requireCollectionOwnership,
+          collectionKeys: Array.isArray(value?.walletAvatar?.collectionKeys)
+            ? value.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+            : []
         }
       }));
 
@@ -940,7 +950,12 @@ function createRouter(db, services) {
         createFullAvatar: !!walletAvatar.createFullAvatar,
         minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar.minBalanceForFullAvatar),
         autoActivate: !!walletAvatar.autoActivate,
-        sendIntro: !!walletAvatar.sendIntro
+        sendIntro: !!walletAvatar.sendIntro,
+        requireClaimedAvatar: !!walletAvatar.requireClaimedAvatar,
+        requireCollectionOwnership: !!walletAvatar.requireCollectionOwnership,
+        collectionKeys: Array.isArray(walletAvatar.collectionKeys)
+          ? walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+          : []
       };
 
       const configService = await ensureConfigServiceDb(services, db);
@@ -1003,15 +1018,22 @@ function createRouter(db, services) {
       const sanitizedSymbols = sanitizeSymbolList(aliasSymbols);
       const sanitizedAddresses = sanitizeStringList(addresses, { toLower: true });
 
+      const normalizedWalletAvatar = {
+        createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
+        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
+        autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
+        sendIntro: !!(walletAvatar && walletAvatar.sendIntro),
+        requireClaimedAvatar: !!(walletAvatar && walletAvatar.requireClaimedAvatar),
+        requireCollectionOwnership: !!(walletAvatar && walletAvatar.requireCollectionOwnership),
+        collectionKeys: Array.isArray(walletAvatar?.collectionKeys)
+          ? walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+          : []
+      };
+
       const overridePayload = {
         aliasSymbols: sanitizedSymbols,
         addresses: sanitizedAddresses,
-        walletAvatar: {
-          createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
-          minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
-          autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
-          sendIntro: !!(walletAvatar && walletAvatar.sendIntro)
-        }
+        walletAvatar: normalizedWalletAvatar
       };
 
       const trimmedEmoji = typeof displayEmoji === 'string' ? displayEmoji.trim() : displayEmoji;
@@ -1035,7 +1057,19 @@ function createRouter(db, services) {
               displayEmoji: storedOverride.displayEmoji ?? null,
               aliasSymbols: storedOverride.symbols || [],
               addresses: storedOverride.addresses || [],
-              walletAvatar: storedOverride.walletAvatar || overridePayload.walletAvatar
+              walletAvatar: storedOverride.walletAvatar
+                ? {
+                    createFullAvatar: !!storedOverride.walletAvatar.createFullAvatar,
+                    minBalanceForFullAvatar: parseNonNegativeNumber(storedOverride.walletAvatar.minBalanceForFullAvatar),
+                    autoActivate: !!storedOverride.walletAvatar.autoActivate,
+                    sendIntro: !!storedOverride.walletAvatar.sendIntro,
+                    requireClaimedAvatar: !!storedOverride.walletAvatar.requireClaimedAvatar,
+                    requireCollectionOwnership: !!storedOverride.walletAvatar.requireCollectionOwnership,
+                    collectionKeys: Array.isArray(storedOverride.walletAvatar.collectionKeys)
+                      ? storedOverride.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+                      : []
+                  }
+                : normalizedWalletAvatar
             }
           });
         } catch (serviceError) {

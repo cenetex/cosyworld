@@ -1852,6 +1852,45 @@ export class AvatarService {
       : null;
 
     const walletAvatarPrefs = tokenPreferences?.walletAvatar || {};
+    const configuredCollectionKeys = Array.isArray(walletAvatarPrefs.collectionKeys)
+      ? walletAvatarPrefs.collectionKeys.map(value => String(value).trim()).filter(Boolean)
+      : [];
+    const normalizedCollectionKeySet = new Set(configuredCollectionKeys.map(value => value.toLowerCase()));
+    const requireCollectionOwnership = context.requireCollectionOwnership === true || walletAvatarPrefs.requireCollectionOwnership === true;
+
+    const extractCollectionIdentifier = (candidate) => {
+      if (!candidate) return null;
+      const raw = candidate?.nft?.collection || candidate?.collection || null;
+      if (!raw) return null;
+      const normalized = String(raw).trim().toLowerCase();
+      return normalized || null;
+    };
+
+    const hasMatchingConfiguredCollection = (candidate) => {
+      const normalized = extractCollectionIdentifier(candidate);
+      if (!normalized) return false;
+      if (normalizedCollectionKeySet.size === 0) {
+        return true;
+      }
+      return normalizedCollectionKeySet.has(normalized);
+    };
+
+    const hasNftAssociation = (candidate) => {
+      if (!candidate) return false;
+      if (candidate.claimed === true || Boolean(candidate.claimedBy)) return true;
+      if (candidate.source === 'nft-sync') return true;
+      return hasMatchingConfiguredCollection(candidate);
+    };
+
+    const satisfiesCollectionRequirement = (candidate) => {
+      if (!requireCollectionOwnership) return true;
+      if (!candidate) return false;
+      if (normalizedCollectionKeySet.size > 0) {
+        return hasMatchingConfiguredCollection(candidate);
+      }
+      return hasMatchingConfiguredCollection(candidate) || candidate.claimed === true || Boolean(candidate.claimedBy);
+    };
+
     const minBalanceForFullAvatar = Number.isFinite(walletAvatarPrefs.minBalanceForFullAvatar)
       ? walletAvatarPrefs.minBalanceForFullAvatar
       : 0;
@@ -1868,30 +1907,43 @@ export class AvatarService {
     let claimedSource = false;
 
     if (!requireClaimedAvatar) {
-      avatar = await this.getAvatarByWalletAddress(walletAddress);
+      const existingAvatar = await this.getAvatarByWalletAddress(walletAddress);
+      if (existingAvatar) {
+        if (satisfiesCollectionRequirement(existingAvatar)) {
+          avatar = existingAvatar;
+          claimedSource = hasNftAssociation(existingAvatar);
+        } else if (requireCollectionOwnership) {
+          this.logger?.info?.(`[AvatarService] Skipping existing wallet avatar ${existingAvatar.emoji || '🛸'} ${existingAvatar.name || 'Unnamed'} for ${walletShort}: collection NFT required.`);
+        }
+      }
     }
 
     const claimedAvatar = await this.getPrimaryClaimedAvatarForWallet(walletAddress);
     if (claimedAvatar) {
-      avatar = claimedAvatar;
-      claimedSource = true;
-      this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
+      if (satisfiesCollectionRequirement(claimedAvatar)) {
+        avatar = claimedAvatar;
+        claimedSource = hasNftAssociation(claimedAvatar) || claimedSource;
+        this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
+      } else if (requireCollectionOwnership) {
+        this.logger?.info?.(`[AvatarService] Claimed avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} does not satisfy collection requirement for ${walletShort}`);
+      }
     }
 
     if (!avatar) {
-      const collectionKeys = Array.isArray(walletAvatarPrefs?.collectionKeys) && walletAvatarPrefs.collectionKeys.length > 0
-        ? walletAvatarPrefs.collectionKeys
-        : null;
-      
       const ownedCollectionAvatar = await this.findRandomOwnedCollectionAvatar(walletAddress, {
-        restrictToCollections: collectionKeys
+        restrictToCollections: configuredCollectionKeys.length ? configuredCollectionKeys : null
       });
       
       if (ownedCollectionAvatar) {
         avatar = ownedCollectionAvatar;
-        claimedSource = true;
-        this.logger?.info?.(`[AvatarService] Wallet ${walletShort} owns registered collection avatar ${ownedCollectionAvatar.emoji || '🛸'} ${ownedCollectionAvatar.name || 'Unnamed'}${collectionKeys ? ` (restricted to: ${collectionKeys.join(', ')})` : ''}`);
+        claimedSource = hasNftAssociation(ownedCollectionAvatar) || claimedSource;
+        this.logger?.info?.(`[AvatarService] Wallet ${walletShort} owns registered collection avatar ${ownedCollectionAvatar.emoji || '🛸'} ${ownedCollectionAvatar.name || 'Unnamed'}${configuredCollectionKeys.length ? ` (restricted to: ${configuredCollectionKeys.join(', ')})` : ''}`);
       }
+    }
+
+    if (!avatar && requireCollectionOwnership) {
+      this.logger?.info?.(`[AvatarService] requireCollectionOwnership enabled but no matching collection avatar found for ${walletShort}`);
+      return null;
     }
 
     if (!avatar && requireClaimedAvatar) {
