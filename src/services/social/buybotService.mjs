@@ -375,6 +375,14 @@ export class BuybotService {
       const normalizedPlatform = platform || 'discord';
       const normalizedTokenAddress = typeof tokenAddress === 'string' ? tokenAddress.trim() : tokenAddress;
 
+      const channelContext = await this.getChannelContext(channelId);
+      const canonicalChannelId = channelContext?.canonicalChannelId || channelId;
+      const channelScopeIds = Array.from(new Set([
+        channelId,
+        canonicalChannelId,
+        channelContext?.parentChannelId,
+      ].filter(Boolean)));
+
       if (!this.lambdaEndpoint) {
         return { success: false, message: 'Buybot service not configured. Please set BUYBOT_LAMBDA_ENDPOINT.' };
       }
@@ -388,20 +396,27 @@ export class BuybotService {
       }
 
       // Check per-channel limit
-      const channelTokenQuery = {
-        channelId,
-        active: true,
+      const baseChannelScopeFilter = {
+        $or: [
+          { channelId: { $in: channelScopeIds } },
+          { contextChannelId: { $in: channelScopeIds } },
+        ],
       };
 
-      if (normalizedPlatform === 'discord') {
-        channelTokenQuery.$or = [
-          { platform: 'discord' },
-          { platform: null },
-          { platform: { $exists: false } },
-        ];
-      } else {
-        channelTokenQuery.platform = normalizedPlatform;
-      }
+      const platformFilter = normalizedPlatform === 'discord'
+        ? {
+            $or: [
+              { platform: 'discord' },
+              { platform: null },
+              { platform: { $exists: false } },
+            ],
+          }
+        : { platform: normalizedPlatform };
+
+      const channelTokenQuery = {
+        active: true,
+        $and: [baseChannelScopeFilter, platformFilter],
+      };
 
       let channelTokenCount = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
         .countDocuments(channelTokenQuery);
@@ -475,18 +490,31 @@ export class BuybotService {
       }
 
       const replacedTokens = [];
+      const contextUpdateFields = {
+        contextChannelId: canonicalChannelId,
+        guildId: channelContext?.guildId || null,
+        channelName: channelContext?.channelName || null,
+        isThread: Boolean(channelContext?.isThread),
+        threadParentId: channelContext?.isThread ? (channelContext.parentChannelId || null) : null,
+        threadParentName: channelContext?.isThread ? (channelContext.parentChannelName || null) : null,
+        threadName: channelContext?.isThread ? (channelContext.threadName || channelContext.channelName || null) : null,
+      };
 
       // For Discord, ensure the channel only tracks this token going forward
       if (normalizedPlatform === 'discord') {
         const replacementCandidates = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
           .find({
-            channelId,
             active: true,
             tokenAddress: { $ne: normalizedTokenAddress },
-            $or: [
-              { platform: 'discord' },
-              { platform: null },
-              { platform: { $exists: false } },
+            $and: [
+              baseChannelScopeFilter,
+              {
+                $or: [
+                  { platform: 'discord' },
+                  { platform: null },
+                  { platform: { $exists: false } },
+                ],
+              },
             ],
           })
           .toArray();
@@ -503,7 +531,7 @@ export class BuybotService {
           }
 
           for (const candidate of replacementCandidates) {
-            this.stopPollingToken(channelId, candidate.tokenAddress, candidate.platform || 'discord');
+            this.stopPollingToken(candidate.channelId, candidate.tokenAddress, candidate.platform || 'discord');
             replacedTokens.push({
               tokenAddress: candidate.tokenAddress,
               tokenSymbol: candidate.tokenSymbol,
@@ -558,6 +586,7 @@ export class BuybotService {
             errorCount: 0, // Initialize error counter
             lastErrorAt: null,
             warning: tokenInfo.warning || null, // Store any warnings about the token
+            ...contextUpdateFields,
           },
         },
         { upsert: true }
@@ -759,9 +788,27 @@ export class BuybotService {
         return { success: false, message: 'Invalid Solana address format.' };
       }
 
+      const channelContext = await this.getChannelContext(channelId);
+      const canonicalChannelId = channelContext?.canonicalChannelId || channelId;
+      const channelScopeIds = Array.from(new Set([
+        channelId,
+        canonicalChannelId,
+        channelContext?.parentChannelId,
+      ].filter(Boolean)));
+
+      const baseChannelScopeFilter = {
+        $or: [
+          { channelId: { $in: channelScopeIds } },
+          { contextChannelId: { $in: channelScopeIds } },
+        ],
+      };
+
       // Check per-channel limit
       const channelCollectionCount = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION)
-        .countDocuments({ channelId, active: true });
+        .countDocuments({
+          active: true,
+          $and: [baseChannelScopeFilter],
+        });
       
       if (channelCollectionCount >= MAX_TRACKED_COLLECTIONS_PER_CHANNEL) {
         return {
@@ -772,9 +819,9 @@ export class BuybotService {
 
       // Check if already tracking
       const existing = await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).findOne({
-        channelId,
         collectionAddress,
         active: true,
+        $and: [baseChannelScopeFilter],
       });
 
       if (existing) {
@@ -802,6 +849,13 @@ export class BuybotService {
         notifySale: options.notifySale !== false, // Default true
         active: true,
         trackedAt: new Date(),
+        contextChannelId: canonicalChannelId,
+        guildId: channelContext?.guildId || null,
+        channelName: channelContext?.channelName || null,
+        isThread: Boolean(channelContext?.isThread),
+        threadParentId: channelContext?.isThread ? (channelContext.parentChannelId || null) : null,
+        threadParentName: channelContext?.isThread ? (channelContext.parentChannelName || null) : null,
+        threadName: channelContext?.isThread ? (channelContext.threadName || channelContext.channelName || null) : null,
       };
 
       await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).insertOne(collectionDoc);
@@ -861,10 +915,43 @@ export class BuybotService {
    */
   async getTrackedCollections(channelId) {
     try {
-      return await this.db
+      const channelContext = await this.getChannelContext(channelId);
+      const canonicalChannelId = channelContext?.canonicalChannelId || channelId;
+      const scopeIds = Array.from(new Set([
+        channelId,
+        canonicalChannelId,
+        channelContext?.parentChannelId,
+      ].filter(Boolean)));
+
+      const results = await this.db
         .collection(this.TRACKED_COLLECTIONS_COLLECTION)
-        .find({ channelId, active: true })
+        .find({
+          active: true,
+          $or: [
+            { channelId: { $in: scopeIds } },
+            { contextChannelId: { $in: scopeIds } },
+          ],
+        })
         .toArray();
+
+      const seen = new Set();
+      const collections = [];
+
+      for (const record of results) {
+        const key = record?._id ? record._id.toString() : `${record?.channelId || 'unknown'}:${record?.collectionAddress || 'unknown'}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+
+        const inheritedFromParent = record?.channelId && record.channelId !== channelId;
+        collections.push({
+          ...record,
+          inheritedFromParent,
+        });
+      }
+
+      return collections;
     } catch (error) {
       this.logger.error('[BuybotService] Failed to get tracked collections:', error);
       return [];
