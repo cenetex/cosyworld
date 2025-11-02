@@ -10,8 +10,6 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const PROMPT_KEYS = ['summon', 'introduction', 'attack', 'defend', 'breed', 'avatarTheme'];
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
@@ -367,12 +365,7 @@ export class ConfigService {
       const promptsFromDb = globalSettings?.config?.prompts;
 
       if (promptsFromDb && typeof promptsFromDb === 'object') {
-        const merged = { ...this.config.prompt };
-        for (const key of PROMPT_KEYS) {
-          if (Object.prototype.hasOwnProperty.call(promptsFromDb, key) && typeof promptsFromDb[key] === 'string') {
-            merged[key] = promptsFromDb[key];
-          }
-        }
+        const merged = ConfigService.deepMerge(JSON.parse(JSON.stringify(this.config.prompt || {})), promptsFromDb);
         this.config.prompt = merged;
       }
 
@@ -381,7 +374,7 @@ export class ConfigService {
       this.logger?.warn?.(`[ConfigService] Failed to refresh prompt defaults from database: ${error.message}`);
     }
 
-    return { ...this.config.prompt };
+    return JSON.parse(JSON.stringify(this.config.prompt || {}));
   }
 
   // Get a specific global configuration key, supporting dot notation
@@ -418,14 +411,7 @@ export class ConfigService {
       whitelisted: false,
       summonerRole: "🔮",
       summonEmoji: "🔮",
-      prompts: {
-  summon: this.config.prompt.summon,
-  introduction: this.config.prompt.introduction,
-  attack: this.config.prompt.attack,
-  defend: this.config.prompt.defend,
-  breed: this.config.prompt.breed,
-  avatarTheme: this.config.prompt.avatarTheme
-      },
+    prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
       toolEmojis: {
         summon: '🔮',
         breed: '🏹',
@@ -449,14 +435,7 @@ export class ConfigService {
     const merged = {
       ...defaults,
       ...guildConfig,
-      prompts: {
-  summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
-  introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction,
-  attack: guildConfig?.prompts?.attack || defaults.prompts.attack,
-  defend: guildConfig?.prompts?.defend || defaults.prompts.defend,
-  breed: guildConfig?.prompts?.breed || defaults.prompts.breed,
-  avatarTheme: guildConfig?.prompts?.avatarTheme || defaults.prompts.avatarTheme
-      },
+    prompts: ConfigService.deepMerge(JSON.parse(JSON.stringify(defaults.prompts || {})), guildConfig?.prompts || {}),
       toolEmojis: {
         ...defaults.toolEmojis,
         ...(guildConfig?.toolEmojis || {})
