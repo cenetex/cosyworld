@@ -1,4 +1,4 @@
-import { initializeWallet } from './services/wallet.js';
+import { initializeWallet, connectWallet } from './services/wallet.js';
 import { apiFetch } from './admin/admin-api.js';
 import { success as toastSuccess, error as toastError } from './admin/admin-ui.js';
 
@@ -39,6 +39,49 @@ function updateStatusUI(message, type = 'waiting') {
 
 async function runLogin() {
   initializeWallet();
+  const ensureWalletConnectButton = () => {
+    const container = document.querySelector('.wallet-container');
+    if (!container) return;
+
+    const providerAvailable = !!(window?.phantom?.solana);
+
+    let connectBtn = container.querySelector('#wallet-connect-btn');
+    if (connectBtn) {
+      connectBtn.className = 'w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition';
+    } else {
+      connectBtn = document.createElement('button');
+      connectBtn.id = 'wallet-connect-btn';
+      connectBtn.type = 'button';
+      connectBtn.className = 'w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition';
+      connectBtn.textContent = 'Connect Phantom Wallet';
+      connectBtn.addEventListener('click', () => {
+        connectWallet().catch((err) => {
+          console.error('Wallet connect error:', err);
+          updateStatusUI(`Wallet connection failed: ${err.message || err}`, 'error');
+        });
+      });
+      container.appendChild(connectBtn);
+    }
+
+    let installHint = container.querySelector('#phantom-install-hint');
+    if (!installHint) {
+      installHint = document.createElement('p');
+      installHint.id = 'phantom-install-hint';
+      installHint.className = 'text-xs text-gray-500 mt-2';
+      installHint.innerHTML = `Don't have Phantom? <a href="https://phantom.app/download" target="_blank" rel="noreferrer" class="text-indigo-600 hover:text-indigo-700 underline">Install the extension</a> and then click Connect.`;
+      container.appendChild(installHint);
+    }
+
+    installHint.classList.toggle('hidden', providerAvailable);
+  };
+
+  // Ensure UI present immediately and after wallet state changes
+  ensureWalletConnectButton();
+  window.addEventListener('wallet:connected', ensureWalletConnectButton, { passive: true });
+  window.addEventListener('wallet:disconnected', ensureWalletConnectButton, { passive: true });
+  window.addEventListener('wallet:connected', () => {
+    updateStatusUI('Wallet connected. Preparing login…', 'processing');
+  }, { passive: true });
 
   async function tryLogin() {
     try {
@@ -92,6 +135,9 @@ async function runLogin() {
   }
 
   window.addEventListener('wallet:connected', tryLogin);
+  window.addEventListener('wallet:disconnected', () => {
+    updateStatusUI('Wallet disconnected. Please reconnect to continue.', 'waiting');
+  });
 
   // If already connected, try immediately
   if (window.state?.wallet?.publicKey) {

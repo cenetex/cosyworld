@@ -339,7 +339,7 @@ function wireGlobalXToggle() {
 
   async function load() {
     try {
-      const r = await fetch('/api/admin/x-posting/config');
+      const r = await fetch('/api/admin/x-posting/config', { credentials: 'same-origin' });
       if (!r.ok) throw new Error('' + r.status);
       const data = await r.json();
       const enabled = !!data?.config?.enabled;
@@ -357,9 +357,19 @@ function wireGlobalXToggle() {
     saveTimer = setTimeout(async () => {
       try {
         const csrf = await fetchCsrfToken();
-        const headers = { 'Content-Type': 'application/json', 'x-csrf-token': csrf };
+        const signedHeaders = await getSignedHeaders({ op: 'set_global_x_enabled', enabled: toggle.checked });
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf,
+          ...signedHeaders
+        };
         const body = JSON.stringify({ enabled: toggle.checked });
-        const r = await fetch('/api/admin/x-posting/config', { method: 'PUT', headers, body });
+        const r = await fetch('/api/admin/x-posting/config', {
+          method: 'PUT',
+          headers,
+          body,
+          credentials: 'same-origin'
+        });
         if (!r.ok) throw new Error('Save failed');
         const j = await r.json().catch(()=>({}));
         setPill(!!j?.config?.enabled);
