@@ -825,16 +825,44 @@ export class AvatarService {
    */
   async getAvatarByWalletAddress(walletAddress, { includeInactive = false } = {}) {
     if (!walletAddress) return null;
-    
+
     try {
       const db = await this._db();
-      const query = { walletAddress };
-      
+      const trimmedAddress = String(walletAddress).trim();
+      const walletSummoner = `wallet:${trimmedAddress}`;
+
+      const query = {
+        $or: [
+          { walletAddress: trimmedAddress },
+          { summoner: walletSummoner }
+        ]
+      };
+
       if (!includeInactive) {
         query.status = { $ne: 'dead' };
       }
-      
-      return await db.collection(this.AVATARS_COLLECTION).findOne(query);
+
+      const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(query);
+
+      if (avatar && avatar.walletAddress !== trimmedAddress) {
+        try {
+          await db.collection(this.AVATARS_COLLECTION).updateOne(
+            { _id: avatar._id },
+            {
+              $set: {
+                walletAddress: trimmedAddress,
+                summoner: walletSummoner
+              }
+            }
+          );
+          avatar.walletAddress = trimmedAddress;
+          avatar.summoner = walletSummoner;
+        } catch (updateErr) {
+          this.logger?.warn?.(`[AvatarService] Failed to normalize wallet avatar record for ${formatAddress(walletAddress)}: ${updateErr.message}`);
+        }
+      }
+
+      return avatar;
     } catch (err) {
       this.logger?.error?.(`[AvatarService] Failed to get avatar by wallet address: ${err.message}`);
       return null;
@@ -2021,9 +2049,23 @@ export class AvatarService {
         }));
       }
       
+      const nextChannelId = context.discordChannelId || context.channelId || null;
+      if (nextChannelId && nextChannelId !== avatar.channelId) {
+        updateData.channelId = nextChannelId;
+      }
+
+      const nextGuildId = context.guildId || context.discordGuildId || null;
+      if (nextGuildId && nextGuildId !== avatar.guildId) {
+        updateData.guildId = nextGuildId;
+      }
+
+      if (!avatar.summoner || !avatar.summoner.startsWith('wallet:')) {
+        updateData.summoner = `wallet:${walletAddress}`;
+      }
+
       await db.collection(this.AVATARS_COLLECTION).updateOne(
         { _id: avatar._id },
-        { 
+        {
           $set: updateData,
           $inc: { activityCount: 1 }
         }
@@ -2034,7 +2076,7 @@ export class AvatarService {
       
       this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
 
-      const claimedActivationTarget = avatar.channelId || context.discordChannelId;
+  const claimedActivationTarget = context.discordChannelId || context.channelId || avatar.channelId;
       if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && claimedActivationTarget) {
         try {
           await this.activateAvatarInChannel(claimedActivationTarget, String(avatar._id));
@@ -2185,7 +2227,7 @@ export class AvatarService {
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
     // Activate in channel and optionally send introduction per token preferences
-    const activationTargetChannel = avatar.channelId || context.discordChannelId || context.channelId || null;
+  const activationTargetChannel = context.discordChannelId || context.channelId || avatar.channelId || null;
 
     if (effectiveShouldAutoActivate && activationTargetChannel) {
       try {
