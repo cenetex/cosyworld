@@ -94,6 +94,10 @@ export class BuybotService {
       getTokenInfo: (tokenAddress) => this.getTokenInfo(tokenAddress),
     });
 
+    // Cache for Discord channel context lookups (threads, parents, guild IDs)
+    this.channelContextCache = new Map();
+    this.CHANNEL_CONTEXT_TTL_MS = 5 * 60_000; // Re-resolve after five minutes
+
     // Volume tracking for Discord activity summaries
     // channelId -> { totalVolume, events: [], lastSummaryAt }
     this.volumeTracking = new Map();
@@ -211,6 +215,134 @@ export class BuybotService {
   }
 
   /**
+   * Resolve Discord channel context (thread metadata, parent channel, guild ID)
+   * Results are cached briefly to avoid repeated API calls.
+   * @param {string} channelId - Discord channel or thread ID
+   * @returns {Promise<Object>} Context object
+   */
+  async getChannelContext(channelId) {
+    const fallbackContext = {
+      channelId: channelId || null,
+      canonicalChannelId: channelId || null,
+      parentChannelId: null,
+      parentChannelName: null,
+      guildId: null,
+      isThread: false,
+      channelName: null,
+      threadName: null,
+    };
+
+    if (!channelId) {
+      return fallbackContext;
+    }
+
+    try {
+      const now = Date.now();
+      const cachedEntry = this.channelContextCache.get(channelId);
+      if (cachedEntry && (now - cachedEntry.cachedAt) < this.CHANNEL_CONTEXT_TTL_MS) {
+        return cachedEntry.context;
+      }
+
+      const context = { ...fallbackContext };
+
+      const canFetchChannel = Boolean(this.discordService?.client?.channels?.fetch);
+      if (canFetchChannel) {
+        try {
+          const channel = await this.discordService.client.channels.fetch(channelId);
+          if (channel) {
+            context.channelName = channel.name || null;
+            context.guildId = channel.guild?.id || null;
+
+            const isThread = typeof channel.isThread === 'function' && channel.isThread();
+            if (isThread) {
+              context.isThread = true;
+              context.threadName = channel.name || null;
+              context.parentChannelId = channel.parentId || null;
+              context.parentChannelName = channel.parent?.name || null;
+              context.canonicalChannelId = channel.parentId || channelId;
+
+              // Cache parent channel context if available but not present
+              if (context.parentChannelId && !this.channelContextCache.has(context.parentChannelId)) {
+                this.channelContextCache.set(context.parentChannelId, {
+                  cachedAt: now,
+                  context: {
+                    channelId: context.parentChannelId,
+                    canonicalChannelId: context.parentChannelId,
+                    parentChannelId: null,
+                    parentChannelName: null,
+                    guildId: context.guildId,
+                    isThread: false,
+                    channelName: context.parentChannelName || null,
+                    threadName: null,
+                  },
+                });
+              }
+            }
+          }
+        } catch (fetchError) {
+          this.logger?.debug?.(`[BuybotService] Failed to fetch Discord channel ${channelId}: ${fetchError.message}`);
+        }
+      }
+
+      this.channelContextCache.set(channelId, { cachedAt: Date.now(), context });
+      return context;
+    } catch (error) {
+      this.logger?.debug?.(`[BuybotService] getChannelContext fallback for ${channelId}: ${error.message}`);
+      return fallbackContext;
+    }
+  }
+
+  /**
+   * Ensure tracked token documents carry thread context metadata
+   * @param {Object} token - Token document
+   */
+  async ensureTrackedTokenContext(token) {
+    try {
+      if (!token || !token._id || !token.channelId) {
+        return;
+      }
+
+      const context = await this.getChannelContext(token.channelId);
+
+      const updates = {};
+      if (!token.contextChannelId && context.canonicalChannelId) {
+        updates.contextChannelId = context.canonicalChannelId;
+      }
+
+      const expectedParentId = context.isThread ? (context.parentChannelId || null) : null;
+      if (token.threadParentId !== expectedParentId) {
+        updates.threadParentId = expectedParentId;
+      }
+
+      const expectedThreadName = context.isThread ? (context.threadName || context.channelName || null) : null;
+      if (token.threadName !== expectedThreadName) {
+        updates.threadName = expectedThreadName;
+      }
+
+      const expectedParentName = context.isThread ? (context.parentChannelName || null) : null;
+      if (token.threadParentName !== expectedParentName) {
+        updates.threadParentName = expectedParentName;
+      }
+
+      if (token.guildId !== context.guildId) {
+        updates.guildId = context.guildId || null;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return;
+      }
+
+      updates.updatedAt = new Date();
+      await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
+        { _id: token._id },
+        { $set: updates }
+      );
+    } catch (error) {
+      this.logger?.debug?.(`[BuybotService] Failed to backfill token context for channel ${token?.channelId}: ${error.message}`);
+    }
+  }
+
+  /**
    * Restore tracked tokens from database on startup
    */
   async restoreTrackedTokens() {
@@ -223,6 +355,7 @@ export class BuybotService {
       this.logger.info(`[BuybotService] Restoring ${trackedTokens.length} tracked tokens`);
 
       for (const token of trackedTokens) {
+        await this.ensureTrackedTokenContext(token);
         await this.setupTokenWebhook(token.channelId, token.tokenAddress, token.platform || 'discord');
       }
     } catch (error) {
