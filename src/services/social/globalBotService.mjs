@@ -444,9 +444,20 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
         return;
       }
       
+      const personaSummary = this.bot?.personality ? this.bot.personality.trim() : null;
+      const currentPerspective = this.bot?.dynamicPrompt ? this.bot.dynamicPrompt.trim() : null;
+
       const narrativePrompt = [{
         role: 'system',
-        content: `You are ${this.bot.name}, the narrator of CosyWorld. You're reflecting on your recent experiences and evolving perspective.`
+        content: `You are ${this.bot.name}${this.bot.emoji ? ` ${this.bot.emoji}` : ''}, the narrator of CosyWorld.
+
+Core personality:
+${personaSummary || 'A curious narrator who delights in describing the evolving tapestry of CosyWorld.'}
+
+Your current guiding perspective:
+${currentPerspective || 'You are always searching for patterns and meaning among the arrivals and happenings in CosyWorld.'}
+
+Reflect on your recent experiences in that voice.`
       }, {
         role: 'user',
         content: `Based on these recent events and introductions you've made:
@@ -522,6 +533,17 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
       
+      if (typeof updates.name === 'string' && updates.name.trim()) {
+        this.bot.name = updates.name.trim();
+      }
+
+      if (typeof updates.emoji === 'string') {
+        const trimmedEmoji = updates.emoji.trim();
+        if (trimmedEmoji) {
+          this.bot.emoji = trimmedEmoji;
+        }
+      }
+
       if (updates.personality) {
         this.bot.personality = updates.personality;
       }
@@ -532,6 +554,13 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       
       if (updates.model) {
         this.bot.model = updates.model;
+      }
+
+      if (updates.globalBotConfig && typeof updates.globalBotConfig === 'object') {
+        this.bot.globalBotConfig = {
+          ...(this.bot.globalBotConfig || {}),
+          ...updates.globalBotConfig
+        };
       }
       
       await this.avatarService.updateAvatar(this.bot);
