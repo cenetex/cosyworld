@@ -30,6 +30,24 @@ const upload = multer({
 
 const configPath = path.join(process.cwd(), 'src/config');
 
+async function ensureConfigServiceDb(services, db) {
+  if (!services?.configService) return null;
+
+  try {
+    if (!services.configService.db && db) {
+      services.configService.db = db;
+    }
+
+    if (!services.configService.db && services.databaseService?.getDatabase) {
+      services.configService.db = await services.databaseService.getDatabase();
+    }
+  } catch (error) {
+    services?.logger?.warn?.('[admin] Failed to attach configService to database', error);
+  }
+
+  return services.configService;
+}
+
 // Helper function to handle async route handlers
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -48,6 +66,16 @@ async function loadConfig(services = null) {
     adminRoles: ["Admin", "Moderator"]
   };
   try {
+    if (services?.configService && !services.configService.db) {
+      try {
+        if (services.databaseService?.getDatabase) {
+          services.configService.db = await services.databaseService.getDatabase();
+        }
+      } catch (attachError) {
+        services?.logger?.warn?.('[admin] Failed to attach configService to database for loadConfig()', attachError);
+      }
+    }
+
     const defaultPath = path.join(configPath, 'default.config.json');
     const userPath = path.join(configPath, 'user.config.json');
     let defaultConfig = {};
@@ -721,11 +749,14 @@ function createRouter(db, services) {
   // Wallet avatar token preference routes
   adminRouter.get('/token-preferences', asyncHandler(async (req, res) => {
     try {
-      const configService = services?.configService;
+      const configService = await ensureConfigServiceDb(services, db);
       let tokenSnapshot = null;
 
       if (configService?.getTokenPreferencesSnapshot) {
         try {
+          if (configService?.refreshTokenPreferences) {
+            await configService.refreshTokenPreferences({ force: true, seedIfMissing: true });
+          }
           tokenSnapshot = await configService.getTokenPreferencesSnapshot({ refresh: true });
         } catch (snapshotError) {
           console.warn('[Admin] Falling back to file-based token preferences:', snapshotError?.message || snapshotError);
@@ -912,7 +943,7 @@ function createRouter(db, services) {
         sendIntro: !!walletAvatar.sendIntro
       };
 
-      const configService = services?.configService;
+      const configService = await ensureConfigServiceDb(services, db);
 
       if (configService?.updateTokenDefaults) {
         try {
@@ -988,7 +1019,7 @@ function createRouter(db, services) {
         overridePayload.displayEmoji = String(trimmedEmoji);
       }
 
-      const configService = services?.configService;
+      const configService = await ensureConfigServiceDb(services, db);
       if (configService?.upsertTokenOverride) {
         try {
           const storedOverride = await configService.upsertTokenOverride(
@@ -1069,7 +1100,7 @@ function createRouter(db, services) {
         return res.status(400).json({ error: 'Invalid symbol' });
       }
 
-      const configService = services?.configService;
+      const configService = await ensureConfigServiceDb(services, db);
       if (configService?.deleteTokenOverride) {
         try {
           const deleted = await configService.deleteTokenOverride(normalizedSymbol);
