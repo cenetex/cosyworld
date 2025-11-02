@@ -2119,6 +2119,21 @@ export class BuybotService {
         if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
           return;
         }
+      } else {
+        const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
+        const threshold = Number(thresholdRaw);
+        if (Number.isFinite(threshold) && threshold > 0) {
+          if (!Number.isFinite(usdValue) || usdValue < threshold) {
+            this.logger?.info?.('[BuybotService] Suppressing low-value event below threshold', {
+              eventType: effectiveType,
+              channelId,
+              token: token?.tokenSymbol || token?.symbol,
+              usdValue,
+              threshold
+            });
+            return;
+          }
+        }
       }
 
       // Get wallet avatars for addresses FIRST (before building embed)

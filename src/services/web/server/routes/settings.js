@@ -107,6 +107,19 @@ export default function createSettingsRouter(services) {
           { upsert: true }
         );
       }
+
+      if (configService && key.startsWith('prompts.')) {
+        try {
+          if (guildId) {
+            await configService.clearCache(guildId);
+          } else {
+            await configService.refreshPromptDefaultsFromDatabase({ force: true });
+            await configService.clearCache();
+          }
+        } catch (refreshError) {
+          services.logger?.warn?.('[settings] Failed to refresh prompt defaults after set', refreshError);
+        }
+      }
       res.json({ ok: true });
     } catch (e) {
       services.logger.error('POST /api/settings/set failed:', e);
@@ -130,6 +143,19 @@ export default function createSettingsRouter(services) {
           { _id: 'guild_defaults' },
           { $unset: { [`config.${key}`]: '' }, $set: { updatedAt: new Date() } }
         );
+      }
+
+      if (configService && key.startsWith('prompts.')) {
+        try {
+          if (guildId) {
+            await configService.clearCache(guildId);
+          } else {
+            await configService.refreshPromptDefaultsFromDatabase({ force: true });
+            await configService.clearCache();
+          }
+        } catch (refreshError) {
+          services.logger?.warn?.('[settings] Failed to refresh prompt defaults after clear', refreshError);
+        }
       }
       res.json({ ok: true, cleared: true });
     } catch (e) {

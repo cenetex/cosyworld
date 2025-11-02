@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const PROMPT_KEYS = ['summon', 'introduction', 'attack', 'defend', 'breed', 'avatarTheme'];
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
@@ -151,6 +153,7 @@ export class ConfigService {
     this.guildConfigCache = new Map(); // Cache for guild configurations
         this.initialTokenDefaults = JSON.parse(JSON.stringify(this.config.tokens?.defaults || {}));
         this.tokenPreferencesCache = null;
+    this._promptDefaultsLoaded = false;
   }
 
   static deepMerge(target, source) {
@@ -336,9 +339,49 @@ export class ConfigService {
         this.initialTokenDefaults = JSON.parse(JSON.stringify(merged.tokens.defaults));
       }
       this.tokenPreferencesCache = null;
+      this._promptDefaultsLoaded = false;
     } catch (error) {
       console.error('Error loading config:', error);
     }
+  }
+
+  async refreshPromptDefaultsFromDatabase({ db: explicitDb = null, force = false } = {}) {
+    if (!force && this._promptDefaultsLoaded) {
+      return { ...this.config.prompt };
+    }
+
+    let dbConnection = explicitDb;
+    try {
+      if (!dbConnection) {
+        dbConnection = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
+      }
+
+      if (!dbConnection) {
+        this.logger?.warn?.('[ConfigService] Unable to load prompt defaults from database – no connection available');
+        return { ...this.config.prompt };
+      }
+
+      this.db = this.db || dbConnection;
+
+      const globalSettings = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
+      const promptsFromDb = globalSettings?.config?.prompts;
+
+      if (promptsFromDb && typeof promptsFromDb === 'object') {
+        const merged = { ...this.config.prompt };
+        for (const key of PROMPT_KEYS) {
+          if (Object.prototype.hasOwnProperty.call(promptsFromDb, key) && typeof promptsFromDb[key] === 'string') {
+            merged[key] = promptsFromDb[key];
+          }
+        }
+        this.config.prompt = merged;
+      }
+
+      this._promptDefaultsLoaded = true;
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] Failed to refresh prompt defaults from database: ${error.message}`);
+    }
+
+    return { ...this.config.prompt };
   }
 
   // Get a specific global configuration key, supporting dot notation

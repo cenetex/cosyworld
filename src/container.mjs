@@ -478,6 +478,17 @@ async function initializeContainer() {
   try {
     const databaseService = container.resolve('databaseService');
     const db = await databaseService.getDatabase();
+    if (!configService.db) {
+      configService.db = db;
+    }
+
+    try {
+      await configService.refreshPromptDefaultsFromDatabase({ db, force: true });
+      logger.info('[container] ✅ Loaded prompt defaults from database');
+    } catch (promptError) {
+      logger.warn('[container] ⚠️  Failed to load prompt defaults from database:', promptError?.message || promptError);
+    }
+
     const settingsCollection = db.collection('settings');
     const paymentSettings = await settingsCollection.find({
       key: { $regex: /^payment\./ },
