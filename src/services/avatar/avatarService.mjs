@@ -154,6 +154,7 @@ export class AvatarService {
       
       // CRITICAL: Wallet avatar indexes
       this.avatarsCollection.createIndex({ walletAddress: 1 }, { sparse: true }),
+  this.avatarsCollection.createIndex({ claimedBy: 1 }, { sparse: true }),
       this.avatarsCollection.createIndex({ summoner: 1 }),
       this.avatarsCollection.createIndex({ lastActivityAt: -1 }, { sparse: true }),
   this.avatarsCollection.createIndex({ 'tokenBalances.$**': 1 }, { sparse: true }),
@@ -838,6 +839,51 @@ export class AvatarService {
     }
   }
 
+  /**
+   * Get all claimed NFT avatars for a wallet (via claimedBy field)
+   * @param {string} walletAddress - Wallet address
+   * @param {Object} options - Query options
+   * @param {boolean} options.includeInactive - Include dead avatars (default: false)
+   * @returns {Promise<Object[]>}
+   */
+  async getClaimedAvatarsByWallet(walletAddress, { includeInactive = false } = {}) {
+    if (!walletAddress) return [];
+
+    try {
+      const db = await this._db();
+      const query = { claimedBy: walletAddress };
+      if (!includeInactive) {
+        query.status = { $ne: 'dead' };
+      }
+
+      return await db.collection(this.AVATARS_COLLECTION)
+        .find(query)
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .toArray();
+    } catch (err) {
+      this.logger?.warn?.(`[AvatarService] Failed to get claimed avatars for wallet ${formatAddress(walletAddress)}: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get the highest priority claimed NFT avatar for a wallet.
+   * Prefers avatars with NFT metadata, falls back to most recently updated.
+   * @param {string} walletAddress
+   * @param {Object} options
+   * @param {boolean} options.includeInactive
+   * @returns {Promise<Object|null>}
+   */
+  async getPrimaryClaimedAvatarForWallet(walletAddress, { includeInactive = false } = {}) {
+    const claimed = await this.getClaimedAvatarsByWallet(walletAddress, { includeInactive });
+    if (!claimed.length) {
+      return null;
+    }
+
+    const nftBacked = claimed.find(av => av?.nft?.collection || av?.source === 'nft-sync');
+    return nftBacked || claimed[0];
+  }
+
   /* -------------------------------------------------- */
   /*  AI‑ASSISTED GENERATION                             */
   /* -------------------------------------------------- */
@@ -1414,6 +1460,19 @@ export class AvatarService {
 
     // Check if avatar already exists for this wallet (uses indexed query)
     let avatar = await this.getAvatarByWalletAddress(walletAddress);
+    let claimedSource = false;
+
+    if (!avatar) {
+      const claimedAvatar = await this.getPrimaryClaimedAvatarForWallet(walletAddress);
+      if (claimedAvatar) {
+        avatar = claimedAvatar;
+        claimedSource = true;
+        this.logger?.info?.(`[AvatarService] Using claimed NFT avatar ${claimedAvatar.emoji || '🛸'} ${claimedAvatar.name || 'Unnamed'} for ${walletShort}`);
+      }
+    }
+
+    const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
+    const effectiveShouldSendIntro = claimedSource ? false : shouldSendIntro;
     
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
@@ -1480,8 +1539,13 @@ export class AvatarService {
       
       // Update last activity and token balances
       const updateData = {
-        lastActivityAt: new Date()
+        lastActivityAt: new Date(),
+        updatedAt: new Date(),
       };
+
+      if (walletAddress && avatar.walletAddress !== walletAddress) {
+        updateData.walletAddress = walletAddress;
+      }
       
       // Update token balance if provided
       if (context.tokenSymbol && context.currentBalance !== undefined) {
@@ -1569,6 +1633,15 @@ export class AvatarService {
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
       this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
+
+      if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && context.discordChannelId) {
+        try {
+          await this.activateAvatarInChannel(context.discordChannelId, String(avatar._id));
+          this.logger?.info?.(`[AvatarService] Ensured claimed NFT avatar ${avatar.name} is active in channel ${context.discordChannelId}`);
+        } catch (activationError) {
+          this.logger?.warn?.(`[AvatarService] Failed to activate claimed avatar ${avatar.name} in channel ${context.discordChannelId}: ${activationError.message}`);
+        }
+      }
       return avatar;
     }
     
@@ -1711,7 +1784,7 @@ export class AvatarService {
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
     // Activate in channel and optionally send introduction per token preferences
-    if (shouldAutoActivate && context.discordChannelId) {
+  if (effectiveShouldAutoActivate && context.discordChannelId) {
       try {
         // Activate in channel
         await this.activateAvatarInChannel(
@@ -1721,7 +1794,7 @@ export class AvatarService {
         this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${context.discordChannelId}`);
         
         // Send introduction message (only for new avatars)
-        if (shouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
+  if (effectiveShouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
           try {
             const balanceStr = normalizedBalance
               ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
