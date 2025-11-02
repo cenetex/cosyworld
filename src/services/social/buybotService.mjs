@@ -177,6 +177,7 @@ export class BuybotService {
       await this.db.collection(this.TRACKED_TOKENS_COLLECTION).createIndexes([
         { key: { channelId: 1, tokenAddress: 1 }, unique: true, name: 'channel_token' },
         { key: { channelId: 1 }, name: 'channel_lookup' },
+        { key: { contextChannelId: 1 }, name: 'context_channel_lookup' },
         { key: { tokenAddress: 1 }, name: 'token_lookup' },
       ]);
 
@@ -205,6 +206,7 @@ export class BuybotService {
       await this.db.collection(this.TRACKED_COLLECTIONS_COLLECTION).createIndexes([
         { key: { channelId: 1, collectionAddress: 1 }, unique: true, name: 'channel_collection' },
         { key: { channelId: 1 }, name: 'collection_channel_lookup' },
+        { key: { contextChannelId: 1 }, name: 'collection_context_lookup' },
         { key: { collectionAddress: 1 }, name: 'collection_lookup' },
       ]);
 
@@ -985,7 +987,18 @@ export class BuybotService {
       }
 
       let totalCount = 0;
+      const uniqueCollections = new Map();
+
       for (const collection of trackedCollections) {
+        if (!collection?.collectionAddress) {
+          continue;
+        }
+        if (!uniqueCollections.has(collection.collectionAddress)) {
+          uniqueCollections.set(collection.collectionAddress, collection);
+        }
+      }
+
+      for (const collection of uniqueCollections.values()) {
         const count = await this.getWalletNftCount(walletAddress, collection.collectionAddress);
         totalCount += count;
       }
