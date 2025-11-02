@@ -24,11 +24,14 @@ const DEFAULT_WALLET_AVATAR_PREFS = {
   createFullAvatar: false,
   minBalanceForFullAvatar: 0,
   autoActivate: false,
-  sendIntro: false
+  sendIntro: false,
+  requireClaimedAvatar: false,
+  collectionKeys: []
 };
 
 let walletAvatarPrefsState = null;
 let walletAvatarEditorOriginalSymbol = null;
+let availableCollections = [];
 
 function getGuildMetaById(id) {
   if (!id) return { id: '', name: 'Global Defaults', authorized: true };
@@ -636,11 +639,16 @@ function initPaymentConfigHandlers() {
 function normalizeWalletAvatarDefaults(raw = {}) {
   const numericValue = Number(raw.minBalanceForFullAvatar);
   const sanitizedBalance = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+  const collectionKeys = Array.isArray(raw.collectionKeys) 
+    ? raw.collectionKeys.filter(k => typeof k === 'string' && k.trim()).map(k => k.trim())
+    : [];
   return {
     createFullAvatar: !!raw.createFullAvatar,
     minBalanceForFullAvatar: sanitizedBalance,
     autoActivate: !!raw.autoActivate,
-    sendIntro: !!raw.sendIntro
+    sendIntro: !!raw.sendIntro,
+    requireClaimedAvatar: !!raw.requireClaimedAvatar,
+    collectionKeys
   };
 }
 
@@ -812,12 +820,25 @@ function renderWalletAvatarOverrides() {
     const minBalanceValue = Number(walletAvatar.minBalanceForFullAvatar);
     const minBalanceSanitized = Number.isFinite(minBalanceValue) && minBalanceValue >= 0 ? minBalanceValue : 0;
     const minBalanceDisplay = minBalanceSanitized.toLocaleString(undefined, { maximumFractionDigits: 4 });
-    const summary = [
+    
+    const collectionKeys = Array.isArray(walletAvatar.collectionKeys) ? walletAvatar.collectionKeys : [];
+    const collectionsText = collectionKeys.length 
+      ? collectionKeys.map(key => {
+          const coll = availableCollections.find(c => c.key === key);
+          return escapeHtml(coll?.displayName || key);
+        }).join(', ')
+      : '';
+    
+    const summaryParts = [
       `Min balance: ${minBalanceDisplay}`,
       `Full avatars: ${walletAvatar.createFullAvatar ? 'Enabled' : 'Disabled'}`,
       `Auto-activate: ${walletAvatar.autoActivate ? 'Yes' : 'No'}`,
       `Intro: ${walletAvatar.sendIntro ? 'Yes' : 'No'}`
-    ].join(' • ');
+    ];
+    if (walletAvatar.requireClaimedAvatar) {
+      summaryParts.push('Claimed NFTs only');
+    }
+    const summary = summaryParts.join(' • ');
 
     card.innerHTML = `
       <div class="flex items-start justify-between gap-3">
@@ -829,6 +850,7 @@ function renderWalletAvatarOverrides() {
           <div class="text-xs text-gray-500">${summary}</div>
           ${aliasText ? `<div class="text-xs text-gray-500">Aliases: ${aliasText}</div>` : ''}
           ${addressesText ? `<div class="text-xs text-gray-500">Addresses: ${addressesText}</div>` : ''}
+          ${collectionsText ? `<div class="text-xs text-gray-500">Collections: ${collectionsText}</div>` : ''}
         </div>
         <div class="flex gap-2 shrink-0">
           <button type="button" class="wallet-avatar-edit px-3 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200">Edit</button>
@@ -1061,6 +1083,17 @@ function openWalletAvatarEditor(symbol = null) {
   const safeAliases = escapeHtml(formState.aliasSymbols.join(', '));
   const safeAddresses = escapeHtml(formState.addresses.join(', '));
 
+  // Build collection options HTML
+  const collectionKeys = Array.isArray(formState.walletAvatar?.collectionKeys) 
+    ? formState.walletAvatar.collectionKeys 
+    : [];
+  const collectionOptionsHTML = availableCollections.map(coll => {
+    const key = coll.key || '';
+    const displayName = coll.displayName || key;
+    const selected = collectionKeys.includes(key) ? 'selected' : '';
+    return `<option value="${escapeHtml(key)}" ${selected}>${escapeHtml(displayName)}</option>`;
+  }).join('');
+
   editor.className = 'border rounded-lg bg-white p-4';
   editor.classList.remove('hidden');
 
@@ -1090,8 +1123,19 @@ function openWalletAvatarEditor(symbol = null) {
         <input id="walletAvatarAddresses" type="text" class="w-full px-3 py-2 border rounded text-sm" placeholder="Optional mint addresses" value="${safeAddresses}" />
         <p class="text-xs text-gray-500 mt-1">Comma or space separated list (stored in lowercase).</p>
       </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="walletAvatarCollections">NFT Collections</label>
+        <select id="walletAvatarCollections" multiple class="w-full px-3 py-2 border rounded text-sm" style="min-height: 100px;">
+          ${collectionOptionsHTML}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple collections. Only avatars from these collections will respond for this token.</p>
+      </div>
     </div>
     <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" id="walletAvatarRequireClaimed" class="rounded" ${formState.walletAvatar.requireClaimedAvatar ? 'checked' : ''} />
+        Only allow claimed NFT avatars
+      </label>
       <label class="flex items-center gap-2 text-sm text-gray-700">
         <input type="checkbox" id="walletAvatarCreateFull" class="rounded" ${formState.walletAvatar.createFullAvatar ? 'checked' : ''} />
         Generate full avatars
@@ -1147,6 +1191,12 @@ async function submitWalletAvatarOverride(editor) {
     return;
   }
 
+  // Extract selected collections from multi-select
+  const collectionsSelect = editor.querySelector('#walletAvatarCollections');
+  const selectedCollections = collectionsSelect 
+    ? Array.from(collectionsSelect.selectedOptions).map(opt => opt.value).filter(Boolean)
+    : [];
+
   const payload = {
     symbol: normalizedSymbol,
     originalSymbol: walletAvatarEditorOriginalSymbol,
@@ -1157,7 +1207,9 @@ async function submitWalletAvatarOverride(editor) {
       createFullAvatar: editor.querySelector('#walletAvatarCreateFull')?.checked || false,
       minBalanceForFullAvatar: minBalance,
       autoActivate: editor.querySelector('#walletAvatarAutoActivate')?.checked || false,
-      sendIntro: editor.querySelector('#walletAvatarSendIntro')?.checked || false
+      sendIntro: editor.querySelector('#walletAvatarSendIntro')?.checked || false,
+      requireClaimedAvatar: editor.querySelector('#walletAvatarRequireClaimed')?.checked || false,
+      collectionKeys: selectedCollections
     }
   };
 
@@ -1230,6 +1282,16 @@ async function loadWalletAvatarPreferences() {
   }
 }
 
+async function loadCollections() {
+  try {
+    const response = await apiFetch('/api/admin/collections/configs');
+    availableCollections = Array.isArray(response?.data) ? response.data : [];
+  } catch (error) {
+    console.error('Failed to load collections:', error);
+    availableCollections = [];
+  }
+}
+
 function initWalletAvatarPreferenceHandlers() {
   document.getElementById('addWalletAvatarOverride')?.addEventListener('click', () => openWalletAvatarEditor());
 }
@@ -1292,9 +1354,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tab === tabSecrets) panelSecrets?.classList.remove('hidden');
   }
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
-  tabSettings?.addEventListener('click', () => {
+  tabSettings?.addEventListener('click', async () => {
     activate(tabSettings);
-    loadWalletAvatarPreferences();
+    await loadCollections();
+    await loadWalletAvatarPreferences();
   });
   tabPayments?.addEventListener('click', () => {
     activate(tabPayments);
@@ -1309,6 +1372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Wallet avatar preference handlers
   initWalletAvatarPreferenceHandlers();
 
-  // Preload wallet avatar preferences for initial render
+  // Preload wallet avatar preferences and collections for initial render
+  await loadCollections();
   await loadWalletAvatarPreferences();
 });
