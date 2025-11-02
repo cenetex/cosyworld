@@ -2147,8 +2147,48 @@ export class AvatarService {
     const balanceInfo = normalizedBalance 
       ? `with ${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
       : '';
-    
-    const prompt = `Create a character for wallet ${walletShort}, a Solana ${tokenInfo} ${balanceInfo}. Make them unique and memorable.`;
+
+    let avatarPromptTheme = null;
+    if (this.configService) {
+      try {
+        if (context.guildId && this.configService.getGuildConfig) {
+          const guildConfig = await this.configService.getGuildConfig(context.guildId);
+          avatarPromptTheme = guildConfig?.prompts?.avatarTheme || null;
+        }
+      } catch (themeError) {
+        this.logger?.warn?.(`[AvatarService] Failed to load avatar prompt theme for guild ${context.guildId}: ${themeError.message}`);
+      }
+
+      if (!avatarPromptTheme) {
+        avatarPromptTheme = this.configService?.config?.prompt?.avatarTheme || null;
+      }
+    }
+
+    const promptSegments = [
+      `Create a character for wallet ${walletShort}, a Solana ${tokenInfo} ${balanceInfo}. Make them unique and memorable.`
+    ];
+
+    if (avatarPromptTheme) {
+      promptSegments.push(`Use the server's avatar prompt theme as creative direction: ${avatarPromptTheme}.`);
+    }
+
+    if (configuredCollectionKeys.length) {
+      promptSegments.push(`Infuse visual or personality cues inspired by these NFT collections: ${configuredCollectionKeys.join(', ')}.`);
+    } else if (requireCollectionOwnership) {
+      promptSegments.push('Reflect the prestige of holding exclusive collection NFTs.');
+    }
+
+    if (Array.isArray(context.walletTopTokens) && context.walletTopTokens.length) {
+      const topSymbols = context.walletTopTokens
+        .map(entry => entry?.symbol || entry?.mint)
+        .filter(Boolean)
+        .slice(0, 3);
+      if (topSymbols.length) {
+        promptSegments.push(`Subtly nod to their top holdings (${topSymbols.join(', ')}) in their story or aesthetic.`);
+      }
+    }
+
+    const prompt = promptSegments.join(' ');
     
     // Create avatar with retries
     let retries = 0;

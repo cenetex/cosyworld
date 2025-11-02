@@ -1322,6 +1322,7 @@ async function submitWalletAvatarOverride(editor) {
     editor.querySelectorAll('.wallet-avatar-collection:checked'),
     input => (typeof input.value === 'string' ? input.value.trim() : '')
   ).filter(Boolean);
+  const uniqueCollectionKeys = Array.from(new Set(selectedCollections));
 
   const payload = {
     symbol: normalizedSymbol,
@@ -1336,7 +1337,7 @@ async function submitWalletAvatarOverride(editor) {
       sendIntro: editor.querySelector('#walletAvatarSendIntro')?.checked || false,
       requireClaimedAvatar: editor.querySelector('#walletAvatarRequireClaimed')?.checked || false,
       requireCollectionOwnership: editor.querySelector('#walletAvatarRequireCollection')?.checked || false,
-      collectionKeys: selectedCollections
+      collectionKeys: uniqueCollectionKeys
     },
     notifications
   };
@@ -1346,7 +1347,7 @@ async function submitWalletAvatarOverride(editor) {
     ...payload,
     aliasSymbols: [...payload.aliasSymbols],
     addresses: [...payload.addresses],
-    walletAvatar: { ...payload.walletAvatar, collectionKeys: [...selectedCollections] },
+    walletAvatar: { ...payload.walletAvatar, collectionKeys: [...uniqueCollectionKeys] },
     notifications: { ...notifications }
   };
 

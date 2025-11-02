@@ -48,6 +48,21 @@ async function ensureConfigServiceDb(services, db) {
   return services.configService;
 }
 
+const DEFAULT_WALLET_AVATAR_PREFS = {
+  createFullAvatar: false,
+  minBalanceForFullAvatar: 0,
+  autoActivate: false,
+  sendIntro: false,
+  requireClaimedAvatar: false,
+  requireCollectionOwnership: false,
+  collectionKeys: []
+};
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  onlySwapEvents: false,
+  transferAggregationUsdThreshold: 0
+};
+
 // Helper function to handle async route handlers
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -59,7 +74,8 @@ async function loadConfig(services = null) {
     emojis: { summon: "🔮", breed: "🏹", attack: "⚔️", defend: "🛡️" },
     prompts: {
       introduction: "You have been summoned to this realm. This is your one chance to impress me, and save yourself from Elimination. Good luck, and DONT fuck it up.",
-      summon: "Create a unique avatar with a special ability."
+      summon: "Create a unique avatar with a special ability.",
+      avatarTheme: 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
     },
     features: { breeding: true, combat: true, itemCreation: true },
     rateLimit: { messages: 5, interval: 10 },
@@ -785,45 +801,61 @@ function createRouter(db, services) {
         return Array.from(set);
       };
 
+      const defaultCollectionKeys = Array.isArray(defaults.walletAvatar?.collectionKeys)
+        ? defaults.walletAvatar.collectionKeys
+            .map(key => String(key).trim())
+            .filter(Boolean)
+        : [];
+
       const normalizedDefaults = {
         walletAvatar: {
+          ...DEFAULT_WALLET_AVATAR_PREFS,
           createFullAvatar: !!defaults.walletAvatar?.createFullAvatar,
           minBalanceForFullAvatar: parseNonNegativeNumber(defaults.walletAvatar?.minBalanceForFullAvatar),
           autoActivate: !!defaults.walletAvatar?.autoActivate,
           sendIntro: !!defaults.walletAvatar?.sendIntro,
           requireClaimedAvatar: !!defaults.walletAvatar?.requireClaimedAvatar,
           requireCollectionOwnership: !!defaults.walletAvatar?.requireCollectionOwnership,
-          collectionKeys: Array.isArray(defaults.walletAvatar?.collectionKeys)
-            ? defaults.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
-            : []
+          collectionKeys: Array.from(new Set(defaultCollectionKeys))
         },
         notifications: {
+          ...DEFAULT_NOTIFICATION_PREFS,
           onlySwapEvents: !!defaults.notifications?.onlySwapEvents,
           transferAggregationUsdThreshold: parseNonNegativeNumber(defaults.notifications?.transferAggregationUsdThreshold)
         }
       };
 
-      const normalizedOverrides = Object.entries(overrides).map(([symbol, value]) => ({
-        symbol,
-        displayEmoji: value?.displayEmoji ?? null,
-        aliasSymbols: Array.isArray(value?.symbols) ? value.symbols : [],
-        addresses: Array.isArray(value?.addresses) ? value.addresses : [],
-        walletAvatar: {
-          createFullAvatar: !!value?.walletAvatar?.createFullAvatar,
-          minBalanceForFullAvatar: parseNonNegativeNumber(value?.walletAvatar?.minBalanceForFullAvatar),
-          autoActivate: !!value?.walletAvatar?.autoActivate,
-          sendIntro: !!value?.walletAvatar?.sendIntro,
-          requireClaimedAvatar: !!value?.walletAvatar?.requireClaimedAvatar,
-          requireCollectionOwnership: !!value?.walletAvatar?.requireCollectionOwnership,
-          collectionKeys: Array.isArray(value?.walletAvatar?.collectionKeys)
-            ? value.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
-            : []
-        },
-        notifications: {
-          onlySwapEvents: !!value?.notifications?.onlySwapEvents,
-          transferAggregationUsdThreshold: parseNonNegativeNumber(value?.notifications?.transferAggregationUsdThreshold)
-        }
-      }));
+      const normalizedOverrides = Object.entries(overrides).map(([symbol, value]) => {
+        const walletAvatarConfig = value?.walletAvatar || {};
+        const notificationConfig = value?.notifications || {};
+        const rawCollectionKeys = Array.isArray(walletAvatarConfig.collectionKeys)
+          ? walletAvatarConfig.collectionKeys
+              .map(key => String(key).trim())
+              .filter(Boolean)
+          : [];
+
+        return {
+          symbol,
+          displayEmoji: value?.displayEmoji ?? null,
+          aliasSymbols: Array.isArray(value?.symbols) ? value.symbols : [],
+          addresses: Array.isArray(value?.addresses) ? value.addresses : [],
+          walletAvatar: {
+            ...DEFAULT_WALLET_AVATAR_PREFS,
+            createFullAvatar: !!walletAvatarConfig.createFullAvatar,
+            minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatarConfig.minBalanceForFullAvatar),
+            autoActivate: !!walletAvatarConfig.autoActivate,
+            sendIntro: !!walletAvatarConfig.sendIntro,
+            requireClaimedAvatar: !!walletAvatarConfig.requireClaimedAvatar,
+            requireCollectionOwnership: !!walletAvatarConfig.requireCollectionOwnership,
+            collectionKeys: Array.from(new Set(rawCollectionKeys))
+          },
+          notifications: {
+            ...DEFAULT_NOTIFICATION_PREFS,
+            onlySwapEvents: !!notificationConfig.onlySwapEvents,
+            transferAggregationUsdThreshold: parseNonNegativeNumber(notificationConfig.transferAggregationUsdThreshold)
+          }
+        };
+      });
 
       const registryMap = new Map();
       const registerToken = ({ symbol, name, address, aliasSymbols = [], addresses = [], displayEmoji = null, source = 'config' }) => {
@@ -1034,7 +1066,11 @@ function createRouter(db, services) {
         requireClaimedAvatar: !!(walletAvatar && walletAvatar.requireClaimedAvatar),
         requireCollectionOwnership: !!(walletAvatar && walletAvatar.requireCollectionOwnership),
         collectionKeys: Array.isArray(walletAvatar?.collectionKeys)
-          ? walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+          ? Array.from(new Set(
+              walletAvatar.collectionKeys
+                .map(key => String(key).trim())
+                .filter(Boolean)
+            ))
           : []
       };
 

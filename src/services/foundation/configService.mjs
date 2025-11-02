@@ -66,7 +66,8 @@ export class ConfigService {
         introduction: process.env.INTRODUCTION_PROMPT || "You've just been summoned for the first time. Introduce yourself.",
         attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name}, describe how you attack them with your abilities.",
         defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack, describe what you do to defend yourself.",
-        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
+        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits.",
+        avatarTheme: process.env.AVATAR_PROMPT_THEME || 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
       },
       ai: {
         veo: {
@@ -379,7 +380,8 @@ export class ConfigService {
   introduction: this.config.prompt.introduction,
   attack: this.config.prompt.attack,
   defend: this.config.prompt.defend,
-  breed: this.config.prompt.breed
+  breed: this.config.prompt.breed,
+  avatarTheme: this.config.prompt.avatarTheme
       },
       toolEmojis: {
         summon: '🔮',
@@ -409,7 +411,8 @@ export class ConfigService {
   introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction,
   attack: guildConfig?.prompts?.attack || defaults.prompts.attack,
   defend: guildConfig?.prompts?.defend || defaults.prompts.defend,
-  breed: guildConfig?.prompts?.breed || defaults.prompts.breed
+  breed: guildConfig?.prompts?.breed || defaults.prompts.breed,
+  avatarTheme: guildConfig?.prompts?.avatarTheme || defaults.prompts.avatarTheme
       },
       toolEmojis: {
         ...defaults.toolEmojis,
@@ -704,7 +707,11 @@ export class ConfigService {
     if (override.walletAvatar && typeof override.walletAvatar === 'object') {
       const minBalance = Number(override.walletAvatar.minBalanceForFullAvatar);
       const sanitizedCollectionKeys = Array.isArray(override.walletAvatar.collectionKeys)
-        ? override.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+        ? Array.from(new Set(
+            override.walletAvatar.collectionKeys
+              .map(key => String(key).trim())
+              .filter(Boolean)
+          ))
         : [];
 
       sanitized.walletAvatar = {

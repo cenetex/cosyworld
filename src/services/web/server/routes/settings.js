@@ -12,6 +12,7 @@ const ALLOWED_KEYS = [
   'prompts.attack',
   'prompts.defend',
   'prompts.breed',
+  'prompts.avatarTheme',
   'toolEmojis.summon',
   'features.breeding',
   'features.combat',
