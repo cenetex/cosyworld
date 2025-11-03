@@ -8,6 +8,7 @@ import path from 'path';
 import { request } from 'https';
 import { request as httpRequest } from 'http';
 import { UploadService } from '../media/uploadService.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 export class S3Service {
   constructor({ logger }) {
@@ -18,6 +19,7 @@ export class S3Service {
     this.S3_API_ENDPOINT = process.env.S3_API_ENDPOINT;
     this.CLOUDFRONT_DOMAIN = process.env.CLOUDFRONT_DOMAIN;
     this.USE_UPLOAD_API = !!process.env.UPLOAD_API_BASE_URL;
+    this.configured = false;
 
     // Initialize new upload flow if enabled
     if (this.USE_UPLOAD_API) {
@@ -26,19 +28,37 @@ export class S3Service {
         apiBaseUrl: process.env.UPLOAD_API_BASE_URL,
         cdnDomain: this.CLOUDFRONT_DOMAIN,
       });
+      this.configured = true;
       // Only CDN is required for returning URLs; S3_API_* not needed
       if (!this.CLOUDFRONT_DOMAIN) {
         this.logger?.warn?.('[S3Service] CLOUDFRONT_DOMAIN missing; cdnUrl will be null (UploadService still works)');
       }
+    } else if (this.S3_API_KEY && this.S3_API_ENDPOINT && this.CLOUDFRONT_DOMAIN) {
+      // Legacy path configured
+      this.configured = true;
     } else {
-      // Legacy path requires these
-      if (!this.S3_API_KEY || !this.S3_API_ENDPOINT || !this.CLOUDFRONT_DOMAIN) {
-        throw new Error('Missing one or more required environment variables (S3_API_KEY, S3_API_ENDPOINT, CLOUDFRONT_DOMAIN)');
-      }
+      // Not configured - warn but don't throw
+      // This allows the app to start and run the configuration wizard
+      this.logger?.warn?.('[S3Service] ⚠️  Not configured. S3 uploads will not work until configuration is complete.');
+      this.logger?.warn?.('[S3Service] Missing: S3_API_KEY, S3_API_ENDPOINT, or CLOUDFRONT_DOMAIN');
+      this.logger?.warn?.('[S3Service] Please complete the setup wizard to enable S3 functionality.');
     }
   }
 
-  async uploadImage(filePath) {
+  /**
+   * Upload an image to S3 and return its public CDN URL
+   * @param {string} filePath - Local file path
+   * @param {Object} options - Upload options
+   * @param {boolean} options.skipEventEmit - Skip emitting MEDIA events (for intermediate/keyframe images)
+   * @returns {Promise<string|null>} CDN URL or null if upload failed
+   */
+  async uploadImageToS3(filePath, options = {}) {
+    // Check if service is configured
+    if (!this.configured) {
+      this.logger?.warn?.('[S3Service] Upload attempted but service not configured. Please complete setup wizard.');
+      return null;
+    }
+
     try {
       // Check if file exists
       if (!fs.existsSync(filePath)) {
@@ -66,6 +86,31 @@ export class S3Service {
         }
         this.logger.info(`Upload Successful via UploadService! status=${status}`);
         this.logger.info(`Image URL: ${finalUrl}`);
+        
+        // Emit media event for downstream global poster (unless suppressed for keyframes)
+        if (!options.skipEventEmit) {
+          try {
+            const isVideo = /\.mp4$/i.test(finalUrl);
+            eventBus.emit(isVideo ? 'MEDIA.VIDEO.GENERATED' : 'MEDIA.IMAGE.GENERATED', {
+              type: isVideo ? 'video' : 'image',
+              source: options.source || 'uploadService',
+              purpose: options.purpose || 'general', // 'keyframe', 'thumbnail', 'general', 'avatar', 'location'
+              imageUrl: !isVideo ? finalUrl : undefined,
+              videoUrl: isVideo ? finalUrl : undefined,
+              prompt: options.prompt || null,
+              context: options.context || null,
+              // Pass through additional metadata for richer social posts
+              locationName: options.locationName || null,
+              locationDescription: options.locationDescription || null,
+              avatarName: options.avatarName || null,
+              avatarId: options.avatarId || null,
+              avatarEmoji: options.avatarEmoji || null,
+              guildId: options.guildId || null,
+              createdAt: new Date()
+            });
+          } catch (e) { this.logger?.warn?.('[S3Service] emit MEDIA event failed: ' + e.message); }
+        }
+        
         return finalUrl;
       }
 
@@ -83,7 +128,7 @@ export class S3Service {
       const { protocol, hostname, pathname } = new URL(this.S3_API_ENDPOINT);
       const httpModule = protocol === 'https:' ? request : httpRequest;
 
-      const options = {
+      const requestOptions = {
         hostname,
         path: pathname,
         method: 'POST',
@@ -95,7 +140,7 @@ export class S3Service {
       };
 
       return new Promise((resolve, reject) => {
-        const req = httpModule(options, (res) => {
+        const req = httpModule(requestOptions, (res) => {
           let data = '';
           res.on('data', (chunk) => (data += chunk));
           res.on('end', () => {
@@ -144,7 +189,7 @@ export class S3Service {
     try {
       const { protocol, hostname, pathname, search } = new URL(imageUrl);
       const httpModule = protocol === 'https:' ? request : httpRequest;
-      const options = {
+      const requestOptions = {
         hostname,
         path: pathname + (search || ''),
         method: 'GET',
@@ -152,7 +197,7 @@ export class S3Service {
       };
 
       return new Promise((resolve, reject) => {
-        const req = httpModule(options, (res) => {
+        const req = httpModule(requestOptions, (res) => {
           // Handle redirects
           if ([301, 302, 307, 308].includes(res.statusCode)) {
             const location = res.headers.location;
@@ -192,5 +237,30 @@ export class S3Service {
       this.logger?.error('Error:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Convenience alias for uploadImageToS3 with optional purpose metadata
+   * @param {string} filePath - Local file path
+   * @param {Object} options - Upload options
+   * @param {string} options.purpose - Purpose of the image: 'keyframe', 'thumbnail', 'general', 'avatar'
+   * @param {string} options.source - Source of the image
+   * @param {boolean} options.skipEventEmit - Skip emitting MEDIA events
+   * @returns {Promise<string|null>} CDN URL or null if upload failed
+   */
+  async uploadImage(filePath, options = {}) {
+    return this.uploadImageToS3(filePath, options);
+  }
+
+  /**
+   * Health check for S3Service
+   * Returns success even if not configured (to allow wizard to run)
+   */
+  async ping() {
+    if (!this.configured) {
+      this.logger?.warn?.('[S3Service] Ping: Service not configured (optional service)');
+      return { ok: true, configured: false, message: 'S3Service not configured - optional service' };
+    }
+    return { ok: true, configured: true, message: 'S3Service ready' };
   }
 }

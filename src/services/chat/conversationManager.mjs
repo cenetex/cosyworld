@@ -4,6 +4,7 @@
  */
 
 import { handleCommands } from '../commands/commandHandler.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 const GUILD_NAME = process.env.GUILD_NAME || 'The Guild';
 
@@ -21,7 +22,10 @@ export class ConversationManager  {
     knowledgeService,
     mapService,
   toolService,
-  presenceService
+  presenceService,
+  toolSchemaGenerator,
+  toolExecutor,
+  toolDecisionService
   }) {
     this.toolService = toolService;
     this.logger = logger || console;
@@ -36,6 +40,9 @@ export class ConversationManager  {
     this.knowledgeService = knowledgeService;
     this.mapService = mapService;
   this.presenceService = presenceService; // optional; used for bot->bot mention cascades
+  this.toolSchemaGenerator = toolSchemaGenerator; // Phase 2: LLM tool calling
+  this.toolExecutor = toolExecutor; // Phase 2: Tool execution loop
+  this.toolDecisionService = toolDecisionService; // Phase 2: Universal tool decisions
 
     this.GLOBAL_NARRATIVE_COOLDOWN = 60 * 60 * 1000; // 1 hour
     this.lastGlobalNarrativeTime = 0;
@@ -43,7 +50,26 @@ export class ConversationManager  {
     this.CHANNEL_COOLDOWN = 5 * 1000; // 5 seconds
     this.MAX_RESPONSES_PER_MESSAGE = 2;
     this.channelResponders = new Map();
+    
+    // Bot rate limiting: Track last bot message time per channel with burst support
+    this.channelLastBotMessage = new Map(); // channelId -> timestamp
+    this.channelBotBurstCount = new Map(); // channelId -> count of messages in burst window
+    this.channelResponseQueue = new Map(); // channelId -> array of {avatar, presetResponse, options, resolve, reject}
+    this.BOT_REPLY_COOLDOWN = Number(process.env.BOT_REPLY_COOLDOWN_MS || 10000); // 10 seconds default between bot replies in same channel
+    this.BOT_BURST_ALLOWED = Number(process.env.BOT_BURST_ALLOWED || 3); // Allow 3 rapid messages before rate limit kicks in
+    this.BOT_BURST_WINDOW_MS = Number(process.env.BOT_BURST_WINDOW_MS || 15000); // 15 second window for burst counting
+    this.queueProcessingIntervals = new Map(); // channelId -> setInterval handle
+    
+    // In-memory cache for channel summaries to reduce expensive AI calls during combat
+    this.summaryCacheMap = new Map(); // key: `${avatarId}:${channelId}` -> { summary, timestamp, lastMessageId }
+    this.SUMMARY_CACHE_TTL_MS = 60 * 1000; // 60 seconds - summaries are fresh enough for combat
     this.requiredPermissions = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'ManageWebhooks'];
+    
+    // Phase 2: Tool calling configuration
+    this.enableToolCalling = String(process.env.ENABLE_LLM_TOOL_CALLING || 'false').toLowerCase() === 'true';
+    this.useMetaPrompting = String(process.env.TOOL_USE_META_PROMPTING || 'true').toLowerCase() === 'true';
+    this.toolFastPathEnabled = String(process.env.TOOL_FAST_PATH_ENABLED || 'true').toLowerCase() === 'true';
+    this.skipFinalResponseAfterRespond = String(process.env.SKIP_FINAL_RESPONSE_AFTER_RESPOND_TOOL || 'true').toLowerCase() === 'true';
   }
 
   /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
@@ -79,7 +105,7 @@ export class ConversationManager  {
         if (picked) {
           avatar.model = picked;
           try { await this.avatarService.updateAvatar(avatar); } catch {}
-          this.logger.info?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
+          this.logger.debug?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
         }
       }
     } catch (e) {
@@ -137,11 +163,31 @@ export class ConversationManager  {
 
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
-  this.logger.info?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
-  let narrative = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 2048, corrId });
+  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId, returnEnvelope: true });
+  
+  // Handle model not found fallback
+  if (narrative && typeof narrative === 'object' && narrative.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+    const { fallbackModel, originalModel } = narrative.error;
+    this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name} narrative, updating to fallback model '${fallbackModel}'`);
+    
+    // Update avatar's model to the fallback
+    avatar.model = fallbackModel;
+    try {
+      await this.avatarService.updateAvatar(avatar);
+      this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+    } catch (updateError) {
+      this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+    }
+    
+    // Retry the narrative generation with the new model
+    this.logger.info?.(`[ConversationManager] Retrying narrative for ${avatar.name} with fallback model ${fallbackModel}`);
+    narrative = await ai.chat(chatMessages, { model: fallbackModel, corrId, returnEnvelope: true });
+  }
+  
   if (narrative && typeof narrative === 'object' && narrative.text) narrative = narrative.text;
-      // Scrub any <think> tags that may have leaked from providers
-      try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
+  // Scrub any <think> tags that may have leaked from providers
+  try { if (typeof narrative === 'string') narrative = narrative.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
       if (!narrative) {
         this.logger.error(`No narrative generated for ${avatar.name}.`);
         return null;
@@ -172,9 +218,19 @@ export class ConversationManager  {
     return this.memoryService.storeNarrative(avatarId, content);
   }
 
+  /**
+   * Get channel context (wrapper for fetchChannelContext for backward compatibility)
+   * @param {string} channelId - Discord channel ID
+   * @param {number} limit - Number of messages to fetch (default 50)
+   * @returns {Promise<Array>} Array of formatted messages
+   */
   async getChannelContext(channelId, limit = 50) {
+    return this.fetchChannelContext(channelId, null, limit);
+  }
+
+  async fetchChannelContext(channelId, avatar, limit = 10) {
     try {
-      this.logger.info(`Fetching channel context for channel ${channelId}`);
+      this.logger.debug?.(`Fetching channel context for channel ${channelId}`);
       this.db = await this.databaseService.getDatabase();
       if (this.db) {
         try {
@@ -198,12 +254,14 @@ export class ConversationManager  {
         return [];
       }
       const discordMessages = await channel.messages.fetch({ limit });
-      const formattedMessages = await Promise.all(Array.from(discordMessages.values()).map(async msg => {
-        // Best-effort backfill for images: extract URLs and caption
+      
+      // Format messages WITHOUT image analysis for fast context fetching
+      const formattedMessages = Array.from(discordMessages.values()).map(msg => {
+        // Extract image URLs synchronously without AI analysis
         const hasImages = msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail);
         let imageUrls = [];
         let primaryImageUrl = null;
-        let imageDescription = null;
+        
         if (hasImages) {
           try {
             const aUrls = Array.from(msg.attachments.values())
@@ -214,37 +272,63 @@ export class ConversationManager  {
             const seen = new Set();
             imageUrls = all.filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
             primaryImageUrl = imageUrls[0] || null;
-            if (primaryImageUrl && this.aiService?.analyzeImage) {
-              const cap = await this.aiService.analyzeImage(primaryImageUrl, undefined, 'Write a concise, neutral caption (<=120 chars).');
-              imageDescription = (cap && String(cap).trim()) || null;
-            }
           } catch {}
         }
-        return ({
+        
+        const formattedMsg = {
           messageId: msg.id,
           channelId: msg.channel.id,
           authorId: msg.author.id,
           authorUsername: msg.author.username,
           content: msg.content,
           hasImages,
-          imageDescription,
+          imageDescription: null, // Will be filled by background analyzer
           imageUrls,
           primaryImageUrl,
           timestamp: msg.createdTimestamp,
-        });
-      }))
-        .sort((a, b) => a.timestamp - b.timestamp);
+        };
+        
+        // Emit event for background image analysis
+        if (hasImages && primaryImageUrl) {
+          try {
+            eventBus.emit('MESSAGE.CREATED', { message: formattedMsg });
+          } catch (emitErr) {
+            // Non-critical, just log
+            this.logger.debug(`[ConversationManager] Event emit failed: ${emitErr.message}`);
+          }
+        }
+        
+        return formattedMsg;
+      }).sort((a, b) => a.timestamp - b.timestamp);
+      
       this.logger.debug(`Retrieved ${formattedMessages.length} messages from Discord API for channel ${channelId}`);
+      
+      // Store in DB for future fast retrieval
       if (this.db) {
         const messagesCollection = this.db.collection('messages');
-        await Promise.all(formattedMessages.map(msg =>
-          messagesCollection.updateOne(
-            { messageId: msg.messageId },
-            { $set: msg },
-            { upsert: true }
-          )
-        ));
+        // Use bulk write for better performance
+        const bulkOps = formattedMessages.map(msg => ({
+          updateOne: {
+            filter: { messageId: msg.messageId },
+            update: { $set: msg },
+            upsert: true
+          }
+        }));
+        
+        if (bulkOps.length > 0) {
+          try {
+            await messagesCollection.bulkWrite(bulkOps, { ordered: false });
+          } catch (bulkError) {
+            this.logger.warn(`Bulk write error (non-critical): ${bulkError.message}`);
+          }
+        }
       }
+      
+      // Optionally enrich with cached image descriptions (non-blocking)
+      this.enrichMessagesWithCachedDescriptions(formattedMessages).catch(err => {
+        this.logger.debug(`[ConversationManager] Failed to enrich with cached descriptions: ${err.message}`);
+      });
+      
       return formattedMessages;
     } catch (error) {
       this.logger.error(`Error fetching channel context for channel ${channelId}: ${error.message}`);
@@ -252,7 +336,61 @@ export class ConversationManager  {
     }
   }
 
+  /**
+   * Enrich messages with cached image descriptions (non-blocking)
+   */
+  async enrichMessagesWithCachedDescriptions(messages) {
+    if (!this.db || !Array.isArray(messages) || messages.length === 0) return;
+
+    try {
+      const messagesWithImages = messages.filter(m => m.hasImages && m.primaryImageUrl && !m.imageDescription);
+      if (messagesWithImages.length === 0) return;
+
+      // Get URL hashes and check cache
+      const crypto = await import('crypto');
+      const urlToHash = new Map();
+      for (const msg of messagesWithImages) {
+        const hash = crypto.createHash('sha256').update(msg.primaryImageUrl).digest('hex');
+        urlToHash.set(msg.primaryImageUrl, hash);
+      }
+
+      const hashes = Array.from(urlToHash.values());
+      const cachedDescriptions = await this.db.collection('image_analysis_cache')
+        .find({ urlHash: { $in: hashes }, status: 'completed' })
+        .toArray();
+
+      // Map hash -> description
+      const hashToDesc = new Map();
+      for (const cache of cachedDescriptions) {
+        if (cache.description) {
+          hashToDesc.set(cache.urlHash, cache.description);
+        }
+      }
+
+      // Update messages in-place
+      for (const msg of messagesWithImages) {
+        const hash = urlToHash.get(msg.primaryImageUrl);
+        const desc = hashToDesc.get(hash);
+        if (desc) {
+          msg.imageDescription = desc;
+        }
+      }
+    } catch (err) {
+      this.logger.debug(`[ConversationManager] enrichMessagesWithCachedDescriptions failed: ${err.message}`);
+    }
+  }
+
   async getChannelSummary(avatarId, channelId) {
+    // Check in-memory cache first (critical for combat performance)
+    const cacheKey = `${avatarId}:${channelId}`;
+    const cached = this.summaryCacheMap.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp < this.SUMMARY_CACHE_TTL_MS)) {
+      this.logger?.debug?.(`[ConversationManager] Using cached summary for ${cacheKey} (age: ${Math.floor((now - cached.timestamp) / 1000)}s)`);
+      return cached.summary;
+    }
+    
     this.db = await this.databaseService.getDatabase();
     if (!this.db) {
       this.logger.error('DB not initialized. Cannot fetch channel summary.');
@@ -268,7 +406,15 @@ export class ConversationManager  {
         .find({ channelId, timestamp: { $gt: lastUpdated } })
         .sort({ timestamp: 1 })
         .toArray();
-      if (messagesToSummarize.length < 50) return summaryDoc.summary;
+      if (messagesToSummarize.length < 50) {
+        // Cache the existing summary
+        this.summaryCacheMap.set(cacheKey, {
+          summary: summaryDoc.summary,
+          timestamp: now,
+          lastMessageId: summaryDoc.lastMessageId
+        });
+        return summaryDoc.summary;
+      }
     } else {
       messagesToSummarize = await messagesCollection
         .find({ channelId })
@@ -308,11 +454,34 @@ export class ConversationManager  {
     }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `summary:${avatar._id}:${channelId}`;
-  this.logger.info?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
-  ], { model: avatar.model, max_tokens: 500, corrId });
+  ], { model: avatar.model, corrId, returnEnvelope: true });
+  
+  // Handle model not found fallback
+  if (summary && typeof summary === 'object' && summary.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+    const { fallbackModel, originalModel } = summary.error;
+    this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name} summary, updating to fallback model '${fallbackModel}'`);
+    
+    // Update avatar's model to the fallback
+    avatar.model = fallbackModel;
+    try {
+      await this.avatarService.updateAvatar(avatar);
+      this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+    } catch (updateError) {
+      this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+    }
+    
+    // Retry the summary generation with the new model
+    this.logger.info?.(`[ConversationManager] Retrying summary for ${avatar.name} with fallback model ${fallbackModel}`);
+    summary = await ai.chat([
+      { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
+      { role: 'user', content: prompt }
+    ], { model: fallbackModel, corrId, returnEnvelope: true });
+  }
+  
   if (summary && typeof summary === 'object' && summary.text) summary = summary.text;
     try { if (typeof summary === 'string') summary = summary.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
     if (!summary) {
@@ -330,6 +499,14 @@ export class ConversationManager  {
     } else {
       await summariesCollection.insertOne({ avatarId, channelId, summary, lastUpdated, lastMessageId });
     }
+    
+    // Cache the newly generated summary (reuse cacheKey from top of function)
+    this.summaryCacheMap.set(cacheKey, {
+      summary,
+      timestamp: Date.now(),
+      lastMessageId
+    });
+    
     return summary;
   }
 
@@ -347,33 +524,170 @@ export class ConversationManager  {
     return text;
   }
 
+  /**
+   * Queue a response to be sent after rate limit expires
+   * @param {Object} channel - Discord channel
+   * @param {Object} avatar - Avatar to respond
+   * @param {string} presetResponse - Preset response text (if any)
+   * @param {Object} options - Response options
+   * @param {number} delayMs - Milliseconds to delay before sending
+   * @returns {Promise<Object|null>} Resolves when message is sent or fails
+   */
+  async queueResponse(channel, avatar, presetResponse, options, delayMs) {
+    return new Promise((resolve) => {
+      const channelId = channel.id;
+      
+      // Initialize queue if needed
+      if (!this.channelResponseQueue.has(channelId)) {
+        this.channelResponseQueue.set(channelId, []);
+      }
+      
+      const queue = this.channelResponseQueue.get(channelId);
+      
+      // Add to queue
+      queue.push({
+        avatar,
+        presetResponse,
+        options: { ...options, overrideCooldown: false }, // Don't override when processing queue
+        addedAt: Date.now(),
+        delayMs,
+        resolve
+      });
+      
+      this.logger.info?.(`[ConversationManager] Queued response for ${avatar.name} in channel ${channelId} (will send in ${(delayMs / 1000).toFixed(1)}s, queue size: ${queue.length})`);
+      
+      // Start queue processor if not already running
+      if (!this.queueProcessingIntervals.has(channelId)) {
+        this.startQueueProcessor(channelId, channel);
+      }
+    });
+  }
+
+  /**
+   * Start processing queued responses for a channel
+   * @param {string} channelId - Channel ID
+   * @param {Object} channel - Discord channel object
+   */
+  startQueueProcessor(channelId, channel) {
+    // Check queue every 2 seconds
+    const intervalHandle = setInterval(async () => {
+      const queue = this.channelResponseQueue.get(channelId);
+      if (!queue || queue.length === 0) {
+        return; // Keep interval running in case new items are added
+      }
+      
+      const now = Date.now();
+      const lastBotMessageTime = this.channelLastBotMessage.get(channelId) || 0;
+      const timeSinceLastBot = now - lastBotMessageTime;
+      
+      // Check if cooldown has passed
+      if (timeSinceLastBot < this.BOT_REPLY_COOLDOWN) {
+        return; // Still cooling down
+      }
+      
+      // Get next item from queue
+      const queuedItem = queue.shift();
+      if (!queuedItem) return;
+      
+      this.logger.info?.(`[ConversationManager] Processing queued response for ${queuedItem.avatar.name} in channel ${channelId} (queue remaining: ${queue.length})`);
+      
+      try {
+        // Send the response
+        const result = await this.sendResponse(channel, queuedItem.avatar, queuedItem.presetResponse, queuedItem.options);
+        queuedItem.resolve(result);
+      } catch (error) {
+        this.logger.error(`[ConversationManager] Error processing queued response for ${queuedItem.avatar.name}: ${error.message}`);
+        queuedItem.resolve(null);
+      }
+      
+      // Clean up interval if queue is empty and hasn't been used recently
+      if (queue.length === 0 && now - queuedItem.addedAt > 60000) {
+        clearInterval(intervalHandle);
+        this.queueProcessingIntervals.delete(channelId);
+        this.channelResponseQueue.delete(channelId);
+        this.logger.debug?.(`[ConversationManager] Stopped queue processor for channel ${channelId}`);
+      }
+    }, 2000); // Check every 2 seconds
+    
+    this.queueProcessingIntervals.set(channelId, intervalHandle);
+    this.logger.debug?.(`[ConversationManager] Started queue processor for channel ${channelId}`);
+  }
+
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
-  const { overrideCooldown = false, cascadeDepth = 0 } = options || {};
+  const { overrideCooldown = false, cascadeDepth = 0, tradeContext = null } = options || {};
+    
+    this.logger.info?.(`[ConversationManager] sendResponse called for ${avatar.name} in channel ${channel.id}, overrideCooldown=${overrideCooldown}`);
+    this.logger.info?.(`[ConversationManager] Channel object type: ${typeof channel}, has id: ${!!channel?.id}, Avatar object type: ${typeof avatar}, has name: ${!!avatar?.name}`);
+    
     // Gate speaking for KO/dead avatars
     try {
       const now = Date.now();
-      if (avatar?.status === 'dead') return null;
-      if (avatar?.status === 'knocked_out') return null;
-      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
-    } catch {}
+      if (avatar?.status === 'dead') {
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - status is dead`);
+        return null;
+      }
+      if (avatar?.status === 'knocked_out') {
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - status is knocked_out`);
+        return null;
+      }
+      if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) {
+        this.logger.info?.(`[ConversationManager] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
+        return null;
+      }
+    } catch (e) {
+      this.logger.warn?.(`[ConversationManager] Error checking avatar status for ${avatar.name}: ${e.message}`);
+    }
+    
+    this.logger.info?.(`[ConversationManager] ${avatar.name} passed status checks`);
+    this.logger.info?.(`[ConversationManager] About to get database connection for ${avatar.name}`);
     this.db = await this.databaseService.getDatabase();
+    this.logger.info?.(`[ConversationManager] Database connection obtained for ${avatar.name}`);
+    
     if (!await this.checkChannelPermissions(channel)) {
-      this.logger.error(`Cannot send response - missing permissions in channel ${channel.id}`);
+      this.logger.warn?.(`[ConversationManager] ${avatar.name} cannot send response - missing permissions in channel ${channel.id}`);
       return null;
     }
+    
+    // Bot reply rate limiting: Burst-aware with queueing
+    // Allow a few rapid messages, then enforce cooldown, with queuing for blocked avatars
+    const now = Date.now();
+    const lastBotMessageTime = this.channelLastBotMessage.get(channel.id) || 0;
+    const timeSinceLastBotMessage = now - lastBotMessageTime;
+    
+    // Get or initialize burst count
+    let burstInfo = this.channelBotBurstCount.get(channel.id) || { count: 0, windowStart: now };
+    
+    // Reset burst window if it's expired
+    if (now - burstInfo.windowStart > this.BOT_BURST_WINDOW_MS) {
+      burstInfo = { count: 0, windowStart: now };
+      this.channelBotBurstCount.set(channel.id, burstInfo);
+    }
+    
+    // Check if we're within burst allowance
+    const withinBurst = burstInfo.count < this.BOT_BURST_ALLOWED;
+    const shouldAllow = overrideCooldown || withinBurst || timeSinceLastBotMessage >= this.BOT_REPLY_COOLDOWN;
+    
+    if (!shouldAllow) {
+      const remainingMs = this.BOT_REPLY_COOLDOWN - timeSinceLastBotMessage;
+      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked by bot rate limit in channel ${channel.id} - ${(remainingMs / 1000).toFixed(1)}s remaining (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
+      
+      // Queue the response to be sent after cooldown expires
+      return this.queueResponse(channel, avatar, presetResponse, options, remainingMs);
+    }
+    
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
   if (!overrideCooldown && Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
-      this.logger.debug(`Channel ${channel.id} is on cooldown`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked by channel cooldown in ${channel.id}`);
       return null;
     }
     if (!this.channelResponders.has(channel.id)) this.channelResponders.set(channel.id, new Set());
     const responders = this.channelResponders.get(channel.id);
     if (responders.size >= this.MAX_RESPONSES_PER_MESSAGE) {
-      this.logger.debug(`Channel ${channel.id} has reached maximum responses`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked - channel ${channel.id} has reached maximum responses`);
       return null;
     }
     if (responders.has(avatar._id)) {
-      this.logger.debug(`Avatar ${avatar.name} has already responded in channel ${channel.id}`);
+      this.logger.debug?.(`[ConversationManager] ${avatar.name} already responded in channel ${channel.id}`);
       return null;
     }
     try {
@@ -403,6 +717,42 @@ export class ConversationManager  {
       }
       const channelHistory = await this.getChannelContext(channel.id, 50);
       const channelSummary = await this.getChannelSummary(avatar._id, channel.id);
+      
+      // Get relationship context for other avatars in recent conversation
+      let relationshipContext = '';
+      if (this.configService?.services?.avatarRelationshipService && channelHistory.length > 0) {
+        try {
+          const relationshipService = this.configService.services.avatarRelationshipService;
+          const recentAuthors = new Set();
+          
+          // Get unique avatar IDs from recent messages (last 10)
+          for (const msg of channelHistory.slice(0, 10)) {
+            if (msg.authorId && msg.authorId !== String(avatar._id) && msg.authorIsBot) {
+              recentAuthors.add(msg.authorId);
+            }
+          }
+          
+          // Fetch relationship context for each recent avatar (limit to 3 most recent)
+          const recentAuthorsList = Array.from(recentAuthors).slice(0, 3);
+          for (const authorId of recentAuthorsList) {
+            const context = await relationshipService.getRelationshipContext(
+              String(avatar._id),
+              authorId
+            );
+            
+            if (context) {
+              relationshipContext += `\n${context}\n`;
+            }
+          }
+          
+          if (relationshipContext) {
+            this.logger.debug?.(`[ConversationManager] Loaded relationship context for ${avatar.name} with ${recentAuthorsList.length} avatar(s)`);
+          }
+        } catch (relErr) {
+          this.logger.debug?.(`Failed to load relationship context: ${relErr.message}`);
+        }
+      }
+      
       let chatMessages;
       const useV2 = this.promptService?.promptAssembler && String(process.env.MEMORY_RECALL_ENABLED || 'true') === 'true';
       if (useV2 && typeof this.promptService.getResponseChatMessagesV2 === 'function') {
@@ -410,6 +760,35 @@ export class ConversationManager  {
       } else {
         chatMessages = await this.promptService.getResponseChatMessages(avatar, channel, channelHistory, channelSummary, this.db);
       }
+      
+      // Inject relationship context if available
+      if (relationshipContext) {
+        this.logger.info?.(`[ConversationManager] Injecting relationship context for ${avatar.name}`);
+        // Find the user message and prepend the relationship context
+        const userMsgIndex = chatMessages.findIndex(msg => msg.role === 'user');
+        if (userMsgIndex !== -1) {
+          const originalContent = typeof chatMessages[userMsgIndex].content === 'string' 
+            ? chatMessages[userMsgIndex].content 
+            : chatMessages[userMsgIndex].content.find(c => c.type === 'text')?.text || '';
+          
+          chatMessages[userMsgIndex].content = `[Relationship Context:\n${relationshipContext}]\n\n${originalContent}`;
+        }
+      }
+      
+      // Inject trade context if provided
+      if (tradeContext) {
+        this.logger.info?.(`[ConversationManager] Injecting trade context for ${avatar.name}: ${tradeContext}`);
+        // Find the user message and prepend the trade context
+        const userMsgIndex = chatMessages.findIndex(msg => msg.role === 'user');
+        if (userMsgIndex !== -1) {
+          const originalContent = typeof chatMessages[userMsgIndex].content === 'string' 
+            ? chatMessages[userMsgIndex].content 
+            : chatMessages[userMsgIndex].content.find(c => c.type === 'text')?.text || '';
+          
+          chatMessages[userMsgIndex].content = `${tradeContext}\n\n${originalContent}`;
+        }
+      }
+      
       let userContent = chatMessages.find(msg => msg.role === 'user').content;
       if (this.aiService.supportsMultimodal && imagePromptParts.length > 0) {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];
@@ -417,9 +796,196 @@ export class ConversationManager  {
       }
   const ai = this.unifiedAIService || this.aiService;
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
-  this.logger.info?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown}`);
-  let result = await ai.chat(chatMessages, { model: avatar.model, max_tokens: 256, corrId });
+  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
+  
+  // Phase 2: Tool calling with universal meta-prompting approach
+  let toolCalls = [];
+  if (this.enableToolCalling && this.toolSchemaGenerator && this.toolDecisionService) {
+    try {
+      // Get available tools
+      const toolSchemas = await this.toolSchemaGenerator.generateSchemas();
+      
+      if (toolSchemas.length > 0 && this.useMetaPrompting) {
+        // Fast-path optimization: Skip tool decision for obviously conversational messages
+        let needsToolDecision = true;
+        if (this.toolFastPathEnabled) {
+          needsToolDecision = this._shouldCheckForTools(channelHistory);
+        }
+        
+        if (needsToolDecision) {
+          // Universal approach: Use meta-prompting to decide tools (works with ANY model)
+          const availableTools = this.toolDecisionService.formatToolsForDecision(toolSchemas);
+          
+          // Build situation context
+          const situation = await this._buildSituationContext(avatar, channel);
+          
+          // Ask decision service what tools to use
+          const decisions = await this.toolDecisionService.decideTools({
+            avatar,
+            messages: channelHistory || [],
+            situation,
+            availableTools
+          });
+          
+          if (decisions.length > 0) {
+            this.logger.debug?.(`[AI][sendResponse][${corrId}] Meta-prompting recommended ${decisions.length} tool(s): ${decisions.map(d => d.toolName).join(', ')}`);
+            
+            // Filter out special meta-decisions that aren't actual tools
+            const actualToolDecisions = decisions.filter(d => 
+              d.toolName !== 'none' && 
+              d.toolName !== 'respond' && 
+              d.toolName !== 'just respond' &&
+              d.toolName !== 'reply'
+            );
+            
+            if (actualToolDecisions.length !== decisions.length) {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Filtered out ${decisions.length - actualToolDecisions.length} non-tool decision(s) (respond/none)`);
+            }
+            
+            // Convert actual tool decisions to tool_calls format
+            toolCalls = actualToolDecisions.map((decision, idx) => ({
+              id: `meta_${corrId}_${idx}`,
+              type: 'function',
+              function: {
+                name: decision.toolName,
+                arguments: JSON.stringify(decision.arguments)
+              }
+            }));
+            
+            if (toolCalls.length > 0) {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} actual tool(s): ${toolCalls.map(tc => tc.function.name).join(', ')}`);
+            } else {
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] No actual tools to execute, will generate normal response`);
+            }
+          }
+        } else {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Fast-path: Skipping tool decision for conversational message`);
+        }
+      } else if (toolSchemas.length > 0) {
+        // Native function calling approach (only for compatible models)
+        const supportsTools = this._modelSupportsTools(avatar.model);
+        
+        if (supportsTools) {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Using native function calling for ${avatar.model}`);
+          // Will be handled by model's native tool calling below
+        }
+      }
+    } catch (error) {
+      this.logger.warn?.(`[AI][sendResponse][${corrId}] Tool decision failed: ${error.message}`);
+    }
+  }
+  
+  // Build chat options
+  // Increased max_tokens to accommodate models with extended reasoning (e.g., Nemotron with reasoning mode)
+  // returnEnvelope: true allows us to detect and handle model errors (like 404 model not found)
+  const chatOptions = { model: avatar.model, max_tokens: 1024, corrId, returnEnvelope: true };
+  
+  // Execute tools if meta-prompting decided on any
+  if (toolCalls.length > 0) {
+    this.logger.debug?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} tool(s) before response`);
+    
+    try {
+      const toolResults = await this.toolExecutor.executeToolCalls(
+        toolCalls,
+        { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
+        avatar
+      );
+      
+      this.logger.debug?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
+      
+      // Add tool execution context to the conversation
+      const toolSummary = toolResults.map(r => 
+        `${r.toolName}: ${r.success ? r.result : `Error: ${r.error}`}`
+      ).join('\n');
+      
+      // Post tool results to the channel so they're visible
+      // Note: Some tools (like attack/flee in combat) already post via webhook internally,
+      // so we filter to avoid double-posting. We only post for tools that return pure status messages.
+      const toolsWithInternalPosting = new Set(['attack', 'flee', 'defend']);
+      
+      let respondToolPosted = false; // Track if respond tool posted
+      
+      for (const toolResult of toolResults) {
+        // Track if respond tool successfully posted
+        if (toolResult.toolName === 'respond' && toolResult.success) {
+          respondToolPosted = true;
+        }
+        
+        // Skip tools that handle their own posting
+        if (toolsWithInternalPosting.has(toolResult.toolName)) {
+          this.logger.debug?.(`[AI][sendResponse][${corrId}] Skipping ${toolResult.toolName} (posts internally)`);
+          continue;
+        }
+        
+        if (toolResult.success && toolResult.result && typeof toolResult.result === 'string' && toolResult.result.trim()) {
+          try {
+            // Only post results that contain visible content (not just system messages for internal use)
+            // Skip empty results, nulls, or system-only messages
+            const resultText = toolResult.result.trim();
+            if (resultText && resultText !== 'null' && !resultText.startsWith('[System:')) {
+              await this.discordService.sendAsWebhook(channel.id, resultText, avatar);
+              this.logger.debug?.(`[AI][sendResponse][${corrId}] Posted ${toolResult.toolName} result to channel`);
+            }
+          } catch (postError) {
+            this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to post ${toolResult.toolName} result: ${postError.message}`);
+          }
+        }
+      }
+      
+      // Optimization: Skip final response if respond tool already posted
+      if (respondToolPosted && this.skipFinalResponseAfterRespond) {
+        this.logger.debug?.(`[AI][sendResponse][${corrId}] Respond tool handled reply, skipping final LLM generation`);
+        
+        // Still update rate limiting and activity
+        this.channelLastBotMessage.set(channel.id, Date.now());
+        responders.add(avatar._id);
+        
+        try {
+          await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+        } catch (e) {
+          this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+        }
+        
+        return null; // Early exit - no final response needed
+      }
+      
+      // Inject tool results into the conversation
+      chatMessages.push({
+        role: 'user',
+        content: `[System: You just performed these actions:\n${toolSummary}\n\nNow respond naturally, incorporating what just happened.]`
+      });
+      
+    } catch (toolError) {
+      this.logger.error?.(`[AI][sendResponse][${corrId}] Tool execution failed: ${toolError.message}`);
+    }
+  }
+  
+  let result = await ai.chat(chatMessages, chatOptions);
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
+      
+      this.logger.info?.(`[ConversationManager] AI chat returned for ${avatar.name}, result type: ${typeof result}, is null/undefined: ${result == null}`);
+      
+      // Handle model not found fallback
+      if (result && typeof result === 'object' && result.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
+        const { fallbackModel, originalModel } = result.error;
+        this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name}, updating to fallback model '${fallbackModel}'`);
+        
+        // Update avatar's model to the fallback
+        avatar.model = fallbackModel;
+        try {
+          await this.avatarService.updateAvatar(avatar);
+          this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+        } catch (updateError) {
+          this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+        }
+        
+        // Retry the chat with the new model
+        chatOptions.model = fallbackModel;
+        this.logger.info?.(`[ConversationManager] Retrying chat for ${avatar.name} with fallback model ${fallbackModel}`);
+        result = await ai.chat(chatMessages, chatOptions);
+        resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
+      }
+      
       // Log non-string/atypical shapes for diagnostics
       try {
         if (result && typeof result !== 'string') {
@@ -434,7 +1000,7 @@ export class ConversationManager  {
         response = result;
       }
       if (!response) {
-        this.logger.error(`Empty response generated for ${avatar.name}`);
+        this.logger.error(`[ConversationManager] Empty response generated for ${avatar.name} - ai.chat returned null/empty`);
         try {
           const preview = (() => { try { return JSON.stringify(result).slice(0, 500); } catch { return String(result); } })();
           this.logger.error(`[AI][sendResponse][${corrId}] empty response; rawPreview=${preview}`);
@@ -506,10 +1072,39 @@ export class ConversationManager  {
         
         // Send the cleaned text (without think tags) if there's any content left
         if (cleanedText) {
-          let sentMessage = await this.discordService.sendAsWebhook(channel.id, cleanedText, avatar);
+          // Ensure content doesn't exceed Discord's 2000 character limit
+          let messageToSend = cleanedText;
+          if (messageToSend.length > 2000) {
+            this.logger.warn(`[ConversationManager] Message for ${avatar.name} exceeds 2000 chars (${messageToSend.length}), truncating...`);
+            messageToSend = messageToSend.substring(0, 1997) + '...';
+          }
+          
+          let sentMessage = await this.discordService.sendAsWebhook(channel.id, messageToSend, avatar);
           if (!sentMessage) {
             this.logger.error(`Failed to send message in channel ${channel.id}`);
             return null;
+          }
+          
+          // Update bot message rate limiting timestamp and burst count for this channel
+          const now = Date.now();
+          this.channelLastBotMessage.set(channel.id, now);
+          
+          // Update burst count
+          let burstInfo = this.channelBotBurstCount.get(channel.id) || { count: 0, windowStart: now };
+          if (now - burstInfo.windowStart > this.BOT_BURST_WINDOW_MS) {
+            burstInfo = { count: 1, windowStart: now };
+          } else {
+            burstInfo.count++;
+          }
+          this.channelBotBurstCount.set(channel.id, burstInfo);
+          
+          this.logger.debug(`Updated bot rate limit for channel ${channel.id} (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
+          
+          // Update avatar activity for active avatar management
+          try {
+            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+          } catch (e) {
+            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
           }
           
           // React with brain emoji if thoughts were detected
@@ -536,7 +1131,7 @@ export class ConversationManager  {
             avatarService: this.avatarService,
             discordService: this.discordService,
             configService: this.configService
-          }, avatar, this.getChannelContext(channel.id, 50));
+          }, avatar, await this.getChannelContext(channel.id, 50));
 
           // After successfully sending a visible message, process bot->bot mentions (limited cascade)
           try {
@@ -626,11 +1221,174 @@ export class ConversationManager  {
             await this.presenceService.grantNewSummonTurns(channel.id, `${target._id}`, 1);
           }
         } catch {}
+        
+        // Record conversation relationship between speaking avatar and mentioned avatar
+        if (this.configService?.services?.avatarRelationshipService) {
+          try {
+            const relationshipService = this.configService.services.avatarRelationshipService;
+            await relationshipService.recordConversation({
+              avatar1Id: String(speakingAvatar._id),
+              avatar1Name: speakingAvatar.name,
+              avatar2Id: String(target._id),
+              avatar2Name: target.name,
+              messageId: 'mention', // Could be enhanced with actual message ID
+              content: text.substring(0, 200),
+              context: `${speakingAvatar.name} mentioned ${target.name} in conversation`,
+              sentiment: 'neutral' // Could enhance with sentiment detection
+            });
+          } catch (relErr) {
+            this.logger.debug?.(`Failed to record conversation relationship: ${relErr.message}`);
+          }
+        }
+        
         // Attempt immediate reply (overrideCooldown to keep flow natural)
         await this.sendResponse(channel, target, null, { overrideCooldown: true, cascadeDepth: cascadeDepth + 1 });
       } catch (e) {
         this.logger.debug?.(`mention cascade send failed for ${target.name}: ${e.message}`);
       }
     }
+  }
+
+  /**
+   * Build situation context for tool decision making
+   * @private
+   */
+  async _buildSituationContext(avatar, channel) {
+    const situation = {};
+    
+    try {
+      // Get location
+      const locationResult = await this.mapService.getLocationAndAvatars(channel.id);
+      if (locationResult?.location) {
+        situation.location = locationResult.location.name;
+      }
+      
+      // Get nearby avatars
+      if (locationResult?.avatars) {
+        situation.nearbyAvatars = locationResult.avatars
+          .filter(a => a._id !== avatar._id)
+          .map(a => a.name);
+      }
+      
+      // Get avatar stats
+      if (avatar.hp !== undefined) {
+        situation.hp = avatar.hp;
+        situation.maxHp = avatar.maxHp || 100;
+      }
+      
+      // Check combat status
+      situation.inCombat = avatar.status === 'in_combat' || avatar.combatState;
+      
+    } catch (error) {
+      this.logger.debug?.(`Failed to build situation context: ${error.message}`);
+    }
+    
+    return situation;
+  }
+
+  /**
+   * Check if a model supports function/tool calling
+   * @private
+   */
+  _modelSupportsTools(modelName) {
+    if (!modelName) return false;
+    
+    const modelLower = String(modelName).toLowerCase();
+    
+    // Known models that support function calling
+    const supportedPatterns = [
+      /gpt-4/,                          // GPT-4 family
+      /gpt-3\.5-turbo/,                 // GPT-3.5-turbo
+      /claude-3/,                       // Claude 3 family (all variants)
+      /claude-sonnet/,                  // Claude Sonnet
+      /claude-opus/,                    // Claude Opus
+      /gemini.*pro/,                    // Gemini Pro models
+      /gemini.*flash/,                  // Gemini Flash models
+      /gemini-2/,                       // Gemini 2.0+
+      /mistral.*large/,                 // Mistral Large
+      /mistral.*medium/,                // Mistral Medium
+      /command-r/,                      // Cohere Command R
+      /qwen.*coder/,                    // Qwen Coder models
+      /deepseek.*coder/,                // DeepSeek Coder models
+      /yi-.*-chat/,                     // Yi Chat models
+    ];
+    
+    // Check if model matches any supported pattern
+    for (const pattern of supportedPatterns) {
+      if (pattern.test(modelLower)) {
+        return true;
+      }
+    }
+    
+    // Models that explicitly don't support tools
+    const unsupportedPatterns = [
+      /hermes/,                         // Hermes models have issues
+      /llama-2/,                        // Llama 2 doesn't support tools
+      /vicuna/,                         // Vicuna doesn't support tools
+      /alpaca/,                         // Alpaca doesn't support tools
+      /-instruct$/,                     // Many -instruct variants don't support tools
+    ];
+    
+    for (const pattern of unsupportedPatterns) {
+      if (pattern.test(modelLower)) {
+        return false;
+      }
+    }
+    
+    // Default to false for unknown models to be safe
+    return false;
+  }
+
+  /**
+   * Fast-path optimization: Check if message likely needs tool decision
+   * Returns false for obviously conversational messages to skip expensive tool decision LLM call
+   * @param {Array} channelHistory - Recent messages
+   * @returns {boolean} Whether to check for tools
+   * @private
+   */
+  _shouldCheckForTools(channelHistory) {
+    if (!channelHistory || channelHistory.length === 0) return true;
+    
+    // Get the most recent user message
+    const lastMessage = channelHistory[channelHistory.length - 1];
+    if (!lastMessage || !lastMessage.content) return true;
+    
+    const content = lastMessage.content.toLowerCase().trim();
+    
+    // Fast-path SKIP: Obviously conversational patterns (no tools needed)
+    const conversationalPatterns = [
+      /^(hi|hey|hello|sup|yo|greetings|howdy|hiya)/,
+      /^(thanks|thank you|ty|thx|tysm)/,
+      /^(bye|goodbye|cya|see you|later|gnight)/,
+      /^(lol|haha|lmao|rofl|xd|😂|😄|🤣)/,
+      /^(ok|okay|k|kk|cool|nice|neat|interesting)/,
+      /^(what|where|when|why|how|who)\s/,  // Questions
+      /\?$/,  // Ends with question mark
+      /^tell me (about|more)/,
+      /^(i think|i feel|i believe|imo|imho)/,
+    ];
+    
+    // If matches conversational pattern, skip tool check
+    if (conversationalPatterns.some(p => p.test(content))) {
+      return false; // No tool decision needed
+    }
+    
+    // Fast-path CHECK: Obviously needs tools
+    const toolKeywords = [
+      'attack', 'hit', 'strike', 'fight',
+      'move to', 'go to', 'travel to', 'walk to', 'head to', 'visit',
+      'challenge', 'duel', 'battle',
+      'flee', 'run away', 'escape',
+      'use', 'cast', 'activate',
+      'summon', 'spawn', 'create',
+      'defend', 'block', 'guard'
+    ];
+    
+    if (toolKeywords.some(kw => content.includes(kw))) {
+      return true; // Definitely needs tool decision
+    }
+    
+    // Default: Use tool decision (better safe than miss a tool opportunity)
+    return true;
   }
 }

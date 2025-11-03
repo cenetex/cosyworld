@@ -133,7 +133,16 @@ Context Subjects: ${contextPrompt}\nDesired emotional tone: ${prompt}`;
       // Fallback: use avatarService schema image generator to synthesize a variant
       if (!imageUrl && this.avatarService?.generateAvatarImage) {
         try {
-          imageUrl = await this.avatarService.generateAvatarImage(`${avatar.name}: ${avatar.description}. ${prompt}`);
+          // Pass metadata for proper event emission
+          const uploadOptions = {
+            source: 'avatar.selfie',
+            avatarName: avatar.name,
+            avatarEmoji: avatar.emoji,
+            avatarId: avatar._id,
+            prompt: `${avatar.name}: ${avatar.description}. ${prompt}`,
+            context: `${avatar.emoji || '📸'} ${avatar.name} takes a selfie — ${prompt}`.trim()
+          };
+          imageUrl = await this.avatarService.generateAvatarImage(`${avatar.name}: ${avatar.description}. ${prompt}`, uploadOptions);
         } catch (e) {
           this.logger?.warn?.('[SelfieTool] avatarService fallback failed: ' + e.message);
         }

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosyWorld Health Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .status-healthy { color: #10b981; }
+        .status-degraded { color: #f59e0b; }
+        .status-unhealthy { color: #ef4444; }
+        .status-unknown { color: #6b7280; }
+        .metric-card { transition: all 0.3s ease; }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">CosyWorld Health Dashboard</h1>
+                    <p class="text-gray-600 mt-2">System status and metrics monitoring</p>
+                </div>
+                <div id="overallStatus" class="text-right">
+                    <div class="text-sm text-gray-600">Overall Status</div>
+                    <div id="overallStatusText" class="text-2xl font-bold pulse">Loading...</div>
+                    <div id="lastUpdate" class="text-xs text-gray-500 mt-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Status Cards -->
+        <div id="serviceStatus" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <!-- Services will be dynamically added here -->
+        </div>
+
+        <!-- Metrics Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">System Metrics</h2>
+            <div id="systemMetrics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Metrics will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Detailed Service Metrics -->
+        <div id="serviceMetrics" class="space-y-4">
+            <!-- Detailed service metrics will be dynamically added here -->
+        </div>
+
+        <!-- Auto-refresh controls -->
+        <div class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4">
+            <div class="flex items-center space-x-3">
+                <span class="text-sm text-gray-600">Auto-refresh:</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="autoRefresh" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+                <span id="refreshInterval" class="text-sm text-gray-600">30s</span>
+                <button id="refreshNow" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                    Refresh Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshEnabled = true;
+        let refreshTimer = null;
+        const REFRESH_INTERVAL = 30000; // 30 seconds
+
+        // Format numbers with K/M/B suffixes
+        function formatNumber(num) {
+            if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
+            if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+            return num.toFixed(0);
+        }
+
+        // Format duration
+        function formatDuration(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+            return `${seconds}s`;
+        }
+
+        // Format timestamp
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'Never';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            return date.toLocaleString();
+        }
+
+        // Get status color class
+        function getStatusClass(status) {
+            switch (status) {
+                case 'healthy': return 'status-healthy';
+                case 'degraded': return 'status-degraded';
+                case 'unhealthy': return 'status-unhealthy';
+                default: return 'status-unknown';
+            }
+        }
+
+        // Get status icon
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'healthy': return '✓';
+                case 'degraded': return '⚠';
+                case 'unhealthy': return '✗';
+                default: return '?';
+            }
+        }
+
+        // Fetch and display health data
+        async function fetchHealthData() {
+            try {
+                const response = await fetch('/api/health/status');
+                const health = await response.json();
+                
+                // Update overall status
+                const overallStatus = health.status || 'unknown';
+                document.getElementById('overallStatusText').textContent = overallStatus.toUpperCase();
+                document.getElementById('overallStatusText').className = `text-2xl font-bold ${getStatusClass(overallStatus)}`;
+                document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+                
+                // Update service cards
+                const serviceContainer = document.getElementById('serviceStatus');
+                serviceContainer.innerHTML = '';
+                
+                for (const [serviceName, serviceHealth] of Object.entries(health.services || {})) {
+                    const card = createServiceCard(serviceName, serviceHealth);
+                    serviceContainer.appendChild(card);
+                }
+                
+                // Fetch and display metrics
+                await fetchMetrics();
+                
+            } catch (error) {
+                console.error('Failed to fetch health data:', error);
+                document.getElementById('overallStatusText').textContent = 'ERROR';
+                document.getElementById('overallStatusText').className = 'text-2xl font-bold status-unhealthy';
+            }
+        }
+
+        // Create service status card
+        function createServiceCard(name, health) {
+            const card = document.createElement('div');
+            card.className = 'metric-card bg-white rounded-lg shadow p-4 border-l-4';
+            
+            const status = health.status || 'unknown';
+            const borderColor = status === 'healthy' ? 'border-green-500' 
+                : status === 'degraded' ? 'border-yellow-500' 
+                : status === 'unhealthy' ? 'border-red-500' 
+                : 'border-gray-500';
+            
+            card.classList.add(borderColor);
+            
+            let detailsHtml = '';
+            if (health.rateLimited) {
+                const resetAt = health.resetAt ? new Date(health.resetAt).toLocaleTimeString() : 'Unknown';
+                detailsHtml = `<p class="text-sm text-yellow-600 mt-2">⚠️ Rate limited until ${resetAt}</p>`;
+            }
+            if (health.message) {
+                detailsHtml += `<p class="text-sm text-gray-600 mt-2">${health.message}</p>`;
+            }
+            if (health.errorRate !== undefined) {
+                detailsHtml += `<p class="text-sm text-gray-600 mt-2">Error rate: ${(health.errorRate * 100).toFixed(1)}%</p>`;
+            }
+            if (health.lastSuccess) {
+                detailsHtml += `<p class="text-xs text-gray-500 mt-1">Last success: ${formatTimestamp(health.lastSuccess)}</p>`;
+            }
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">${name}</h3>
+                        <p class="text-sm ${getStatusClass(status)} font-medium">${getStatusIcon(status)} ${status.toUpperCase()}</p>
+                    </div>
+                </div>
+                ${detailsHtml}
+            `;
+            
+            return card;
+        }
+
+        // Fetch and display metrics
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/health/metrics');
+                const data = await response.json();
+                
+                // Display system metrics
+                const systemMetricsContainer = document.getElementById('systemMetrics');
+                systemMetricsContainer.innerHTML = `
+                    <div class="metric-card bg-blue-50 rounded-lg p-4">
+                        <div class="text-sm text-gray-600">Uptime</div>
+                        <div class="text-2xl font-bold text-blue-600">${formatDuration(data.uptime || 0)}</div>
+                    </div>
+                    <div class="metric-card bg-green-50 rounded-lg p-4">
+                        <div class="text-sm text-gray-600">Active Services</div>
+                        <div class="text-2xl font-bold text-green-600">${Object.keys(data.services || {}).length}</div>
+                    </div>
+                    <div class="metric-card bg-purple-50 rounded-lg p-4">
+                        <div class="text-sm text-gray-600">Last Update</div>
+                        <div class="text-2xl font-bold text-purple-600">${formatTimestamp(data.timestamp)}</div>
+                    </div>
+                    <div class="metric-card bg-orange-50 rounded-lg p-4">
+                        <div class="text-sm text-gray-600">Services</div>
+                        <div class="text-2xl font-bold text-orange-600">${Object.keys(data.services || {}).length}</div>
+                    </div>
+                `;
+                
+                // Display detailed service metrics
+                const serviceMetricsContainer = document.getElementById('serviceMetrics');
+                serviceMetricsContainer.innerHTML = '';
+                
+                for (const [serviceName, metrics] of Object.entries(data.services || {})) {
+                    if (Object.keys(metrics).length === 0) continue;
+                    
+                    const section = document.createElement('div');
+                    section.className = 'bg-white rounded-lg shadow-md p-6';
+                    section.innerHTML = `
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">${serviceName}</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            ${Object.entries(metrics).map(([key, value]) => {
+                                const displayValue = typeof value === 'object' 
+                                    ? `Avg: ${value.avg?.toFixed(2) || 0}ms` 
+                                    : formatNumber(value);
+                                return `
+                                    <div class="bg-gray-50 rounded p-3">
+                                        <div class="text-xs text-gray-600">${key.replace(/_/g, ' ')}</div>
+                                        <div class="text-lg font-semibold text-gray-800">${displayValue}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                    serviceMetricsContainer.appendChild(section);
+                }
+                
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+            }
+        }
+
+        // Setup auto-refresh
+        function setupAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            const refreshButton = document.getElementById('refreshNow');
+            
+            checkbox.addEventListener('change', (e) => {
+                autoRefreshEnabled = e.target.checked;
+                if (autoRefreshEnabled) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+            
+            refreshButton.addEventListener('click', () => {
+                fetchHealthData();
+            });
+            
+            if (autoRefreshEnabled) {
+                startAutoRefresh();
+            }
+        }
+
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(fetchHealthData, REFRESH_INTERVAL);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchHealthData();
+            setupAutoRefresh();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,808 @@
+<!--
+  Copyright (c) 2019-2024 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Bot Management - Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="/css/admin-common.css" rel="stylesheet" />
+  <style>
+    .global-bot-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .section h2 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    
+    .persona-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .info-card {
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .info-card label {
+      font-weight: bold;
+      color: #4a5568;
+      display: block;
+      margin-bottom: 5px;
+    }
+    
+    .info-card value {
+      color: #2d3748;
+      font-size: 1.1em;
+    }
+    
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 4px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+    
+    .btn-secondary {
+      background: #718096;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #4a5568;
+    }
+    
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #38a169;
+    }
+    
+    .memory-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .memory-item {
+      background: #f7fafc;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border-left: 3px solid #667eea;
+    }
+    
+    .post-list {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .post-item {
+      background: #f7fafc;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #48bb78;
+    }
+    
+    .post-meta {
+      color: #718096;
+      font-size: 0.9em;
+      margin-top: 8px;
+    }
+    
+    .preview-box {
+      background: #edf2f7;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 10px;
+      border: 1px solid #cbd5e0;
+    }
+    
+    .status {
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+    
+    .status-active {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .status-immortal {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+    
+    .error {
+      background: #fed7d7;
+      color: #742a2a;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    
+    .success {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="min-h-screen flex flex-col">
+    <!-- Legacy nav will be replaced by admin-shell.js if present -->
+    <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <h1 class="text-xl font-bold">RATi Admin Panel</h1>
+            </div>
+            <div class="ml-10 flex items-baseline space-x-4">
+              <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+              <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+              <a href="/admin/x-accounts" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">X Accounts</a>
+              <a href="/admin/global-bot" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Global Bot</a>
+              <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Collections</a>
+              <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+            </div>
+          </div>
+          <div>
+            <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="flex-grow">
+      <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+          <h1 class="text-3xl font-bold text-gray-900 mb-6">🌍 Global Bot Management</h1>
+          
+          <div id="status-message"></div>
+          
+          <!-- Persona Section -->
+          <div class="section">
+      <h2>Bot Persona</h2>
+      <div id="persona-loading" class="loading">Loading persona...</div>
+      <div id="persona-content" style="display: none;">
+        <div class="persona-info">
+          <div class="info-card">
+            <label>Name</label>
+            <div id="bot-name"></div>
+          </div>
+          <div class="info-card">
+            <label>Emoji</label>
+            <div id="bot-emoji" style="font-size: 2em;"></div>
+          </div>
+          <div class="info-card">
+            <label>Status</label>
+            <div id="bot-status"></div>
+          </div>
+          <div class="info-card">
+            <label>Model</label>
+            <div id="bot-model"></div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="model-provider">AI Provider</label>
+          <select id="model-provider" style="width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: inherit; margin-bottom: 10px;">
+            <option value="">Loading providers...</option>
+          </select>
+          
+          <label for="model-name">Model</label>
+          <select id="model-name" style="width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: inherit;" disabled>
+            <option value="">Select provider first</option>
+          </select>
+          <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+            Select the AI model for generating global bot posts. Claude 3.5 Sonnet is recommended for best quality.
+          </p>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="personality-textarea">Core Personality</label>
+          <textarea id="personality-textarea"></textarea>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <label for="dynamic-prompt-textarea">Current Perspective (Dynamic Prompt)</label>
+          <textarea id="dynamic-prompt-textarea"></textarea>
+          <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+            This evolves automatically as the bot welcomes new avatars and reflects on its experiences.
+          </p>
+        </div>
+        
+        <div class="button-group">
+          <button class="btn-primary" onclick="savePersona()">💾 Save Persona</button>
+          <button class="btn-secondary" onclick="generateNarrative()">🔄 Generate New Narrative</button>
+          <button class="btn-secondary" onclick="loadPersona()">↻ Refresh</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stats Section -->
+    <div class="section">
+      <h2>Statistics</h2>
+      <div class="persona-info">
+        <div class="info-card">
+          <label>Total Introductions</label>
+          <div id="stat-intros">-</div>
+        </div>
+        <div class="info-card">
+          <label>Memories Stored</label>
+          <div id="stat-memories">-</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recent Memories -->
+    <div class="section">
+      <h2>Recent Memories</h2>
+      <ul id="memory-list" class="memory-list"></ul>
+    </div>
+    
+    <!-- Preview Generator -->
+    <div class="section">
+      <h2>Preview Post Generation</h2>
+      <p>Test how the bot would introduce a new avatar:</p>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-name">Avatar Name</label>
+        <input type="text" id="preview-name" placeholder="e.g., Zanara the Mystic" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-emoji">Avatar Emoji</label>
+        <input type="text" id="preview-emoji" placeholder="e.g., 🔮" style="width: 100px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="preview-description">Description</label>
+        <textarea id="preview-description" placeholder="e.g., A mystical seer with ancient powers..." style="min-height: 80px;"></textarea>
+      </div>
+      
+      <button class="btn-success" onclick="generatePreview()" style="margin-top: 10px;">✨ Generate Preview</button>
+      
+      <div id="preview-result" class="preview-box" style="display: none;">
+        <strong>Generated Post:</strong>
+        <div id="preview-text" style="margin-top: 10px; font-size: 1.1em;"></div>
+      </div>
+    </div>
+    
+    <!-- Recent Posts -->
+    <div class="section">
+      <h2>Recent Posts</h2>
+      <div id="posts-loading" class="loading">Loading posts...</div>
+      <div id="posts-list" class="post-list" style="display: none;"></div>
+    </div>
+  </div>
+  
+  <script>
+    // Global variables
+    let modelsByProvider = new Map();
+    let currentBotModel = null;
+    
+    // Load available models from API
+    async function loadModels() {
+      try {
+        console.log('[Model Selector] Loading models from API...');
+        const response = await fetch('/api/models/config');
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        
+        const modelsData = await response.json();
+        console.log('[Model Selector] Received', modelsData.length, 'models from API');
+        const modelNames = Array.isArray(modelsData) ? modelsData.map(m => m?.model).filter(Boolean) : [];
+        
+        // Build provider map
+        modelsByProvider.clear();
+        modelNames.forEach((fullModel) => {
+          const [provider, ...modelParts] = fullModel.split('/');
+          const modelName = modelParts.join('/');
+          if (provider && modelName) {
+            if (!modelsByProvider.has(provider)) {
+              modelsByProvider.set(provider, []);
+            }
+            modelsByProvider.get(provider).push({
+              fullName: fullModel,
+              modelName: modelName
+            });
+          }
+        });
+        
+        console.log('[Model Selector] Organized into', modelsByProvider.size, 'providers');
+        console.log('[Model Selector] Providers:', Array.from(modelsByProvider.keys()).join(', '));
+        
+        // Initialize the dropdowns
+        initializeModelSelectors();
+        console.log('[Model Selector] Initialization complete');
+      } catch (error) {
+        console.error('[Model Selector] Error loading models:', error);
+      }
+    }
+    
+    // Initialize provider/model dropdowns
+    function initializeModelSelectors() {
+      const providerSelect = document.getElementById('model-provider');
+      const modelNameSelect = document.getElementById('model-name');
+      
+      if (!providerSelect || !modelNameSelect) return;
+      
+      // Clear and populate provider dropdown
+      providerSelect.innerHTML = '<option value="">Select provider...</option>';
+      const providers = Array.from(modelsByProvider.keys()).sort();
+      
+      providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider;
+        option.textContent = provider;
+        providerSelect.appendChild(option);
+      });
+      
+      // Reset model dropdown
+      modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
+      modelNameSelect.disabled = true;
+      
+      // Provider change handler
+      providerSelect.onchange = () => {
+        const selectedProvider = providerSelect.value;
+        console.log('[Model Selector] Provider changed to:', selectedProvider);
+        modelNameSelect.innerHTML = '';
+        modelNameSelect.disabled = !selectedProvider;
+        
+        if (selectedProvider) {
+          const models = modelsByProvider.get(selectedProvider) || [];
+          console.log('[Model Selector] Loading', models.length, 'models for provider:', selectedProvider);
+          
+          models.forEach(modelInfo => {
+            const option = document.createElement('option');
+            option.value = modelInfo.fullName;
+            option.textContent = modelInfo.modelName;
+            modelNameSelect.appendChild(option);
+          });
+          
+          // Try to select the current model if it's in this provider
+          if (currentBotModel && currentBotModel.startsWith(selectedProvider + '/')) {
+            console.log('[Model Selector] Selecting current model:', currentBotModel);
+            modelNameSelect.value = currentBotModel;
+          }
+        }
+      };
+    }
+    
+    // Set the current model in the dropdowns
+    function setCurrentModel(modelFullName) {
+      currentBotModel = modelFullName;
+      console.log('[Model Selector] Setting current model:', modelFullName);
+      
+      if (!modelFullName) {
+        console.warn('[Model Selector] No model provided');
+        return;
+      }
+      
+      if (modelsByProvider.size === 0) {
+        console.warn('[Model Selector] Models not loaded yet, will retry');
+        // Retry after a short delay
+        setTimeout(() => setCurrentModel(modelFullName), 200);
+        return;
+      }
+      
+      const [provider] = modelFullName.split('/');
+      const providerSelect = document.getElementById('model-provider');
+      const modelNameSelect = document.getElementById('model-name');
+      
+      if (!provider || !providerSelect || !modelNameSelect) {
+        console.error('[Model Selector] Missing elements or invalid model format');
+        return;
+      }
+      
+      // Check if provider exists
+      if (!modelsByProvider.has(provider)) {
+        console.error('[Model Selector] Provider not found:', provider);
+        console.log('[Model Selector] Available providers:', Array.from(modelsByProvider.keys()));
+        return;
+      }
+      
+      console.log('[Model Selector] Setting provider to:', provider);
+      providerSelect.value = provider;
+      
+      // Manually populate the model dropdown (don't rely on event timing)
+      const models = modelsByProvider.get(provider) || [];
+      console.log('[Model Selector] Manually populating', models.length, 'models');
+      
+      modelNameSelect.innerHTML = '';
+      modelNameSelect.disabled = false;
+      
+      models.forEach(modelInfo => {
+        const option = document.createElement('option');
+        option.value = modelInfo.fullName;
+        option.textContent = modelInfo.modelName;
+        modelNameSelect.appendChild(option);
+      });
+      
+      // Now set the specific model
+      console.log('[Model Selector] Setting model to:', modelFullName);
+      modelNameSelect.value = modelFullName;
+      
+      // If the model doesn't exist, try to find a reasonable fallback
+      if (modelNameSelect.value !== modelFullName) {
+        console.warn('[Model Selector] Model not found:', modelFullName);
+        console.log('[Model Selector] Available options:', Array.from(modelNameSelect.options).map(o => o.value));
+        
+        // Try fallback strategies for common models
+        let fallback = null;
+        const availableModels = Array.from(modelNameSelect.options).map(o => o.value);
+        
+        if (modelFullName.includes('claude-3.5-sonnet')) {
+          // Try newer Claude Sonnet versions
+          fallback = availableModels.find(m => m.includes('claude-sonnet-4.5')) ||
+                     availableModels.find(m => m.includes('claude-sonnet-4')) ||
+                     availableModels.find(m => m.includes('claude-3.7-sonnet')) ||
+                     availableModels.find(m => m.includes('sonnet'));
+        } else if (modelFullName.includes('claude-3.5-haiku')) {
+          fallback = availableModels.find(m => m.includes('claude-haiku-4.5')) ||
+                     availableModels.find(m => m.includes('claude-3.5-haiku'));
+        } else if (modelFullName.includes('claude')) {
+          // Generic Claude fallback - prefer Sonnet
+          fallback = availableModels.find(m => m.includes('sonnet')) ||
+                     availableModels.find(m => m.includes('claude'));
+        }
+        
+        // If still no fallback, just use the first available model for this provider
+        if (!fallback && models.length > 0) {
+          fallback = models[0].fullName;
+        }
+        
+        if (fallback) {
+          console.log('[Model Selector] Using fallback model:', fallback);
+          modelNameSelect.value = fallback;
+          showStatus(`Model "${modelFullName}" not available, using "${fallback}" instead`);
+        } else {
+          console.error('[Model Selector] No fallback available');
+        }
+      } else {
+        console.log('[Model Selector] Model set successfully');
+      }
+    }
+    
+    // Get the currently selected model
+    function getCurrentModel() {
+      const modelNameSelect = document.getElementById('model-name');
+      const value = modelNameSelect?.value || null;
+      console.log('[Model Selector] Getting current model:', value);
+      return value;
+    }
+    
+    // Load persona data
+    async function loadPersona() {
+      try {
+        document.getElementById('persona-loading').style.display = 'block';
+        document.getElementById('persona-content').style.display = 'none';
+        
+        const res = await fetch('/api/admin/global-bot/persona');
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load persona');
+        }
+        
+        const { bot, memories, stats } = data.persona;
+        
+        // Update persona fields
+        document.getElementById('bot-name').textContent = bot.name || 'Unknown';
+        document.getElementById('bot-emoji').textContent = bot.emoji || '🌍';
+        document.getElementById('bot-status').innerHTML = `<span class="status status-${bot.status}">${bot.status}</span>`;
+        document.getElementById('bot-model').textContent = bot.model || 'Unknown';
+        setCurrentModel(bot.model || 'anthropic/claude-3.5-sonnet');
+        document.getElementById('personality-textarea').value = bot.personality || '';
+        document.getElementById('dynamic-prompt-textarea').value = bot.dynamicPrompt || '';
+        
+        // Update stats
+        document.getElementById('stat-intros').textContent = stats.totalIntroductions || 0;
+        document.getElementById('stat-memories').textContent = stats.memoryCount || 0;
+        
+        // Update memories list
+        const memoryList = document.getElementById('memory-list');
+        memoryList.innerHTML = '';
+        
+        if (memories && memories.length > 0) {
+          memories.forEach(mem => {
+            const li = document.createElement('li');
+            li.className = 'memory-item';
+            li.textContent = mem.memory || mem.text || 'Empty memory';
+            memoryList.appendChild(li);
+          });
+        } else {
+          memoryList.innerHTML = '<li class="memory-item">No memories yet</li>';
+        }
+        
+        document.getElementById('persona-loading').style.display = 'none';
+        document.getElementById('persona-content').style.display = 'block';
+      } catch (err) {
+        showError('Failed to load persona: ' + err.message);
+        document.getElementById('persona-loading').style.display = 'none';
+      }
+    }
+    
+    // Save persona changes
+    async function savePersona() {
+      try {
+        const selectedModel = getCurrentModel();
+        if (!selectedModel) {
+          showError('Please select a model');
+          return;
+        }
+        
+        const updates = {
+          personality: document.getElementById('personality-textarea').value,
+          dynamicPrompt: document.getElementById('dynamic-prompt-textarea').value,
+          model: selectedModel
+        };
+        
+        console.log('[Save] Saving with model:', selectedModel);
+        
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/persona', {
+          method: 'PUT',
+          body: updates,
+          requireCsrf: true,
+          sign: true
+        });
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Save failed');
+        }
+        
+        showSuccess('Persona saved successfully!');
+        
+        // Update the display model text
+        if (data.bot && data.bot.model) {
+          document.getElementById('bot-model').textContent = data.bot.model;
+          console.log('[Save] Model updated to:', data.bot.model);
+        }
+      } catch (err) {
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to save persona: ' + errMsg);
+        console.error('[Save] Error:', err);
+      }
+    }
+    
+    // Generate new narrative
+    async function generateNarrative() {
+      try {
+        showStatus('Generating new narrative...');
+        
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/generate-narrative', {
+          method: 'POST',
+          requireCsrf: true,
+          sign: true
+        });
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Generation failed');
+        }
+        
+        document.getElementById('dynamic-prompt-textarea').value = data.narrative || '';
+        showSuccess('New narrative generated!');
+      } catch (err) {
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to generate narrative: ' + errMsg);
+      }
+    }
+    
+    // Generate preview
+    async function generatePreview() {
+      try {
+        const name = document.getElementById('preview-name').value;
+        const emoji = document.getElementById('preview-emoji').value;
+        const description = document.getElementById('preview-description').value;
+        
+        if (!name || !description) {
+          showError('Please fill in at least name and description');
+          return;
+        }
+        
+        showStatus('Generating preview...');
+        
+        const payload = {
+          source: 'avatar.create',
+          avatarName: name,
+          avatarEmoji: emoji,
+          prompt: description
+        };
+        
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/preview', {
+          method: 'POST',
+          body: payload,
+          requireCsrf: true,
+          sign: true
+        });
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Preview failed');
+        }
+        
+        document.getElementById('preview-text').textContent = data.preview + ' #CosyWorld';
+        document.getElementById('preview-result').style.display = 'block';
+        clearStatus();
+      } catch (err) {
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to generate preview: ' + errMsg);
+      }
+    }
+    
+    // Load recent posts
+    async function loadPosts() {
+      try {
+        const res = await fetch('/api/admin/global-bot/posts?limit=20');
+        const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load posts');
+        }
+        
+        const postsList = document.getElementById('posts-list');
+        postsList.innerHTML = '';
+        
+        if (data.posts && data.posts.length > 0) {
+          data.posts.forEach(post => {
+            const div = document.createElement('div');
+            div.className = 'post-item';
+            
+            const avatarInfo = post.metadata?.avatarName 
+              ? `<strong>${post.metadata.avatarEmoji || ''} ${post.metadata.avatarName}</strong><br>` 
+              : '';
+            
+            div.innerHTML = `
+              ${avatarInfo}
+              ${post.content}
+              <div class="post-meta">
+                Posted: ${new Date(post.createdAt).toLocaleString()} 
+                ${post.tweetId ? `| <a href="https://x.com/user/status/${post.tweetId}" target="_blank">View on X</a>` : ''}
+                ${post.metadata?.type ? `| Type: ${post.metadata.type}` : ''}
+              </div>
+            `;
+            
+            postsList.appendChild(div);
+          });
+        } else {
+          postsList.innerHTML = '<div class="loading">No posts yet</div>';
+        }
+        
+        document.getElementById('posts-loading').style.display = 'none';
+        document.getElementById('posts-list').style.display = 'block';
+      } catch (err) {
+        showError('Failed to load posts: ' + err.message);
+        document.getElementById('posts-loading').style.display = 'none';
+      }
+    }
+    
+    // Utility functions
+    function showError(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'error';
+      el.textContent = '❌ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+    
+    function showSuccess(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'success';
+      el.textContent = '✅ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+    
+    function showStatus(msg) {
+      const el = document.getElementById('status-message');
+      el.className = 'success';
+      el.textContent = '⏳ ' + msg;
+      el.style.display = 'block';
+    }
+    
+    function clearStatus() {
+      document.getElementById('status-message').style.display = 'none';
+    }
+    
+    // Wait for admin bootstrap to be ready
+    async function initPage() {
+      // Wait for AdminAPI to be available
+      if (!window.AdminAPI) {
+        await new Promise(resolve => {
+          window.addEventListener('admin:bootstrapReady', resolve, { once: true });
+        });
+      }
+      
+      await loadModels();
+      await loadPersona();
+      loadPosts();
+    }
+    
+    // Load data on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+      initPage();
+    }
+  </script>
+        </div>
+      </div>
+    </main>
+
+    <footer class="bg-white">
+      <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+        <p class="text-center text-sm text-gray-500">
+          RATi Swarm Admin Panel © 2024
+        </p>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+</body>
+</html>

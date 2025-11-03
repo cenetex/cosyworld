@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -32,6 +33,22 @@ export class ChallengeTool extends BasicTool {
     this.cooldownMs = 10 * 1000; // 10s to make initiating snappy
   }
 
+  /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        target: {
+          type: 'string',
+          description: 'The name of the avatar to challenge to a duel'
+        }
+      },
+      required: ['target']
+    };
+  }
+
   async execute(message, params, avatar, services) {
     // Block initiating combat if actor cannot enter (KO/dead/knockout or flee cooldown)
     try {
@@ -52,8 +69,33 @@ export class ChallengeTool extends BasicTool {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
       const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
-      if (!defender) return `-# 🫠 [ Target '${targetName}' not found here. ]`;
-      // Defender state checks for clearer reasons
+      if (!defender) {
+        return `-# � [ The avatar can't be found! ]`;
+      }
+
+      // Block self-combat - normalize both IDs properly
+      const normalizeId = (obj) => {
+        if (!obj) return '';
+        const id = obj._id || obj.id;
+        if (!id) return '';
+        // Handle ObjectId objects
+        if (typeof id === 'object' && id.toString) return id.toString();
+        return String(id);
+      };
+
+      const attackerId = normalizeId(avatar);
+      const defenderId = normalizeId(defender);
+
+      // Comprehensive debug logging
+      this.logger?.info?.(`[ChallengeTool] SELF-COMBAT CHECK:`);
+      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
+      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
+      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
+
+      if (attackerId && defenderId && attackerId === defenderId) {
+        this.logger?.warn?.(`[ChallengeTool] Self-combat blocked: ${avatar?.name} tried to challenge themselves`);
+        return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
+      }      // Defender state checks for clearer reasons
       try {
         const now = Date.now();
         if (defender.status === 'dead') {
@@ -77,11 +119,19 @@ export class ChallengeTool extends BasicTool {
         encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
       } catch (e) {
         const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('self_combat')) {
+          return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
+        }
         if (msg.includes('flee_cooldown')) {
           return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
         }
+        if (msg.includes('knocked_out_status')) {
+          // More engaging message for knocked out status
+          const knockedOutAvatar = defender.status === 'knocked_out' || defender.status === 'dead' ? defender : avatar;
+          return `-# 🛡️ [ **Challenge Failed**: ${knockedOutAvatar.name} is knocked out and recovering. They cannot enter combat at this time. ]`;
+        }
         if (msg.includes('knockout_cooldown')) {
-          return `-# 💤 [ Combat cannot start: one combatant is knocked out and cannot fight today. ]`;
+          return `-# 💤 [ Combat cannot start: one combatant is still recovering from being knocked out. ]`;
         }
         throw e;
       }
@@ -99,6 +149,12 @@ export class ChallengeTool extends BasicTool {
         if (battleMedia?.generateFightPoster) {
           const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
           if (poster?.imageUrl && this.discordService?.client) {
+            // Store poster URL on encounter for later video generation reuse
+            try {
+              const enc = ces.getEncounter(message.channel.id);
+              if (enc) enc.fightPosterUrl = poster.imageUrl;
+            } catch {}
+            
             const channel = await this.discordService.client.channels.fetch(message.channel.id);
             if (channel?.isTextBased()) {
               const embed = {
@@ -115,7 +171,7 @@ export class ChallengeTool extends BasicTool {
                 if (autoX === 'true' && xsvc && poster.imageUrl) {
                   let admin = null;
                   try {
-                    const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+                    const envId = resolveAdminAvatarId();
                     if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
                       admin = await this.configService.services.avatarService.getAvatarById(envId);
                     } else {
@@ -136,23 +192,21 @@ export class ChallengeTool extends BasicTool {
                   }
                 }
               } catch (e) { this.logger?.warn?.(`[ChallengeTool] auto X poster post failed: ${e.message}`); }
-              // Brief in-character chatter
-              const cm = this.conversationManager;
-              if (cm?.sendResponse) {
-                try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
-                try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
-              }
+              
+              // NO ConversationManager chatter here - combat system handles dialogue autonomously
+              // Old code was causing spam by triggering full AI responses with tool execution
             }
           }
         }
       } catch (e) {
-        this.logger?.warn?.(`[ChallengeTool] poster/chatter failed: ${e.message}`);
+        this.logger?.warn?.(`[ChallengeTool] poster generation failed: ${e.message}`);
       } finally {
         try { ces.endManualAction(message.channel.id); } catch {}
         try { const enc = ces.getEncounter(message.channel.id); enc?.posterBlocker?.resolve?.(); } catch {}
       }
 
-      // Start encounter (initiative + chatter + timers)
+      // Start encounter (initiative roll + turn system)
+      // NO ConversationManager chatter - combat system handles all actions
       try { await ces.rollInitiative(ces.getEncounter(message.channel.id)); } catch {}
       return null; // no extra text
     } catch (error) {

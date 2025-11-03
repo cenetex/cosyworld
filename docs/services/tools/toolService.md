@@ -30,7 +30,7 @@ const toolClasses = {
   x: XSocialTool, // Standardized name
   item: ItemTool,
   respond: ThinkTool,
-  forum: ForumTool,
+  search: WebSearchTool,
 };
 Object.entries(toolClasses).forEach(([name, ToolClass]) => {
   const tool = new ToolClass(this.services);
@@ -91,7 +91,7 @@ The service manages multiple specialized tools:
 - **XSocialTool** (`x`, emoji: `🐦`): Enables social media integration (post, reply, like, etc.)
 - **ItemTool** (`item`, emoji: `📦`): Manages item interactions
 - **ThinkTool** (`respond`, emoji: `💭`): Enables internal monologue and reflection
-- **ForumTool** (`forum`, emoji: `🛰️`): Interact with the forum (if enabled)
+- **WebSearchTool** (`search`, emoji: `�️`): Perform live web research and store findings
 
 ## Cooldown Management
 ToolService uses a centralized `CooldownService` to manage per-tool, per-avatar cooldowns. When generating available commands or executing a tool, ToolService checks if the tool is on cooldown for the avatar. Cooldown checks and updates are handled via `CooldownService.getRemainingCooldown(toolName, avatarId, cooldownMs)` and `CooldownService.setUsed(toolName, avatarId)`.

@@ -14,15 +14,19 @@ import { ObjectId } from 'mongodb';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
+import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
 
 export class DiscordService {
   constructor(services) {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
-  // Optional cross-service hooks
+  // Optional cross-service hooks (late-binding to avoid circular deps)
   this.getMapService = services.getMapService || null;
+  this.getCombatEncounterService = services.getCombatEncounterService || null;
   this.avatarService = services.avatarService || null;
+    // Repositories
+    this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
     this.webhookCache = new Map();
     this.client = new Client({
@@ -60,22 +64,30 @@ export class DiscordService {
     this.client.once('ready', async () => {
       this.logger.info(`Bot is ready as ${this.client.user.tag}`);
       await this.updateConnectedGuilds();
-      await this.updateDetectedGuilds();
+      // Run guild detection in background to avoid blocking startup
+      setImmediate(() => {
+        this.updateDetectedGuilds().catch(err => 
+          this.logger.error('Background guild detection failed:', err)
+        );
+      });
       this.client.guildWhitelist = new Map(); // Initialize guild whitelist cache
     });
 
     this.client.on('guildCreate', async guild => {
       this.logger.info(`Joined guild: ${guild.name} (${guild.id})`);
       await this.updateConnectedGuilds();
-      await this.updateDetectedGuilds();
+      // Run guild detection in background
+      setImmediate(() => {
+        this.updateDetectedGuilds().catch(err => 
+          this.logger.error('Background guild detection failed:', err)
+        );
+      });
     });
 
     this.client.on('guildDelete', async guild => {
       try {
         this.logger.info(`Left guild: ${guild.name} (${guild.id})`);
-        this.db = await this.databaseService.getDatabase();
-        if (!this.db) return;
-        await this.db.collection('connected_guilds').deleteOne({ id: guild.id });
+        await this.guildConnectionRepository.removeConnectedGuild(guild.id);
       } catch (error) {
         this.logger.error(`Failed to remove guild ${guild.id} from database: ${error.message}`);
       }
@@ -85,7 +97,105 @@ export class DiscordService {
       try {
         this.db = await this.databaseService.getDatabase();
         if (!interaction.isButton()) return;
+        
+        // Check guild authorization for interactions
+        if (interaction.guild) {
+          const guildConfig = await this.configService.getGuildConfig(interaction.guild.id);
+          const isAuthorized = guildConfig?.authorized === true || 
+            (await this.configService.get("authorizedGuilds") || []).includes(interaction.guild.id);
+          if (!isAuthorized) {
+            this.logger.warn(`Interaction in unauthorized guild: ${interaction.guild.name} (${interaction.guild.id})`);
+            return;
+          }
+        }
+        
         const { customId } = interaction;
+        
+        // Handle battle video generation button
+        if (customId.startsWith('generate_battle_video_')) {
+          const channelId = customId.replace('generate_battle_video_', '');
+          
+          try {
+            // Check if interaction is already acknowledged or expired
+            if (interaction.replied || interaction.deferred) {
+              this.logger.warn?.('[DiscordService] Battle video button already processed');
+              return;
+            }
+            
+            let interactionExpired = false;
+            
+            // Try to acknowledge the button click
+            try {
+              await interaction.deferUpdate();
+            } catch (deferError) {
+              // Interaction expired - this is OK, we'll work around it
+              const errMsg = String(deferError?.message || '').toLowerCase();
+              if (errMsg.includes('unknown interaction') || errMsg.includes('interaction has already been acknowledged')) {
+                this.logger.info?.('[DiscordService] Battle video button interaction expired - creating new status message');
+                interactionExpired = true;
+              } else {
+                throw deferError; // Re-throw if it's a different error
+              }
+            }
+            
+            // Check if combat encounter service is available (late-binding to avoid circular deps)
+            const combatEncounterService = this.getCombatEncounterService?.();
+            if (!combatEncounterService) {
+              if (interactionExpired) {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '❌ Combat system not available' });
+              } else {
+                await interaction.followUp({ content: '❌ Combat system not available', flags: 64 });
+              }
+              return;
+            }
+            
+            // If interaction expired, create a new status message instead of using the original
+            let statusMessageId = null;
+            if (interactionExpired) {
+              const channel = await this.client.channels.fetch(channelId);
+              const statusMsg = await channel.send({ 
+                content: '🎬 **Generating Battle Recap Videos...**\nPreparing scenes...' 
+              });
+              statusMessageId = statusMsg.id;
+            } else {
+              statusMessageId = interaction.message.id;
+            }
+            
+            // Generate videos with live status updates
+            const result = await combatEncounterService.generateBattleRecapVideos(
+              channelId,
+              statusMessageId
+            );
+            
+            if (!result.success) {
+              this.logger.warn?.(`[DiscordService] Battle video generation failed: ${result.error}`);
+              
+              // Provide user-friendly feedback for specific errors
+              if (result.error === 'Video generation already in progress') {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '⏳ Video generation is already in progress. Please wait for it to complete.' });
+              } else if (result.error === 'Video already generated for this combat') {
+                const channel = await this.client.channels.fetch(channelId);
+                await channel.send({ content: '✅ Battle recap video has already been generated for this combat.' });
+              }
+            }
+            
+          } catch (error) {
+            this.logger.error?.(`[DiscordService] Battle video button error: ${error.message}`);
+            try {
+              // Try to send error message to the channel
+              const channel = await this.client.channels.fetch(channelId);
+              await channel.send({ content: `❌ Failed to generate battle videos: ${error.message}` });
+            } catch (sendError) {
+              this.logger.error?.(`[DiscordService] Failed to send error message: ${sendError.message}`);
+            }
+          }
+          
+          return; // Exit early after handling
+        }
+        
+        // Handle existing view_full_ buttons
         if (!customId.startsWith('view_full_')) return;
 
         await interaction.deferReply({ flags: 64 });
@@ -178,6 +288,16 @@ export class DiscordService {
       try {
         // Only act on newly created threads under text channels
         if (!thread || !thread.parentId || !thread.guild) return;
+        
+        // Check guild authorization before moving avatars
+        const guildConfig = await this.configService.getGuildConfig(thread.guild.id);
+        const isAuthorized = guildConfig?.authorized === true || 
+          (await this.configService.get("authorizedGuilds") || []).includes(thread.guild.id);
+        if (!isAuthorized) {
+          this.logger.warn(`Thread created in unauthorized guild: ${thread.guild.name} (${thread.guild.id}) - ignoring`);
+          return;
+        }
+        
         const parentId = thread.parentId;
         // Try to fetch the starter message; if not available, skip
         let starter = null;
@@ -237,14 +357,7 @@ export class DiscordService {
       }));
       this.logger.info(`Updating ${connectedGuilds.length} connected guilds`);
       if (connectedGuilds.length > 0) {
-        const bulkOps = connectedGuilds.map(guild => ({
-          updateOne: {
-            filter: { id: guild.id },
-            update: { $set: guild },
-            upsert: true,
-          },
-        }));
-        await this.db.collection('connected_guilds').bulkWrite(bulkOps);
+        await this.guildConnectionRepository.upsertConnectedGuilds(connectedGuilds);
       }
     } catch (error) {
       this.logger.error('Error updating connected guilds: ' + error.message);
@@ -253,6 +366,7 @@ export class DiscordService {
   }
 
   async updateDetectedGuilds() {
+    // This can be slow if there are many guilds, so it should be called via setImmediate()
     this.db = await this.databaseService.getDatabase();
     if (!this.db) {
       this.logger.error('Database not connected, cannot update detected guilds');
@@ -267,16 +381,10 @@ export class DiscordService {
         detectedAt: new Date(),
         updatedAt: new Date(),
       }));
-      this.logger.info(`Updating ${allGuilds.length} detected guilds from Discord client's cache`);
+      this.logger.info(`[Background] Updating ${allGuilds.length} detected guilds from Discord client's cache`);
       if (allGuilds.length > 0) {
-        const bulkOps = allGuilds.map(guild => ({
-          updateOne: {
-            filter: { id: guild.id },
-            update: { $set: guild },
-            upsert: true,
-          },
-        }));
-        await this.db.collection('detected_guilds').bulkWrite(bulkOps);
+        await this.guildConnectionRepository.upsertDetectedGuilds(allGuilds);
+        this.logger.info(`[Background] Completed updating ${allGuilds.length} detected guilds`);
       }
     } catch (error) {
       this.logger.error('Error updating detected guilds: ' + error.message);
@@ -285,7 +393,10 @@ export class DiscordService {
 
   validateAvatar(avatar) {
     if (!avatar || typeof avatar !== 'object') throw new Error('Avatar must be a valid object');
-    if (!avatar.name || typeof avatar.name !== 'string') throw new Error('Avatar name is required and must be a string');
+    if (!avatar.name || typeof avatar.name !== 'string') {
+      this.logger.error('Invalid avatar object:', { avatar, avatarType: typeof avatar, hasName: !!avatar?.name, nameType: typeof avatar?.name });
+      throw new Error('Avatar name is required and must be a string');
+    }
   }
 
   async getOrCreateWebhook(channel) {
@@ -340,14 +451,34 @@ export class DiscordService {
           threadId: channel.isThread() ? channelId : undefined,
         });
       }
-      this.logger.info(`Sent message to channel ${channelId} as ${username}`);
-      sentMessage.rati = {
-        avatarId: avatar.id,
-      };
+      this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
+      
+      // Store avatar ID for reply tracking when available (older encounters may omit avatar ids)
+      const rawAvatarId = avatar?._id ?? avatar?.id;
+      if (rawAvatarId !== undefined && rawAvatarId !== null) {
+        const avatarId = rawAvatarId.toString();
+        sentMessage.rati = {
+          avatarId,
+        };
+        this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
+      } else {
+        this.logger.warn?.(`[DiscordService] Missing avatar id for ${avatar.name}; skipping avatarId attachment on message ${sentMessage.id}`);
+      }
+      
       sentMessage.guild = channel.guild;
       sentMessage.channel = channel;
-      this.databaseService.saveMessage(sentMessage);
-      this.logger.info(`Saved message to database with ID ${sentMessage.id}`);
+      
+      // Log message object details before saving
+      this.logger.debug?.(`[DiscordService] Saving message: id=${sentMessage.id}, guild=${sentMessage.guild?.id}, channel=${sentMessage.channel?.id}, webhookId=${sentMessage.webhookId}`);
+      
+      try {
+        await this.databaseService.saveMessage(sentMessage);
+        this.logger.debug?.(`[DiscordService] Message ${sentMessage.id} saved successfully`);
+      } catch (saveError) {
+        this.logger.error(`[DiscordService] Failed to save message ${sentMessage.id}: ${saveError.message}`);
+      }
+      
+      this.logger.debug?.(`Saved message to database with ID ${sentMessage.id}`);
       return sentMessage;
     } catch (error) {
       this.logger.error(`Failed to send webhook message to ${channelId}: ${error.message}`);
@@ -385,9 +516,19 @@ export class DiscordService {
     }
     try {
       const { embed, components } = buildMiniLocationEmbed(location, items, avatars);
+      
+      // Validate location data before sending
+      if (!location || !location.name) {
+        this.logger.warn('Location missing name, using fallback');
+      }
+      
       await this.sendEmbedAsWebhook(channelId, embed, 'Location Update', this.client.user.displayAvatarURL(), components);
     } catch (error) {
-      this.logger.error(`Failed to send location embed to ${channelId}: ${error.message}`);
+      this.logger.error(`Failed to send location embed to ${channelId}: ${error.message}`, {
+        locationName: location?.name,
+        errorStack: error.stack
+      });
+      throw error;
     }
   }
 
@@ -410,7 +551,7 @@ export class DiscordService {
         components,
       });
 
-      this.logger.info(`Sent embed to channel ${channelId} as ${username}`);
+      this.logger.debug?.(`Sent embed to channel ${channelId} as ${username}`);
     } catch (error) {
       this.logger.error(`Failed to send embed to ${channelId}: ${error.message}`);
       throw error;
@@ -418,7 +559,7 @@ export class DiscordService {
   }
 
   async getGuildByChannelId(channelId) {
-    this.logger.info(`Fetching guild for channel ID: ${channelId}`);
+    this.logger.debug?.(`Fetching guild for channel ID: ${channelId}`);
     try {
       const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
@@ -465,7 +606,7 @@ export class DiscordService {
         return;
       }
       await message.react(emoji);
-      this.logger.info(`Reacted to message ${message.id} with ${emoji}`);
+      this.logger.debug?.(`Reacted to message ${message.id} with ${emoji}`);
     } catch (error) {
       this.logger.error(`Failed to react to message ${message?.id}: ${error?.message}`);
     }

@@ -1,14 +1,24 @@
-import { initializeWallet, signWriteHeaders } from './services/wallet.js';
-async function fetchJSON(url, opts) {
-  const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+import { initializeWallet, signWriteHeaders } from './services/wallet.js'; // initialize still used for wallet readiness
+// Defer grabbing globals until bootstrap ready to avoid race conditions.
+let polling = window.AdminPolling;
+let api = window.AdminAPI;
+let ui = window.AdminUI;
+
+function ensureGlobals() {
+  if (!api || !ui) {
+    api = window.AdminAPI;
+    ui = window.AdminUI;
+  }
+  if (!polling) polling = window.AdminPolling;
+  return !!api && !!ui;
 }
+
+// signedApiFetch deprecated in favor of apiFetch({ sign:true })
 
 async function saveConfig(ev) {
   ev.preventDefault();
   const status = document.getElementById('status');
+  const btn = document.querySelector('#cfgForm button[type="submit"]');
   status.textContent = 'Saving...';
   const payload = {
     key: document.getElementById('key').value.trim(),
@@ -24,18 +34,23 @@ async function saveConfig(ev) {
       fileSource: document.getElementById('fileSource').value || undefined
     }
   };
-  try {
-    const sig = await signWriteHeaders();
-    await fetchJSON('/api/admin/collections/configs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...sig },
-      body: JSON.stringify(payload)
-    });
-    status.textContent = 'Saved';
-    await loadConfigs();
-  } catch (e) {
-    status.textContent = e.message;
-  }
+  await ui.withButtonLoading(btn, async () => {
+    try {
+      await api.apiFetch('/api/admin/collections/configs', {
+        method: 'POST',
+        sign: true,
+        signMeta: { op: 'create_collection_config', key: payload.key },
+        body: JSON.stringify(payload),
+        requireCsrf: true
+      });
+      status.textContent = 'Saved';
+      ui.success('Collection configuration saved');
+      await loadConfigs();
+    } catch (e) {
+      status.textContent = e.message;
+      ui.error(e.message || 'Failed to save collection');
+    }
+  });
 }
 
 function renderItem(cfg) {
@@ -48,6 +63,7 @@ function renderItem(cfg) {
       <div class="text-xs text-gray-600">${meta}</div>
       <div class="text-xs text-gray-600">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
       <div class="text-xs text-gray-600">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
+      <div class="text-xs text-gray-600" data-count>avatars: <span data-count-value>loading...</span></div>
       <div class="mt-2" data-prog>
         <div class="h-2 w-full bg-gray-200 rounded overflow-hidden">
           <div class="h-full bg-indigo-600" style="width:0%" data-bar></div>
@@ -62,24 +78,50 @@ function renderItem(cfg) {
   // hide progress by default until we have data
   const prog = div.querySelector('[data-prog]');
   prog.style.display = 'none';
-  div.querySelector('[data-act="status"]').addEventListener('click', async () => {
-    const r = await fetchJSON(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
-    alert(`${cfg.key}: ${r.count} avatars, lastSync: ${r.lastSyncAt || '—'}`);
-  });
-  div.querySelector('[data-act="sync"]').addEventListener('click', async () => {
-    const ok = confirm(`Sync ${cfg.key} now?`);
-    if (!ok) return;
-    // show bar and start polling this key
-    startCardProgress(div, cfg.key);
-    const sig = await signWriteHeaders();
+  
+  // Fetch and display avatar count
+  (async () => {
     try {
-      const r = await fetchJSON(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...sig }, body: JSON.stringify({ force: true }) });
-      stopCardProgress(div, true);
-      alert(`Processed ${r.result?.processed || 0} (ok ${r.result?.success || 0}, fail ${r.result?.failures || 0})`);
+      const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
+      const countValue = div.querySelector('[data-count-value]');
+      if (countValue) countValue.textContent = r.count || 0;
     } catch (e) {
-      stopCardProgress(div, false);
-      alert(e.message);
+      const countValue = div.querySelector('[data-count-value]');
+      if (countValue) countValue.textContent = 'error';
     }
+  })();
+  
+  div.querySelector('[data-act="status"]').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await ui.withButtonLoading(btn, async () => {
+      try {
+        const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
+        ui.success(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
+      } catch (err) {
+        ui.error(err.message || 'Failed to fetch status');
+      }
+    });
+  });
+  div.querySelector('[data-act="sync"]').addEventListener('click', async (e) => {
+    const ok = confirm(`Sync ${cfg.key} now?\n\nThis will update avatar metadata while preserving existing data (channelId, status, lives).`);
+    if (!ok) return;
+    const btn = e.currentTarget;
+    startCardProgress(div, cfg.key);
+    await ui.withButtonLoading(btn, async () => {
+      try {
+  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', sign: true, signMeta: { op: 'sync_collection', key: cfg.key }, body: JSON.stringify({ force: false }), requireCsrf: true });
+        stopCardProgress(div, true);
+        const processed = r.result?.processed || 0;
+        const okCt = r.result?.success || 0;
+        const failCt = r.result?.failures || 0;
+        ui.success(`Processed ${processed} (ok ${okCt}, fail ${failCt})`);
+        // Reload configs to update UI with new lastSyncAt timestamp
+        await loadConfigs();
+      } catch (err) {
+        stopCardProgress(div, false);
+        ui.error(err.message || 'Sync failed');
+      }
+    });
   });
   return div;
 }
@@ -88,20 +130,25 @@ async function loadConfigs() {
   const list = document.getElementById('list');
   list.textContent = 'Loading...';
   try {
-    const r = await fetchJSON('/api/admin/collections/configs');
+  const r = await api.apiFetch('/api/admin/collections/configs');
     list.innerHTML = '';
   (r.data || []).forEach(cfg => list.appendChild(renderItem(cfg)));
   // after rendering, hydrate any existing progress
   await hydrateProgressBars();
   } catch (e) {
     list.textContent = e.message;
+    ui.error(e.message || 'Failed to load configs');
   }
 }
 
 document.getElementById('cfgForm')?.addEventListener('submit', saveConfig);
 document.getElementById('refresh')?.addEventListener('click', loadConfigs);
 
-document.addEventListener('DOMContentLoaded', () => {
+function initPage() {
+  if (!ensureGlobals()) {
+    // If still not ready, wait for event
+    return;
+  }
   try { initializeWallet(); } catch {}
   loadConfigs();
   const btn = document.getElementById('toggleForm');
@@ -111,12 +158,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (form?.classList.contains('hidden')) form.classList.remove('hidden');
     else form?.classList.add('hidden');
   });
-  // hydrate progress bars on page load
   hydrateProgressBars();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (ensureGlobals()) {
+    initPage();
+  } else {
+    // Wait for bootstrap readiness event
+    const onReady = () => { window.removeEventListener('admin:bootstrapReady', onReady); initPage(); };
+    window.addEventListener('admin:bootstrapReady', onReady);
+  }
+  
+  // Cleanup pollers when leaving collections page
+  // This provides an extra safety net, but the main check is in startCardProgress
+  const checkTab = () => {
+    if (window.state?.activeTab !== 'collections') {
+      stopAllPollers();
+    }
+  };
+  // Check every few seconds as a fallback
+  setInterval(checkTab, 5000);
 });
 
 // --- Inline card progress bars ---
-const pollers = new Map();
+const pollers = new Map(); // key: container -> poller.stop()
+
+// Stop all pollers when leaving the collections page
+function stopAllPollers() {
+  pollers.forEach((stop, container) => {
+    try { stop(); } catch {}
+  });
+  pollers.clear();
+}
+
 function renderCardProgress(container, doc) {
   const prog = container.querySelector('[data-prog]');
   const bar = container.querySelector('[data-bar]');
@@ -130,25 +205,44 @@ function renderCardProgress(container, doc) {
   meta.textContent = `${pct}% • processed ${processed} / ${total || '—'} • ok ${doc.success || 0} • fail ${doc.failures || 0}${doc.done ? ' • done' : ''}`;
 }
 async function startCardProgress(container, key) {
-  const tick = async () => {
-    try {
-      const doc = await fetchJSON(`/api/admin/collections/${encodeURIComponent(key)}/sync/progress`);
-      renderCardProgress(container, doc);
-      if (doc.done) stopCardProgress(container, true);
-    } catch {}
-  };
   stopCardProgress(container, false);
-  const id = setInterval(tick, 1000);
-  pollers.set(container, id);
-  tick();
+  if (!polling || !polling.createPoller) {
+    // fallback to legacy interval if polling util missing
+    const legacy = setInterval(async () => {
+      // Stop polling if we're no longer on the collections tab
+      if (window.state?.activeTab !== 'collections') {
+        clearInterval(legacy);
+        pollers.delete(container);
+        return;
+      }
+      try {
+        const doc = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(key)}/sync/progress`);
+        renderCardProgress(container, doc);
+        if (doc.done) stopCardProgress(container, true);
+      } catch {}
+    }, 1000);
+    pollers.set(container, () => clearInterval(legacy));
+    return;
+  }
+  const controller = polling.createPoller(async () => {
+    // Stop polling if we're no longer on the collections tab
+    if (window.state?.activeTab !== 'collections') {
+      stopCardProgress(container, false);
+      return;
+    }
+    const doc = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(key)}/sync/progress`);
+    renderCardProgress(container, doc);
+    if (doc.done) stopCardProgress(container, true);
+  }, { interval: 1000, immediate: true });
+  pollers.set(container, controller.stop);
 }
 function stopCardProgress(container, _success) {
-  const id = pollers.get(container);
-  if (id) { clearInterval(id); pollers.delete(container); }
+  const stop = pollers.get(container);
+  if (stop) { try { stop(); } catch {} pollers.delete(container); }
 }
 async function hydrateProgressBars() {
   try {
-    const r = await fetchJSON('/api/admin/collections/progress/all');
+  const r = await api.apiFetch('/api/admin/collections/progress/all');
     const map = new Map((r.data || []).map(d => [d.key, d]));
     document.querySelectorAll('#list > div').forEach(card => {
       const key = card.querySelector('.font-mono')?.textContent;

@@ -79,7 +79,6 @@ export class ThinkTool extends BasicTool {
         }
       ], {
         model: avatar.model,
-        max_tokens: 2048,
         temperature: 0.7,
         top_p: 0.95,
         frequency_penalty: 0,
@@ -89,6 +88,25 @@ export class ThinkTool extends BasicTool {
   if (reflection && typeof reflection === 'object' && reflection.text) reflection = reflection.text;
 
       await this.memoryService.addMemory(avatar._id, reflection);
+
+      // Update avatar activity to keep world state fresh
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('avatars').updateOne(
+          { _id: avatar._id },
+          {
+            $set: {
+              lastActiveAt: new Date(),
+              currentChannelId: message?.channel?.id,
+              updatedAt: new Date().toISOString(),
+              lastInteraction: 'think'
+            },
+            $inc: { reflections: 1 }
+          }
+        );
+      } catch (actErr) {
+        this.logger?.debug?.('ThinkTool activity update failed: ' + (actErr?.message || actErr));
+      }
 
       // Extract knowledge points from reflection
       try {
@@ -109,17 +127,32 @@ export class ThinkTool extends BasicTool {
           }
         };
 
-        const prompt = `Extract a concise list of key knowledge points or facts from the following reflection. Each should be a standalone fact or insight.\n\nReflection:\n${reflection}`;
+        const prompt = `Extract a concise list of key knowledge points or facts from the following reflection. Each should be a standalone fact or insight.
+
+Reflection:
+${reflection}
+
+Return ONLY a JSON object with this exact structure:
+{
+  "knowledge_points": ["fact 1", "fact 2", "fact 3"]
+}`;
 
         const result = await this.schemaService.executePipeline({ prompt, schema });
-        result.knowledge = result.knowledge || result.knowledge_points || [];
-        if (result?.knowledge?.length) {
-          for (const knowledge of result.knowledge) {
-            await this.knowledgeService.addKnowledgeTriple(avatar._id, 'knows', knowledge);
+        
+        // Handle various response formats
+        const knowledgePoints = result.knowledge_points || result.knowledge || result.key_insights || [];
+        
+        if (Array.isArray(knowledgePoints) && knowledgePoints.length > 0) {
+          for (const knowledge of knowledgePoints) {
+            if (knowledge && typeof knowledge === 'string') {
+              await this.knowledgeService.addKnowledgeTriple(avatar._id, 'knows', knowledge);
+            }
           }
+          this.logger?.debug?.(`Extracted ${knowledgePoints.length} knowledge points from reflection`);
         }
       } catch (kgError) {
-        console.error('Knowledge extraction failed:', kgError);
+        this.logger?.warn?.('Knowledge extraction failed:', kgError.message);
+        // Don't fail the whole tool if knowledge extraction fails
       }
 
       if (avatar.innerMonologueChannel) {

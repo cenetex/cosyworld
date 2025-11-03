@@ -1,12 +1,16 @@
 import crypto from 'crypto';
 
 const rawSecret = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
-if (process.env.NODE_ENV === 'production') {
-  if (!rawSecret || rawSecret.length < 16) {
-    throw new Error('ENCRYPTION_KEY/APP_SECRET must be set to a strong value in production');
-  }
+
+// In production, warn but don't crash if key is weak
+// The configuration wizard will ensure a strong key is set
+if (process.env.NODE_ENV === 'production' && (!rawSecret || rawSecret.length < 16)) {
+  console.warn('⚠️  WARNING: ENCRYPTION_KEY/APP_SECRET is weak or missing');
+  console.warn('⚠️  Please complete the configuration wizard to set a strong key');
+  console.warn('⚠️  Using temporary key - authentication will not persist across restarts');
 }
-const secret = rawSecret || 'dev-secret';
+
+const secret = rawSecret || crypto.randomBytes(32).toString('hex');
 
 function b64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -104,21 +108,41 @@ export function requireSignedWrite(req, res, next) {
     // Only enforce for mutating methods
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return next();
 
-    const addr = req.headers['x-wallet-address'];
-    const msg = req.headers['x-message'];
-    const sig = req.headers['x-signature'];
+    // Use req.get for case-insensitive header retrieval (Express normalizes to lowercase internally)
+    const addr = req.get('x-wallet-address');
+    const msg = req.get('x-message');
+    const sig = req.get('x-signature');
     if (!addr || !msg || !sig) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[requireSignedWrite] missing header(s)', {
+          haveAddr: !!addr,
+          haveMsg: !!msg,
+          haveSig: !!sig,
+          path: req.path,
+          method
+        });
+      }
       return res.status(401).json({ error: 'Signed message required' });
     }
 
     // Reject messages older than 2 minutes to prevent replay
     let payload;
-    try { payload = JSON.parse(msg); } catch {}
+    try { payload = JSON.parse(msg); } catch {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[requireSignedWrite] invalid JSON message', { msgSnippet: String(msg).slice(0,120) });
+      }
+    }
     const now = Date.now();
     if (!payload || typeof payload !== 'object' || !payload.nonce || !payload.ts) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[requireSignedWrite] missing nonce/ts in payload', { payload });
+      }
       return res.status(400).json({ error: 'Invalid message payload' });
     }
     if (Math.abs(now - Number(payload.ts)) > 2 * 60 * 1000) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[requireSignedWrite] expired signed message', { ts: payload.ts, now });
+      }
       return res.status(400).json({ error: 'Signed message expired' });
     }
 
@@ -129,16 +153,29 @@ export function requireSignedWrite(req, res, next) {
     let sigBytes;
     try { sigBytes = bs58.decode(String(sig)); } catch {
       // Allow JSON array of byte values as a fallback
-      try { sigBytes = new Uint8Array(JSON.parse(sig)); } catch { return res.status(400).json({ error: 'Invalid signature format' }); }
+      try { sigBytes = new Uint8Array(JSON.parse(sig)); } catch {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[requireSignedWrite] signature decode failed', { sigSnippet: String(sig).slice(0,60) });
+        }
+        return res.status(400).json({ error: 'Invalid signature format' });
+      }
     }
 
     const ok = nacl.sign.detached.verify(messageBytes, sigBytes, pubKey);
-    if (!ok) return res.status(401).json({ error: 'Invalid signature' });
+    if (!ok) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[requireSignedWrite] signature verification failed', { addr, op: payload.op, path: req.path });
+      }
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
 
     // Attach signer to request for downstream handlers
     req.signer = { walletAddress: String(addr), payload };
     return next();
   } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[requireSignedWrite] exception', e);
+    }
     return res.status(400).json({ error: 'Signature verification error' });
   }
 }

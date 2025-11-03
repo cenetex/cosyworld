@@ -10,9 +10,15 @@ export class ReplicateService {
     this.configService = configService;
     this.logger = logger;
     this.apiToken = configService?.config?.ai?.replicate?.apiToken || process.env.REPLICATE_API_TOKEN;
-    this.model = configService?.config?.ai?.replicate?.model || 'black-forest-labs/flux-dev-lora';
-    this.lora_weights = configService?.config?.ai?.replicate?.lora_weights;
-    this.loraTriggerWord = configService?.config?.ai?.replicate?.loraTriggerWord;
+    this.model = configService?.config?.ai?.replicate?.model
+      || process.env.REPLICATE_BASE_MODEL
+      || 'black-forest-labs/flux-dev-lora';
+    this.lora_weights = configService?.config?.ai?.replicate?.lora_weights
+      || process.env.REPLICATE_LORA_WEIGHTS
+      || process.env.REPLICATE_MODEL;
+    this.loraTriggerWord = configService?.config?.ai?.replicate?.loraTriggerWord
+      || process.env.REPLICATE_LORA_TRIGGER
+      || process.env.LORA_TRIGGER_WORD;
     this.style = configService?.config?.ai?.replicate?.style || '';
   }
 
@@ -32,17 +38,22 @@ export class ReplicateService {
     if (Array.isArray(images) && images.length > 0) {
       image = images[Math.floor(Math.random() * images.length)];
     }
+    const input = {
+      prompt: this.loraTriggerWord ? `${this.loraTriggerWord} ${prompt}` : prompt,
+      style: this.style,
+      aspect_ratio: options.aspect_ratio || '1:1',
+      num_outputs: 1,
+      go_fast: true,
+      output_format: 'webp',
+    };
+
+    if (this.lora_weights) {
+      input.lora_weights = this.lora_weights;
+    }
+
     const payload = {
       version: this.model,
-      input: {
-        prompt: this.loraTriggerWord ? `${this.loraTriggerWord} ${prompt}` : prompt,
-        lora_weights: this.lora_weights,
-        style: this.style,
-        aspect_ratio: options.aspect_ratio || '1:1',
-        num_outputs: 1,
-        go_fast: true,
-        output_format: 'webp',
-      },
+      input,
     };
     if (image) payload.input.image = image;
     try {

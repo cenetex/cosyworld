@@ -12,11 +12,25 @@ const consoleFormat = printf(({ level, message, timestamp }) => {
   return `[${timestamp}] ${level}: ${message}`;
 });
 
+/**
+ * Get default log level from environment or use 'info'
+ * LOG_LEVEL can be: debug, info, warn, error
+ */
+function getDefaultLevel() {
+  const level = (process.env.LOG_LEVEL || 'info').toLowerCase();
+  if (['debug', 'info', 'warn', 'error'].includes(level)) {
+    return level;
+  }
+  return 'info';
+}
+
 export class Logger {
-  constructor() {
-  this._context = new Map(); // thread-local-ish simple map; keyed by async operation id if expanded later
+  constructor(options = {}) {
+    this._context = new Map(); // thread-local-ish simple map; keyed by async operation id if expanded later
+    const logLevel = options.level || getDefaultLevel();
+    
     this.logger = winston.createLogger({
-      level: 'info',
+      level: logLevel,
       format: combine(
         timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         json()
@@ -26,6 +40,24 @@ export class Logger {
         new winston.transports.File({ filename: 'app.log' }),
       ],
     });
+  }
+
+  /**
+   * Set log level at runtime
+   * @param {string} level - One of: debug, info, warn, error
+   */
+  setLevel(level) {
+    if (['debug', 'info', 'warn', 'error'].includes(level)) {
+      this.logger.level = level;
+    }
+  }
+
+  /**
+   * Get current log level
+   * @returns {string}
+   */
+  getLevel() {
+    return this.logger.level;
   }
 
   withCorrelation(corrId, fn) {

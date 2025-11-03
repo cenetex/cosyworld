@@ -6,21 +6,32 @@
 import express from 'express';
 import { ensureAdmin } from '../middleware/authCookie.js';
 
-const ALLOWED_KEYS = [
-  'prompts.summon',
-  'prompts.introduction',
-  'prompts.attack',
-  'prompts.defend',
-  'prompts.breed',
+const ALLOWED_SETTING_KEYS = [
   'toolEmojis.summon',
   'features.breeding',
   'features.combat',
   'features.itemCreation',
   'viewDetailsEnabled',
-  'enableForumTool',
-  'forumToolChannelId',
+  'enableWebSearchTool',
+  'webSearchToolChannelId',
   'summonEmoji'
 ];
+
+const PROMPT_PREFIX = 'prompts.';
+
+function flattenPromptKeys(obj, prefix = 'prompts') {
+  if (!obj || typeof obj !== 'object') return [];
+  const keys = [];
+  for (const [key, value] of Object.entries(obj)) {
+    const path = `${prefix}.${key}`;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      keys.push(...flattenPromptKeys(value, path));
+    } else {
+      keys.push(path);
+    }
+  }
+  return keys;
+}
 
 function get(obj, path) {
   return path.split('.').reduce((o, p) => (o && Object.prototype.hasOwnProperty.call(o, p) ? o[p] : undefined), obj);
@@ -62,7 +73,22 @@ export default function createSettingsRouter(services) {
       }
 
       const settings = [];
-      for (const key of ALLOWED_KEYS) {
+      for (const key of ALLOWED_SETTING_KEYS) {
+        const fromGuild = guildDoc ? get(guildDoc, key) : undefined;
+        const fromGlobal = get(globalConfig, key);
+        const source = fromGuild !== undefined ? 'guild' : 'global';
+        const value = fromGuild !== undefined ? fromGuild : fromGlobal;
+        settings.push({ key, value, source });
+      }
+
+      const promptKeys = new Set();
+      flattenPromptKeys(baseDefaults.prompts || {}).forEach(k => promptKeys.add(k));
+      flattenPromptKeys(globalOverrides.config?.prompts || {}).forEach(k => promptKeys.add(k));
+      if (guildDoc?.prompts) {
+        flattenPromptKeys(guildDoc.prompts).forEach(k => promptKeys.add(k));
+      }
+
+      for (const key of Array.from(promptKeys).sort()) {
         const fromGuild = guildDoc ? get(guildDoc, key) : undefined;
         const fromGlobal = get(globalConfig, key);
         const source = fromGuild !== undefined ? 'guild' : 'global';
@@ -91,7 +117,8 @@ export default function createSettingsRouter(services) {
     const key = req.params.key;
     const guildId = req.query.guildId || null;
     const { value } = req.body || {};
-    if (!ALLOWED_KEYS.includes(key)) return res.status(400).json({ error: 'Key not allowed' });
+  const isPromptKey = key.startsWith(PROMPT_PREFIX) && key.length > PROMPT_PREFIX.length;
+  if (!isPromptKey && !ALLOWED_SETTING_KEYS.includes(key)) return res.status(400).json({ error: 'Key not allowed' });
     try {
       if (guildId) {
         await db.collection('guild_configs').updateOne(
@@ -106,6 +133,19 @@ export default function createSettingsRouter(services) {
           { upsert: true }
         );
       }
+
+      if (configService && key.startsWith('prompts.')) {
+        try {
+          if (guildId) {
+            await configService.clearCache(guildId);
+          } else {
+            await configService.refreshPromptDefaultsFromDatabase({ force: true });
+            await configService.clearCache();
+          }
+        } catch (refreshError) {
+          services.logger?.warn?.('[settings] Failed to refresh prompt defaults after set', refreshError);
+        }
+      }
       res.json({ ok: true });
     } catch (e) {
       services.logger.error('POST /api/settings/set failed:', e);
@@ -117,7 +157,8 @@ export default function createSettingsRouter(services) {
   router.post('/clear/:key', async (req, res) => {
     const key = req.params.key;
     const guildId = req.query.guildId || null;
-    if (!ALLOWED_KEYS.includes(key)) return res.status(400).json({ error: 'Key not allowed' });
+  const isPromptKey = key.startsWith(PROMPT_PREFIX) && key.length > PROMPT_PREFIX.length;
+  if (!isPromptKey && !ALLOWED_SETTING_KEYS.includes(key)) return res.status(400).json({ error: 'Key not allowed' });
     try {
       if (guildId) {
         await db.collection('guild_configs').updateOne(
@@ -129,6 +170,19 @@ export default function createSettingsRouter(services) {
           { _id: 'guild_defaults' },
           { $unset: { [`config.${key}`]: '' }, $set: { updatedAt: new Date() } }
         );
+      }
+
+      if (configService && key.startsWith('prompts.')) {
+        try {
+          if (guildId) {
+            await configService.clearCache(guildId);
+          } else {
+            await configService.refreshPromptDefaultsFromDatabase({ force: true });
+            await configService.clearCache();
+          }
+        } catch (refreshError) {
+          services.logger?.warn?.('[settings] Failed to refresh prompt defaults after clear', refreshError);
+        }
       }
       res.json({ ok: true, cleared: true });
     } catch (e) {

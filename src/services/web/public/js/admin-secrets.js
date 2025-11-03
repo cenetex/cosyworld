@@ -1,7 +1,8 @@
+const api = window.AdminAPI;
+const ui = window.AdminUI;
+
 async function fetchSecrets() {
-  const res = await fetch('/api/secrets');
-  if (!res.ok) throw new Error('Failed to load secrets');
-  return res.json();
+  return api.apiFetch('/api/secrets');
 }
 
 function renderItem(item) {
@@ -19,18 +20,32 @@ function renderItem(item) {
     </div>
   `;
   const [input, updateBtn, clearBtn] = wrapper.querySelectorAll('input,button');
-  updateBtn.addEventListener('click', async () => {
+  updateBtn.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const value = input.value.trim();
     if (!value) return;
-    const r = await fetch(`/api/secrets/${encodeURIComponent(item.key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
-    if (r.ok) {
-      input.value = '';
-      await load();
-    }
+    await ui.withButtonLoading(btn, async () => {
+      try {
+        await api.apiFetch(`/api/secrets/${encodeURIComponent(item.key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
+        input.value = '';
+        ui.success(`Updated ${item.key}`);
+        await load();
+      } catch (err) {
+        ui.error(err.message || 'Update failed');
+      }
+    });
   });
-  clearBtn.addEventListener('click', async () => {
-    const r = await fetch(`/api/secrets/${encodeURIComponent(item.key)}/rotate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ }) });
-    if (r.ok) await load();
+  clearBtn.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    await ui.withButtonLoading(btn, async () => {
+      try {
+        await api.apiFetch(`/api/secrets/${encodeURIComponent(item.key)}/rotate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ }) });
+        ui.success(`Cleared ${item.key}`);
+        await load();
+      } catch (err) {
+        ui.error(err.message || 'Clear failed');
+      }
+    });
   });
   return wrapper;
 }
@@ -39,7 +54,7 @@ async function load() {
   const container = document.getElementById('secrets-list');
   container.innerHTML = '<div class="text-sm text-gray-500">Loading…</div>';
   try {
-    const data = await fetchSecrets();
+  const data = await fetchSecrets();
     container.innerHTML = '';
     const keys = [
       'OPENROUTER_API_KEY','OPENROUTER_API_TOKEN','GOOGLE_API_KEY','GOOGLE_AI_API_KEY',
@@ -51,6 +66,7 @@ async function load() {
     for (const item of data.items) container.appendChild(renderItem(item));
   } catch (e) {
     container.innerHTML = `<div class="text-sm text-red-600">${e.message}</div>`;
+    ui.error(e.message || 'Failed to load secrets');
   }
 }
 
@@ -59,22 +75,25 @@ document.getElementById('refresh')?.addEventListener('click', load);
 document.addEventListener('DOMContentLoaded', load);
 
 // Import .env handler
-document.getElementById('importEnv')?.addEventListener('click', async () => {
+document.getElementById('importEnv')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
   const ta = document.getElementById('envText');
   const status = document.getElementById('importStatus');
-  status.textContent = 'Importing...';
-  try {
-    const res = await fetch('/api/secrets/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ envText: ta.value || '' })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Import failed');
-    status.textContent = `Imported ${data.imported} keys.`;
-    ta.value = '';
-    await load();
-  } catch (e) {
-    status.textContent = e.message;
-  }
+  await ui.withButtonLoading(btn, async () => {
+    status.textContent = 'Importing...';
+    try {
+      const data = await api.apiFetch('/api/secrets/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ envText: ta.value || '' })
+      });
+      status.textContent = `Imported ${data.imported} keys.`;
+      ui.success(`Imported ${data.imported} secrets`);
+      ta.value = '';
+      await load();
+    } catch (err) {
+      status.textContent = err.message;
+      ui.error(err.message || 'Import failed');
+    }
+  });
 });

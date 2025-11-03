@@ -143,8 +143,19 @@ export class DatabaseService {
           imageDescriptions: Array.isArray(message.imageDescriptions) ? message.imageDescriptions : null,
           imageUrls: Array.isArray(message.imageUrls) ? message.imageUrls : null,
           primaryImageUrl: message.primaryImageUrl || null,
+          // Track reply information if this is a reply to another message
+          replyToMessageId: message.reference?.messageId || null,
+          replyToChannelId: message.reference?.channelId || null,
+          replyToGuildId: message.reference?.guildId || null,
+          // Track which avatar sent this message (for webhook messages)
+          avatarId: message.rati?.avatarId || message.avatarId || null,
           timestamp: message.createdTimestamp,
         };
+
+        // Debug logging for avatarId tracking
+        if (message.author.bot || message.webhookId) {
+          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, rati=${JSON.stringify(message.rati || {})}`);
+        }
   
         if (!messageData.messageId || !messageData.channelId) {
           this.logger.error("Missing required message data:", messageData);
@@ -153,15 +164,36 @@ export class DatabaseService {
         await this.markChannelActive(message.channel.id, message.guild.id);
 
         // Insert the message into the database using updateOne with upsert
+        // Use $setOnInsert for most fields (only set when creating new document)
+        // Use $set for avatarId (update even if message already exists)
+        
+        // Extract avatarId from messageData to handle separately
+        const avatarId = messageData.avatarId;
+        const messageDataWithoutAvatarId = { ...messageData };
+        delete messageDataWithoutAvatarId.avatarId;
+        
+        const updateOps = {
+          $setOnInsert: messageDataWithoutAvatarId,
+        };
+        
+        // If avatarId is present, always update it (even for existing messages)
+        // This handles the race condition where messageCreate fires before we set avatarId
+        if (avatarId) {
+          updateOps.$set = { avatarId };
+        }
+        
         const result = await messagesCollection.updateOne(
           { messageId: messageData.messageId },
-          { $setOnInsert: messageData },
+          updateOps,
           { upsert: true }
         );
         
         // Check if a new document was inserted
         if (result.upsertedCount === 1) {
           this.logger.debug("💾 Message saved to database");
+          return true;
+        } else if (messageData.avatarId && result.modifiedCount === 1) {
+          this.logger.debug(`Message ${messageData.messageId} updated with avatarId`);
           return true;
         } else {
           this.logger.debug(`Message ${messageData.messageId} already exists in the database.`);
@@ -275,6 +307,9 @@ export class DatabaseService {
           { key: { avatarId: 1 }, background: true },
           { key: { messageId: 1 }, unique: true },
           { key: { channelId: 1 }, background: true },
+          { key: { channelId: 1, timestamp: -1 }, name: 'messages_channel_timestamp', background: true },
+          { key: { replyToMessageId: 1 }, name: 'messages_reply_to', background: true, sparse: true },
+          { key: { messageId: 1, avatarId: 1 }, name: 'messages_id_avatar', background: true },
         ]),
         db.collection('agent_events').createIndexes([
           { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
@@ -315,6 +350,19 @@ export class DatabaseService {
         db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
+        // Image analysis cache indexes
+        db.collection('image_analysis_cache').createIndexes([
+          { key: { urlHash: 1 }, unique: true, name: 'image_cache_urlhash', background: true },
+          { key: { url: 1 }, name: 'image_cache_url', background: true },
+          { key: { analyzedAt: -1 }, name: 'image_cache_analyzed', background: true },
+          { key: { status: 1 }, name: 'image_cache_status', background: true },
+        ]),
+        // Avatar location memory indexes
+        db.collection('avatar_location_memory').createIndexes([
+          { key: { avatarId: 1, lastVisited: -1 }, name: 'memory_avatar_time', background: true },
+          { key: { avatarId: 1, channelId: 1 }, name: 'memory_avatar_channel', background: true },
+          { key: { lastVisited: 1 }, expireAfterSeconds: 30 * 24 * 60 * 60, name: 'memory_ttl', background: true },
+        ]),
         // Presence and scheduling indexes
         db.collection('presence').createIndexes([
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
@@ -343,6 +391,25 @@ export class DatabaseService {
         db.collection('thread_summaries').createIndexes([
           { key: { channelId: 1 }, unique: true, name: 'thread_summary_channel', background: true },
           { key: { updatedAt: -1 }, name: 'thread_summary_updated', background: true },
+        ]),
+        // Story system collections
+        db.collection('story_arcs').createIndexes([
+          { key: { status: 1, lastProgressedAt: -1 }, name: 'story_arcs_status_progress', background: true },
+          { key: { status: 1, startedAt: -1 }, name: 'story_arcs_status_start', background: true },
+          { key: { 'characters.avatarId': 1 }, name: 'story_arcs_characters', background: true },
+          { key: { theme: 1, startedAt: -1 }, name: 'story_arcs_theme', background: true },
+          { key: { createdAt: -1 }, name: 'story_arcs_created', background: true },
+        ]),
+        db.collection('story_character_states').createIndexes([
+          { key: { avatarId: 1 }, unique: true, name: 'story_char_avatar', background: true },
+          { key: { currentArc: 1 }, name: 'story_char_arc', background: true },
+          { key: { 'storyStats.lastFeaturedAt': -1 }, name: 'story_char_featured', background: true },
+          { key: { updatedAt: -1 }, name: 'story_char_updated', background: true },
+        ]),
+        db.collection('story_memory_summaries').createIndexes([
+          { key: { type: 1, referenceId: 1 }, name: 'story_mem_type_ref', background: true },
+          { key: { significance: -1, createdAt: -1 }, name: 'story_mem_sig_created', background: true },
+          { key: { lastUsed: -1 }, name: 'story_mem_used', background: true },
         ]),
   // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
   (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),

@@ -1,0 +1,421 @@
+<!--
+  Copyright (c) 2019-2025 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RATi Swarm Orchestrator :: Moonstone Sanctum Edition</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated background particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(147, 51, 234, 0.5);
+      border-radius: 50%;
+      animation: float 15s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100vh) translateX(100px); opacity: 0; }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 500px;
+      width: 90%;
+      padding: 20px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      text-align: center;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo-container {
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 24px;
+      box-shadow: 0 0 40px rgba(147, 51, 234, 0.4);
+      animation: pulse 3s ease-in-out infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes pulse {
+      0%, 100% { 
+        box-shadow: 0 0 40px rgba(147, 51, 234, 0.4);
+        transform: scale(1);
+      }
+      50% { 
+        box-shadow: 0 0 60px rgba(147, 51, 234, 0.6);
+        transform: scale(1.02);
+      }
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #9333ea 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 32px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .tagline {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .btn {
+      padding: 16px 32px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+      color: white;
+      box-shadow: 0 4px 20px rgba(147, 51, 234, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(147, 51, 234, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .features {
+      margin-top: 40px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .feature-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .status-indicator {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+    }
+
+    .footer a {
+      color: #9333ea;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer a:hover {
+      color: #c084fc;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 32px 24px;
+      }
+
+      .title {
+        font-size: 24px;
+      }
+
+      .subtitle {
+        font-size: 12px;
+      }
+
+      .logo {
+        width: 100px;
+        height: 100px;
+      }
+    }
+
+    /* Loading animation */
+    .loading {
+      display: none;
+      margin-top: 16px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #9333ea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated particles -->
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <div class="card">
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span>ONLINE</span>
+      </div>
+
+      <div class="logo-container">
+        <img src="/images/image.png" alt="RATi Logo" class="logo" onerror="this.style.display='none'">
+      </div>
+
+      <h1 class="title">RATi Swarm Orchestrator</h1>
+      <div class="subtitle">Moonstone Sanctum Edition</div>
+
+      <p class="tagline">
+        Autonomous AI entities. Real-time trading. Decentralized intelligence.<br>
+        Enter the swarm.
+      </p>
+
+      <div class="button-group">
+        <a href="/admin" class="btn btn-primary">
+          🔐 Enter Admin Portal
+        </a>
+        <a href="/app" class="btn btn-secondary">
+          🌐 Launch Swarm Interface
+        </a>
+      </div>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🤖</div>
+          <span>AI-Powered Avatar Management</span>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">💰</div>
+          <span>Real-Time Trading & Buybot</span>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🌐</div>
+          <span>Multi-Platform Integration</span>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🧠</div>
+          <span>Advanced Relationship Memory</span>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        Connecting to the swarm...
+      </div>
+
+      <div class="footer">
+        &copy; 2019-2025 Cenetex Inc. | <a href="https://github.com/cenetex/cosyworld" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Create animated particles
+    function createParticles() {
+      const particlesContainer = document.getElementById('particles');
+      const particleCount = 50;
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 15 + 's';
+        particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+        particlesContainer.appendChild(particle);
+      }
+    }
+
+    createParticles();
+
+    // Show loading state
+    function showLoading() {
+      document.getElementById('loading').classList.add('active');
+    }
+
+    // Add click effect to buttons
+    document.querySelectorAll('.btn-primary').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        showLoading();
+      });
+    });
+
+    // Check if user is already authenticated
+    fetch('/api/setup/status', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        console.log('Setup status:', data);
+        // Could redirect authenticated users directly
+        if (data.setupComplete && data.isAuthenticated) {
+          // Optionally auto-redirect to admin panel
+          // window.location.href = '/admin';
+        }
+      })
+      .catch(err => {
+        console.log('Setup status check failed:', err);
+      });
+  </script>
+</body>
+</html>

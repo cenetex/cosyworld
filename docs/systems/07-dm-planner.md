@@ -15,8 +15,8 @@ This document summarizes the current state of mentions/threads and proposes a DM
   - No explicit per-thread “follow” for avatars in Discord. “Follow” exists only for X via `src/services/social/xService.mjs`.
 - Conversation orchestration
   - `docs/services/communication/conversationManager.md` covers message flow but not round-based initiative.
-- External threads
-  - `src/services/oneirocom/OneirocomForumService.mjs` provides get/create thread for Oneirocom (see `.lore-project89/mcpProject89.md`).
+- External research
+  - `src/services/tools/tools/WebSearchTool.mjs` provides live web search context via OpenRouter.
 
 Gaps
 - No global view that ranks threads by activity/importance.
@@ -30,7 +30,7 @@ Gaps
 A new planning layer that:
 - Maintains per-thread state (summary, participants, activity) and a global index of active threads.
 - Runs a “round” loop that assigns actions to avatars (NPCs) across threads based on priorities and initiative.
-- Spawns sub-agents (or tasks) to execute planned actions via existing services (ConversationManager, ToolService, DiscordService, OneirocomForumService).
+- Spawns sub-agents (or tasks) to execute planned actions via existing services (ConversationManager, ToolService including WebSearchTool, DiscordService).
 
 ### Core Data
 
@@ -77,8 +77,8 @@ A new planning layer that:
 
 - Executors
   - respond via ConversationManager/PromptService/DiscordService
-  - useTool via ToolService
-  - createThread/moveToThread via DiscordService/OneirocomForumService
+  - useTool via ToolService (e.g., WebSearchTool for research duties)
+  - createThread/moveToThread via DiscordService
   - followThread/unfollowThread manage Subscription store
   - addSticky updates ThreadState.stickies
 
@@ -106,7 +106,7 @@ Steps:
 - Mentions: reuse `avatarService.findMentionedAvatarsInGuild`
 - Threads/Locations: reuse `discordService` thread events + `locationService`
 - Summaries/Pins: reuse `memoryService.persistent` for global pins; add thread-scoped stickies in new store
-- External forum: reuse `OneirocomForumService`
+- External research: rely on `WebSearchTool`
 - Conversation execution: continue `ConversationManager` + `PromptService`
 
 ## Minimal Schemas (MongoDB)

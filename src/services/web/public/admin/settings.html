@@ -7,11 +7,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings - Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="/css/admin-common.css" rel="stylesheet" />
   </head>
   <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col">
-      <nav class="bg-gray-800 text-white shadow-lg">
+  <!-- Legacy nav (will be replaced by admin-shell.js) -->
+  <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16">
             <div class="flex items-center">
@@ -35,7 +37,10 @@
             <div class="flex gap-6">
               <aside class="w-64">
                 <div class="bg-gray-50 border rounded p-2">
-                  <div class="text-xs uppercase text-gray-500 px-1 mb-2">Scope</div>
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs uppercase text-gray-500 px-1">Scope</div>
+                    <a href="/admin/servers" id="detectedServersLink" class="text-[10px] text-indigo-600 hover:underline" title="View detected (unauthorized) servers">Detected<span id="detectedServersCount" class="ml-1 text-gray-500"></span></a>
+                  </div>
                   <div id="guildList" class="flex flex-col gap-1"></div>
                 </div>
               </aside>
@@ -48,6 +53,7 @@
                     <div class="ml-2 inline-flex rounded overflow-hidden border">
                       <button id="tabPrompts" class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200">Prompts</button>
                       <button id="tabSettings" class="px-3 py-1 text-sm hover:bg-gray-100">Settings</button>
+                      <button id="tabPayments" class="px-3 py-1 text-sm hover:bg-gray-100">Payments</button>
                       <button id="tabSecrets" class="px-3 py-1 text-sm hover:bg-gray-100">Secrets</button>
                     </div>
                   </div>
@@ -79,16 +85,7 @@
                   </div>
                 </div>
 
-                <!-- Detected guilds (unauthorized) -->
-                <div id="detectedGuildsSection" class="mb-6 hidden">
-                  <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-base font-semibold">Detected Servers <span id="detectedCount" class="text-xs text-gray-500"></span></h3>
-                    <div class="flex items-center gap-2">
-                      <button id="refreshDetected" class="px-3 py-1 bg-gray-100 rounded text-sm">Refresh</button>
-                    </div>
-                  </div>
-                  <div id="detectedGuildsContainer" class="grid gap-2"></div>
-                </div>
+                <!-- Detected guilds moved to /admin/servers -->
 
                 <div id="panelPrompts" class="space-y-3">
                   <h3 class="text-base font-semibold mb-2">Prompts</h3>
@@ -97,7 +94,211 @@
 
                 <div id="panelSettings" class="mt-4 hidden">
                   <h3 class="text-base font-semibold mb-2">Settings</h3>
+
+                  <!-- Replicate Configuration Section -->
+                  <div id="replicateConfig" class="border rounded-lg p-4 mb-4 bg-gray-50">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+                      <div>
+                        <h4 class="font-medium text-gray-900">Replicate Image Generation</h4>
+                        <p class="text-sm text-gray-600">Manage Flux LoRA settings and generate sample images with your Replicate token.</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button type="button" id="resetReplicateConfig" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Reset</button>
+                        <button type="button" id="saveReplicateConfig" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateTokenInput">Replicate API Token</label>
+                        <div class="flex gap-2">
+                          <input type="password" id="replicateTokenInput" autocomplete="off" placeholder="Enter new token to replace existing" class="flex-1 px-3 py-2 border rounded text-sm" />
+                          <button type="button" id="clearReplicateToken" class="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">Clear</button>
+                        </div>
+                        <p id="replicateTokenStatus" class="text-xs text-gray-500 mt-1">Token status unknown.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateBaseModelInput">Flux Base Model</label>
+                        <input type="text" id="replicateBaseModelInput" class="w-full px-3 py-2 border rounded text-sm font-mono" placeholder="black-forest-labs/flux-dev-lora" />
+                        <p class="text-xs text-gray-500 mt-1">Defaults to <code>black-forest-labs/flux-dev-lora</code> if left empty.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateLoraWeightsInput">LoRA Weights</label>
+                        <input type="text" id="replicateLoraWeightsInput" class="w-full px-3 py-2 border rounded text-sm font-mono" placeholder="your-user/weights:version" />
+                        <p class="text-xs text-gray-500 mt-1">Used as the <code>lora_weights</code> parameter when invoking the Flux LoRA model.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateLoraTriggerInput">LoRA Trigger Word</label>
+                        <input type="text" id="replicateLoraTriggerInput" class="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. MRQ" />
+                        <p class="text-xs text-gray-500 mt-1">Optional keyword appended to prompts when generating with this LoRA.</p>
+                      </div>
+                    </div>
+                    <div id="replicateConfigStatus" class="hidden mt-3">
+                      <div class="p-2 rounded text-sm"></div>
+                    </div>
+
+                    <div class="border-t border-gray-200 mt-6 pt-4">
+                      <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                        <div>
+                          <h5 class="font-medium text-gray-900">Sample Image Preview</h5>
+                          <p class="text-sm text-gray-600">Use the current configuration or override values below to test image generation.</p>
+                        </div>
+                        <button type="button" id="generateReplicateSample" class="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700">Generate Sample</button>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="space-y-3">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateSamplePromptInput">Sample Prompt</label>
+                            <textarea id="replicateSamplePromptInput" rows="4" class="w-full px-3 py-2 border rounded text-sm">A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.</textarea>
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateSampleAspectInput">Aspect Ratio</label>
+                            <input type="text" id="replicateSampleAspectInput" value="1:1" class="w-full px-3 py-2 border rounded text-sm" />
+                            <p class="text-xs text-gray-500 mt-1">Example values: <code>1:1</code>, <code>3:4</code>, <code>16:9</code>.</p>
+                          </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                          <div id="replicateSamplePreview" class="hidden border rounded-lg overflow-hidden bg-white">
+                            <img id="replicateSampleImage" src="" alt="Replicate sample preview" class="w-full object-cover" />
+                          </div>
+                          <p id="replicateSampleEmpty" class="text-sm text-gray-500">Generate a sample to preview the latest settings.</p>
+                        </div>
+                      </div>
+                      <div id="replicateSampleStatus" class="hidden mt-3">
+                        <div class="p-2 rounded text-sm"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Wallet Avatar Preferences Section -->
+                  <div id="walletAvatarPreferences" class="border rounded-lg p-4 mb-4 bg-gray-50">
+                    <div class="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 class="font-medium text-gray-900">Wallet Avatar Preferences</h4>
+                        <p class="text-sm text-gray-600">Configure global defaults and per-token overrides for wallet avatar automation.</p>
+                      </div>
+                      <button id="addWalletAvatarOverride" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Add Token Override</button>
+                    </div>
+                    <div class="space-y-3">
+                      <div id="walletAvatarDefaults"></div>
+                      <div>
+                        <h5 class="text-sm font-semibold text-gray-800 mb-2">Token Overrides</h5>
+                        <div id="walletAvatarOverrides" class="space-y-2"></div>
+                      </div>
+                      <div id="walletAvatarEditor" class="hidden"></div>
+                    </div>
+                    <div id="walletAvatarStatus" class="hidden mt-3">
+                      <div class="p-2 rounded text-sm"></div>
+                    </div>
+                  </div>
+                  
                   <div id="settingsList" class="space-y-3"></div>
+                </div>
+
+                <div id="panelPayments" class="mt-4 hidden">
+                  <h3 class="text-base font-semibold mb-2">Payment Configuration</h3>
+                  <p class="text-sm text-gray-600 mb-4">Configure Coinbase CDP x402 payment integration for autonomous agent transactions.</p>
+                  
+                  <!-- x402 Configuration -->
+                  <div class="border rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="font-medium text-gray-900">x402 Payment Protocol</h4>
+                      <div class="flex items-center gap-2">
+                        <span id="x402-status" class="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">Not Configured</span>
+                        <button id="testX402Connection" class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Test Connection</button>
+                      </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CDP API Key ID</label>
+                        <input id="cdpApiKeyId" type="text" 
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Copy the API Key ID (UUID format) from your CDP portal</p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CDP API Key Secret</label>
+                        <textarea id="cdpApiKeySecret" rows="8" 
+                          placeholder="Paste your API key secret here&#10;&#10;Ed25519 format (recommended):&#10;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx==&#10;&#10;OR ECDSA PEM format:&#10;-----BEGIN EC PRIVATE KEY-----&#10;MHcCAQEEI...&#10;-----END EC PRIVATE KEY-----"
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        ></textarea>
+                        <p class="text-xs text-gray-500 mt-1">
+                          Paste the <strong>complete</strong> API key secret from CDP portal. 
+                          Ed25519 keys end with <code>==</code>, ECDSA keys have BEGIN/END markers.
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Seller Address (Base/Ethereum)</label>
+                        <input id="sellerAddress" type="text" 
+                          placeholder="0x..." 
+                          class="w-full px-3 py-2 border rounded text-sm font-mono"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Wallet address to receive payments (0x...)</p>
+                      </div>
+                      
+                      <div class="grid grid-cols-2 gap-3">
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">Default Network</label>
+                          <select id="defaultNetwork" class="w-full px-3 py-2 border rounded text-sm">
+                            <option value="base">Base (Mainnet)</option>
+                            <option value="base-sepolia">Base Sepolia (Testnet)</option>
+                            <option value="ethereum">Ethereum</option>
+                            <option value="solana">Solana</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label class="flex items-center gap-2 mt-6">
+                            <input id="enableTestnet" type="checkbox" class="rounded" />
+                            <span class="text-sm text-gray-700">Enable Testnet Mode</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Agent Wallet Configuration -->
+                  <div class="border rounded-lg p-4 mb-4">
+                    <h4 class="font-medium text-gray-900 mb-3">Agent Wallet Configuration</h4>
+                    
+                    <div class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Wallet Encryption Key</label>
+                        <div class="flex gap-2">
+                          <input id="walletEncryptionKey" type="password" 
+                            placeholder="32+ character encryption key" 
+                            class="flex-1 px-3 py-2 border rounded text-sm font-mono"
+                          />
+                          <button id="generateEncryptionKey" class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">Generate</button>
+                          <button id="toggleEncryptionKeyVisibility" class="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">Show</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Used to encrypt agent private keys in database (AES-256-GCM)</p>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Daily Limit (USDC)</label>
+                        <input id="defaultDailyLimit" type="number" step="0.01" 
+                          placeholder="100.00" 
+                          class="w-full px-3 py-2 border rounded text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Default spending limit per agent per day (in USDC)</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Save Button -->
+                  <div class="flex justify-end gap-2">
+                    <button id="resetPaymentConfig" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Reset</button>
+                    <button id="savePaymentConfig" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save Configuration</button>
+                  </div>
+                  
+                  <!-- Status Messages -->
+                  <div id="paymentConfigStatus" class="mt-4 hidden">
+                    <div class="p-3 rounded border"></div>
+                  </div>
                 </div>
 
                 <div id="panelSecrets" class="mt-4 hidden">
@@ -119,6 +320,7 @@
       </main>
     </div>
 
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
     <script type="module" src="/js/admin-settings.js"></script>
   </body>
 </html>

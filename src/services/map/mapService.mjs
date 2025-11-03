@@ -17,12 +17,13 @@
 import { createAvatarGateway } from '../avatar/avatarGateway.js';
 
 export class MapService {
-  constructor({ logger, databaseService, configService, discordService, locationService }) {
+  constructor({ logger, databaseService, configService, discordService, locationService, avatarLocationMemory }) {
     this.logger          = logger || console;
     this.databaseService = databaseService;
     this.configService   = configService;
     this.discordService  = discordService;
     this.locationService = locationService;
+    this.avatarLocationMemory = avatarLocationMemory;
 
     // façade over AvatarService methods we need
     this.avatarGateway = createAvatarGateway({ databaseService });
@@ -118,8 +119,10 @@ export class MapService {
   /**
    * Atomically update both dungeon_positions and avatar.channelId.
    * Delegates avatar update to AvatarGateway to avoid direct coupling.
+   * Records visit in location memory.
+   * @returns {Promise<Object>} The updated avatar object
    */
-  async updateAvatarPosition(avatar, newLocationId) {
+  async updateAvatarPosition(avatar, newLocationId, _oldLocationId) {
     const db = await this._db();
     const session = db.client.startSession();
 
@@ -133,12 +136,38 @@ export class MapService {
 
         await this.avatarGateway.updateChannelId(avatar._id, newLocationId, session);
       });
+
+      // Record location visit in avatar's memory (non-blocking)
+      if (this.avatarLocationMemory) {
+        try {
+          const location = await this.locationService.getLocationByChannelId(newLocationId);
+          const locationName = location?.name || 'Unknown Location';
+          const locationType = location?.type || 'channel';
+          
+          this.avatarLocationMemory.recordVisit(
+            String(avatar._id),
+            newLocationId,
+            locationName,
+            locationType
+          ).catch(err => {
+            this.logger?.debug?.(`[MapService] Failed to record location memory: ${err.message}`);
+          });
+        } catch (err) {
+          this.logger?.debug?.(`[MapService] Failed to get location for memory: ${err.message}`);
+        }
+      }
     } finally {
       await session.endSession();
     }
 
     // refresh cache
     this.positionsCache.set(avatar._id.toString(), { locationId: newLocationId, avatarId: avatar._id, lastMoved: new Date() });
+    
+    // Return updated avatar with new channelId
+    return {
+      ...avatar,
+      channelId: newLocationId
+    };
   }
 
   async getAvatarPosition(avatarId) {

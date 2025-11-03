@@ -3,6 +3,7 @@
 // and applies a 24h combat cooldown (combatCooldownUntil). On failure: consumes turn.
 
 import { BasicTool } from '../BasicTool.mjs';
+import { publishEvent as basePublishEvent } from '../../../events/envelope.mjs';
 
 export class FleeTool extends BasicTool {
   constructor({
@@ -42,33 +43,77 @@ export class FleeTool extends BasicTool {
       if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
         return null;
       }
+      
+      // Get combat encounter service
       const ces = services?.combatEncounterService || this.combatEncounterService;
-      if (!ces) return `-# [ ❌ Combat system unavailable. ]`;
+      if (!ces) {
+        this.logger?.warn?.('[FleeTool] Combat system unavailable');
+        return `-# [ ❌ Combat system unavailable. ]`;
+      }
+      
+      // Get active encounter
       const encounter = ces.getEncounter(message.channel.id);
-      if (!encounter || encounter.state !== 'active') return `-# [ Not in combat. ]`;
-      if (!ces.isTurn(encounter, avatar.id || avatar._id)) {
+      if (!encounter || encounter.state !== 'active') {
+        return `-# [ Not in combat. ]`;
+      }
+      
+      // Check if it's the avatar's turn
+      const avatarId = avatar.id || avatar._id;
+      if (!ces.isTurn(encounter, avatarId)) {
         // Silent out-of-turn handling
         return null;
       }
-
-      // Register a brief blocker to prevent racing next turn while we post result
-      let resolveBlocker = null;
-      try {
-        const p = new Promise(res => { resolveBlocker = res; });
-        ces.addTurnAdvanceBlocker(message.channel.id, p);
-      } catch {}
-
-      const result = await ces.handleFlee(encounter, avatar.id || avatar._id);
-      // Post a small flavor line as the avatar
-      try {
-        if (result?.message && this.discordService?.sendAsWebhook) {
-          await this.discordService.sendAsWebhook(message.channel.id, result.message, avatar);
+      
+      // Emit flee attempt event
+      const publish = (evt) => {
+        try { 
+          (services?.eventPublisher?.publishEvent || basePublishEvent)(evt); 
+        } catch (e) {
+          this.logger?.warn?.(`[FleeTool] Event publish failed: ${e.message}`);
         }
-      } catch (e) {
-        this.logger?.warn?.(`[FleeTool] webhook post failed: ${e.message}`);
+      };
+      
+      const channelId = message.channel.id;
+      const corrId = message.id;
+      publish({ 
+        type: 'combat.flee.attempt', 
+        source: 'FleeTool', 
+        corrId, 
+        payload: { avatarId, channelId } 
+      });
+
+      // Delegate to CombatEncounterService.handleFlee for consistent logic
+      this.logger?.info?.(`[FleeTool] ${avatar.name} attempting to flee in ${channelId}`);
+      const result = await ces.handleFlee(encounter, avatarId);
+      
+      // Emit success/fail events
+      if (result.success) {
+        publish({ 
+          type: 'combat.flee.success', 
+          source: 'FleeTool', 
+          corrId, 
+          payload: { avatarId, channelId } 
+        });
+      } else {
+        publish({ 
+          type: 'combat.flee.fail', 
+          source: 'FleeTool', 
+          corrId, 
+          payload: { avatarId, channelId } 
+        });
       }
-      try { resolveBlocker && resolveBlocker(); } catch {}
-      return result?.message || null;
+      
+      // Post message via webhook if available
+      if (result.message && this.discordService?.sendAsWebhook) {
+        try {
+          await this.discordService.sendAsWebhook(channelId, result.message, avatar);
+        } catch (e) {
+          this.logger?.warn?.(`[FleeTool] Webhook send failed: ${e.message}`);
+        }
+      }
+      
+      return result.message;
+      
     } catch (error) {
       this.logger?.error?.(`[FleeTool] error: ${error.message}`);
       return `-# [ ❌ Error: Failed to flee: ${error.message} ]`;

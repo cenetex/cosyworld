@@ -1,0 +1,678 @@
+/**
+ * Copyright (c) 2019-2024 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+/**
+ * StoryPlannerService
+ * 
+ * High-level narrative orchestration and arc management.
+ * NEW: Chapter-based generation (1 chapter = 3 beats per day)
+ * Uses channel summaries and evolving plans.
+ */
+export class StoryPlannerService {
+  constructor({ 
+    storyStateService, 
+    worldContextService, 
+    narrativeGeneratorService,
+    storyPlanService,
+    chapterContextService,
+    configService,
+    aiService,
+    logger 
+  }) {
+    this.storyState = storyStateService;
+    this.worldContext = worldContextService;
+    this.narrativeGenerator = narrativeGeneratorService;
+    this.storyPlanService = storyPlanService;
+    this.chapterContext = chapterContextService;
+    this.configService = configService;
+    this.aiService = aiService;
+    this.logger = logger || console;
+    
+    // Default configuration
+    this.config = {
+      maxConcurrentArcs: 1, // ONE continuous story at a time
+      minTimeBetweenNewArcs: 24 * 60 * 60 * 1000, // 24 hours
+      beatsPerChapter: 3, // Fixed: 3 beats per chapter
+      chaptersPerDay: 1, // Fixed: 1 chapter per day
+      minHoursBetweenChapters: 20, // Minimum time between chapters (allows scheduling flexibility)
+      characterRotationWindowDays: 7,
+      themeVarietyWindow: 3, // Last N arcs should have different themes
+      planEvolutionFrequency: 'per_chapter' // Evolve plan after each chapter
+    };
+  }
+
+  /**
+   * Initialize planner
+   */
+  async initialize() {
+    this.logger.info('[StoryPlanner] Initializing...');
+    
+    // Load config from config service if available
+    try {
+      const storyConfig = await this.configService?.getConfig('story');
+      if (storyConfig) {
+        this.config = { ...this.config, ...storyConfig };
+      }
+    } catch {
+      this.logger.warn('[StoryPlanner] Could not load story config, using defaults');
+    }
+    
+    this.logger.info('[StoryPlanner] Initialized with config:', this.config);
+  }
+
+  // ============================================================================
+  // Arc Planning & Management
+  // ============================================================================
+
+  /**
+   * Determine if we should start a new story arc
+   * @returns {Promise<boolean>}
+   */
+  async shouldStartNewArc() {
+    try {
+      // Check concurrent arc limit
+      const activeArcs = await this.storyState.getActiveArcs();
+      if (activeArcs.length >= this.config.maxConcurrentArcs) {
+        this.logger.info('[StoryPlanner] Max concurrent arcs reached');
+        return false;
+      }
+      
+      // Check time since last arc start
+      const recentArcs = await this.storyState.getArcs(
+        {},
+        { sort: { startedAt: -1 }, limit: 1 }
+      );
+      
+      if (recentArcs.length > 0) {
+        const lastArcStart = recentArcs[0].startedAt;
+        const timeSinceLast = Date.now() - lastArcStart.getTime();
+        
+        if (timeSinceLast < this.config.minTimeBetweenNewArcs) {
+          this.logger.info('[StoryPlanner] Too soon since last arc start');
+          return false;
+        }
+      }
+      
+      // Check for story opportunities
+      const context = await this.worldContext.getWorldContext();
+      const hasOpportunities = context.opportunities && context.opportunities.length > 0;
+      
+      if (!hasOpportunities && activeArcs.length > 0) {
+        this.logger.info('[StoryPlanner] No compelling opportunities, have active arcs');
+        return false;
+      }
+      
+      this.logger.info('[StoryPlanner] Conditions met for new arc');
+      return true;
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error checking if should start arc:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create and plan a new story arc WITH EVOLVING PLAN
+   * Uses channel summaries for context
+   * @param {Object} options - Arc generation options
+   * @returns {Promise<Object>} Created arc with plan
+   */
+  async createNewArc(options = {}) {
+    try {
+      this.logger.info('[StoryPlanner] Creating new story arc with plan...');
+      
+      // Get world context (includes channel summaries and meta-summary)
+      const worldContext = await this.worldContext.getWorldContext({
+        includeChannelSummaries: true,
+        includeMetaSummary: true,
+        includeAvatars: true,
+        includeLocations: true,
+        includeItems: true
+      }, this.aiService);
+      
+      // Ensure theme variety
+      const recentThemes = await this._getRecentThemes();
+      if (options.theme && recentThemes.includes(options.theme)) {
+        this.logger.info(`[StoryPlanner] Theme ${options.theme} was recent, selecting different theme`);
+        delete options.theme;
+      }
+      
+      // Select characters that haven't been featured recently
+      const unfeaturedCharacters = await this.storyState.getUnfeaturedCharacters(
+        this.config.characterRotationWindowDays
+      );
+      
+      // Generate initial plan with AI
+      const planData = await this._generateInitialPlan(worldContext, {
+        ...options,
+        unfeaturedCharacters
+      });
+      
+      // Generate arc metadata
+      // Derive target beats from planned chapters to ensure desired arc length (3 beats/chapter)
+      const targetBeats = (planData?.chapters?.length || 4) * this.config.beatsPerChapter;
+      const arcData = await this.narrativeGenerator.generateArc(worldContext, {
+        ...options,
+        plan: planData,
+        targetBeats,
+        unfeaturedCharacters
+      });
+      
+      // Persist arc
+      const createdArc = await this.storyState.createArc(arcData);
+      
+      // Create story plan
+      if (this.storyPlanService) {
+        await this.storyPlanService.createPlan(createdArc._id, planData, worldContext);
+        this.logger.info(`[StoryPlanner] Created evolving plan for arc ${createdArc._id}`);
+      }
+      
+      // Update character states for featured characters
+      if (createdArc.characters) {
+        for (const char of createdArc.characters) {
+          if (char.avatarId) {
+            await this.storyState.updateCharacterState(char.avatarId, {
+              currentArc: createdArc._id,
+              'storyStats.lastFeaturedAt': new Date(),
+              $inc: { 
+                'storyStats.totalArcsParticipated': 1,
+                'storyStats.protagonistCount': char.role === 'protagonist' ? 1 : 0
+              }
+            });
+          }
+        }
+      }
+      
+      this.logger.info(`[StoryPlanner] Created arc: "${createdArc.title}" (${createdArc._id})`);
+      
+      return createdArc;
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error creating arc:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate initial plan for a story arc
+   * @private
+   * @param {Object} worldContext - Current world context
+   * @param {Object} _options - Planning options (reserved for future use)
+   * @returns {Promise<Object>} Initial plan structure
+   */
+  async _generateInitialPlan(worldContext, _options = {}) {
+    try {
+      const contextPrompt = this.worldContext.formatContextForPrompt(worldContext);
+      
+      const planningPrompt = `${contextPrompt}
+
+--- STORY PLANNING TASK ---
+
+Create a detailed story plan for a new arc in CosyWorld. The plan should:
+
+1. Have a compelling overallTheme that fits the current world state
+2. Be structured into 3-5 chapters
+3. Each chapter should have 3 beats (story moments)
+4. Incorporate active avatars, current themes, and locations
+5. Build narrative tension and resolution
+
+Respond with JSON in this format:
+{
+  "overallTheme": "A brief theme statement",
+  "chapters": [
+    {
+      "title": "Chapter Title",
+      "summary": "What happens in this chapter",
+      "beats": ["Beat 1 summary", "Beat 2 summary", "Beat 3 summary"]
+    }
+  ]
+}`;
+
+      if (this.aiService) {
+        const response = await this.aiService.chat([
+          { role: 'user', content: planningPrompt }
+        ], {
+          model: 'anthropic/claude-sonnet-4',
+          temperature: 0.8
+        });
+        
+        const responseText = String(response?.text || response || '').trim();
+        
+        try {
+          const plan = JSON.parse(responseText);
+          this.logger.info(`[StoryPlanner] Generated plan with ${plan.chapters?.length || 0} chapters`);
+          return plan;
+        } catch {
+          this.logger.warn('[StoryPlanner] Could not parse plan JSON, using fallback');
+        }
+      }
+      
+      // Fallback plan
+      return {
+        overallTheme: 'A tale of adventure and discovery in CosyWorld',
+        chapters: [
+          {
+            title: 'The Beginning',
+            summary: 'Characters are introduced and the journey begins',
+            beats: ['Introduction', 'Inciting incident', 'Decision to act']
+          },
+          {
+            title: 'Development',
+            summary: 'The story unfolds with challenges and growth',
+            beats: ['Challenge encountered', 'Struggle and effort', 'Small victory']
+          },
+          {
+            title: 'Resolution',
+            summary: 'The arc concludes with meaningful change',
+            beats: ['Climactic moment', 'Resolution', 'New normal']
+          }
+        ]
+      };
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error generating initial plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Select which arc should progress next
+   * @returns {Promise<Object|null>}
+   */
+  async selectArcToProgress() {
+    try {
+      const activeArcs = await this.storyState.getActiveArcs();
+      
+      if (activeArcs.length === 0) {
+        return null;
+      }
+      
+      // Sort by last progressed time (oldest first)
+      activeArcs.sort((a, b) => {
+        const aTime = a.lastProgressedAt ? a.lastProgressedAt.getTime() : a.startedAt.getTime();
+        const bTime = b.lastProgressedAt ? b.lastProgressedAt.getTime() : b.startedAt.getTime();
+        return aTime - bTime;
+      });
+      
+      // Return the arc that hasn't been progressed in the longest time
+      return activeArcs[0];
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error selecting arc:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Progress a story arc by generating the next CHAPTER (3 beats)
+   * Uses channel summaries and evolving plan
+   * @param {string|ObjectId} arcId - Arc ID
+   * @param {Object} worldContext - Current world context (optional)
+   * @returns {Promise<Object>} Generated chapter with beats
+   */
+  async progressArc(arcId, worldContext = null) {
+    try {
+      this.logger.info(`[StoryPlanner] Progressing arc ${arcId}...`);
+      
+      // Get arc
+      const arc = await this.storyState.getArc(arcId);
+      if (!arc) {
+        throw new Error(`Arc ${arcId} not found`);
+      }
+      
+      // Check if arc is complete
+      if (arc.completedBeats >= arc.plannedBeats) {
+        this.logger.info(`[StoryPlanner] Arc complete, marking as completed`);
+        await this.completeArc(arcId);
+        return null;
+      }
+      
+      // Get world context with channel summaries if not provided
+      if (!worldContext) {
+        worldContext = await this.worldContext.getWorldContext({
+          includeChannelSummaries: true,
+          includeMetaSummary: true,
+          includeAvatars: true,
+          includeLocations: true,
+          includeItems: true
+        }, this.aiService);
+      }
+      
+      // Check if plan needs evolution
+      if (this.storyPlanService && this.config.planEvolutionFrequency === 'per_chapter') {
+        const currentBeatCount = arc.completedBeats || 0;
+        if (currentBeatCount > 0 && currentBeatCount % this.config.beatsPerChapter === 0) {
+          this.logger.info(`[StoryPlanner] Evolving plan for arc ${arcId}...`);
+          await this.storyPlanService.evolvePlan(arcId, worldContext, this.aiService);
+        }
+      }
+      
+      // Generate chapter (3 beats)
+      const chapter = await this._generateChapter(arc, worldContext);
+      
+      // Add beats to arc and publish
+      const beats = [];
+      for (const beatData of chapter.beats) {
+        await this.storyState.addBeat(arcId, beatData);
+        beats.push(beatData);
+        this.logger.info(`[StoryPlanner] Generated beat ${beatData.sequenceNumber} for chapter "${chapter.title}"`);
+      }
+      
+      // Mark chapter complete in plan if available
+      if (this.storyPlanService) {
+        const plan = await this.storyPlanService.getActivePlan(arcId);
+        if (plan) {
+          await this.storyPlanService.completeChapter(arcId, plan.currentChapter);
+        }
+      }
+      
+      this.logger.info(`[StoryPlanner] Generated chapter "${chapter.title}" (${beats.length} beats) for arc "${arc.title}"`);
+      
+      // Reload arc to include newly added beats
+      const updatedArc = await this.storyState.getArc(arcId);
+      
+      return { arc: updatedArc, chapter, beats };
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error progressing arc:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a chapter with 3 beats
+   * @private
+   * @param {Object} arc - Current arc
+   * @param {Object} worldContext - World context
+   * @returns {Promise<Object>} Chapter with beats array
+   */
+  async _generateChapter(arc, worldContext) {
+    try {
+      // Get the plan for context (if available)
+      let planContext = null;
+      if (this.storyPlanService) {
+        const plan = await this.storyPlanService.getActivePlan(arc._id);
+        if (plan) {
+          // Fallback to 0 if currentChapter is not set (for old plans)
+          const currentChapter = plan.currentChapter ?? 0;
+          planContext = {
+            theme: plan.overallTheme,
+            currentChapter: currentChapter,
+            totalChapters: plan.plannedChapters?.length || 0,
+            chapterInfo: plan.plannedChapters?.[currentChapter] || null
+          };
+        }
+      }
+
+      // Build evolving chapter context (history with same characters/locations)
+      let chapterContext = null;
+      if (this.chapterContext) {
+        try {
+          const currentChapter = planContext?.currentChapter ?? 0;
+          chapterContext = await this.chapterContext.buildChapterContext(arc, {
+            currentChapter,
+            excludeCurrentArc: true
+          });
+          this.logger.info(`[StoryPlanner] Built chapter context with ${chapterContext.relevantHistory.chapters.length} relevant chapters`);
+        } catch (error) {
+          this.logger.warn('[StoryPlanner] Could not build chapter context:', error.message);
+        }
+      }
+      
+      const beats = [];
+      const currentBeatCount = arc.beats?.length || 0;
+      
+      // Special case: After the very first beat (beat 1), insert a title card
+      const shouldInsertTitleCardAfterFirstBeat = currentBeatCount === 1;
+      
+      // Regular case: Every 9 beats (3 chapters), insert a title card
+      const shouldInsertTitleCard = currentBeatCount > 1 && currentBeatCount % 9 === 0;
+      
+      if (shouldInsertTitleCardAfterFirstBeat || shouldInsertTitleCard) {
+        this.logger.info(`[StoryPlanner] Generating title card for arc "${arc.title}" at beat ${currentBeatCount + 1}`);
+        
+        // Create a temporary arc object for title card generation
+        const tempArc = {
+          ...arc,
+          beats: [...(arc.beats || [])]
+        };
+        
+        const titleBeat = await this.narrativeGenerator.generateTitleCard(tempArc, worldContext);
+        beats.push(titleBeat);
+        
+        this.logger.info(`[StoryPlanner] Generated title card: "${titleBeat.description.substring(0, 50)}..."`);
+      }
+      
+      // Generate remaining beats for the chapter (2 if we added title card, 3 otherwise)
+      const beatsToGenerate = (shouldInsertTitleCardAfterFirstBeat || shouldInsertTitleCard) 
+        ? this.config.beatsPerChapter - 1 
+        : this.config.beatsPerChapter;
+      
+      for (let i = 0; i < beatsToGenerate; i++) {
+        // Create a temporary arc object with updated beat count for correct sequenceNumber
+        const tempArc = {
+          ...arc,
+          beats: [...(arc.beats || []), ...beats] // Include previously generated beats in this chapter
+        };
+        
+        const beat = await this.narrativeGenerator.generateBeat(tempArc, worldContext, {
+          chapterContext: planContext,
+          evolvingContext: chapterContext,
+          beatInChapter: i + 1,
+          totalBeatsInChapter: beatsToGenerate,
+          previousBeats: beats
+        });
+        beats.push(beat);
+      }
+      
+      return {
+        title: planContext?.chapterInfo?.title || `Chapter ${(currentBeatCount / this.config.beatsPerChapter) + 1}`,
+        beats
+      };
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error generating chapter:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete a story arc and its plan
+   * @param {string|ObjectId} arcId - Arc ID
+   * @returns {Promise<void>}
+   */
+  async completeArc(arcId) {
+    try {
+      this.logger.info(`[StoryPlanner] Completing arc ${arcId}...`);
+      
+      const arc = await this.storyState.getArc(arcId);
+      if (!arc) {
+        throw new Error(`Arc ${arcId} not found`);
+      }
+      
+      // Generate summary
+      const summary = await this.narrativeGenerator.summarizeArc(arc);
+      
+      // Complete the story plan
+      if (this.storyPlanService) {
+        const plan = await this.storyPlanService.getActivePlan(arcId);
+        if (plan) {
+          await this.storyPlanService.completePlan(arcId);
+          this.logger.info(`[StoryPlanner] Completed plan for arc ${arcId}`);
+        }
+      }
+      
+      // Update arc status
+      await this.storyState.updateArc(arcId, {
+        status: 'completed',
+        summary,
+        completedAt: new Date()
+      });
+      
+      // Create memory summary
+      await this.storyState.createSummary({
+        type: 'arc_summary',
+        referenceId: arcId,
+        timeframe: {
+          start: arc.startedAt,
+          end: new Date()
+        },
+        summary,
+        keyEvents: arc.beats.map(b => b.description),
+        characterDevelopments: arc.characters.map(c => ({
+          avatarId: c.avatarId,
+          development: c.characterArc
+        })),
+        significance: 8 // Default high significance
+      });
+      
+      // Clear current arc from character states
+      if (arc.characters) {
+        for (const char of arc.characters) {
+          if (char.avatarId) {
+            await this.storyState.updateCharacterState(char.avatarId, {
+              currentArc: null
+            });
+          }
+        }
+      }
+      
+      this.logger.info(`[StoryPlanner] Completed arc: "${arc.title}"`);
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error completing arc:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // Event Reactions
+  // ============================================================================
+
+  /**
+   * React to new avatar creation
+   * @param {string|ObjectId} avatarId - New avatar ID
+   * @returns {Promise<void>}
+   */
+  async onAvatarCreated(avatarId) {
+    try {
+      this.logger.info(`[StoryPlanner] New avatar created: ${avatarId}`);
+      
+      // Check if we should create a "new arrival" arc
+      const activeArcs = await this.storyState.getActiveArcs();
+      const hasNewArrivalArc = activeArcs.some(arc => arc.theme === 'journey');
+      
+      if (!hasNewArrivalArc && activeArcs.length < this.config.maxConcurrentArcs) {
+        this.logger.info('[StoryPlanner] Creating new arrival arc for avatar');
+        
+        // Create arc featuring the new avatar
+        await this.createNewArc({
+          theme: 'journey',
+          focusAvatarId: avatarId
+        });
+      }
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error handling avatar creation:', error);
+    }
+  }
+
+  /**
+   * React to location creation
+   * @param {string|ObjectId} locationId - New location ID
+   * @returns {Promise<void>}
+   */
+  async onLocationCreated(locationId) {
+    try {
+      this.logger.info(`[StoryPlanner] New location created: ${locationId}`);
+      
+      // Consider creating a discovery arc for new location
+      const activeArcs = await this.storyState.getActiveArcs();
+      
+      if (activeArcs.length < this.config.maxConcurrentArcs) {
+        this.logger.info('[StoryPlanner] Creating discovery arc for new location');
+        
+        await this.createNewArc({
+          theme: 'discovery',
+          focusLocationId: locationId
+        });
+      }
+      
+    } catch (error) {
+      this.logger.error('[StoryPlanner] Error handling location creation:', error);
+    }
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+
+  /**
+   * Get recent story themes for variety
+   * @private
+   * @returns {Promise<Array<string>>}
+   */
+  async _getRecentThemes() {
+    const recentArcs = await this.storyState.getArcs(
+      {},
+      { 
+        sort: { startedAt: -1 }, 
+        limit: this.config.themeVarietyWindow 
+      }
+    );
+    
+    return recentArcs.map(arc => arc.theme).filter(Boolean);
+  }
+
+  /**
+   * Get statistics about story system
+   * @returns {Promise<Object>}
+   */
+  async getStatistics() {
+    return await this.storyState.getStatistics();
+  }
+
+  /**
+   * Pause an arc
+   * @param {string|ObjectId} arcId - Arc ID
+   * @returns {Promise<boolean>}
+   */
+  async pauseArc(arcId) {
+    return await this.storyState.updateArcStatus(arcId, 'paused');
+  }
+
+  /**
+   * Resume a paused arc
+   * @param {string|ObjectId} arcId - Arc ID
+   * @returns {Promise<boolean>}
+   */
+  async resumeArc(arcId) {
+    return await this.storyState.updateArcStatus(arcId, 'active');
+  }
+
+  /**
+   * Abandon an arc
+   * @param {string|ObjectId} arcId - Arc ID
+   * @returns {Promise<boolean>}
+   */
+  async abandonArc(arcId) {
+    const arc = await this.storyState.getArc(arcId);
+    
+    if (arc?.characters) {
+      // Clear current arc from characters
+      for (const char of arc.characters) {
+        if (char.avatarId) {
+          await this.storyState.updateCharacterState(char.avatarId, {
+            currentArc: null
+          });
+        }
+      }
+    }
+    
+    return await this.storyState.updateArcStatus(arcId, 'abandoned');
+  }
+}
+
+export default StoryPlannerService;

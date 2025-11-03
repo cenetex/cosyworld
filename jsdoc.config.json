@@ -1,0 +1,68 @@
+{
+  "source": {
+    "include": ["src", "README.DEVELOPER.md", "ARCHITECTURE.md"],
+    "includePattern": ".+\\.(mjs|js|md)$",
+    "excludePattern": "(node_modules|dist|public|docs/api)"
+  },
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "markdown": {
+    "hardwrap": false,
+    "idInHeadings": true
+  },
+  "templates": {
+    "cleverLinks": true,
+    "monospaceLinks": true,
+    "default": {
+      "outputSourceFiles": true,
+      "includeDate": true,
+      "useLongnameInNav": false,
+      "staticFiles": {
+        "include": ["./docs/assets"]
+      }
+    }
+  },
+  "opts": {
+    "destination": "./docs/api",
+    "recurse": true,
+    "readme": "./README.DEVELOPER.md",
+    "template": "node_modules/docdash",
+    "encoding": "utf8",
+    "private": false,
+    "verbose": true
+  },
+  "docdash": {
+    "static": true,
+    "sort": true,
+    "search": true,
+    "collapse": true,
+    "typedefs": true,
+    "removeQuotes": "none",
+    "scripts": [],
+    "menu": {
+      "GitHub": {
+        "href": "https://github.com/cenetex/cosyworld",
+        "target": "_blank",
+        "class": "menu-item",
+        "id": "github_link"
+      },
+      "Architecture": {
+        "href": "/ARCHITECTURE.html",
+        "target": "_self"
+      },
+      "Developer Guide": {
+        "href": "/README.DEVELOPER.html",
+        "target": "_self"
+      },
+      "JSDoc Standards": {
+        "href": "/docs/JSDOC_STANDARDS.html",
+        "target": "_self"
+      }
+    }
+  },
+  "tags": {
+    "allowUnknownTags": true,
+    "dictionaries": ["jsdoc", "closure"]
+  }
+}

@@ -350,15 +350,131 @@ export default function(db, client, configService) {
   router.post('/:guildId/authorize', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.params;
-      await configService.updateGuildConfig(guildId, { authorized: true, whitelisted: true, updatedAt: new Date() });
+      
+      // Try to get guild info from various sources
+      let guildName = null;
+      let guildIcon = null;
+      let guildIconUrl = null;
+      
+      // 1. Try detected_guilds collection
+      try {
+        const detected = await db.collection('detected_guilds').findOne({ id: guildId });
+        if (detected) {
+          if (detected.name) guildName = detected.name;
+          if (detected.icon) guildIcon = detected.icon;
+          if (detected.iconUrl) guildIconUrl = detected.iconUrl;
+        }
+      } catch {}
+      
+      // 2. Try Discord client
+      if (!guildName && client && client.guilds) {
+        try {
+          const guild = client.guilds.cache.get(guildId);
+          if (guild) {
+            if (guild.name) guildName = guild.name;
+            if (guild.icon) guildIcon = guild.icon;
+            if (guild.icon) guildIconUrl = `https://cdn.discordapp.com/icons/${guildId}/${guild.icon}.png`;
+          }
+        } catch {}
+      }
+      
+      // 3. Try existing guild config
+      if (!guildName) {
+        try {
+          const existing = await configService.getGuildConfig(guildId);
+          if (existing) {
+            if (existing.guildName) guildName = existing.guildName;
+            if (!guildName && existing.name) guildName = existing.name;
+            if (!guildIcon && existing.icon) guildIcon = existing.icon;
+            if (!guildIconUrl && existing.iconUrl) guildIconUrl = existing.iconUrl;
+          }
+        } catch {}
+      }
+      
+      // Build update object with name and icon if found
+      const updateData = { 
+        authorized: true, 
+        whitelisted: true, 
+        updatedAt: new Date() 
+      };
+      
+      if (guildName) {
+        updateData.guildName = guildName;
+        updateData.name = guildName; // Also set name for backward compatibility
+      }
+      
+      if (guildIcon) {
+        updateData.icon = guildIcon;
+      }
+      
+      if (guildIconUrl) {
+        updateData.iconUrl = guildIconUrl;
+      }
+      
+      await configService.updateGuildConfig(guildId, updateData);
+      
       // Clear caches so change takes effect immediately
       try { if (typeof configService.clearCache === 'function') await configService.clearCache(guildId); } catch {}
       try { if (client && client.authorizedGuilds instanceof Map) client.authorizedGuilds.delete(guildId); } catch {}
+      
       const updated = await configService.getGuildConfig(guildId, true);
       res.json({ success: true, message: 'Guild authorized', config: updated });
     } catch (error) {
       console.error('Error authorizing guild:', error);
       res.status(500).json({ error: 'Failed to authorize guild' });
+    }
+  }));
+
+  // === Per-Guild X Account Overrides ===
+  // Lightweight listing of X accounts for selection (id, avatar name, flags)
+  router.get('/:guildId/x-accounts/options', asyncHandler(async (req, res) => {
+    try {
+      const xAuths = await db.collection('x_auth').find({ accessToken: { $exists: true, $ne: null } }).project({ accessToken: 0, refreshToken: 0 }).toArray();
+      const results = [];
+      for (const rec of xAuths) {
+        let avatar = null;
+        if (rec.avatarId) {
+          try { avatar = await db.collection('avatars').findOne({ _id: rec.avatarId }); } catch {}
+        }
+        results.push({
+          id: String(rec._id),
+          avatarName: avatar?.name || rec.avatarId || 'unknown',
+          global: !!rec.global,
+          hasVideoCreds: !!rec.accessSecret, // heuristic: OAuth1 presence
+          updatedAt: rec.updatedAt || rec.createdAt || null
+        });
+      }
+      res.json({ xAccounts: results });
+    } catch (e) {
+      console.error('x-accounts options error:', e);
+      res.status(500).json({ error: 'Failed to list X accounts' });
+    }
+  }));
+
+  // Get current per-guild X account overrides
+  router.get('/:guildId/x-accounts', asyncHandler(async (req, res) => {
+    const { guildId } = req.params;
+    try {
+      const cfg = await db.collection('guild_configs').findOne({ guildId });
+      res.json({ guildId, xAccounts: cfg?.xAccounts || { imageAuthId: null, videoAuthId: null } });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to load xAccounts' });
+    }
+  }));
+
+  // Update per-guild X account overrides
+  router.put('/:guildId/x-accounts', asyncHandler(async (req, res) => {
+    const { guildId } = req.params;
+    const body = req.body || {};
+    try {
+      const patch = { xAccounts: {} };
+      if (body.imageAuthId !== undefined) patch.xAccounts.imageAuthId = body.imageAuthId || null;
+      if (body.videoAuthId !== undefined) patch.xAccounts.videoAuthId = body.videoAuthId || null;
+      await configService.updateGuildConfig(guildId, patch);
+      const updated = await configService.getGuildConfig(guildId, true);
+      res.json({ guildId, xAccounts: updated.xAccounts || { imageAuthId: null, videoAuthId: null } });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to save xAccounts' });
     }
   }));
 

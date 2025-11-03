@@ -9,15 +9,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Entity Management - Admin Dashboard</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
   </head>
   <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col">
       <!-- Navigation -->
-      <nav class="bg-gray-800 text-white shadow-lg">
+  <!-- Legacy nav (will be replaced by admin-shell) -->
+  <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between h-16">
             <div class="flex items-center">
@@ -37,130 +36,187 @@
 
       <!-- Main Content -->
       <main class="flex-grow">
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div class="px-4 py-6 sm:px-0">
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-              <div class="px-4 py-5 sm:px-6 flex items-center justify-between">
-                <div>
-                  <h2 class="text-lg leading-6 font-medium text-gray-900">Entity Management</h2>
-                  <p class="mt-1 max-w-2xl text-sm text-gray-500">Manage avatars, locations, and items</p>
-                </div>
+        <div class="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+          <div class="bg-white shadow overflow-hidden rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+              <div>
+                <h2 class="text-xl sm:text-2xl leading-6 font-medium text-gray-900">Entity Management</h2>
+                <p class="mt-1 text-sm text-gray-500">Manage avatars, locations, and items</p>
               </div>
+            </div>
 
               <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
                 <!-- Tabs -->
-                <div class="mb-4 flex gap-2">
-                  <button id="tab-avatars" class="px-3 py-1 rounded bg-gray-200 font-medium">Avatars</button>
-                  <button id="tab-locations" class="px-3 py-1 rounded">Locations</button>
-                  <button id="tab-items" class="px-3 py-1 rounded">Items</button>
+                <div class="mb-6 border-b border-gray-200">
+                  <nav class="-mb-px flex gap-4">
+                    <button id="tab-avatars" class="px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-medium">Avatars</button>
+                    <button id="tab-locations" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Locations</button>
+                    <button id="tab-items" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Items</button>
+                  </nav>
                 </div>
 
                 <!-- Avatars Panel -->
                 <section id="panel-avatars" class="space-y-4">
-                  <div class="flex items-center gap-2">
-                    <button id="new-avatar" class="px-3 py-1 bg-green-600 text-white rounded">New Avatar</button>
-                    <input id="avatar-search" type="text" placeholder="Search avatars..." class="px-3 py-1 border rounded" />
-                    <select id="status-filter" class="px-3 py-1 border rounded">
+                  <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <button id="new-avatar" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm transition whitespace-nowrap">+ New Avatar</button>
+                    <input id="avatar-search" type="text" placeholder="Search avatars..." class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:flex-grow sm:min-w-[16rem]" />
+                    <select id="status-filter" class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                       <option value="all">All Status</option>
                       <option value="alive">Alive</option>
                       <option value="dead">Dead</option>
                       <option value="inactive">Inactive</option>
                     </select>
-                    <select id="model-filter" class="px-3 py-1 border rounded">
+                    <select id="model-filter" class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:min-w-[12rem]">
                       <option value="all">All Models</option>
                     </select>
                   </div>
-                  <div class="overflow-x-auto">
+                  <div class="overflow-x-auto shadow-sm rounded-lg border border-gray-200">
                     <table class="min-w-full divide-y divide-gray-200">
                       <thead class="bg-gray-50">
                         <tr>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avatar</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avatar</th>
+                          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th class="hidden md:table-cell px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th class="hidden lg:table-cell px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                          <th class="hidden sm:table-cell px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody id="avatars-body" class="bg-white divide-y divide-gray-200">
                         <tr>
-                          <td colspan="7" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">Loading avatars...</td>
+                          <td colspan="7" class="px-3 py-4 text-center text-sm text-gray-500">Loading avatars...</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  <div class="mt-4 flex justify-between items-center">
-                    <div id="pagination-info" class="text-sm text-gray-500">Showing 1-20 of 0 avatars</div>
+                  <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div id="pagination-info" class="text-sm text-gray-600 font-medium">Showing 1-20 of 0 avatars</div>
                     <div class="flex space-x-2">
-                      <button id="prev-page" class="px-3 py-1 border rounded bg-white text-gray-700">Previous</button>
-                      <button id="next-page" class="px-3 py-1 border rounded bg-white text-gray-700">Next</button>
+                      <button id="prev-page" class="px-3 sm:px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm">
+                        <span class="hidden sm:inline">Previous</span>
+                        <span class="sm:hidden">Prev</span>
+                      </button>
+                      <button id="next-page" class="px-3 sm:px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm">Next</button>
                     </div>
                   </div>
 
-                  <!-- Reuse avatar edit modal from old page -->
-                  <div id="avatar-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
-                    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-medium text-gray-900" id="modal-title">Edit Avatar</h3>
-                        <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                  <!-- Avatar Edit Modal -->
+                  <div id="avatar-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                      <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 border-b flex justify-between items-center sticky top-0 z-10">
+                        <h3 class="text-xl font-semibold text-white" id="modal-title">Edit Avatar</h3>
+                        <button id="close-modal" class="text-white hover:text-indigo-100 transition">
                           <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       </div>
-                      <form id="avatar-form" class="px-6 py-4">
-                        <!-- Same fields as old page -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div class="space-y-4">
+                      <form id="avatar-form" class="px-6 py-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          <!-- Left Column - Avatar Preview & Basic Info -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-name" class="block text-sm font-medium text-gray-700">Name</label>
-                              <input type="text" id="avatar-name" name="name" class="mt-1 block w-full border rounded py-2 px-3" required />
+                              <label class="block text-sm font-medium text-gray-700 mb-2">Avatar Preview</label>
+                              <div class="relative">
+                                <img id="avatar-image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="Avatar Preview" class="w-full aspect-square rounded-lg object-cover border-2 border-gray-200 shadow-sm" />
+                                <div id="avatar-preview-emoji" class="absolute bottom-2 right-2 text-4xl bg-white rounded-full p-2 shadow-md hidden"></div>
+                              </div>
+                              <div class="mt-3">
+                                <label for="avatar-image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                                <input type="url" id="avatar-image-url" name="imageUrl" placeholder="https://..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                              </div>
                             </div>
+                            
                             <div>
-                              <label for="avatar-status" class="block text-sm font-medium text-gray-700">Status</label>
-                              <select id="avatar-status" name="status" class="mt-1 block w-full border rounded py-2 px-3">
+                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
+                              <input type="text" id="avatar-emoji" name="emoji" maxlength="4" placeholder="😀" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-2xl text-center" />
+                              <p class="mt-1 text-xs text-gray-500">Choose a representative emoji</p>
+                            </div>
+
+                            <div>
+                              <label for="avatar-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                              <select id="avatar-status" name="status" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="alive">Alive</option>
                                 <option value="dead">Dead</option>
                                 <option value="inactive">Inactive</option>
                               </select>
                             </div>
+                          </div>
+
+                          <!-- Middle Column - Identity & AI Config -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-model" class="block text-sm font-medium text-gray-700">AI Model</label>
-                              <select id="avatar-model" name="model" class="mt-1 block w-full border rounded py-2 px-3"></select>
+                              <label for="avatar-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                              <input type="text" id="avatar-name" name="name" placeholder="Avatar name" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
                             </div>
+
                             <div>
-                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700">Emoji</label>
-                              <input type="text" id="avatar-emoji" name="emoji" class="mt-1 block w-full border rounded py-2 px-3" />
+                              <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
+                              <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label for="avatar-model-provider" class="block text-xs text-gray-600 mb-1">Provider</label>
+                                  <select id="avatar-model-provider" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                    <option value="">Select...</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label for="avatar-model-name" class="block text-xs text-gray-600 mb-1">Model</label>
+                                  <select id="avatar-model-name" name="model" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" disabled>
+                                    <option value="">Select provider first</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div id="model-rarity-badge" class="mt-2 hidden">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"></span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label for="avatar-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                              <textarea id="avatar-description" name="description" rows="4" placeholder="Brief description of this avatar..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                              <p class="mt-1 text-xs text-gray-500">Public-facing description</p>
                             </div>
                           </div>
-                          <div class="space-y-4">
+
+                          <!-- Right Column - Personality -->
+                          <div class="space-y-6">
                             <div>
-                              <label for="avatar-description" class="block text-sm font-medium text-gray-700">Description</label>
-                              <textarea id="avatar-description" name="description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
+                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700 mb-1">Personality</label>
+                              <textarea id="avatar-personality" name="personality" rows="12" placeholder="Describe the avatar's personality traits, communication style, and behavioral patterns..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                              <p class="mt-1 text-xs text-gray-500">Used for AI prompt generation</p>
                             </div>
+
                             <div>
-                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700">Personality</label>
-                              <textarea id="avatar-personality" name="personality" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
-                            </div>
-                            <div>
-                              <label for="avatar-image-url" class="block text-sm font-medium text-gray-700">Avatar Image URL</label>
-                              <input type="url" id="avatar-image-url" name="imageUrl" class="mt-1 block w-full border rounded py-2 px-3" />
-                              <img id="avatar-image-preview" src="" alt="Avatar Preview" class="mt-2 h-32 w-32 rounded-full object-cover border hidden" />
+                              <button type="button" id="preview-prompt" class="w-full inline-flex justify-center items-center py-2 px-4 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Preview AI Prompt
+                              </button>
+                              <div id="prompt-preview-container" class="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 hidden">
+                                <h4 class="font-medium text-gray-700 mb-2 text-sm">Sample Contextual Prompt</h4>
+                                <div id="prompt-preview-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto"></div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <div class="mt-6">
-                          <button type="button" id="preview-prompt" class="inline-flex justify-center py-2 px-4 border border-blue-400 text-sm font-medium rounded-md text-blue-700 bg-blue-50">Preview Prompt</button>
-                          <div id="prompt-preview-container" class="mt-4 p-4 bg-gray-50 rounded-md border hidden">
-                            <h4 class="font-medium text-gray-700 mb-2">Sample Contextual Prompt</h4>
-                            <div id="prompt-preview-content" class="text-sm text-gray-600 whitespace-pre-wrap"></div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-8 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+                          <button type="button" id="delete-avatar" class="hidden px-6 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition">
+                            <svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete Avatar
+                          </button>
+                          <div class="flex gap-3">
+                            <button type="button" id="cancel-edit" class="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition">Cancel</button>
+                            <button type="submit" id="save-avatar" class="px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm">
+                              Save Changes
+                            </button>
                           </div>
-                        </div>
-                        <div class="mt-6 flex justify-end space-x-3">
-                          <button type="button" id="delete-avatar" class="hidden inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600">Delete</button>
-                          <button type="button" id="cancel-edit" class="inline-flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white">Cancel</button>
-                          <button type="submit" id="save-avatar" class="inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600">Save Changes</button>
                         </div>
                       </form>
                     </div>
@@ -169,9 +225,9 @@
 
                 <!-- Locations Panel -->
                 <section id="panel-locations" class="hidden space-y-4">
-                  <div class="flex items-center gap-2">
-                    <button id="new-location" class="px-3 py-1 bg-green-600 text-white rounded">New Location</button>
-                    <input id="location-search" type="text" placeholder="Search locations..." class="px-3 py-1 border rounded" />
+                  <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <button id="new-location" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm transition whitespace-nowrap">+ New Location</button>
+                    <input id="location-search" type="text" placeholder="Search locations..." class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:flex-grow" />
                   </div>
                   <div id="locations-table" class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -190,13 +246,13 @@
                     </table>
                   </div>
                   <!-- Location Edit Modal -->
-                  <div id="location-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
-                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
-                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
+                  <div id="location-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                      <div class="px-4 sm:px-6 py-4 bg-gray-100 border-b flex justify-between items-center sticky top-0 z-10">
                         <h3 class="text-lg font-medium text-gray-900" id="location-modal-title">Edit Location</h3>
-                        <button id="close-location-modal" class="text-gray-400 hover:text-gray-500">✕</button>
+                        <button id="close-location-modal" class="text-gray-400 hover:text-gray-500 text-2xl">✕</button>
                       </div>
-                      <form id="location-form" class="px-6 py-4">
+                      <form id="location-form" class="px-4 sm:px-6 py-4">
                         <div class="space-y-4">
                           <div>
                             <label class="block text-sm font-medium">Name</label>
@@ -216,10 +272,10 @@
                             <textarea id="location-description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
                           </div>
                         </div>
-                        <div class="mt-6 flex justify-end gap-2">
-                          <button type="button" id="delete-location" class="hidden px-3 py-1 bg-red-600 text-white rounded">Delete</button>
-                          <button type="button" id="cancel-location" class="px-3 py-1 border rounded">Cancel</button>
-                          <button type="submit" id="save-location" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
+                        <div class="mt-6 flex flex-col sm:flex-row justify-end gap-2">
+                          <button type="button" id="delete-location" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition order-3 sm:order-1">Delete</button>
+                          <button type="button" id="cancel-location" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 font-medium transition order-2">Cancel</button>
+                          <button type="submit" id="save-location" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition order-1 sm:order-3">Save</button>
                         </div>
                       </form>
                     </div>
@@ -228,9 +284,9 @@
 
                 <!-- Items Panel -->
                 <section id="panel-items" class="hidden space-y-4">
-                  <div class="flex items-center gap-2">
-                    <button id="new-item" class="px-3 py-1 bg-green-600 text-white rounded">New Item</button>
-                    <input id="item-search" type="text" placeholder="Search items..." class="px-3 py-1 border rounded" />
+                  <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <button id="new-item" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm transition whitespace-nowrap">+ New Item</button>
+                    <input id="item-search" type="text" placeholder="Search items..." class="px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:flex-grow" />
                   </div>
                   <div id="items-table" class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -249,13 +305,13 @@
                     </table>
                   </div>
                   <!-- Item Edit Modal -->
-                  <div id="item-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center">
-                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
-                      <div class="px-6 py-4 bg-gray-100 border-b flex justify-between items-center">
+                  <div id="item-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                      <div class="px-4 sm:px-6 py-4 bg-gray-100 border-b flex justify-between items-center sticky top-0 z-10">
                         <h3 class="text-lg font-medium text-gray-900" id="item-modal-title">Edit Item</h3>
-                        <button id="close-item-modal" class="text-gray-400 hover:text-gray-500">✕</button>
+                        <button id="close-item-modal" class="text-gray-400 hover:text-gray-500 text-2xl">✕</button>
                       </div>
-                      <form id="item-form" class="px-6 py-4">
+                      <form id="item-form" class="px-4 sm:px-6 py-4">
                         <div class="space-y-4">
                           <div>
                             <label class="block text-sm font-medium">Name <span class="text-gray-400 text-xs">(max 120 chars)</span></label>
@@ -275,10 +331,10 @@
                             <textarea id="item-description" rows="3" class="mt-1 block w-full border rounded py-2 px-3"></textarea>
                           </div>
                         </div>
-                        <div class="mt-6 flex justify-end gap-2">
-                          <button type="button" id="delete-item" class="hidden px-3 py-1 bg-red-600 text-white rounded">Delete</button>
-                          <button type="button" id="cancel-item" class="px-3 py-1 border rounded">Cancel</button>
-                          <button type="submit" id="save-item" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
+                        <div class="mt-6 flex flex-col sm:flex-row justify-end gap-2">
+                          <button type="button" id="delete-item" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition order-3 sm:order-1">Delete</button>
+                          <button type="button" id="cancel-item" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 font-medium transition order-2">Cancel</button>
+                          <button type="submit" id="save-item" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition order-1 sm:order-3">Save</button>
                         </div>
                       </form>
                     </div>
@@ -297,6 +353,7 @@
       </footer>
     </div>
 
+  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
   <script type="module" src="/js/entity-management.js"></script>
   </body>
 </html>

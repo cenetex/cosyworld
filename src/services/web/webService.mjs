@@ -13,8 +13,34 @@ export class WebService {
     discordService,
     s3Service,
     aiModelService,
-  xService,
-  secretsService
+    // Provide AI services for downstream consumers (global X poster needs analyzeImage)
+    aiService,
+    openrouterAIService,
+    veoService,
+    xService,
+    telegramService,
+    secretsService,
+    setupStatusService,
+    promptService,
+    globalBotService,
+    metricsService,
+    // Story system services
+    storyStateService,
+    worldContextService,
+    narrativeGeneratorService,
+    storyPlannerService,
+    storySchedulerService,
+    storyPostingService,
+    storyArchiveService,
+    // NFT services
+    nftMetadataService,
+    arweaveService,
+    // Payment services
+    x402Service,
+    agentWalletService,
+    pricingService,
+    marketplaceService,
+    marketplaceServiceRegistry,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -22,8 +48,33 @@ export class WebService {
     this.discordService = discordService;
     this.s3Service = s3Service;
     this.aiModelService = aiModelService;
+    this.aiService = aiService;
+    this.openrouterAIService = openrouterAIService;
+    this.veoService = veoService;
     this.xService = xService;
-  this.secretsService = secretsService;
+    this.telegramService = telegramService;
+    this.secretsService = secretsService;
+    this.setupStatusService = setupStatusService;
+    this.promptService = promptService;
+    this.globalBotService = globalBotService;
+    this.metricsService = metricsService;
+    // Story system
+    this.storyStateService = storyStateService;
+    this.worldContextService = worldContextService;
+    this.narrativeGeneratorService = narrativeGeneratorService;
+    this.storyPlannerService = storyPlannerService;
+    this.storySchedulerService = storySchedulerService;
+    this.storyPostingService = storyPostingService;
+  this.storyArchiveService = storyArchiveService;
+    // NFT services
+    this.nftMetadataService = nftMetadataService;
+    this.arweaveService = arweaveService;
+    // Payment services
+    this.x402Service = x402Service;
+    this.agentWalletService = agentWalletService;
+    this.pricingService = pricingService;
+    this.marketplaceService = marketplaceService;
+    this.marketplaceServiceRegistry = marketplaceServiceRegistry;
 
     this.started = false;
 
@@ -35,14 +86,50 @@ export class WebService {
       discordService: this.discordService,
       s3Service: this.s3Service,
       aiModelService: this.aiModelService,
-  xService: this.xService,
-  secretsService: this.secretsService,
+      // Expose both alias and concrete provider; keep a camelCase alias for backward compat
+      aiService: this.aiService || this.openrouterAIService,
+      openrouterAIService: this.openrouterAIService,
+      // Back-compat for modules referencing openRouterAIService (note the capital R)
+      openRouterAIService: this.openrouterAIService,
+      veoService: this.veoService,
+      xService: this.xService,
+      telegramService: this.telegramService,
+      secretsService: this.secretsService,
+      setupStatusService: this.setupStatusService,
+      promptService: this.promptService,
+      globalBotService: this.globalBotService,
+      metricsService: this.metricsService,
+      // Story system services
+      storyStateService: this.storyStateService,
+      worldContextService: this.worldContextService,
+      narrativeGeneratorService: this.narrativeGeneratorService,
+      storyPlannerService: this.storyPlannerService,
+      storySchedulerService: this.storySchedulerService,
+      storyPostingService: this.storyPostingService,
+      storyArchiveService: this.storyArchiveService,
+      // NFT services
+      nftMetadataService: this.nftMetadataService,
+      arweaveService: this.arweaveService,
+      // Payment services
+      x402Service: this.x402Service,
+      agentWalletService: this.agentWalletService,
+      pricingService: this.pricingService,
+      marketplaceService: this.marketplaceService,
+      marketplaceServiceRegistry: this.marketplaceServiceRegistry,
     };
   }
 
   async start() {
     try {
       this.logger.info('Starting WebService...');
+      
+      // Initialize marketplace service registry
+      if (this.marketplaceServiceRegistry) {
+        this.logger.info('Initializing marketplace service registry...');
+        await this.marketplaceServiceRegistry.initialize();
+        this.logger.info('Marketplace service registry initialized successfully.');
+      }
+      
       await initializeApp(this.services);
       this.logger.info('WebService started successfully.');
     } catch (error) {

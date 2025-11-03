@@ -74,13 +74,40 @@ export function initializeWallet() {
   window.disconnectWallet = disconnectWallet;
 
   // If on admin pages without a wallet container, provide a floating connect button
-  if (suppressToasts && !walletContainer && !window.state?.wallet?.publicKey && !document.getElementById('wallet-connect-floating')) {
-    const btn = document.createElement('button');
-    btn.id = 'wallet-connect-floating';
-    btn.textContent = 'Connect Wallet';
-    btn.className = 'fixed top-3 right-3 z-50 px-3 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700';
-    btn.addEventListener('click', connectWallet);
-    document.body.appendChild(btn);
+  // Update floating button visibility based on wallet state
+  updateFloatingWalletButton();
+  
+  // Listen for wallet connection changes to update floating button
+  window.addEventListener('wallet:connected', updateFloatingWalletButton);
+  window.addEventListener('wallet:disconnected', updateFloatingWalletButton);
+}
+
+/**
+ * Update floating wallet button visibility based on connection state
+ */
+function updateFloatingWalletButton() {
+  const suppressToasts = location.pathname.startsWith('/admin');
+  const walletContainer = document.querySelector(".wallet-container");
+  const existingBtn = document.getElementById('wallet-connect-floating');
+  const isConnected = window.state?.wallet?.publicKey;
+  
+  if (suppressToasts && !walletContainer) {
+    if (!isConnected) {
+      // Show button if not connected
+      if (!existingBtn) {
+        const btn = document.createElement('button');
+        btn.id = 'wallet-connect-floating';
+        btn.textContent = 'Connect Wallet';
+        btn.className = 'fixed top-3 right-3 z-50 px-3 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700';
+        btn.addEventListener('click', connectWallet);
+        document.body.appendChild(btn);
+      }
+    } else {
+      // Hide/remove button if connected
+      if (existingBtn) {
+        existingBtn.remove();
+      }
+    }
   }
 }
 

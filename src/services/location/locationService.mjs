@@ -29,6 +29,8 @@ export class LocationService  {
   this.aiService = aiService;
   this.unifiedAIService = unifiedAIService; // optional adapter
     this.discordService = discordService;
+    // Track in-progress location creations to prevent duplicate generations
+    this.creationLocks = new Map(); // channelId -> Promise
     this.databaseService = databaseService;
     this.schemaService = schemaService;
     this.itemService = itemService;
@@ -49,6 +51,22 @@ export class LocationService  {
   }
 
   /**
+   * Fetch a location document by its MongoDB _id.
+   * @param {string|ObjectId} id - The location document _id
+   * @returns {Promise<Object|null>} Location document or null if not found
+   */
+  async getLocationById(id) {
+    await this.ensureDbConnection();
+    try {
+      const _id = typeof id === 'string' ? new ObjectId(id) : id;
+      return await this.db.collection('locations').findOne({ _id });
+    } catch (e) {
+      console.warn('[LocationService] getLocationById failed:', e.message);
+      return null;
+    }
+  }
+
+  /**
    * Ensures the DB is connected before proceeding.
    * @private
    */
@@ -61,13 +79,50 @@ export class LocationService  {
   }
 
   /**
+   * Initialize database indexes to prevent duplicate locations.
+   * Should be called during service startup.
+   */
+  async initializeDatabase() {
+    await this.ensureDbConnection();
+    
+    try {
+      // Create unique index on channelId to prevent duplicates
+      await this.db.collection('locations').createIndex(
+        { channelId: 1 },
+        { unique: true, background: true }
+      );
+      console.log('LocationService: Created unique index on channelId');
+    } catch (error) {
+      // Index might already exist
+      if (error.code !== 85 && error.code !== 86) {
+        console.warn('LocationService: Failed to create index:', error.message);
+      }
+    }
+  }
+
+  /**
    * Generates an image for a location using Replicate and uploads it to S3.
    * @param {string} locationName - The location name used in the prompt.
    * @param {string} description - Additional descriptive text for the prompt.
+   * @param {Object} metadata - Optional metadata to attach to the generated image event
    * @returns {Promise<string>} - The uploaded image URL.
    */
-  async generateLocationImage(locationName, description) {
-    return await this.schemaService.generateImage(`${locationName}: ${description} Overhead RPG Map Style`, '16:9'); // Use SchemaService
+  async generateLocationImage(locationName, description, metadata = {}) {
+    // Pass metadata through to the upload service so social media posts have context
+    const uploadOptions = {
+      source: 'location.create',
+      purpose: 'location',
+      locationName: locationName,
+      locationDescription: description,
+      context: `New location discovered: ${locationName}. ${description}`,
+      ...metadata
+    };
+    
+    return await this.schemaService.generateImage(
+      `${locationName}: ${description} Overhead RPG Map Style`, 
+      '16:9',
+      uploadOptions
+    );
   }
 
   /**
@@ -273,10 +328,16 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       };
 
       // Post the location image as a webhook
-      await this.discordService.sendAsWebhook(thread.id, locationImage, locationDocument);
+      const locationAsAvatar = {
+        name: String(locationDocument.name || 'New Location'),
+        imageUrl: locationDocument.imageUrl || '',
+        emoji: '📍'
+      };
+      
+      await this.discordService.sendAsWebhook(thread.id, locationImage, locationAsAvatar);
 
       // Post the evocative description as a webhook
-      await this.discordService.sendAsWebhook(thread.id, locationDescription, locationDocument);
+      await this.discordService.sendAsWebhook(thread.id, locationDescription, locationAsAvatar);
 
       // Validate location schema
       const schemaValidator = new SchemaValidator();
@@ -285,10 +346,23 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         throw new Error(`Invalid location schema: ${JSON.stringify(validation.errors)}`);
       }
 
-      // Save to DB
+      // Save to DB with upsert and setOnInsert for createdAt
       await this.db.collection('locations').updateOne(
         { channelId: thread.id },
-        { $set: locationDocument },
+        { 
+          $set: {
+            name: locationDocument.name,
+            description: locationDocument.description,
+            imageUrl: locationDocument.imageUrl,
+            type: locationDocument.type,
+            parentId: locationDocument.parentId,
+            updatedAt: locationDocument.updatedAt,
+            version: locationDocument.version
+          },
+          $setOnInsert: {
+            createdAt: locationDocument.createdAt
+          }
+        },
         { upsert: true }
       );
 
@@ -319,6 +393,36 @@ If already suitable, return as is. If it needs editing, revise it while preservi
 
     let location = await this.db.collection('locations').findOne({ channelId });
     if (!location) {
+      // Check if another call is already creating this location
+      if (this.creationLocks.has(channelId)) {
+        console.log(`[LocationService] Waiting for in-progress creation of location ${channelId}`);
+        await this.creationLocks.get(channelId);
+        // After waiting, try to fetch the location again
+        location = await this.db.collection('locations').findOne({ channelId });
+        if (location) {
+          return location; // Another call created it, we're done
+        }
+      }
+
+      // Set a lock for this channel to prevent other simultaneous calls from generating
+      const creationPromise = this._createLocation(channelId);
+      this.creationLocks.set(channelId, creationPromise);
+      
+      try {
+        location = await creationPromise;
+      } finally {
+        this.creationLocks.delete(channelId);
+      }
+    }
+    return location;
+  }
+
+  /**
+   * Internal method to create a new location (called once per channel due to locking)
+   * @private
+   */
+  async _createLocation(channelId) {
+      let location;
       let channel;
       try {
         channel = await this.discordService.client.channels.fetch(channelId);
@@ -333,7 +437,7 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       let locationName = channel.name;
 
   const ai4 = this.unifiedAIService || this.aiService;
-  const cleanLocationName = await ai4.chat(
+  let cleanLocationName = await ai4.chat(
         [
           { role: 'system', content: 'You are an expert editor.' },
           {
@@ -343,6 +447,14 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         ],
         { model: STRUCTURED_MODEL }
       ).catch(() => locationName.slice(0, 80));
+  
+  // Ensure cleanLocationName is a string
+  if (cleanLocationName && typeof cleanLocationName === 'object' && cleanLocationName.text) {
+    cleanLocationName = cleanLocationName.text;
+  }
+  if (typeof cleanLocationName !== 'string' || !cleanLocationName) {
+    cleanLocationName = locationName.slice(0, 80);
+  }
 
   let description = await ai4.chat(
         [
@@ -362,21 +474,32 @@ If already suitable, return as is. If it needs editing, revise it while preservi
         channelId,
         type: channel.isThread() ? 'thread' : 'channel',
         parentId: channel.isThread() ? channel.parentId : null,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         lastSummaryUpdate: null,
         version: '1.0.0'
       };
 
-      await this.db.collection('locations').insertOne(location);
+      // Use updateOne with upsert to prevent race condition duplicates
+      // Note: createdAt is only set on insert via $setOnInsert to avoid conflicts
+      await this.db.collection('locations').updateOne(
+        { channelId },
+        { 
+          $set: location,
+          $setOnInsert: { createdAt: new Date().toISOString() }
+        },
+        { upsert: true }
+      );
+
+      // Fetch the location again to ensure we have the correct _id
+      location = await this.db.collection('locations').findOne({ channelId });
 
       await this.discordService.sendLocationEmbed(location, [], [], channelId);
       await this.discordService.sendAsWebhook(channelId, description, {
-        name: cleanLocationName,
-        imageUrl
+        name: String(cleanLocationName || 'Unknown Location'),
+        imageUrl: imageUrl || ''
       });
-    }
-    return location;
+      
+      return location;
   }
 
   /**
@@ -463,8 +586,8 @@ If already suitable, return as is. If it needs editing, revise it while preservi
       this.discordService.sendLocationEmbed(location, items, avatars, locationId);
       await this.discordService.sendAsWebhook(locationId, summary, {
         id: locationId,
-        name: location.name,
-        imageUrl: location.imageUrl
+        name: String(location.name || 'Unknown Location'),
+        imageUrl: location.imageUrl || ''
       });
 
       await this.db.collection('locations').updateOne(

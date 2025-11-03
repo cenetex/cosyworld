@@ -53,13 +53,13 @@ export class BattleMediaService {
     }
   }
 
-  async _composeOrGenerateImage(images, scenePrompt) {
+  async _composeOrGenerateImage(images, scenePrompt, uploadOptions = {}) {
     // Try primary provider first, fallback to googleAIService
     const tryProvider = async (provider) => {
       if (!provider) return null;
       try {
         if (typeof provider.composeImageWithGemini === 'function') {
-          const composed = await provider.composeImageWithGemini(images, scenePrompt);
+          const composed = await provider.composeImageWithGemini(images, scenePrompt, uploadOptions);
           if (composed) return composed;
         }
       } catch (e) {
@@ -68,7 +68,7 @@ export class BattleMediaService {
       try {
         if (typeof provider.generateImage === 'function') {
           const prompt = `${scenePrompt}`;
-          const gen = await provider.generateImage(prompt);
+          const gen = await provider.generateImage(prompt, uploadOptions);
           if (gen) return gen;
         }
       } catch (e) {
@@ -93,7 +93,8 @@ export class BattleMediaService {
   const allowVideo = !!this.veoService && (wantCriticalVideo || wantDeathVideo || wantKnockoutVideo);
 
     if (!imageUrl || !allowVideo) return null;
-    if (this.veoService?.checkRateLimit && !this.veoService.checkRateLimit()) return null;
+    // Check rate limit (now async)
+    if (this.veoService?.checkRateLimit && !(await this.veoService.checkRateLimit())) return null;
 
     try {
       const sceneBuf = await this.s3Service.downloadImage(imageUrl);
@@ -131,7 +132,19 @@ export class BattleMediaService {
       if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-  const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const locName = location?.name || location?.title || 'the battlefield';
+      const uploadOptions = {
+        source: 'combat.action',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `⚔️ ${attacker.name} attacks ${defender.name} at ${locName}`,
+        avatarName: `${attacker.name} vs ${defender.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+  const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
   // Mid-battle: never generate video here. Video is only attempted in summaries.
   if (!imageUrl) return null;
   return { imageUrl, videoUrl: null };
@@ -160,7 +173,18 @@ export class BattleMediaService {
       if (l64) images.push({ data: l64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const uploadOptions = {
+        source: 'combat.poster',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `⚔️ ${attacker.name} vs ${defender.name} at ${locName}`,
+        avatarName: `${attacker.name} vs ${defender.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
       if (!imageUrl) return null;
       return { imageUrl };
     } catch (e) {
@@ -204,7 +228,19 @@ export class BattleMediaService {
       if (loc64) images.push({ data: loc64, mimeType: 'image/png', label: 'location' });
       images.splice(3);
 
-      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt);
+      // Build upload options with metadata for event emission and social posting
+      const locName = location?.name || location?.title || 'the battlefield';
+      const uploadOptions = {
+        source: 'combat.summary',
+        purpose: 'battle',
+        prompt: scenePrompt,
+        context: `🏆 ${winner.name} defeats ${loser.name} at ${locName}`,
+        avatarName: `${winner.name} vs ${loser.name}`,
+        locationName: locName,
+        locationDescription: location?.description
+      };
+
+      const imageUrl = await this._composeOrGenerateImage(images, scenePrompt, uploadOptions);
 
       // For summary, attempt a video if knockout/death occurred
       let videoUrl = null;
@@ -217,6 +253,92 @@ export class BattleMediaService {
       return { imageUrl, videoUrl };
     } catch (e) {
       this.logger?.warn?.(`[BattleMedia] generateSummaryMedia error: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Generate a cinematic video clip from a battle image with background music
+   * This is designed to be triggered by a button click, not automatically
+   * @param {Object} params
+   * @param {string} params.imageUrl - Battle image URL
+   * @param {Object} params.battleContext - Battle context (attacker, defender, outcome, location)
+   * @param {string} [params.channelId] - Discord channel ID
+   * @param {string} [params.guildId] - Discord guild ID
+   * @param {string} [params.userId] - User who requested
+   * @returns {Promise<{jobId: string, status: string}>} Video composition job info
+   */
+  async generateBattleVideoWithMusic({
+    imageUrl,
+    battleContext = {},
+    channelId = null,
+    guildId = null,
+    userId = null
+  }) {
+    try {
+      if (!this.battleVideoComposer) {
+        throw new Error('Battle video composer not available');
+      }
+
+      // Determine battle mood from outcome
+      let mood = 'intense';
+      const outcome = battleContext.outcome;
+      if (outcome === 'dead') mood = 'dramatic';
+      else if (outcome === 'knockout') mood = 'epic';
+      else if (outcome === 'win') mood = 'triumphant';
+
+      // Build video prompt
+      const attacker = battleContext.attacker?.name || 'Fighter';
+      const defender = battleContext.defender?.name || 'Opponent';
+      const location = battleContext.location?.name || 'the battlefield';
+      
+      let videoPrompt = `Cinematic ${mood} battle scene: ${attacker} vs ${defender} at ${location}. `;
+      videoPrompt += 'Dynamic camera movement, dramatic lighting, particle effects, slow-motion impact moments. ';
+      videoPrompt += '16:9 widescreen, both combatants visible, epic cinematography.';
+
+      // Create composition job
+      const jobId = await this.battleVideoComposer.createComposition({
+        imageUrl,
+        prompt: videoPrompt,
+        battleContext: {
+          mood,
+          genre: 'orchestral',
+          tempo: outcome === 'dead' || outcome === 'knockout' ? 'medium' : 'fast',
+          attacker: battleContext.attacker,
+          defender: battleContext.defender,
+          outcome: battleContext.outcome,
+          location: battleContext.location
+        },
+        channelId,
+        guildId,
+        userId
+      });
+
+      this.logger?.info?.(`[BattleMedia] Created video composition job ${jobId} for ${attacker} vs ${defender}`);
+
+      return {
+        jobId,
+        status: 'queued',
+        message: '🎬 Generating cinematic battle video with epic music... This may take 1-2 minutes.'
+      };
+
+    } catch (err) {
+      this.logger?.error?.(`[BattleMedia] Video composition request failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Check status of a video composition job
+   * @param {string} jobId - Job ID
+   * @returns {Promise<object|null>} Job status
+   */
+  async getVideoJobStatus(jobId) {
+    try {
+      if (!this.battleVideoComposer) return null;
+      return await this.battleVideoComposer.getJobStatus(jobId);
+    } catch (err) {
+      this.logger?.error?.(`[BattleMedia] Get job status error: ${err.message}`);
       return null;
     }
   }

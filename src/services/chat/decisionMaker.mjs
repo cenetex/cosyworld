@@ -129,6 +129,7 @@ export class DecisionMaker  {
   }
 
   /**
+   * @deprecated This method is no longer used. Response coordination is now handled by ResponseCoordinator.
    * Selects a subset of avatars to consider for responding to a message.
    * @param {Array} avatars - List of all avatars in the channel.
    * @param {Object} message - The Discord message object.
@@ -201,6 +202,34 @@ export class DecisionMaker  {
       avatar.id = `${avatar._id.toString()}`;
     }
 
+    // Gate speaking for KO/dead avatars
+    const now = Date.now();
+    if (avatar?.status === 'dead') {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - status is dead`);
+      return false;
+    }
+    if (avatar?.status === 'knocked_out') {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - status is knocked_out`);
+      return false;
+    }
+    if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) {
+      this.logger.debug?.(`[DecisionMaker] ${avatar.name} cannot respond - knocked out until ${new Date(avatar.knockedOutUntil).toISOString()}`);
+      return false;
+    }
+
+    // CRITICAL: Never respond to own messages (prevents self-conversation loops)
+    if (triggerMessage && triggerMessage.author?.bot) {
+      const isSelf = triggerMessage.author.username === avatar.name ||
+        triggerMessage.author.id === avatar._id?.toString() ||
+        triggerMessage.author.id === avatar.id ||
+        (triggerMessage.author.username.includes(avatar.name) && (!avatar.emoji || triggerMessage.author.username.includes(avatar.emoji)));
+      
+      if (isSelf) {
+        this.logger.debug?.(`[DecisionMaker] ${avatar.name} skipping own message`);
+        return false;
+      }
+    }
+
     // Force response if avatar explicitly mentioned in the triggering message
     if (triggerMessage && this._isMentioned(triggerMessage, avatar)) {
       this._updateAttention(avatar.id, 30);
@@ -240,10 +269,16 @@ export class DecisionMaker  {
         // Slightly relax cooldown window when sticky
         const stickyCooldown = Math.max(10_000, Math.floor((this.config.PER_AVATAR_COOLDOWN || 120_000) * 0.6));
         const state = this._getAttentionState(avatar.id);
-        if (Date.now() - state.lastResponse >= stickyCooldown) {
+        const timeSinceLastResponse = Date.now() - state.lastResponse;
+        
+        if (timeSinceLastResponse >= stickyCooldown) {
+          this.logger.debug?.(`[DecisionMaker] ${avatar.name} responding via sticky affinity (${Math.round(timeSinceLastResponse/1000)}s since last)`);
           this._updateAttention(avatar.id, 20);
           this._updateConversation(channel.id, avatar.id);
           return true;
+        } else {
+          this.logger.debug?.(`[DecisionMaker] ${avatar.name} sticky cooldown active (${Math.round(timeSinceLastResponse/1000)}s/${Math.round(stickyCooldown/1000)}s)`);
+          return false;
         }
       }
     }
@@ -418,6 +453,29 @@ export class DecisionMaker  {
     }
 
     this.currentMode = this.mindModes[Math.floor(Math.random() * this.mindModes.length)];
+  }
+
+  /**
+   * Clean up expired affinity records to prevent memory leaks.
+   * Should be called periodically (e.g., every 5 minutes).
+   * @returns {number} Number of records removed
+   */
+  cleanupExpiredAffinity() {
+    const now = Date.now();
+    let removed = 0;
+    
+    for (const [key, rec] of this.userAffinity.entries()) {
+      if (now > rec.until) {
+        this.userAffinity.delete(key);
+        removed++;
+      }
+    }
+    
+    if (removed > 0) {
+      this.logger.debug?.(`[DecisionMaker] Cleaned ${removed} expired affinity records`);
+    }
+    
+    return removed;
   }
 
 }

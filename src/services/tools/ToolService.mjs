@@ -15,7 +15,7 @@ import { ItemTool } from './tools/ItemTool.mjs';
 import { ThinkTool } from './tools/ThinkTool.mjs';
 import { SummonTool } from './tools/SummonTool.mjs';
 import { BreedTool } from './tools/BreedTool.mjs';
-import { OneirocomForumTool as ForumTool } from './tools/ForumTool.mjs';
+import { WebSearchTool } from './tools/WebSearchTool.mjs';
 import { CooldownService } from './CooldownService.mjs';
 import { SelfieTool } from './tools/SelfieTool.mjs';
 import { SceneCameraTool } from './tools/SceneCameraTool.mjs';
@@ -53,7 +53,6 @@ export class ToolService {
     statService,
     schemaService,
     knowledgeService,
-    oneirocomForumService,
     veoService,
     videoJobService,
     presenceService
@@ -85,7 +84,6 @@ export class ToolService {
       statService,
       schemaService,
       knowledgeService,
-      forumService: oneirocomForumService,
       veoService,
       videoJobService,
       presenceService
@@ -129,12 +127,12 @@ export class ToolService {
       create: CreationTool,
       x: XSocialTool,
       item: ItemTool,
-  potion: PotionTool,
+      potion: PotionTool,
       respond: ThinkTool,
-      forum: ForumTool,
-  selfie: SelfieTool,
-  camera: SceneCameraTool,
-  'video camera': VideoCameraTool,
+      search: WebSearchTool,
+      selfie: SelfieTool,
+      camera: SceneCameraTool,
+      'video camera': VideoCameraTool,
       devil: DevilTool
     };
 
@@ -158,6 +156,8 @@ export class ToolService {
   this.toolEmojis.set('🤳', 'selfie');
   this.toolEmojis.set('📷', 'camera');
   this.toolEmojis.set('🎥', 'video camera');
+  // Legacy spiderweb emoji now maps to web search tool
+  this.toolEmojis.set('🕸️', 'search');
   }
 
   registerTool(tool) {

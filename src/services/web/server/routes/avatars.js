@@ -69,6 +69,10 @@ const avatarSchema = {
   claimedBy: 1,
   emoji: 1,
   stats: 1,
+  personality: 1,
+  description: 1,
+  lastActiveAt: 1,
+  model: 1,
 };
 
 /**

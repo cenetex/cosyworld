@@ -13,7 +13,7 @@ export class SummonTool extends BasicTool {
     configService,
     databaseService,
     aiService,
-  unifiedAIService,
+    unifiedAIService,
     statService,
     presenceService,
     logger,
@@ -25,9 +25,9 @@ export class SummonTool extends BasicTool {
     this.configService = configService;
     this.databaseService = databaseService;
     this.aiService = aiService;
-  this.unifiedAIService = unifiedAIService;
-  this.statService = statService;
-  this.presenceService = presenceService;
+    this.unifiedAIService = unifiedAIService;
+    this.statService = statService;
+    this.presenceService = presenceService;
     this.logger = logger;
 
     this.name = 'summon';
@@ -129,6 +129,20 @@ export class SummonTool extends BasicTool {
         return '-# [ Summon aborted: no description or image provided. ]';
       }
 
+      // Try to sync avatar from configured collections first (if it doesn't exist in DB yet)
+      if (avatarName) {
+        try {
+          const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
+          const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
+          if (syncedAvatar) {
+            this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection before summoning`);
+          }
+        } catch (e) {
+          this.logger.debug?.(`[SummonTool] Collection sync check failed: ${e.message}`);
+          // Continue anyway - not a critical failure
+        }
+      }
+
       // Check for existing avatar
   const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
       if (existingAvatar) {
@@ -139,7 +153,22 @@ export class SummonTool extends BasicTool {
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
           try {
             this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
-            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description);
+            // Pass metadata for proper event emission
+            const uploadOptions = {
+              source: 'avatar.summon',
+              avatarName: existingAvatar.name,
+              avatarEmoji: existingAvatar.emoji,
+              avatarId: existingAvatar._id,
+              prompt: existingAvatar.description,
+              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
+            };
+            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
+            
+            // Save the regenerated image to the database immediately
+            if (existingAvatar.imageUrl) {
+              await this.avatarService.updateAvatar(existingAvatar);
+              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
+            }
           } catch (e) {
             this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
           }
@@ -151,8 +180,37 @@ export class SummonTool extends BasicTool {
             await this.avatarService.updateAvatar(existingAvatar);
         }
         await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
+        
+        // Generate greeting from the avatar
+        const ai = this.unifiedAIService || this.aiService;
+        const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
+        let greeting = null;
+        try {
+          const greetingPrompt = alreadyHere 
+            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
+            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
+          
+          const greetingResult = await ai.chat([
+            { 
+              role: 'system', 
+              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}` 
+            },
+            { role: 'user', content: greetingPrompt }
+          ], { model: existingAvatar.model, corrId });
+          
+          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
+          // Remove any <think> tags
+          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        } catch (e) {
+          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+        }
+        
         if (alreadyHere) {
-          // Resummon in same channel: show the avatar's full embed for the user
+          // Resummon in same channel: send greeting then show profile
+          if (greeting) {
+            await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+          }
           try {
             await this.discordService.sendAvatarEmbed(existingAvatar, message.channel.id, this.aiService);
           } catch (e) {
@@ -160,21 +218,25 @@ export class SummonTool extends BasicTool {
           }
           return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
         } else {
-          // Arrival mini embed
+          // Arrival: send greeting and mini embed
           setTimeout(async () => {
+            if (greeting) {
+              await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+            }
             await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
           }, 800);
           return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
         }
       }
 
-      // Check summon limit (bypass for specific user ID, e.g., admin)
       const breed = Boolean(params.breed);
+
+      // Check summon limit (bypass for specific user ID, e.g., admin)
       const canSummon = message.author.id === '1175877613017895032' || (await this.checkDailySummonLimit(message.author.id));
-    if (!canSummon) {
-      // Friendly singular message (avoid spam)
-      await this.discordService.replyToMessage(message, `You've already summoned an avatar today. (Daily limit: ${this.DAILY_SUMMON_LIMIT})`);
-      return '-# [ Summon rejected: daily limit reached. ]';
+      if (!canSummon) {
+        // Friendly singular message (avoid spam)
+        await this.discordService.replyToMessage(message, `You've already summoned an avatar today. (Daily limit: ${this.DAILY_SUMMON_LIMIT})`);
+        return '-# [ Summon rejected: daily limit reached. ]';
       }
 
       // Get guild configuration

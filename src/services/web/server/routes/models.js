@@ -4,10 +4,25 @@
  */
 
 import express from 'express';
-import { aiModelService } from '../../../ai/aiModelService.mjs';
 
-export default function (db) {
+export default function (db, services) {
   const router = express.Router();
+  
+  // Get aiModelService from the container
+  const aiModelService = services?.aiModelService;
+  
+  if (!aiModelService) {
+    console.error('[models route] aiModelService not available in container');
+  }
+
+  // Utility: Get all models from all services
+  const getAllModels = () => {
+    if (!aiModelService) return [];
+    const openrouterModels = aiModelService.getAllModels('openrouter');
+    const googleModels = aiModelService.getAllModels('googleAI');
+    console.log(`[models route] Fetched ${openrouterModels.length} openrouter + ${googleModels.length} google models`);
+    return [...openrouterModels, ...googleModels];
+  };
 
   // Utility: Validate and sanitize query parameters
   const parseQuery = (query) => ({
@@ -33,8 +48,10 @@ export default function (db) {
       const { page, limit, rarity, search } = parseQuery(req.query);
       const skip = (page - 1) * limit;
 
-      // Fetch models from aiModelService
-      let filteredModels = aiModelService.getAllModels('webService');
+      // Fetch models from all registered services
+      const allModels = getAllModels();
+      
+      let filteredModels = allModels;
       if (rarity) filteredModels = filteredModels.filter((m) => m.rarity.toLowerCase() === rarity);
       if (search) filteredModels = filteredModels.filter((m) => m.model.toLowerCase().includes(search));
 
@@ -69,8 +86,9 @@ export default function (db) {
   // Route: Fetch all model configurations
   router.get('/config', async (req, res) => {
     try {
-      const models = aiModelService.getAllModels('webService');
-      res.json(models);
+      // Combine models from all registered services
+      const allModels = getAllModels();
+      res.json(allModels);
     } catch (error) {
       console.error('Error fetching model config:', error);
       res.status(500).json({ error: 'Failed to fetch model configurations' });
@@ -81,7 +99,11 @@ export default function (db) {
   router.get('/:modelName', async (req, res) => {
     try {
       const modelName = decodeURIComponent(req.params.modelName);
-      const model = aiModelService.getAllModels('webService').find((m) => m.model === modelName);
+      
+      // Search in all registered services
+      const allModels = getAllModels();
+      
+      const model = allModels.find((m) => m.model === modelName);
 
       if (!model) {
         return res.status(404).json({ error: 'Model not found' });

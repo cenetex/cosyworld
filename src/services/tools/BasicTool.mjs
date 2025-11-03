@@ -15,7 +15,31 @@ export class BasicTool {
   }
 
   getDescription() {
-    throw new Error('Tool must implement getDescription method');
+    // Return description if set, otherwise throw error for tools that must override
+    if (this.description) {
+      return this.description;
+    }
+    throw new Error('Tool must implement getDescription method or set this.description');
+  }
+
+  /**
+   * Get OpenAI-compatible parameter schema for this tool
+   * Override this method to provide specific parameter definitions
+   * @returns {Object} JSON Schema object describing tool parameters
+   */
+  getParameterSchema() {
+    // Default: single optional target parameter
+    // Most tools take a target/params string - override for specific schemas
+    return {
+      type: 'object',
+      properties: {
+        target: {
+          type: 'string',
+          description: 'Target or parameters for this action'
+        }
+      },
+      required: []
+    };
   }
 
   toolEmojisGuildCache = new Map();

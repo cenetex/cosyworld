@@ -15,19 +15,23 @@ export class SecretsService {
   constructor({ logger } = {}) {
     this.logger = logger || console;
     const key = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
-    // In production, refuse to boot without a strong key
+    
+    // In production, enforce strong encryption keys (32+ bytes)
     if (process.env.NODE_ENV === 'production') {
-      if (!key || key.length < 16) {
-        const msg = '[secrets] Missing or weak ENCRYPTION_KEY/APP_SECRET in production. Set a strong 32+ character key.';
+      if (!key || key.length < 32) {
+        const msg = '[secrets] 🔒 FATAL: ENCRYPTION_KEY must be at least 32 bytes in production. ' +
+          'Generate a strong key with: openssl rand -base64 32';
         this.logger?.error?.(msg);
-        throw new Error(msg);
+        throw new Error('ENCRYPTION_KEY too weak for production use. Minimum 32 bytes required.');
       }
+      this.logger.info('[secrets] ✓ Strong encryption key detected (32+ bytes)');
     } else if (!key || key.length < 16) {
       this.logger.warn('[secrets] Weak or missing ENCRYPTION_KEY; using a dev fallback. Do NOT use this in production.');
     }
-    // normalize key to 32 bytes
+    
+    // Normalize key to 32 bytes (uses SHA-256 for consistency)
     this.key = crypto.createHash('sha256').update(key || 'dev-secret').digest();
-  this.cache = new Map(); // in-memory encrypted store { compositeKey -> encB64 }
+    this.cache = new Map(); // in-memory encrypted store { compositeKey -> encB64 }
     this.db = null;
     this.collection = null;
   }
@@ -78,7 +82,9 @@ export class SecretsService {
   encrypt(plain) {
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', this.key, iv);
-    const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+    // Stringify objects/arrays, convert primitives to string
+    const stringValue = typeof plain === 'object' ? JSON.stringify(plain) : String(plain);
+    const enc = Buffer.concat([cipher.update(stringValue, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, enc]).toString('base64'); // [IV(12)|TAG(16)|DATA]
   }
@@ -91,7 +97,12 @@ export class SecretsService {
     const decipher = crypto.createDecipheriv('aes-256-gcm', this.key, iv);
     decipher.setAuthTag(tag);
     const dec = Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
-    return dec;
+    // Try to parse as JSON, otherwise return as string
+    try {
+      return JSON.parse(dec);
+    } catch {
+      return dec;
+    }
   }
 
   _ck(name, scope = 'global', guildId = null) {
@@ -110,6 +121,7 @@ export class SecretsService {
     const scope = guildId ? 'guild' : 'global';
     const enc = this.encrypt(value);
     this.cache.set(this._ck(name, scope, guildId), enc);
+    this.logger.info(`[secrets] set() called for key="${name}", scope="${scope}", cached=true, hasCollection=${!!this.collection}`);
     // Persist if DB bound
     if (this.collection) {
       const filter = { key: name, scope, guildId: guildId || null };
@@ -117,8 +129,15 @@ export class SecretsService {
         filter,
         { $set: { key: name, scope, guildId: guildId || null, value: enc, updatedAt: new Date() } },
         { upsert: true }
-      ).then(() => true).catch((e) => { this.logger.error('[secrets] set persist failed:', e.message); return false; });
+      ).then(() => {
+        this.logger.info(`[secrets] set() persisted to DB for key="${name}"`);
+        return true;
+      }).catch((e) => { 
+        this.logger.error('[secrets] set persist failed:', e.message); 
+        return false; 
+      });
     }
+    this.logger.warn(`[secrets] set() for key="${name}" - no collection bound, only cached!`);
     return true;
   }
 
@@ -134,6 +153,7 @@ export class SecretsService {
   }
 
   async getAsync(name, { envFallback = true, guildId = null } = {}) {
+    this.logger.debug?.(`[secrets] getAsync() called for key="${name}", guildId=${guildId}, hasCollection=${!!this.collection}`);
     // Prefer guild override
     let enc = this.cache.get(this._ck(name, 'guild', guildId));
     if (!enc && this.collection && guildId) {
@@ -142,6 +162,7 @@ export class SecretsService {
         if (doc?.value) {
           enc = doc.value;
           this.cache.set(this._ck(name, 'guild', guildId), enc);
+          this.logger.debug?.(`[secrets] getAsync() loaded guild secret from DB for key="${name}"`);
         }
       } catch (e) {
         this.logger.error('[secrets] getAsync guild query failed:', e.message);
@@ -150,12 +171,16 @@ export class SecretsService {
     // Fallback to global
     if (!enc) {
       enc = this.cache.get(this._ck(name, 'global'));
+      this.logger.debug?.(`[secrets] getAsync() cache check for key="${name}": ${enc ? 'FOUND' : 'NOT FOUND'}`);
       if (!enc && this.collection) {
+        this.logger.debug?.(`[secrets] getAsync() querying DB for key="${name}"`);
         try {
           const doc = await this.collection.findOne({ key: name, $or: [{ scope: 'global' }, { scope: { $exists: false } }] });
+          this.logger.debug?.(`[secrets] getAsync() DB query result for key="${name}": ${doc ? 'FOUND' : 'NOT FOUND'}`);
           if (doc?.value) {
             enc = doc.value;
             this.cache.set(this._ck(name, 'global'), enc);
+            this.logger.debug?.(`[secrets] getAsync() loaded global secret from DB for key="${name}"`);
           }
         } catch (e) {
           this.logger.error('[secrets] getAsync global query failed:', e.message);
@@ -163,7 +188,11 @@ export class SecretsService {
       }
     }
     if (enc) {
-      try { return this.decrypt(enc); } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
+      try { 
+        const decrypted = this.decrypt(enc);
+        this.logger.debug?.(`[secrets] getAsync() returning decrypted value for key="${name}"`);
+        return decrypted;
+      } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
     }
     if (envFallback) return process.env[name];
     return undefined;
@@ -244,4 +273,73 @@ export class SecretsService {
     }
     return { value: undefined, source: null };
   }
+
+  /**
+   * Rotate encryption key - re-encrypt all secrets with a new key
+   * @param {string} newKey - New encryption key (must be 32+ bytes in production)
+   * @returns {Promise<{success: boolean, reencrypted: number, errors: number}>}
+   * @example
+   * const stats = await secretsService.rotateKey(process.env.NEW_ENCRYPTION_KEY);
+   * console.log(`Re-encrypted ${stats.reencrypted} secrets`);
+   */
+  async rotateKey(newKey) {
+    if (!newKey || newKey.length < 32) {
+      throw new Error('New encryption key must be at least 32 bytes');
+    }
+
+    this.logger.info('[secrets] 🔄 Starting key rotation...');
+    const stats = { success: true, reencrypted: 0, errors: 0 };
+    const decrypted = new Map(); // Store decrypted values temporarily
+
+    try {
+      // Step 1: Decrypt all secrets with old key
+      for (const [compositeKey, encryptedValue] of this.cache.entries()) {
+        try {
+          const plainValue = this.decrypt(encryptedValue);
+          decrypted.set(compositeKey, plainValue);
+        } catch (error) {
+          this.logger.error(`[secrets] Failed to decrypt ${compositeKey}:`, error.message);
+          stats.errors++;
+        }
+      }
+
+      // Step 2: Update to new key
+      const oldKey = this.key;
+      this.key = crypto.createHash('sha256').update(newKey).digest();
+
+      // Step 3: Re-encrypt all secrets with new key
+      for (const [compositeKey, plainValue] of decrypted.entries()) {
+        try {
+          const newEncrypted = this.encrypt(plainValue);
+          this.cache.set(compositeKey, newEncrypted);
+
+          // Update in database if attached
+          if (this.collection) {
+            const { name, scope, guildId } = this._parseCk(compositeKey);
+            const filter = { key: name, scope: scope || 'global', guildId: guildId || null };
+            await this.collection.updateOne(
+              filter,
+              { $set: { value: newEncrypted, updatedAt: new Date() } }
+            );
+          }
+
+          stats.reencrypted++;
+        } catch (error) {
+          this.logger.error(`[secrets] Failed to re-encrypt ${compositeKey}:`, error.message);
+          stats.errors++;
+          // Rollback to old key on any error
+          this.key = oldKey;
+          stats.success = false;
+          throw new Error(`Key rotation failed: ${error.message}`);
+        }
+      }
+
+      this.logger.info(`[secrets] ✓ Key rotation complete: ${stats.reencrypted} secrets re-encrypted`);
+      return stats;
+    } catch (error) {
+      this.logger.error('[secrets] Key rotation failed:', error.message);
+      throw error;
+    }
+  }
 }
+

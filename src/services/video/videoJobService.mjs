@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -168,8 +169,8 @@ export default class VideoJobService {
     try {
       this.logger.info?.(`[VideoJobService] processing job ${String(job._id)}...`);
   if (this._shouldNotifyProgress()) await this._notifyStart(job).catch(() => {});
-      // Respect global Veo rate limits; if not allowed, defer
-      if (!this.veoService?.checkRateLimit?.()) {
+      // Respect global Veo rate limits; if not allowed, defer (now async)
+      if (!(await this.veoService?.checkRateLimit?.())) {
         await this.markCancelled(job._id, 'RATE_LIMIT');
         this.logger.warn?.(`[VideoJobService] cancelled job ${String(job._id)} due to rate limit`);
         await this._notifyCancel(job).catch(() => {});
@@ -209,7 +210,7 @@ export default class VideoJobService {
             // Resolve admin identity
             let admin = null;
             try {
-              const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+              const envId = resolveAdminAvatarId();
               if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
                 admin = await this.configService.services.avatarService.getAvatarById(envId);
               } else {

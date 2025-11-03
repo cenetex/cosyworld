@@ -1,5 +1,5 @@
 export class TurnScheduler {
-  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService }) {
+  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
@@ -7,6 +7,8 @@ export class TurnScheduler {
     this.discordService = discordService;
     this.conversationManager = conversationManager;
     this.avatarService = avatarService;
+    this.responseCoordinator = responseCoordinator;
+    
   // Default: 1 hour ticks with ±5 minutes jitter
   this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
   this.JITTER_MS = Number(process.env.CHANNEL_TICK_JITTER_MS || 300000);
@@ -128,161 +130,102 @@ export class TurnScheduler {
   }
 
   async onChannelTick(channelId, budgetAllowed = Infinity) {
-  const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
-  if (Date.now() < suppressedUntil) return 0;
-    // Ensure presence docs exist for avatars in channel
-    let guildId = null;
-    try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
-    catch (e) {
-      // Missing Access or Unknown Channel – skip quietly for this channel
-      const msg = String(e?.message || '').toLowerCase();
-      if (msg.includes('missing access') || msg.includes('unknown channel')) return 0;
-      // Other errors bubble up as a single warning per tick
-      this.logger.warn?.(`[TurnScheduler] getGuildByChannelId failed for ${channelId}: ${e.message}`);
+    const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
+    if (Date.now() < suppressedUntil) return 0;
+
+    try {
+      let guildId = null;
+      try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
+      catch (e) {
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('missing access') || msg.includes('unknown channel')) return 0;
+        this.logger.warn?.(`[TurnScheduler] getGuildByChannelId failed for ${channelId}: ${e.message}`);
+        return 0;
+      }
+
+      const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
+      for (const av of avatars) {
+        await this.presenceService.ensurePresence(channelId, `${av._id}`);
+      }
+
+      let channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel && this.discordService.client.channels?.fetch) {
+        try { channel = await this.discordService.client.channels.fetch(channelId); }
+        catch (e) {
+          const m = String(e?.message || '').toLowerCase();
+          if (m.includes('missing access') || m.includes('unknown channel')) return 0;
+        }
+      }
+      if (!channel) return 0;
+
+      // Use ResponseCoordinator for unified response handling
+      const responses = await this.responseCoordinator.coordinateResponse(channel, null, {
+        triggerType: 'ambient',
+        guildId,
+        avatars,
+        budgetAllowed
+      });
+
+      return responses.length;
+    } catch (e) {
+      this.logger.warn(`[TurnScheduler] onChannelTick failed for ${channelId}: ${e.message}`);
       return 0;
     }
-    const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
-    for (const av of avatars) {
-      await this.presenceService.ensurePresence(channelId, `${av._id}`);
-    }
-
-    const tickId = await this.nextTickId(channelId);
-    const present = await this.presenceService.listPresent(channelId);
-    if (!present.length) return 0;
-
-    // Estimate human activity in last 10 minutes
-    let activeHumans = 0;
-    try {
-      const db = await this.databaseService.getDatabase();
-      const since = Date.now() - 10 * 60 * 1000;
-      activeHumans = await db.collection('messages').distinct('authorId', { channelId, timestamp: { $gt: since }, 'author.bot': false }).then(a => a.length).catch(() => 0);
-    } catch {}
-
-  let K = this.computeK(activeHumans);
-  if (Number.isFinite(budgetAllowed)) K = Math.min(K, Math.max(0, budgetAllowed));
-
-    const ctx = { mentionedSet: new Set(), topicTags: [] };
-    const ranked = present
-      .map(doc => ({ doc, score: this.presenceService.scoreInitiative(doc, ctx) }))
-      .sort((a,b) => b.score - a.score || (b.doc.priorityPins||0) - (a.doc.priorityPins||0) || new Date(b.doc.lastMentionedAt||0) - new Date(a.doc.lastMentionedAt||0) || new Date(a.doc.lastTurnAt||0) - new Date(b.doc.lastTurnAt||0) || String(a.doc.avatarId).localeCompare(String(b.doc.avatarId)) )
-      .slice(0, K * 3);
-
-    let taken = 0;
-  let channel = this.discordService.client.channels.cache.get(channelId);
-    if (!channel && this.discordService.client.channels?.fetch) {
-      try { channel = await this.discordService.client.channels.fetch(channelId); }
-      catch (e) {
-        const m = String(e?.message || '').toLowerCase();
-        if (m.includes('missing access') || m.includes('unknown channel')) return 0;
-      }
-    }
-  if (!channel) return 0;
-    for (const r of ranked) {
-      if (taken >= K) break;
-      if (r.doc.state !== 'present') continue;
-      if (this.presenceService.cooldownActive(r.doc)) continue;
-  const ok = await this.tryLease(channelId, r.doc.avatarId, tickId, { mode: 'ambient' });
-      if (!ok) continue;
-      try {
-        const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
-        if (!avatar) { await this.completeLease(channelId, r.doc.avatarId, tickId); continue; }
-        await this.conversationManager.sendResponse(channel, avatar);
-        await this.completeLease(channelId, r.doc.avatarId, tickId);
-        await this.presenceService.recordTurn(channelId, r.doc.avatarId);
-        taken++;
-      } catch (e) {
-        this.logger.warn(`[TurnScheduler] sendResponse failed for ${r.doc.avatarId}: ${e.message}`);
-        try { await this.failLease(channelId, r.doc.avatarId, tickId, e); } catch {}
-      }
-    }
-    return taken;
   }
 
   async onHumanMessage(channelId, message) {
-    const guildId = message.guild?.id;
-    const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
-    const tickId = await this.currentTickId(channelId);
-    let channel = this.discordService.client.channels.cache.get(channelId);
-    if (!channel && this.discordService.client.channels?.fetch) {
-      try { channel = await this.discordService.client.channels.fetch(channelId); }
-      catch {}
-    }
-
-  let usedResponses = 0;
-  // Start suppression window for ambient chatter
-  this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
-    // Priority: freshly summoned avatars with guaranteed turns
+    // Start suppression window for ambient chatter
+    this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
+    
     try {
-      const c = await this.presenceService.col();
-      const priorityDoc = await c.find({ channelId, newSummonTurnsRemaining: { $gt: 0 } })
-        .sort({ lastSummonedAt: -1 })
-        .limit(1)
-        .next();
-      if (priorityDoc) {
-        const ok = await this.tryLease(channelId, priorityDoc.avatarId, tickId, { mode: 'priority', messageId: message.id, authorId: message.author?.id });
-        if (ok) {
+      const guildId = message.guild?.id;
+      const avatars = await this.avatarService.getAvatarsInChannel(channelId, guildId);
+      
+      // Ensure presence for all avatars
+      for (const av of avatars) {
+        await this.presenceService.ensurePresence(channelId, `${av._id}`);
+      }
+
+      // Record mentions for presence tracking
+      const content = (message.content || '').toLowerCase();
+      for (const av of avatars) {
+        const name = String(av.name || '').toLowerCase();
+        const emoji = String(av.emoji || '').toLowerCase();
+        if ((name && content.includes(name)) || (emoji && content.includes(emoji))) {
+          await this.presenceService.recordMention(channelId, `${av._id}`);
+          
+          // Grant priority turn if none pending
           try {
-            const avatar = await this.avatarService.getAvatarById(priorityDoc.avatarId);
-            if (avatar) {
-              await this.conversationManager.sendResponse(channel, avatar, null, { overrideCooldown: true });
-              await this.completeLease(channelId, priorityDoc.avatarId, tickId);
-              await this.presenceService.recordTurn(channelId, priorityDoc.avatarId);
-              await this.presenceService.consumeNewSummonTurn(channelId, priorityDoc.avatarId);
-              usedResponses++;
-            } else {
-              await this.completeLease(channelId, priorityDoc.avatarId, tickId);
+            const c = await this.presenceService.col();
+            const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+            if (!doc?.newSummonTurnsRemaining) {
+              await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
             }
           } catch (e) {
-            this.logger.warn(`[TurnScheduler] priority summon failed for ${priorityDoc.avatarId}: ${e.message}`);
-            try { await this.failLease(channelId, priorityDoc.avatarId, tickId, e); } catch {}
+            this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
           }
         }
       }
+
+      let channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel && this.discordService.client.channels?.fetch) {
+        try { channel = await this.discordService.client.channels.fetch(channelId); }
+        catch {}
+      }
+      if (!channel) return false;
+
+      // Use ResponseCoordinator for unified response handling
+      const responses = await this.responseCoordinator.coordinateResponse(channel, message, {
+        guildId,
+        avatars,
+        overrideCooldown: true
+      });
+
+      return responses.length > 0;
     } catch (e) {
-      this.logger.warn(`[TurnScheduler] priority summon lookup failed: ${e.message}`);
+      this.logger.error(`[TurnScheduler] onHumanMessage failed: ${e.message}`);
+      return false;
     }
-
-    const content = (message.content || '').toLowerCase();
-    const candidates = [];
-    for (const av of avatars) {
-      const name = String(av.name || '').toLowerCase();
-      const emoji = String(av.emoji || '').toLowerCase();
-      if (!name && !emoji) continue;
-      if (name && content.includes(name) || (emoji && content.includes(emoji))) {
-        await this.presenceService.ensurePresence(channelId, `${av._id}`);
-        await this.presenceService.recordMention(channelId, `${av._id}`);
-        // Light mention boost: grant 1 priority turn if none pending
-        try {
-          const c = await this.presenceService.col();
-          const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
-          if (!doc?.newSummonTurnsRemaining) await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
-        } catch (e) {
-          this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
-        }
-        candidates.push({ doc: { avatarId: `${av._id}` }, score: 1 });
-      }
-    }
-
-  if (candidates.length === 0) return usedResponses > 0;
-
-  for (const r of candidates) {
-      if (usedResponses >= (this.conversationManager?.MAX_RESPONSES_PER_MESSAGE || this.MAX_RESPONSES_PER_MESSAGE)) break;
-      const ok = await this.tryLease(channelId, r.doc.avatarId, tickId, { mode: 'fastlane', messageId: message.id, authorId: message.author?.id });
-      if (!ok) continue;
-      try {
-    const avatar = await this.avatarService.getAvatarById(r.doc.avatarId);
-    if (!avatar) { await this.completeLease(channelId, r.doc.avatarId, tickId); continue; }
-    await this.conversationManager.sendResponse(channel, avatar);
-        await this.completeLease(channelId, r.doc.avatarId, tickId);
-        await this.presenceService.recordTurn(channelId, r.doc.avatarId);
-        usedResponses++;
-        if (usedResponses >= (this.conversationManager?.MAX_RESPONSES_PER_MESSAGE || this.MAX_RESPONSES_PER_MESSAGE)) return true;
-      } catch (e) {
-        this.logger.warn(`[TurnScheduler] fast-lane failed for ${r.doc.avatarId}: ${e.message}`);
-        try { await this.failLease(channelId, r.doc.avatarId, tickId, e); } catch {}
-      }
-    }
-    return usedResponses > 0;
   }
 }
 

@@ -48,7 +48,7 @@ export interface Assignment {
 ## Integration Notes
 - Use `avatarService.findMentionedAvatarsInGuild` to detect mentions.
 - Use `locationService` to convert channel/thread IDs into location metadata.
-- Use `OneirocomForumService` for external thread operations.
+- Use `WebSearchTool` (via ToolService) for external research context.
 - Execution of assignments bridges to `ConversationManager`, `ToolService`, and `DiscordService`.
 
 ## Observability

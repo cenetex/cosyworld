@@ -30,24 +30,68 @@ const upload = multer({
 
 const configPath = path.join(process.cwd(), 'src/config');
 
+async function ensureConfigServiceDb(services, db) {
+  if (!services?.configService) return null;
+
+  try {
+    if (!services.configService.db && db) {
+      services.configService.db = db;
+    }
+
+    if (!services.configService.db && services.databaseService?.getDatabase) {
+      services.configService.db = await services.databaseService.getDatabase();
+    }
+  } catch (error) {
+    services?.logger?.warn?.('[admin] Failed to attach configService to database', error);
+  }
+
+  return services.configService;
+}
+
+const DEFAULT_WALLET_AVATAR_PREFS = {
+  createFullAvatar: false,
+  minBalanceForFullAvatar: 0,
+  autoActivate: false,
+  sendIntro: false,
+  requireClaimedAvatar: false,
+  requireCollectionOwnership: false,
+  collectionKeys: []
+};
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  onlySwapEvents: false,
+  transferAggregationUsdThreshold: 0
+};
+
 // Helper function to handle async route handlers
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 // Config utility functions
-async function loadConfig() {
+async function loadConfig(services = null) {
   const fallback = {
     whitelistedGuilds: [],
     emojis: { summon: "🔮", breed: "🏹", attack: "⚔️", defend: "🛡️" },
     prompts: {
       introduction: "You have been summoned to this realm. This is your one chance to impress me, and save yourself from Elimination. Good luck, and DONT fuck it up.",
-      summon: "Create a unique avatar with a special ability."
+      summon: "Create a unique avatar with a special ability.",
+      avatarTheme: 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
     },
     features: { breeding: true, combat: true, itemCreation: true },
     rateLimit: { messages: 5, interval: 10 },
     adminRoles: ["Admin", "Moderator"]
   };
   try {
+    if (services?.configService && !services.configService.db) {
+      try {
+        if (services.databaseService?.getDatabase) {
+          services.configService.db = await services.databaseService.getDatabase();
+        }
+      } catch (attachError) {
+        services?.logger?.warn?.('[admin] Failed to attach configService to database for loadConfig()', attachError);
+      }
+    }
+
     const defaultPath = path.join(configPath, 'default.config.json');
     const userPath = path.join(configPath, 'user.config.json');
     let defaultConfig = {};
@@ -64,7 +108,25 @@ async function loadConfig() {
       await fs.writeFile(userPath, JSON.stringify(initial, null, 2));
       userConfig = initial;
     }
-    return { ...fallback, ...defaultConfig, ...userConfig };
+    const merged = { ...fallback, ...defaultConfig, ...userConfig };
+
+    if (services?.configService?.getTokenPreferencesSnapshot) {
+      try {
+        const tokenSnapshot = await services.configService.getTokenPreferencesSnapshot({ refresh: true });
+        if (tokenSnapshot) {
+          merged.tokens = {
+            ...(merged.tokens || {}),
+            defaults: tokenSnapshot.defaults || merged.tokens?.defaults || {},
+            overrides: tokenSnapshot.overrides || merged.tokens?.overrides || {},
+            prioritySymbols: tokenSnapshot.prioritySymbols || merged.tokens?.prioritySymbols || []
+          };
+        }
+      } catch (error) {
+        console.warn('[admin] Failed to hydrate token preferences from database:', error.message);
+      }
+    }
+
+    return merged;
   } catch (error) {
     // Final fallback without logging noise
     return fallback;
@@ -83,6 +145,43 @@ async function saveUserConfig(config) {
     console.error('Config save error:', error);
     throw error;
   }
+}
+
+function parseNonNegativeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : fallback;
+}
+
+function normalizeSymbol(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/^\$/, '').toUpperCase();
+}
+
+function sanitizeSymbolList(list = []) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list
+    .map(entry => normalizeSymbol(entry))
+    .filter(Boolean)
+    .filter(entry => {
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
+}
+
+function sanitizeStringList(list = [], { toLower = false } = {}) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list
+    .map(entry => String(entry).trim())
+    .filter(Boolean)
+    .map(entry => (toLower ? entry.toLowerCase() : entry))
+    .filter(entry => {
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
 }
 
 function createRouter(db, services) {
@@ -419,7 +518,7 @@ function createRouter(db, services) {
   // ===== Configuration Routes =====
   router.get('/config', asyncHandler(async (req, res) => {
     try {
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       res.json(config);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -429,7 +528,7 @@ function createRouter(db, services) {
   router.post('/whitelist/guild', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.body;
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (!config.whitelistedGuilds) {
         config.whitelistedGuilds = [];
@@ -449,7 +548,7 @@ function createRouter(db, services) {
   router.delete('/whitelist/guild/:guildId', asyncHandler(async (req, res) => {
     try {
       const { guildId } = req.params;
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (config.whitelistedGuilds) {
         config.whitelistedGuilds = config.whitelistedGuilds.filter(id => id !== guildId);
@@ -522,7 +621,7 @@ function createRouter(db, services) {
         .toArray();
 
       // Get blacklisted users
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       const blacklistedUsers = await db.collection('user_spam_penalties')
         .find({})
         .sort({ strikeCount: -1 })
@@ -580,7 +679,7 @@ function createRouter(db, services) {
         }
       ];
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       res.json({
         success: true,
@@ -604,7 +703,7 @@ function createRouter(db, services) {
     try {
       const { features, rateLimit, prompts, adminRoles } = req.body;
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
 
       if (features) config.features = features;
       if (rateLimit) config.rateLimit = rateLimit;
@@ -631,7 +730,7 @@ function createRouter(db, services) {
         return res.status(400).json({ error: 'Emoji configuration is required' });
       }
 
-      const config = await loadConfig();
+  const config = await loadConfig(services);
       config.emojis = emojis;
       await saveUserConfig(config);
 
@@ -660,6 +759,470 @@ function createRouter(db, services) {
     } catch (error) {
       console.error("Error updating server configuration:", error);
       res.status(500).json({ error: error.message });
+    }
+  }));
+
+  // Wallet avatar token preference routes
+  adminRouter.get('/token-preferences', asyncHandler(async (req, res) => {
+    try {
+      const configService = await ensureConfigServiceDb(services, db);
+      let tokenSnapshot = null;
+
+      if (configService?.getTokenPreferencesSnapshot) {
+        try {
+          if (configService?.refreshTokenPreferences) {
+            await configService.refreshTokenPreferences({ force: true, seedIfMissing: true });
+          }
+          tokenSnapshot = await configService.getTokenPreferencesSnapshot({ refresh: true });
+        } catch (snapshotError) {
+          console.warn('[Admin] Falling back to file-based token preferences:', snapshotError?.message || snapshotError);
+        }
+      }
+
+      if (!tokenSnapshot) {
+        const config = await loadConfig(services);
+        const tokensConfig = config.tokens || {};
+        tokenSnapshot = {
+          defaults: tokensConfig.defaults || {},
+          overrides: tokensConfig.overrides || {},
+          prioritySymbols: tokensConfig.prioritySymbols || []
+        };
+      }
+
+      const defaults = tokenSnapshot.defaults || {};
+      const overrides = tokenSnapshot.overrides || {};
+
+      const normalizeSet = (items) => {
+        const set = new Set();
+        for (const item of items || []) {
+          const normalized = normalizeSymbol(item);
+          if (normalized) set.add(normalized);
+        }
+        return Array.from(set);
+      };
+
+      const defaultCollectionKeys = Array.isArray(defaults.walletAvatar?.collectionKeys)
+        ? defaults.walletAvatar.collectionKeys
+            .map(key => String(key).trim())
+            .filter(Boolean)
+        : [];
+
+      const normalizedDefaults = {
+        walletAvatar: {
+          ...DEFAULT_WALLET_AVATAR_PREFS,
+          createFullAvatar: !!defaults.walletAvatar?.createFullAvatar,
+          minBalanceForFullAvatar: parseNonNegativeNumber(defaults.walletAvatar?.minBalanceForFullAvatar),
+          autoActivate: !!defaults.walletAvatar?.autoActivate,
+          sendIntro: !!defaults.walletAvatar?.sendIntro,
+          requireClaimedAvatar: !!defaults.walletAvatar?.requireClaimedAvatar,
+          requireCollectionOwnership: !!defaults.walletAvatar?.requireCollectionOwnership,
+          collectionKeys: Array.from(new Set(defaultCollectionKeys))
+        },
+        notifications: {
+          ...DEFAULT_NOTIFICATION_PREFS,
+          onlySwapEvents: !!defaults.notifications?.onlySwapEvents,
+          transferAggregationUsdThreshold: parseNonNegativeNumber(defaults.notifications?.transferAggregationUsdThreshold)
+        }
+      };
+
+      const normalizedOverrides = Object.entries(overrides).map(([symbol, value]) => {
+        const walletAvatarConfig = value?.walletAvatar || {};
+        const notificationConfig = value?.notifications || {};
+        const rawCollectionKeys = Array.isArray(walletAvatarConfig.collectionKeys)
+          ? walletAvatarConfig.collectionKeys
+              .map(key => String(key).trim())
+              .filter(Boolean)
+          : [];
+
+        return {
+          symbol,
+          displayEmoji: value?.displayEmoji ?? null,
+          aliasSymbols: Array.isArray(value?.symbols) ? value.symbols : [],
+          addresses: Array.isArray(value?.addresses) ? value.addresses : [],
+          walletAvatar: {
+            ...DEFAULT_WALLET_AVATAR_PREFS,
+            createFullAvatar: !!walletAvatarConfig.createFullAvatar,
+            minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatarConfig.minBalanceForFullAvatar),
+            autoActivate: !!walletAvatarConfig.autoActivate,
+            sendIntro: !!walletAvatarConfig.sendIntro,
+            requireClaimedAvatar: !!walletAvatarConfig.requireClaimedAvatar,
+            requireCollectionOwnership: !!walletAvatarConfig.requireCollectionOwnership,
+            collectionKeys: Array.from(new Set(rawCollectionKeys))
+          },
+          notifications: {
+            ...DEFAULT_NOTIFICATION_PREFS,
+            onlySwapEvents: !!notificationConfig.onlySwapEvents,
+            transferAggregationUsdThreshold: parseNonNegativeNumber(notificationConfig.transferAggregationUsdThreshold)
+          }
+        };
+      });
+
+      const registryMap = new Map();
+      const registerToken = ({ symbol, name, address, aliasSymbols = [], addresses = [], displayEmoji = null, source = 'config' }) => {
+        const normalizedSymbol = normalizeSymbol(symbol);
+        const normalizedAddress = address ? String(address).toLowerCase() : null;
+        const key = normalizedSymbol || normalizedAddress;
+        if (!key) return;
+        if (!registryMap.has(key)) {
+          registryMap.set(key, {
+            symbol: normalizedSymbol,
+            name: name || null,
+            addresses: new Set(),
+            aliasSymbols: new Set(),
+            displayEmoji: displayEmoji || null,
+            sources: new Set(),
+            primaryAddress: normalizedAddress || null
+          });
+        }
+        const entry = registryMap.get(key);
+        if (!entry.symbol && normalizedSymbol) entry.symbol = normalizedSymbol;
+        if (!entry.name && name) entry.name = name;
+        if (!entry.displayEmoji && displayEmoji) entry.displayEmoji = displayEmoji;
+        if (normalizedAddress) {
+          entry.addresses.add(normalizedAddress);
+          if (!entry.primaryAddress) entry.primaryAddress = normalizedAddress;
+        }
+        aliasSymbols.forEach(alias => {
+          const normalizedAlias = normalizeSymbol(alias);
+          if (normalizedAlias && normalizedAlias !== entry.symbol) {
+            entry.aliasSymbols.add(normalizedAlias);
+          }
+        });
+        addresses.forEach(addr => {
+          const normalized = addr ? String(addr).toLowerCase() : null;
+          if (normalized) entry.addresses.add(normalized);
+        });
+        entry.sources.add(source);
+      };
+
+      // Seed registry with overrides
+      for (const override of normalizedOverrides) {
+        registerToken({
+          symbol: override.symbol,
+          aliasSymbols: override.aliasSymbols || [],
+          addresses: override.addresses || [],
+          displayEmoji: override.displayEmoji || null,
+          source: 'override'
+        });
+      }
+
+      const prioritySymbolsRaw = Array.isArray(tokenSnapshot.prioritySymbols) ? tokenSnapshot.prioritySymbols : [];
+      const prioritySymbols = normalizeSet(prioritySymbolsRaw);
+      prioritySymbols.forEach(symbol => {
+        registerToken({ symbol, source: 'priority' });
+      });
+
+      // Include tracked tokens from BuyBot (if collection available)
+      try {
+        const trackedTokens = await db.collection('buybot_tracked_tokens')
+          .aggregate([
+            {
+              $match: {
+                tokenAddress: { $exists: true, $ne: null },
+                active: { $ne: false }
+              }
+            },
+            {
+              $group: {
+                _id: '$tokenAddress',
+                tokenAddress: { $first: '$tokenAddress' },
+                tokenSymbol: { $first: '$tokenSymbol' },
+                tokenName: { $first: '$tokenName' }
+              }
+            },
+            {
+              $sort: {
+                tokenSymbol: 1,
+                tokenName: 1
+              }
+            }
+          ]).toArray();
+
+        for (const tracked of trackedTokens) {
+          registerToken({
+            symbol: tracked.tokenSymbol,
+            name: tracked.tokenName,
+            address: tracked.tokenAddress,
+            source: 'tracked'
+          });
+        }
+      } catch (trackedError) {
+        console.warn('[Admin] Failed to include tracked tokens in registry:', trackedError?.message || trackedError);
+      }
+
+      const registeredTokens = Array.from(registryMap.values()).map(entry => ({
+        symbol: entry.symbol,
+        name: entry.name,
+        addresses: Array.from(entry.addresses),
+        aliasSymbols: Array.from(entry.aliasSymbols),
+        displayEmoji: entry.displayEmoji,
+        sources: Array.from(entry.sources),
+        primaryAddress: entry.primaryAddress
+      })).sort((a, b) => {
+        const symbolA = a.symbol || '';
+        const symbolB = b.symbol || '';
+        if (symbolA === symbolB) {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return symbolA.localeCompare(symbolB);
+      });
+
+      res.json({
+        defaults: normalizedDefaults,
+        overrides: normalizedOverrides,
+        prioritySymbols,
+        registeredTokens
+      });
+    } catch (error) {
+      console.error('Error fetching token preferences:', error);
+      res.status(500).json({ error: error.message || 'Failed to load token preferences' });
+    }
+  }));
+
+  adminRouter.put('/token-preferences/defaults', express.json(), asyncHandler(async (req, res) => {
+    try {
+      const { walletAvatar } = req.body || {};
+      if (!walletAvatar || typeof walletAvatar !== 'object') {
+        return res.status(400).json({ error: 'walletAvatar payload is required' });
+      }
+
+      const normalized = {
+        createFullAvatar: !!walletAvatar.createFullAvatar,
+        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar.minBalanceForFullAvatar),
+        autoActivate: !!walletAvatar.autoActivate,
+        sendIntro: !!walletAvatar.sendIntro,
+        requireClaimedAvatar: !!walletAvatar.requireClaimedAvatar,
+        requireCollectionOwnership: !!walletAvatar.requireCollectionOwnership,
+        collectionKeys: Array.isArray(walletAvatar.collectionKeys)
+          ? walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+          : []
+      };
+
+      const configService = await ensureConfigServiceDb(services, db);
+
+      if (configService?.updateTokenDefaults) {
+        try {
+          const snapshot = await configService.updateTokenDefaults({ walletAvatar: normalized });
+          return res.json({
+            success: true,
+            defaults: {
+              walletAvatar: snapshot?.defaults?.walletAvatar || normalized
+            }
+          });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file defaults:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
+      config.tokens = config.tokens || {};
+      config.tokens.defaults = config.tokens.defaults || {};
+      config.tokens.defaults.walletAvatar = {
+        ...(config.tokens.defaults.walletAvatar || {}),
+        ...normalized
+      };
+
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token defaults after file write:', refreshError?.message || refreshError);
+      }
+
+      res.json({
+        success: true,
+        defaults: {
+          walletAvatar: config.tokens.defaults.walletAvatar
+        }
+      });
+    } catch (error) {
+      console.error('Error saving wallet avatar defaults:', error);
+      res.status(500).json({ error: error.message || 'Failed to save wallet avatar defaults' });
+    }
+  }));
+
+  adminRouter.put('/token-preferences', express.json(), asyncHandler(async (req, res) => {
+    try {
+  const { symbol, originalSymbol, displayEmoji, aliasSymbols, addresses, walletAvatar, notifications } = req.body || {};
+      if (!symbol || typeof symbol !== 'string') {
+        return res.status(400).json({ error: 'symbol is required' });
+      }
+
+      const normalizedSymbol = normalizeSymbol(symbol);
+      if (!normalizedSymbol) {
+        return res.status(400).json({ error: 'Invalid symbol' });
+      }
+      const normalizedOriginal = normalizeSymbol(originalSymbol);
+
+      const sanitizedSymbols = sanitizeSymbolList(aliasSymbols);
+      const sanitizedAddresses = sanitizeStringList(addresses, { toLower: true });
+
+      const normalizedWalletAvatar = {
+        createFullAvatar: !!(walletAvatar && walletAvatar.createFullAvatar),
+        minBalanceForFullAvatar: parseNonNegativeNumber(walletAvatar && walletAvatar.minBalanceForFullAvatar),
+        autoActivate: !!(walletAvatar && walletAvatar.autoActivate),
+        sendIntro: !!(walletAvatar && walletAvatar.sendIntro),
+        requireClaimedAvatar: !!(walletAvatar && walletAvatar.requireClaimedAvatar),
+        requireCollectionOwnership: !!(walletAvatar && walletAvatar.requireCollectionOwnership),
+        collectionKeys: Array.isArray(walletAvatar?.collectionKeys)
+          ? Array.from(new Set(
+              walletAvatar.collectionKeys
+                .map(key => String(key).trim())
+                .filter(Boolean)
+            ))
+          : []
+      };
+
+      const normalizedNotifications = {
+        onlySwapEvents: !!(notifications && notifications.onlySwapEvents),
+        transferAggregationUsdThreshold: parseNonNegativeNumber(notifications?.transferAggregationUsdThreshold)
+      };
+
+      const overridePayload = {
+        aliasSymbols: sanitizedSymbols,
+        addresses: sanitizedAddresses,
+        walletAvatar: normalizedWalletAvatar,
+        notifications: normalizedNotifications
+      };
+
+      const trimmedEmoji = typeof displayEmoji === 'string' ? displayEmoji.trim() : displayEmoji;
+      if (trimmedEmoji) {
+        overridePayload.displayEmoji = String(trimmedEmoji);
+      }
+
+      const configService = await ensureConfigServiceDb(services, db);
+      if (configService?.upsertTokenOverride) {
+        try {
+          const storedOverride = await configService.upsertTokenOverride(
+            normalizedSymbol,
+            overridePayload,
+            { originalSymbol: normalizedOriginal }
+          );
+
+          return res.json({
+            success: true,
+            override: {
+              symbol: storedOverride.symbol,
+              displayEmoji: storedOverride.displayEmoji ?? null,
+              aliasSymbols: storedOverride.symbols || [],
+              addresses: storedOverride.addresses || [],
+              walletAvatar: storedOverride.walletAvatar
+                ? {
+                    createFullAvatar: !!storedOverride.walletAvatar.createFullAvatar,
+                    minBalanceForFullAvatar: parseNonNegativeNumber(storedOverride.walletAvatar.minBalanceForFullAvatar),
+                    autoActivate: !!storedOverride.walletAvatar.autoActivate,
+                    sendIntro: !!storedOverride.walletAvatar.sendIntro,
+                    requireClaimedAvatar: !!storedOverride.walletAvatar.requireClaimedAvatar,
+                    requireCollectionOwnership: !!storedOverride.walletAvatar.requireCollectionOwnership,
+                    collectionKeys: Array.isArray(storedOverride.walletAvatar.collectionKeys)
+                      ? storedOverride.walletAvatar.collectionKeys.map(key => String(key).trim()).filter(Boolean)
+                      : []
+                  }
+                : normalizedWalletAvatar,
+              notifications: storedOverride.notifications
+                ? {
+                    onlySwapEvents: !!storedOverride.notifications.onlySwapEvents,
+                    transferAggregationUsdThreshold: parseNonNegativeNumber(storedOverride.notifications.transferAggregationUsdThreshold)
+                  }
+                : normalizedNotifications
+            }
+          });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file override persistence:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
+      config.tokens = config.tokens || {};
+      config.tokens.overrides = config.tokens.overrides || {};
+
+      const override = config.tokens.overrides[normalizedSymbol] ? { ...config.tokens.overrides[normalizedSymbol] } : {};
+
+      if (trimmedEmoji === null || trimmedEmoji === undefined || trimmedEmoji === '') {
+        delete override.displayEmoji;
+      } else if (trimmedEmoji) {
+        override.displayEmoji = String(trimmedEmoji);
+      }
+
+      override.symbols = sanitizedSymbols.length ? sanitizedSymbols : undefined;
+      if (!override.symbols) delete override.symbols;
+
+      override.addresses = sanitizedAddresses.length ? sanitizedAddresses : undefined;
+      if (!override.addresses) delete override.addresses;
+
+      override.walletAvatar = overridePayload.walletAvatar;
+  override.notifications = normalizedNotifications;
+
+      config.tokens.overrides[normalizedSymbol] = override;
+
+      if (normalizedOriginal && normalizedOriginal !== normalizedSymbol) {
+        delete config.tokens.overrides[normalizedOriginal];
+      }
+
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token overrides after file write:', refreshError?.message || refreshError);
+      }
+
+      res.json({
+        success: true,
+        override: {
+          symbol: normalizedSymbol,
+          displayEmoji: override.displayEmoji ?? null,
+          aliasSymbols: override.symbols || [],
+          addresses: override.addresses || [],
+          walletAvatar: override.walletAvatar,
+          notifications: override.notifications || normalizedNotifications
+        }
+      });
+    } catch (error) {
+      console.error('Error saving token preference override:', error);
+      res.status(500).json({ error: error.message || 'Failed to save token preference' });
+    }
+  }));
+
+  adminRouter.delete('/token-preferences/:symbol', asyncHandler(async (req, res) => {
+    try {
+      const normalizedSymbol = normalizeSymbol(req.params.symbol);
+      if (!normalizedSymbol) {
+        return res.status(400).json({ error: 'Invalid symbol' });
+      }
+
+      const configService = await ensureConfigServiceDb(services, db);
+      if (configService?.deleteTokenOverride) {
+        try {
+          const deleted = await configService.deleteTokenOverride(normalizedSymbol);
+          if (!deleted) {
+            return res.status(404).json({ error: 'Override not found' });
+          }
+          return res.json({ success: true });
+        } catch (serviceError) {
+          console.warn('[Admin] Falling back to file override delete:', serviceError?.message || serviceError);
+        }
+      }
+
+      const config = await loadConfig(services);
+      if (!config.tokens?.overrides?.[normalizedSymbol]) {
+        return res.status(404).json({ error: 'Override not found' });
+      }
+
+      delete config.tokens.overrides[normalizedSymbol];
+      await saveUserConfig(config);
+      await services?.configService?.loadConfig?.();
+      try {
+        await services?.configService?.refreshTokenPreferences?.({ force: true, seedIfMissing: true });
+      } catch (refreshError) {
+        console.warn('[Admin] Failed to refresh token overrides after delete:', refreshError?.message || refreshError);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting token preference override:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete token preference' });
     }
   }));
 
@@ -697,8 +1260,8 @@ function createRouter(db, services) {
     }
   });
 
-  // Preview prompt endpoint
-  router.get('/admin/avatars/:id/preview-prompt', asyncHandler(async (req, res) => {
+  // Preview prompt endpoint - generates a realistic Discord conversation prompt
+  router.get('/avatars/:id/preview-prompt', asyncHandler(async (req, res) => {
     let id;
     try {
       id = new ObjectId(req.params.id);
@@ -712,72 +1275,83 @@ function createRouter(db, services) {
     }
 
     try {
-      const conversationManager = req.app.locals.services?.conversationManager;
+      // Use services from createRouter parameters (passed from app.js)
+      const promptService = services?.promptService;
+      const databaseService = services?.databaseService;
+      const database = databaseService ? await databaseService.getDatabase() : db;
 
-      if (conversationManager) {
-        const systemPrompt = await conversationManager.buildSystemPrompt(avatar).catch(() => "System prompt unavailable.");
-        let dungeonPrompt = '';
-        let channelSummary = '';
+      if (promptService && database) {
+        // Simulate a Discord conversation context
+        const mockChannel = {
+          id: 'preview-channel',
+          name: 'preview-channel',
+          guild: { name: 'Preview Server', id: 'preview-server' }
+        };
 
-        if (avatar.channelId) {
-          try {
-            const channel = req.app.locals.client?.channels.cache.get(avatar.channelId);
-            if (channel?.guild) {
-              dungeonPrompt = await conversationManager.buildDungeonPrompt(avatar, channel.guild.id).catch(() => "Dungeon prompt unavailable.");
-            }
-          } catch (error) {
-            console.error('Error getting guild context:', error);
+        const mockMessages = [
+          {
+            role: 'user',
+            authorTag: 'PreviewUser#0000',
+            content: `Hello ${avatar.name}, what's on your mind today?`
           }
+        ];
 
-          if (conversationManager.getChannelSummary) {
-            channelSummary = await conversationManager.getChannelSummary(avatar._id, avatar.channelId).catch(() => "Channel summary unavailable.");
-          }
-        }
+        // Use the actual V2 prompt assembly method that Discord uses
+        const chatMessages = await promptService.getResponseChatMessagesV2(
+          avatar,
+          mockChannel,
+          mockMessages,
+          '', // channelSummary
+          database
+        );
+
+        // chatMessages is [{ role: 'system', content: systemPrompt }, { role: 'user', content: blocks }]
+        const systemMessage = chatMessages.find(m => m.role === 'system');
+        const userMessage = chatMessages.find(m => m.role === 'user');
 
         const previewPrompt = `
-// System Prompt:
-${systemPrompt}
+=== SYSTEM PROMPT ===
+${systemMessage?.content || 'No system prompt available'}
 
-// Channel Summary:
-${channelSummary}
+=== USER CONTEXT (includes CONTEXT, FOCUS, MEMORY, RECALL blocks) ===
+${userMessage?.content || 'No user context available'}
 
-// Available Commands:
-${dungeonPrompt}
-
-// Example User Message:
-Hello ${avatar.name}, what's on your mind today?
+=== NOTE ===
+This is what the AI model receives when responding to Discord messages.
+The MEMORY block contains persistent memories.
+The RECALL block contains semantically-relevant context retrieved from memory.
+Token budgets ensure the prompt fits within model limits.
 `;
 
         return res.json({ prompt: previewPrompt });
       } else {
+        // Fallback if services aren't available
         const examplePrompt = `
-// System Prompt:
+=== SYSTEM PROMPT ===
 You are ${avatar.name}.
 ${avatar.personality || 'No personality defined'}
 ${avatar.description || 'No description defined'}
 
-// Example Commands:
-🔮 <any concept or thing> - Summon an avatar to your location.
-⚔️ <target> - Attack another avatar.
-🛡️ - Defend yourself against attacks.
-🧠 <topic> - Access your memories on a topic.
+=== USER CONTEXT ===
+[Preview unavailable - promptService not initialized]
 
-// Example User Message:
-Hello ${avatar.name}, what's on your mind today?
+=== NOTE ===
+Services not available for realistic preview.
+Please ensure the server is fully initialized.
 `;
 
         return res.json({ prompt: examplePrompt });
       }
     } catch (error) {
       console.error('Error generating preview prompt:', error);
-      return res.status(500).json({ error: 'Failed to generate preview prompt' });
+      return res.status(500).json({ error: 'Failed to generate preview prompt', details: error.message });
     }
   }));
 
   // Get all X accounts with avatar details
   router.get('/x-accounts', asyncHandler(async (req, res) => {
     try {
-      const xAuths = await db.collection('x_auth').find({}).toArray();
+  const xAuths = await db.collection('x_auth').find({}).toArray();
 
       // Build a map of avatarId -> avatar
       const results = [];
@@ -808,7 +1382,7 @@ Hello ${avatar.name}, what's on your mind today?
         // Optionally include a lightweight profile if it's cached on the record
         const xProfile = record.profile || null;
 
-        results.push({ avatar, xAuth, xProfile });
+        results.push({ avatar, xAuth: { ...xAuth, global: !!record.global }, xProfile, xAuthId: String(record._id) });
       }
 
       res.json({ xAccounts: results });
@@ -818,8 +1392,254 @@ Hello ${avatar.name}, what's on your mind today?
     }
   }));
 
+  // === Global X Posting (re-introduced lightweight endpoints for dashboard toggle & config) ===
+  // Config is stored in collection `x_post_config` with _id 'global'. XService handles gating.
+  router.get('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Resolve the admin's X auth record ONLY - never return a random user's account
+      const adminId = (process.env.ADMIN_AVATAR_ID || 'model:' + ((process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default').toLowerCase().replace(/[^a-z0-9_-]+/g, '_')));
+      let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { sort: { updatedAt: -1 } });
+      
+      let profile = auth?.profile || null;
+      // If profile missing or stale (older than 6h) attempt refresh via service (best-effort)
+      const sixHrs = 6 * 60 * 60 * 1000;
+      const force = req.query.force === '1';
+      const stale = !profile || !profile.cachedAt || (Date.now() - new Date(profile.cachedAt).getTime()) > sixHrs;
+      if ((stale || force) && auth && services.xService?.fetchAndCacheGlobalProfile) {
+        try { profile = await services.xService.fetchAndCacheGlobalProfile(force); } catch {}
+      }
+      res.json({
+        config: cfg || { enabled: false, mode: 'live' },
+        profile: profile || null,
+        resolvedAccount: auth ? { avatarId: auth.avatarId || adminId, hasProfile: !!profile, connected: !!auth.accessToken } : { avatarId: adminId, hasProfile: false, connected: false },
+        refreshed: (stale || force) && !!profile
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load config' });
+    }
+  }));
+
+  router.put('/x-posting/config', asyncHandler(async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Only allow specific fields
+      const patch = {};
+      if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+      if (body.mode && ['live','shadow'].includes(body.mode)) patch.mode = body.mode;
+      if (body.rate && typeof body.rate === 'object') {
+        const r = {};
+        if (body.rate.hourly && Number(body.rate.hourly) > 0) r.hourly = Number(body.rate.hourly);
+        if (body.rate.minIntervalSec && Number(body.rate.minIntervalSec) > 0) r.minIntervalSec = Number(body.rate.minIntervalSec);
+        if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
+      }
+      if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
+      if (body.media && typeof body.media === 'object') {
+        patch.media = { altAutogen: !!body.media.altAutogen };
+      }
+      const updated = await services.xService.updateGlobalPostingConfig(patch);
+      res.json({ config: updated });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to save config' });
+    }
+  }));
+
+  router.post('/x-posting/test', asyncHandler(async (req, res) => {
+    try {
+      const { mediaUrl, text, type } = req.body || {};
+      if (!mediaUrl) return res.status(400).json({ error: 'mediaUrl required' });
+      const result = await services.xService.postGlobalMediaUpdate({ mediaUrl, text, type });
+      res.json({ attempted: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Test post failed' });
+    }
+  }));
+
+  // Metrics & diagnostics for global X posting
+  router.get('/x-posting/metrics', asyncHandler(async (req, res) => {
+    try {
+      const metrics = services.xService.getGlobalPostingMetrics();
+      const cfg = await db.collection('x_post_config').findOne({ _id: 'global' });
+      // Determine presence of a usable admin auth record ONLY (never return random user data)
+      const adminId = (process.env.ADMIN_AVATAR_ID || 'model:' + ((process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default').toLowerCase().replace(/[^a-z0-9_-]+/g, '_')));
+      let auth = await db.collection('x_auth').findOne({ avatarId: adminId }, { projection: { accessToken: 0, refreshToken: 0 } });
+      
+      const envFlags = {
+        X_GLOBAL_POST_ENABLED: process.env.X_GLOBAL_POST_ENABLED || undefined,
+        X_GLOBAL_POST_HOURLY_CAP: process.env.X_GLOBAL_POST_HOURLY_CAP || undefined,
+        X_GLOBAL_POST_MIN_INTERVAL_SEC: process.env.X_GLOBAL_POST_MIN_INTERVAL_SEC || undefined,
+        DEBUG_GLOBAL_X: process.env.DEBUG_GLOBAL_X || undefined
+      };
+      res.json({ metrics, config: cfg || null, authPresent: !!auth, authProfile: auth?.profile || null, envFlags });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load metrics' });
+    }
+  }));
+
+  // === Global Bot Management ===
+  
+  // Get global bot persona, memories, and stats
+  router.get('/global-bot/persona', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const persona = await services.globalBotService.getPersona();
+      res.json({ success: true, persona });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load global bot persona' });
+    }
+  }));
+
+  // Update global bot persona
+  router.put('/global-bot/persona', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const updates = req.body;
+      const updatedBot = await services.globalBotService.updatePersona(updates);
+      
+      res.json({ success: true, bot: updatedBot });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to update global bot persona' });
+    }
+  }));
+
+  // Get recent global bot posts
+  router.get('/global-bot/posts', asyncHandler(async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit || 50), 100);
+      const posts = await db.collection('social_posts')
+        .find({ global: true })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      
+      res.json({ success: true, posts });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load global bot posts' });
+    }
+  }));
+
+  // Preview post generation without actually posting
+  router.post('/global-bot/preview', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const payload = req.body;
+      const preview = await services.globalBotService.generateContextualPost(payload);
+      
+      res.json({ success: true, preview, payload });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to generate preview' });
+    }
+  }));
+
+  // Manually trigger narrative generation
+  router.post('/global-bot/generate-narrative', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      await services.globalBotService.generateNarrative();
+      const persona = await services.globalBotService.getPersona();
+      
+      res.json({ success: true, narrative: persona.bot.dynamicPrompt });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to generate narrative' });
+    }
+  }));
+
+
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);
+
+  // OAuth 1.0a credentials management
+  router.get('/x-oauth1', asyncHandler(async (req, res) => {
+    const { secretsService } = services;
+    const creds = await secretsService.getAsync('x_oauth1_creds');
+    
+    if (!creds) {
+      return res.json({ hasCredentials: false });
+    }
+    
+    // Return non-secret fields and flags for secret fields
+    res.json({
+      apiKey: creds.apiKey || null,
+      hasApiSecret: !!creds.apiSecret,
+      accessToken: creds.accessToken || null,
+      hasAccessTokenSecret: !!creds.accessTokenSecret,
+      hasCredentials: true
+    });
+  }));
+
+  router.post('/x-oauth1', asyncHandler(async (req, res) => {
+    const { apiKey, apiSecret, accessToken, accessTokenSecret } = req.body;
+    const { secretsService } = services;
+    
+    console.log('[admin] Saving OAuth 1.0a credentials:', {
+      hasApiKey: !!apiKey,
+      hasApiSecret: !!apiSecret,
+      hasAccessToken: !!accessToken,
+      hasAccessTokenSecret: !!accessTokenSecret,
+      apiKeyLength: apiKey?.length,
+      apiSecretLength: apiSecret?.length,
+      accessTokenLength: accessToken?.length,
+      accessTokenSecretLength: accessTokenSecret?.length
+    });
+    
+    // Get existing credentials
+    const existing = await secretsService.getAsync('x_oauth1_creds') || {};
+    
+    // Update with new values (preserve existing if new value is null/undefined/empty)
+    const updated = {
+      apiKey: apiKey?.trim() || existing.apiKey || null,
+      apiSecret: apiSecret?.trim() || existing.apiSecret || null,
+      accessToken: accessToken?.trim() || existing.accessToken || null,
+      accessTokenSecret: accessTokenSecret?.trim() || existing.accessTokenSecret || null
+    };
+    
+    console.log('[admin] Updated credentials:', {
+      hasApiKey: !!updated.apiKey,
+      hasApiSecret: !!updated.apiSecret,
+      hasAccessToken: !!updated.accessToken,
+      hasAccessTokenSecret: !!updated.accessTokenSecret
+    });
+    
+    await secretsService.set('x_oauth1_creds', updated);
+    
+    res.json({ 
+      success: true,
+      message: 'OAuth 1.0a credentials saved',
+      saved: {
+        apiKey: !!updated.apiKey,
+        apiSecret: !!updated.apiSecret,
+        accessToken: !!updated.accessToken,
+        accessTokenSecret: !!updated.accessTokenSecret
+      }
+    });
+  }));
+
+  router.get('/x-oauth1/test', asyncHandler(async (req, res) => {
+    const { xService } = services;
+    
+    try {
+      // Test if credentials work by attempting to verify credentials
+      const result = await xService.testOAuth1Upload();
+      res.json({ success: true, message: result.message });
+    } catch (error) {
+      res.status(400).json({ 
+        success: false, 
+        error: error.message || 'Test failed'
+      });
+    }
+  }));
 
   const checkWhitelistStatus = async (guildId) => {
     try {

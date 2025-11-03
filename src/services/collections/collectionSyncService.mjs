@@ -41,7 +41,53 @@ async function getIdentityFns() {
 }
 
 function normIpfs(url) {
-  return (url || '').replace('ipfs://', 'https://ipfs.io/ipfs/');
+  if (!url || typeof url !== 'string') return '';
+  return url.replace(/^ipfs:\/\//i, 'https://ipfs.io/ipfs/');
+}
+
+function resolveImageUrl(nft) {
+  if (!nft) return '';
+  const candidates = [];
+  const pushCandidate = (value) => {
+    if (!value) return;
+    if (typeof value === 'string') {
+      candidates.push(value);
+      return;
+    }
+    if (typeof value === 'object') {
+      const maybe = [
+        value.cdnUrl,
+        value.sourceUrl,
+        value.url,
+        value.uri,
+        value.href,
+        value.original,
+        value.src,
+      ];
+      for (const v of maybe) {
+        if (typeof v === 'string') {
+          candidates.push(v);
+        }
+      }
+    }
+  };
+
+  pushCandidate(nft.image);
+  pushCandidate(nft.image_url);
+  pushCandidate(nft.imageUrl);
+  pushCandidate(nft.media);
+  pushCandidate(nft.media?.image);
+  pushCandidate(nft.media?.url);
+  pushCandidate(nft.media?.uri);
+  pushCandidate(nft.content?.uri);
+  pushCandidate(nft.content?.url);
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const normalized = normIpfs(candidate.trim());
+    if (normalized) return normalized;
+  }
+  return '';
 }
 
 function identityFromNft(nft) {
@@ -49,7 +95,7 @@ function identityFromNft(nft) {
   const key = token ? String(token).toLowerCase() : '';
   if (key) return `token:${key}`;
   const name = (nft.name || '').trim().toLowerCase();
-  const img = (nft.image || nft.image_url || nft.media || '').trim().toLowerCase();
+  const img = resolveImageUrl(nft).toLowerCase();
   return `name:${name}|img:${img}`;
 }
 
@@ -76,9 +122,12 @@ async function loadCollectionMetadata({ collectionId, fileSource }) {
     return json;
   }
   const raw = await fs.readFile(src, 'utf8');
-  const arr = JSON.parse(raw);
-  if (!Array.isArray(arr)) throw new Error('Collection JSON must be an array of NFT metadata objects');
-  return arr;
+  const data = JSON.parse(raw);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object' && Array.isArray(data.tokens)) {
+    return data.tokens;
+  }
+  throw new Error('Collection JSON must be an array of NFT metadata objects');
 }
 
 async function fetchFromReservoir({ apiKey, collection }) {
@@ -303,10 +352,10 @@ async function upsertAvatarFromNft(nft, ctx) {
   // Resolve AI service for optional model selection
   const aiSvc = getAIService();
 
-  const rawImageUrl = normIpfs(nft.image || nft.image_url || nft.media || '');
+  const rawImageUrl = resolveImageUrl(nft);
   let imageUrl = rawImageUrl;
   try {
-    if (rawImageUrl) {
+    if (rawImageUrl && /^https?:\/\//i.test(rawImageUrl)) {
       const s3Service = container.resolve('s3Service');
       const buf = await s3Service.downloadImage(rawImageUrl).catch(() => null);
       if (buf) {
@@ -446,4 +495,97 @@ export async function syncAvatarsForCollection({
   return { processed: nfts.length, success, failures };
 }
 
-export default { syncAvatarsForCollection };
+/**
+ * Try to sync a specific avatar by name from configured collections
+ * @param {string} avatarName - The name to search for
+ * @returns {Promise<object|null>} The synced avatar document or null if not found
+ */
+export async function syncAvatarByNameFromCollections(avatarName) {
+  if (!avatarName) return null;
+  const logger = getLogger();
+  
+  try {
+    const databaseService = getDBService();
+    const db = await databaseService.getDatabase();
+    
+    // Check if there are any configured collections
+    const configs = await db.collection('collection_configs').find().toArray();
+    if (!configs || configs.length === 0) {
+      logger.debug?.('No collection configs found for avatar sync');
+      return null;
+    }
+    
+    // Try each collection to find a matching avatar
+    for (const cfg of configs) {
+      try {
+        const provider = cfg.provider || process.env.NFT_API_PROVIDER || '';
+        const apiKey = process.env.NFT_API_KEY || process.env.RESERVOIR_API_KEY || process.env.OPENSEA_API_KEY || process.env.ALCHEMY_API_KEY || process.env.HELIUS_API_KEY;
+        const chain = (cfg.chain || process.env.NFT_CHAIN || 'ethereum').toLowerCase();
+        const fileSource = (cfg.sync?.source?.includes('file') && cfg.sync?.fileSource) ? cfg.sync.fileSource : undefined;
+        
+        // Try to load collection metadata
+        let nfts = [];
+        
+        // Try API first
+        try {
+          const apiNfts = await fetchCollectionViaApi({ provider, apiKey, collection: cfg.key, chain });
+          if (apiNfts && apiNfts.length) nfts = apiNfts;
+        } catch (e) {
+          logger.debug?.(`API fetch failed for ${cfg.key}: ${e.message}`);
+        }
+        
+        // Fallback to file if no API results
+        if (nfts.length === 0 && fileSource) {
+          try {
+            nfts = await loadCollectionMetadata({ collectionId: cfg.key, fileSource });
+          } catch (e) {
+            logger.debug?.(`File load failed for ${cfg.key}: ${e.message}`);
+          }
+        }
+        
+        // Try default file location if still no results
+        if (nfts.length === 0) {
+          try {
+            nfts = await loadCollectionMetadata({ collectionId: cfg.key });
+          } catch (e) {
+            logger.debug?.(`Default file load failed for ${cfg.key}: ${e.message}`);
+          }
+        }
+        
+        // Search for matching NFT by name (case-insensitive)
+        const matchingNft = nfts.find(nft => 
+          nft.name && nft.name.toLowerCase() === avatarName.toLowerCase()
+        );
+        
+        if (matchingNft) {
+          logger.info?.(`Found ${avatarName} in collection ${cfg.key}, syncing...`);
+          
+          // Sync this specific avatar (force=false to preserve existing data)
+          const avatar = await upsertAvatarFromNft(matchingNft, {
+            collectionId: cfg.key,
+            chain,
+            provider,
+            force: false
+          });
+          
+          if (avatar) {
+            logger.info?.(`Successfully synced ${avatarName} from collection ${cfg.key}`);
+            return avatar;
+          }
+        }
+      } catch (e) {
+        logger.warn?.(`Error checking collection ${cfg.key} for ${avatarName}: ${e.message}`);
+        // Continue to next collection
+      }
+    }
+    
+    logger.debug?.(`Avatar ${avatarName} not found in any configured collection`);
+    return null;
+  } catch (e) {
+    logger.error?.(`Error in syncAvatarByNameFromCollections: ${e.message}`);
+    return null;
+  }
+}
+
+export default { syncAvatarsForCollection, syncAvatarByNameFromCollections };
+

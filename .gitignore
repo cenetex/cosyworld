@@ -13,6 +13,7 @@ bun.lock
 # Build outputs
 dist/
 build/
+coverage/
 webpack-stats.json
 webpack-stats.txt
 

@@ -66,7 +66,8 @@ export class ConfigService {
         introduction: process.env.INTRODUCTION_PROMPT || "You've just been summoned for the first time. Introduce yourself.",
         attack: process.env.ATTACK_PROMPT || "You are {avatar_name}, attacking {target_name}, describe how you attack them with your abilities.",
         defend: process.env.DEFEND_PROMPT || "You are {avatar_name}, defending against an attack, describe what you do to defend yourself.",
-        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits."
+        breed: process.env.BREED_PROMPT || "Describe the fusion of two avatars and the traits the offspring inherits.",
+        avatarTheme: process.env.AVATAR_PROMPT_THEME || 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
       },
       ai: {
         veo: {
@@ -92,7 +93,7 @@ export class ConfigService {
           apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
           model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
-          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'openai/gpt-4o',
+          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'google/gemini-2.0-flash-exp:free',
           chatModel: process.env.OPENROUTER_CHAT_MODEL || 'meta-llama/llama-3.2-1b-instruct',
           visionModel: process.env.OPENROUTER_VISION_MODEL || '"x-ai/grok-2-vision-1212"',
           temperature: 0.8,
@@ -101,9 +102,9 @@ export class ConfigService {
         },
         replicate: {
           apiToken: this.secrets?.get('REPLICATE_API_TOKEN') || process.env.REPLICATE_API_TOKEN,
-          model: process.env.REPLICATE_MODEL,
-          lora_weights: process.env.REPLICATE_LORA_WEIGHTS,
-          loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER,
+          model: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
+          lora_weights: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL,
+          loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD,
           style: "Cyberpunk, Manga, Anime, Watercolor, Experimental."
         },
       },
@@ -113,13 +114,44 @@ export class ConfigService {
         collections: {
           avatars: 'avatars',
           imageUrls: 'image_urls',
-          guildConfigs: 'guild_configs'
+              guildConfigs: 'guild_configs',
+              tokenPreferences: 'token_preferences'
         }
       },
-      webhooks: {}
+      webhooks: {},
+      tokens: {
+        defaults: {
+          displayEmoji: '\uD83D\uDCB0', // 💰
+          transferEmoji: '\uD83D\uDCE4', // 📤
+          buttons: {
+            primary: {
+              label: 'Swap on Jupiter',
+              urlTemplate: 'https://jup.ag/swap/SOL-{address}'
+            }
+          },
+          telegram: {
+            linkLabel: 'Swap',
+            linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
+          },
+          notifications: {
+            onlySwapEvents: false
+          },
+          walletAvatar: {
+            createFullAvatar: false,
+            minBalanceForFullAvatar: 0,
+            autoActivate: false,
+            sendIntro: false
+          }
+        },
+        prioritySymbols: [],
+        overrides: {}
+      }
     };
 
     this.guildConfigCache = new Map(); // Cache for guild configurations
+        this.initialTokenDefaults = JSON.parse(JSON.stringify(this.config.tokens?.defaults || {}));
+        this.tokenPreferencesCache = null;
+    this._promptDefaultsLoaded = false;
   }
 
   static deepMerge(target, source) {
@@ -160,6 +192,91 @@ export class ConfigService {
     }
     console.warn(`Unknown AI service: ${service}. Defaulting to openrouter.`);
     return this.config.ai.openrouter;
+  }
+
+  getTokenPreferences(lookup = {}) {
+    try {
+      const tokensConfig = this.config.tokens || {};
+      const defaults = tokensConfig.defaults || {};
+      const overrides = tokensConfig.overrides || {};
+      const clone = JSON.parse(JSON.stringify(defaults));
+
+      const normalizedSymbol = lookup.symbol
+        ? String(lookup.symbol).replace(/^\$/, '').toUpperCase()
+        : null;
+      const lookupAddress = lookup.address
+        ? String(lookup.address).toLowerCase()
+        : null;
+
+      let override = null;
+
+      const overrideEntries = Object.entries(overrides || {});
+      for (const [key, value] of overrideEntries) {
+        const normalizedKey = String(key).replace(/^\$/, '').toUpperCase();
+        const aliasSymbols = Array.isArray(value?.symbols)
+          ? value.symbols.map(sym => String(sym).replace(/^\$/, '').toUpperCase())
+          : [];
+
+        if (normalizedSymbol && (normalizedKey === normalizedSymbol || aliasSymbols.includes(normalizedSymbol))) {
+          override = value;
+          break;
+        }
+
+        if (lookupAddress && Array.isArray(value?.addresses)) {
+          const normalizedAddresses = value.addresses
+            .filter(Boolean)
+            .map(addr => String(addr).toLowerCase());
+          if (normalizedAddresses.includes(lookupAddress)) {
+            override = value;
+            break;
+          }
+        }
+      }
+
+      if (override) {
+        return ConfigService.deepMerge(clone, override);
+      }
+
+      return clone;
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] getTokenPreferences failed: ${error.message}`);
+      return {
+        displayEmoji: '\uD83D\uDCB0',
+        transferEmoji: '\uD83D\uDCE4',
+        buttons: {
+          primary: {
+            label: 'Swap on Jupiter',
+            urlTemplate: 'https://jup.ag/swap/SOL-{address}'
+          }
+        },
+        telegram: {
+          linkLabel: 'Swap',
+          linkUrlTemplate: 'https://jup.ag/swap/SOL-{address}'
+        },
+        notifications: {
+          onlySwapEvents: false,
+          transferAggregationUsdThreshold: 0
+        },
+        walletAvatar: {
+          createFullAvatar: false,
+          minBalanceForFullAvatar: 0,
+          autoActivate: false,
+          sendIntro: false,
+          requireClaimedAvatar: false,
+          requireCollectionOwnership: false,
+          collectionKeys: []
+        }
+      };
+    }
+  }
+
+  getPriorityTokenSymbols() {
+    const tokensConfig = this.config.tokens || {};
+    const priority = tokensConfig.prioritySymbols;
+    if (!Array.isArray(priority)) {
+      return [];
+    }
+    return priority.map(symbol => String(symbol));
   }
 
   // Load global configuration from JSON files
@@ -216,9 +333,48 @@ export class ConfigService {
       } catch {}
 
   this.config = merged;
+      if (merged?.tokens?.defaults) {
+        this.initialTokenDefaults = JSON.parse(JSON.stringify(merged.tokens.defaults));
+      }
+      this.tokenPreferencesCache = null;
+      this._promptDefaultsLoaded = false;
     } catch (error) {
       console.error('Error loading config:', error);
     }
+  }
+
+  async refreshPromptDefaultsFromDatabase({ db: explicitDb = null, force = false } = {}) {
+    if (!force && this._promptDefaultsLoaded) {
+      return { ...this.config.prompt };
+    }
+
+    let dbConnection = explicitDb;
+    try {
+      if (!dbConnection) {
+        dbConnection = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
+      }
+
+      if (!dbConnection) {
+        this.logger?.warn?.('[ConfigService] Unable to load prompt defaults from database – no connection available');
+        return { ...this.config.prompt };
+      }
+
+      this.db = this.db || dbConnection;
+
+      const globalSettings = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
+      const promptsFromDb = globalSettings?.config?.prompts;
+
+      if (promptsFromDb && typeof promptsFromDb === 'object') {
+        const merged = ConfigService.deepMerge(JSON.parse(JSON.stringify(this.config.prompt || {})), promptsFromDb);
+        this.config.prompt = merged;
+      }
+
+      this._promptDefaultsLoaded = true;
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] Failed to refresh prompt defaults from database: ${error.message}`);
+    }
+
+    return JSON.parse(JSON.stringify(this.config.prompt || {}));
   }
 
   // Get a specific global configuration key, supporting dot notation
@@ -255,13 +411,7 @@ export class ConfigService {
       whitelisted: false,
       summonerRole: "🔮",
       summonEmoji: "🔮",
-      prompts: {
-  summon: this.config.prompt.summon,
-  introduction: this.config.prompt.introduction,
-  attack: this.config.prompt.attack,
-  defend: this.config.prompt.defend,
-  breed: this.config.prompt.breed
-      },
+    prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
       toolEmojis: {
         summon: '🔮',
         breed: '🏹',
@@ -274,8 +424,8 @@ export class ConfigService {
         itemCreation: true
       },
       viewDetailsEnabled: true,
-      enableForumTool: false, // ForumTool disabled by default
-      forumToolChannelId: null // Optional channel restriction
+      enableWebSearchTool: true,
+      webSearchToolChannelId: null
     };
   }
 
@@ -285,13 +435,7 @@ export class ConfigService {
     const merged = {
       ...defaults,
       ...guildConfig,
-      prompts: {
-  summon: guildConfig?.prompts?.summon || defaults.prompts.summon,
-  introduction: guildConfig?.prompts?.introduction || defaults.prompts.introduction,
-  attack: guildConfig?.prompts?.attack || defaults.prompts.attack,
-  defend: guildConfig?.prompts?.defend || defaults.prompts.defend,
-  breed: guildConfig?.prompts?.breed || defaults.prompts.breed
-      },
+    prompts: ConfigService.deepMerge(JSON.parse(JSON.stringify(defaults.prompts || {})), guildConfig?.prompts || {}),
       toolEmojis: {
         ...defaults.toolEmojis,
         ...(guildConfig?.toolEmojis || {})
@@ -399,6 +543,304 @@ export class ConfigService {
     } catch (e) {
       this.logger?.warn?.(`ConfigService.clearCache failed: ${e?.message || e}`);
     }
+  }
+
+  async _getTokenPreferencesCollection() {
+    try {
+      const db = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
+      if (!db) {
+        return null;
+      }
+      const collectionName = this.config?.mongo?.collections?.tokenPreferences || 'token_preferences';
+      return db.collection(collectionName);
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] Failed to resolve token preference collection: ${error.message}`);
+      return null;
+    }
+  }
+
+  _applyTokenPreferences(doc = {}) {
+    const storedDefaults = doc?.defaults && typeof doc.defaults === 'object' ? doc.defaults : {};
+    const overrides = doc?.overrides && typeof doc.overrides === 'object' ? doc.overrides : {};
+    const prioritySymbols = Array.isArray(doc?.prioritySymbols) ? doc.prioritySymbols : [];
+
+    const baseDefaults = JSON.parse(JSON.stringify(this.initialTokenDefaults || {}));
+    const effectiveDefaults = ConfigService.deepMerge(baseDefaults, storedDefaults);
+
+    this.config.tokens = {
+      ...(this.config.tokens || {}),
+      defaults: effectiveDefaults,
+      overrides,
+      prioritySymbols
+    };
+
+    this.tokenPreferencesCache = {
+      storedDefaults: JSON.parse(JSON.stringify(storedDefaults)),
+      overrides: JSON.parse(JSON.stringify(overrides)),
+      prioritySymbols: [...prioritySymbols],
+      effectiveDefaults: JSON.parse(JSON.stringify(effectiveDefaults))
+    };
+  }
+
+  async _writeTokenPreferencesDoc(collection, doc) {
+    const targetCollection = collection || await this._getTokenPreferencesCollection();
+    if (!targetCollection) {
+      throw new Error('Token preferences store unavailable');
+    }
+
+    const payload = {
+      defaults: doc?.defaults || {},
+      overrides: doc?.overrides || {},
+      prioritySymbols: Array.isArray(doc?.prioritySymbols) ? doc.prioritySymbols : [],
+      updatedAt: new Date()
+    };
+
+    await targetCollection.updateOne(
+      { _id: 'global' },
+      {
+        $set: payload,
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true }
+    );
+
+    this._applyTokenPreferences(payload);
+    return this.getTokenPreferencesSnapshot({ refresh: false });
+  }
+
+  async refreshTokenPreferences({ force = false, seedIfMissing = false } = {}) {
+    if (!force && this.tokenPreferencesCache) {
+      return this.getTokenPreferencesSnapshot({ refresh: false });
+    }
+
+    const collection = await this._getTokenPreferencesCollection();
+    if (!collection) {
+      return null;
+    }
+
+    let doc = await collection.findOne({ _id: 'global' });
+
+    if (!doc && seedIfMissing) {
+      const seedDoc = {
+        defaults: this.tokenPreferencesCache?.storedDefaults || this.config.tokens?.defaults || {},
+        overrides: this.tokenPreferencesCache?.overrides || this.config.tokens?.overrides || {},
+        prioritySymbols: this.tokenPreferencesCache?.prioritySymbols || this.config.tokens?.prioritySymbols || []
+      };
+
+      try {
+        await this._writeTokenPreferencesDoc(collection, seedDoc);
+      } catch (error) {
+        this.logger?.warn?.(`[ConfigService] Failed seeding token preferences: ${error.message}`);
+      }
+
+      doc = await collection.findOne({ _id: 'global' });
+    }
+
+    if (!doc) {
+      return null;
+    }
+
+    this._applyTokenPreferences(doc);
+    return this.getTokenPreferencesSnapshot({ refresh: false });
+  }
+
+  async getTokenPreferencesSnapshot({ refresh = false } = {}) {
+    if (refresh || !this.tokenPreferencesCache) {
+      await this.refreshTokenPreferences({ force: true });
+    }
+
+    if (!this.tokenPreferencesCache) {
+      return {
+        defaults: JSON.parse(JSON.stringify(this.config.tokens?.defaults || {})),
+        overrides: JSON.parse(JSON.stringify(this.config.tokens?.overrides || {})),
+        prioritySymbols: Array.isArray(this.config.tokens?.prioritySymbols) ? [...this.config.tokens.prioritySymbols] : []
+      };
+    }
+
+    const snapshot = {
+      defaults: JSON.parse(JSON.stringify(this.tokenPreferencesCache.effectiveDefaults || {})),
+      overrides: JSON.parse(JSON.stringify(this.tokenPreferencesCache.overrides || {})),
+      prioritySymbols: Array.isArray(this.tokenPreferencesCache.prioritySymbols) ? [...this.tokenPreferencesCache.prioritySymbols] : []
+    };
+
+    return snapshot;
+  }
+
+  async updateTokenDefaults(partialDefaults = {}) {
+    const collection = await this._getTokenPreferencesCollection();
+    if (!collection) {
+      throw new Error('Token preferences store unavailable');
+    }
+
+    await this.refreshTokenPreferences({ force: true, seedIfMissing: true });
+
+    const storedDefaults = JSON.parse(JSON.stringify(this.tokenPreferencesCache?.storedDefaults || {}));
+    const sanitized = JSON.parse(JSON.stringify(partialDefaults || {}));
+    const mergedDefaults = ConfigService.deepMerge(storedDefaults, sanitized);
+
+    const doc = {
+      defaults: mergedDefaults,
+      overrides: this.tokenPreferencesCache?.overrides || {},
+      prioritySymbols: this.tokenPreferencesCache?.prioritySymbols || []
+    };
+
+    await this._writeTokenPreferencesDoc(collection, doc);
+    return this.getTokenPreferencesSnapshot({ refresh: false });
+  }
+
+  _sanitizeTokenOverride(override = {}) {
+    const sanitized = {};
+
+    if (override.displayEmoji) {
+      sanitized.displayEmoji = String(override.displayEmoji);
+    }
+
+    if (Array.isArray(override.aliasSymbols) && override.aliasSymbols.length) {
+      const dedupedSymbols = Array.from(new Set(
+        override.aliasSymbols
+          .map(sym => String(sym).replace(/^\$/, '').toUpperCase())
+          .filter(Boolean)
+      ));
+      if (dedupedSymbols.length) {
+        sanitized.symbols = dedupedSymbols;
+      }
+    } else if (Array.isArray(override.symbols) && override.symbols.length) {
+      const dedupedSymbols = Array.from(new Set(
+        override.symbols
+          .map(sym => String(sym).replace(/^\$/, '').toUpperCase())
+          .filter(Boolean)
+      ));
+      if (dedupedSymbols.length) {
+        sanitized.symbols = dedupedSymbols;
+      }
+    }
+
+    if (Array.isArray(override.addresses) && override.addresses.length) {
+      const normalizedAddresses = Array.from(new Set(
+        override.addresses
+          .map(addr => String(addr).trim().toLowerCase())
+          .filter(Boolean)
+      ));
+      if (normalizedAddresses.length) {
+        sanitized.addresses = normalizedAddresses;
+      }
+    }
+
+    if (override.walletAvatar && typeof override.walletAvatar === 'object') {
+      const minBalance = Number(override.walletAvatar.minBalanceForFullAvatar);
+      const sanitizedCollectionKeys = Array.isArray(override.walletAvatar.collectionKeys)
+        ? Array.from(new Set(
+            override.walletAvatar.collectionKeys
+              .map(key => String(key).trim())
+              .filter(Boolean)
+          ))
+        : [];
+
+      sanitized.walletAvatar = {
+        createFullAvatar: !!override.walletAvatar.createFullAvatar,
+        minBalanceForFullAvatar: Number.isFinite(minBalance) ? minBalance : 0,
+        autoActivate: !!override.walletAvatar.autoActivate,
+        sendIntro: !!override.walletAvatar.sendIntro,
+        requireClaimedAvatar: !!override.walletAvatar.requireClaimedAvatar,
+        requireCollectionOwnership: !!override.walletAvatar.requireCollectionOwnership,
+        collectionKeys: sanitizedCollectionKeys
+      };
+    }
+
+    if (override.buttons && typeof override.buttons === 'object') {
+      sanitized.buttons = override.buttons;
+    }
+
+    if (override.telegram && typeof override.telegram === 'object') {
+      sanitized.telegram = override.telegram;
+    }
+
+    if (override.notifications && typeof override.notifications === 'object') {
+      const notifications = {};
+      if (Object.prototype.hasOwnProperty.call(override.notifications, 'onlySwapEvents')) {
+        notifications.onlySwapEvents = !!override.notifications.onlySwapEvents;
+      }
+      if (Object.prototype.hasOwnProperty.call(override.notifications, 'transferAggregationUsdThreshold')) {
+        const threshold = Number(override.notifications.transferAggregationUsdThreshold);
+        if (Number.isFinite(threshold) && threshold >= 0) {
+          notifications.transferAggregationUsdThreshold = threshold;
+        }
+      }
+      if (Object.keys(notifications).length > 0) {
+        sanitized.notifications = notifications;
+      }
+    }
+
+    return sanitized;
+  }
+
+  async upsertTokenOverride(symbol, override = {}, options = {}) {
+    const normalizedSymbol = symbol ? String(symbol).replace(/^\$/, '').toUpperCase() : '';
+    if (!normalizedSymbol) {
+      throw new Error('symbol is required');
+    }
+
+    const collection = await this._getTokenPreferencesCollection();
+    if (!collection) {
+      throw new Error('Token preferences store unavailable');
+    }
+
+    await this.refreshTokenPreferences({ force: true, seedIfMissing: true });
+
+    const overrides = { ...(this.tokenPreferencesCache?.overrides || {}) };
+    const originalSymbol = options?.originalSymbol
+      ? String(options.originalSymbol).replace(/^\$/, '').toUpperCase()
+      : null;
+
+    if (originalSymbol && originalSymbol !== normalizedSymbol) {
+      delete overrides[originalSymbol];
+    }
+
+    const sanitizedOverride = this._sanitizeTokenOverride(override);
+    overrides[normalizedSymbol] = sanitizedOverride;
+
+    const doc = {
+      defaults: this.tokenPreferencesCache?.storedDefaults || {},
+      overrides,
+      prioritySymbols: this.tokenPreferencesCache?.prioritySymbols || []
+    };
+
+    await this._writeTokenPreferencesDoc(collection, doc);
+
+    return {
+      symbol: normalizedSymbol,
+      ...sanitizedOverride
+    };
+  }
+
+  async deleteTokenOverride(symbol) {
+    const normalizedSymbol = symbol ? String(symbol).replace(/^\$/, '').toUpperCase() : '';
+    if (!normalizedSymbol) {
+      throw new Error('symbol is required');
+    }
+
+    const collection = await this._getTokenPreferencesCollection();
+    if (!collection) {
+      throw new Error('Token preferences store unavailable');
+    }
+
+    await this.refreshTokenPreferences({ force: true, seedIfMissing: true });
+
+    const overrides = { ...(this.tokenPreferencesCache?.overrides || {}) };
+    if (!overrides[normalizedSymbol]) {
+      return false;
+    }
+
+    delete overrides[normalizedSymbol];
+
+    const doc = {
+      defaults: this.tokenPreferencesCache?.storedDefaults || {},
+      overrides,
+      prioritySymbols: this.tokenPreferencesCache?.prioritySymbols || []
+    };
+
+    await this._writeTokenPreferencesDoc(collection, doc);
+    return true;
   }
 
   // Validate critical configurations

@@ -117,8 +117,8 @@ export class DevilTool extends BasicTool {
       }
       if (!imageUrl) return '-# [ ❌ Error: Failed to generate Corrupted Whispers image. ]';
 
-      // If veoService is available, generate video(s) from the corrupted image
-      if (this.veoService && Math.random() < this.videoGenerationChance && this.veoService.checkRateLimit()) {
+      // If veoService is available, generate video(s) from the corrupted image (now async rate check)
+      if (this.veoService && Math.random() < this.videoGenerationChance && (await this.veoService.checkRateLimit())) {
         try {
           const buf = await this.s3Service.downloadImage(imageUrl);
           const base64 = buf.toString('base64');

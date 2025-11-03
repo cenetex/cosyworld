@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <rect width="96" height="96" rx="12" fill="#111827"/>
+  <path d="M62.4 28L51.12 41.76L66 68H56.16L46.92 51.36L35.04 65.52H44.88L34.56 83.76H18L41.04 52.8L30 28H39.84L48.24 44.64L61.2 28H62.4Z" fill="#6366F1"/>
+  <circle cx="78" cy="78" r="14" fill="#1F2937" stroke="#6366F1" stroke-width="2"/>
+  <path d="M84.5 72.5L71.5 85.5M71.5 72.5L84.5 85.5" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"/>
+  <title>X Placeholder Avatar</title>
+</svg>

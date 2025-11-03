@@ -1,3 +1,4 @@
+import { resolveAdminAvatarId } from '../../social/adminAvatarResolver.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -57,6 +58,22 @@ export class AttackTool extends BasicTool {
   this.deathVideoChance = Math.max(0, Math.min(1, parseFloat(env('BATTLE_VIDEO_DEATH_CHANCE', '1')) || 1));
   }
 
+  /**
+   * Get parameter schema for LLM tool calling
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        target: {
+          type: 'string',
+          description: 'The name of the avatar to attack'
+        }
+      },
+      required: ['target']
+    };
+  }
+
   async execute(message, params, avatar, services) {
     // Disallow actions from KO'd or dead actors
     try {
@@ -101,6 +118,31 @@ export class AttackTool extends BasicTool {
         }
         return `-# 🫠 [ Target '${targetName}' not found here. ]`;
       }
+      
+      // Block self-combat - normalize both IDs properly
+      const normalizeId = (obj) => {
+        if (!obj) return '';
+        const id = obj._id || obj.id;
+        if (!id) return '';
+        // Handle ObjectId objects
+        if (typeof id === 'object' && id.toString) return id.toString();
+        return String(id);
+      };
+      
+      const attackerId = normalizeId(avatar);
+      const defenderId = normalizeId(defender);
+      
+      // Comprehensive debug logging
+      this.logger?.info?.(`[AttackTool] SELF-COMBAT CHECK:`);
+      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
+      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
+      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
+      
+      if (attackerId && defenderId && attackerId === defenderId) {
+        this.logger?.warn?.(`[AttackTool] Self-combat blocked: ${avatar?.name} tried to attack themselves`);
+        return `-# 🤔 [ You cannot attack yourself! ]`;
+      }
+      
       const now = Date.now();
       if (defender.status === 'dead') {
         return `-# ⚰️ [ **${defender.name}** is already dead! Have some *respect* for the fallen. ]`;
@@ -129,11 +171,19 @@ export class AttackTool extends BasicTool {
             encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
           } catch (e) {
             const msg = String(e?.message || '').toLowerCase();
+            if (msg.includes('self_combat')) {
+              return `-# 🤔 [ You cannot attack yourself! ]`;
+            }
             if (msg.includes('flee_cooldown')) {
               return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
             }
+            if (msg.includes('knocked_out_status')) {
+              // More engaging message for knocked out status - try to identify which avatar
+              const knockedOutAvatar = defender?.status === 'knocked_out' || defender?.status === 'dead' ? defender : avatar;
+              return `-# 🛡️ [ **Attack Failed**: ${knockedOutAvatar.name} is knocked out and recovering. They cannot enter combat at this time. ]`;
+            }
             if (msg.includes('knockout_cooldown')) {
-              return `-# 💤 [ Combat cannot start: one combatant is knocked out and cannot fight today. ]`;
+              return `-# 💤 [ Combat cannot start: one combatant is still recovering from being knocked out. ]`;
             }
             throw e;
           }
@@ -166,7 +216,7 @@ export class AttackTool extends BasicTool {
                       if (autoX === 'true' && xsvc && poster.imageUrl) {
                         let admin = null;
                         try {
-                          const envId = (process.env.ADMIN_AVATAR_ID || process.env.ADMIN_AVATAR || '').trim();
+                          const envId = resolveAdminAvatarId();
                           if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
                             admin = await this.configService.services.avatarService.getAvatarById(envId);
                           } else {
@@ -187,12 +237,14 @@ export class AttackTool extends BasicTool {
                         }
                       }
                     } catch (e) { this.logger?.warn?.(`[AttackTool] auto X poster post failed: ${e.message}`); }
-                    // Brief discussion after poster
-                    const cm = this.conversationManager;
-                    if (cm?.sendResponse) {
-                      try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
-                      try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
-                    }
+                    
+                    // DISABLED: Brief discussion after poster causes spam
+                    // Combat flow should be: poster -> initiative -> turn-based actions only
+                    // const cm = this.conversationManager;
+                    // if (cm?.sendResponse) {
+                    //   try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
+                    //   try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
+                    // }
                   }
                 }
               }

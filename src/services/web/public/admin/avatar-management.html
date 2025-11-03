@@ -9,40 +9,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Avatar Management - Admin Dashboard</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet"
-    />
+    <!-- Shared Admin Styles -->
+    <link rel="stylesheet" href="/css/admin-common.css" />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   </head>
   <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col">
-      <!-- Navigation -->
-      <nav class="bg-gray-800 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
-              </div>
-              <div class="ml-10 flex items-baseline space-x-4">
-                <a
-                  href="/admin"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700"
-                  >Dashboard</a
-                >
-                <a
-                  href="/admin/entity-management"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700"
-                  >Entity Management</a>
-                <a
-                  href="/admin/settings"
-                  class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700"
-                  >Settings</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <!-- Legacy nav replaced at runtime by admin-shell.js -->
+      <nav data-legacy-nav class="hidden"></nav>
 
       <!-- Main Content -->
       <main class="flex-grow">
@@ -334,6 +308,73 @@
                 <div id="prompt-preview-content" class="text-sm text-gray-600 whitespace-pre-wrap"></div>
               </div>
             </div>
+            <!-- NFT Deployment Section -->
+            <div id="nft-section" class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200 hidden">
+              <h4 class="text-lg font-medium text-purple-900 mb-4">🎨 NFT Deployment</h4>
+              
+              <div id="nft-status" class="mb-4">
+                <!-- NFT status will be displayed here -->
+              </div>
+
+              <div id="nft-manifests" class="hidden mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="bg-white p-3 rounded border border-gray-200">
+                    <h5 class="text-sm font-semibold text-gray-700 mb-2">Base (ERC-721)</h5>
+                    <pre id="base-manifest" class="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-48"></pre>
+                  </div>
+                  <div class="bg-white p-3 rounded border border-gray-200">
+                    <h5 class="text-sm font-semibold text-gray-700 mb-2">Solana (Metaplex)</h5>
+                    <pre id="solana-manifest" class="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-48"></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div id="nft-deployment-links" class="hidden mb-4">
+                <h5 class="text-sm font-semibold text-gray-700 mb-2">Arweave Links</h5>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                    <span class="text-xs text-gray-600">Image:</span>
+                    <a id="nft-image-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                  </div>
+                  <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                    <span class="text-xs text-gray-600">Base Metadata:</span>
+                    <a id="nft-base-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                  </div>
+                  <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                    <span class="text-xs text-gray-600">Solana Metadata:</span>
+                    <a id="nft-solana-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex space-x-3">
+                <button
+                  type="button"
+                  id="generate-nft-metadata"
+                  class="inline-flex items-center justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  <span class="mr-2">📋</span>
+                  Generate NFT Metadata
+                </button>
+                <button
+                  type="button"
+                  id="deploy-to-arweave"
+                  class="hidden inline-flex items-center justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  <span class="mr-2">🚀</span>
+                  Deploy to Arweave
+                </button>
+                <button
+                  type="button"
+                  id="view-mobile-deployment"
+                  class="hidden inline-flex items-center justify-center py-2 px-4 border border-purple-300 shadow-sm text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  <span class="mr-2">📱</span>
+                  Open Mobile View
+                </button>
+              </div>
+            </div>
+
             <div class="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
@@ -361,17 +402,11 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <footer class="bg-white">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <p class="text-center text-sm text-gray-500">
-            RATi Swarm Admin Panel © 2024
-          </p>
-        </div>
-      </footer>
+      <!-- Footer injected by shell -->
     </div>
 
-    <!-- External JavaScript -->
-    <script src="../js/avatar-management.js"></script>
+    <!-- Shared Admin Bootstrap (injects shell + exposes AdminAPI/AdminUI/AdminAuth) -->
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/avatar-management.js"></script>
   </body>
 </html>

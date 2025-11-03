@@ -1,307 +1,53 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"problemMatcher": [
-				"$tsc"
-			],
-			"group": "build"
-		},
-		{
-			"label": "lint-all",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"lint"
-			],
-			"problemMatcher": [
-				"$eslint-stylish"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build-web",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"build:js"
-			],
-			"group": "build"
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "install dependencies",
+      "type": "shell",
+      "command": "npm",
+      "args": ["ci"],
+      "detail": "Install project dependencies using npm ci.",
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "detail": "Run eslint across the project.",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "build:js",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build:js"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "detail": "Compile the production webpack bundle without docs.",
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "detail": "Full build including docs generation.",
+      "problemMatcher": []
+    },
+    {
+      "label": "analyze bundle",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "analyze"],
+      "detail": "Produce webpack stats for bundle analysis.",
+      "problemMatcher": []
+    }
+  ]
 }

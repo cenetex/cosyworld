@@ -8,17 +8,20 @@ import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';
 import fs from 'fs/promises';
 import { parseWithRetries } from '../../utils/jsonParse.mjs';
+import { CircuitBreaker } from '../../utils/circuitBreaker.mjs';
 
 export class GoogleAIService {
   constructor({
     configService,
   s3Service,
-  aiModelService
+  aiModelService,
+  logger
   }) {
     
     this.configService = configService;
     this.s3Service = s3Service;
   this.aiModelService = aiModelService;
+    this.logger = logger;
     
     const config = this.configService.config.ai.google;
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
@@ -33,6 +36,18 @@ export class GoogleAIService {
     this.model = config.defaultModel || 'gemini-2.0-flash-001';
     this.structured_model = config.structuredModel || this.model;
     this.rawModels = modelsConfig.rawModels;
+    
+    // Initialize circuit breaker for Google AI API
+    this.circuitBreaker = new CircuitBreaker({
+      name: 'GoogleAI',
+      failureThreshold: 5,
+      successThreshold: 2,
+      resetTimeout: 60000, // 1 minute
+      logger: this.logger,
+      onStateChange: (newState, oldState) => {
+        this.logger?.info?.(`[GoogleAI] Circuit breaker: ${oldState} → ${newState}`);
+      }
+    });
 
     // Default options for chat and completion
     this.defaultCompletionOptions = {
@@ -324,9 +339,25 @@ export class GoogleAIService {
   
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await chatSession.sendMessage([{ text: lastMessage.content }]);
+        // Wrap Google AI API call with circuit breaker
+        const result = await this.circuitBreaker.execute(async () => {
+          return await chatSession.sendMessage([{ text: lastMessage.content }]);
+        });
+        
           return options.returnEnvelope ? { text: result.response.text(), raw: result, model: modelId, provider: 'google', error: null } : result.response.text();
       } catch (error) {
+        // Check if error is from circuit breaker
+        if (error.message?.includes('Circuit breaker OPEN')) {
+          this.logger?.warn?.('[GoogleAIService] Circuit breaker is open, skipping retry');
+          return options.returnEnvelope ? { 
+            text: null, 
+            raw: null, 
+            model: modelId, 
+            provider: 'google', 
+            error: { code: 'CIRCUIT_OPEN', message: error.message } 
+          } : null;
+        }
+        
         const retryInfo = this._parseRetryDelay(error);
         if (retryInfo.shouldRetry && attempt < 2) {
           console.warn(`[GoogleAIService] Quota exceeded during chat, retrying after ${retryInfo.delayMs}ms (attempt ${attempt + 1})`);
@@ -441,12 +472,56 @@ export class GoogleAIService {
     if (!this.googleAI) throw new Error("Google AI client not initialized.");
     if (!this.s3Service) throw new Error("s3Service not initialized.");
 
-    // Remove aspectRatio from options and append to prompt if present
+    // Extract purpose for upload metadata
+    const uploadPurpose = options.purpose || 'general';
+    
+    // Build rich upload options for social media context
+    const uploadOptions = { 
+      purpose: uploadPurpose, 
+      source: options.source || 'scene.camera',
+      prompt: prompt,
+    };
+    
+    // Add avatar context if provided
+    if (avatar) {
+      uploadOptions.avatarId = String(avatar._id || avatar.id || '');
+      uploadOptions.avatarName = avatar.name || null;
+      uploadOptions.avatarEmoji = avatar.emoji || null;
+      uploadOptions.context = `${avatar.name || 'An avatar'} ${avatar.emoji || ''} ${prompt}`.trim();
+    }
+    
+    // Add location context if provided
+    if (location) {
+      uploadOptions.locationName = location.name || null;
+      uploadOptions.locationDescription = location.description || null;
+      if (!uploadOptions.context) {
+        uploadOptions.context = `At ${location.name || 'a location'}: ${prompt}`.trim();
+      } else {
+        uploadOptions.context = `${uploadOptions.context} at ${location.name}`.trim();
+      }
+    }
+    
+    // Add guild context if provided
+    if (options.guildId) {
+      uploadOptions.guildId = options.guildId;
+    }
+
+    // Remove metadata fields from options (not for generation config)
     let aspectRatio;
     if (options && options.aspectRatio) {
       aspectRatio = options.aspectRatio;
       delete options.aspectRatio;
     }
+    // Remove all metadata fields that are for S3/upload only
+    delete options.purpose;
+    delete options.source;
+    delete options.context;
+    delete options.avatarId;
+    delete options.avatarName;
+    delete options.avatarEmoji;
+    delete options.locationName;
+    delete options.locationDescription;
+    delete options.guildId;
 
     let fullPrompt = prompt ? prompt.trim() : '';
     if (aspectRatio) {
@@ -495,7 +570,7 @@ export class GoogleAIService {
             await fs.mkdir('./images', { recursive: true });
             const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
-            const s3url = await this.s3Service.uploadImage(tempFile);
+            const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
             return s3url;
           }
@@ -516,15 +591,16 @@ export class GoogleAIService {
    * Calls the main implementation with aspectRatio mapped to options.
    * @param {string} prompt
    * @param {string} [aspectRatio]
+   * @param {object} [options] - Additional options like purpose
    * @returns {Promise<string|Array<string>>}
    */
-  async generateImage(prompt, aspectRatio) {
+  async generateImage(prompt, aspectRatio, options = {}) {
     // If aspectRatio is not provided, call the main method as usual
     if (aspectRatio === undefined) {
       return await this._generateImageImpl(prompt);
     }
     // Map aspectRatio to options and call the main method
-    return await this._generateImageImpl(prompt, null, null, [], { aspectRatio });
+    return await this._generateImageImpl(prompt, null, null, [], { ...options, aspectRatio });
   }
 
   /**
@@ -552,6 +628,42 @@ export class GoogleAIService {
     if (!this.s3Service) throw new Error("s3Service not initialized.");
     if (!Array.isArray(images) || images.length === 0) throw new Error("At least one image is required");
     if (images.length > 3) images = images.slice(0, 3); // Limit to 3 images
+    
+    // Extract purpose for upload metadata and remove from generation config
+    const uploadPurpose = options.purpose || 'general';
+    
+    // Build rich upload options for social media context
+    const uploadOptions = { 
+      purpose: uploadPurpose, 
+      source: options.source || 'scene.camera',
+      prompt: prompt,
+      context: options.context || prompt,
+    };
+    
+    // Pass through any avatar/location metadata from options
+    if (options.avatarId) uploadOptions.avatarId = options.avatarId;
+    if (options.avatarName) uploadOptions.avatarName = options.avatarName;
+    if (options.avatarEmoji) uploadOptions.avatarEmoji = options.avatarEmoji;
+    if (options.locationName) uploadOptions.locationName = options.locationName;
+    if (options.locationDescription) uploadOptions.locationDescription = options.locationDescription;
+    if (options.guildId) uploadOptions.guildId = options.guildId;
+    
+    // Extract model and purpose before passing to generation config
+    const { 
+      purpose: _purpose, 
+      model, 
+      avatarId: _avatarId, 
+      avatarName: _avatarName, 
+      avatarEmoji: _avatarEmoji, 
+      locationName: _locationName, 
+      locationDescription: _locationDescription, 
+      guildId: _guildId, 
+      context: _context, 
+      source: _source,
+      prompt: _prompt, // Remove prompt from options if present
+      ...genOptions 
+    } = options;
+    
     // Build a single content object with role 'user' and a parts array
     const parts = images.map(img => ({
       inline_data: {
@@ -565,11 +677,18 @@ export class GoogleAIService {
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-  const generativeModel = this.googleAI.getGenerativeModel({ model: options.model || 'gemini-2.5-flash-image-preview' });
-        // Remove penalty fields if present (always for image models)
-        const generationConfig = { ...this.defaultCompletionOptions, ...options, responseModalities: ['text', 'image'] };
-        delete generationConfig.frequencyPenalty;
-        delete generationConfig.presencePenalty;
+  const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-2.5-flash-image-preview' });
+        // Remove penalty fields and other unsupported fields (always for image models)
+        // Only include valid generation config fields
+        const validConfigFields = ['temperature', 'maxOutputTokens', 'topP', 'topK', 'responseModalities', 'candidateCount', 'stopSequences'];
+        const generationConfig = {
+          ...Object.fromEntries(
+            Object.entries({ ...this.defaultCompletionOptions, ...genOptions })
+              .filter(([key]) => validConfigFields.includes(key))
+          ),
+          responseModalities: ['text', 'image']
+        };
+        
         const response = await generativeModel.generateContent({
           contents: contents,
           generationConfig,
@@ -580,7 +699,7 @@ export class GoogleAIService {
             await fs.mkdir('./images', { recursive: true });
             const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
-            const s3url = await this.s3Service.uploadImage(tempFile);
+            const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
             return s3url;
           }
