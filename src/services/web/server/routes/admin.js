@@ -77,7 +77,7 @@ async function loadConfig(services = null) {
       summon: "Create a unique avatar with a special ability.",
       avatarTheme: 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
     },
-    features: { breeding: true, combat: true, itemCreation: true },
+    features: { breeding: true, combat: true, itemCreation: true, moderation: true },
     rateLimit: { messages: 5, interval: 10 },
     adminRoles: ["Admin", "Moderator"]
   };

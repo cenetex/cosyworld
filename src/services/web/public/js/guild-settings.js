@@ -189,12 +189,12 @@ class GuildSettingsManager {
         guildId: guild.id,
         name: guild.name,
         icon: guild.icon, // Include icon if available
-        memberCount: guild.memberCount,
-        authorized: true,
-        whitelisted: true, // For backward compatibility
-        summonEmoji: "✨",
-        adminRoles: [],
-        features: { breeding: true, combat: true, itemCreation: true },
+    memberCount: guild.memberCount,
+    authorized: true,
+    whitelisted: true, // For backward compatibility
+    summonEmoji: "✨",
+    adminRoles: [],
+    features: { breeding: true, combat: true, itemCreation: true, moderation: true },
         prompts: {
           intro:
             "You are now conversing with {avatar_name}, a unique AI character with its own personality and abilities.",
@@ -447,6 +447,8 @@ class GuildSettingsManager {
       features.combat || false;
     document.getElementById("feature-item-creation").checked =
       features.itemCreation || false;
+    document.getElementById("feature-moderation").checked =
+      features.moderation !== false;
 
     const prompts = guildConfig.prompts || {};
     document.getElementById("intro-prompt").value = prompts.intro || "";
@@ -552,6 +554,7 @@ class GuildSettingsManager {
         breeding: document.getElementById("feature-breeding").checked,
         combat: document.getElementById("feature-combat").checked,
         itemCreation: document.getElementById("feature-item-creation").checked,
+        moderation: document.getElementById("feature-moderation").checked,
       },
       prompts: {
         intro: document.getElementById("intro-prompt").value.trim(),

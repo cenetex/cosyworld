@@ -11,6 +11,7 @@ const ALLOWED_SETTING_KEYS = [
   'features.breeding',
   'features.combat',
   'features.itemCreation',
+  'features.moderation',
   'viewDetailsEnabled',
   'enableWebSearchTool',
   'webSearchToolChannelId',

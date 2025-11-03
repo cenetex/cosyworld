@@ -220,6 +220,15 @@ export class MessageHandler  {
   const channelId = message.channel.id;
     const guildId = message.guild.id;
 
+    let moderationEnabled = true;
+    try {
+      const guildConfig = await this.configService.getGuildConfig(guildId);
+      const features = guildConfig?.features || {};
+      moderationEnabled = features.moderation !== false;
+    } catch (err) {
+      this.logger.warn?.(`Failed to load guild config for ${guildId}: ${err.message}`);
+    }
+
     // Mark the channel as active
     await this.databaseService.markChannelActive(channelId, guildId);
 
@@ -236,10 +245,14 @@ export class MessageHandler  {
     await this.processChannel(channelId, message);
 
     // Structured moderation: analyze links and assign threat level
-    await this.moderationService.moderateMessageContent(message);
+    if (moderationEnabled) {
+      await this.moderationService.moderateMessageContent(message);
 
-    // Structured moderation: backlog moderation if needed
-    await this.moderationService.moderateBacklogIfNeeded(message.channel);
+      // Structured moderation: backlog moderation if needed
+      await this.moderationService.moderateBacklogIfNeeded(message.channel);
+    } else {
+      this.logger.debug?.(`Structured moderation disabled for guild ${guildId}`);
+    }
 
     // Agentic tool planning phase (post-response, general chat only)
     try {

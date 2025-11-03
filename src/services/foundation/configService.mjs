@@ -421,7 +421,8 @@ export class ConfigService {
       features: {
         breeding: true,
         combat: true,
-        itemCreation: true
+        itemCreation: true,
+        moderation: true
       },
       viewDetailsEnabled: true,
       enableWebSearchTool: true,
