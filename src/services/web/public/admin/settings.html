@@ -94,6 +94,80 @@
 
                 <div id="panelSettings" class="mt-4 hidden">
                   <h3 class="text-base font-semibold mb-2">Settings</h3>
+
+                  <!-- Replicate Configuration Section -->
+                  <div id="replicateConfig" class="border rounded-lg p-4 mb-4 bg-gray-50">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+                      <div>
+                        <h4 class="font-medium text-gray-900">Replicate Image Generation</h4>
+                        <p class="text-sm text-gray-600">Manage Flux LoRA settings and generate sample images with your Replicate token.</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button type="button" id="resetReplicateConfig" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Reset</button>
+                        <button type="button" id="saveReplicateConfig" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save</button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateTokenInput">Replicate API Token</label>
+                        <div class="flex gap-2">
+                          <input type="password" id="replicateTokenInput" autocomplete="off" placeholder="Enter new token to replace existing" class="flex-1 px-3 py-2 border rounded text-sm" />
+                          <button type="button" id="clearReplicateToken" class="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">Clear</button>
+                        </div>
+                        <p id="replicateTokenStatus" class="text-xs text-gray-500 mt-1">Token status unknown.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateBaseModelInput">Flux Base Model</label>
+                        <input type="text" id="replicateBaseModelInput" class="w-full px-3 py-2 border rounded text-sm font-mono" placeholder="black-forest-labs/flux-dev-lora" />
+                        <p class="text-xs text-gray-500 mt-1">Defaults to <code>black-forest-labs/flux-dev-lora</code> if left empty.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateLoraWeightsInput">LoRA Weights</label>
+                        <input type="text" id="replicateLoraWeightsInput" class="w-full px-3 py-2 border rounded text-sm font-mono" placeholder="your-user/weights:version" />
+                        <p class="text-xs text-gray-500 mt-1">Used as the <code>lora_weights</code> parameter when invoking the Flux LoRA model.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateLoraTriggerInput">LoRA Trigger Word</label>
+                        <input type="text" id="replicateLoraTriggerInput" class="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. MRQ" />
+                        <p class="text-xs text-gray-500 mt-1">Optional keyword appended to prompts when generating with this LoRA.</p>
+                      </div>
+                    </div>
+                    <div id="replicateConfigStatus" class="hidden mt-3">
+                      <div class="p-2 rounded text-sm"></div>
+                    </div>
+
+                    <div class="border-t border-gray-200 mt-6 pt-4">
+                      <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                        <div>
+                          <h5 class="font-medium text-gray-900">Sample Image Preview</h5>
+                          <p class="text-sm text-gray-600">Use the current configuration or override values below to test image generation.</p>
+                        </div>
+                        <button type="button" id="generateReplicateSample" class="px-3 py-1 bg-teal-600 text-white rounded text-sm hover:bg-teal-700">Generate Sample</button>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="space-y-3">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateSamplePromptInput">Sample Prompt</label>
+                            <textarea id="replicateSamplePromptInput" rows="4" class="w-full px-3 py-2 border rounded text-sm">A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.</textarea>
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" for="replicateSampleAspectInput">Aspect Ratio</label>
+                            <input type="text" id="replicateSampleAspectInput" value="1:1" class="w-full px-3 py-2 border rounded text-sm" />
+                            <p class="text-xs text-gray-500 mt-1">Example values: <code>1:1</code>, <code>3:4</code>, <code>16:9</code>.</p>
+                          </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                          <div id="replicateSamplePreview" class="hidden border rounded-lg overflow-hidden bg-white">
+                            <img id="replicateSampleImage" src="" alt="Replicate sample preview" class="w-full object-cover" />
+                          </div>
+                          <p id="replicateSampleEmpty" class="text-sm text-gray-500">Generate a sample to preview the latest settings.</p>
+                        </div>
+                      </div>
+                      <div id="replicateSampleStatus" class="hidden mt-3">
+                        <div class="p-2 rounded text-sm"></div>
+                      </div>
+                    </div>
+                  </div>
                   
                   <!-- Wallet Avatar Preferences Section -->
                   <div id="walletAvatarPreferences" class="border rounded-lg p-4 mb-4 bg-gray-50">

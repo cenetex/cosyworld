@@ -450,6 +450,230 @@ document.getElementById('exportJson')?.addEventListener('click', () => {
   download(`export-${currentScopeLabel()}.json`, JSON.stringify(out, null, 2));
 });
 
+// Replicate configuration state/helpers
+const DEFAULT_REPLICATE_SAMPLE_PROMPT = 'A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.';
+
+let replicateConfigState = {
+  tokenConfigured: false,
+  tokenMasked: null,
+  baseModel: 'black-forest-labs/flux-dev-lora',
+  loraWeights: '',
+  loraTrigger: ''
+};
+
+function hideReplicateSamplePreview() {
+  const preview = document.getElementById('replicateSamplePreview');
+  const img = document.getElementById('replicateSampleImage');
+  const empty = document.getElementById('replicateSampleEmpty');
+  if (preview) preview.classList.add('hidden');
+  if (img) img.src = '';
+  if (empty) empty.classList.remove('hidden');
+}
+
+function showReplicateStatus(message, type = 'info') {
+  const wrapper = document.getElementById('replicateConfigStatus');
+  const box = wrapper?.querySelector('div');
+  if (!box) return;
+  const palette = {
+    success: 'bg-green-50 border border-green-200 text-green-800',
+    error: 'bg-red-50 border border-red-200 text-red-800',
+    info: 'bg-blue-50 border border-blue-200 text-blue-800'
+  };
+  box.className = `p-2 rounded text-sm ${palette[type] || palette.info}`;
+  box.textContent = message;
+  wrapper.classList.remove('hidden');
+  setTimeout(() => wrapper.classList.add('hidden'), 5000);
+}
+
+function showReplicateSampleStatus(message, type = 'info') {
+  const wrapper = document.getElementById('replicateSampleStatus');
+  const box = wrapper?.querySelector('div');
+  if (!box) return;
+  const palette = {
+    success: 'bg-green-50 border border-green-200 text-green-800',
+    error: 'bg-red-50 border border-red-200 text-red-800',
+    info: 'bg-blue-50 border border-blue-200 text-blue-800'
+  };
+  box.className = `p-2 rounded text-sm ${palette[type] || palette.info}`;
+  box.textContent = message;
+  wrapper.classList.remove('hidden');
+  setTimeout(() => wrapper.classList.add('hidden'), 5000);
+}
+
+function populateReplicateForm(state) {
+  const tokenInput = document.getElementById('replicateTokenInput');
+  const tokenStatus = document.getElementById('replicateTokenStatus');
+  const baseInput = document.getElementById('replicateBaseModelInput');
+  const weightsInput = document.getElementById('replicateLoraWeightsInput');
+  const triggerInput = document.getElementById('replicateLoraTriggerInput');
+  const promptInput = document.getElementById('replicateSamplePromptInput');
+  const aspectInput = document.getElementById('replicateSampleAspectInput');
+  if (tokenInput) tokenInput.value = '';
+  if (tokenStatus) {
+    if (state.tokenConfigured) {
+      const masked = state.tokenMasked ? ` (${state.tokenMasked})` : '';
+      tokenStatus.textContent = `Token configured${masked}. Enter a new token to rotate or use Clear to remove.`;
+    } else {
+      tokenStatus.textContent = 'Token not configured. Add a token to enable Replicate image generation.';
+    }
+  }
+  if (baseInput) baseInput.value = state.baseModel || '';
+  if (weightsInput) weightsInput.value = state.loraWeights || '';
+  if (triggerInput) triggerInput.value = state.loraTrigger || '';
+  if (promptInput) promptInput.value = DEFAULT_REPLICATE_SAMPLE_PROMPT;
+  if (aspectInput) aspectInput.value = aspectInput.value || '1:1';
+  hideReplicateSamplePreview();
+}
+
+async function loadReplicateConfig() {
+  try {
+    const data = await apiFetch('/api/admin/replicate/config');
+    replicateConfigState = {
+      tokenConfigured: !!data?.tokenConfigured,
+      tokenMasked: data?.tokenMasked || null,
+      baseModel: data?.baseModel || 'black-forest-labs/flux-dev-lora',
+      loraWeights: data?.loraWeights || '',
+      loraTrigger: data?.loraTrigger || ''
+    };
+    populateReplicateForm(replicateConfigState);
+  } catch (err) {
+    console.error('Failed to load Replicate configuration:', err);
+    toastError(err.message || 'Failed to load Replicate configuration');
+  }
+}
+
+async function saveReplicateConfig() {
+  const baseInput = document.getElementById('replicateBaseModelInput');
+  const weightsInput = document.getElementById('replicateLoraWeightsInput');
+  const triggerInput = document.getElementById('replicateLoraTriggerInput');
+  const tokenInput = document.getElementById('replicateTokenInput');
+
+  const payload = {
+    baseModel: (baseInput?.value || '').trim(),
+    loraWeights: (weightsInput?.value || '').trim(),
+    loraTrigger: (triggerInput?.value || '').trim()
+  };
+
+  if (tokenInput) {
+    const tokenValue = tokenInput.value.trim();
+    if (tokenValue) {
+      payload.apiToken = tokenValue;
+    }
+  }
+
+  try {
+    await apiFetch('/api/admin/replicate/config', {
+      method: 'POST',
+      body: payload,
+      requireCsrf: true
+    });
+    success('Replicate configuration saved');
+    showReplicateStatus('Replicate configuration saved successfully.', 'success');
+    await loadReplicateConfig();
+  } catch (err) {
+    console.error('Failed to save Replicate configuration:', err);
+    toastError(err.message || 'Failed to save Replicate configuration');
+    showReplicateStatus(err.message || 'Failed to save Replicate configuration', 'error');
+  } finally {
+    if (tokenInput) tokenInput.value = '';
+  }
+}
+
+async function clearReplicateToken() {
+  if (!confirm('Clear the stored Replicate API token?')) return;
+  try {
+    await apiFetch('/api/admin/replicate/config', {
+      method: 'POST',
+      body: { apiToken: '' },
+      requireCsrf: true
+    });
+    success('Replicate token cleared');
+    showReplicateStatus('Replicate token cleared. Save a new token to re-enable.', 'info');
+    await loadReplicateConfig();
+  } catch (err) {
+    console.error('Failed to clear Replicate token:', err);
+    toastError(err.message || 'Failed to clear token');
+    showReplicateStatus(err.message || 'Failed to clear token', 'error');
+  }
+}
+
+async function generateReplicateSample() {
+  const baseInput = document.getElementById('replicateBaseModelInput');
+  const weightsInput = document.getElementById('replicateLoraWeightsInput');
+  const triggerInput = document.getElementById('replicateLoraTriggerInput');
+  const tokenInput = document.getElementById('replicateTokenInput');
+  const promptInput = document.getElementById('replicateSamplePromptInput');
+  const aspectInput = document.getElementById('replicateSampleAspectInput');
+  const preview = document.getElementById('replicateSamplePreview');
+  const image = document.getElementById('replicateSampleImage');
+  const empty = document.getElementById('replicateSampleEmpty');
+
+  const payload = {
+    baseModel: (baseInput?.value || '').trim(),
+    loraWeights: (weightsInput?.value || '').trim(),
+    loraTrigger: (triggerInput?.value || '').trim(),
+    prompt: promptInput?.value?.trim() || DEFAULT_REPLICATE_SAMPLE_PROMPT,
+    aspectRatio: aspectInput?.value?.trim() || '1:1'
+  };
+
+  if (tokenInput) {
+    const tokenValue = tokenInput.value.trim();
+    if (tokenValue) {
+      payload.apiToken = tokenValue;
+    }
+  }
+
+  showReplicateSampleStatus('Generating sample image...', 'info');
+  if (preview) preview.classList.add('hidden');
+  if (empty) empty.classList.add('hidden');
+
+  try {
+    const result = await apiFetch('/api/admin/replicate/sample', {
+      method: 'POST',
+      body: payload,
+      requireCsrf: true
+    });
+    if (image && result?.imageUrl) {
+      image.src = result.imageUrl;
+      image.alt = 'Replicate sample preview';
+      preview?.classList.remove('hidden');
+    } else {
+      if (preview) preview.classList.add('hidden');
+      if (image) image.src = '';
+      empty?.classList.remove('hidden');
+    }
+    showReplicateSampleStatus('Sample generated successfully.', 'success');
+  } catch (err) {
+    console.error('Replicate sample generation failed:', err);
+    showReplicateSampleStatus(err.message || 'Failed to generate sample image.', 'error');
+    if (preview) preview.classList.add('hidden');
+    if (image) image.src = '';
+    if (empty) empty.classList.remove('hidden');
+  }
+}
+
+function resetReplicateConfigForm() {
+  document.getElementById('replicateConfigStatus')?.classList.add('hidden');
+  document.getElementById('replicateSampleStatus')?.classList.add('hidden');
+  populateReplicateForm(replicateConfigState);
+}
+
+function initReplicateConfigHandlers() {
+  const saveBtn = document.getElementById('saveReplicateConfig');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', withButtonLoading(saveBtn, saveReplicateConfig));
+  }
+  document.getElementById('resetReplicateConfig')?.addEventListener('click', resetReplicateConfigForm);
+  const clearBtn = document.getElementById('clearReplicateToken');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', withButtonLoading(clearBtn, clearReplicateToken));
+  }
+  const sampleBtn = document.getElementById('generateReplicateSample');
+  if (sampleBtn) {
+    sampleBtn.addEventListener('click', withButtonLoading(sampleBtn, generateReplicateSample));
+  }
+}
+
 // Payment Configuration Functions
 async function loadPaymentConfig() {
   try {
@@ -1494,6 +1718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
   tabSettings?.addEventListener('click', async () => {
     activate(tabSettings);
+    await loadReplicateConfig();
     await loadCollections();
     await loadWalletAvatarPreferences();
   });
@@ -1505,12 +1730,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   activate(tabPrompts);
 
   // Payment configuration handlers
+  initReplicateConfigHandlers();
   initPaymentConfigHandlers();
 
   // Wallet avatar preference handlers
   initWalletAvatarPreferenceHandlers();
 
   // Preload wallet avatar preferences and collections for initial render
+  await loadReplicateConfig();
   await loadCollections();
   await loadWalletAvatarPreferences();
 });

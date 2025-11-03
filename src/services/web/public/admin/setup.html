@@ -585,20 +585,8 @@
               <label for="replicateTrigger">LoRA Trigger Word</label>
               <input type="text" id="replicateTrigger" placeholder="e.g. MRQ">
             </div>
-            <div class="form-group">
-              <label for="replicateAspect">Preview Aspect Ratio</label>
-              <input type="text" id="replicateAspect" value="1:1">
-            </div>
-            <div class="form-group">
-              <label for="replicateSamplePrompt">Preview Prompt</label>
-              <textarea id="replicateSamplePrompt" rows="3">A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.</textarea>
-            </div>
-            <div class="form-group">
-              <button type="button" class="btn btn-generate" id="replicateSampleBtn" onclick="generateReplicateSample()">Generate Sample Image</button>
-            </div>
-            <div id="replicateSampleStatus" class="alert hidden"></div>
-            <div id="replicateSamplePreview" class="sample-preview hidden">
-              <img id="replicateSampleImage" src="" alt="Replicate sample preview">
+            <div class="alert alert-info">
+              Preview generation is available after setup inside the authenticated admin settings.
             </div>
           </div>
         </div>
@@ -924,78 +912,6 @@
       }
 
       return config;
-    }
-
-    async function generateReplicateSample() {
-      if (!document.getElementById('enableReplicate').checked) {
-        return;
-      }
-
-      const btn = document.getElementById('replicateSampleBtn');
-      const statusEl = document.getElementById('replicateSampleStatus');
-      const previewEl = document.getElementById('replicateSamplePreview');
-      const imageEl = document.getElementById('replicateSampleImage');
-
-      const payload = {
-        apiToken: getFieldValue('replicateToken'),
-        baseModel: document.getElementById('replicateBaseModel').value.trim(),
-        model: document.getElementById('replicateModel').value.trim(),
-        loraTrigger: document.getElementById('replicateTrigger').value.trim(),
-        prompt: document.getElementById('replicateSamplePrompt').value.trim(),
-        aspectRatio: document.getElementById('replicateAspect').value.trim() || '1:1'
-      };
-
-      payload.baseModel = payload.baseModel || 'black-forest-labs/flux-dev-lora';
-
-      if (!payload.model) {
-        delete payload.model;
-      } else {
-        payload.loraWeights = payload.model;
-      }
-
-      if (!payload.loraTrigger) {
-        delete payload.loraTrigger;
-      }
-
-      if (!payload.prompt) {
-        payload.prompt = 'A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.';
-      }
-
-      if (payload.apiToken === '') {
-        delete payload.apiToken;
-      }
-
-      btn.disabled = true;
-      statusEl.className = 'alert alert-info';
-      statusEl.textContent = 'Generating sample image...';
-      statusEl.classList.remove('hidden');
-      previewEl.classList.add('hidden');
-
-      try {
-        const response = await fetch('/api/setup/replicate/sample', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Replicate generation failed');
-        }
-
-        imageEl.src = result.imageUrl;
-        imageEl.alt = 'Replicate sample preview';
-        previewEl.classList.remove('hidden');
-        statusEl.className = 'alert alert-success';
-        statusEl.textContent = 'Sample image generated successfully.';
-      } catch (error) {
-        console.error('Replicate sample error:', error);
-        statusEl.className = 'alert alert-error';
-        statusEl.textContent = error.message || 'Failed to generate sample image.';
-      } finally {
-        btn.disabled = false;
-      }
     }
 
     // Complete setup

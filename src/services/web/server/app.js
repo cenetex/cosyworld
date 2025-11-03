@@ -163,6 +163,7 @@ async function initializeApp(services) {
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
+  app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(services));
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads (GET) with session; require signed message for writes (POST/PUT/PATCH/DELETE)
   app.use('/api/admin', ensureAdmin, validateCsrf, (req, res, next) => {

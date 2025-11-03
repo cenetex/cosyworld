@@ -7,7 +7,6 @@ import express from 'express';
 import crypto from 'crypto';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { ReplicateService } from '../../../ai/replicateService.mjs';
 
 /**
  * Setup routes for first-time application configuration
@@ -69,7 +68,7 @@ export default function createSetupRouter(services) {
           service: process.env.AI_SERVICE || 'openrouter',
           openrouter: {
             apiKey: process.env.OPENROUTER_API_KEY ? maskSecret(process.env.OPENROUTER_API_KEY) : null,
-            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free', // Not a secret
+            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro', // Not a secret
             chatModel: process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || null,
             visionModel: process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || null,
             structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || null,
@@ -77,15 +76,15 @@ export default function createSetupRouter(services) {
           },
           google: {
             apiKey: (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) ? maskSecret(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : null,
-            model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash-exp', // Not a secret
+            model: process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash', // Not a secret
             configured: !!(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY)
           }
         },
         optional: {
           replicate: { 
             configured: !!process.env.REPLICATE_API_TOKEN,
-            model: process.env.REPLICATE_MODEL || process.env.REPLICATE_LORA_WEIGHTS || null,
-            baseModel: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
+            model: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null,
+            baseModel: process.env.REPLICATE_BASE_MODEL || process.env.REPLICATE_MODEL || 'black-forest-labs/flux-dev-lora',
             loraWeights: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null,
             loraTrigger: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || null
           },
@@ -313,82 +312,6 @@ export default function createSetupRouter(services) {
     } catch (error) {
       logger?.error?.('[Setup API] Reset failed:', error);
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  router.post('/replicate/sample', express.json({ limit: '2mb' }), async (req, res) => {
-    try {
-      const { apiToken, baseModel, model, loraWeights, loraTrigger, prompt, aspectRatio } = req.body || {};
-
-      let resolvedToken = apiToken;
-      if (!resolvedToken || resolvedToken === 'KEEP_EXISTING') {
-        try {
-          resolvedToken = await secretsService.getAsync?.('REPLICATE_API_TOKEN');
-        } catch (error) {
-          logger?.warn?.('[Setup API] Failed to fetch replicate token via getAsync:', error?.message || error);
-        }
-        if (!resolvedToken && typeof secretsService.get === 'function') {
-          try {
-            resolvedToken = await secretsService.get('REPLICATE_API_TOKEN');
-          } catch (error) {
-            logger?.warn?.('[Setup API] Failed to fetch replicate token via get:', error?.message || error);
-          }
-        }
-        resolvedToken = resolvedToken || process.env.REPLICATE_API_TOKEN;
-      }
-
-      if (!resolvedToken) {
-        return res.status(400).json({ error: 'Replicate API token required to generate a sample image.' });
-      }
-
-      let resolvedBaseModel = baseModel;
-      if (!resolvedBaseModel || resolvedBaseModel === 'KEEP_EXISTING') {
-        resolvedBaseModel = process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora';
-      }
-
-      let resolvedLoraWeights = loraWeights ?? model;
-      if (!resolvedLoraWeights || resolvedLoraWeights === 'KEEP_EXISTING') {
-        resolvedLoraWeights = process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null;
-      }
-
-      let resolvedTrigger = loraTrigger;
-      if (!resolvedTrigger || resolvedTrigger === 'KEEP_EXISTING') {
-        resolvedTrigger = process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || '';
-      }
-
-      const samplePrompt = typeof prompt === 'string' && prompt.trim()
-        ? prompt.trim()
-        : 'A cozy fantasy avatar portrait with warm lighting and welcoming expression.';
-
-      const mockConfigService = {
-        config: {
-          ai: {
-            replicate: {
-              apiToken: resolvedToken,
-              model: resolvedBaseModel,
-              lora_weights: resolvedLoraWeights,
-              loraTriggerWord: resolvedTrigger,
-              style: 'Cyberpunk, Manga, Anime, Watercolor, Experimental.'
-            }
-          }
-        }
-      };
-
-      const replicateService = new ReplicateService({ configService: mockConfigService, logger });
-      replicateService.apiToken = resolvedToken;
-
-      const imageUrl = await replicateService.generateImage(samplePrompt, [], {
-        aspect_ratio: typeof aspectRatio === 'string' && aspectRatio.trim() ? aspectRatio.trim() : '1:1'
-      });
-
-      if (!imageUrl) {
-        return res.status(502).json({ error: 'Replicate did not return an image.' });
-      }
-
-      res.json({ success: true, imageUrl });
-    } catch (error) {
-      logger?.error?.('[Setup API] Replicate sample generation failed:', error);
-      res.status(500).json({ error: error?.message || 'Failed to generate sample image.' });
     }
   });
 
