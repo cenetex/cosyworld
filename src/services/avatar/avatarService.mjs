@@ -122,7 +122,8 @@ export class AvatarService {
     this.statService = statService;
     this.schemaService = schemaService;
     this.logger = logger;
-        this.walletInsights = walletInsights;
+    this.walletInsights = walletInsights;
+    this.pendingAvatarImageHydrations = new Set();
 
   this.registeredCollectionCache = { keys: [], expiresAt: 0 };
 
@@ -246,6 +247,10 @@ export class AvatarService {
       await this.getMapService().updateAvatarPosition(avatar, locationId);
     this.logger.info(`Initialized avatar ${avatar._id}${locationId ? ' @' + locationId : ''}`);
     await this.updateAvatar(avatar);
+    if (avatar && !avatar.imageUrl && avatar.isPartial !== true) {
+      await this._ensureAvatarImage(avatar, { reason: 'wallet-hydration' });
+    }
+
     return avatar;
   }
 
@@ -1341,6 +1346,93 @@ export class AvatarService {
     return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
   }
 
+  _canGenerateAvatarImages() {
+    if (!this.schemaService?.generateImage) return false;
+    try {
+      const replicateConfig = this.configService?.getAIConfig?.('replicate') || {};
+      const apiToken = replicateConfig.apiToken || process.env.REPLICATE_API_TOKEN;
+      return Boolean(apiToken);
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Failed to inspect Replicate config: ${error.message}`);
+      return false;
+    }
+  }
+
+  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false } = {}) {
+    if (!avatar) return null;
+    if (!force && avatar.imageUrl) return avatar;
+    if (!force && avatar.isPartial === true) return avatar;
+    if (!this._canGenerateAvatarImages()) {
+      this.logger?.debug?.(`[AvatarService] Skipping image hydration for ${avatar?.name || avatar?._id}: Replicate not configured`);
+      return avatar;
+    }
+
+    let objectId = null;
+    try {
+      objectId = toObjectId(avatar._id);
+    } catch {
+      this.logger?.warn?.(`[AvatarService] Cannot hydrate avatar image without valid _id (got ${avatar?._id})`);
+      return avatar;
+    }
+
+    const cacheKey = objectId.toHexString();
+    if (this.pendingAvatarImageHydrations.has(cacheKey)) {
+      return avatar;
+    }
+
+    const generationPrompt = (typeof prompt === 'string' && prompt.trim())
+      || (typeof avatar.description === 'string' && avatar.description.trim())
+      || `${avatar.emoji || ''} ${avatar.name || 'avatar'}`.trim();
+
+    if (!generationPrompt) {
+      this.logger?.warn?.(`[AvatarService] Unable to hydrate image for ${avatar?.name || cacheKey}: no prompt available`);
+      return avatar;
+    }
+
+    this.pendingAvatarImageHydrations.add(cacheKey);
+    try {
+      const uploadOptions = {
+        source: `avatar.hydration.${reason}`,
+        avatarId: cacheKey,
+        avatarName: avatar.name,
+        avatarEmoji: avatar.emoji,
+        prompt: generationPrompt
+      };
+
+      const imageUrl = await this.generateAvatarImage(generationPrompt, uploadOptions);
+      if (!imageUrl) {
+        this.logger?.warn?.(`[AvatarService] Replicate returned no image for ${avatar?.name || cacheKey}`);
+        return avatar;
+      }
+
+      const db = await this._db();
+      const updatedAt = new Date();
+      const update = {
+        imageUrl,
+        updatedAt
+      };
+      if (avatar.isPartial === true) {
+        update.isPartial = false;
+        update.upgradedAt = updatedAt;
+      }
+
+      await db.collection(this.AVATARS_COLLECTION).updateOne({ _id: objectId }, { $set: update });
+
+      avatar.imageUrl = imageUrl;
+      avatar.updatedAt = updatedAt;
+      if (avatar.isPartial === true) {
+        avatar.isPartial = false;
+        avatar.upgradedAt = updatedAt;
+      }
+    } catch (error) {
+      this.logger?.warn?.(`[AvatarService] Failed to hydrate missing image for ${avatar?.name || cacheKey}: ${error.message}`);
+    } finally {
+      this.pendingAvatarImageHydrations.delete(cacheKey);
+    }
+
+    return avatar;
+  }
+
   /**
    * Resolve a suitable chat model for hydrated avatars. Falls back through configured defaults.
    * @param {string|null} currentModel
@@ -1477,13 +1569,18 @@ export class AvatarService {
 
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
+    const createdAvatar = { ...doc, _id: insertedId };
+
+    if (!createdAvatar.imageUrl) {
+      await this._ensureAvatarImage(createdAvatar, { reason: 'post-create', force: true });
+    }
 
   // Auto-post new avatars to X when enabled and admin account is linked
     try {
       const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
-      if (autoPost === 'true' && doc.imageUrl && this.configService?.services?.xService) {
+      if (autoPost === 'true' && createdAvatar.imageUrl && this.configService?.services?.xService) {
         // Basic dedupe: avoid posting if a recent social_posts entry exists for this image
-        const posted = await db.collection('social_posts').findOne({ imageUrl: doc.imageUrl, mediaType: 'image' });
+        const posted = await db.collection('social_posts').findOne({ imageUrl: createdAvatar.imageUrl, mediaType: 'image' });
         if (!posted) {
           try {
             // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
@@ -1498,30 +1595,30 @@ export class AvatarService {
               admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
             }
             if (admin) {
-              const content = `${doc.emoji || ''} Meet ${doc.name} — ${doc.description}`.trim().slice(0, 240);
+              const content = `${createdAvatar.emoji || ''} Meet ${createdAvatar.name} — ${createdAvatar.description}`.trim().slice(0, 240);
               // Emit event for global auto-poster system (may have been emitted by S3Service already, but ensure it's available)
               try { 
                 eventBus.emit('MEDIA.IMAGE.GENERATED', { 
                   type: 'image', 
                   source: 'avatar.create', 
                   avatarId: insertedId, 
-                  imageUrl: doc.imageUrl, 
-                  prompt: doc.description, 
-                  avatarName: doc.name,
-                  avatarEmoji: doc.emoji,
+                  imageUrl: createdAvatar.imageUrl, 
+                  prompt: createdAvatar.description, 
+                  avatarName: createdAvatar.name,
+                  avatarEmoji: createdAvatar.emoji,
                   context: content,
                   createdAt: new Date() 
                 }); 
               } catch {}
               // Direct X posting for backwards compatibility (may be skipped if global auto-poster already posted)
-              await this.configService.services.xService.postImageToX(admin, doc.imageUrl, content);
+              await this.configService.services.xService.postImageToX(admin, createdAvatar.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
         }
       }
     } catch (e) { this.logger?.debug?.(`[AvatarService] auto X post (avatar) skipped: ${e.message}`); }
 
-    return { ...doc, _id: insertedId };
+    return createdAvatar;
   }
 
   /**

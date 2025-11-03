@@ -18,9 +18,11 @@ export class SchemaService {
     this.configService = configService;
     this.s3Service = s3Service;
     this.databaseService = databaseService;
-    
-    this.replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
+
     this.schemaValidator = new SchemaValidator();
+    this._replicateClient = null;
+    this._replicateToken = null;
+
     this.rarityRanges = [
       { rarity: 'common', min: 1, max: 12 },
       { rarity: 'uncommon', min: 13, max: 17 },
@@ -31,10 +33,20 @@ export class SchemaService {
 
   async generateImage(prompt, aspectRatio = '1:1', uploadOptions = {}) {
     try {
-      const replicateConfig = this.configService.getAIConfig('replicate');
-      const loraTrigger = replicateConfig.loraTriggerWord || '';
-      const loraWeights = replicateConfig.lora_weights || null;
-      const modelVersion = replicateConfig.model || 'black-forest-labs/flux-dev-lora';
+      const replicateConfig = this.configService.getAIConfig('replicate') || {};
+      const apiToken = replicateConfig.apiToken || process.env.REPLICATE_API_TOKEN;
+      if (!apiToken) {
+        throw new Error('Replicate API token is not configured. Set it in admin settings.');
+      }
+
+      if (!this._replicateClient || this._replicateToken !== apiToken) {
+        this._replicateClient = new Replicate({ auth: apiToken });
+        this._replicateToken = apiToken;
+      }
+
+      const loraTrigger = replicateConfig.loraTriggerWord || replicateConfig.loraTrigger || '';
+      const loraWeights = replicateConfig.lora_weights || replicateConfig.loraWeights || null;
+      const modelVersion = replicateConfig.model || replicateConfig.baseModel || 'black-forest-labs/flux-dev-lora';
 
       const decoratedPrompt = `${loraTrigger} ${prompt} ${loraTrigger}`.trim();
 
@@ -56,19 +68,31 @@ export class SchemaService {
         replicateInput.lora_weights = loraWeights;
       }
 
-      const [output] = await this.replicate.run(
+      const output = await this._replicateClient.run(
         modelVersion,
         {
           input: replicateInput
         }
       );
 
-      const imageUrl = (output.url || output.toString)();
+      const firstResult = Array.isArray(output) ? output[0] : output?.output?.[0] || output;
+      let imageUrl = null;
+      if (typeof firstResult === 'string') {
+        imageUrl = firstResult;
+      } else if (firstResult && typeof firstResult.url === 'string') {
+        imageUrl = firstResult.url;
+      } else if (firstResult && typeof firstResult.toString === 'function') {
+        imageUrl = firstResult.toString();
+      }
+
+      if (!imageUrl) {
+        throw new Error('Replicate did not return an image URL');
+      }
+
       const imageBuffer = await this.s3Service.downloadImage(`${imageUrl}`);
       const localFilename = `./images/generated_${Date.now()}.png`;
       await fs.mkdir('./images', { recursive: true });
       await fs.writeFile(localFilename, imageBuffer);
-      // Pass through upload options (including metadata for event emission)
       const s3url = await this.s3Service.uploadImage(localFilename, uploadOptions);
       return s3url;
     } catch (error) {
