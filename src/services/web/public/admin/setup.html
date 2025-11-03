@@ -189,6 +189,23 @@
       background: #059669;
     }
 
+    .sample-preview {
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sample-preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+    }
+
     .alert {
       padding: 12px 16px;
       border-radius: 8px;
@@ -553,7 +570,35 @@
           <div id="replicateConfig" class="hidden">
             <div class="form-group">
               <label for="replicateToken">Replicate API Token</label>
-              <input type="password" id="replicateToken">
+              <input type="password" id="replicateToken" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="replicateBaseModel">Base Model Version</label>
+              <input type="text" id="replicateBaseModel" value="black-forest-labs/flux-dev-lora">
+            </div>
+            <div class="form-group">
+              <label for="replicateModel">LoRA Weights (model or version)</label>
+              <input type="text" id="replicateModel" placeholder="your-username/weights:version">
+              <small>Used as the <code>lora_weights</code> parameter when invoking flux-dev-lora.</small>
+            </div>
+            <div class="form-group">
+              <label for="replicateTrigger">LoRA Trigger Word</label>
+              <input type="text" id="replicateTrigger" placeholder="e.g. MRQ">
+            </div>
+            <div class="form-group">
+              <label for="replicateAspect">Preview Aspect Ratio</label>
+              <input type="text" id="replicateAspect" value="1:1">
+            </div>
+            <div class="form-group">
+              <label for="replicateSamplePrompt">Preview Prompt</label>
+              <textarea id="replicateSamplePrompt" rows="3">A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.</textarea>
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-generate" id="replicateSampleBtn" onclick="generateReplicateSample()">Generate Sample Image</button>
+            </div>
+            <div id="replicateSampleStatus" class="alert hidden"></div>
+            <div id="replicateSamplePreview" class="sample-preview hidden">
+              <img id="replicateSampleImage" src="" alt="Replicate sample preview">
             </div>
           </div>
         </div>
@@ -764,6 +809,16 @@
       config.classList.toggle('hidden', !checkbox.checked);
     }
 
+    function getFieldValue(fieldId) {
+      const field = document.getElementById(fieldId);
+      if (!field) return '';
+      const value = (field.value || '').trim();
+      if (!value && field.placeholder && field.placeholder.includes('Currently set')) {
+        return 'KEEP_EXISTING';
+      }
+      return value;
+    }
+
     // Show configuration preview
     function showConfigPreview() {
       const preview = document.getElementById('configPreview');
@@ -797,28 +852,17 @@
     function gatherConfiguration() {
       const aiService = document.getElementById('aiService').value;
       
-      // Helper to check if field should use existing value
-      const getValue = (fieldId) => {
-        const field = document.getElementById(fieldId);
-        const value = field.value.trim();
-        // If field is empty and has placeholder indicating existing value, use KEEP_EXISTING
-        if (!value && field.placeholder && field.placeholder.includes('Currently set')) {
-          return 'KEEP_EXISTING';
-        }
-        return value;
-      };
-      
       const config = {
         encryption: {
-          key: getValue('encryptionKey'),
-          serverKey: getValue('serverSecretKey')
+          key: getFieldValue('encryptionKey'),
+          serverKey: getFieldValue('serverSecretKey')
         },
         mongo: {
-          uri: getValue('mongoUri'),
+          uri: getFieldValue('mongoUri'),
           dbName: document.getElementById('mongoDbName').value || 'cosyworld8'
         },
         discord: {
-          botToken: getValue('discordBotToken'),
+          botToken: getFieldValue('discordBotToken'),
           clientId: document.getElementById('discordClientId').value
         },
         ai: {
@@ -829,12 +873,12 @@
 
       if (aiService === 'openrouter') {
         config.ai.openrouter = {
-          apiKey: getValue('openrouterApiKey'),
+          apiKey: getFieldValue('openrouterApiKey'),
           model: document.getElementById('openrouterModel').value || 'google/gemini-2.0-flash-exp:free'
         };
       } else {
         config.ai.google = {
-          apiKey: getValue('googleApiKey'),
+          apiKey: getFieldValue('googleApiKey'),
           model: document.getElementById('googleModel').value || 'gemini-2.0-flash-exp'
         };
       }
@@ -842,7 +886,7 @@
       if (document.getElementById('enableS3').checked) {
         config.optional.s3 = {
           endpoint: document.getElementById('s3Endpoint').value,
-          apiKey: getValue('s3ApiKey'),
+          apiKey: getFieldValue('s3ApiKey'),
           cloudfrontDomain: document.getElementById('cloudfrontDomain').value
         };
       }
@@ -850,23 +894,108 @@
       if (document.getElementById('enableTwitter').checked) {
         config.optional.twitter = {
           clientId: document.getElementById('xClientId').value,
-          clientSecret: getValue('xClientSecret')
+          clientSecret: getFieldValue('xClientSecret')
         };
       }
 
       if (document.getElementById('enableReplicate').checked) {
-        config.optional.replicate = {
-          apiToken: getValue('replicateToken')
+        const replicateConfig = {
+          apiToken: getFieldValue('replicateToken'),
+          baseModel: document.getElementById('replicateBaseModel').value.trim() || 'black-forest-labs/flux-dev-lora'
         };
+
+        const loraWeights = document.getElementById('replicateModel').value.trim();
+        if (loraWeights) {
+          replicateConfig.model = loraWeights;
+        }
+
+        const loraTrigger = document.getElementById('replicateTrigger').value.trim();
+        if (loraTrigger) {
+          replicateConfig.loraTrigger = loraTrigger;
+        }
+
+        config.optional.replicate = replicateConfig;
       }
 
       if (document.getElementById('enableHelius').checked) {
         config.optional.helius = {
-          apiKey: getValue('heliusApiKey')
+          apiKey: getFieldValue('heliusApiKey')
         };
       }
 
       return config;
+    }
+
+    async function generateReplicateSample() {
+      if (!document.getElementById('enableReplicate').checked) {
+        return;
+      }
+
+      const btn = document.getElementById('replicateSampleBtn');
+      const statusEl = document.getElementById('replicateSampleStatus');
+      const previewEl = document.getElementById('replicateSamplePreview');
+      const imageEl = document.getElementById('replicateSampleImage');
+
+      const payload = {
+        apiToken: getFieldValue('replicateToken'),
+        baseModel: document.getElementById('replicateBaseModel').value.trim(),
+        model: document.getElementById('replicateModel').value.trim(),
+        loraTrigger: document.getElementById('replicateTrigger').value.trim(),
+        prompt: document.getElementById('replicateSamplePrompt').value.trim(),
+        aspectRatio: document.getElementById('replicateAspect').value.trim() || '1:1'
+      };
+
+      payload.baseModel = payload.baseModel || 'black-forest-labs/flux-dev-lora';
+
+      if (!payload.model) {
+        delete payload.model;
+      } else {
+        payload.loraWeights = payload.model;
+      }
+
+      if (!payload.loraTrigger) {
+        delete payload.loraTrigger;
+      }
+
+      if (!payload.prompt) {
+        payload.prompt = 'A cozy avatar portrait bathed in warm tavern light, painterly watercolor finish.';
+      }
+
+      if (payload.apiToken === '') {
+        delete payload.apiToken;
+      }
+
+      btn.disabled = true;
+      statusEl.className = 'alert alert-info';
+      statusEl.textContent = 'Generating sample image...';
+      statusEl.classList.remove('hidden');
+      previewEl.classList.add('hidden');
+
+      try {
+        const response = await fetch('/api/setup/replicate/sample', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Replicate generation failed');
+        }
+
+        imageEl.src = result.imageUrl;
+        imageEl.alt = 'Replicate sample preview';
+        previewEl.classList.remove('hidden');
+        statusEl.className = 'alert alert-success';
+        statusEl.textContent = 'Sample image generated successfully.';
+      } catch (error) {
+        console.error('Replicate sample error:', error);
+        statusEl.className = 'alert alert-error';
+        statusEl.textContent = error.message || 'Failed to generate sample image.';
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     // Complete setup
@@ -1018,6 +1147,15 @@
           document.getElementById('enableReplicate').checked = true;
           toggleOptional('replicate');
           document.getElementById('replicateToken').placeholder = 'Currently set (masked)';
+          if (config.optional.replicate.baseModel) {
+            document.getElementById('replicateBaseModel').value = config.optional.replicate.baseModel;
+          }
+          if (config.optional.replicate.loraWeights || config.optional.replicate.model) {
+            document.getElementById('replicateModel').value = config.optional.replicate.loraWeights || config.optional.replicate.model;
+          }
+          if (config.optional.replicate.loraTrigger) {
+            document.getElementById('replicateTrigger').value = config.optional.replicate.loraTrigger;
+          }
         }
         
         if (config.optional?.helius?.configured) {

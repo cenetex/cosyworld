@@ -116,7 +116,11 @@ export class ConfigWizardService {
           },
           optional: {
             replicate: {
-              apiToken: process.env.REPLICATE_API_TOKEN ? this._maskValue(process.env.REPLICATE_API_TOKEN) : null
+              apiToken: process.env.REPLICATE_API_TOKEN ? this._maskValue(process.env.REPLICATE_API_TOKEN) : null,
+              baseModel: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
+              model: process.env.REPLICATE_MODEL || process.env.REPLICATE_LORA_WEIGHTS || null,
+              loraWeights: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null,
+              loraTrigger: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || null
             },
             s3: {
               endpoint: process.env.S3_API_ENDPOINT || null,
@@ -365,6 +369,23 @@ export class ConfigWizardService {
     const fs = await import('fs/promises');
     
     // Build environment variables, keeping existing values when KEEP_EXISTING is specified
+    const useExisting = (value, envKey, fallback = undefined) => {
+      if (value === 'KEEP_EXISTING') {
+        return process.env[envKey] ?? fallback;
+      }
+      if (value === undefined || value === null) {
+        return fallback;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return fallback;
+        }
+        return trimmed;
+      }
+      return value;
+    };
+
     const envVars = {
       // Core
       ENCRYPTION_KEY: config.encryption.key === 'KEEP_EXISTING' ? process.env.ENCRYPTION_KEY : config.encryption.key,
@@ -398,8 +419,7 @@ export class ConfigWizardService {
       
       // Optional services
       ...(config.optional?.replicate?.apiToken && {
-        REPLICATE_API_TOKEN: config.optional.replicate.apiToken,
-        REPLICATE_MODEL: config.optional.replicate.model || ''
+        REPLICATE_API_TOKEN: config.optional.replicate.apiToken
       }),
       
       ...(config.optional?.s3?.endpoint && {
@@ -442,6 +462,36 @@ export class ConfigWizardService {
         ADMIN_WALLET: config.admin.wallet
       })
     };
+
+    const replicateCfg = config.optional?.replicate || null;
+    if (replicateCfg) {
+      const replicateVars = {};
+
+      const resolvedToken = useExisting(replicateCfg.apiToken, 'REPLICATE_API_TOKEN');
+      if (resolvedToken) {
+        replicateVars.REPLICATE_API_TOKEN = resolvedToken;
+      }
+
+      const resolvedBaseModel = useExisting(replicateCfg.baseModel, 'REPLICATE_BASE_MODEL', process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora');
+      if (resolvedBaseModel) {
+        replicateVars.REPLICATE_BASE_MODEL = resolvedBaseModel;
+      }
+
+      const loraSource = replicateCfg.loraWeights ?? replicateCfg.model;
+      const resolvedLoraWeights = useExisting(loraSource, 'REPLICATE_LORA_WEIGHTS', process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL);
+      if (resolvedLoraWeights) {
+        replicateVars.REPLICATE_LORA_WEIGHTS = resolvedLoraWeights;
+        replicateVars.REPLICATE_MODEL = resolvedLoraWeights;
+      }
+
+      const resolvedTrigger = useExisting(replicateCfg.loraTrigger ?? replicateCfg.loraTriggerWord, 'REPLICATE_LORA_TRIGGER', process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD);
+      if (resolvedTrigger) {
+        replicateVars.REPLICATE_LORA_TRIGGER = resolvedTrigger;
+        replicateVars.LORA_TRIGGER_WORD = resolvedTrigger;
+      }
+
+      Object.assign(envVars, replicateVars);
+    }
 
     // Generate .env file content
     const envLines = Object.entries(envVars)
@@ -524,6 +574,30 @@ export class ConfigWizardService {
           break;
         case 'GOOGLE_API_KEY':
           config.ai.google.apiKey = value;
+          break;
+        case 'REPLICATE_API_TOKEN':
+          config.optional.replicate.apiToken = value;
+          break;
+        case 'REPLICATE_BASE_MODEL':
+          config.optional.replicate.baseModel = value;
+          break;
+        case 'REPLICATE_LORA_WEIGHTS':
+          config.optional.replicate.loraWeights = value;
+          config.optional.replicate.model = value;
+          break;
+        case 'REPLICATE_MODEL':
+          config.optional.replicate.model = value;
+          if (!config.optional.replicate.loraWeights) {
+            config.optional.replicate.loraWeights = value;
+          }
+          break;
+        case 'REPLICATE_LORA_TRIGGER':
+          config.optional.replicate.loraTrigger = value;
+          break;
+        case 'LORA_TRIGGER_WORD':
+          if (!config.optional.replicate.loraTrigger) {
+            config.optional.replicate.loraTrigger = value;
+          }
           break;
         // ... add more mappings as needed
       }
