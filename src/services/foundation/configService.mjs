@@ -102,9 +102,9 @@ export class ConfigService {
         },
         replicate: {
           apiToken: this.secrets?.get('REPLICATE_API_TOKEN') || process.env.REPLICATE_API_TOKEN,
-          model: process.env.REPLICATE_MODEL,
-          lora_weights: process.env.REPLICATE_LORA_WEIGHTS,
-          loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER,
+          model: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
+          lora_weights: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL,
+          loraTriggerWord: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD,
           style: "Cyberpunk, Manga, Anime, Watercolor, Experimental."
         },
       },

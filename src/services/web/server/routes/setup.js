@@ -7,6 +7,7 @@ import express from 'express';
 import crypto from 'crypto';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
+import { ReplicateService } from '../../../ai/replicateService.mjs';
 
 /**
  * Setup routes for first-time application configuration
@@ -83,7 +84,10 @@ export default function createSetupRouter(services) {
         optional: {
           replicate: { 
             configured: !!process.env.REPLICATE_API_TOKEN,
-            model: process.env.REPLICATE_MODEL || null
+            model: process.env.REPLICATE_MODEL || process.env.REPLICATE_LORA_WEIGHTS || null,
+            baseModel: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
+            loraWeights: process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null,
+            loraTrigger: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || null
           },
           s3: { 
             configured: !!(process.env.S3_API_ENDPOINT && process.env.S3_API_KEY),
@@ -312,6 +316,82 @@ export default function createSetupRouter(services) {
     }
   });
 
+  router.post('/replicate/sample', express.json({ limit: '2mb' }), async (req, res) => {
+    try {
+      const { apiToken, baseModel, model, loraWeights, loraTrigger, prompt, aspectRatio } = req.body || {};
+
+      let resolvedToken = apiToken;
+      if (!resolvedToken || resolvedToken === 'KEEP_EXISTING') {
+        try {
+          resolvedToken = await secretsService.getAsync?.('REPLICATE_API_TOKEN');
+        } catch (error) {
+          logger?.warn?.('[Setup API] Failed to fetch replicate token via getAsync:', error?.message || error);
+        }
+        if (!resolvedToken && typeof secretsService.get === 'function') {
+          try {
+            resolvedToken = await secretsService.get('REPLICATE_API_TOKEN');
+          } catch (error) {
+            logger?.warn?.('[Setup API] Failed to fetch replicate token via get:', error?.message || error);
+          }
+        }
+        resolvedToken = resolvedToken || process.env.REPLICATE_API_TOKEN;
+      }
+
+      if (!resolvedToken) {
+        return res.status(400).json({ error: 'Replicate API token required to generate a sample image.' });
+      }
+
+      let resolvedBaseModel = baseModel;
+      if (!resolvedBaseModel || resolvedBaseModel === 'KEEP_EXISTING') {
+        resolvedBaseModel = process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora';
+      }
+
+      let resolvedLoraWeights = loraWeights ?? model;
+      if (!resolvedLoraWeights || resolvedLoraWeights === 'KEEP_EXISTING') {
+        resolvedLoraWeights = process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL || null;
+      }
+
+      let resolvedTrigger = loraTrigger;
+      if (!resolvedTrigger || resolvedTrigger === 'KEEP_EXISTING') {
+        resolvedTrigger = process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || '';
+      }
+
+      const samplePrompt = typeof prompt === 'string' && prompt.trim()
+        ? prompt.trim()
+        : 'A cozy fantasy avatar portrait with warm lighting and welcoming expression.';
+
+      const mockConfigService = {
+        config: {
+          ai: {
+            replicate: {
+              apiToken: resolvedToken,
+              model: resolvedBaseModel,
+              lora_weights: resolvedLoraWeights,
+              loraTriggerWord: resolvedTrigger,
+              style: 'Cyberpunk, Manga, Anime, Watercolor, Experimental.'
+            }
+          }
+        }
+      };
+
+      const replicateService = new ReplicateService({ configService: mockConfigService, logger });
+      replicateService.apiToken = resolvedToken;
+
+      const imageUrl = await replicateService.generateImage(samplePrompt, [], {
+        aspect_ratio: typeof aspectRatio === 'string' && aspectRatio.trim() ? aspectRatio.trim() : '1:1'
+      });
+
+      if (!imageUrl) {
+        return res.status(502).json({ error: 'Replicate did not return an image.' });
+      }
+
+      res.json({ success: true, imageUrl });
+    } catch (error) {
+      logger?.error?.('[Setup API] Replicate sample generation failed:', error);
+      res.status(500).json({ error: error?.message || 'Failed to generate sample image.' });
+    }
+  });
+
   return router;
 }
 
@@ -320,6 +400,23 @@ export default function createSetupRouter(services) {
  * @private
  */
 async function saveConfiguration(config, secretsService, logger) {
+  const useExisting = (value, envKey, fallback = undefined) => {
+    if (value === 'KEEP_EXISTING') {
+      return process.env[envKey] ?? fallback;
+    }
+    if (value === undefined || value === null) {
+      return fallback;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return fallback;
+      }
+      return trimmed;
+    }
+    return value;
+  };
+
   // Build environment variables
   const envVars = {
     // Core - keep existing values if KEEP_EXISTING is specified
@@ -353,10 +450,6 @@ async function saveConfiguration(config, secretsService, logger) {
     }),
     
     // Optional services
-    ...(config.optional?.replicate?.apiToken && {
-      REPLICATE_API_TOKEN: config.optional.replicate.apiToken === 'KEEP_EXISTING' ? process.env.REPLICATE_API_TOKEN : config.optional.replicate.apiToken,
-      REPLICATE_MODEL: config.optional.replicate.model || process.env.REPLICATE_MODEL || ''
-    }),
     
     ...(config.optional?.s3?.endpoint && {
       S3_API_ENDPOINT: config.optional.s3.endpoint,
@@ -382,6 +475,36 @@ async function saveConfiguration(config, secretsService, logger) {
     BASE_URL: config.baseUrl || process.env.BASE_URL || 'http://localhost:3000',
     PUBLIC_URL: config.publicUrl || config.baseUrl || process.env.PUBLIC_URL || 'http://localhost:3000'
   };
+
+  const replicateCfg = config.optional?.replicate || null;
+  if (replicateCfg) {
+    const replicateVars = {};
+
+    const resolvedToken = useExisting(replicateCfg.apiToken, 'REPLICATE_API_TOKEN');
+    if (resolvedToken) {
+      replicateVars.REPLICATE_API_TOKEN = resolvedToken;
+    }
+
+    const resolvedBaseModel = useExisting(replicateCfg.baseModel, 'REPLICATE_BASE_MODEL', process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora');
+    if (resolvedBaseModel) {
+      replicateVars.REPLICATE_BASE_MODEL = resolvedBaseModel;
+    }
+
+    const loraSource = replicateCfg.loraWeights ?? replicateCfg.model;
+    const resolvedLoraWeights = useExisting(loraSource, 'REPLICATE_LORA_WEIGHTS', process.env.REPLICATE_LORA_WEIGHTS || process.env.REPLICATE_MODEL);
+    if (resolvedLoraWeights) {
+      replicateVars.REPLICATE_LORA_WEIGHTS = resolvedLoraWeights;
+      replicateVars.REPLICATE_MODEL = resolvedLoraWeights;
+    }
+
+    const resolvedTrigger = useExisting(replicateCfg.loraTrigger ?? replicateCfg.loraTriggerWord, 'REPLICATE_LORA_TRIGGER', process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD);
+    if (resolvedTrigger) {
+      replicateVars.REPLICATE_LORA_TRIGGER = resolvedTrigger;
+      replicateVars.LORA_TRIGGER_WORD = resolvedTrigger;
+    }
+
+    Object.assign(envVars, replicateVars);
+  }
 
   // Save to secrets service
   for (const [key, value] of Object.entries(envVars)) {

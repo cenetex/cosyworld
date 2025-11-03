@@ -33,27 +33,33 @@ export class SchemaService {
     try {
       const replicateConfig = this.configService.getAIConfig('replicate');
       const loraTrigger = replicateConfig.loraTriggerWord || '';
-      const loraWeights = replicateConfig.lora_weights;
+      const loraWeights = replicateConfig.lora_weights || null;
+      const modelVersion = replicateConfig.model || 'black-forest-labs/flux-dev-lora';
 
       const decoratedPrompt = `${loraTrigger} ${prompt} ${loraTrigger}`.trim();
 
+      const replicateInput = {
+        prompt: decoratedPrompt,
+        go_fast: false,
+        guidance: 3,
+        lora_scale: 1,
+        megapixels: '1',
+        num_outputs: 1,
+        aspect_ratio: aspectRatio,
+        output_format: 'png',
+        output_quality: 80,
+        prompt_strength: 0.8,
+        num_inference_steps: 28
+      };
+
+      if (loraWeights) {
+        replicateInput.lora_weights = loraWeights;
+      }
+
       const [output] = await this.replicate.run(
-        'black-forest-labs/flux-dev-lora',
+        modelVersion,
         {
-          input: {
-            prompt: decoratedPrompt,
-            go_fast: false,
-            guidance: 3,
-            lora_scale: 1,
-            megapixels: '1',
-            num_outputs: 1,
-            aspect_ratio: aspectRatio,
-            lora_weights: loraWeights,
-            output_format: 'png',
-            output_quality: 80,
-            prompt_strength: 0.8,
-            num_inference_steps: 28
-          }
+          input: replicateInput
         }
       );
 
