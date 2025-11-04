@@ -168,6 +168,42 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- Telegram Global Bot Configuration -->
+                  <div id="telegramConfig" class="border rounded-lg p-4 mb-4 bg-gray-50">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+                      <div>
+                        <h4 class="font-medium text-gray-900">Telegram Global Bot</h4>
+                        <p class="text-sm text-gray-600">Manage the global Telegram bot token and channel used for auto-posting.</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button type="button" id="refreshTelegramConfig" class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300">Refresh</button>
+                        <button type="button" id="testTelegramBot" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Test Connection</button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="telegramBotTokenInput">Bot Token</label>
+                        <div class="flex gap-2">
+                          <input type="password" id="telegramBotTokenInput" autocomplete="off" placeholder="Enter token from @BotFather" class="flex-1 px-3 py-2 border rounded text-sm" />
+                          <button type="button" id="saveTelegramBotToken" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Save Token</button>
+                        </div>
+                        <p id="telegramBotTokenStatus" class="text-xs text-gray-500 mt-1">Token status unknown.</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" for="telegramChannelIdInput">Channel or Chat ID</label>
+                        <div class="flex gap-2">
+                          <input type="text" id="telegramChannelIdInput" class="flex-1 px-3 py-2 border rounded text-sm" placeholder="@channel or -1001234567890" />
+                          <button type="button" id="saveTelegramChannelId" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Save Channel</button>
+                        </div>
+                        <p id="telegramChannelStatus" class="text-xs text-gray-500 mt-1">Channel status unknown.</p>
+                      </div>
+                    </div>
+                    <div id="telegramBotSummary" class="text-sm text-gray-700 mt-3"></div>
+                    <div id="telegramConfigStatus" class="hidden mt-3">
+                      <div class="p-2 rounded text-sm"></div>
+                    </div>
+                  </div>
                   
                   <!-- Wallet Avatar Preferences Section -->
                   <div id="walletAvatarPreferences" class="border rounded-lg p-4 mb-4 bg-gray-50">
