@@ -9,8 +9,6 @@
  */
 
 import express from 'express';
-import { ObjectId } from 'mongodb';
-import { encrypt } from '../../../../utils/encryption.mjs';
 
 export default function telegramAuthRoutes(services) {
   const router = express.Router();
@@ -312,6 +310,145 @@ export default function telegramAuthRoutes(services) {
     } catch (error) {
       logger?.error?.('[TelegramAuth] Failed to get metrics:', error);
       res.status(500).json({ error: 'Failed to load metrics' });
+    }
+  });
+
+  /**
+   * List Telegram members for a channel
+   * Admin only
+   */
+  router.get('/members/:channelId', async (req, res) => {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { channelId } = req.params;
+    const trustLevelParam = typeof req.query.trustLevel === 'string' ? req.query.trustLevel : undefined;
+    const trustLevels = trustLevelParam
+      ? trustLevelParam.split(',').map((level) => level.trim()).filter(Boolean)
+      : undefined;
+
+    try {
+      const result = await telegramService.listTelegramMembers(channelId, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        includeLeft: req.query.includeLeft === 'true',
+        search: req.query.search,
+        trustLevels
+      });
+
+      res.json(result);
+    } catch (error) {
+      logger?.error?.('[TelegramAuth] Failed to list members:', error);
+      res.status(500).json({ error: 'Failed to list members' });
+    }
+  });
+
+  /**
+   * Fetch details for a single Telegram member
+   * Admin only
+   */
+  router.get('/members/:channelId/:userId', async (req, res) => {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { channelId, userId } = req.params;
+
+    try {
+      const result = await telegramService.getTelegramMember(channelId, userId, {
+        includeMessages: req.query.includeMessages !== 'false',
+        messageLimit: req.query.messageLimit
+      });
+
+      if (!result) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+
+      res.json(result);
+    } catch (error) {
+      logger?.error?.('[TelegramAuth] Failed to fetch member:', error);
+      res.status(500).json({ error: 'Failed to fetch member' });
+    }
+  });
+
+  /**
+   * Update a Telegram member's moderation state
+   * Admin only
+   */
+  router.patch('/members/:channelId/:userId', async (req, res) => {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { channelId, userId } = req.params;
+    const payload = {
+      trustLevel: req.body?.trustLevel,
+      permanentlyBlacklisted: typeof req.body?.permanentlyBlacklisted === 'boolean' ? req.body.permanentlyBlacklisted : undefined,
+      penaltyExpires: Object.prototype.hasOwnProperty.call(req.body || {}, 'penaltyExpires') ? req.body.penaltyExpires : undefined,
+      spamStrikes: typeof req.body?.spamStrikes === 'number' ? req.body.spamStrikes : undefined,
+      adminNotes: req.body?.adminNotes,
+      clearPenalty: req.body?.clearPenalty === true
+    };
+
+    try {
+      const member = await telegramService.updateTelegramMember(channelId, userId, payload);
+      if (!member) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+
+      res.json({ success: true, member });
+    } catch (error) {
+      logger?.error?.('[TelegramAuth] Failed to update member:', error);
+      res.status(400).json({ error: error.message || 'Failed to update member' });
+    }
+  });
+
+  /**
+   * Clear permanent ban and penalties for a member
+   * Admin only
+   */
+  router.post('/members/:channelId/:userId/unban', async (req, res) => {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { channelId, userId } = req.params;
+    const options = {
+      trustLevel: req.body?.trustLevel,
+      clearStrikes: req.body?.clearStrikes !== false
+    };
+
+    try {
+      const member = await telegramService.unbanTelegramMember(channelId, userId, options);
+      if (!member) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+
+      res.json({ success: true, member });
+    } catch (error) {
+      logger?.error?.('[TelegramAuth] Failed to unban member:', error);
+      res.status(400).json({ error: error.message || 'Failed to unban member' });
+    }
+  });
+
+  /**
+   * Get spam statistics for a Telegram channel
+   * Admin only
+   */
+  router.get('/spam-stats/:channelId', async (req, res) => {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { channelId } = req.params;
+
+    try {
+      const stats = await telegramService.getTelegramSpamStats(channelId);
+      res.json(stats);
+    } catch (error) {
+      logger?.error?.('[TelegramAuth] Failed to fetch spam stats:', error);
+      res.status(500).json({ error: 'Failed to fetch spam stats' });
     }
   });
 

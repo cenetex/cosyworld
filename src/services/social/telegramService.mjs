@@ -38,6 +38,10 @@ function safeDecrypt(value) {
   }
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 class TelegramService {
   constructor({
     logger,
@@ -404,6 +408,35 @@ class TelegramService {
     this._memberCache.delete(key);
   }
 
+  _formatMemberRecord(member) {
+    if (!member) return null;
+
+    return {
+      id: member._id ? String(member._id) : null,
+      channelId: member.channelId || null,
+      userId: member.userId || null,
+      username: member.username || null,
+      firstName: member.firstName || null,
+      lastName: member.lastName || null,
+      displayName: member.displayName || null,
+      trustLevel: member.trustLevel || 'new',
+      joinedAt: member.joinedAt || null,
+      firstMessageAt: member.firstMessageAt || null,
+      lastMessageAt: member.lastMessageAt || null,
+      leftAt: member.leftAt || null,
+      joinedViaLink: Boolean(member.joinedViaLink),
+      messageCount: member.messageCount || 0,
+      spamStrikes: member.spamStrikes || 0,
+      lastSpamStrike: member.lastSpamStrike || null,
+      penaltyExpires: member.penaltyExpires || null,
+      permanentlyBlacklisted: Boolean(member.permanentlyBlacklisted),
+      mentionedBotCount: member.mentionedBotCount || 0,
+      receivedResponseCount: member.receivedResponseCount || 0,
+      adminNotes: member.adminNotes || null,
+      updatedAt: member.updatedAt || null,
+    };
+  }
+
   async _fetchMemberRecord(channelId, userId, { force = false } = {}) {
     if (!this.databaseService) return null;
     if (!force) {
@@ -664,6 +697,297 @@ class TelegramService {
       this._invalidateMemberCache(channelId, userId);
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to record bot response:', error);
+    }
+  }
+
+  async listTelegramMembers(channelId, options = {}) {
+    if (!this.databaseService) {
+      return { total: 0, limit: 0, offset: 0, members: [] };
+    }
+
+    const {
+      limit = 50,
+      offset = 0,
+      trustLevels,
+      includeLeft = false,
+      search = ''
+    } = options;
+
+    const parsedLimit = Math.max(1, Math.min(200, Number(limit) || 50));
+    const parsedOffset = Math.max(0, Number(offset) || 0);
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const collection = db.collection('telegram_members');
+      const clauses = [{ channelId: String(channelId) }];
+
+      if (!includeLeft) {
+        clauses.push({
+          $or: [
+            { leftAt: { $exists: false } },
+            { leftAt: null }
+          ]
+        });
+      }
+
+      if (Array.isArray(trustLevels) && trustLevels.length > 0) {
+        clauses.push({ trustLevel: { $in: trustLevels } });
+      }
+
+      if (search && typeof search === 'string' && search.trim()) {
+        const trimmed = search.trim();
+        const regex = new RegExp(escapeRegExp(trimmed), 'i');
+        clauses.push({
+          $or: [
+            { userId: trimmed },
+            { userId: regex },
+            { username: regex },
+            { firstName: regex },
+            { lastName: regex }
+          ]
+        });
+      }
+
+      const filter = clauses.length === 1 ? clauses[0] : { $and: clauses };
+
+      const cursor = collection.find(filter)
+        .sort({ permanentlyBlacklisted: -1, spamStrikes: -1, updatedAt: -1 })
+        .skip(parsedOffset)
+        .limit(parsedLimit);
+
+      const [members, total] = await Promise.all([
+        cursor.toArray(),
+        collection.countDocuments(filter)
+      ]);
+
+      return {
+        total,
+        limit: parsedLimit,
+        offset: parsedOffset,
+        members: members.map((member) => this._formatMemberRecord(member))
+      };
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to list telegram members:', error);
+      throw error;
+    }
+  }
+
+  async getTelegramMember(channelId, userId, { includeMessages = true, messageLimit = 20 } = {}) {
+    if (!this.databaseService) return null;
+
+    const safeChannelId = String(channelId);
+    const safeUserId = String(userId);
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const member = await db.collection('telegram_members').findOne({ channelId: safeChannelId, userId: safeUserId });
+      if (!member) {
+        return null;
+      }
+
+      let recentMessages = [];
+      if (includeMessages) {
+        const limit = Math.max(0, Math.min(100, Number(messageLimit) || 20));
+        recentMessages = await db.collection('telegram_messages')
+          .find({ channelId: safeChannelId, userId: safeUserId })
+          .sort({ date: -1 })
+          .limit(limit)
+          .project({ _id: 0, text: 1, date: 1, isBot: 1 })
+          .toArray();
+      }
+
+      return {
+        member: this._formatMemberRecord(member),
+        recentMessages
+      };
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to fetch telegram member:', error);
+      throw error;
+    }
+  }
+
+  async updateTelegramMember(channelId, userId, updates = {}) {
+    if (!this.databaseService) return null;
+
+    const safeChannelId = String(channelId);
+    const safeUserId = String(userId);
+    const allowedTrustLevels = new Set(['new', 'probation', 'trusted', 'suspicious', 'banned', 'left']);
+
+    const setFields = { updatedAt: new Date() };
+    const unsetFields = {};
+
+    if (typeof updates.trustLevel === 'string') {
+      const desired = updates.trustLevel.trim();
+      if (!allowedTrustLevels.has(desired)) {
+        throw new Error(`Invalid trust level: ${desired}`);
+      }
+      setFields.trustLevel = desired;
+    }
+
+    if (typeof updates.permanentlyBlacklisted === 'boolean') {
+      setFields.permanentlyBlacklisted = updates.permanentlyBlacklisted;
+      if (updates.permanentlyBlacklisted) {
+        setFields.trustLevel = 'banned';
+      }
+    }
+
+    if ('penaltyExpires' in updates) {
+      if (updates.penaltyExpires === null || updates.penaltyExpires === '') {
+        unsetFields.penaltyExpires = '';
+      } else {
+        const penaltyDate = new Date(updates.penaltyExpires);
+        if (Number.isNaN(penaltyDate.getTime())) {
+          throw new Error('Invalid penaltyExpires value');
+        }
+        setFields.penaltyExpires = penaltyDate;
+      }
+    }
+
+    if (updates.clearPenalty) {
+      unsetFields.penaltyExpires = '';
+      unsetFields.lastSpamStrike = '';
+    }
+
+    if (typeof updates.spamStrikes === 'number' && Number.isFinite(updates.spamStrikes)) {
+      setFields.spamStrikes = Math.max(0, Math.floor(updates.spamStrikes));
+    }
+
+    if (typeof updates.adminNotes === 'string') {
+      const trimmed = updates.adminNotes.trim();
+      if (trimmed) {
+        setFields.adminNotes = trimmed;
+      } else {
+        unsetFields.adminNotes = '';
+      }
+    }
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const update = { $set: setFields };
+      if (Object.keys(unsetFields).length > 0) {
+        update.$unset = unsetFields;
+      }
+
+      const result = await db.collection('telegram_members').findOneAndUpdate(
+        { channelId: safeChannelId, userId: safeUserId },
+        update,
+        { returnDocument: 'after' }
+      );
+
+      const updated = result.value || null;
+      if (updated) {
+        this._invalidateMemberCache(safeChannelId, safeUserId);
+        this.logger?.info?.(`[TelegramService] Updated member ${safeUserId} in ${safeChannelId}`);
+        return this._formatMemberRecord(updated);
+      }
+
+      return null;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to update telegram member:', error);
+      throw error;
+    }
+  }
+
+  async unbanTelegramMember(channelId, userId, options = {}) {
+    if (!this.databaseService) return null;
+
+    const clearStrikes = options.clearStrikes !== false;
+    const targetTrustLevel = typeof options.trustLevel === 'string' ? options.trustLevel.trim() : 'probation';
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const update = {
+        $set: {
+          permanentlyBlacklisted: false,
+          updatedAt: new Date(),
+          trustLevel: ['new', 'probation', 'trusted', 'suspicious'].includes(targetTrustLevel) ? targetTrustLevel : 'probation'
+        },
+        $unset: {
+          penaltyExpires: '',
+          lastSpamStrike: ''
+        }
+      };
+
+      if (clearStrikes) {
+        update.$set.spamStrikes = 0;
+      }
+
+      const result = await db.collection('telegram_members').findOneAndUpdate(
+        { channelId: String(channelId), userId: String(userId) },
+        update,
+        { returnDocument: 'after' }
+      );
+
+      const updated = result.value || null;
+      if (updated) {
+        this._invalidateMemberCache(String(channelId), String(userId));
+        this.logger?.info?.(`[TelegramService] Unbanned member ${userId} in ${channelId}`);
+        return this._formatMemberRecord(updated);
+      }
+
+      return null;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to unban telegram member:', error);
+      throw error;
+    }
+  }
+
+  async getTelegramSpamStats(channelId) {
+    if (!this.databaseService) return null;
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const collection = db.collection('telegram_members');
+      const channelFilter = { channelId: String(channelId) };
+      const activeFilter = {
+        channelId: String(channelId),
+        $or: [
+          { leftAt: { $exists: false } },
+          { leftAt: null }
+        ]
+      };
+      const now = new Date();
+      const lookback24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      const [
+        totalMembers,
+        activeMembers,
+        probationMembers,
+        trustedMembers,
+        blacklistedMembers,
+        penalizedMembers,
+        recentJoins,
+        recentStrikes
+      ] = await Promise.all([
+        collection.countDocuments(channelFilter),
+        collection.countDocuments(activeFilter),
+        collection.countDocuments({ ...channelFilter, trustLevel: { $in: ['new', 'probation'] }, permanentlyBlacklisted: { $ne: true } }),
+        collection.countDocuments({ ...channelFilter, trustLevel: 'trusted', permanentlyBlacklisted: { $ne: true } }),
+        collection.countDocuments({ ...channelFilter, permanentlyBlacklisted: true }),
+        collection.countDocuments({ ...channelFilter, penaltyExpires: { $gt: now } }),
+        collection.countDocuments({ ...channelFilter, joinedAt: { $gt: lookback24h } }),
+        collection.countDocuments({ ...channelFilter, lastSpamStrike: { $gt: lookback24h } })
+      ]);
+
+      return {
+        channelId: String(channelId),
+        totals: {
+          totalMembers,
+          activeMembers,
+          probationMembers,
+          trustedMembers,
+          blacklistedMembers,
+          penalizedMembers
+        },
+        recent24h: {
+          joins: recentJoins,
+          spamStrikes: recentStrikes
+        },
+        generatedAt: now
+      };
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to compute spam stats:', error);
+      throw error;
     }
   }
 
