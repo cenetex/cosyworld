@@ -523,7 +523,19 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
   async getPersona() {
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
-      const memories = await this.memoryService.getMemories(this.botId, 20);
+      const rawMemories = await this.memoryService.getRecentMemoriesRaw(this.botId, 20);
+      const memoryCount = await this.memoryService.countMemories(this.botId);
+      const memories = rawMemories.map((mem) => ({
+        id: mem._id?.toString?.()
+          || mem.id
+          || mem._id
+          || null,
+        memory: mem.memory || mem.text || '',
+        text: mem.text || mem.memory || '',
+        kind: mem.kind || null,
+        timestamp: mem.timestamp instanceof Date ? mem.timestamp.toISOString() : mem.timestamp,
+        weight: mem.weight ?? null
+      }));
       
       const db = await this.databaseService.getDatabase();
       const postCount = await db.collection('social_posts').countDocuments({
@@ -533,10 +545,10 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       
       return {
         bot: this.bot,
-        memories: memories.slice(0, 10),
+        memories,
         stats: {
           totalIntroductions: postCount,
-          memoryCount: memories.length
+          memoryCount
         }
       };
     } catch (err) {

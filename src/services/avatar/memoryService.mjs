@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import { ObjectId } from 'mongodb';
+
 
 export class MemoryService {
   constructor({
@@ -187,5 +189,90 @@ export class MemoryService {
     avatar.narrativeHistory.unshift(narrativeData);
     avatar.narrativeHistory = avatar.narrativeHistory.slice(0, 5);
     return avatar;
+  }
+
+  async getRecentMemoriesRaw(avatarId, limit = 20) {
+    const db = (this.db ||= await this.databaseService.getDatabase());
+    const col = db.collection('memories');
+
+    const query = {
+      $or: [
+        { avatarId },
+        { avatarId: avatarId?.toString?.() }
+      ]
+    };
+
+    const docs = await col
+      .find(query)
+      .sort({ ts: -1, timestamp: -1 })
+      .limit(limit)
+      .project({ avatarId: 1, guildId: 1, ts: 1, kind: 1, text: 1, weight: 1, memory: 1, timestamp: 1 })
+      .toArray();
+
+    return docs.map((doc) => ({
+      ...doc,
+      memory: doc.memory || doc.text || '',
+      timestamp: doc.ts || doc.timestamp || null
+    }));
+  }
+
+  async countMemories(avatarId) {
+    const db = (this.db ||= await this.databaseService.getDatabase());
+    const col = db.collection('memories');
+    const query = {
+      $or: [
+        { avatarId },
+        { avatarId: avatarId?.toString?.() }
+      ]
+    };
+    return col.countDocuments(query);
+  }
+
+  async deleteMemory(memoryId) {
+    if (!memoryId) {
+      throw new Error('Memory ID required');
+    }
+
+    let objectId;
+    try {
+      objectId = new ObjectId(memoryId);
+    } catch {
+      throw new Error('Invalid memory ID');
+    }
+
+    const db = (this.db ||= await this.databaseService.getDatabase());
+    const col = db.collection('memories');
+    const result = await col.deleteOne({ _id: objectId });
+
+    if (!result.deletedCount) {
+      throw new Error('Memory not found');
+    }
+
+    this.logger?.info?.(`[Memory] Deleted memory ${memoryId}`);
+    return { deletedCount: result.deletedCount };
+  }
+
+  async deleteMemoriesByAvatar(avatarId, filter = {}) {
+    if (!avatarId) {
+      throw new Error('Avatar ID required');
+    }
+
+    const db = (this.db ||= await this.databaseService.getDatabase());
+    const col = db.collection('memories');
+
+    const query = {
+      $or: [
+        { avatarId },
+        { avatarId: avatarId?.toString?.() }
+      ]
+    };
+
+    if (filter.kind) {
+      query.kind = Array.isArray(filter.kind) ? { $in: filter.kind } : filter.kind;
+    }
+
+    const result = await col.deleteMany(query);
+    this.logger?.info?.(`[Memory] Deleted ${result.deletedCount} memories for avatar ${avatarId}`);
+    return { deletedCount: result.deletedCount };
   }
 }

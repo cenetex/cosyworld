@@ -1508,6 +1508,37 @@ Please ensure the server is fully initialized.
     }
   }));
 
+  router.delete('/global-bot/memories/:memoryId', asyncHandler(async (req, res) => {
+    try {
+      if (!services.memoryService) {
+        return res.status(503).json({ error: 'MemoryService not available' });
+      }
+
+      const { memoryId } = req.params;
+      const result = await services.memoryService.deleteMemory(memoryId);
+
+      res.json({ success: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to delete memory' });
+    }
+  }));
+
+  router.delete('/global-bot/memories', asyncHandler(async (req, res) => {
+    try {
+      if (!services.memoryService || !services.globalBotService) {
+        return res.status(503).json({ error: 'Required services not available' });
+      }
+
+      const botId = await services.globalBotService.getOrCreateGlobalBot();
+      const filter = req.body?.filter || {};
+      const result = await services.memoryService.deleteMemoriesByAvatar(botId, filter);
+
+      res.json({ success: true, result });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to delete memories' });
+    }
+  }));
+
   // Get recent global bot posts
   router.get('/global-bot/posts', asyncHandler(async (req, res) => {
     try {
