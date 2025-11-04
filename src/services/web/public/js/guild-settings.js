@@ -189,12 +189,12 @@ class GuildSettingsManager {
         guildId: guild.id,
         name: guild.name,
         icon: guild.icon, // Include icon if available
-    memberCount: guild.memberCount,
-    authorized: true,
-    whitelisted: true, // For backward compatibility
-    summonEmoji: "✨",
-    adminRoles: [],
-    features: { breeding: true, combat: true, itemCreation: true, moderation: true },
+        memberCount: guild.memberCount,
+        authorized: true,
+        whitelisted: true, // For backward compatibility
+        summonEmoji: "✨",
+        adminRoles: [],
+        features: { breeding: true, combat: true, itemCreation: true, moderation: true },
         prompts: {
           intro:
             "You are now conversing with {avatar_name}, a unique AI character with its own personality and abilities.",
