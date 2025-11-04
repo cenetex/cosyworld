@@ -81,6 +81,18 @@ class TelegramService {
     this._personaCache = { data: null, expiry: 0, ttl: 300000 }; // 5min TTL
     this._buybotCache = new Map(); // channelId -> { data, expiry }
     this.BUYBOT_CACHE_TTL = 60000; // 1min TTL
+
+    // Spam prevention + membership tracking
+    this.telegramSpamTracker = new Map(); // userId -> [timestamps]
+    this.USER_PROBATION_MS = 5 * 60 * 1000; // 5 minutes probation window
+    this.SPAM_WINDOW_MS = 3000; // 3 seconds window for burst detection
+    this.SPAM_THRESHOLD = 5; // 5 messages within window -> spam
+    this.REPLY_DELAY_CONFIG = {
+      mentioned: 2000, // 2 seconds for direct mentions
+      default: 10000 // 10 seconds for gap responses / unsolicited chats
+    };
+    this.MEMBER_CACHE_TTL = 60000; // 60s cache for membership lookups
+    this._memberCache = new Map(); // `${channelId}:${userId}` -> { record, expiry }
   }
 
   /**
@@ -242,6 +254,33 @@ class TelegramService {
       }
     });
 
+    // Track new members joining the group
+    this.globalBot.on('new_chat_members', async (ctx) => {
+      try {
+        await this.handleNewMembers(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] new_chat_members handler error:', error);
+      }
+    });
+
+    // Track members leaving / being removed from the group
+    this.globalBot.on('left_chat_member', async (ctx) => {
+      try {
+        await this.handleMemberLeft(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] left_chat_member handler error:', error);
+      }
+    });
+
+    // Track bot membership changes (e.g., kicked / promoted)
+    this.globalBot.on('my_chat_member', async (ctx) => {
+      try {
+        await this.handleBotStatusChange(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] my_chat_member handler error:', error);
+      }
+    });
+
     this.logger?.debug?.('[TelegramService] Message handlers configured');
   }
 
@@ -272,11 +311,17 @@ class TelegramService {
   async _saveMessageToDatabase(channelId, message) {
     try {
       const db = await this.databaseService.getDatabase();
+      const asDate = message.date instanceof Date
+        ? message.date
+        : (typeof message.date === 'number'
+          ? new Date(message.date * 1000)
+          : new Date());
       await db.collection('telegram_messages').insertOne({
         channelId,
         from: message.from,
         text: message.text,
-        date: new Date(message.date * 1000), // Convert Unix timestamp to Date
+        date: asDate,
+        userId: message.userId || null,
         isBot: message.isBot || false,
         createdAt: new Date()
       });
@@ -303,7 +348,8 @@ class TelegramService {
       const history = messages.reverse().map(msg => ({
         from: msg.isBot ? 'Bot' : msg.from,
         text: msg.text,
-        date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date
+        date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date,
+        userId: msg.userId || null
       }));
       
       // Merge with existing in-memory history (which may have new messages)
@@ -323,6 +369,390 @@ class TelegramService {
     } catch (error) {
       this.logger?.error?.(`[TelegramService] Failed to load conversation history:`, error);
       return [];
+    }
+  }
+
+  _getMemberCacheKey(channelId, userId) {
+    return `${channelId}:${userId}`;
+  }
+
+  _getCachedMember(channelId, userId) {
+    const key = this._getMemberCacheKey(channelId, userId);
+    const entry = this._memberCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiry) {
+      this._memberCache.delete(key);
+      return null;
+    }
+    return entry.record;
+  }
+
+  _cacheMember(channelId, userId, record) {
+    const key = this._getMemberCacheKey(channelId, userId);
+    if (!record) {
+      this._memberCache.delete(key);
+      return;
+    }
+    this._memberCache.set(key, {
+      record,
+      expiry: Date.now() + this.MEMBER_CACHE_TTL
+    });
+  }
+
+  _invalidateMemberCache(channelId, userId) {
+    const key = this._getMemberCacheKey(channelId, userId);
+    this._memberCache.delete(key);
+  }
+
+  async _fetchMemberRecord(channelId, userId, { force = false } = {}) {
+    if (!this.databaseService) return null;
+    if (!force) {
+      const cached = this._getCachedMember(channelId, userId);
+      if (cached) return cached;
+    }
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const record = await db.collection('telegram_members').findOne({ channelId, userId });
+      if (record) {
+        this._cacheMember(channelId, userId, record);
+      }
+      return record;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to fetch telegram member record:', error);
+      return null;
+    }
+  }
+
+  async _trackUserJoin(channelId, member, context = {}) {
+    if (!this.databaseService || !member?.id) return;
+
+    const userId = String(member.id);
+    const joinedViaLink = Boolean(context?.invite_link);
+
+    let existing = null;
+    try {
+      existing = await this._fetchMemberRecord(channelId, userId, { force: true });
+    } catch (error) {
+      this.logger?.debug?.('[TelegramService] Existing member lookup failed (continuing):', error?.message);
+    }
+
+    const trustLevel = existing?.permanentlyBlacklisted ? (existing.trustLevel || 'banned') : 'new';
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_members').updateOne(
+        { channelId, userId },
+        {
+          $setOnInsert: {
+            userId,
+            channelId,
+            joinedAt: new Date(),
+            messageCount: 0,
+            spamStrikes: 0,
+            permanentlyBlacklisted: false,
+            mentionedBotCount: 0,
+            receivedResponseCount: 0,
+            trustLevel: 'new',
+            createdAt: new Date(),
+          },
+          $set: {
+            username: member.username || null,
+            firstName: member.first_name || null,
+            lastName: member.last_name || null,
+            joinedViaLink,
+            updatedAt: new Date(),
+            leftAt: null, // Clear leftAt on rejoin
+            trustLevel
+          },
+        },
+        { upsert: true }
+      );
+
+      this._invalidateMemberCache(channelId, userId);
+      this.logger?.info?.(`[TelegramService] Tracked Telegram member join: ${userId} in ${channelId}`);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to track member join:', error);
+    }
+  }
+
+  async handleNewMembers(ctx) {
+    try {
+      if (!ctx?.message?.new_chat_members?.length) return;
+      const channelId = String(ctx.chat.id);
+      const botUsername = this.globalBot?.botInfo?.username || ctx.botInfo?.username;
+      for (const member of ctx.message.new_chat_members) {
+        if (member?.id && member.is_bot && botUsername && member.username === botUsername) {
+          continue; // Ignore the bot itself
+        }
+        await this._trackUserJoin(channelId, member, ctx.message);
+      }
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] handleNewMembers error:', error);
+    }
+  }
+
+  async handleMemberLeft(ctx) {
+    try {
+      const member = ctx?.message?.left_chat_member;
+      if (!member?.id || member.is_bot) return;
+
+      const channelId = String(ctx.chat.id);
+      const userId = String(member.id);
+
+      if (!this.databaseService) return;
+
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_members').updateOne(
+        { channelId, userId },
+        {
+          $set: {
+            leftAt: new Date(),
+            updatedAt: new Date(),
+            trustLevel: 'left'
+          }
+        }
+      );
+
+      this._invalidateMemberCache(channelId, userId);
+      this.logger?.info?.(`[TelegramService] Member left tracked: ${userId} from ${channelId}`);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] handleMemberLeft error:', error);
+    }
+  }
+
+  async handleBotStatusChange(ctx) {
+    try {
+      const status = ctx?.myChatMember?.new_chat_member?.status;
+      this.logger?.info?.(`[TelegramService] Bot membership status changed in ${ctx.chat?.id}: ${status}`);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] handleBotStatusChange error:', error);
+    }
+  }
+
+  async _updateMemberActivity(channelId, userId, { isMentioned = false } = {}) {
+    if (!this.databaseService || !userId) return;
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const incFields = { messageCount: 1 };
+      if (isMentioned) {
+        incFields.mentionedBotCount = 1;
+      }
+
+      await db.collection('telegram_members').updateOne(
+        { channelId, userId },
+        {
+          $set: {
+            lastMessageAt: new Date(),
+            updatedAt: new Date()
+          },
+          $setOnInsert: {
+            firstMessageAt: new Date()
+          },
+          $inc: incFields
+        },
+        { upsert: true }
+      );
+
+      this._invalidateMemberCache(channelId, userId);
+      await this._updateUserTrustLevel(channelId, userId);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to update member activity:', error);
+    }
+  }
+
+  async _updateUserTrustLevel(channelId, userId) {
+    if (!this.databaseService || !userId) return;
+
+    try {
+      const member = await this._fetchMemberRecord(channelId, userId, { force: true });
+      if (!member || member.permanentlyBlacklisted) return;
+
+      const now = Date.now();
+      const joinedAt = member.joinedAt ? new Date(member.joinedAt).getTime() : now;
+      const membershipDuration = now - joinedAt;
+      const messageCount = member.messageCount || 0;
+
+      let nextTrust = member.trustLevel || 'new';
+
+      if (membershipDuration >= 30 * 24 * 60 * 60 * 1000 && messageCount >= 50) {
+        nextTrust = 'trusted';
+      } else if (membershipDuration >= 7 * 24 * 60 * 60 * 1000 && messageCount >= 10) {
+        nextTrust = 'probation';
+      } else if (membershipDuration >= this.USER_PROBATION_MS) {
+        nextTrust = 'new';
+      }
+
+      if (nextTrust !== member.trustLevel) {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('telegram_members').updateOne(
+          { channelId, userId },
+          {
+            $set: {
+              trustLevel: nextTrust,
+              updatedAt: new Date()
+            }
+          }
+        );
+        this._invalidateMemberCache(channelId, userId);
+        this.logger?.info?.(`[TelegramService] Updated trust level for ${userId} in ${channelId}: ${member.trustLevel} -> ${nextTrust}`);
+      }
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to update trust level:', error);
+    }
+  }
+
+  _checkTelegramSpamWindow(userId) {
+    if (!userId) return 0;
+    const now = Date.now();
+    const timestamps = this.telegramSpamTracker.get(userId) || [];
+    const filtered = timestamps.filter(ts => now - ts < this.SPAM_WINDOW_MS);
+    filtered.push(now);
+    this.telegramSpamTracker.set(userId, filtered);
+    return filtered.length;
+  }
+
+  async _recordTelegramSpamStrike(channelId, userId, strikeCount) {
+    if (!this.databaseService || !userId) return;
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const basePenaltyMs = 60_000; // 1 minute base
+      const penaltyMs = basePenaltyMs * Math.pow(2, Math.max(0, strikeCount - 1));
+      const penaltyExpires = new Date(Date.now() + penaltyMs);
+
+      const update = {
+        $set: {
+          lastSpamStrike: new Date(),
+          penaltyExpires,
+          updatedAt: new Date()
+        },
+        $inc: {
+          spamStrikes: 1
+        }
+      };
+
+      if (strikeCount >= 3) {
+        update.$set.permanentlyBlacklisted = true;
+        update.$set.trustLevel = 'banned';
+        this.logger?.error?.(`[TelegramService] User ${userId} permanently blacklisted in ${channelId} (spam)`);
+      }
+
+      await db.collection('telegram_members').updateOne({ channelId, userId }, update, { upsert: true });
+      this._invalidateMemberCache(channelId, userId);
+  this.telegramSpamTracker.set(userId, []);
+
+      this.logger?.warn?.(`[TelegramService] Spam strike for ${userId} -> ${strikeCount} in ${channelId}. Penalty until ${penaltyExpires.toISOString()}`);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to record spam strike:', error);
+    }
+  }
+
+  async _recordBotResponse(channelId, userId) {
+    if (!this.databaseService || !userId) return;
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_members').updateOne(
+        { channelId, userId },
+        {
+          $inc: { receivedResponseCount: 1 },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      this._invalidateMemberCache(channelId, userId);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to record bot response:', error);
+    }
+  }
+
+  async _applyReplyDelay(ctx, isMention) {
+    const isPrivate = ctx.chat?.type === 'private';
+    if (isPrivate) return true;
+
+    const delayMs = isMention ? this.REPLY_DELAY_CONFIG.mentioned : this.REPLY_DELAY_CONFIG.default;
+    if (delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    const userId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
+    if (!userId) return true;
+
+    try {
+      const member = await ctx.telegram.getChatMember(ctx.chat.id, userId);
+      if (!member) return true;
+      if (['left', 'kicked', 'restricted'].includes(member.status)) {
+        this.logger?.info?.(`[TelegramService] Skipping reply - user ${userId} status is ${member.status}`);
+        return false;
+      }
+    } catch (error) {
+      const errorMsg = error?.message || '';
+      if (errorMsg.includes('USER_NOT_PARTICIPANT') || errorMsg.includes('chat member not found')) {
+        this.logger?.info?.(`[TelegramService] Skipping reply - user ${userId} no longer in chat`);
+        return false;
+      }
+      // Other errors - log and continue
+      this.logger?.debug?.('[TelegramService] getChatMember check failed (continuing):', errorMsg);
+    }
+
+    return true;
+  }
+
+  async _shouldProcessTelegramUser(ctx, channelId, userId, { isMentioned = false, isPrivate = false } = {}) {
+    if (isPrivate || !userId) {
+      return true; // Direct messages or anonymous users handled normally
+    }
+
+    if (!this.databaseService) {
+      return true; // Fail open if database unavailable
+    }
+
+    try {
+      let member = await this._fetchMemberRecord(channelId, userId);
+
+      if (!member) {
+        await this._trackUserJoin(channelId, ctx.message?.from, ctx.message);
+        member = await this._fetchMemberRecord(channelId, userId, { force: true });
+      }
+
+      if (!member) {
+        return true; // Fail open if we couldn't persist member record
+      }
+
+      if (member.permanentlyBlacklisted || member.trustLevel === 'banned') {
+        this.logger?.warn?.(`[TelegramService] Ignoring message from blacklisted user ${userId} in ${channelId}`);
+        return false;
+      }
+
+      const now = Date.now();
+      const penaltyUntil = member.penaltyExpires ? new Date(member.penaltyExpires).getTime() : 0;
+      if (penaltyUntil && penaltyUntil > now) {
+        this.logger?.debug?.(`[TelegramService] User ${userId} under penalty until ${new Date(penaltyUntil).toISOString()} - skipping`);
+        return false;
+      }
+
+      const joinedAt = member.joinedAt ? new Date(member.joinedAt).getTime() : now;
+      const membershipDuration = now - joinedAt;
+      const preExistingStrikes = member.spamStrikes || 0;
+
+      await this._updateMemberActivity(channelId, userId, { isMentioned });
+
+      const windowCount = this._checkTelegramSpamWindow(userId);
+      if (windowCount > this.SPAM_THRESHOLD) {
+        await this._recordTelegramSpamStrike(channelId, userId, preExistingStrikes + 1);
+        return false;
+      }
+
+      if (membershipDuration < this.USER_PROBATION_MS && !isMentioned) {
+        this.logger?.debug?.(`[TelegramService] User ${userId} in probation (${Math.round(membershipDuration / 1000)}s) - not responding`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] _shouldProcessTelegramUser failed (failing open):', error);
+      return true;
     }
   }
 
@@ -559,6 +989,8 @@ class TelegramService {
   async handleIncomingMessage(ctx) {
     const message = ctx.message;
     const channelId = String(ctx.chat.id);
+    const userId = message.from?.id ? String(message.from.id) : null;
+    const isPrivateChat = ctx.chat?.type === 'private';
     
     // Ignore messages from the bot itself
     if (message.from.is_bot) {
@@ -568,6 +1000,36 @@ class TelegramService {
     // Ignore commands - they should be handled by command handlers
     if (message.text && message.text.startsWith('/')) {
       this.logger?.debug?.(`[TelegramService] Ignoring command in message handler: ${message.text}`);
+      return;
+    }
+
+    const botUsername = this.globalBot?.botInfo?.username || ctx.botInfo?.username;
+    const includesMention = (source, entities) => {
+      if (!botUsername) return false;
+      if (source && source.includes(`@${botUsername}`)) {
+        return true;
+      }
+      if (!source || !entities) return false;
+      return entities.some((entity) => {
+        if (entity.type !== 'mention') return false;
+        if (typeof entity.offset !== 'number' || typeof entity.length !== 'number') return false;
+        const fragment = source.substring(entity.offset, entity.offset + entity.length);
+        return fragment.includes(botUsername);
+      });
+    };
+
+    const isMentioned = Boolean(botUsername) && (
+      includesMention(message.text, message.entities) ||
+      includesMention(message.caption, message.caption_entities)
+    );
+
+    const shouldProcess = await this._shouldProcessTelegramUser(ctx, channelId, userId, {
+      isMentioned,
+      isPrivate: isPrivateChat
+    });
+
+    if (!shouldProcess) {
+      this.logger?.debug?.(`[TelegramService] Spam prevention skipped message from ${userId || 'unknown'} in ${channelId}`);
       return;
     }
 
@@ -586,11 +1048,13 @@ class TelegramService {
     }
     
     // Add message to history (in-memory first, fast operation)
+    const normalizedText = message.text ?? message.caption ?? '';
     const messageData = {
       from: message.from.first_name || message.from.username || 'User',
-      text: message.text,
+      text: normalizedText,
       date: message.date,
-      isBot: false
+      isBot: false,
+      userId
     };
     history.push(messageData);
     
@@ -607,11 +1071,7 @@ class TelegramService {
     this.logger?.debug?.(`[TelegramService] Tracked message in ${channelId}, history: ${history.length} messages`);
 
     // Check if bot is mentioned
-    const botUsername = ctx.botInfo?.username;
-    const isMentioned = message.text?.includes(`@${botUsername}`) || 
-                       message.entities?.some(e => e.type === 'mention' && message.text.slice(e.offset, e.offset + e.length).includes(botUsername));
-
-    this.logger?.debug?.(`[TelegramService] Message received in ${channelId}, mentioned: ${isMentioned}`);
+  this.logger?.debug?.(`[TelegramService] Message received in ${channelId}, mentioned: ${isMentioned}`);
 
     // If mentioned, reply immediately
     if (isMentioned) {
@@ -687,7 +1147,7 @@ class TelegramService {
             chat: { id: channelId },
             message: {
               text: lastMessage.text,
-              from: { first_name: lastMessage.from, id: 'unknown' },
+              from: { first_name: lastMessage.from, id: lastMessage.userId || undefined },
               date: lastMessage.date
             },
             telegram: this.globalBot.telegram, // CRITICAL: Need this for sendPhoto/sendVideo
@@ -715,6 +1175,12 @@ class TelegramService {
    * Uses full conversation history for better context awareness.
    */
   async generateAndSendReply(ctx, channelId, isMention) {
+    const proceed = await this._applyReplyDelay(ctx, isMention);
+    if (!proceed) {
+      this.logger?.info?.('[TelegramService] Reply skipped after delay/user check');
+      return;
+    }
+
     // Show typing indicator immediately for better UX
     const typingInterval = setInterval(() => {
       ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
@@ -897,6 +1363,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         if (acknowledgment) {
           // Send the AI's natural acknowledgment first
           await ctx.reply(acknowledgment);
+          const ackUserId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
+          await this._recordBotResponse(channelId, ackUserId);
           
           // Track in conversation history
           if (!this.conversationHistory.has(String(ctx.chat.id))) {
@@ -906,7 +1374,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
             from: 'Bot',
             text: acknowledgment,
             date: Math.floor(Date.now() / 1000),
-            isBot: true
+            isBot: true,
+            userId: null
           };
           this.conversationHistory.get(String(ctx.chat.id)).push(botMessage);
           
@@ -928,6 +1397,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       if (cleanResponse) {
         await ctx.reply(cleanResponse);
+        const replyUserId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
+        await this._recordBotResponse(channelId, replyUserId);
         
         // Track bot's reply in conversation history
         if (!this.conversationHistory.has(channelId)) {
@@ -937,7 +1408,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           from: 'Bot',
           text: cleanResponse,
           date: Math.floor(Date.now() / 1000),
-          isBot: true
+          isBot: true,
+          userId: null
         };
         this.conversationHistory.get(channelId).push(botMessage);
         
@@ -973,6 +1445,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
     try {
   const userId = String(ctx.message?.from?.id || ctx.from?.id);
   const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
+      const channelId = String(ctx.chat?.id || '');
       
       for (const toolCall of toolCalls) {
         const functionName = toolCall.function?.name;
@@ -1000,6 +1473,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
             );
+            await this._recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -1019,6 +1493,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
             );
+            await this._recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -1027,11 +1502,15 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         } else {
           this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
           await ctx.reply(`I tried to use ${functionName} but I don't know how yet! 🤔`);
+          await this._recordBotResponse(channelId, userId);
         }
       }
     } catch (error) {
       this.logger?.error?.('[TelegramService] Tool execution failed:', error);
       await ctx.reply('I encountered an error using my powers! 😅 Try again?');
+      const channelId = String(ctx.chat?.id || '');
+      const userId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
+      await this._recordBotResponse(channelId, userId);
     }
   }
 
@@ -1125,6 +1604,8 @@ Your caption:`;
       await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
         caption: caption || undefined // No caption if AI generation failed
       });
+
+      await this._recordBotResponse(String(ctx.chat.id), userId);
       
       // Record usage for cooldown tracking
       if (userId && username) {
@@ -1161,6 +1642,7 @@ Your caption:`;
         }
       }
       await ctx.reply(errorText);
+      await this._recordBotResponse(String(ctx.chat.id), userId);
     }
   }
 
@@ -1243,6 +1725,7 @@ Your caption:`;
         caption: caption || undefined,
         supports_streaming: true
       });
+      await this._recordBotResponse(String(ctx.chat.id), userId);
       
       // Record usage for cooldown tracking
       if (userId && username) {
@@ -1279,6 +1762,7 @@ Your caption:`;
         }
       }
       await ctx.reply(errorText);
+      await this._recordBotResponse(String(ctx.chat.id), userId);
     }
   }
 
@@ -1308,6 +1792,7 @@ Your caption:`;
 
       if (!trackedToken) {
         await ctx.reply(`📊 ${tokenSymbol} is not currently tracked in this channel.\n\nUse /settings to add it!`);
+        await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
         return;
       }
 
@@ -1342,12 +1827,14 @@ Your caption:`;
         `🔗 CA: \`${trackedToken.tokenAddress}\``;
 
       await ctx.reply(message, { parse_mode: 'Markdown' });
+      await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
       
       this.logger?.info?.(`[TelegramService] Sent stats for ${tokenSymbol}: price=$${priceData.price}, mcap=$${priceData.marketCap}`);
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Token stats lookup failed:', error);
       await ctx.reply(`❌ Sorry, I couldn't fetch stats for ${tokenSymbol}. Please try again later.`);
+      await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
     }
   }
 
@@ -1968,6 +2455,9 @@ Create a warm, welcoming introduction message (max 200 chars) that:
 
       this.bots.clear();
       this.logger?.info?.('[TelegramService] All bots stopped');
+
+      this.telegramSpamTracker.clear();
+      this._memberCache.clear();
     } catch (error) {
       this.logger?.error?.('[TelegramService] Shutdown error:', error.message);
     }
