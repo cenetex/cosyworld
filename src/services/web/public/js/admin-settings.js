@@ -461,6 +461,15 @@ let replicateConfigState = {
   loraTrigger: ''
 };
 
+let telegramConfigState = {
+  hasBotToken: false,
+  hasChannel: false,
+  channelId: '',
+  enabled: false,
+  rate: { hourly: 10, minIntervalSec: 180 },
+  lastBotInfo: null
+};
+
 function hideReplicateSamplePreview() {
   const preview = document.getElementById('replicateSamplePreview');
   const img = document.getElementById('replicateSampleImage');
@@ -732,6 +741,193 @@ async function savePaymentConfig() {
     defaultDailyLimit: parseFloat(document.getElementById('defaultDailyLimit').value) * 1e6, // Convert USDC to 6 decimals
   };
   
+
+  function showTelegramStatus(message, type = 'info') {
+    const wrapper = document.getElementById('telegramConfigStatus');
+    const box = wrapper?.querySelector('div');
+    if (!wrapper || !box) return;
+    const palette = {
+      success: 'bg-green-50 border border-green-200 text-green-800',
+      error: 'bg-red-50 border border-red-200 text-red-800',
+      info: 'bg-blue-50 border border-blue-200 text-blue-800'
+    };
+    box.className = `p-2 rounded text-sm ${palette[type] || palette.info}`;
+    box.textContent = message;
+    wrapper.classList.remove('hidden');
+    setTimeout(() => wrapper.classList.add('hidden'), type === 'error' ? 6000 : 4000);
+  }
+
+  function renderTelegramConfig(state) {
+    const channelInput = document.getElementById('telegramChannelIdInput');
+    if (channelInput && document.activeElement !== channelInput) {
+      channelInput.value = state.channelId || '';
+    }
+
+    const tokenStatus = document.getElementById('telegramBotTokenStatus');
+    if (tokenStatus) {
+      tokenStatus.textContent = state.hasBotToken
+        ? 'Token configured. Enter a new token to rotate.'
+        : 'Token not configured. Add a token to enable Telegram posting.';
+    }
+
+    const channelStatus = document.getElementById('telegramChannelStatus');
+    if (channelStatus) {
+      channelStatus.textContent = state.hasChannel
+        ? `Channel configured${state.channelId ? ` (${state.channelId})` : ''}.`
+        : 'Channel not configured. Add a channel ID to route posts.';
+    }
+
+    const summary = document.getElementById('telegramBotSummary');
+    if (summary) {
+      const parts = [];
+      parts.push(state.enabled ? 'Auto-posting enabled' : 'Auto-posting disabled');
+      const rate = state.rate || {};
+      if (rate.hourly) {
+        parts.push(`Hourly limit ${rate.hourly}`);
+      }
+      if (rate.minIntervalSec) {
+        parts.push(`Min interval ${rate.minIntervalSec}s`);
+      }
+      if (state.channelId) {
+        parts.push(`Channel: ${state.channelId}`);
+      }
+      if (state.lastBotInfo?.username) {
+        parts.push(`Bot: @${state.lastBotInfo.username}`);
+      }
+      summary.textContent = parts.length ? parts.join(' • ') : 'No Telegram configuration detected yet.';
+    }
+  }
+
+  async function loadTelegramConfig({ silent = true } = {}) {
+    try {
+      const data = await apiFetch('/api/telegramauth/global/config');
+      telegramConfigState = {
+        ...telegramConfigState,
+        hasBotToken: !!data?.hasGlobalBot,
+        hasChannel: !!data?.hasChannelId,
+        channelId: data?.channelId || '',
+        enabled: !!data?.enabled,
+        rate: data?.rate || { hourly: 10, minIntervalSec: 180 }
+      };
+      renderTelegramConfig(telegramConfigState);
+      if (!silent) {
+        showTelegramStatus('Telegram configuration refreshed.', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to load Telegram configuration:', error);
+      toastError(error.message || 'Failed to load Telegram configuration');
+      showTelegramStatus(error.message || 'Failed to load Telegram configuration', 'error');
+    }
+  }
+
+  async function saveTelegramBotToken() {
+    const input = document.getElementById('telegramBotTokenInput');
+    const status = document.getElementById('telegramBotTokenStatus');
+    if (!input) return;
+    const token = input.value.trim();
+    if (!token) {
+      toastError('Please enter a Telegram bot token');
+      input.focus();
+      return;
+    }
+    if (status) status.textContent = 'Saving token...';
+    try {
+      await apiFetch('/api/telegramauth/global/token', {
+        method: 'POST',
+        body: { botToken: token },
+        requireCsrf: true,
+        sign: true,
+        signMeta: { op: 'save_telegram_token' }
+      });
+      input.value = '';
+      if (status) status.textContent = 'Token saved and bot initialized.';
+      showTelegramStatus('Telegram bot token saved.', 'success');
+      success('Telegram bot token saved');
+      await loadTelegramConfig();
+    } catch (error) {
+      console.error('Failed to save Telegram bot token:', error);
+      const message = error.message || 'Failed to save Telegram bot token';
+      toastError(message);
+      if (status) status.textContent = `Error: ${message}`;
+      showTelegramStatus(message, 'error');
+    }
+  }
+
+  async function saveTelegramChannelId() {
+    const input = document.getElementById('telegramChannelIdInput');
+    const status = document.getElementById('telegramChannelStatus');
+    if (!input) return;
+    const channelId = input.value.trim();
+    if (!channelId) {
+      toastError('Please enter a Telegram channel or chat ID');
+      input.focus();
+      return;
+    }
+    if (status) status.textContent = 'Saving channel...';
+    try {
+      await apiFetch('/api/telegramauth/global/channel', {
+        method: 'POST',
+        body: { channelId },
+        requireCsrf: true,
+        sign: true,
+        signMeta: { op: 'save_telegram_channel' }
+      });
+      if (status) status.textContent = 'Channel ID saved.';
+      showTelegramStatus('Telegram channel saved.', 'success');
+      success('Telegram channel saved');
+      await loadTelegramConfig();
+    } catch (error) {
+      console.error('Failed to save Telegram channel ID:', error);
+      const message = error.message || 'Failed to save Telegram channel ID';
+      toastError(message);
+      if (status) status.textContent = `Error: ${message}`;
+      showTelegramStatus(message, 'error');
+    }
+  }
+
+  async function testTelegramBotConnection() {
+    try {
+      showTelegramStatus('Testing Telegram bot connection...', 'info');
+      const data = await apiFetch('/api/telegramauth/global/test', {
+        method: 'POST',
+        requireCsrf: true,
+        sign: true,
+        signMeta: { op: 'test_telegram_bot' }
+      });
+      if (data?.botInfo) {
+        telegramConfigState = { ...telegramConfigState, lastBotInfo: data.botInfo };
+        renderTelegramConfig(telegramConfigState);
+        showTelegramStatus(`Bot connected as @${data.botInfo.username}`, 'success');
+        success('Telegram bot connection successful');
+      } else {
+        showTelegramStatus('Bot test returned an unexpected response.', 'error');
+      }
+    } catch (error) {
+      console.error('Telegram bot test failed:', error);
+      const message = error.message || 'Telegram bot test failed';
+      toastError(message);
+      showTelegramStatus(message, 'error');
+    }
+  }
+
+  function initTelegramConfigHandlers() {
+    const refreshBtn = document.getElementById('refreshTelegramConfig');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', withButtonLoading(refreshBtn, () => loadTelegramConfig({ silent: false })));
+    }
+    const saveTokenBtn = document.getElementById('saveTelegramBotToken');
+    if (saveTokenBtn) {
+      saveTokenBtn.addEventListener('click', withButtonLoading(saveTokenBtn, saveTelegramBotToken));
+    }
+    const saveChannelBtn = document.getElementById('saveTelegramChannelId');
+    if (saveChannelBtn) {
+      saveChannelBtn.addEventListener('click', withButtonLoading(saveChannelBtn, saveTelegramChannelId));
+    }
+    const testBtn = document.getElementById('testTelegramBot');
+    if (testBtn) {
+      testBtn.addEventListener('click', withButtonLoading(testBtn, testTelegramBotConnection));
+    }
+  }
   // Validation
   if (config.apiKeyId && !config.apiKeyId.trim()) {
     toastError('CDP API Key ID is required');
@@ -1718,6 +1914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
   tabSettings?.addEventListener('click', async () => {
     activate(tabSettings);
+    await loadTelegramConfig();
     await loadReplicateConfig();
     await loadCollections();
     await loadWalletAvatarPreferences();
@@ -1731,12 +1928,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Payment configuration handlers
   initReplicateConfigHandlers();
+  initTelegramConfigHandlers();
   initPaymentConfigHandlers();
 
   // Wallet avatar preference handlers
   initWalletAvatarPreferenceHandlers();
 
   // Preload wallet avatar preferences and collections for initial render
+  await loadTelegramConfig();
   await loadReplicateConfig();
   await loadCollections();
   await loadWalletAvatarPreferences();
