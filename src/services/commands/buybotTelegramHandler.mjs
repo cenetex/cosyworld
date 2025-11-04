@@ -547,7 +547,7 @@ async function showHelpMenu(ctx) {
     '• *Custom Media:* Upload your own for small buys\n' +
     '• *Thresholds:* Control when auto-generation triggers\n\n' +
     '💰 *How It Works:*\n' +
-    'Buybot checks for transactions every 30 seconds and sends notifications with:\n' +
+  'Buybot checks for transactions every 2 minutes and sends notifications with:\n' +
     '• Transaction details and USD value\n' +
     '• Buyer information\n' +
     '• Market cap and links\n' +

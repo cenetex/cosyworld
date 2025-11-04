@@ -11,7 +11,7 @@
 export const DEFAULT_ORB_COLLECTION_ADDRESS = process.env.ORB_COLLECTION_ADDRESS || '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ';
 
 // Polling interval for checking token transactions (milliseconds)
-export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 30000; // 30 seconds
+export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 120000; // 2 minutes
 
 // Maximum number of tokens/collections that can be tracked per channel
 export const MAX_TRACKED_TOKENS_PER_CHANNEL = parseInt(process.env.MAX_TRACKED_TOKENS_PER_CHANNEL, 10) || 20;
