@@ -67,6 +67,11 @@ export class GlobalBotService {
       this.logger?.info?.('[GlobalBotService] Creating new global bot avatar');
       
       const universeName = process.env.UNIVERSE_NAME || "CosyWorld";
+      const activePlatformsEnv = (process.env.GLOBAL_BOT_ACTIVE_PLATFORMS || 'x,telegram')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const uniqueActivePlatforms = Array.from(new Set(activePlatformsEnv));
       
       const botDoc = {
         name: universeName,
@@ -76,22 +81,27 @@ export class GlobalBotService {
         dynamicPrompt: `I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to ${universeName}.`,
         model: process.env.GLOBAL_BOT_MODEL || "anthropic/claude-sonnet-4.5",
         status: "immortal",
+        content: `I am the narrator of ${universeName}, here to welcome every new arrival and share their stories with the community.`,
         createdAt: new Date(),
         updatedAt: new Date(),
         globalBotConfig: {
-          enabled: true,
+          universeName,
           maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
           preferredHashtags: [universeName],
-          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168), // Default: once per week (7 days * 24 hours)
-          universeName: universeName,
-          // Configurable prompt templates
           systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
           avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
           locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
           scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`,
           combatPromptTemplate: `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`,
           genericPromptTemplate: `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes or extra hashtags.`,
-          narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`
+          narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`,
+          platformNarrativeSummaryTemplate: `Platform presence overview:\n{{platformStatus}}`,
+          activePlatforms: uniqueActivePlatforms.length ? uniqueActivePlatforms : ['x', 'telegram'],
+          platformHandles: {
+            x: process.env.GLOBAL_BOT_X_HANDLE || '',
+            telegram: process.env.GLOBAL_BOT_TELEGRAM_HANDLE || '',
+            discord: process.env.GLOBAL_BOT_DISCORD_HANDLE || ''
+          }
         }
       };
       
@@ -462,6 +472,13 @@ export class GlobalBotService {
       const personaSummary = this.bot?.personality ? this.bot.personality.trim() : null;
       const currentPerspective = this.bot?.dynamicPrompt ? this.bot.dynamicPrompt.trim() : null;
       const universeName = this.bot.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
+      const platformStats = await this.getPlatformStats();
+      const platformSummaryTemplate = this.bot.globalBotConfig?.platformNarrativeSummaryTemplate
+        || 'Platform presence overview:\n{{platformStatus}}';
+      const platformStatusText = platformSummaryTemplate.replace(
+        /\{\{platformStatus\}\}/g,
+        platformStats.summaryText || 'No platform activity recorded yet.'
+      );
 
       const narrativePrompt = [{
         role: 'system',
@@ -472,6 +489,8 @@ ${personaSummary || `A curious narrator who delights in describing the evolving 
 
 Your current guiding perspective:
 ${currentPerspective || `You are always searching for patterns and meaning among the arrivals and happenings in ${universeName}.`}
+
+${platformStatusText}
 
 Reflect on your recent experiences in that voice.`
       }, {
@@ -516,6 +535,218 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
     }
   }
 
+  async getPlatformStats() {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const posts = db.collection('social_posts');
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const platformKeyExpression = {
+        $cond: [
+          {
+            $and: [
+              { $ne: ['$platform', null] },
+              { $ne: ['$platform', ''] }
+            ]
+          },
+          { $toLower: '$platform' },
+          {
+            $switch: {
+              branches: [
+                { case: { $ifNull: ['$metadata.platform', false] }, then: { $toLower: '$metadata.platform' } },
+                { case: { $ifNull: ['$tweetId', false] }, then: 'x' },
+                { case: { $ifNull: ['$messageId', false] }, then: 'telegram' },
+                { case: { $ifNull: ['$channelId', false] }, then: 'telegram' }
+              ],
+              default: 'unknown'
+            }
+          }
+        ]
+      };
+
+      const [totalRows, recentRows, latestRows] = await Promise.all([
+        posts.aggregate([
+          { $match: { global: true } },
+          { $addFields: { platformKey: platformKeyExpression } },
+          {
+            $group: {
+              _id: '$platformKey',
+              totalPosts: { $sum: 1 },
+              lastPostAt: { $max: '$createdAt' }
+            }
+          }
+        ]).toArray(),
+        posts.aggregate([
+          { $match: { global: true, createdAt: { $gte: sevenDaysAgo } } },
+          { $addFields: { platformKey: platformKeyExpression } },
+          {
+            $group: {
+              _id: '$platformKey',
+              countLast7d: { $sum: 1 }
+            }
+          }
+        ]).toArray(),
+        posts.aggregate([
+          { $match: { global: true } },
+          { $addFields: { platformKey: platformKeyExpression } },
+          { $sort: { createdAt: -1 } },
+          {
+            $group: {
+              _id: '$platformKey',
+              latest: { $first: '$$ROOT' }
+            }
+          }
+        ]).toArray()
+      ]);
+
+      const details = {};
+
+      for (const row of totalRows) {
+        const key = row?._id || 'unknown';
+        if (!details[key]) {
+          details[key] = {};
+        }
+        details[key].totalPosts = row.totalPosts || 0;
+        details[key].lastPostedAt = row.lastPostAt || null;
+      }
+
+      for (const row of recentRows) {
+        const key = row?._id || 'unknown';
+        if (!details[key]) {
+          details[key] = {};
+        }
+        details[key].recentPosts7d = row.countLast7d || 0;
+      }
+
+      for (const row of latestRows) {
+        const key = row?._id || 'unknown';
+        if (!details[key]) {
+          details[key] = {};
+        }
+        const latestDoc = row.latest || {};
+        details[key].lastPostedAt = latestDoc.createdAt || latestDoc.timestamp || details[key].lastPostedAt || null;
+        details[key].lastContent = latestDoc.content || null;
+        details[key].metadata = latestDoc.metadata || null;
+        details[key].tweetId = latestDoc.tweetId || null;
+        details[key].messageId = latestDoc.messageId || null;
+        details[key].channelId = latestDoc.channelId || null;
+      }
+
+      const config = this.bot?.globalBotConfig || {};
+      const summaryText = this.buildPlatformStatusText(details, config);
+
+      return {
+        summaryText,
+        active: Array.isArray(config.activePlatforms) ? config.activePlatforms : [],
+        handles: config.platformHandles || {},
+        details
+      };
+    } catch (err) {
+      this.logger?.warn?.(`[GlobalBotService] getPlatformStats error: ${err.message}`);
+      return {
+        summaryText: 'No platform activity recorded yet.',
+        active: Array.isArray(this.bot?.globalBotConfig?.activePlatforms) ? this.bot.globalBotConfig.activePlatforms : [],
+        handles: this.bot?.globalBotConfig?.platformHandles || {},
+        details: {}
+      };
+    }
+  }
+
+  buildPlatformStatusText(details = {}, config = {}) {
+    const active = new Set(Array.isArray(config.activePlatforms) ? config.activePlatforms : []);
+    const handles = config.platformHandles || {};
+    const knownOrder = ['x', 'telegram', 'discord'];
+    const keys = Array.from(new Set([...knownOrder, ...Object.keys(details), ...active]));
+    const lines = [];
+
+    for (const key of keys) {
+      if (!key) continue;
+      const info = details[key] || {};
+      const label = this.getPlatformLabel(key);
+      const segments = [];
+
+      segments.push(active.has(key) ? 'active' : 'inactive');
+
+      const handleRaw = handles[key];
+      if (handleRaw) {
+        segments.push(this.normalizeHandle(key, handleRaw));
+      }
+
+      if (typeof info.totalPosts === 'number') {
+        segments.push(`${info.totalPosts} total posts`);
+      }
+
+      if (typeof info.recentPosts7d === 'number' && info.recentPosts7d > 0) {
+        segments.push(`${info.recentPosts7d} in last 7d`);
+      }
+
+      if (info.lastPostedAt) {
+        segments.push(`last ${this.formatRelativeTime(info.lastPostedAt)}`);
+      }
+
+      if (!segments.length) {
+        segments.push('no recent activity');
+      }
+
+      lines.push(`${label}: ${segments.join(' • ')}`);
+    }
+
+    if (!lines.length) {
+      return 'No platform presence configured.';
+    }
+
+    return lines.join('\n');
+  }
+
+  getPlatformLabel(key) {
+    switch (key) {
+      case 'x':
+        return 'X (Twitter)';
+      case 'telegram':
+        return 'Telegram';
+      case 'discord':
+        return 'Discord';
+      case 'unknown':
+        return 'Unknown Platform';
+      default:
+        return key.charAt(0).toUpperCase() + key.slice(1);
+    }
+  }
+
+  normalizeHandle(key, value) {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+    if (!trimmed) return '';
+    if (key === 'x') {
+      return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+    }
+    return trimmed;
+  }
+
+  formatRelativeTime(input) {
+    if (!input) return '';
+    const date = input instanceof Date ? input : new Date(input);
+    if (Number.isNaN(date.getTime())) return '';
+    const diffMs = Date.now() - date.getTime();
+    const absMs = Math.abs(diffMs);
+
+    const units = [
+      { label: 'day', ms: 24 * 60 * 60 * 1000 },
+      { label: 'hour', ms: 60 * 60 * 1000 },
+      { label: 'minute', ms: 60 * 1000 },
+      { label: 'second', ms: 1000 }
+    ];
+
+    for (const unit of units) {
+      if (absMs >= unit.ms) {
+        const value = Math.round(absMs / unit.ms);
+        return value === 1 ? `${value} ${unit.label} ago` : `${value} ${unit.label}s ago`;
+      }
+    }
+
+    return 'just now';
+  }
+
   /**
    * Get the bot's current persona and stats
    * @returns {Promise<Object>} - Bot persona info
@@ -542,13 +773,16 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         global: true,
         'metadata.type': 'introduction'
       });
+
+      const platformStats = await this.getPlatformStats();
       
       return {
         bot: this.bot,
         memories,
         stats: {
           totalIntroductions: postCount,
-          memoryCount
+          memoryCount,
+          platforms: platformStats
         }
       };
     } catch (err) {
