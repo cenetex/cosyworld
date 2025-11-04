@@ -284,6 +284,72 @@
       </div>
     </div>
     
+    <!-- Telegram Configuration Section -->
+    <div class="section" id="telegram-config-section">
+      <h2>Telegram Global Bot</h2>
+      <p class="text-sm text-gray-600 mb-3">Manage the Telegram bot token, channel, and auto-posting behavior that power the global bot.</p>
+
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div id="telegram-config-summary" class="text-sm text-gray-700">Loading Telegram configuration...</div>
+        <div class="flex items-center gap-2">
+          <button id="telegram-refresh-btn" class="btn-secondary">Refresh</button>
+          <button id="telegram-test-btn" class="btn-primary">Test Bot</button>
+        </div>
+      </div>
+
+      <div id="telegram-config-alert" class="hidden mb-4">
+        <div class="p-2 rounded text-sm"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="telegram-bot-token">Bot Token</label>
+          <div class="flex gap-2">
+            <input type="password" id="telegram-bot-token" class="flex-1 border-gray-300 rounded-md shadow-sm px-3 py-2" placeholder="Enter token from @BotFather" />
+            <button id="telegram-save-token-btn" class="btn-success">Save Token</button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500" id="telegram-token-status">Token status unknown.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="telegram-channel-id">Channel or Chat ID</label>
+          <div class="flex gap-2">
+            <input type="text" id="telegram-channel-id" class="flex-1 border-gray-300 rounded-md shadow-sm px-3 py-2" placeholder="@channel or -1001234567890" />
+            <button id="telegram-save-channel-btn" class="btn-success">Save Channel</button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500" id="telegram-channel-status">Channel status unknown.</p>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <h3 class="text-base font-medium text-gray-900">Auto-Posting Configuration</h3>
+          <button id="telegram-save-config-btn" class="btn-success">Save Posting Config</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="telegram-config-enabled">Auto-Posting</label>
+            <select id="telegram-config-enabled" class="w-full border-gray-300 rounded-md shadow-sm px-3 py-2">
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="telegram-config-hourly">Hourly Limit</label>
+            <input type="number" id="telegram-config-hourly" class="w-full border-gray-300 rounded-md shadow-sm px-3 py-2" min="1" placeholder="10" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="telegram-config-min-interval">Min Interval (sec)</label>
+            <input type="number" id="telegram-config-min-interval" class="w-full border-gray-300 rounded-md shadow-sm px-3 py-2" min="60" placeholder="180" />
+          </div>
+        </div>
+        <p class="mt-2 text-xs text-gray-500" id="telegram-posting-status">Auto-posting status unknown.</p>
+      </div>
+
+      <div class="mt-4">
+        <pre id="telegram-diag-log" class="text-xs bg-gray-50 p-3 rounded border overflow-auto" style="max-height: 160px;">Ready...</pre>
+      </div>
+    </div>
+
     <!-- Stats Section -->
     <div class="section">
       <h2>Statistics</h2>
@@ -345,6 +411,36 @@
     // Global variables
     let modelsByProvider = new Map();
     let currentBotModel = null;
+
+    const telegramState = {
+      hasBotToken: false,
+      hasChannel: false,
+      channelId: '',
+      enabled: false,
+      rate: { hourly: 10, minIntervalSec: 180 },
+      lastBotInfo: null
+    };
+
+    const telegramEls = {
+      section: document.getElementById('telegram-config-section'),
+      summary: document.getElementById('telegram-config-summary'),
+      alert: document.getElementById('telegram-config-alert'),
+      alertBox: document.getElementById('telegram-config-alert')?.querySelector('div') || null,
+      tokenInput: document.getElementById('telegram-bot-token'),
+      tokenStatus: document.getElementById('telegram-token-status'),
+      saveTokenBtn: document.getElementById('telegram-save-token-btn'),
+      channelInput: document.getElementById('telegram-channel-id'),
+      channelStatus: document.getElementById('telegram-channel-status'),
+      saveChannelBtn: document.getElementById('telegram-save-channel-btn'),
+      enabledSelect: document.getElementById('telegram-config-enabled'),
+      hourlyInput: document.getElementById('telegram-config-hourly'),
+      minIntervalInput: document.getElementById('telegram-config-min-interval'),
+      saveConfigBtn: document.getElementById('telegram-save-config-btn'),
+      postingStatus: document.getElementById('telegram-posting-status'),
+      refreshBtn: document.getElementById('telegram-refresh-btn'),
+      testBtn: document.getElementById('telegram-test-btn'),
+      diag: document.getElementById('telegram-diag-log')
+    };
     
     // Load available models from API
     async function loadModels() {
@@ -696,6 +792,330 @@
       }
     }
     
+    function showTelegramAlert(message, type = 'info') {
+      if (!telegramEls.alert || !telegramEls.alertBox) return;
+      const palette = {
+        success: 'bg-green-50 text-green-800 border border-green-200',
+        error: 'bg-red-50 text-red-800 border border-red-200',
+        info: 'bg-blue-50 text-blue-800 border border-blue-200'
+      };
+      telegramEls.alertBox.className = `p-2 rounded text-sm ${palette[type] || palette.info}`;
+      telegramEls.alertBox.textContent = message;
+      telegramEls.alert.classList.remove('hidden');
+      setTimeout(() => telegramEls.alert?.classList.add('hidden'), type === 'error' ? 6000 : 4000);
+    }
+
+    function clearTelegramAlert() {
+      if (!telegramEls.alert) return;
+      telegramEls.alert.classList.add('hidden');
+    }
+
+    function logTelegramDiag(message, type = 'info') {
+      if (!telegramEls.diag) return;
+      const now = new Date().toLocaleTimeString();
+      const prefix = type === 'error' ? '✗' : type === 'success' ? '✓' : '•';
+      const line = `[${now}] ${prefix} ${message}`;
+      const current = telegramEls.diag.textContent || '';
+      if (!current || current.trim() === 'Ready...') {
+        telegramEls.diag.textContent = line;
+      } else {
+        telegramEls.diag.textContent = `${current}\n${line}`;
+      }
+      telegramEls.diag.scrollTop = telegramEls.diag.scrollHeight;
+    }
+
+    function updateTelegramUI() {
+      if (!telegramEls.section) return;
+      const { hasBotToken, hasChannel, channelId, enabled, rate, lastBotInfo } = telegramState;
+
+      if (telegramEls.tokenStatus) {
+        telegramEls.tokenStatus.textContent = hasBotToken
+          ? 'Token configured. Enter a new token to rotate.'
+          : 'Token not configured. Add a token to enable Telegram posting.';
+      }
+
+      if (telegramEls.channelStatus) {
+        telegramEls.channelStatus.textContent = hasChannel
+          ? `Channel configured${channelId ? ` (${channelId})` : ''}.`
+          : 'Channel not configured. Add a channel ID to route posts.';
+      }
+
+      if (telegramEls.channelInput && document.activeElement !== telegramEls.channelInput) {
+        telegramEls.channelInput.value = channelId || '';
+      }
+
+      if (telegramEls.enabledSelect) {
+        telegramEls.enabledSelect.value = String(enabled);
+      }
+
+      if (telegramEls.hourlyInput && document.activeElement !== telegramEls.hourlyInput) {
+        telegramEls.hourlyInput.value = rate?.hourly || 10;
+      }
+
+      if (telegramEls.minIntervalInput && document.activeElement !== telegramEls.minIntervalInput) {
+        telegramEls.minIntervalInput.value = rate?.minIntervalSec || 180;
+      }
+
+      const parts = [];
+      parts.push(enabled ? 'Auto-posting enabled' : 'Auto-posting disabled');
+      if (rate?.hourly) parts.push(`Hourly limit ${rate.hourly}`);
+      if (rate?.minIntervalSec) parts.push(`Min interval ${rate.minIntervalSec}s`);
+      if (hasChannel && channelId) parts.push(`Channel: ${channelId}`);
+      if (lastBotInfo?.username) parts.push(`Bot: @${lastBotInfo.username}`);
+      if (telegramEls.summary) {
+        telegramEls.summary.textContent = parts.length
+          ? parts.join(' • ')
+          : 'Telegram bot not fully configured yet.';
+      }
+
+      if (telegramEls.postingStatus) {
+        if (hasBotToken && hasChannel) {
+          telegramEls.postingStatus.textContent = `Ready to post${rate?.hourly ? ` up to ${rate.hourly} times per hour` : ''}.`;
+          telegramEls.postingStatus.className = 'mt-2 text-xs text-green-600';
+        } else {
+          telegramEls.postingStatus.textContent = 'Auto-posting disabled until both token and channel are configured.';
+          telegramEls.postingStatus.className = 'mt-2 text-xs text-yellow-600';
+        }
+      }
+    }
+
+    async function loadTelegramConfig({ showNotice = false } = {}) {
+      if (!telegramEls.section || !window.AdminAPI) return;
+      try {
+        const data = await window.AdminAPI.apiFetch('/api/telegramauth/global/config');
+        telegramState.hasBotToken = !!data?.hasGlobalBot;
+        telegramState.hasChannel = !!data?.hasChannelId;
+        telegramState.channelId = data?.channelId || '';
+        telegramState.enabled = !!data?.enabled;
+        telegramState.rate = data?.rate || { hourly: 10, minIntervalSec: 180 };
+        updateTelegramUI();
+        logTelegramDiag('Configuration loaded.', 'success');
+        if (showNotice) {
+          showTelegramAlert('Telegram configuration refreshed.', 'success');
+        }
+      } catch (err) {
+        console.error('[TelegramConfig] Failed to load configuration:', err);
+        const message = err?.message || 'Failed to load Telegram configuration';
+        logTelegramDiag(message, 'error');
+        showTelegramAlert(message, 'error');
+      }
+    }
+
+    async function saveTelegramBotToken() {
+      if (!telegramEls.tokenInput) return;
+      const token = telegramEls.tokenInput.value.trim();
+      if (!token) {
+        showError('Please enter a Telegram bot token');
+        telegramEls.tokenInput.focus();
+        return;
+      }
+
+      const btn = telegramEls.saveTokenBtn;
+      const originalText = btn?.textContent;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+      }
+
+      try {
+        clearTelegramAlert();
+        logTelegramDiag('Saving bot token...');
+        await window.AdminAPI.apiFetch('/api/telegramauth/global/token', {
+          method: 'POST',
+          body: { botToken: token },
+          requireCsrf: true,
+          sign: true,
+          signMeta: { op: 'save_telegram_token' }
+        });
+        telegramEls.tokenInput.value = '';
+        telegramState.hasBotToken = true;
+        showSuccess('Telegram bot token saved');
+        showTelegramAlert('Bot token saved and bot initialized.', 'success');
+        logTelegramDiag('Bot token saved.', 'success');
+        await loadTelegramConfig();
+      } catch (err) {
+        console.error('[TelegramConfig] Failed to save token:', err);
+        const message = err?.message || 'Failed to save Telegram bot token';
+        showError(message);
+        showTelegramAlert(message, 'error');
+        logTelegramDiag(message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText || 'Save Token';
+        }
+      }
+    }
+
+    async function saveTelegramChannelId() {
+      if (!telegramEls.channelInput) return;
+      const channelId = telegramEls.channelInput.value.trim();
+      if (!channelId) {
+        showError('Please enter a Telegram channel or chat ID');
+        telegramEls.channelInput.focus();
+        return;
+      }
+
+      const btn = telegramEls.saveChannelBtn;
+      const originalText = btn?.textContent;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+      }
+
+      try {
+        clearTelegramAlert();
+        logTelegramDiag('Saving channel ID...');
+        await window.AdminAPI.apiFetch('/api/telegramauth/global/channel', {
+          method: 'POST',
+          body: { channelId },
+          requireCsrf: true,
+          sign: true,
+          signMeta: { op: 'save_telegram_channel' }
+        });
+        telegramState.hasChannel = true;
+        telegramState.channelId = channelId;
+        showSuccess('Telegram channel saved');
+        showTelegramAlert('Channel ID saved.', 'success');
+        logTelegramDiag('Channel ID saved.', 'success');
+        await loadTelegramConfig();
+      } catch (err) {
+        console.error('[TelegramConfig] Failed to save channel:', err);
+        const message = err?.message || 'Failed to save Telegram channel ID';
+        showError(message);
+        showTelegramAlert(message, 'error');
+        logTelegramDiag(message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText || 'Save Channel';
+        }
+      }
+    }
+
+    async function saveTelegramPostingConfig() {
+      if (!telegramEls.enabledSelect || !telegramEls.saveConfigBtn) return;
+      const enabled = telegramEls.enabledSelect.value === 'true';
+      const hourly = parseInt(telegramEls.hourlyInput?.value ?? '10', 10) || 10;
+      const minInterval = parseInt(telegramEls.minIntervalInput?.value ?? '180', 10) || 180;
+
+      const btn = telegramEls.saveConfigBtn;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      try {
+        clearTelegramAlert();
+        logTelegramDiag('Saving auto-posting configuration...');
+        await window.AdminAPI.apiFetch('/api/telegramauth/global/config', {
+          method: 'POST',
+          body: {
+            enabled,
+            rate: {
+              hourly,
+              minIntervalSec: minInterval
+            }
+          },
+          requireCsrf: true,
+          sign: true,
+          signMeta: { op: 'save_telegram_config' }
+        });
+        showSuccess('Telegram posting configuration saved');
+        showTelegramAlert('Auto-posting configuration saved.', 'success');
+        logTelegramDiag('Auto-posting configuration saved.', 'success');
+        await loadTelegramConfig();
+      } catch (err) {
+        console.error('[TelegramConfig] Failed to save posting config:', err);
+        const message = err?.message || 'Failed to save auto-posting configuration';
+        showError(message);
+        showTelegramAlert(message, 'error');
+        logTelegramDiag(message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    async function testTelegramBot() {
+      if (!telegramEls.testBtn) return;
+      const btn = telegramEls.testBtn;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+
+      try {
+        clearTelegramAlert();
+        logTelegramDiag('Testing Telegram bot connectivity...');
+        const data = await window.AdminAPI.apiFetch('/api/telegramauth/global/test', {
+          method: 'POST',
+          requireCsrf: true,
+          sign: true,
+          signMeta: { op: 'test_telegram_bot' }
+        });
+
+        if (data?.botInfo) {
+          telegramState.lastBotInfo = data.botInfo;
+          telegramState.hasBotToken = true;
+          updateTelegramUI();
+          showSuccess(`Bot connected: @${data.botInfo.username}`);
+          showTelegramAlert(`Bot connected: @${data.botInfo.username}`, 'success');
+          logTelegramDiag(`Bot connected: @${data.botInfo.username}`, 'success');
+        } else {
+          showTelegramAlert('Bot test returned an unexpected response.', 'error');
+          logTelegramDiag('Bot test returned unexpected response.', 'error');
+        }
+      } catch (err) {
+        console.error('[TelegramConfig] Bot test failed:', err);
+        const message = err?.message || 'Telegram bot test failed';
+        showError(message);
+        showTelegramAlert(message, 'error');
+        logTelegramDiag(message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    function setupTelegramConfigHandlers() {
+      if (!telegramEls.section || setupTelegramConfigHandlers.initialized) return;
+      setupTelegramConfigHandlers.initialized = true;
+
+      telegramEls.refreshBtn?.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        if (!telegramEls.refreshBtn) return;
+        const btn = telegramEls.refreshBtn;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Refreshing...';
+        try {
+          await loadTelegramConfig({ showNotice: true });
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      });
+
+      telegramEls.saveTokenBtn?.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        await saveTelegramBotToken();
+      });
+
+      telegramEls.saveChannelBtn?.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        await saveTelegramChannelId();
+      });
+
+      telegramEls.saveConfigBtn?.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        await saveTelegramPostingConfig();
+      });
+
+      telegramEls.testBtn?.addEventListener('click', async (evt) => {
+        evt.preventDefault();
+        await testTelegramBot();
+      });
+    }
+
     // Load recent posts
     async function loadPosts() {
       try {
@@ -779,9 +1199,11 @@
         });
       }
       
-      await loadModels();
-      await loadPersona();
-      loadPosts();
+  await loadModels();
+  await loadPersona();
+  setupTelegramConfigHandlers();
+  await loadTelegramConfig();
+  loadPosts();
     }
     
     // Load data on page load
