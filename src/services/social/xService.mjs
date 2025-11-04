@@ -1039,7 +1039,7 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
       if (!baseText) baseText = '';
       // Ensure single hashtag #CosyWorld appended (unless already present case-insensitively)
       if (!/#cosyworld/i.test(baseText)) {
-        baseText = (baseText + ' #CosyWorld').trim();
+        baseText = (baseText).trim();
       }
       
       // Smart truncation: if text is over 280 chars, try to truncate at sentence boundary
@@ -1064,7 +1064,7 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
           tweetText = truncated.slice(0, lastSentenceEnd + 1).trim();
           // Re-add #CosyWorld if it got cut off
           if (!/#cosyworld/i.test(tweetText) && tweetText.length < 268) {
-            tweetText = (tweetText + ' #CosyWorld').trim();
+            tweetText = (tweetText).trim();
           }
           this.logger?.debug?.('[XService][globalPost] truncated at sentence boundary', { newLength: tweetText.length });
         } else {
@@ -1085,7 +1085,7 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
                 let shortened = String(newCaption).replace(/[#\n\r]+/g, ' ').trim();
                 // Add hashtag if not present
                 if (!/#cosyworld/i.test(shortened)) {
-                  shortened = (shortened + ' #CosyWorld').trim();
+                  shortened = (shortened).trim();
                 }
                 // If still too long, hard truncate at sentence
                 if (shortened.length > 280) {
@@ -1124,9 +1124,6 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         tweetText = tweetText.slice(0, 280);
       }
       
-      if (!tweetText.trim()) {
-        tweetText = '#CosyWorld';
-      }
       const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
       let tweet;
       const sendTweet = async () => {

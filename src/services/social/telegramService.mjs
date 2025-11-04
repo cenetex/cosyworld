@@ -1761,7 +1761,7 @@ Create a warm, welcoming introduction message (max 200 chars) that:
 
       // Ensure hashtag
       if (!/#cosyworld/i.test(caption)) {
-        caption = (caption + ' #CosyWorld').trim();
+        caption = (caption).trim();
       }
 
       // Truncate to reasonable length

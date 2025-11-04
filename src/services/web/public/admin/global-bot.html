@@ -783,7 +783,7 @@
           throw new Error(data.error || 'Preview failed');
         }
         
-        document.getElementById('preview-text').textContent = data.preview + ' #CosyWorld';
+        document.getElementById('preview-text').textContent = data.preview;
         document.getElementById('preview-result').style.display = 'block';
         clearStatus();
       } catch (err) {
