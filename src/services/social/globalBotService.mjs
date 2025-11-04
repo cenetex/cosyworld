@@ -35,6 +35,34 @@ export class GlobalBotService {
     this.narrativeInterval = null;
   }
 
+  buildDefaultGlobalBotConfig(universeName) {
+    const activeFromEnv = (process.env.GLOBAL_BOT_ACTIVE_PLATFORMS || 'x,telegram')
+      .split(',')
+      .map((p) => (typeof p === 'string' ? p.trim() : ''))
+      .filter(Boolean);
+    const uniqueActive = Array.from(new Set(activeFromEnv));
+
+    return {
+      universeName,
+      maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
+      preferredHashtags: [universeName],
+      systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
+      avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
+      locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
+      scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`,
+      combatPromptTemplate: `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`,
+      genericPromptTemplate: `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes or extra hashtags.`,
+      narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`,
+      platformNarrativeSummaryTemplate: `Platform presence overview:\n{{platformStatus}}`,
+      activePlatforms: uniqueActive.length ? uniqueActive : ['x', 'telegram'],
+      platformHandles: {
+        x: process.env.GLOBAL_BOT_X_HANDLE || '',
+        telegram: process.env.GLOBAL_BOT_TELEGRAM_HANDLE || '',
+        discord: process.env.GLOBAL_BOT_DISCORD_HANDLE || ''
+      }
+    };
+  }
+
   /**
    * Initialize the global bot service
    * Creates or retrieves the global bot avatar and starts narrative generation
@@ -67,11 +95,6 @@ export class GlobalBotService {
       this.logger?.info?.('[GlobalBotService] Creating new global bot avatar');
       
       const universeName = process.env.UNIVERSE_NAME || "CosyWorld";
-      const activePlatformsEnv = (process.env.GLOBAL_BOT_ACTIVE_PLATFORMS || 'x,telegram')
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean);
-      const uniqueActivePlatforms = Array.from(new Set(activePlatformsEnv));
       
       const botDoc = {
         name: universeName,
@@ -84,25 +107,7 @@ export class GlobalBotService {
         content: `I am the narrator of ${universeName}, here to welcome every new arrival and share their stories with the community.`,
         createdAt: new Date(),
         updatedAt: new Date(),
-        globalBotConfig: {
-          universeName,
-          maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
-          preferredHashtags: [universeName],
-          systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
-          avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
-          locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
-          scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`,
-          combatPromptTemplate: `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`,
-          genericPromptTemplate: `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes or extra hashtags.`,
-          narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`,
-          platformNarrativeSummaryTemplate: `Platform presence overview:\n{{platformStatus}}`,
-          activePlatforms: uniqueActivePlatforms.length ? uniqueActivePlatforms : ['x', 'telegram'],
-          platformHandles: {
-            x: process.env.GLOBAL_BOT_X_HANDLE || '',
-            telegram: process.env.GLOBAL_BOT_TELEGRAM_HANDLE || '',
-            discord: process.env.GLOBAL_BOT_DISCORD_HANDLE || ''
-          }
-        }
+        globalBotConfig: this.buildDefaultGlobalBotConfig(universeName)
       };
       
       const result = await db.collection('avatars').insertOne(botDoc);
@@ -754,6 +759,26 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
   async getPersona() {
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
+      const universeName = this.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
+      const defaultConfig = this.buildDefaultGlobalBotConfig(universeName);
+      const existingConfig = this.bot?.globalBotConfig || {};
+      const mergedHandles = {
+        ...defaultConfig.platformHandles,
+        ...(existingConfig.platformHandles || {})
+      };
+      const existingActive = Array.isArray(existingConfig.activePlatforms) ? existingConfig.activePlatforms : [];
+      const normalizedActive = existingActive
+        .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
+        .filter(Boolean);
+      const mergedActive = normalizedActive.length
+        ? Array.from(new Set(normalizedActive))
+        : defaultConfig.activePlatforms;
+      this.bot.globalBotConfig = {
+        ...defaultConfig,
+        ...existingConfig,
+        platformHandles: mergedHandles,
+        activePlatforms: mergedActive
+      };
       const rawMemories = await this.memoryService.getRecentMemoriesRaw(this.botId, 20);
       const memoryCount = await this.memoryService.countMemories(this.botId);
       const memories = rawMemories.map((mem) => ({
@@ -823,9 +848,52 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       }
 
       if (updates.globalBotConfig && typeof updates.globalBotConfig === 'object') {
+        const existingConfig = this.bot.globalBotConfig || {};
+        const incomingConfig = { ...updates.globalBotConfig };
+
+        if (typeof incomingConfig.universeName === 'string') {
+          incomingConfig.universeName = incomingConfig.universeName.trim();
+        }
+
+        const universeName = incomingConfig.universeName
+          || existingConfig.universeName
+          || process.env.UNIVERSE_NAME
+          || 'CosyWorld';
+
+        const defaultConfig = this.buildDefaultGlobalBotConfig(universeName);
+
+        const mergedHandlesRaw = {
+          ...defaultConfig.platformHandles,
+          ...(existingConfig.platformHandles || {}),
+          ...(incomingConfig.platformHandles || {})
+        };
+        const platformHandles = Object.fromEntries(
+          Object.entries(mergedHandlesRaw).map(([key, value]) => [
+            key,
+            typeof value === 'string' ? value.trim() : (value || '')
+          ])
+        );
+
+        const activeFromIncoming = Array.isArray(incomingConfig.activePlatforms)
+          ? incomingConfig.activePlatforms
+          : [];
+        const activeFromExisting = Array.isArray(existingConfig.activePlatforms)
+          ? existingConfig.activePlatforms
+          : [];
+        const activeCandidates = activeFromIncoming.length ? activeFromIncoming : activeFromExisting;
+        const activePlatforms = Array.from(new Set(
+          activeCandidates
+            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
+            .filter(Boolean)
+        ));
+
         this.bot.globalBotConfig = {
-          ...(this.bot.globalBotConfig || {}),
-          ...updates.globalBotConfig
+          ...defaultConfig,
+          ...existingConfig,
+          ...incomingConfig,
+          universeName,
+          platformHandles,
+          activePlatforms: activePlatforms.length ? activePlatforms : defaultConfig.activePlatforms
         };
       }
       
