@@ -8,6 +8,7 @@ let configData = {
   encryption: {},
   mongo: {},
   discord: {},
+  telegram: {},
   ai: { openrouter: {}, google: {} },
   optional: {}
 };
@@ -33,6 +34,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       discord: {
         botToken: '',
         clientId: existingConfig.discord?.clientId || ''
+      },
+      telegram: {
+        botToken: ''
       },
       ai: {
         service: existingConfig.ai?.service || 'openrouter',
@@ -78,25 +82,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // For masked secrets, show placeholders to indicate they exist
     // Also remove 'required' attribute to allow keeping existing values
-    if (existingConfig.mongo?.uri && existingConfig.mongo.configured) {
+    if (existingConfig.mongo?.uri) {
       const mongoUriField = document.getElementById('mongoUri');
       mongoUriField.placeholder = 'Already configured - leave empty to keep existing';
       mongoUriField.setAttribute('data-existing', 'true');
       mongoUriField.removeAttribute('required');
     }
-    if (existingConfig.discord?.botToken && existingConfig.discord.configured) {
+    if (existingConfig.discord?.botToken) {
       const discordTokenField = document.getElementById('discordBotToken');
       discordTokenField.placeholder = 'Already configured - leave empty to keep existing';
       discordTokenField.setAttribute('data-existing', 'true');
       discordTokenField.removeAttribute('required');
     }
-    if (existingConfig.ai?.openrouter?.apiKey && existingConfig.ai.openrouter.configured) {
+    if (existingConfig.telegram?.botToken) {
+      const telegramTokenField = document.getElementById('telegramBotToken');
+      telegramTokenField.placeholder = 'Already configured - leave empty to keep existing';
+      telegramTokenField.setAttribute('data-existing', 'true');
+      telegramTokenField.removeAttribute('required');
+    }
+    if (existingConfig.ai?.openrouter?.apiKey) {
       const openrouterKeyField = document.getElementById('openrouterApiKey');
       openrouterKeyField.placeholder = 'Already configured - leave empty to keep existing';
       openrouterKeyField.setAttribute('data-existing', 'true');
       openrouterKeyField.removeAttribute('required');
     }
-    if (existingConfig.ai?.google?.apiKey && existingConfig.ai.google.configured) {
+    if (existingConfig.ai?.google?.apiKey) {
       const googleKeyField = document.getElementById('googleApiKey');
       googleKeyField.placeholder = 'Already configured - leave empty to keep existing';
       googleKeyField.setAttribute('data-existing', 'true');
@@ -169,11 +179,20 @@ async function validateAndNext(section) {
       
     case 'discord':
       const discordTokenField = document.getElementById('discordBotToken');
+      const telegramTokenField = document.getElementById('telegramBotToken');
+      const telegramData = {
+        botToken: telegramTokenField.value || (telegramTokenField.getAttribute('data-existing') ? 'KEEP_EXISTING' : '')
+      };
       data = {
         botToken: discordTokenField.value || (discordTokenField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
-        clientId: document.getElementById('discordClientId').value
+        clientId: document.getElementById('discordClientId').value,
+        telegram: telegramData
       };
-      configData.discord = data;
+      configData.discord = {
+        botToken: data.botToken,
+        clientId: data.clientId
+      };
+      configData.telegram = telegramData;
       break;
       
     case 'ai':
@@ -277,6 +296,9 @@ function populateFields() {
   if (configData.discord?.clientId) {
     document.getElementById('discordClientId').value = configData.discord.clientId;
   }
+  if (configData.telegram?.botToken) {
+    document.getElementById('telegramBotToken').value = configData.telegram.botToken;
+  }
   if (configData.ai?.service) {
     document.getElementById('aiService').value = configData.ai.service;
   }
@@ -307,6 +329,8 @@ function showConfigSummary() {
   items.push(`<p><strong>🔐 Encryption:</strong> Configured (${configData.encryption.key?.length || 0} chars)</p>`);
   items.push(`<p><strong>🗄️ Database:</strong> ${maskValue(configData.mongo.uri)} / ${configData.mongo.dbName}</p>`);
   items.push(`<p><strong>🤖 Discord:</strong> Bot configured with client ID ${configData.discord.clientId}</p>`);
+  const telegramConfigured = !!(configData.telegram?.botToken && configData.telegram.botToken !== '');
+  items.push(`<p><strong>📣 Telegram:</strong> ${telegramConfigured ? 'Global bot configured' : 'Global bot not configured'}</p>`);
   
   const aiService = configData.ai.service || 'openrouter';
   const hasOpenRouter = configData.ai.openrouter?.apiKey;
@@ -336,6 +360,15 @@ async function saveConfiguration() {
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<span class="loading"></span> Saving...';
+  const getSecretValue = (fieldId) => {
+    const el = document.getElementById(fieldId);
+    if (!el) return '';
+    const raw = el.value;
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw.trim();
+    }
+    return el.getAttribute('data-existing') ? 'KEEP_EXISTING' : '';
+  };
   
   // Collect all configuration data
   const config = {
@@ -347,20 +380,23 @@ async function saveConfiguration() {
       dbName: document.getElementById('mongoDbName').value
     },
     discord: {
-      botToken: document.getElementById('discordBotToken').value,
+      botToken: getSecretValue('discordBotToken'),
       clientId: document.getElementById('discordClientId').value
+    },
+    telegram: {
+      botToken: getSecretValue('telegramBotToken')
     },
     ai: {
       service: document.getElementById('aiService').value,
       openrouter: {
-        apiKey: document.getElementById('openrouterApiKey').value,
+        apiKey: getSecretValue('openrouterApiKey'),
         model: document.getElementById('openrouterModel').value,
         chatModel: document.getElementById('openrouterModel').value,
         visionModel: document.getElementById('openrouterModel').value,
         structuredModel: document.getElementById('openrouterModel').value
       },
       google: {
-        apiKey: document.getElementById('googleApiKey').value,
+        apiKey: getSecretValue('googleApiKey'),
         model: document.getElementById('googleModel').value
       }
     },
@@ -369,6 +405,8 @@ async function saveConfiguration() {
     baseUrl: 'http://localhost:3000',
     publicUrl: 'http://localhost:3000'
   };
+
+  config.discord.telegram = { botToken: config.telegram.botToken };
   
   // Add optional services
   if (document.getElementById('enableReplicate')?.checked) {

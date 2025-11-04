@@ -103,6 +103,9 @@ export class ConfigWizardService {
             botToken: process.env.DISCORD_BOT_TOKEN ? this._maskValue(process.env.DISCORD_BOT_TOKEN) : null,
             clientId: process.env.DISCORD_CLIENT_ID || null
           },
+          telegram: {
+            botToken: process.env.TELEGRAM_GLOBAL_BOT_TOKEN ? this._maskValue(process.env.TELEGRAM_GLOBAL_BOT_TOKEN) : null
+          },
           ai: {
             service: process.env.AI_SERVICE || 'openrouter',
             openrouter: {
@@ -325,6 +328,16 @@ export class ConfigWizardService {
         if (!data.clientId) {
           errors.push('Discord client ID is required');
         }
+
+        if (data.telegram) {
+          if (data.telegram.botToken === 'KEEP_EXISTING') {
+            if (!process.env.TELEGRAM_GLOBAL_BOT_TOKEN) {
+              errors.push('Cannot keep existing Telegram bot token - none found');
+            }
+          } else if (data.telegram.botToken && typeof data.telegram.botToken !== 'string') {
+            errors.push('Telegram bot token must be a string');
+          }
+        }
         break;
 
       case 'ai':
@@ -463,6 +476,11 @@ export class ConfigWizardService {
       })
     };
 
+    const telegramBotToken = useExisting(config.telegram?.botToken, 'TELEGRAM_GLOBAL_BOT_TOKEN', process.env.TELEGRAM_GLOBAL_BOT_TOKEN);
+    if (telegramBotToken) {
+      envVars.TELEGRAM_GLOBAL_BOT_TOKEN = telegramBotToken;
+    }
+
     const replicateCfg = config.optional?.replicate || null;
     if (replicateCfg) {
       const replicateVars = {};
@@ -526,6 +544,7 @@ export class ConfigWizardService {
       encryption: {},
       mongo: {},
       discord: {},
+      telegram: {},
       ai: { openrouter: {}, google: {} },
       optional: { 
         replicate: {}, 
@@ -562,6 +581,10 @@ export class ConfigWizardService {
           break;
         case 'DISCORD_CLIENT_ID':
           config.discord.clientId = value;
+          break;
+        case 'TELEGRAM_GLOBAL_BOT_TOKEN':
+          config.telegram = config.telegram || {};
+          config.telegram.botToken = value;
           break;
         case 'AI_SERVICE':
           config.ai.service = value;

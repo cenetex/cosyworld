@@ -148,6 +148,10 @@ export class ConfigService {
       }
     };
 
+      // Surface Telegram globals so configService.get('TELEGRAM_GLOBAL_BOT_TOKEN') works even without env access.
+      this.config.TELEGRAM_GLOBAL_BOT_TOKEN = this.secrets?.get('TELEGRAM_GLOBAL_BOT_TOKEN') || process.env.TELEGRAM_GLOBAL_BOT_TOKEN;
+      this.config.TELEGRAM_GLOBAL_CHANNEL_ID = this.secrets?.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
+
     this.guildConfigCache = new Map(); // Cache for guild configurations
         this.initialTokenDefaults = JSON.parse(JSON.stringify(this.config.tokens?.defaults || {}));
         this.tokenPreferencesCache = null;
