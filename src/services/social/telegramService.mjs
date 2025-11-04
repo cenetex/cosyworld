@@ -486,7 +486,6 @@ class TelegramService {
             permanentlyBlacklisted: false,
             mentionedBotCount: 0,
             receivedResponseCount: 0,
-            trustLevel: 'new',
             createdAt: new Date(),
           },
           $set: {

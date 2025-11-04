@@ -276,6 +276,84 @@
           </p>
         </div>
         
+        <!-- Universe Name Configuration -->
+        <div style="margin-top: 20px;">
+          <label for="universe-name-input">Universe Name</label>
+          <input type="text" id="universe-name-input" placeholder="e.g., CosyWorld" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+          <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+            The name of your universe/world. Used throughout all prompts. Defaults to "CosyWorld".
+          </p>
+        </div>
+        
+        <!-- Advanced Prompt Templates -->
+        <details style="margin-top: 20px; background: #f7fafc; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e0;">
+          <summary style="cursor: pointer; font-weight: 600; color: #4a5568; user-select: none;">
+            🔧 Advanced Prompt Templates (Click to expand)
+          </summary>
+          
+          <div style="margin-top: 15px;">
+            <p style="color: #718096; font-size: 0.9em; margin-bottom: 15px;">
+              Customize the AI prompts used for different types of posts. Use <code>{{variable}}</code> syntax for replaceable parts.
+            </p>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="system-prompt-template">System Prompt Template</label>
+              <textarea id="system-prompt-template" style="min-height: 120px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{botName}}, {{botEmoji}}, {{universeName}}, {{personality}}, {{dynamicPrompt}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="avatar-intro-prompt-template">Avatar Introduction Prompt</label>
+              <textarea id="avatar-intro-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{avatarName}}, {{avatarEmoji}}, {{description}}, {{memories}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="location-discovery-prompt-template">Location Discovery Prompt</label>
+              <textarea id="location-discovery-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{locationName}}, {{locationEmoji}}, {{description}}, {{memories}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="scene-prompt-template">Scene Update Prompt</label>
+              <textarea id="scene-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{description}}, {{memories}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="combat-prompt-template">Combat Event Prompt</label>
+              <textarea id="combat-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{description}}, {{memories}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="generic-prompt-template">Generic Event Prompt</label>
+              <textarea id="generic-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{description}}, {{memories}}
+              </p>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              <label for="narrative-reflection-prompt-template">Narrative Reflection Prompt</label>
+              <textarea id="narrative-reflection-prompt-template" style="min-height: 100px;"></textarea>
+              <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
+                Variables: {{memories}}, {{universeName}}
+              </p>
+            </div>
+          </div>
+        </details>
+        
         <div class="button-group">
           <button class="btn-primary" onclick="savePersona()">💾 Save Persona</button>
           <button class="btn-secondary" onclick="generateNarrative()">🔄 Generate New Narrative</button>
@@ -656,6 +734,17 @@
         document.getElementById('personality-textarea').value = bot.personality || '';
         document.getElementById('dynamic-prompt-textarea').value = bot.dynamicPrompt || '';
         
+        // Load universe name and prompt templates
+        const config = bot.globalBotConfig || {};
+        document.getElementById('universe-name-input').value = config.universeName || '';
+        document.getElementById('system-prompt-template').value = config.systemPromptTemplate || '';
+        document.getElementById('avatar-intro-prompt-template').value = config.avatarIntroPromptTemplate || '';
+        document.getElementById('location-discovery-prompt-template').value = config.locationDiscoveryPromptTemplate || '';
+        document.getElementById('scene-prompt-template').value = config.scenePromptTemplate || '';
+        document.getElementById('combat-prompt-template').value = config.combatPromptTemplate || '';
+        document.getElementById('generic-prompt-template').value = config.genericPromptTemplate || '';
+        document.getElementById('narrative-reflection-prompt-template').value = config.narrativeReflectionPromptTemplate || '';
+        
         // Update stats
         document.getElementById('stat-intros').textContent = stats.totalIntroductions || 0;
         document.getElementById('stat-memories').textContent = stats.memoryCount || 0;
@@ -695,10 +784,21 @@
         const updates = {
           personality: document.getElementById('personality-textarea').value,
           dynamicPrompt: document.getElementById('dynamic-prompt-textarea').value,
-          model: selectedModel
+          model: selectedModel,
+          globalBotConfig: {
+            universeName: document.getElementById('universe-name-input').value || 'CosyWorld',
+            systemPromptTemplate: document.getElementById('system-prompt-template').value || '',
+            avatarIntroPromptTemplate: document.getElementById('avatar-intro-prompt-template').value || '',
+            locationDiscoveryPromptTemplate: document.getElementById('location-discovery-prompt-template').value || '',
+            scenePromptTemplate: document.getElementById('scene-prompt-template').value || '',
+            combatPromptTemplate: document.getElementById('combat-prompt-template').value || '',
+            genericPromptTemplate: document.getElementById('generic-prompt-template').value || '',
+            narrativeReflectionPromptTemplate: document.getElementById('narrative-reflection-prompt-template').value || ''
+          }
         };
         
         console.log('[Save] Saving with model:', selectedModel);
+        console.log('[Save] Saving universe name:', updates.globalBotConfig.universeName);
         
         // Use AdminAPI with CSRF and signing
         const data = await window.AdminAPI.apiFetch('/api/admin/global-bot/persona', {
@@ -712,7 +812,7 @@
           throw new Error(data.error || 'Save failed');
         }
         
-        showSuccess('Persona saved successfully!');
+        showSuccess('Persona and templates saved successfully!');
         
         // Update the display model text
         if (data.bot && data.bot.model) {

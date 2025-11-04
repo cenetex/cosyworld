@@ -66,12 +66,14 @@ export class GlobalBotService {
     if (!bot) {
       this.logger?.info?.('[GlobalBotService] Creating new global bot avatar');
       
+      const universeName = process.env.UNIVERSE_NAME || "CosyWorld";
+      
       const botDoc = {
-        name: "CosyWorld",
+        name: universeName,
         emoji: "🌍",
         type: "global_narrator",
-        personality: "I am the narrator of CosyWorld, a warm and welcoming guide who introduces new souls to our universe. I celebrate each arrival with genuine curiosity and help the community discover fascinating characters. I have a friendly, slightly whimsical tone and enjoy highlighting what makes each being unique.",
-        dynamicPrompt: "I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to CosyWorld.",
+        personality: `I am the narrator of ${universeName}, a warm and welcoming guide who introduces new souls to our universe. I celebrate each arrival with genuine curiosity and help the community discover fascinating characters. I have a friendly, slightly whimsical tone and enjoy highlighting what makes each being unique.`,
+        dynamicPrompt: `I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to ${universeName}.`,
         model: process.env.GLOBAL_BOT_MODEL || "anthropic/claude-sonnet-4.5",
         status: "immortal",
         createdAt: new Date(),
@@ -79,8 +81,17 @@ export class GlobalBotService {
         globalBotConfig: {
           enabled: true,
           maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
-          preferredHashtags: ["CosyWorld"],
-          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168) // Default: once per week (7 days * 24 hours)
+          preferredHashtags: [universeName],
+          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168), // Default: once per week (7 days * 24 hours)
+          universeName: universeName,
+          // Configurable prompt templates
+          systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
+          avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
+          locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
+          scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`,
+          combatPromptTemplate: `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`,
+          genericPromptTemplate: `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes or extra hashtags.`,
+          narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`
         }
       };
       
@@ -91,7 +102,7 @@ export class GlobalBotService {
       await this.memoryService.write({
         avatarId: result.insertedId,
         kind: 'system',
-        text: 'I am CosyWorld, the narrator of this universe. My purpose is to welcome new arrivals and share their stories with the community.',
+        text: `I am ${universeName}, the narrator of this universe. My purpose is to welcome new arrivals and share their stories with the community.`,
         weight: 2.0
       });
     }
@@ -166,94 +177,95 @@ export class GlobalBotService {
         .filter(Boolean)
         .join('\n');
       
-      const systemPrompt = `You are ${this.bot.name} ${this.bot.emoji}, the narrator of CosyWorld.
-
-${this.bot.personality}
-
-Your current thoughts and perspective:
-${this.bot.dynamicPrompt || ''}
-
-Recent memories and activities:
-${memoryText || 'Just starting my journey as narrator.'}
-
-You have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
+      // Get universe name from config or default
+      const universeName = this.bot.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
+      
+      // Helper to replace template variables
+      const fillTemplate = (template, vars) => {
+        let result = template;
+        for (const [key, value] of Object.entries(vars)) {
+          result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
+        }
+        return result;
+      };
+      
+      // Get system prompt template from config
+      const systemPromptTemplate = this.bot.globalBotConfig?.systemPromptTemplate || 
+        `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
+      
+      const systemPrompt = fillTemplate(systemPromptTemplate, {
+        botName: this.bot.name,
+        botEmoji: this.bot.emoji || '',
+        universeName: universeName,
+        personality: this.bot.personality,
+        dynamicPrompt: this.bot.dynamicPrompt || '',
+        memories: memoryText || 'Just starting my journey as narrator.'
+      });
 
       let userPrompt;
       
       if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
         // Avatar introduction
-        userPrompt = `A new soul has arrived in CosyWorld: ${mediaPayload.avatarEmoji || ''} ${mediaPayload.avatarName}
-
-Description: ${mediaPayload.prompt || 'A mysterious new arrival'}
-
-Create a welcoming introduction tweet (max 240 chars) that:
-1. Captures their essence and what makes them unique
-2. Welcomes them warmly to the community
-3. Reflects your narrator personality
-4. Makes people curious to learn more about them
-5. Use *bold* for the avatar name using Markdown formatting
-
-Be conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.
-
-If this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`;
+        const template = this.bot.globalBotConfig?.avatarIntroPromptTemplate ||
+          `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`;
+        
+        userPrompt = fillTemplate(template, {
+          universeName: universeName,
+          avatarEmoji: mediaPayload.avatarEmoji || '',
+          avatarName: mediaPayload.avatarName,
+          description: mediaPayload.prompt || 'A mysterious new arrival'
+        });
       } else if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
         // New location discovery
-        userPrompt = `A new location has been discovered in CosyWorld: "${mediaPayload.locationName}"
-
-Description: ${mediaPayload.locationDescription || 'A mysterious new place'}
-
-Create an evocative announcement (max 240 chars) that:
-1. Highlights what makes this location unique and intriguing
-2. Invites adventurers to explore it
-3. Uses vivid, atmospheric language
-4. Reflects your narrator personality
-5. Use *bold* for the location name using Markdown formatting
-
-Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.
-
-Consider using the remember tool if this location discovery is particularly noteworthy.`;
+        const template = this.bot.globalBotConfig?.locationDiscoveryPromptTemplate ||
+          `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`;
+        
+        userPrompt = fillTemplate(template, {
+          universeName: universeName,
+          locationName: mediaPayload.locationName,
+          locationDescription: mediaPayload.locationDescription || 'A mysterious new place'
+        });
       } else if (mediaPayload.source === 'scene.camera' && (mediaPayload.avatarName || mediaPayload.locationName)) {
         // Scene camera photo
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
         
-        userPrompt = `A scene has been captured in CosyWorld: ${who}${where}
-
-Scene description: ${mediaPayload.context || mediaPayload.prompt || 'A cinematic moment'}
-
-Create an engaging caption (max 240 chars) that:
-1. Describes the scene vividly
-2. Captures the mood and atmosphere
-3. Uses *bold* for names (avatar and location)
-4. Makes viewers curious about the moment
-5. Reflects your narrator personality
-
-Be atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`;
+        const template = this.bot.globalBotConfig?.scenePromptTemplate ||
+          `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`;
+        
+        userPrompt = fillTemplate(template, {
+          universeName: universeName,
+          who: who,
+          where: where,
+          sceneDescription: mediaPayload.context || mediaPayload.prompt || 'A cinematic moment'
+        });
       } else if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
         // Combat/battle images
         const combatType = mediaPayload.source === 'combat.poster' ? 'Pre-battle standoff' 
                          : mediaPayload.source === 'combat.summary' ? 'Battle concluded' 
                          : 'Combat action';
+        const combatants = mediaPayload.avatarName || 'Warriors clash';
+        const location = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
         
-        userPrompt = `${combatType} in CosyWorld: ${mediaPayload.avatarName || 'Warriors clash'}${mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : ''}
-
-Scene: ${mediaPayload.context || mediaPayload.prompt || 'Epic battle moment'}
-
-Create an intense, dramatic caption (max 240 chars) that:
-1. Captures the energy and stakes of the combat
-2. Highlights the combatants (use *bold* for names)
-3. Creates excitement and tension
-4. References the location if provided (use *bold*)
-5. Reflects your narrator personality
-
-Be dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`;
+        const template = this.bot.globalBotConfig?.combatPromptTemplate ||
+          `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`;
+        
+        userPrompt = fillTemplate(template, {
+          combatType: combatType,
+          universeName: universeName,
+          combatants: combatants,
+          location: location,
+          sceneDescription: mediaPayload.context || mediaPayload.prompt || 'Epic battle moment'
+        });
       } else {
         // General media post
-        userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).
-
-Context: ${mediaPayload.context || mediaPayload.prompt || 'An interesting moment in our universe'}
-
-Make it compelling and reflect your narrator voice. No quotes or extra hashtags.`;
+        const template = this.bot.globalBotConfig?.genericPromptTemplate ||
+          `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes or extra hashtags.`;
+        
+        userPrompt = fillTemplate(template, {
+          universeName: universeName,
+          context: mediaPayload.context || mediaPayload.prompt || 'An interesting moment in our universe'
+        });
       }
 
       // Define the remember tool for the bot to use
@@ -325,9 +337,12 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
     } catch (err) {
       this.logger?.error?.(`[GlobalBotService] generateContextualPost failed: ${err.message}`);
       
+      // Get universe name for fallback
+      const universeName = this.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
+      
       // Fallback to simple text
       if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
-        return `${mediaPayload.avatarEmoji || '✨'} Meet *${mediaPayload.avatarName}* — ${mediaPayload.prompt || 'a new arrival in CosyWorld'}`;
+        return `${mediaPayload.avatarEmoji || '✨'} Meet *${mediaPayload.avatarName}* — ${mediaPayload.prompt || `a new arrival in ${universeName}`}`;
       }
       
       if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
@@ -337,16 +352,16 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
       if (mediaPayload.source === 'scene.camera') {
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
-        return `📸 ${who}${where} — ${mediaPayload.context || 'A cinematic moment in CosyWorld'}`;
+        return `📸 ${who}${where} — ${mediaPayload.context || `A cinematic moment in ${universeName}`}`;
       }
       
       if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
         const emoji = mediaPayload.source === 'combat.poster' ? '⚔️' : '🏆';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
-        return `${emoji} ${mediaPayload.avatarName || 'Battle'}${where} — ${mediaPayload.context || 'Epic combat in CosyWorld'}`;
+        return `${emoji} ${mediaPayload.avatarName || 'Battle'}${where} — ${mediaPayload.context || `Epic combat in ${universeName}`}`;
       }
       
-      return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';
+      return mediaPayload.context || mediaPayload.prompt || `A moment in ${universeName}`;
     }
   }
 
@@ -446,25 +461,30 @@ Make it compelling and reflect your narrator voice. No quotes or extra hashtags.
       
       const personaSummary = this.bot?.personality ? this.bot.personality.trim() : null;
       const currentPerspective = this.bot?.dynamicPrompt ? this.bot.dynamicPrompt.trim() : null;
+      const universeName = this.bot.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
 
       const narrativePrompt = [{
         role: 'system',
-        content: `You are ${this.bot.name}${this.bot.emoji ? ` ${this.bot.emoji}` : ''}, the narrator of CosyWorld.
+        content: `You are ${this.bot.name}${this.bot.emoji ? ` ${this.bot.emoji}` : ''}, the narrator of ${universeName}.
 
 Core personality:
-${personaSummary || 'A curious narrator who delights in describing the evolving tapestry of CosyWorld.'}
+${personaSummary || `A curious narrator who delights in describing the evolving tapestry of ${universeName}.`}
 
 Your current guiding perspective:
-${currentPerspective || 'You are always searching for patterns and meaning among the arrivals and happenings in CosyWorld.'}
+${currentPerspective || `You are always searching for patterns and meaning among the arrivals and happenings in ${universeName}.`}
 
 Reflect on your recent experiences in that voice.`
       }, {
         role: 'user',
-        content: `Based on these recent events and introductions you've made:
+        content: this.bot.globalBotConfig?.narrativeReflectionPromptTemplate 
+          ? this.bot.globalBotConfig.narrativeReflectionPromptTemplate
+              .replace(/\{\{memories\}\}/g, memoryText)
+              .replace(/\{\{universeName\}\}/g, universeName)
+          : `Based on these recent events and introductions you've made:
 
 ${memoryText}
 
-Write 2-3 sentences about your evolving perspective on the CosyWorld community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?
+Write 2-3 sentences about your evolving perspective on the ${universeName} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?
 
 Be thoughtful and introspective. This is for your own reflection, not for posting.`
       }];
