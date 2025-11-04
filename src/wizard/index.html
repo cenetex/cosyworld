@@ -375,10 +375,10 @@
         </div>
       </div>
 
-      <!-- Step 4: Discord -->
+      <!-- Step 4: Discord & Telegram -->
       <div class="step" data-step="4">
-        <h2>🤖 Discord Bot</h2>
-        <p>Configure your Discord bot credentials to connect to Discord servers.</p>
+        <h2>🤖 Discord & Telegram Bots</h2>
+        <p>Configure your community bot credentials. Discord is required; Telegram is optional.</p>
         
         <div id="alert-step4"></div>
 
@@ -392,6 +392,12 @@
           <label>Discord Client ID</label>
           <input type="text" id="discordClientId" required>
           <p class="hint">Find this in the OAuth2 section of your Discord application.</p>
+        </div>
+
+        <div class="form-group">
+          <label>Telegram Global Bot Token <span class="label-optional">(optional)</span></label>
+          <input type="password" id="telegramBotToken">
+          <p class="hint">Create a bot with Telegram's <a href="https://t.me/BotFather" target="_blank">@BotFather</a> and paste the token here to enable the global bot.</p>
         </div>
 
         <div class="button-group">
