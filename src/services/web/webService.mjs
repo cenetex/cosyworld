@@ -23,6 +23,7 @@ export class WebService {
     setupStatusService,
     promptService,
     globalBotService,
+    memoryService,
     metricsService,
     // Story system services
     storyStateService,
@@ -57,6 +58,7 @@ export class WebService {
     this.setupStatusService = setupStatusService;
     this.promptService = promptService;
     this.globalBotService = globalBotService;
+  this.memoryService = memoryService;
     this.metricsService = metricsService;
     // Story system
     this.storyStateService = storyStateService;
@@ -98,6 +100,7 @@ export class WebService {
       setupStatusService: this.setupStatusService,
       promptService: this.promptService,
       globalBotService: this.globalBotService,
+  memoryService: this.memoryService,
       metricsService: this.metricsService,
       // Story system services
       storyStateService: this.storyStateService,
