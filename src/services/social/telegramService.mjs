@@ -20,6 +20,7 @@
  */
 
 import { Telegraf } from 'telegraf';
+import { randomUUID } from 'crypto';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
 
@@ -53,6 +54,7 @@ class TelegramService {
     googleAIService,
     veoService,
     buybotService,
+    xService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
@@ -63,6 +65,7 @@ class TelegramService {
     this.googleAIService = googleAIService;
     this.veoService = veoService;
     this.buybotService = buybotService;
+  this.xService = xService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
@@ -97,6 +100,11 @@ class TelegramService {
     };
     this.MEMBER_CACHE_TTL = 60000; // 60s cache for membership lookups
     this._memberCache = new Map(); // `${channelId}:${userId}` -> { record, expiry }
+
+    // Media memory cache for tweet tool support
+    this.recentMediaByChannel = new Map(); // channelId -> [mediaEntries]
+    this.RECENT_MEDIA_LIMIT = 10;
+    this.RECENT_MEDIA_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
   }
 
   /**
@@ -401,6 +409,171 @@ class TelegramService {
       record,
       expiry: Date.now() + this.MEMBER_CACHE_TTL
     });
+  }
+
+  _pruneRecentMedia(channelId) {
+    const cache = this.recentMediaByChannel.get(channelId);
+    if (!cache || cache.length === 0) return;
+    const now = Date.now();
+    const pruned = cache
+      .filter(item => item && item.createdAt && (now - new Date(item.createdAt).getTime()) < this.RECENT_MEDIA_MAX_AGE_MS)
+      .slice(0, this.RECENT_MEDIA_LIMIT);
+    this.recentMediaByChannel.set(channelId, pruned);
+  }
+
+  async _rememberGeneratedMedia(channelId, entry = {}) {
+    try {
+      if (!channelId || !entry?.mediaUrl) {
+        return null;
+      }
+
+      const normalized = {
+        id: entry.id || randomUUID(),
+        channelId: String(channelId),
+        type: entry.type || 'image',
+        mediaUrl: entry.mediaUrl,
+        prompt: entry.prompt || null,
+        caption: entry.caption || null,
+        createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+        messageId: entry.messageId || null,
+        userId: entry.userId || null,
+        tweetedAt: entry.tweetedAt || null,
+        source: entry.source || null,
+        metadata: entry.metadata || null
+      };
+
+      const cache = this.recentMediaByChannel.get(normalized.channelId) || [];
+      const deduped = cache.filter(item => item.id !== normalized.id);
+      deduped.unshift(normalized);
+      this.recentMediaByChannel.set(normalized.channelId, deduped.slice(0, this.RECENT_MEDIA_LIMIT));
+      this._pruneRecentMedia(normalized.channelId);
+
+      this._persistRecentMediaRecord(normalized).catch(err => {
+        this.logger?.warn?.('[TelegramService] Failed to persist recent media:', err?.message || err);
+      });
+
+      return normalized;
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] _rememberGeneratedMedia error:', error?.message || error);
+      return null;
+    }
+  }
+
+  async _persistRecentMediaRecord(record) {
+    if (!this.databaseService) return;
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_recent_media').updateOne(
+        { channelId: record.channelId, id: record.id },
+        {
+          $set: {
+            channelId: record.channelId,
+            id: record.id,
+            type: record.type,
+            mediaUrl: record.mediaUrl,
+            prompt: record.prompt,
+            caption: record.caption,
+            messageId: record.messageId || null,
+            userId: record.userId || null,
+            tweetedAt: record.tweetedAt || null,
+            source: record.source || null,
+            metadata: record.metadata || null,
+            createdAt: record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt)
+          }
+        },
+        { upsert: true }
+      );
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to store recent media:', error?.message || error);
+    }
+  }
+
+  async _loadRecentMediaFromDb(channelId, limit = this.RECENT_MEDIA_LIMIT) {
+    if (!this.databaseService) return [];
+    try {
+      const db = await this.databaseService.getDatabase();
+      const items = await db.collection('telegram_recent_media')
+        .find({ channelId: String(channelId) })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return items.map(item => ({
+        ...item,
+        createdAt: item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt)
+      }));
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to load recent media:', error?.message || error);
+      return [];
+    }
+  }
+
+  async _getRecentMedia(channelId, limit = 5) {
+    if (!channelId) return [];
+    this._pruneRecentMedia(String(channelId));
+    const cache = this.recentMediaByChannel.get(String(channelId));
+    if (cache?.length) {
+      return cache.slice(0, limit);
+    }
+    const fromDb = await this._loadRecentMediaFromDb(channelId, Math.max(limit, this.RECENT_MEDIA_LIMIT));
+    if (fromDb.length) {
+      this.recentMediaByChannel.set(String(channelId), fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
+    }
+    return fromDb.slice(0, limit);
+  }
+
+  async _findRecentMediaById(channelId, mediaId) {
+    if (!channelId || !mediaId) return null;
+    const cache = this.recentMediaByChannel.get(String(channelId));
+    if (cache?.length) {
+      const found = cache.find(item => item.id === mediaId);
+      if (found) return found;
+    }
+    const results = await this._loadRecentMediaFromDb(channelId, this.RECENT_MEDIA_LIMIT);
+    const foundDb = results.find(item => item.id === mediaId);
+    if (foundDb) {
+      this.recentMediaByChannel.set(String(channelId), results.slice(0, this.RECENT_MEDIA_LIMIT));
+    }
+    return foundDb || null;
+  }
+
+  async _markMediaAsTweeted(channelId, mediaId, meta = {}) {
+    if (!channelId || !mediaId || !this.databaseService) return;
+    try {
+      const db = await this.databaseService.getDatabase();
+      const tweetedAt = new Date();
+      await db.collection('telegram_recent_media').updateOne(
+        { channelId: String(channelId), id: mediaId },
+        { $set: { tweetedAt, tweetMeta: meta } }
+      );
+      const cache = this.recentMediaByChannel.get(String(channelId));
+      if (cache?.length) {
+        this.recentMediaByChannel.set(String(channelId), cache.map(item => (
+          item.id === mediaId ? { ...item, tweetedAt, tweetMeta: meta } : item
+        )));
+      }
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to mark media as tweeted:', error?.message || error);
+    }
+  }
+
+  async _buildRecentMediaContext(channelId, limit = 5) {
+    const items = await this._getRecentMedia(channelId, limit);
+    if (!items.length) {
+      return { summary: 'Recent media you generated: none in the last few days.', items: [] };
+    }
+      const summaryLines = items.map((item, idx) => {
+      const label = item.caption || item.prompt || `${item.type} without description`;
+      const ageMs = Date.now() - new Date(item.createdAt).getTime();
+      const ageMin = Math.max(1, Math.round(ageMs / 60000));
+      const ago = ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
+      const shortId = item.id.slice(0, 8);
+        const tweetedMarker = item.tweetedAt ? ' (tweeted already)' : '';
+        return `${idx + 1}. [${shortId}] ${item.type} — ${label.slice(0, 120)} (${ago}${tweetedMarker})`;
+    });
+    return {
+      summary: `Recent media you generated (use the ID in brackets when tweeting):\n${summaryLines.join('\n')}`,
+      items
+    };
   }
 
   _invalidateMemberCache(channelId, userId) {
@@ -1575,9 +1748,11 @@ class TelegramService {
           : `${label}: 0 left`;
       };
       
-      const toolCreditContext = `
+  const toolCreditContext = `
 Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')}
 Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
+
+  const recentMediaContext = await this._buildRecentMediaContext(channelId, 5);
 
       // Use cached buybot context
       const buybotContextStr = buybotContext ? `
@@ -1595,6 +1770,8 @@ Keep responses brief (2-3 sentences).
 
 ${toolCreditContext}${buybotContextStr}
 
+${recentMediaContext.summary}
+When a user clearly wants to post to X/Twitter, call the tweet tool with the matching media ID from the list above (images/videos only). Never tweet automatically; confirm intent and only use media the user referenced.
 Tool usage: When tools are available and user asks for media, provide natural acknowledgment + tool call together.`;
 
       const userPrompt = `Recent conversation:
@@ -1658,6 +1835,27 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 }
               },
               required: ['prompt']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'post_tweet',
+            description: 'Post a CosyWorld update to X/Twitter using a recently generated image or video when a user explicitly requests it.',
+            parameters: {
+              type: 'object',
+              properties: {
+                text: {
+                  type: 'string',
+                  description: 'Tweet text under 270 characters. Mention CosyWorld naturally when helpful.'
+                },
+                mediaId: {
+                  type: 'string',
+                  description: 'ID of the recent media item to share (from your recent media list).'
+                }
+              },
+              required: ['text', 'mediaId']
             }
           }
         }
@@ -1766,8 +1964,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
    */
   async handleToolCalls(ctx, toolCalls, conversationContext) {
     try {
-  const userId = String(ctx.message?.from?.id || ctx.from?.id);
-  const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
+      const userId = String(ctx.message?.from?.id || ctx.from?.id);
+      const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
       const channelId = String(ctx.chat?.id || '');
       
       for (const toolCall of toolCalls) {
@@ -1821,6 +2019,15 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           }
           
           await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
+
+        } else if (functionName === 'post_tweet') {
+          await this.executeTweetPost(ctx, {
+            text: args.text,
+            mediaId: args.mediaId,
+            channelId,
+            userId,
+            username
+          });
           
         } else {
           this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
@@ -1924,7 +2131,7 @@ Your caption:`;
       }
 
       // Send the image with natural caption
-      await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
+      const sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
         caption: caption || undefined // No caption if AI generation failed
       });
 
@@ -1941,6 +2148,20 @@ Your caption:`;
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
       
+      // Remember media so the tweet tool can use it later
+      await this._rememberGeneratedMedia(String(ctx.chat.id), {
+        type: 'image',
+        mediaUrl: imageUrl,
+        prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId,
+        source: 'telegram.generate_image',
+        metadata: {
+          requestedBy: userId,
+          requestedByUsername: username || null
+        }
+      });
       this.logger?.info?.('[TelegramService] Image posted, marked as bot activity');
 
     } catch (error) {
@@ -2044,7 +2265,7 @@ Your caption:`;
       }
 
       // Send the video with natural caption
-      await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
+      const sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
         caption: caption || undefined,
         supports_streaming: true
       });
@@ -2061,6 +2282,19 @@ Your caption:`;
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
       
+      await this._rememberGeneratedMedia(String(ctx.chat.id), {
+        type: 'video',
+        mediaUrl: videoUrl,
+        prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId,
+        source: 'telegram.generate_video',
+        metadata: {
+          requestedBy: userId,
+          requestedByUsername: username || null
+        }
+      });
       this.logger?.info?.('[TelegramService] Video posted, marked as bot activity');
 
     } catch (error) {
@@ -2086,6 +2320,99 @@ Your caption:`;
       }
       await ctx.reply(errorText);
       await this._recordBotResponse(String(ctx.chat.id), userId);
+    }
+  }
+
+  /**
+   * Execute tweet posting via XService using a previously generated media item
+   * @param {Object} ctx - Telegram context
+   * @param {Object} opts - Tweet payload
+   * @param {string} opts.text - Tweet content
+   * @param {string} opts.mediaId - Recent media identifier supplied by LLM
+   * @param {string} opts.channelId - Telegram channel id
+   * @param {string} opts.userId - Telegram user id requesting the tweet
+   * @param {string} opts.username - Telegram username requesting the tweet
+   */
+  async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
+    try {
+      if (!this.xService) {
+        await ctx.reply('🚫 Tweeting isn\'t available right now.');
+        return;
+      }
+
+      const trimmedText = String(text || '').trim();
+      if (!trimmedText) {
+        await ctx.reply('I need a short message to share on X. Try again with the caption you want.');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      if (!mediaId) {
+        await ctx.reply('Please pick an image or video from my recent list (include the ID in brackets).');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      const mediaRecord = await this._findRecentMediaById(channelId, mediaId);
+      if (!mediaRecord) {
+        await ctx.reply('I couldn\'t find that media ID anymore. Ask me to regenerate it or choose another one.');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      if (mediaRecord.tweetedAt) {
+        await ctx.reply('That one\'s already been posted to X. Pick a different image or ask me to make a new one.');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      if (!mediaRecord.mediaUrl) {
+        await ctx.reply('I lost the download link for that media. Let me create a new one.');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      const payload = {
+        mediaUrl: mediaRecord.mediaUrl,
+        text: trimmedText.slice(0, 270),
+        type: mediaRecord.type === 'video' ? 'video' : 'image',
+        source: 'telegram.tweet_tool',
+        prompt: mediaRecord.prompt,
+        context: mediaRecord.caption,
+        metadata: {
+          telegramChannelId: channelId,
+          telegramMediaId: mediaRecord.id,
+          requestedBy: userId,
+          requestedByUsername: username || null
+        }
+      };
+
+      this.logger?.info?.('[TelegramService] Posting tweet via tool', {
+        channelId,
+        userId,
+        mediaId: mediaRecord.id
+      });
+
+      const result = await this.xService.postGlobalMediaUpdate(payload, { aiService: this.aiService });
+
+      if (!result) {
+        await ctx.reply('❌ I tried to tweet it but the X service is busy. Let\'s try again later.');
+        await this._recordBotResponse(channelId, userId);
+        return;
+      }
+
+      await this._markMediaAsTweeted(channelId, mediaRecord.id, { tweetId: result.tweetId || null });
+
+      const tweetUrl = result.tweetUrl || (result.tweetId ? `https://x.com/i/web/status/${result.tweetId}` : null);
+      const confirmation = tweetUrl
+        ? `🕊️ Tweeted! ${tweetUrl}`
+        : '🕊️ Tweeted!';
+      await ctx.reply(confirmation);
+      await this._recordBotResponse(channelId, userId);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Tweet tool failed:', error);
+      await ctx.reply('❌ Something went wrong sharing that. I\'ll try again later.');
+      await this._recordBotResponse(channelId, userId);
     }
   }
 
@@ -2239,7 +2566,6 @@ Your caption:`;
 
       // Clear cache to force reload
       this.bots.delete(avatarId);
-
       this.logger?.info?.(`[TelegramService] Registered bot @${botInfo.username} for avatar ${avatarId}`);
       return { success: true, botUsername: botInfo.username };
     } catch (error) {

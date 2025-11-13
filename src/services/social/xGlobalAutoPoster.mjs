@@ -9,6 +9,17 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
   if (!xService) return;
   logger?.debug?.('[XGlobalAutoPoster] Initialising (DB-config governed)');
 
+  const shouldSkipAutoPosting = async () => {
+    try {
+      if (typeof xService.getGlobalPostingMode !== 'function') return false;
+      const mode = await xService.getGlobalPostingMode();
+      return mode === 'tool';
+    } catch (error) {
+      logger?.warn?.('[XGlobalAutoPoster] Failed to determine posting mode:', error?.message || error);
+      return false;
+    }
+  };
+
   /**
    * Check if an avatar was recently posted about to prevent duplicates
    * @param {string} avatarId - Avatar ID to check
@@ -39,6 +50,10 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
 
   const imageHandler = async (payload) => {
     try {
+      if (await shouldSkipAutoPosting()) {
+        logger?.info?.('[XGlobalAutoPoster] Skipping image auto-post because mode=tool');
+        return;
+      }
       if (!payload?.imageUrl) return;
       
       // Skip if this is a keyframe/thumbnail for a video
@@ -123,6 +138,10 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
 
   const videoHandler = async (payload) => {
     try {
+      if (await shouldSkipAutoPosting()) {
+        logger?.info?.('[XGlobalAutoPoster] Skipping video auto-post because mode=tool');
+        return;
+      }
       if (!payload?.videoUrl) return;
       
       logger?.debug?.('[XGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { 

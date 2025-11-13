@@ -276,6 +276,64 @@ async function createIndexes() {
     } else {
       console.log('  ✓ Index already exists: createdAt (TTL)');
     }
+
+      // ========================================================================
+      // TELEGRAM RECENT MEDIA COLLECTION INDEXES
+      // ========================================================================
+      console.log('\n🖼️  Creating indexes for telegram_recent_media collection...');
+
+      const recentMediaCollection = db.collection('telegram_recent_media');
+      let existingRecentMediaNames = [];
+      try {
+        const indexes = await recentMediaCollection.indexes();
+        existingRecentMediaNames = indexes.map(idx => idx.name);
+      } catch (error) {
+        if (error.code === 26) {
+          console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+          existingRecentMediaNames = [];
+        } else {
+          throw error;
+        }
+      }
+
+      if (!existingRecentMediaNames.includes('channelId_createdAt')) {
+        try {
+          await recentMediaCollection.createIndex(
+            { channelId: 1, createdAt: -1 },
+            { name: 'channelId_createdAt' }
+          );
+          console.log('  ✓ Created index: channelId + createdAt');
+        } catch (error) {
+          if (error.code === 85) {
+            console.log('  ℹ️  Index exists (different name): channelId + createdAt');
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        console.log('  ✓ Index already exists: channelId + createdAt');
+      }
+
+      if (!existingRecentMediaNames.includes('createdAt_ttl_recent_media')) {
+        try {
+          await recentMediaCollection.createIndex(
+            { createdAt: 1 },
+            {
+              name: 'createdAt_ttl_recent_media',
+              expireAfterSeconds: 3 * 24 * 60 * 60 // 3 days
+            }
+          );
+          console.log('  ✓ Created TTL index: createdAt (3 days)');
+        } catch (error) {
+          if (error.code === 85) {
+            console.log('  ℹ️  TTL index exists (different name): createdAt');
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        console.log('  ✓ Index already exists: createdAt (TTL)');
+      }
     
     // ========================================================================
     // TELEGRAM MEDIA USAGE COLLECTION INDEXES

@@ -1259,6 +1259,10 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         if (opts.guildId) {
           metadata.guildId = opts.guildId;
         }
+
+        if (opts.metadata && typeof opts.metadata === 'object') {
+          Object.assign(metadata, opts.metadata);
+        }
         
         await db.collection('social_posts').insertOne({
           global: true,
@@ -1403,6 +1407,16 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     } catch (e) {
       this.logger?.warn?.('[XService] load global posting config failed: ' + e.message);
       return null;
+    }
+  }
+
+  async getGlobalPostingMode() {
+    try {
+      const config = await this._loadGlobalPostingConfig();
+      return (config?.mode || 'auto').toLowerCase();
+    } catch (error) {
+      this.logger?.debug?.('[XService] getGlobalPostingMode fallback due to error:', error?.message);
+      return 'auto';
     }
   }
 
