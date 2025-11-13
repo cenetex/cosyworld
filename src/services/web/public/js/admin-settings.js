@@ -52,6 +52,17 @@ const GUILD_TOOL_NAMES = ['summon', 'breed', 'attack', 'defend', 'move', 'rememb
 let guildConfigMessageTimer = null;
 let guildConfigHandlersBound = false;
 
+function setRateLimitInputsState(enabled) {
+  const container = document.getElementById('rate-limit-inputs');
+  if (!container) return;
+  container.querySelectorAll('input').forEach(input => {
+    const el = input;
+    el.disabled = !enabled;
+    el.classList.toggle('bg-gray-100', !enabled);
+    el.classList.toggle('opacity-70', !enabled);
+  });
+}
+
 function showGuildConfigMessage(message, type = 'info') {
   const el = document.getElementById('guild-config-message');
   if (!el) return;
@@ -138,6 +149,10 @@ function populateGuildForm(guildConfig = {}) {
   if (rateMessagesInput) rateMessagesInput.value = rateLimiting.messages ?? 5;
   const rateIntervalInput = document.getElementById('rate-limit-interval');
   if (rateIntervalInput) rateIntervalInput.value = rateLimiting.interval ?? 60;
+  const rateLimitEnabledCheckbox = document.getElementById('rate-limit-enabled');
+  const rateEnabled = rateLimiting.enabled !== false;
+  if (rateLimitEnabledCheckbox) rateLimitEnabledCheckbox.checked = rateEnabled;
+  setRateLimitInputsState(rateEnabled);
 
   const toolEmojis = resolvedConfig.toolEmojis || {};
   GUILD_TOOL_NAMES.forEach(name => {
@@ -211,7 +226,9 @@ function collectGuildFormData() {
   const adminRoles = adminRolesRaw.split(',').map(role => role.trim()).filter(Boolean);
   const rateMessages = parseInt(document.getElementById('rate-limit-messages')?.value ?? '', 10);
   const rateInterval = parseInt(document.getElementById('rate-limit-interval')?.value ?? '', 10);
+  const rateLimitEnabled = document.getElementById('rate-limit-enabled')?.checked !== false;
   const rateLimiting = {
+    enabled: rateLimitEnabled,
     messages: Number.isFinite(rateMessages) && rateMessages > 0 ? rateMessages : 5,
     interval: Number.isFinite(rateInterval) && rateInterval > 0 ? rateInterval : 60
   };
@@ -524,6 +541,14 @@ function initGuildConfigHandlers() {
     event.preventDefault();
     await loadDetectedGuilds();
   });
+  const rateToggle = document.getElementById('rate-limit-enabled');
+  if (rateToggle) {
+    rateToggle.addEventListener('change', event => {
+      const enabled = !!event.target.checked;
+      setRateLimitInputsState(enabled);
+    });
+    setRateLimitInputsState(rateToggle.checked);
+  }
   setupManualWhitelistButton();
   guildConfigHandlersBound = true;
 }
