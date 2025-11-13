@@ -184,6 +184,7 @@ export class SummonTool extends BasicTool {
     this.replyNotification = true;
     this.cooldownMs = 10 * 1000; // 10 second cooldown
     this._dailySummonIndexEnsured = false;
+    this._fallbackSummonTracking = new Map();
   }
 
   /**
@@ -222,6 +223,33 @@ export class SummonTool extends BasicTool {
     }
   }
 
+  _getFallbackSummonCount(userId) {
+    if (!userId) return 0;
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    const entries = this._fallbackSummonTracking.get(userId);
+    if (!entries?.length) {
+      this._fallbackSummonTracking.delete(userId);
+      return 0;
+    }
+    const threshold = midnight.getTime();
+    const recent = entries.filter(ts => ts >= threshold);
+    if (recent.length) {
+      this._fallbackSummonTracking.set(userId, recent);
+      return recent.length;
+    }
+    this._fallbackSummonTracking.delete(userId);
+    return 0;
+  }
+
+  _recordFallbackSummon(userId) {
+    if (!userId) return;
+    const now = Date.now();
+    const entries = this._fallbackSummonTracking.get(userId) || [];
+    entries.push(now);
+    this._fallbackSummonTracking.set(userId, entries);
+  }
+
   /**
    * Checks if the user has not exceeded the daily summon limit.
    * @param {string} userId - The ID of the user.
@@ -234,7 +262,8 @@ export class SummonTool extends BasicTool {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
-      return count < this.DAILY_SUMMON_LIMIT;
+      const fallbackCount = this._getFallbackSummonCount(userId);
+      return (count + fallbackCount) < this.DAILY_SUMMON_LIMIT;
     } catch (error) {
       this.logger.error(`Error checking summon limit: ${error.message}`);
       return true;
@@ -253,9 +282,12 @@ export class SummonTool extends BasicTool {
         userId,
         timestamp: new Date(),
       });
+      this._fallbackSummonTracking.delete(userId);
+      return true;
     } catch (error) {
       this.logger.error(`Error tracking summon: ${error.message}`);
-      throw error;
+      this._recordFallbackSummon(userId);
+      return false;
     }
   }
 
@@ -1042,7 +1074,12 @@ export class SummonTool extends BasicTool {
       await this.mapService.updateAvatarPosition(createdAvatar, message.channel.id);
 
       // Track summon if not breeding
-      if (!breed) await this.trackSummon(message.author.id);
+      if (!breed) {
+        const tracked = await this.trackSummon(message.author.id);
+        if (!tracked) {
+          this.logger?.warn?.(`[SummonTool] Summon for ${message.author.id} recorded via fallback cache; DB insert failed.`);
+        }
+      }
 
       // Send final response
       setImmediate(() => {

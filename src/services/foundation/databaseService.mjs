@@ -269,6 +269,15 @@ export class DatabaseService {
           try {
             existing = await coll.indexes();
           } catch (e) {
+            await Promise.all([
+              safeEnsureIndex('daily_summons', { timestamp: 1 }, {
+                expireAfterSeconds: 30 * 24 * 60 * 60,
+                name: 'daily_summons_ttl'
+              }),
+              safeEnsureIndex('daily_summons', { userId: 1, timestamp: 1 }, {
+                name: 'daily_summons_user_day'
+              })
+            ]);
             const msg = String(e?.message || e);
             if (msg.includes('ns does not exist') || msg.includes('NamespaceNotFound')) {
               existing = [];
@@ -411,6 +420,17 @@ export class DatabaseService {
           { key: { significance: -1, createdAt: -1 }, name: 'story_mem_sig_created', background: true },
           { key: { lastUsed: -1 }, name: 'story_mem_used', background: true },
         ]),
+        (async () => {
+          await safeEnsureIndex('daily_summons', { timestamp: 1 }, {
+            expireAfterSeconds: 30 * 24 * 60 * 60,
+            name: 'daily_summons_ttl'
+          });
+        })(),
+        (async () => {
+          await safeEnsureIndex('daily_summons', { userId: 1, timestamp: 1 }, {
+            name: 'daily_summons_user_day'
+          });
+        })(),
   // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
   (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
   (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
