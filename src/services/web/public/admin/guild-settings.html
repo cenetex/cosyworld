@@ -1,0 +1,33 @@
+<!--
+  Copyright (c) 2019-2024 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guild Settings Moved</title>
+  <meta http-equiv="refresh" content="0; url=/admin/settings#settings" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      window.location.replace('/admin/settings#settings');
+    });
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <main class="min-h-screen flex items-center justify-center px-6">
+    <div class="max-w-md text-center space-y-4">
+      <h1 class="text-2xl font-semibold">Guild Settings Have Moved</h1>
+      <p class="text-sm text-gray-600">
+        Discord guild configuration now lives inside the unified admin console. You will be redirected automatically.
+      </p>
+      <a href="/admin/settings#settings" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700">
+        Go to Admin Settings
+      </a>
+    </div>
+  </main>
+</body>
+</html>
