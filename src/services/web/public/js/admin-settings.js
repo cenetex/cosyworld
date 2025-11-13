@@ -47,6 +47,487 @@ const DEFAULT_NOTIFICATION_PREFS = {
   transferAggregationUsdThreshold: 0
 };
 
+const GUILD_TOOL_NAMES = ['summon', 'breed', 'attack', 'defend', 'move', 'remember', 'create', 'x', 'item', 'respond'];
+
+let guildConfigMessageTimer = null;
+let guildConfigHandlersBound = false;
+
+function showGuildConfigMessage(message, type = 'info') {
+  const el = document.getElementById('guild-config-message');
+  if (!el) return;
+  if (guildConfigMessageTimer) {
+    clearTimeout(guildConfigMessageTimer);
+    guildConfigMessageTimer = null;
+  }
+  const base = 'mb-4 px-3 py-2 rounded text-sm';
+  const palette = {
+    info: 'bg-blue-50 text-blue-800 border border-blue-200',
+    success: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+    error: 'bg-red-50 text-red-800 border border-red-200'
+  };
+  if (!message) {
+    el.className = `hidden ${base}`;
+    el.textContent = '';
+    return;
+  }
+  el.className = `${base} ${palette[type] || palette.info}`;
+  el.textContent = message;
+  if (!el.classList.contains('hidden')) {
+    // no-op to appease lint
+  }
+  el.classList.remove('hidden');
+  if (type !== 'info') {
+    guildConfigMessageTimer = setTimeout(() => {
+      el.className = `hidden ${base}`;
+      el.textContent = '';
+      guildConfigMessageTimer = null;
+    }, 5000);
+  }
+}
+
+function addAvatarTribeOverride(channelId = '', config = { mode: 'permit', emojis: [] }) {
+  const container = document.getElementById('avatar-tribe-restrictions-channels');
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'avatar-tribe-override-row flex flex-col gap-2 rounded-md border border-dashed border-gray-300 p-3 sm:flex-row sm:items-end sm:gap-4';
+  const emojis = Array.isArray(config?.emojis) ? config.emojis.join(', ') : '';
+  row.innerHTML = `
+    <div class="sm:flex-1">
+      <label class="block text-xs font-medium text-gray-600">Channel ID</label>
+      <input type="text" class="avatar-tribe-channel-id mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value="${escapeHtml(channelId || '')}" placeholder="Channel ID" />
+    </div>
+    <div class="sm:w-40">
+      <label class="block text-xs font-medium text-gray-600">Mode</label>
+      <select class="avatar-tribe-mode-select mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+        <option value="permit">Permit listed emojis</option>
+        <option value="forbid">Forbid listed emojis</option>
+      </select>
+    </div>
+    <div class="sm:flex-[1.5]">
+      <label class="block text-xs font-medium text-gray-600">Emojis</label>
+      <input type="text" class="avatar-tribe-exceptions-input mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value="${escapeHtml(emojis)}" placeholder="🦄, 🐉" />
+    </div>
+    <button type="button" class="remove-avatar-tribe-override self-start sm:self-center text-sm text-red-600 hover:text-red-700">Remove</button>
+  `;
+  const select = row.querySelector('.avatar-tribe-mode-select');
+  if (select) select.value = config?.mode === 'forbid' ? 'forbid' : 'permit';
+  row.querySelector('.remove-avatar-tribe-override')?.addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+function populateGuildForm(guildConfig = {}) {
+  const form = document.getElementById('guild-settings-form');
+  if (!form) return;
+  const resolvedConfig = guildConfig || {};
+  const guildIdInput = document.getElementById('guild-id');
+  if (guildIdInput) guildIdInput.value = resolvedConfig.guildId || resolvedConfig.id || selectedGuildId || '';
+  const guildNameInput = document.getElementById('guild-name');
+  if (guildNameInput) guildNameInput.value = resolvedConfig.guildName || resolvedConfig.name || '';
+  const summonerRoleInput = document.getElementById('summoner-role');
+  if (summonerRoleInput) summonerRoleInput.value = resolvedConfig.summonerRole || '';
+  const adminRolesInput = document.getElementById('admin-roles');
+  if (adminRolesInput) {
+    const roles = Array.isArray(resolvedConfig.adminRoles) ? resolvedConfig.adminRoles : [];
+    adminRolesInput.value = roles.join(', ');
+  }
+  const authorizedCheckbox = document.getElementById('guild-authorized');
+  if (authorizedCheckbox) authorizedCheckbox.checked = !!resolvedConfig.authorized;
+
+  const rateLimiting = resolvedConfig.rateLimiting || {};
+  const rateMessagesInput = document.getElementById('rate-limit-messages');
+  if (rateMessagesInput) rateMessagesInput.value = rateLimiting.messages ?? 5;
+  const rateIntervalInput = document.getElementById('rate-limit-interval');
+  if (rateIntervalInput) rateIntervalInput.value = rateLimiting.interval ?? 60;
+
+  const toolEmojis = resolvedConfig.toolEmojis || {};
+  GUILD_TOOL_NAMES.forEach(name => {
+    const input = document.getElementById(`tool-emoji-${name}`);
+    if (input) input.value = toolEmojis[name] || '';
+  });
+  const summonEmojiInput = document.getElementById('tool-emoji-summon');
+  if (summonEmojiInput && !summonEmojiInput.value) {
+    summonEmojiInput.value = resolvedConfig.summonEmoji || '';
+  }
+
+  const features = resolvedConfig.features || {};
+  const breedingInput = document.getElementById('feature-breeding');
+  if (breedingInput) breedingInput.checked = !!features.breeding;
+  const combatInput = document.getElementById('feature-combat');
+  if (combatInput) combatInput.checked = !!features.combat;
+  const itemInput = document.getElementById('feature-item-creation');
+  if (itemInput) itemInput.checked = !!features.itemCreation;
+  const moderationInput = document.getElementById('feature-moderation');
+  if (moderationInput) moderationInput.checked = features.moderation !== false;
+  const viewDetailsInput = document.getElementById('feature-view-details');
+  if (viewDetailsInput) viewDetailsInput.checked = resolvedConfig.viewDetailsEnabled !== false;
+
+  const avatarModes = resolvedConfig.avatarModes || {};
+  const freeMode = document.getElementById('avatar-mode-free');
+  if (freeMode) freeMode.checked = avatarModes.free !== false;
+  const walletMode = document.getElementById('avatar-mode-wallet');
+  if (walletMode) walletMode.checked = avatarModes.wallet !== false;
+  const pureModelMode = document.getElementById('avatar-mode-pure-model');
+  if (pureModelMode) pureModelMode.checked = avatarModes.pureModel !== false;
+
+  const prompts = resolvedConfig.prompts || {};
+  const introPrompt = document.getElementById('intro-prompt');
+  if (introPrompt) introPrompt.value = prompts.intro || '';
+  const summonPrompt = document.getElementById('summon-prompt');
+  if (summonPrompt) summonPrompt.value = prompts.summon || '';
+  const attackPrompt = document.getElementById('attack-prompt');
+  if (attackPrompt) attackPrompt.value = prompts.attack || '';
+  const defendPrompt = document.getElementById('defend-prompt');
+  if (defendPrompt) defendPrompt.value = prompts.defend || '';
+  const breedPrompt = document.getElementById('breed-prompt');
+  if (breedPrompt) breedPrompt.value = prompts.breed || '';
+
+  const tribeConfig = resolvedConfig.avatarTribeRestrictions || {};
+  const defaultRestrictions = tribeConfig.default || {};
+  const tribeMode = document.getElementById('avatar-tribe-mode');
+  if (tribeMode) tribeMode.value = defaultRestrictions.mode === 'forbid' ? 'forbid' : 'permit';
+  const tribeExceptions = document.getElementById('avatar-tribe-exceptions');
+  if (tribeExceptions) tribeExceptions.value = Array.isArray(defaultRestrictions.emojis) ? defaultRestrictions.emojis.join(', ') : '';
+  const channelsContainer = document.getElementById('avatar-tribe-restrictions-channels');
+  if (channelsContainer) {
+    channelsContainer.innerHTML = '';
+    const channels = Array.isArray(tribeConfig.channels)
+      ? tribeConfig.channels
+      : Object.entries(tribeConfig.channels || {}).map(([channelId, cfg]) => ({ channelId, ...cfg }));
+    channels.forEach(entry => {
+      const channelId = entry?.channelId || entry?.id || '';
+      if (channelId) {
+        addAvatarTribeOverride(channelId, entry);
+      }
+    });
+  }
+}
+
+function collectGuildFormData() {
+  const guildId = (document.getElementById('guild-id')?.value || '').trim();
+  const guildName = (document.getElementById('guild-name')?.value || '').trim();
+  const summonerRole = (document.getElementById('summoner-role')?.value || '').trim();
+  const summonEmoji = (document.getElementById('tool-emoji-summon')?.value || '').trim();
+  const adminRolesRaw = document.getElementById('admin-roles')?.value || '';
+  const adminRoles = adminRolesRaw.split(',').map(role => role.trim()).filter(Boolean);
+  const rateMessages = parseInt(document.getElementById('rate-limit-messages')?.value ?? '', 10);
+  const rateInterval = parseInt(document.getElementById('rate-limit-interval')?.value ?? '', 10);
+  const rateLimiting = {
+    messages: Number.isFinite(rateMessages) && rateMessages > 0 ? rateMessages : 5,
+    interval: Number.isFinite(rateInterval) && rateInterval > 0 ? rateInterval : 60
+  };
+
+  const toolEmojis = {};
+  GUILD_TOOL_NAMES.forEach(name => {
+    const value = document.getElementById(`tool-emoji-${name}`)?.value || '';
+    toolEmojis[name] = value.trim();
+  });
+
+  const data = {
+    guildId,
+    name: guildName,
+    summonerRole,
+    summonEmoji,
+    adminRoles,
+    authorized: !!document.getElementById('guild-authorized')?.checked,
+    whitelisted: !!document.getElementById('guild-authorized')?.checked,
+    rateLimiting,
+    toolEmojis,
+    features: {
+      breeding: !!document.getElementById('feature-breeding')?.checked,
+      combat: !!document.getElementById('feature-combat')?.checked,
+      itemCreation: !!document.getElementById('feature-item-creation')?.checked,
+      moderation: !!document.getElementById('feature-moderation')?.checked
+    },
+    avatarModes: {
+      free: !!document.getElementById('avatar-mode-free')?.checked,
+      wallet: !!document.getElementById('avatar-mode-wallet')?.checked,
+      pureModel: !!document.getElementById('avatar-mode-pure-model')?.checked
+    },
+    prompts: {
+      intro: (document.getElementById('intro-prompt')?.value || '').trim(),
+      summon: (document.getElementById('summon-prompt')?.value || '').trim(),
+      attack: (document.getElementById('attack-prompt')?.value || '').trim(),
+      defend: (document.getElementById('defend-prompt')?.value || '').trim(),
+      breed: (document.getElementById('breed-prompt')?.value || '').trim()
+    },
+    viewDetailsEnabled: !!document.getElementById('feature-view-details')?.checked,
+    avatarTribeRestrictions: {
+      default: {
+        mode: document.getElementById('avatar-tribe-mode')?.value === 'forbid' ? 'forbid' : 'permit',
+        emojis: (document.getElementById('avatar-tribe-exceptions')?.value || '')
+          .split(',')
+          .map(e => e.trim())
+          .filter(Boolean)
+      },
+      channels: {}
+    }
+  };
+
+  const channelContainer = document.getElementById('avatar-tribe-restrictions-channels');
+  if (channelContainer) {
+    Array.from(channelContainer.querySelectorAll('.avatar-tribe-override-row')).forEach(row => {
+      const channelId = row.querySelector('.avatar-tribe-channel-id')?.value.trim();
+      if (!channelId) return;
+      const mode = row.querySelector('.avatar-tribe-mode-select')?.value === 'forbid' ? 'forbid' : 'permit';
+      const emojis = (row.querySelector('.avatar-tribe-exceptions-input')?.value || '')
+        .split(',')
+        .map(e => e.trim())
+        .filter(Boolean);
+      data.avatarTribeRestrictions.channels[channelId] = { mode, emojis };
+    });
+  }
+
+  return data;
+}
+
+async function saveSelectedGuildSettings(event) {
+  event?.preventDefault();
+  if (!selectedGuildId) {
+    showGuildConfigMessage('Select a Discord server before saving.', 'error');
+    return;
+  }
+  const form = document.getElementById('guild-settings-form');
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.originalText = submitBtn.dataset.originalText || submitBtn.textContent || 'Save Settings';
+    submitBtn.textContent = 'Saving...';
+  }
+  try {
+    showGuildConfigMessage('Saving guild settings...', 'info');
+    const payload = collectGuildFormData();
+    const updated = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`, {
+      method: 'POST',
+      body: payload
+    });
+    showGuildConfigMessage('Guild settings saved successfully.', 'success');
+    await refreshGuildList();
+    if (updated) populateGuildForm(updated);
+    await loadDetectedGuilds();
+  } catch (err) {
+    console.error('Failed to save guild settings:', err);
+    showGuildConfigMessage(err?.message || 'Failed to save guild settings.', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'Save Settings';
+    }
+  }
+}
+
+async function loadGuildConfiguration() {
+  const form = document.getElementById('guild-settings-form');
+  const emptyState = document.getElementById('guild-config-empty');
+  if (!form || !emptyState) return;
+  if (!selectedGuildId) {
+    form.classList.add('hidden');
+    emptyState.classList.remove('hidden');
+    emptyState.textContent = 'Select a Discord server from the scope sidebar to edit its configuration.';
+    showGuildConfigMessage(null);
+    return;
+  }
+  emptyState.textContent = 'Loading configuration...';
+  emptyState.classList.remove('hidden');
+  form.classList.add('hidden');
+  try {
+    const config = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`);
+    populateGuildForm(config || {});
+    form.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+    showGuildConfigMessage(null);
+  } catch (err) {
+    console.error('Failed to load guild configuration:', err);
+    emptyState.textContent = 'Failed to load configuration. Try refreshing or check the server logs.';
+    emptyState.classList.remove('hidden');
+    form.classList.add('hidden');
+    showGuildConfigMessage(err?.message || 'Failed to load guild configuration.', 'error');
+  }
+}
+
+async function loadDetectedGuilds() {
+  const section = document.getElementById('detected-guilds-section');
+  const container = document.getElementById('detected-guilds-container');
+  const countBadge = document.getElementById('detected-guilds-count');
+  const navCount = document.getElementById('detectedServersCount');
+  if (!section || !container) return;
+  section.classList.remove('hidden');
+  container.innerHTML = `
+    <div class="flex justify-center py-4">
+      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+    </div>
+  `;
+  try {
+    const res = await fetch('/api/guilds/detected');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const detected = await res.json();
+    const unauthorized = Array.isArray(detected) ? detected.filter(g => !g.authorized) : [];
+    const countLabel = unauthorized.length.toString();
+    if (countBadge) countBadge.textContent = countLabel;
+    if (navCount) navCount.textContent = unauthorized.length ? `(${countLabel})` : '';
+    container.innerHTML = '';
+    if (!unauthorized.length) {
+      container.innerHTML = '<p class="text-sm text-gray-500">No unauthorized servers detected. Use the manual form below if you need to add one.</p>';
+      return;
+    }
+    unauthorized
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      .forEach(guild => container.appendChild(renderDetectedGuildCard(guild)));
+  } catch (err) {
+    console.error('Failed to load detected guilds:', err);
+    const message = err?.message || 'Failed to load detected servers.';
+    container.innerHTML = `<div class="p-4 bg-red-50 text-red-700 rounded-md">${escapeHtml(message)}</div>`;
+    showGuildConfigMessage(message, 'error');
+  }
+}
+
+function renderDetectedGuildCard(guild) {
+  const card = document.createElement('div');
+  card.className = 'border rounded-md p-4 bg-white shadow-sm flex justify-between items-center gap-4';
+  const iconUrl = guild?.icon
+    ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128`
+    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+  const detectedAt = guild?.detectedAt ? new Date(guild.detectedAt).toLocaleString() : 'Unknown';
+  const memberLine = typeof guild?.memberCount === 'number'
+    ? `<p class="text-xs text-gray-400">Members: ${guild.memberCount}</p>`
+    : '';
+  card.innerHTML = `
+    <div class="flex items-center gap-3 min-w-0">
+      <img src="${escapeHtml(iconUrl)}" alt="${escapeHtml(guild?.name || 'Guild')}" class="w-10 h-10 rounded-full border border-gray-200 object-cover" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+      <div class="min-w-0">
+        <h6 class="font-medium text-sm text-gray-900 truncate" title="${escapeHtml(guild?.name || '')}">${escapeHtml(guild?.name || 'Unknown Server')}</h6>
+        <p class="text-xs text-gray-500 truncate">ID: ${escapeHtml(String(guild?.id || ''))}</p>
+        <p class="text-xs text-gray-400">First detected: ${escapeHtml(detectedAt)}</p>
+        ${memberLine}
+      </div>
+    </div>
+    <button class="authorize-guild-btn px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors">Authorize</button>
+  `;
+  const authorizeBtn = card.querySelector('.authorize-guild-btn');
+  authorizeBtn?.addEventListener('click', async () => {
+    if (!authorizeBtn) return;
+    const original = authorizeBtn.textContent;
+    authorizeBtn.disabled = true;
+    authorizeBtn.textContent = 'Authorizing...';
+    authorizeBtn.classList.add('opacity-75');
+    try {
+      await whitelistDetectedGuild(guild);
+      await loadDetectedGuilds();
+      await refreshGuildList();
+    } catch (err) {
+      console.error('Failed to authorize guild:', err);
+      showGuildConfigMessage(err?.message || 'Failed to authorize guild.', 'error');
+      authorizeBtn.disabled = false;
+      authorizeBtn.textContent = original || 'Authorize';
+      authorizeBtn.classList.remove('opacity-75');
+    }
+  });
+  return card;
+}
+
+async function whitelistDetectedGuild(guild) {
+  if (!guild?.id) throw new Error('Missing guild ID');
+  const baseConfig = {
+    guildId: guild.id,
+    name: guild.name,
+    icon: guild.icon,
+    memberCount: guild.memberCount,
+    authorized: true,
+    whitelisted: true,
+    summonEmoji: '✨',
+    adminRoles: [],
+    features: { breeding: true, combat: true, itemCreation: true, moderation: true },
+    prompts: {
+      intro: 'You are now conversing with {avatar_name}, a unique AI character with its own personality and abilities.',
+      summon: 'You are {avatar_name}, responding to being summoned by {user_name}.',
+      attack: 'You are {avatar_name}, attacking {target_name} with your abilities.',
+      defend: 'You are {avatar_name}, defending against an attack.',
+      breed: 'You are {avatar_name}, breeding with {target_name} to create a new entity.'
+    },
+    rateLimiting: { messages: 5, interval: 60 },
+    toolEmojis: { summon: '🔮', breed: '🏹', attack: '⚔️', defend: '🛡️' }
+  };
+
+  let existingConfig = null;
+  try {
+    const res = await fetch(`/api/guilds/${encodeURIComponent(guild.id)}`);
+    if (res.ok) {
+      existingConfig = await res.json();
+    }
+  } catch (err) {
+    console.warn('Unable to lookup existing guild config:', err);
+  }
+
+  const payload = existingConfig
+    ? { ...existingConfig, ...baseConfig, authorized: true, whitelisted: true, name: guild.name, icon: guild.icon, memberCount: guild.memberCount }
+    : baseConfig;
+
+  await fetchJSON('/api/guilds', {
+    method: 'POST',
+    body: payload
+  });
+  try {
+    await fetchJSON(`/api/guilds/${encodeURIComponent(guild.id)}/clear-cache`, { method: 'POST' });
+  } catch (err) {
+    console.warn('Failed to clear guild cache:', err);
+  }
+  showGuildConfigMessage(`Guild "${guild.name}" authorized successfully.`, 'success');
+}
+
+async function whitelistGuild(guildId, guildName) {
+  await fetchJSON('/api/guilds', {
+    method: 'POST',
+    body: { guildId, name: guildName, authorized: true, whitelisted: true }
+  });
+  showGuildConfigMessage(`Guild "${guildName}" authorized successfully.`, 'success');
+  await refreshGuildList();
+  await loadDetectedGuilds();
+}
+
+function setupManualWhitelistButton() {
+  const button = document.getElementById('manual-whitelist-button');
+  if (!button) return;
+  button.addEventListener('click', async event => {
+    event.preventDefault();
+    const guildIdInput = document.getElementById('manual-guild-id');
+    const guildNameInput = document.getElementById('manual-guild-name');
+    const guildId = guildIdInput?.value.trim();
+    if (!guildId || !/^\d+$/.test(guildId)) {
+      showGuildConfigMessage('Please enter a numeric Discord server ID.', 'error');
+      return;
+    }
+    const guildName = guildNameInput?.value.trim() || `Server ${guildId}`;
+    const originalText = button.textContent || 'Whitelist Server';
+    button.disabled = true;
+    button.textContent = 'Whitelisting...';
+    try {
+      await whitelistGuild(guildId, guildName);
+      if (guildIdInput) guildIdInput.value = '';
+      if (guildNameInput) guildNameInput.value = '';
+    } catch (err) {
+      console.error('Failed to whitelist guild manually:', err);
+      showGuildConfigMessage(err?.message || 'Failed to whitelist guild.', 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  });
+}
+
+function initGuildConfigHandlers() {
+  if (guildConfigHandlersBound) return;
+  document.getElementById('guild-settings-form')?.addEventListener('submit', saveSelectedGuildSettings);
+  document.getElementById('add-avatar-tribe-override')?.addEventListener('click', () => addAvatarTribeOverride());
+  document.getElementById('refreshGuildConfig')?.addEventListener('click', async () => {
+    await loadGuildConfiguration();
+  });
+  document.getElementById('refresh-detected-guilds')?.addEventListener('click', async event => {
+    event.preventDefault();
+    await loadDetectedGuilds();
+  });
+  setupManualWhitelistButton();
+  guildConfigHandlersBound = true;
+}
+
 let walletAvatarPrefsState = null;
 let walletAvatarEditorOriginalSymbol = null;
 let availableCollections = [];
@@ -184,19 +665,6 @@ async function refreshGuildList() {
   await load();
 }
 
-async function updateDetectedServersCount() {
-  try {
-    const res = await fetch('/api/guilds/detected');
-    if (!res.ok) return;
-    const data = await res.json();
-    const count = Array.isArray(data) ? data.length : 0;
-    const span = document.getElementById('detectedServersCount');
-    if (span) span.textContent = count ? `(${count})` : '';
-  } catch {}
-}
-
-// Detected guilds moved to /admin/servers
-
 function renderSettingRow(item, guildId) {
   const wrap = document.createElement('div');
   wrap.className = 'p-3 border rounded grid grid-cols-[1fr_auto] items-center gap-3 overflow-hidden';
@@ -321,6 +789,8 @@ function renderPromptRow(item, guildId) {
 
 async function load() {
   const guildId = selectedGuildId || '';
+  await loadGuildConfiguration();
+  await loadDetectedGuilds();
   const qs = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
   const data = await fetchJSON(`/api/settings${qs}`);
   // Persist page state
@@ -366,7 +836,6 @@ async function load() {
     secretsList.innerHTML = '';
     secrets.forEach(s => secretsList.appendChild(renderSecretRow(s, guildId)));
   }
-    updateDetectedServersCount();
 }
 
 // Events
@@ -1630,6 +2099,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await loadGuildOptions();
   } catch {}
+  initGuildConfigHandlers();
   // default to Global on first load
   setActiveGuild(selectedGuildId);
   await load();
@@ -1658,7 +2128,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await deleteGuildConfig(selectedGuildId);
     success('Guild config deleted');
   }));
-  // detected guilds removed from settings page
   // Tab wiring (default Prompts active)
   const tabPrompts = document.getElementById('tabPrompts');
   const tabSettings = document.getElementById('tabSettings');
@@ -1685,6 +2154,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabPrompts?.addEventListener('click', () => activate(tabPrompts));
   tabSettings?.addEventListener('click', async () => {
     activate(tabSettings);
+    await loadGuildConfiguration();
+    await loadDetectedGuilds();
     await loadReplicateConfig();
     await loadCollections();
     await loadWalletAvatarPreferences();
