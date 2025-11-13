@@ -4,7 +4,7 @@
 
 ---
 
-## � What is CosyWorld?
+## What is CosyWorld?
 
 CosyWorld is a comprehensive platform for managing modern online communities across multiple social platforms simultaneously. It combines traditional community management tools with AI-powered agents that can autonomously interact, moderate, engage, and create content across Discord, X, Telegram, and more.
 
