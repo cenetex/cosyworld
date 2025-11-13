@@ -5,6 +5,127 @@
 
 import { BasicTool } from '../BasicTool.mjs';
 
+const MODEL_PROVIDER_LABELS = {
+  google: 'Google',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  meta: 'Meta',
+  'meta-llama': 'Meta',
+  cohere: 'Cohere',
+  perplexity: 'Perplexity',
+  qwen: 'Qwen',
+  nvidia: 'NVIDIA',
+  'x-ai': 'xAI',
+  x: 'xAI',
+  deepseek: 'DeepSeek',
+  baidu: 'Baidu',
+  ai21: 'AI21',
+  mistralai: 'Mistral',
+  inflection: 'Inflection',
+  'agentica-org': 'Agentica',
+  'microsoft': 'Microsoft',
+  'nomic-ai': 'Nomic AI'
+};
+
+const MODEL_PROVIDER_EMOJI = {
+  google: '📡',
+  openai: '🌀',
+  anthropic: '✨',
+  meta: '🧠',
+  'meta-llama': '🧠',
+  cohere: '🧩',
+  perplexity: '🔍',
+  qwen: '🕊️',
+  nvidia: '⚡',
+  'x-ai': '🚀',
+  x: '🚀',
+  deepseek: '🌊',
+  baidu: '🐉',
+  ai21: '🧮',
+  mistralai: '🌬️',
+  inflection: '🔶',
+  'agentica-org': '🛰️',
+  microsoft: '🪟',
+  'nomic-ai': '🧭'
+};
+
+const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:.-]*$/i;
+
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isModelRosterAvatar = (avatar) => {
+  if (!avatar) return false;
+  if (Array.isArray(avatar.tags) && avatar.tags.includes('model-roster')) return true;
+  if (avatar.tags === 'model-roster') return true;
+  if (avatar.summoner === 'system:model-roster') return true;
+  return false;
+};
+
+const formatSummonsday = (value) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  try {
+    return value.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch {
+    return value.toISOString().split('T')[0];
+  }
+};
+
+const stripHiddenTags = (text = '') => text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+const formatProviderLabel = (providerId = '') => {
+  if (!providerId) return '';
+  const lower = providerId.toLowerCase();
+  if (MODEL_PROVIDER_LABELS[lower]) return MODEL_PROVIDER_LABELS[lower];
+  return providerId
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ')
+    .trim();
+};
+
+const normalizeModelIdentifier = (value = '') => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/^["'`]+|["'`]+$/g, '');
+  if (!trimmed) return null;
+  if (!MODEL_SLUG_PATTERN.test(trimmed)) return null;
+  return trimmed.toLowerCase();
+};
+
+const humanizeSlugTokens = (segment = '') => {
+  if (!segment) return [];
+  return segment
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(token => {
+      const lower = token.toLowerCase();
+      if (/^[a-z]{1,3}$/.test(lower)) return lower.toUpperCase();
+      if (/^[a-z]+$/.test(lower)) return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return token;
+    });
+};
+
+const formatModelDisplayName = (modelId = '') => {
+  const normalized = normalizeModelIdentifier(modelId) || (typeof modelId === 'string' ? modelId.trim() : '');
+  if (!normalized || !normalized.includes('/')) return null;
+  const [providerRaw, restRaw] = normalized.split('/', 2);
+  if (!restRaw) return null;
+  const [slug, variantRaw] = restRaw.split(':');
+  const baseTokens = humanizeSlugTokens(slug);
+  const variantTokens = humanizeSlugTokens(variantRaw);
+  const displayTokens = [...baseTokens, ...variantTokens].filter(Boolean);
+  if (!displayTokens.length) return null;
+  const providerLabel = formatProviderLabel(providerRaw);
+  const displayName = displayTokens.join(' ');
+  return providerLabel ? `${displayName} (${providerLabel})` : displayName;
+};
+
 export class SummonTool extends BasicTool {
   constructor({
     discordService,
@@ -114,8 +235,83 @@ export class SummonTool extends BasicTool {
         return av?.model;
       };
 
-      const respondWithExistingAvatar = async (existingAvatar, { preface } = {}) => {
+      const ensureAvatarStatsAndSummonsday = async (avatar) => {
+        if (!avatar) return avatar;
+        let requiresUpdate = false;
+        const toDate = (raw) => {
+          if (raw instanceof Date) return raw;
+          if (!raw) return new Date();
+          const coerced = new Date(raw);
+          return Number.isNaN(coerced.getTime()) ? new Date() : coerced;
+        };
+        if (!this.statService?.validateStats?.(avatar.stats)) {
+          avatar.stats = this.statService.generateStatsFromDate(toDate(avatar.createdAt));
+          requiresUpdate = true;
+        }
+        if (!avatar.summonsday) {
+          const formatted = formatSummonsday(toDate(avatar.createdAt));
+          if (formatted) {
+            avatar.summonsday = formatted;
+            requiresUpdate = true;
+          }
+        }
+        if (requiresUpdate) {
+          try {
+            await this.avatarService.updateAvatar(avatar);
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] Failed to sync stats/summonsday for ${avatar?.name || avatar?._id}: ${err?.message}`);
+          }
+        }
+        return avatar;
+      };
+
+      const describeModelAppearance = async (modelId, displayName) => {
+        const ai = this.unifiedAIService || this.aiService;
+        if (!ai?.chat) return null;
+        const corrId = `model-self:${modelId}:${Date.now()}`;
+        const messages = [
+          {
+            role: 'system',
+            content: `You are ${displayName}, the literal AI model manifesting as an avatar. Describe your visual form in 2 concise sentences. Focus on colors, materials, aura, and symbolism. Do not mention lacking a body, and avoid disclaimers about being virtual.`
+          },
+          {
+            role: 'user',
+            content: 'Describe how you appear when you step into the world as an avatar.'
+          }
+        ];
+        try {
+          const result = await ai.chat(messages, { model: modelId, max_tokens: 220, corrId, returnEnvelope: true });
+          const rawText = typeof result === 'object' && result?.text ? result.text : result;
+          const cleaned = typeof rawText === 'string' ? stripHiddenTags(rawText) : '';
+          if (cleaned) return cleaned;
+        } catch (err) {
+          this.logger?.debug?.(`[SummonTool] describeModelAppearance failed for ${modelId}: ${err?.message}`);
+        }
+        return `${displayName} manifests as converging bands of light and code, shimmering with its signature inference energy.`;
+      };
+
+      const respondWithExistingAvatar = async (existingAvatar, { preface, enforceModelName = false, requestedModelId = null } = {}) => {
         if (!existingAvatar) return null;
+        if (enforceModelName && isModelRosterAvatar(existingAvatar)) {
+          const targetModelId = normalizeModelIdentifier(requestedModelId) || normalizeModelIdentifier(existingAvatar?.model) || existingAvatar?.model || null;
+          const targetName = targetModelId ? formatModelDisplayName(targetModelId) : null;
+          let needsUpdate = false;
+          if (targetModelId && existingAvatar.model !== targetModelId) {
+            existingAvatar.model = targetModelId;
+            needsUpdate = true;
+          }
+          if (targetName && existingAvatar.name !== targetName) {
+            existingAvatar.name = targetName;
+            needsUpdate = true;
+          }
+          if (needsUpdate) {
+            try {
+              await this.avatarService.updateAvatar(existingAvatar);
+            } catch (err) {
+              this.logger?.debug?.(`[SummonTool] Failed to sync model avatar metadata: ${err?.message}`);
+            }
+          }
+        }
         if (preface) {
           try {
             await this.discordService.replyToMessage(message, preface);
@@ -124,8 +320,11 @@ export class SummonTool extends BasicTool {
           }
         }
 
-        const alreadyHere = existingAvatar.channelId === message.channel.id;
+  const alreadyHere = existingAvatar.channelId === message.channel.id;
         await ensureModel(existingAvatar);
+        if (isModelRosterAvatar(existingAvatar)) {
+          await ensureAvatarStatsAndSummonsday(existingAvatar);
+        }
 
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
           try {
@@ -178,7 +377,7 @@ export class SummonTool extends BasicTool {
           ], { model: existingAvatar.model, corrId });
 
           greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
-          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+          if (typeof greeting === 'string') greeting = stripHiddenTags(greeting);
         } catch (e) {
           this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
           greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
@@ -209,12 +408,54 @@ export class SummonTool extends BasicTool {
         return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
       };
 
+      const findModelAvatarForModelId = async (modelId, guildId) => {
+        const normalized = normalizeModelIdentifier(modelId);
+        if (!normalized) return null;
+        const baseFilters = {
+          status: { $ne: 'dead' },
+          isPartial: { $ne: true },
+          tags: 'model-roster',
+          model: { $regex: new RegExp(`^${escapeRegex(normalized)}(:|$)`, 'i') }
+        };
+        const trySample = async filters => {
+          try {
+            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 3 });
+            return Array.isArray(avatars) && avatars.length ? avatars[0] : null;
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] findModelAvatarForModelId failed: ${err?.message}`);
+            return null;
+          }
+        };
+        let avatar = guildId ? await trySample({ ...baseFilters, guildId }) : null;
+        if (!avatar) {
+          avatar = await trySample(baseFilters);
+        }
+        if (!avatar) {
+          const friendlyName = formatModelDisplayName(normalized);
+          if (friendlyName) {
+            try {
+              avatar = await this.avatarService.getAvatarByName(friendlyName);
+            } catch (err) {
+              this.logger?.debug?.(`[SummonTool] direct friendly lookup failed: ${err?.message}`);
+            }
+          }
+        }
+        return avatar;
+      };
+
       const findClosestModelAvatar = async (query, guildId) => {
         if (!query) return null;
+        const modelMatch = normalizeModelIdentifier(query);
+        if (modelMatch) {
+          const direct = await findModelAvatarForModelId(modelMatch, guildId);
+          if (direct) return direct;
+        }
         const tryFind = async (opts = {}) => {
           try {
             const matches = await this.avatarService.fuzzyAvatarByName(query, { limit: 5, ...opts });
-            return Array.isArray(matches) && matches.length ? matches[0] : null;
+            if (!Array.isArray(matches) || matches.length === 0) return null;
+            const rosterMatch = matches.find(isModelRosterAvatar);
+            return rosterMatch || matches[0];
           } catch (err) {
             this.logger?.debug?.(`[SummonTool] fuzzy search failed (${query}): ${err?.message}`);
             return null;
@@ -224,6 +465,9 @@ export class SummonTool extends BasicTool {
         let candidate = guildId ? await tryFind({ guildId }) : null;
         if (!candidate) {
           candidate = await tryFind();
+        }
+        if (candidate && !isModelRosterAvatar(candidate)) {
+          candidate = null;
         }
         if (candidate && candidate.isPartial) {
           candidate = null;
@@ -235,7 +479,8 @@ export class SummonTool extends BasicTool {
         const baseFilters = {
           status: { $ne: 'dead' },
           model: { $exists: true },
-          isPartial: { $ne: true }
+          isPartial: { $ne: true },
+          tags: 'model-roster'
         };
         const trySample = async filters => {
           try {
@@ -256,6 +501,83 @@ export class SummonTool extends BasicTool {
         }
         return avatar;
       };
+
+  const ensureModelRosterAvatar = async (modelId, { guildId: lookupGuildId } = {}) => {
+        const normalized = normalizeModelIdentifier(modelId);
+        if (!normalized) return null;
+        const existing = await findModelAvatarForModelId(normalized, lookupGuildId);
+        if (existing) {
+          await ensureAvatarStatsAndSummonsday(existing);
+          return { avatar: existing, created: false };
+        }
+
+        const displayName = formatModelDisplayName(normalized) || normalized;
+        const providerKey = normalized.split('/', 1)[0]?.toLowerCase?.() || '';
+        const emoji = MODEL_PROVIDER_EMOJI[providerKey] || '💠';
+        const description = await describeModelAppearance(normalized, displayName);
+        const personality = `The raw essence of ${displayName}, precise and impartial.`;
+        const creationDate = new Date();
+        const stats = this.statService.generateStatsFromDate(creationDate);
+        const summonsday = formatSummonsday(creationDate);
+
+        const baseDoc = {
+          name: displayName,
+          emoji,
+          description,
+          personality,
+          model: normalized,
+          channelId: null,
+          guildId: null,
+          summoner: 'system:model-roster',
+          stats,
+          summonsday,
+          lives: 3,
+          status: 'alive',
+          createdAt: creationDate,
+          updatedAt: creationDate,
+          tags: ['model-roster']
+        };
+
+        let insertedAvatar = null;
+        try {
+          const db = await this.avatarService._db();
+          const res = await db.collection(this.avatarService.AVATARS_COLLECTION).insertOne(baseDoc);
+          insertedAvatar = { ...baseDoc, _id: res.insertedId };
+          try {
+            const uploadOptions = {
+              source: 'avatar.model-roster',
+              avatarId: insertedAvatar._id?.toString?.(),
+              avatarName: insertedAvatar.name,
+              avatarEmoji: insertedAvatar.emoji,
+              prompt: insertedAvatar.description,
+              context: `${insertedAvatar.emoji || '💠'} ${insertedAvatar.name} embodies its core form.`.trim()
+            };
+            const imageUrl = await this.avatarService.generateAvatarImage(insertedAvatar.description, uploadOptions);
+            if (imageUrl) {
+              insertedAvatar.imageUrl = imageUrl;
+              await db.collection(this.avatarService.AVATARS_COLLECTION).updateOne(
+                { _id: insertedAvatar._id },
+                { $set: { imageUrl } }
+              );
+            }
+          } catch (imgErr) {
+            this.logger?.warn?.(`[SummonTool] Model roster image generation failed for ${displayName}: ${imgErr?.message}`);
+          }
+        } catch (err) {
+          if (err?.code === 11000) {
+            const dup = await findModelAvatarForModelId(normalized, lookupGuildId);
+            if (dup) {
+              await ensureAvatarStatsAndSummonsday(dup);
+              return { avatar: dup, created: false };
+            }
+          }
+          this.logger?.error?.(`[SummonTool] Failed to seed model roster avatar for ${normalized}: ${err?.message}`);
+          return null;
+        }
+
+        await ensureAvatarStatsAndSummonsday(insertedAvatar);
+        return { avatar: insertedAvatar, created: true };
+      };
       // Parse command content robustly: remove leading emoji + optional word 'summon'
       const raw = (message.content || '').trim();
       const content = raw
@@ -264,6 +586,8 @@ export class SummonTool extends BasicTool {
         .replace(/^(summon)\s+/i,'')
         .trim();
       const [avatarName] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
+      const guildId = message.guildId || message.guild?.id;
+      const requestedModelId = normalizeModelIdentifier(avatarName);
 
       // If no textual description provided, but an image is attached, switch to image-based summoning
       const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
@@ -281,25 +605,50 @@ export class SummonTool extends BasicTool {
         }
       }
 
-      // Check for existing avatar
-      const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
+      const guildConfig = await this.configService.getGuildConfig(guildId, true);
+      const guildAvatarModes = guildConfig?.avatarModes || {};
+      const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
+      const allowModelSummons = guildAvatarModes.pureModel !== false;
+      const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && guildAvatarModes.wallet === false;
+
+      let existingAvatar = null;
+      if (!requestedModelId && avatarName) {
+        existingAvatar = await this.avatarService.getAvatarByName(avatarName);
+        if (existingAvatar) {
+          if ((freeSummonsDisabled || pureModelOnly) && !isModelRosterAvatar(existingAvatar)) {
+            existingAvatar = null;
+          }
+        }
+      }
+
       if (existingAvatar) {
         const handled = await respondWithExistingAvatar(existingAvatar);
         if (handled) return handled;
       }
 
-      const guildId = message.guildId || message.guild?.id;
-      const guildConfig = await this.configService.getGuildConfig(guildId, true);
-      const guildAvatarModes = guildConfig?.avatarModes || {};
-      const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
-      const allowModelSummons = guildAvatarModes.pureModel !== false;
+      if (requestedModelId) {
+        const ensured = await ensureModelRosterAvatar(requestedModelId, { guildId });
+        if (ensured?.avatar) {
+          const preface = ensured.created
+            ? `${ensured.avatar.name} manifests its core form, summoned straight from the model roster.`
+            : null;
+          const handled = await respondWithExistingAvatar(ensured.avatar, {
+            preface,
+            enforceModelName: true,
+            requestedModelId
+          });
+          if (handled) return handled;
+        }
+      }
 
       if (freeSummonsDisabled) {
         if (allowModelSummons) {
           let fallbackAvatar = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
           if (fallbackAvatar) {
             const handled = await respondWithExistingAvatar(fallbackAvatar, {
-              preface: `Summoning new avatars is disabled here, so I'm recalling ${fallbackAvatar.name} from the model roster.`
+              preface: `Summoning new avatars is disabled here, so I'm recalling ${fallbackAvatar.name} from the model roster.`,
+              enforceModelName: Boolean(requestedModelId),
+              requestedModelId
             });
             if (handled) return handled;
           }
@@ -309,7 +658,9 @@ export class SummonTool extends BasicTool {
             const handled = await respondWithExistingAvatar(fallbackAvatar, {
               preface: avatarName
                 ? `Summoning is limited to catalog avatars. Couldn't find "${avatarName}", so ${fallbackAvatar.name} answers instead.`
-                : `${fallbackAvatar.name} materialises from the model roster.`
+                : `${fallbackAvatar.name} materialises from the model roster.`,
+              enforceModelName: Boolean(requestedModelId),
+              requestedModelId
             });
             if (handled) return handled;
           }
@@ -394,8 +745,10 @@ export class SummonTool extends BasicTool {
         createdAvatar.stats = stats;
         createdAvatar.createdAt = creationDate;
         createdAvatar.channelId = message.channel.id;
+        createdAvatar.summonsday = formatSummonsday(creationDate);
         await this.avatarService.updateAvatar(createdAvatar);
         await ensureModel(createdAvatar);
+        await ensureAvatarStatsAndSummonsday(createdAvatar);
       } else {
         // Ensure channel/location sync for existing avatar name collision
         if (createdAvatar.channelId !== message.channel.id) {
@@ -404,6 +757,7 @@ export class SummonTool extends BasicTool {
           await this.avatarService.updateAvatar(createdAvatar);
         }
         await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
+        await ensureAvatarStatsAndSummonsday(createdAvatar);
         // Provide a lightweight acknowledgement instead of full intro/embed
         try {
           await ensureModel(createdAvatar);
@@ -414,7 +768,7 @@ export class SummonTool extends BasicTool {
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
           ], { model: createdAvatar.model, corrId });
           let brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
-          try { if (typeof brief === 'string') brief = brief.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
+          try { if (typeof brief === 'string') brief = stripHiddenTags(brief); } catch {}
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
           this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
