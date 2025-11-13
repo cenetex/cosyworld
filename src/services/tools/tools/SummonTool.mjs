@@ -113,6 +113,149 @@ export class SummonTool extends BasicTool {
         } catch (e) { this.logger?.warn?.(`[AI][SummonTool] ensureModel failed: ${e.message}`); }
         return av?.model;
       };
+
+      const respondWithExistingAvatar = async (existingAvatar, { preface } = {}) => {
+        if (!existingAvatar) return null;
+        if (preface) {
+          try {
+            await this.discordService.replyToMessage(message, preface);
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] preface send failed: ${err?.message}`);
+          }
+        }
+
+        const alreadyHere = existingAvatar.channelId === message.channel.id;
+        await ensureModel(existingAvatar);
+
+        if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
+          try {
+            this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
+            const uploadOptions = {
+              source: 'avatar.summon',
+              avatarName: existingAvatar.name,
+              avatarEmoji: existingAvatar.emoji,
+              avatarId: existingAvatar._id,
+              prompt: existingAvatar.description,
+              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
+            };
+            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
+
+            if (existingAvatar.imageUrl) {
+              await this.avatarService.updateAvatar(existingAvatar);
+              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
+            }
+          } catch (e) {
+            this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
+          }
+        }
+
+        if (!alreadyHere) {
+          try {
+            await this.mapService.updateAvatarPosition(existingAvatar, message.channel.id);
+            existingAvatar.channelId = message.channel.id;
+            await this.avatarService.updateAvatar(existingAvatar);
+          } catch (err) {
+            this.logger?.warn?.(`[SummonTool] Failed to reposition ${existingAvatar.name}: ${err?.message}`);
+          }
+        }
+
+        await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
+
+        const ai = this.unifiedAIService || this.aiService;
+        const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
+        let greeting = null;
+        try {
+          const greetingPrompt = alreadyHere
+            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
+            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
+
+          const greetingResult = await ai.chat([
+            {
+              role: 'system',
+              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}`
+            },
+            { role: 'user', content: greetingPrompt }
+          ], { model: existingAvatar.model, corrId });
+
+          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
+          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        } catch (e) {
+          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+        }
+
+        if (alreadyHere) {
+          if (greeting) {
+            await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+          }
+          try {
+            await this.discordService.sendAvatarEmbed(existingAvatar, message.channel.id, this.aiService);
+          } catch (e) {
+            this.logger.warn(`Failed to send avatar embed on resummon: ${e.message}`);
+          }
+          return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
+        }
+
+        setTimeout(async () => {
+          try {
+            if (greeting) {
+              await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+            }
+            await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
+          } catch (err) {
+            this.logger?.warn?.(`[SummonTool] Failed to send arrival sequence for ${existingAvatar.name}: ${err?.message}`);
+          }
+        }, 800);
+        return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
+      };
+
+      const findClosestModelAvatar = async (query, guildId) => {
+        if (!query) return null;
+        const tryFind = async (opts = {}) => {
+          try {
+            const matches = await this.avatarService.fuzzyAvatarByName(query, { limit: 5, ...opts });
+            return Array.isArray(matches) && matches.length ? matches[0] : null;
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] fuzzy search failed (${query}): ${err?.message}`);
+            return null;
+          }
+        };
+
+        let candidate = guildId ? await tryFind({ guildId }) : null;
+        if (!candidate) {
+          candidate = await tryFind();
+        }
+        if (candidate && candidate.isPartial) {
+          candidate = null;
+        }
+        return candidate;
+      };
+
+      const pickRandomModelAvatar = async (guildId) => {
+        const baseFilters = {
+          status: { $ne: 'dead' },
+          model: { $exists: true },
+          isPartial: { $ne: true }
+        };
+        const trySample = async filters => {
+          try {
+            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 3 });
+            return Array.isArray(avatars) && avatars.length ? avatars[0] : null;
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] random model avatar fetch failed: ${err?.message}`);
+            return null;
+          }
+        };
+
+        let avatar = null;
+        if (guildId) {
+          avatar = await trySample({ ...baseFilters, guildId });
+        }
+        if (!avatar) {
+          avatar = await trySample(baseFilters);
+        }
+        return avatar;
+      };
       // Parse command content robustly: remove leading emoji + optional word 'summon'
       const raw = (message.content || '').trim();
       const content = raw
@@ -124,11 +267,6 @@ export class SummonTool extends BasicTool {
 
       // If no textual description provided, but an image is attached, switch to image-based summoning
       const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
-      if (!avatarName && !hasImageForSummon) {
-        await this.discordService.replyToMessage(message, 'Provide a name/description or attach an image to summon an avatar.');
-        return '-# [ Summon aborted: no description or image provided. ]';
-      }
-
       // Try to sync avatar from configured collections first (if it doesn't exist in DB yet)
       if (avatarName) {
         try {
@@ -144,89 +282,62 @@ export class SummonTool extends BasicTool {
       }
 
       // Check for existing avatar
-  const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
+      const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
       if (existingAvatar) {
-        const alreadyHere = existingAvatar.channelId === message.channel.id;
-  // Ensure model is set for any upcoming AI generation
-  await ensureModel(existingAvatar);
-        // Ensure avatar has an image
-        if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
-          try {
-            this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
-            // Pass metadata for proper event emission
-            const uploadOptions = {
-              source: 'avatar.summon',
-              avatarName: existingAvatar.name,
-              avatarEmoji: existingAvatar.emoji,
-              avatarId: existingAvatar._id,
-              prompt: existingAvatar.description,
-              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
-            };
-            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
-            
-            // Save the regenerated image to the database immediately
-            if (existingAvatar.imageUrl) {
-              await this.avatarService.updateAvatar(existingAvatar);
-              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
-            }
-          } catch (e) {
-            this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
+        const handled = await respondWithExistingAvatar(existingAvatar);
+        if (handled) return handled;
+      }
+
+      const guildId = message.guildId || message.guild?.id;
+      const guildConfig = await this.configService.getGuildConfig(guildId, true);
+      const guildAvatarModes = guildConfig?.avatarModes || {};
+      const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
+      const allowModelSummons = guildAvatarModes.pureModel !== false;
+
+      if (freeSummonsDisabled) {
+        if (allowModelSummons) {
+          let fallbackAvatar = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
+          if (fallbackAvatar) {
+            const handled = await respondWithExistingAvatar(fallbackAvatar, {
+              preface: `Summoning new avatars is disabled here, so I'm recalling ${fallbackAvatar.name} from the model roster.`
+            });
+            if (handled) return handled;
           }
-        }
-        if (!alreadyHere) {
-          // Move avatar to this channel
-            await this.mapService.updateAvatarPosition(existingAvatar, message.channel.id);
-            existingAvatar.channelId = message.channel.id;
-            await this.avatarService.updateAvatar(existingAvatar);
-        }
-        await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
-        
-        // Generate greeting from the avatar
-        const ai = this.unifiedAIService || this.aiService;
-        const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
-        let greeting = null;
-        try {
-          const greetingPrompt = alreadyHere 
-            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
-            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
-          
-          const greetingResult = await ai.chat([
-            { 
-              role: 'system', 
-              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}` 
-            },
-            { role: 'user', content: greetingPrompt }
-          ], { model: existingAvatar.model, corrId });
-          
-          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
-          // Remove any <think> tags
-          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        } catch (e) {
-          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
-          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
-        }
-        
-        if (alreadyHere) {
-          // Resummon in same channel: send greeting then show profile
-          if (greeting) {
-            await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
+
+          fallbackAvatar = await pickRandomModelAvatar(guildId);
+          if (fallbackAvatar) {
+            const handled = await respondWithExistingAvatar(fallbackAvatar, {
+              preface: avatarName
+                ? `Summoning is limited to catalog avatars. Couldn't find "${avatarName}", so ${fallbackAvatar.name} answers instead.`
+                : `${fallbackAvatar.name} materialises from the model roster.`
+            });
+            if (handled) return handled;
           }
-          try {
-            await this.discordService.sendAvatarEmbed(existingAvatar, message.channel.id, this.aiService);
-          } catch (e) {
-            this.logger.warn(`Failed to send avatar embed on resummon: ${e.message}`);
-          }
-          return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
-        } else {
-          // Arrival: send greeting and mini embed
-          setTimeout(async () => {
-            if (greeting) {
-              await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
-            }
-            await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
-          }, 800);
-          return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
+
+          await this.discordService.replyToMessage(
+            message,
+            'Summoning is limited to catalog avatars, but none were available to match that request.'
+          );
+          return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
         }
+
+        await this.discordService.replyToMessage(
+          message,
+          'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
+        );
+        return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
+      }
+
+      if (!avatarName && !hasImageForSummon) {
+        const randomAvatar = await pickRandomModelAvatar(guildId);
+        if (randomAvatar) {
+          const handled = await respondWithExistingAvatar(randomAvatar, {
+            preface: `${randomAvatar.name} answers the call of the crystal.`
+          });
+          if (handled) return handled;
+        }
+        await this.discordService.replyToMessage(message, 'Provide a name, description, or image to guide the summon.');
+        return '-# [ Summon aborted: no description or image provided. ]';
       }
 
       const breed = Boolean(params.breed);
@@ -234,27 +345,15 @@ export class SummonTool extends BasicTool {
       // Check summon limit (bypass for specific user ID, e.g., admin)
       const canSummon = message.author.id === '1175877613017895032' || (await this.checkDailySummonLimit(message.author.id));
       if (!canSummon) {
-        // Friendly singular message (avoid spam)
         await this.discordService.replyToMessage(message, `You've already summoned an avatar today. (Daily limit: ${this.DAILY_SUMMON_LIMIT})`);
         return '-# [ Summon rejected: daily limit reached. ]';
       }
 
-      // Get guild configuration
-      const guildId = message.guildId || message.guild?.id;
-      const guildConfig = await this.configService.getGuildConfig(guildId, true);
-      const guildAvatarModes = guildConfig?.avatarModes || {};
-      if (guildId && guildAvatarModes.free === false) {
-        await this.discordService.replyToMessage(
-          message,
-          'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
-        );
-        return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
-      }
       let summonPrompt = guildConfig?.prompts?.summon || 'Create an avatar with the following description:';
-  let _arweavePrompt = null;
+      let _arweavePrompt = null;
       if (summonPrompt.match(/^(https:\/\/.*\.arweave\.net\/|ar:\/\/)/)) {
-  _arweavePrompt = summonPrompt;
-  summonPrompt = null;
+        _arweavePrompt = summonPrompt;
+        summonPrompt = null;
       }
       // Generate stats for the avatar
       const creationDate = new Date();
