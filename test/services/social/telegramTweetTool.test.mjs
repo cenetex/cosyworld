@@ -17,6 +17,7 @@ function createService(overrides = {}) {
 
   const collectionMock = {
     updateOne: vi.fn().mockResolvedValue({}),
+    insertOne: vi.fn().mockResolvedValue({ insertedId: 'mock' }),
     find: vi.fn().mockReturnValue({
       sort: () => ({
         limit: () => ({
@@ -99,5 +100,51 @@ describe('TelegramService tweet tool helpers', () => {
     }), expect.any(Object));
     expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Tweeted'));
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-1', 'media-1', expect.any(Object));
+  });
+});
+
+describe('TelegramService planning tool helpers', () => {
+  let service;
+
+  beforeEach(() => {
+    service = createService();
+  });
+
+  it('records plan entries and replies with formatted plan', async () => {
+    service._recordBotResponse = vi.fn().mockResolvedValue();
+    service._saveMessageToDatabase = vi.fn().mockResolvedValue();
+    service._persistAgentPlanRecord = vi.fn().mockResolvedValue();
+
+    const ctx = { reply: vi.fn() };
+
+    await service.executePlanActions(ctx, {
+      objective: 'Share a fresh creation',
+      steps: [
+        { action: 'speak', description: 'Tell the channel what inspired the piece' },
+        { action: 'generate_image', description: 'Create an image of the scene', expectedOutcome: 'A cozy visual' }
+      ],
+      confidence: 0.82
+    }, 'channel-plan', 'user-42', 'tester');
+
+    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('🧠 Planning sequence ready.'));
+    const plans = service.agentPlansByChannel.get('channel-plan');
+    expect(plans).toBeDefined();
+    expect(plans[0].steps).toHaveLength(2);
+    expect(plans[0].objective).toContain('fresh creation');
+  });
+
+  it('summarizes recent plans for prompt context', async () => {
+    const now = new Date();
+    service.agentPlansByChannel.set('channel-plan', [{
+      id: 'plan-1',
+      channelId: 'channel-plan',
+      objective: 'Delight the chat',
+      steps: [{ action: 'speak', description: 'Warm greeting' }],
+      createdAt: now
+    }]);
+
+    const planContext = await service._buildPlanContext('channel-plan', 2);
+    expect(planContext.summary).toContain('Recent agent plans');
+    expect(planContext.plans).toHaveLength(1);
   });
 });

@@ -105,6 +105,11 @@ class TelegramService {
     this.recentMediaByChannel = new Map(); // channelId -> [mediaEntries]
     this.RECENT_MEDIA_LIMIT = 10;
     this.RECENT_MEDIA_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
+
+    // Agent planning context (for planner tool)
+    this.agentPlansByChannel = new Map(); // channelId -> [planEntries]
+    this.AGENT_PLAN_LIMIT = 5;
+    this.AGENT_PLAN_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
   }
 
   /**
@@ -384,6 +389,29 @@ class TelegramService {
     }
   }
 
+  async _trackBotMessage(channelId, text) {
+    if (!channelId || !text) return;
+    const normalizedChannelId = String(channelId);
+    const entry = {
+      from: 'Bot',
+      text,
+      date: Math.floor(Date.now() / 1000),
+      isBot: true,
+      userId: null
+    };
+    const history = this.conversationHistory.get(normalizedChannelId) || [];
+    history.push(entry);
+    const trimmed = history.length > this.HISTORY_LIMIT
+      ? history.slice(-this.HISTORY_LIMIT)
+      : history;
+    this.conversationHistory.set(normalizedChannelId, trimmed);
+    try {
+      await this._saveMessageToDatabase(normalizedChannelId, entry);
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to track bot message:', error?.message || error);
+    }
+  }
+
   _getMemberCacheKey(channelId, userId) {
     return `${channelId}:${userId}`;
   }
@@ -519,6 +547,136 @@ class TelegramService {
       this.recentMediaByChannel.set(String(channelId), fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
     }
     return fromDb.slice(0, limit);
+  }
+
+  _pruneAgentPlans(channelId) {
+    const cache = this.agentPlansByChannel.get(channelId);
+    if (!cache || cache.length === 0) return;
+    const now = Date.now();
+    const pruned = cache
+      .filter(item => item && item.createdAt && (now - new Date(item.createdAt).getTime()) < this.AGENT_PLAN_MAX_AGE_MS)
+      .slice(0, this.AGENT_PLAN_LIMIT);
+    this.agentPlansByChannel.set(channelId, pruned);
+  }
+
+  async _rememberAgentPlan(channelId, entry = {}) {
+    try {
+      if (!channelId) return null;
+
+      const normalizedSteps = Array.isArray(entry.steps)
+        ? entry.steps
+            .map(step => ({
+              action: typeof step?.action === 'string' ? step.action : null,
+              description: typeof step?.description === 'string' ? step.description : null,
+              expectedOutcome: typeof step?.expectedOutcome === 'string' ? step.expectedOutcome : null
+            }))
+            .filter(step => step.description)
+        : [];
+
+      const normalized = {
+        id: entry.id || randomUUID(),
+        channelId: String(channelId),
+        objective: entry.objective || 'Respond thoughtfully to the user',
+        steps: normalizedSteps,
+        confidence: typeof entry.confidence === 'number'
+          ? Math.min(1, Math.max(0, entry.confidence))
+          : null,
+        createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+        userId: entry.userId || null,
+        metadata: entry.metadata || null
+      };
+
+      const cache = this.agentPlansByChannel.get(normalized.channelId) || [];
+      const deduped = cache.filter(item => item.id !== normalized.id);
+      deduped.unshift(normalized);
+      this.agentPlansByChannel.set(normalized.channelId, deduped.slice(0, this.AGENT_PLAN_LIMIT));
+      this._pruneAgentPlans(normalized.channelId);
+
+      this._persistAgentPlanRecord(normalized).catch(err => {
+        this.logger?.warn?.('[TelegramService] Failed to persist agent plan:', err?.message || err);
+      });
+
+      return normalized;
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] _rememberAgentPlan error:', error?.message || error);
+      return null;
+    }
+  }
+
+  async _persistAgentPlanRecord(record) {
+    if (!this.databaseService) return;
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_agent_plans').insertOne({
+        channelId: record.channelId,
+        id: record.id,
+        objective: record.objective,
+        steps: record.steps,
+        confidence: record.confidence,
+        userId: record.userId || null,
+        metadata: record.metadata || null,
+        createdAt: record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt)
+      });
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to store agent plan:', error?.message || error);
+    }
+  }
+
+  async _loadRecentPlansFromDb(channelId, limit = this.AGENT_PLAN_LIMIT) {
+    if (!this.databaseService) return [];
+    try {
+      const db = await this.databaseService.getDatabase();
+      const items = await db.collection('telegram_agent_plans')
+        .find({ channelId: String(channelId) })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return items.map(item => ({
+        ...item,
+        createdAt: item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt)
+      }));
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to load agent plans:', error?.message || error);
+      return [];
+    }
+  }
+
+  async _getRecentPlans(channelId, limit = 3) {
+    if (!channelId) return [];
+    this._pruneAgentPlans(String(channelId));
+    const cache = this.agentPlansByChannel.get(String(channelId));
+    if (cache?.length) {
+      return cache.slice(0, limit);
+    }
+    const fromDb = await this._loadRecentPlansFromDb(channelId, Math.max(limit, this.AGENT_PLAN_LIMIT));
+    if (fromDb.length) {
+      this.agentPlansByChannel.set(String(channelId), fromDb.slice(0, this.AGENT_PLAN_LIMIT));
+    }
+    return fromDb.slice(0, limit);
+  }
+
+  async _buildPlanContext(channelId, limit = 3) {
+    const plans = await this._getRecentPlans(channelId, limit);
+    if (!plans.length) {
+      return {
+        summary: 'Planning memory: No recent plans yet. When you anticipate multiple actions (speak, generate, post_tweet), call plan_actions to outline them before proceeding.',
+        plans: []
+      };
+    }
+    const summaryLines = plans.map((plan, idx) => {
+      const stepsPreview = Array.isArray(plan.steps) && plan.steps.length
+        ? plan.steps.slice(0, 2).map(step => `${(step.action || 'speak').toUpperCase()}: ${step.description}`).join(' → ')
+        : 'SPEAK: reply naturally';
+      const createdAt = plan.createdAt instanceof Date ? plan.createdAt : new Date(plan.createdAt);
+      const timeLabel = createdAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return `${idx + 1}. (${timeLabel}) ${plan.objective} — ${stepsPreview}`;
+    });
+    return {
+      summary: `Recent agent plans (most recent first):
+${summaryLines.join('\n')}
+Always consider calling plan_actions before executing media or tweet tools when multiple steps are needed.`,
+      plans
+    };
   }
 
   async _findRecentMediaById(channelId, mediaId) {
@@ -1752,6 +1910,7 @@ class TelegramService {
 Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')}
 Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
 
+  const planContext = await this._buildPlanContext(channelId, 3);
   const recentMediaContext = await this._buildRecentMediaContext(channelId, 5);
 
       // Use cached buybot context
@@ -1770,6 +1929,9 @@ Keep responses brief (2-3 sentences).
 
 ${toolCreditContext}${buybotContextStr}
 
+${planContext.summary}
+Call plan_actions before big multi-step moves (e.g., SPEAK -> GENERATE_IMAGE -> POST_TWEET) so you can outline the sequence explicitly for later reference.
+
 ${recentMediaContext.summary}
 When a user clearly wants to post to X/Twitter, call the tweet tool with the matching media ID from the list above (images/videos only). Never tweet automatically; confirm intent and only use media the user referenced.
 Tool usage: When tools are available and user asks for media, provide natural acknowledgment + tool call together.`;
@@ -1787,6 +1949,50 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       // Define available tools for the AI
       const tools = [
+        {
+          type: 'function',
+          function: {
+            name: 'plan_actions',
+            description: 'Outline a plan that lists upcoming actions (speak, generate_image, generate_video, post_tweet, research, etc.) before executing them.',
+            parameters: {
+              type: 'object',
+              properties: {
+                objective: {
+                  type: 'string',
+                  description: 'Overall goal or intention for the plan.'
+                },
+                steps: {
+                  type: 'array',
+                  minItems: 1,
+                  description: 'Ordered steps describing the actions you will take.',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      action: {
+                        type: 'string',
+                        description: 'Action keyword such as speak, generate_image, generate_video, post_tweet, research, wait.'
+                      },
+                      description: {
+                        type: 'string',
+                        description: 'Friendly description of what you will do and why.'
+                      },
+                      expectedOutcome: {
+                        type: 'string',
+                        description: 'Optional expected result of the step.'
+                      }
+                    },
+                    required: ['description']
+                  }
+                },
+                confidence: {
+                  type: 'number',
+                  description: 'Optional confidence score between 0 and 1.'
+                }
+              },
+              required: ['objective', 'steps']
+            }
+          }
+        },
         {
           type: 'function',
           function: {
@@ -1976,7 +2182,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
         this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args, userId, username });
 
-        if (functionName === 'get_token_stats') {
+        if (functionName === 'plan_actions') {
+          await this.executePlanActions(ctx, args, channelId, userId, username);
+        } else if (functionName === 'get_token_stats') {
           // Fetch token stats using buybotService
           await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
           
@@ -2041,6 +2249,51 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       const channelId = String(ctx.chat?.id || '');
       const userId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
       await this._recordBotResponse(channelId, userId);
+    }
+  }
+
+  async executePlanActions(ctx, args = {}, channelId, userId, username) {
+    try {
+      const planEntry = await this._rememberAgentPlan(channelId, {
+        objective: args.objective,
+        steps: args.steps,
+        confidence: args.confidence,
+        userId,
+        metadata: {
+          requestedByUsername: username || null
+        }
+      });
+
+      if (!planEntry) {
+        await ctx.reply('🧠 I tried to plan but something went wrong—give me another nudge?');
+        return;
+      }
+
+      const stepsText = planEntry.steps?.length
+        ? planEntry.steps.map((step, idx) => {
+            const actionLabel = step.action ? `[${step.action.toUpperCase()}] ` : '';
+            const outcome = step.expectedOutcome ? ` → ${step.expectedOutcome}` : '';
+            return `${idx + 1}. ${actionLabel}${step.description}${outcome}`;
+          }).join('\n')
+        : '1. [SPEAK] Share a thoughtful reply with the user.';
+
+      const confidenceLine = typeof planEntry.confidence === 'number'
+        ? `Confidence: ${(planEntry.confidence * 100).toFixed(0)}%`
+        : null;
+
+      const planMessage = [
+        '🧠 Planning sequence ready.',
+        `Goal: ${planEntry.objective}`,
+        stepsText,
+        confidenceLine
+      ].filter(Boolean).join('\n');
+
+      await ctx.reply(planMessage);
+      await this._recordBotResponse(channelId, userId);
+      await this._trackBotMessage(channelId, planMessage);
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] executePlanActions error:', error);
+      await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
     }
   }
 

@@ -334,6 +334,64 @@ async function createIndexes() {
       } else {
         console.log('  ✓ Index already exists: createdAt (TTL)');
       }
+
+    // ========================================================================
+    // TELEGRAM AGENT PLANS COLLECTION INDEXES
+    // ========================================================================
+    console.log('\n🧠  Creating indexes for telegram_agent_plans collection...');
+
+    const agentPlansCollection = db.collection('telegram_agent_plans');
+    let existingAgentPlanNames = [];
+    try {
+      const indexes = await agentPlansCollection.indexes();
+      existingAgentPlanNames = indexes.map(idx => idx.name);
+    } catch (error) {
+      if (error.code === 26) {
+        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
+        existingAgentPlanNames = [];
+      } else {
+        throw error;
+      }
+    }
+
+    if (!existingAgentPlanNames.includes('channelId_createdAt_agent_plan')) {
+      try {
+        await agentPlansCollection.createIndex(
+          { channelId: 1, createdAt: -1 },
+          { name: 'channelId_createdAt_agent_plan' }
+        );
+        console.log('  ✓ Created index: channelId + createdAt');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  Index exists (different name): channelId + createdAt');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: channelId + createdAt');
+    }
+
+    if (!existingAgentPlanNames.includes('createdAt_ttl_agent_plan')) {
+      try {
+        await agentPlansCollection.createIndex(
+          { createdAt: 1 },
+          {
+            name: 'createdAt_ttl_agent_plan',
+            expireAfterSeconds: 3 * 24 * 60 * 60 // 3 days
+          }
+        );
+        console.log('  ✓ Created TTL index: createdAt (3 days)');
+      } catch (error) {
+        if (error.code === 85) {
+          console.log('  ℹ️  TTL index exists (different name): createdAt');
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      console.log('  ✓ Index already exists: createdAt (TTL)');
+    }
     
     // ========================================================================
     // TELEGRAM MEDIA USAGE COLLECTION INDEXES
