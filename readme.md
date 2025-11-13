@@ -1,4 +1,3 @@
-````markdown
 # CosyWorld - Unified AI Community Management Platform
 
 **A next-generation community management system that unifies Discord, X (Twitter), Telegram, and other platforms with built-in AI agents**
@@ -462,5 +461,3 @@ CosyWorld is actively developed and suitable for testing and production use with
 ---
 
 *CosyWorld - Building the future of AI-powered community management* 🌟
-
-````
