@@ -180,10 +180,10 @@ export class SummonTool extends BasicTool {
     this.name = 'summon';
     this.description = 'Summons a new avatar';
     this.emoji = '🔮'; // Default emoji
-  // Limit: one summon per user per day (excluding admin override)
-  this.DAILY_SUMMON_LIMIT = 18;
+    this.DAILY_SUMMON_LIMIT = 18; // Per-user daily summon limit
     this.replyNotification = true;
-    this.cooldownMs = 10 * 1000; // 1 minute cooldown
+    this.cooldownMs = 10 * 1000; // 10 second cooldown
+    this._dailySummonIndexEnsured = false;
   }
 
   /**
@@ -202,6 +202,26 @@ export class SummonTool extends BasicTool {
     return `${this.emoji} <avatar name or description>`;
   }
 
+  async ensureDailySummonIndexes() {
+    if (this._dailySummonIndexEnsured) return;
+    try {
+      this.db = this.db || await this.databaseService.getDatabase();
+      await Promise.all([
+        this.db.collection('daily_summons').createIndex(
+          { timestamp: 1 },
+          { expireAfterSeconds: 30 * 24 * 60 * 60, name: 'daily_summons_ttl' }
+        ),
+        this.db.collection('daily_summons').createIndex(
+          { userId: 1, timestamp: 1 },
+          { name: 'daily_summons_user_day' }
+        )
+      ]);
+      this._dailySummonIndexEnsured = true;
+    } catch (error) {
+      this.logger?.warn?.(`[SummonTool] Failed to ensure daily summon indexes: ${error.message}`);
+    }
+  }
+
   /**
    * Checks if the user has not exceeded the daily summon limit.
    * @param {string} userId - The ID of the user.
@@ -209,15 +229,15 @@ export class SummonTool extends BasicTool {
    */
   async checkDailySummonLimit(userId) {
     try {
-  // Always ensure DB reference (in case called before execute sets this.db)
-  this.db = this.db || await this.databaseService.getDatabase();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
+      await this.ensureDailySummonIndexes();
+      this.db = this.db || await this.databaseService.getDatabase();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
       return count < this.DAILY_SUMMON_LIMIT;
     } catch (error) {
       this.logger.error(`Error checking summon limit: ${error.message}`);
-      return false;
+      return true;
     }
   }
 
@@ -227,13 +247,15 @@ export class SummonTool extends BasicTool {
    */
   async trackSummon(userId) {
     try {
-  this.db = this.db || await this.databaseService.getDatabase();
+      await this.ensureDailySummonIndexes();
+      this.db = this.db || await this.databaseService.getDatabase();
       await this.db.collection('daily_summons').insertOne({
         userId,
         timestamp: new Date(),
       });
     } catch (error) {
       this.logger.error(`Error tracking summon: ${error.message}`);
+      throw error;
     }
   }
 
@@ -286,7 +308,11 @@ export class SummonTool extends BasicTool {
             const picked = await this.aiService.selectRandomModel();
             if (picked) {
               av.model = picked;
-              try { await this.avatarService.updateAvatar(av); } catch {}
+              try {
+                await this.avatarService.updateAvatar(av);
+              } catch (updateErr) {
+                this.logger?.warn?.(`[AI][SummonTool] ensureModel update failed for ${av.name || av._id}: ${updateErr.message}`);
+              }
               this.logger?.info?.(`[AI][SummonTool] assigned model='${picked}' to ${av.name || av._id}`);
             }
           }
@@ -906,7 +932,8 @@ export class SummonTool extends BasicTool {
         prompt,
         channelId: message.channel.id,
         imageUrl: imageUrlOverride,
-        guildId
+        guildId,
+        summoner: `user:${message.author.id}`
       };
 
       // Create new avatar
@@ -945,7 +972,11 @@ export class SummonTool extends BasicTool {
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
           ], { model: createdAvatar.model, corrId });
           let brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
-          try { if (typeof brief === 'string') brief = stripHiddenTags(brief); } catch {}
+          try {
+            if (typeof brief === 'string') brief = stripHiddenTags(brief);
+          } catch (stripErr) {
+            this.logger?.debug?.(`[SummonTool] Failed to strip hidden tags from brief: ${stripErr.message}`);
+          }
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
           this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
@@ -975,7 +1006,11 @@ export class SummonTool extends BasicTool {
       );
   let intro = typeof introResult === 'object' && introResult?.text ? introResult.text : introResult;
       // Safety scrub in case provider leaked <think>
-      try { if (typeof intro === 'string') intro = intro.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
+      try {
+        if (typeof intro === 'string') intro = intro.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      } catch (stripErr) {
+        this.logger?.debug?.(`[SummonTool] Failed to strip hidden tags from intro pre-clean: ${stripErr.message}`);
+      }
       // Extract <think> tags from intro, store as thoughts & strip before sending
       try {
         const thinkRegex = /<think>(.*?)<\/think>/gs;
@@ -1010,15 +1045,17 @@ export class SummonTool extends BasicTool {
       if (!breed) await this.trackSummon(message.author.id);
 
       // Send final response
-      setImmediate(async () => {
-        // Send profile and introduction
-        await this.discordService.sendAsWebhook(message.channel.id, createdAvatar.imageUrl, createdAvatar);
-        await this.discordService.sendAsWebhook(message.channel.id, intro, createdAvatar);
-        await this.discordService.sendAvatarEmbed(createdAvatar, message.channel.id, this.aiService);
-        // Ensure avatar has correct channelId before response
-        createdAvatar.channelId = message.channel.id;
-        await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
-       });
+      setImmediate(() => {
+        (async () => {
+          await this.discordService.sendAsWebhook(message.channel.id, createdAvatar.imageUrl, createdAvatar);
+          await this.discordService.sendAsWebhook(message.channel.id, intro, createdAvatar);
+          await this.discordService.sendAvatarEmbed(createdAvatar, message.channel.id, this.aiService);
+          createdAvatar.channelId = message.channel.id;
+          await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
+        })().catch(err => {
+          this.logger?.warn?.(`[SummonTool] Post-summon follow-up failed: ${err.message}`);
+        });
+      });
       return `-# ${this.emoji} [ ${createdAvatar.name} has been summoned into existence. ]`;
     } catch (error) {
       this.logger.error(`Summon error: ${error.message}`);

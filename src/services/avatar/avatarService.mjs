@@ -1569,7 +1569,6 @@ export class AvatarService {
     if (!validatedName) return null;
     details.name = validatedName;
 
-    // Check for existing avatar with same name
     const existing = await this._checkExistingAvatar(details.name);
     if (existing) return existing;
 
@@ -1577,8 +1576,7 @@ export class AvatarService {
     if (imageUrlOverride) {
       imageUrl = imageUrlOverride;
     } else {
-      try { 
-        // Pass metadata through to the upload service for proper event emission
+      try {
         const uploadOptions = {
           source: 'avatar.create',
           avatarName: details.name,
@@ -1586,7 +1584,7 @@ export class AvatarService {
           prompt: details.description,
           context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim()
         };
-        imageUrl = await this.generateAvatarImage(details.description, uploadOptions); 
+        imageUrl = await this.generateAvatarImage(details.description, uploadOptions);
       } catch (e) {
         this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
         imageUrl = null;
@@ -1595,63 +1593,79 @@ export class AvatarService {
     let model = null;
     try { model = await this.aiService.getModel(details.model); } catch { model = details.model || 'auto'; }
 
-    const doc = {
+    const now = new Date();
+    const insertDoc = {
       ...details,
       imageUrl,
       model,
-      channelId,
-      summoner,
+      channelId: channelId || null,
+      summoner: summoner ? String(summoner) : null,
       guildId: guildId || null,
       lives: 3,
       status: 'alive',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: now,
+      updatedAt: now
     };
 
     const db = await this._db();
-    const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
-    const createdAvatar = { ...doc, _id: insertedId };
+    const collection = db.collection(this.AVATARS_COLLECTION);
+    const result = await collection.findOneAndUpdate(
+      { name: details.name },
+      {
+        $setOnInsert: insertDoc,
+        $set: { updatedAt: now }
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    const createdAvatar = result.value;
+    if (!createdAvatar) {
+      this.logger?.error?.(`[AvatarService] Failed to create or fetch avatar for ${details.name}`);
+      return null;
+    }
+
+    const isNew = Boolean(result.lastErrorObject?.upserted);
+    if (!isNew) {
+      createdAvatar._existing = true;
+      createdAvatar.stats = createdAvatar.stats || await this.getOrCreateStats(createdAvatar);
+      return createdAvatar;
+    }
 
     if (!createdAvatar.imageUrl) {
       await this._ensureAvatarImage(createdAvatar, { reason: 'post-create', force: true });
     }
 
-  // Auto-post new avatars to X when enabled and admin account is linked
     try {
       const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
       if (autoPost === 'true' && createdAvatar.imageUrl && this.configService?.services?.xService) {
-        // Basic dedupe: avoid posting if a recent social_posts entry exists for this image
         const posted = await db.collection('social_posts').findOne({ imageUrl: createdAvatar.imageUrl, mediaType: 'image' });
         if (!posted) {
           try {
-            // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
             let admin = null;
             const envId = resolveAdminAvatarId();
             if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
               admin = await this.configService.services.avatarService.getAvatarById(envId);
             } else {
               const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
-              const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
-              const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
-              admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
+              const modelId = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+              const safe = String(modelId).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+              admin = { _id: `model:${safe}`, name: `System (${modelId})`, username: process.env.X_ADMIN_USERNAME || undefined };
             }
             if (admin) {
               const content = `${createdAvatar.emoji || ''} Meet ${createdAvatar.name} — ${createdAvatar.description}`.trim().slice(0, 240);
-              // Emit event for global auto-poster system (may have been emitted by S3Service already, but ensure it's available)
-              try { 
-                eventBus.emit('MEDIA.IMAGE.GENERATED', { 
-                  type: 'image', 
-                  source: 'avatar.create', 
-                  avatarId: insertedId, 
-                  imageUrl: createdAvatar.imageUrl, 
-                  prompt: createdAvatar.description, 
+              try {
+                eventBus.emit('MEDIA.IMAGE.GENERATED', {
+                  type: 'image',
+                  source: 'avatar.create',
+                  avatarId: createdAvatar._id,
+                  imageUrl: createdAvatar.imageUrl,
+                  prompt: createdAvatar.description,
                   avatarName: createdAvatar.name,
                   avatarEmoji: createdAvatar.emoji,
                   context: content,
-                  createdAt: new Date() 
-                }); 
+                  createdAt: new Date()
+                });
               } catch {}
-              // Direct X posting for backwards compatibility (may be skipped if global auto-poster already posted)
               await this.configService.services.xService.postImageToX(admin, createdAvatar.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
