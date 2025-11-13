@@ -55,7 +55,8 @@ export class ToolService {
     knowledgeService,
     veoService,
     videoJobService,
-    presenceService
+    presenceService,
+    conversationThreadService
   }) {
     this.toolServices = {
       logger,
@@ -86,7 +87,8 @@ export class ToolService {
       knowledgeService,
       veoService,
       videoJobService,
-      presenceService
+      presenceService,
+      conversationThreadService
     }
 
     this.logger = logger || console;
@@ -95,12 +97,13 @@ export class ToolService {
     this.discordService = discordService;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
-    this.spamControlService = spamControlService;
-    this.moderationService = moderationService;
-    this.mapService = mapService;
-    this.decisionMaker = decisionMaker;
-    this.avatarService = avatarService;
-    this.riskManagerService = riskManagerService;
+  this.spamControlService = spamControlService;
+  this.moderationService = moderationService;
+  this.mapService = mapService;
+  this.decisionMaker = decisionMaker;
+  this.avatarService = avatarService;
+  this.riskManagerService = riskManagerService;
+  this.conversationManager = null;
     
     this.started = false;
     this.cooldownService = cooldownService || new CooldownService();
@@ -164,6 +167,23 @@ export class ToolService {
     if (tool?.name) {
       this.tools.set(tool.name, tool);
       if (tool.emoji) this.toolEmojis.set(tool.emoji, tool.name);
+    }
+  }
+
+  setConversationManager(conversationManager) {
+    if (!conversationManager || this.conversationManager === conversationManager) return;
+    this.conversationManager = conversationManager;
+    this.toolServices.conversationManager = conversationManager;
+    // Backfill existing tools so they can access the manager without constructor injection
+    for (const tool of this.tools.values()) {
+      tool.conversationManager = conversationManager;
+      if (typeof tool.setConversationManager === 'function') {
+        try {
+          tool.setConversationManager(conversationManager);
+        } catch (err) {
+          this.logger?.debug?.(`[ToolService] setConversationManager propagation failed for ${tool.name}: ${err.message}`);
+        }
+      }
     }
   }
 

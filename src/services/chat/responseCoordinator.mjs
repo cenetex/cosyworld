@@ -22,6 +22,7 @@ export class ResponseCoordinator {
     avatarService,
     decisionMaker,
     discordService,
+    conversationThreadService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -30,6 +31,7 @@ export class ResponseCoordinator {
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.discordService = discordService;
+  this.conversationThreadService = conversationThreadService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
@@ -103,6 +105,7 @@ export class ResponseCoordinator {
 
       // 5. Generate responses with locking
       const responses = [];
+      const threadSelections = context.threadSelections || {};
       for (const avatar of selectedAvatars) {
         this.logger.debug?.(`[ResponseCoordinator] Attempting response from ${avatar.name}`);
         
@@ -116,7 +119,12 @@ export class ResponseCoordinator {
         try {
           this.logger.debug?.(`[ResponseCoordinator] Lock acquired, generating response for ${avatar.name}`);
           // Generate and send the response
-          const response = await this.generateResponse(avatar, channel, message, context);
+          const avatarId = `${avatar._id || avatar.id}`;
+          const responseContext = {
+            ...context,
+            conversationThread: threadSelections[avatarId] || context.conversationThread || null
+          };
+          const response = await this.generateResponse(avatar, channel, message, responseContext);
           if (response) {
             this.logger.debug?.(`[ResponseCoordinator] Response generated successfully for ${avatar.name}`);
             responses.push(response);
@@ -262,6 +270,15 @@ export class ResponseCoordinator {
       }
     } else {
       this.logger.debug?.(`[ResponseCoordinator] No reply detected (message.repliedToAvatarId: ${message?.repliedToAvatarId || 'undefined'})`);
+    }
+
+    const threadResult = await this.getThreadParticipant(channelId, eligibleAvatars);
+    if (threadResult) {
+      if (!_context.threadSelections) _context.threadSelections = {};
+      const key = `${threadResult.avatar._id || threadResult.avatar.id}`;
+      _context.threadSelections[key] = threadResult.thread;
+      this.logger.info?.(`[ResponseCoordinator] Thread participant: ${threadResult.avatar.name}`);
+      return [threadResult.avatar];
     }
 
     // PRIORITY 1: Explicit summon with guaranteed turns
@@ -446,6 +463,28 @@ export class ResponseCoordinator {
 
     // No avatar selected
     return [];
+  }
+
+  async getThreadParticipant(channelId, eligibleAvatars) {
+    if (!this.conversationThreadService) return null;
+    try {
+      const threads = this.conversationThreadService.getActiveThreads(channelId) || [];
+      if (!threads.length) return null;
+      for (const thread of threads) {
+        const participant = eligibleAvatars.find(av => {
+          const avatarId = `${av._id || av.id}`;
+          if (!thread.participants?.has?.(avatarId)) return false;
+          if (thread.lastSpeakerId && thread.lastSpeakerId === avatarId) return false;
+          return true;
+        });
+        if (participant) {
+          return { avatar: participant, thread };
+        }
+      }
+    } catch (err) {
+      this.logger.debug?.(`[ResponseCoordinator] Thread participant lookup failed: ${err.message}`);
+    }
+    return null;
   }
 
   /**
@@ -925,7 +964,8 @@ export class ResponseCoordinator {
     try {
       const options = {
         overrideCooldown: context.overrideCooldown || false,
-        cascadeDepth: context.cascadeDepth || 0
+        cascadeDepth: context.cascadeDepth || 0,
+        conversationThread: context.conversationThread || null
       };
 
       this.logger.debug?.(`[ResponseCoordinator] generateResponse called for ${avatar.name} in channel ${channel.id}`);

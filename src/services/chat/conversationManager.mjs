@@ -23,11 +23,17 @@ export class ConversationManager  {
     mapService,
   toolService,
   presenceService,
+  conversationThreadService,
   toolSchemaGenerator,
   toolExecutor,
   toolDecisionService
   }) {
     this.toolService = toolService;
+    if (this.toolService?.setConversationManager) {
+      this.toolService.setConversationManager(this);
+    } else if (this.toolService) {
+      this.toolService.conversationManager = this;
+    }
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.aiService = aiService;
@@ -40,6 +46,7 @@ export class ConversationManager  {
     this.knowledgeService = knowledgeService;
     this.mapService = mapService;
   this.presenceService = presenceService; // optional; used for bot->bot mention cascades
+  this.conversationThreadService = conversationThreadService;
   this.toolSchemaGenerator = toolSchemaGenerator; // Phase 2: LLM tool calling
   this.toolExecutor = toolExecutor; // Phase 2: Tool execution loop
   this.toolDecisionService = toolDecisionService; // Phase 2: Universal tool decisions
@@ -614,7 +621,7 @@ export class ConversationManager  {
   }
 
   async sendResponse(channel, avatar, presetResponse = null, options = {}) {
-  const { overrideCooldown = false, cascadeDepth = 0, tradeContext = null } = options || {};
+  const { overrideCooldown = false, cascadeDepth = 0, tradeContext = null, conversationThread = null } = options || {};
     
     this.logger.info?.(`[ConversationManager] sendResponse called for ${avatar.name} in channel ${channel.id}, overrideCooldown=${overrideCooldown}`);
     this.logger.info?.(`[ConversationManager] Channel object type: ${typeof channel}, has id: ${!!channel?.id}, Avatar object type: ${typeof avatar}, has name: ${!!avatar?.name}`);
@@ -1148,6 +1155,16 @@ export class ConversationManager  {
           this.logger.debug(`Processed ${thoughts.length} thought(s) for ${avatar.name} without sending a message (think-only).`);
         }
       }
+      if (conversationThread && this.conversationThreadService) {
+        try {
+          const threadId = typeof conversationThread === 'string' ? conversationThread : conversationThread.id;
+          if (threadId) {
+            await this.conversationThreadService.recordTurn(channel.id, `${avatar._id}`, threadId);
+          }
+        } catch (err) {
+          this.logger.debug?.(`[ConversationManager] Failed to record thread turn: ${err.message}`);
+        }
+      }
       this.channelLastMessage.set(channel.id, Date.now());
       this.channelResponders.get(channel.id).add(avatar._id);
       setTimeout(() => this.channelResponders.set(channel.id, new Set()), this.CHANNEL_COOLDOWN);
@@ -1173,7 +1190,10 @@ export class ConversationManager  {
     let others = [];
     try {
       others = await this.avatarService.getAvatarsInChannel(channel.id, guildId);
-    } catch (e) { this.logger.warn(`mention cascade: failed to load avatars: ${e.message}`); return; }
+    } catch (e) {
+      this.logger.warn(`mention cascade: failed to load avatars: ${e.message}`);
+      return;
+    }
     if (!Array.isArray(others) || !others.length) return;
 
     const lower = text.toLowerCase();
@@ -1188,7 +1208,6 @@ export class ConversationManager  {
       const name = String(av.name || '').trim();
       if (!name) continue;
       const nameLower = name.toLowerCase();
-      // Use word boundary regex to reduce incidental substring hits (fallback to includes for CJK / emoji)
       let matched = false;
       if (/^[\p{L}\p{N}_'-]+$/u.test(name)) {
         const re = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(nameLower)}(?:$|[^\p{L}\p{N}])`, 'u');
@@ -1204,25 +1223,42 @@ export class ConversationManager  {
     }
     if (!mentioned.length) return;
 
-    // Limit cascade replies; env override BOT_MENTION_CASCADE_LIMIT else default 1
-    const limit = Number(process.env.BOT_MENTION_CASCADE_LIMIT || 1);
-    const slice = mentioned.slice(0, Math.max(0, limit));
-    for (const target of slice) {
-      if (responders.size >= maxPerMessage) break;
+    const cascadeLimit = Number(process.env.BOT_MENTION_CASCADE_LIMIT ?? 3);
+    const maxThreadTurns = Number(process.env.BOT_MENTION_THREAD_TURNS || this.conversationThreadService?.DEFAULT_MAX_TURNS || 6);
+    const grantTurns = Number(process.env.BOT_MENTION_GRANT_TURNS || Math.min(2, maxThreadTurns));
+    const createThread = String(process.env.BOT_MENTION_CREATE_THREAD || 'true').toLowerCase() === 'true';
+
+    let thread = null;
+    if (this.conversationThreadService && createThread) {
       try {
-        // Presence updates & lightweight boost
+        thread = await this.conversationThreadService.startThread(
+          channel.id,
+          [speakingAvatar, ...mentioned],
+          { mode: 'mention', maxTurns: maxThreadTurns, duration: Number(process.env.CONVERSATION_THREAD_TTL || 180000) }
+        );
+      } catch (err) {
+        this.logger.debug?.(`mention thread creation failed: ${err.message}`);
+      }
+    }
+
+    const availableBudget = Math.max(0, maxPerMessage - responders.size);
+    const slice = mentioned.slice(0, Math.max(0, Math.min(cascadeLimit || mentioned.length, availableBudget)));
+
+    for (const target of slice) {
+      try {
         await this.presenceService.ensurePresence(channel.id, `${target._id}`);
         await this.presenceService.recordMention(channel.id, `${target._id}`);
-        // Only grant a turn if they don't already have pending summon turns
         try {
           const presCol = await this.presenceService.col();
-            const doc = await presCol.findOne({ channelId: channel.id, avatarId: `${target._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
-          if (!doc?.newSummonTurnsRemaining) {
-            await this.presenceService.grantNewSummonTurns(channel.id, `${target._id}`, 1);
+          const doc = await presCol.findOne(
+            { channelId: channel.id, avatarId: `${target._id}` },
+            { projection: { newSummonTurnsRemaining: 1 } }
+          );
+          if (!doc?.newSummonTurnsRemaining && grantTurns > 0) {
+            await this.presenceService.grantNewSummonTurns(channel.id, `${target._id}`, grantTurns);
           }
         } catch {}
-        
-        // Record conversation relationship between speaking avatar and mentioned avatar
+
         if (this.configService?.services?.avatarRelationshipService) {
           try {
             const relationshipService = this.configService.services.avatarRelationshipService;
@@ -1231,21 +1267,51 @@ export class ConversationManager  {
               avatar1Name: speakingAvatar.name,
               avatar2Id: String(target._id),
               avatar2Name: target.name,
-              messageId: 'mention', // Could be enhanced with actual message ID
+              messageId: 'mention',
               content: text.substring(0, 200),
               context: `${speakingAvatar.name} mentioned ${target.name} in conversation`,
-              sentiment: 'neutral' // Could enhance with sentiment detection
+              sentiment: 'neutral'
             });
           } catch (relErr) {
             this.logger.debug?.(`Failed to record conversation relationship: ${relErr.message}`);
           }
         }
-        
-        // Attempt immediate reply (overrideCooldown to keep flow natural)
-        await this.sendResponse(channel, target, null, { overrideCooldown: true, cascadeDepth: cascadeDepth + 1 });
+
+        const sendResult = await this.sendResponse(channel, target, null, {
+          overrideCooldown: true,
+          cascadeDepth: cascadeDepth + 1,
+          conversationThread: thread?.id || thread
+        });
+
+        if (sendResult && thread && this.conversationThreadService) {
+          try {
+            await this.conversationThreadService.recordTurn(channel.id, `${target._id}`, thread.id);
+          } catch (err) {
+            this.logger.debug?.(`mention thread record failed: ${err.message}`);
+          }
+        }
       } catch (e) {
         this.logger.debug?.(`mention cascade send failed for ${target.name}: ${e.message}`);
       }
+    }
+  }
+
+  async checkForNewMessages(channel, avatar, { since = Date.now() - 5000, limit = 10 } = {}) {
+    try {
+      const channelObj = typeof channel === 'string' ? await this.discordService.client.channels.fetch(channel) : channel;
+      if (!channelObj?.messages?.fetch) return false;
+      const fetched = await channelObj.messages.fetch({ limit });
+      const avatarId = avatar ? String(avatar._id || avatar.id || '') : '';
+      const sinceTs = Number(since) || 0;
+      return Array.from(fetched.values()).some(msg => {
+        if (!msg) return false;
+        if (avatarId && String(msg.author?.id) === avatarId) return false;
+        if (msg.author?.bot && msg.author?.id === this.discordService.client?.user?.id) return false;
+        return msg.createdTimestamp > sinceTs;
+      });
+    } catch (err) {
+      this.logger.debug?.(`checkForNewMessages failed: ${err.message}`);
+      return false;
     }
   }
 

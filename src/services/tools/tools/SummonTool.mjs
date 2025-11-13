@@ -164,6 +164,8 @@ export class SummonTool extends BasicTool {
     statService,
     presenceService,
     logger,
+    conversationManager,
+    conversationThreadService,
   }) {
     super();
     this.discordService = discordService;
@@ -176,6 +178,8 @@ export class SummonTool extends BasicTool {
     this.statService = statService;
     this.presenceService = presenceService;
     this.logger = logger;
+    this.conversationManager = conversationManager;
+    this.conversationThreadService = conversationThreadService;
 
     this.name = 'summon';
     this.description = 'Summons a new avatar';
@@ -185,6 +189,16 @@ export class SummonTool extends BasicTool {
     this.cooldownMs = 10 * 1000; // 10 second cooldown
     this._dailySummonIndexEnsured = false;
     this._fallbackSummonTracking = new Map();
+    this.SUMMON_INITIAL_TURNS = Number(process.env.SUMMON_INITIAL_TURNS || 5);
+    this.SUMMON_PROACTIVE_ENABLED = String(process.env.SUMMON_PROACTIVE_ENABLED || 'true').toLowerCase() === 'true';
+    this.SUMMON_CONVERSATION_DURATION_MS = Number(process.env.SUMMON_CONVERSATION_DURATION || 300000);
+    this.SUMMON_FIRST_FOLLOWUP_DELAY_MS = Number(process.env.SUMMON_FIRST_FOLLOWUP_DELAY_MS || 4000);
+    this.SUMMON_SECOND_FOLLOWUP_DELAY_MS = Number(process.env.SUMMON_SECOND_FOLLOWUP_DELAY_MS || 8000);
+    this.SUMMON_THREAD_MAX_TURNS = Number(process.env.SUMMON_THREAD_MAX_TURNS || 8);
+  }
+
+  setConversationManager(conversationManager) {
+    this.conversationManager = conversationManager;
   }
 
   /**
@@ -301,6 +315,9 @@ export class SummonTool extends BasicTool {
   async execute(message, params = {}, _avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
+      const channelId = message.channel.id;
+  const summonGuildId = message.guild?.id;
+      const guaranteedTurns = Math.max(1, this.SUMMON_INITIAL_TURNS || 3);
       const resolveCatalogModelId = (query = '') => {
         if (!query) return null;
         const cleaned = String(query).trim().toLowerCase();
@@ -1061,17 +1078,55 @@ export class SummonTool extends BasicTool {
       createdAvatar.dynamicPersonality = intro; // use cleaned intro as initial dynamic personality snapshot
 
       // Initialize avatar and react
-      await this.avatarService.initializeAvatar(createdAvatar, message.channel.id);
+      await this.avatarService.initializeAvatar(createdAvatar, channelId);
       // Presence priority: mark start session & grant guaranteed early turns
       try {
         if (this.presenceService?.startSession) {
-          await this.presenceService.startSession(message.channel.id, `${createdAvatar._id}`);
-          await this.presenceService.grantNewSummonTurns(message.channel.id, `${createdAvatar._id}`, 3);
+          await this.presenceService.startSession(channelId, `${createdAvatar._id}`);
+          await this.presenceService.grantNewSummonTurns(channelId, `${createdAvatar._id}`, guaranteedTurns);
+          if (this.presenceService.enableConversationMode) {
+            await this.presenceService.enableConversationMode(channelId, `${createdAvatar._id}`, {
+              duration: this.SUMMON_CONVERSATION_DURATION_MS,
+              maxTurns: Math.max(guaranteedTurns, 5),
+              source: 'summon',
+              proactive: true
+            });
+          }
         }
       } catch (e) { this.logger?.warn?.(`Failed to grant new summon priority: ${e.message}`); }
 
       // Ensure avatar's position is updated in the mapService
-      await this.mapService.updateAvatarPosition(createdAvatar, message.channel.id);
+      await this.mapService.updateAvatarPosition(createdAvatar, channelId);
+
+      let otherAvatars = [];
+      let summonThread = null;
+      try {
+  const present = await this.avatarService.getAvatarsInChannel(channelId, summonGuildId);
+        otherAvatars = (present || []).filter(av => String(av._id) !== String(createdAvatar._id));
+        if (this.conversationThreadService && otherAvatars.length > 0) {
+          summonThread = await this.conversationThreadService.startThread(
+            channelId,
+            [createdAvatar, ...otherAvatars],
+            {
+              mode: 'summon',
+              maxTurns: this.SUMMON_THREAD_MAX_TURNS,
+              duration: this.SUMMON_CONVERSATION_DURATION_MS,
+              proactive: true
+            }
+          );
+        }
+      } catch (err) {
+        this.logger?.debug?.(`[SummonTool] Failed to prepare summon thread: ${err.message}`);
+      }
+
+      if (this.SUMMON_PROACTIVE_ENABLED) {
+        this._scheduleSummonFollowups({
+          avatar: createdAvatar,
+          message,
+          otherAvatars,
+          thread: summonThread
+        });
+      }
 
       // Track summon if not breeding
       if (!breed) {
@@ -1100,5 +1155,46 @@ export class SummonTool extends BasicTool {
       await this.discordService.reactToMessage(message, '❌');
       return `-# [ ❌ Error: Failed to summon: ${error.message} ]`;
     }
+  }
+
+  _scheduleSummonFollowups({ avatar, message, otherAvatars = [], thread }) {
+    if (!this.conversationManager || !this.discordService?.client) return;
+    const firstDelay = Math.max(0, this.SUMMON_FIRST_FOLLOWUP_DELAY_MS);
+    const secondDelay = Math.max(0, this.SUMMON_SECOND_FOLLOWUP_DELAY_MS);
+    const channelId = message.channel.id;
+    const participantNames = otherAvatars.map(av => av?.name).filter(Boolean);
+    const promptContext = participantNames.length
+      ? `You just arrived. You notice ${participantNames.join(', ')} here. Respond naturally (under 200 chars).`
+      : 'You just arrived. Respond naturally and invite conversation (under 200 chars).';
+    const conversationThread = thread?.id || thread || null;
+
+    setTimeout(async () => {
+      try {
+        const channel = await this.discordService.client.channels.fetch(channelId);
+        if (!channel) return;
+        await this.conversationManager.sendResponse(channel, avatar, null, {
+          overrideCooldown: true,
+          tradeContext: promptContext,
+          conversationThread
+        });
+        const firstSentAt = Date.now();
+        setTimeout(async () => {
+          try {
+            const nextChannel = await this.discordService.client.channels.fetch(channelId);
+            if (!nextChannel) return;
+            const hasReplies = await this.conversationManager.checkForNewMessages(nextChannel, avatar, { since: firstSentAt });
+            if (!hasReplies) return;
+            await this.conversationManager.sendResponse(nextChannel, avatar, null, {
+              overrideCooldown: true,
+              conversationThread
+            });
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] Secondary summon follow-up failed: ${err.message}`);
+          }
+        }, secondDelay);
+      } catch (err) {
+        this.logger?.debug?.(`[SummonTool] Summon follow-up failed: ${err.message}`);
+      }
+    }, firstDelay);
   }
 }
