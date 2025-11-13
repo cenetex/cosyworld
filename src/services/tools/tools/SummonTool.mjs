@@ -476,34 +476,46 @@ export class SummonTool extends BasicTool {
         }
 
         const db = await this.avatarService._db();
-        const filters = {
+        const baseFilters = {
           status: { $ne: 'dead' },
           isPartial: { $ne: true },
           tags: 'model-roster'
         };
-        if (guildId) filters.guildId = guildId;
-        const rosterQuery = buildAvatarQuery(filters);
+
+        const fetchRosterAvatars = async (extraFilters = {}) => {
+          const rosterQuery = buildAvatarQuery({ ...baseFilters, ...extraFilters });
+          try {
+            return await db.collection(this.avatarService.AVATARS_COLLECTION)
+              .find(rosterQuery)
+              .project({
+                name: 1,
+                model: 1,
+                tags: 1,
+                description: 1,
+                guildId: 1,
+                stats: 1,
+                emoji: 1,
+                imageUrl: 1,
+                summoner: 1,
+                createdAt: 1,
+                summonsday: 1
+              })
+              .toArray();
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] roster lookup failed: ${err?.message}`);
+            return [];
+          }
+        };
+
         let rosterAvatars = [];
-        try {
-          rosterAvatars = await db.collection(this.avatarService.AVATARS_COLLECTION)
-            .find(rosterQuery)
-            .project({
-              name: 1,
-              model: 1,
-              tags: 1,
-              description: 1,
-              guildId: 1,
-              stats: 1,
-              emoji: 1,
-              imageUrl: 1,
-              summoner: 1,
-              createdAt: 1,
-              summonsday: 1
-            })
-            .toArray();
-        } catch (err) {
-          this.logger?.debug?.(`[SummonTool] roster lookup failed: ${err?.message}`);
-          rosterAvatars = [];
+        if (guildId) {
+          rosterAvatars = await fetchRosterAvatars({ guildId });
+          if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) {
+            rosterAvatars = await fetchRosterAvatars({ guildId: 'global' });
+          }
+        }
+        if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) {
+          rosterAvatars = await fetchRosterAvatars();
         }
 
         if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) return null;
