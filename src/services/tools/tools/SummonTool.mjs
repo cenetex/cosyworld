@@ -5,6 +5,8 @@
 
 import { BasicTool } from '../BasicTool.mjs';
 import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQuery.js';
+import { aiModelService } from '../../ai/aiModelService.mjs';
+import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
 
 const levenshteinDistance = (a = '', b = '') => {
   const s = a.toLowerCase();
@@ -245,6 +247,39 @@ export class SummonTool extends BasicTool {
   async execute(message, params = {}, _avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
+      const resolveCatalogModelId = (query = '') => {
+        if (!query) return null;
+        const cleaned = String(query).trim().toLowerCase();
+        if (!cleaned) return null;
+        let models = aiModelService?.getAllModels?.('openrouter') || [];
+        if (!models.length && Array.isArray(openrouterModelCatalog) && openrouterModelCatalog.length) {
+          models = openrouterModelCatalog;
+        }
+        if (!models.length) return null;
+        const tokens = cleaned.split(/[^a-z0-9]+/).filter(token => token && token.length >= 3);
+        let bestModel = null;
+        let bestScore = Infinity;
+        for (const entry of models) {
+          const modelId = entry?.model;
+          if (!modelId) continue;
+          const slug = String(modelId).toLowerCase();
+          const display = (formatModelDisplayName(modelId) || '').toLowerCase();
+          const candidates = [slug];
+          if (display) candidates.push(display.replace(/[()]/g, ''));
+          for (const candidateName of candidates) {
+            if (!candidateName) continue;
+            let score = levenshteinDistance(candidateName, cleaned);
+            if (candidateName.includes(cleaned)) score *= 0.05;
+            else if (candidateName.startsWith(cleaned)) score *= 0.1;
+            else if (tokens.length && tokens.some(token => candidateName.includes(token))) score *= 0.15;
+            if (score < bestScore) {
+              bestScore = score;
+              bestModel = modelId;
+            }
+          }
+        }
+        return bestModel;
+      };
       const ensureModel = async (av) => {
         try {
           if (av && !av.model) {
@@ -521,6 +556,7 @@ export class SummonTool extends BasicTool {
         if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) return null;
 
         const target = query.trim().toLowerCase();
+        const targetTokens = target.split(/\s+/).filter(Boolean);
         let bestMatch = null;
         let bestScore = Infinity;
 
@@ -528,7 +564,13 @@ export class SummonTool extends BasicTool {
           if (!candidate) return;
           const name = String(candidate.name || candidate.model || '').toLowerCase();
           if (!name) return;
-          const distance = levenshteinDistance(name, target) * weight;
+          const containsTarget = target && name.includes(target);
+          const containsToken = targetTokens.some(token => token.length >= 3 && name.includes(token));
+          const startsWithToken = targetTokens.some(token => token.length >= 3 && name.startsWith(token));
+          let distance = levenshteinDistance(name, target) * weight;
+          if (containsTarget) distance *= 0.05;
+          else if (startsWithToken) distance *= 0.1;
+          else if (containsToken) distance *= 0.25;
           if (distance < bestScore) {
             bestScore = distance;
             bestMatch = candidate;
@@ -662,7 +704,7 @@ export class SummonTool extends BasicTool {
         .replace(/^(summon)\s+/i,'')
         .trim();
       const slugCandidate = content.match(/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:.-]*/)?.[0] || null;
-      const requestedModelId = normalizeModelIdentifier(slugCandidate);
+  let requestedModelId = normalizeModelIdentifier(slugCandidate);
       let avatarName = null;
       if (requestedModelId) {
         avatarName = slugCandidate.trim();
@@ -693,6 +735,13 @@ export class SummonTool extends BasicTool {
       const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
       const allowModelSummons = guildAvatarModes.pureModel !== false;
       const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && guildAvatarModes.wallet === false;
+
+      if (!requestedModelId && avatarName && (freeSummonsDisabled || pureModelOnly || allowModelSummons)) {
+        const catalogLookup = resolveCatalogModelId(avatarName);
+        if (catalogLookup) {
+          requestedModelId = catalogLookup;
+        }
+      }
 
       let existingAvatar = null;
       if (!requestedModelId && avatarName) {
@@ -736,6 +785,22 @@ export class SummonTool extends BasicTool {
             if (handled) return handled;
           }
 
+          if (!fallbackAvatar) {
+            const catalogModelId = resolveCatalogModelId(avatarName || requestedModelId || '');
+            if (catalogModelId) {
+              const ensured = await ensureModelRosterAvatar(catalogModelId, { guildId });
+              fallbackAvatar = ensured?.avatar || null;
+              if (fallbackAvatar) {
+                const handled = await respondWithExistingAvatar(fallbackAvatar, {
+                  preface: `Summoning new avatars is disabled here, so ${fallbackAvatar.name} answers from the model roster.`,
+                  enforceModelName: true,
+                  requestedModelId: fallbackAvatar.model
+                });
+                if (handled) return handled;
+              }
+            }
+          }
+
           fallbackAvatar = await pickRandomModelAvatar(guildId);
           if (fallbackAvatar) {
             const handled = await respondWithExistingAvatar(fallbackAvatar, {
@@ -763,7 +828,19 @@ export class SummonTool extends BasicTool {
       }
 
       if (!freeSummonsDisabled && (pureModelOnly || guildAvatarModes.free === false)) {
-        const fallbackModel = await pickRandomModelAvatar(guildId);
+        let fallbackModel = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
+        if (!fallbackModel && avatarName) {
+          const catalogModelId = resolveCatalogModelId(avatarName);
+          if (catalogModelId) {
+            const ensured = await ensureModelRosterAvatar(catalogModelId, { guildId });
+            fallbackModel = ensured?.avatar || null;
+          }
+        }
+
+        if (!fallbackModel) {
+          fallbackModel = await pickRandomModelAvatar(guildId);
+        }
+
         if (fallbackModel) {
           const handled = await respondWithExistingAvatar(fallbackModel, {
             preface: 'This server is limited to pure model avatars, so a roster avatar steps forward instead.',

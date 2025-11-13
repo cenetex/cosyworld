@@ -101,6 +101,17 @@ import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
 import { buildAvatarQuery } from './helpers/buildAvatarQuery.js';
 
+const normalizeMentionText = (value = '') => String(value || '')
+  .replace(/\([^)]*\)/g, ' ')
+  .replace(/[^\w\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+const mentionTokensFor = (value = '') => normalizeMentionText(value)
+  .split(' ')
+  .filter(token => token && (token.length >= 3 || /^\d+$/.test(token)));
+
 export class AvatarService {
   constructor({
     databaseService,
@@ -505,21 +516,50 @@ export class AvatarService {
     const mentioned = new Set();
     if (!content || !Array.isArray(avatars)) return mentioned;
 
+    const baseContent = String(content);
+    const lowerContent = baseContent.toLowerCase();
+    const normalizedContent = normalizeMentionText(baseContent);
+    const contentTokens = mentionTokensFor(baseContent);
+
     // exact match / emoji first
     for (const av of avatars) {
       if (!av?._id || !av.name) continue;
-      const nameMatch = content.toLowerCase().includes(av.name.toLowerCase());
+      const name = String(av.name);
+      const lowerName = name.toLowerCase();
+      const normalizedName = normalizeMentionText(name);
+      const nameTokens = mentionTokensFor(name);
+      const nameMatch = lowerContent.includes(lowerName);
       const emojiMatch = av.emoji && content.includes(av.emoji);
-      if (nameMatch || emojiMatch) mentioned.add(av);
+      const normalizedMatch = normalizedName && normalizedContent.includes(normalizedName);
+      const tokenMatch = contentTokens.length && nameTokens.length
+        && contentTokens.every(token => nameTokens.some(candidate => candidate.startsWith(token)));
+      const strongOverlap = contentTokens.length >= 2 && nameTokens.length
+        && contentTokens.filter(token => nameTokens.some(candidate => candidate.startsWith(token))).length >= 2;
+      if (nameMatch || emojiMatch || normalizedMatch || tokenMatch || strongOverlap) mentioned.add(av);
     }
 
     // fuzzy on remaining
-    const fuse = new Fuse(avatars.filter(a => !mentioned.has(a)), {
-      keys: ['name'], threshold: 0.4
-    });
-    fuse.search(content).forEach(r => {
-      if (r.score < 0.5) mentioned.add(r.item);
-    });
+    const fuzzyPool = avatars.filter(a => !mentioned.has(a)).map(av => ({
+      avatar: av,
+      name: av.name,
+      normalizedName: normalizeMentionText(av.name || '')
+    }));
+    if (fuzzyPool.length) {
+      const fuse = new Fuse(fuzzyPool, {
+        keys: [
+          { name: 'name', weight: 0.6 },
+          { name: 'normalizedName', weight: 0.4 }
+        ],
+        threshold: 0.35,
+        ignoreLocation: true
+      });
+      const queries = [baseContent, normalizedContent].filter(Boolean);
+      for (const query of queries) {
+        fuse.search(query).forEach(r => {
+          if (r.score < 0.5) mentioned.add(r.item.avatar);
+        });
+      }
+    }
 
     return mentioned;
   }
