@@ -415,12 +415,17 @@ export class ConfigService {
       whitelisted: false,
       summonerRole: "🔮",
       summonEmoji: "🔮",
-    prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
+      prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
       toolEmojis: {
         summon: '🔮',
         breed: '🏹',
         attack: '⚔️',
         defend: '🛡️'
+      },
+      avatarModes: {
+        free: true,
+        wallet: true,
+        pureModel: true
       },
       features: {
         breeding: true,
@@ -440,7 +445,10 @@ export class ConfigService {
     const merged = {
       ...defaults,
       ...guildConfig,
-    prompts: ConfigService.deepMerge(JSON.parse(JSON.stringify(defaults.prompts || {})), guildConfig?.prompts || {}),
+      prompts: ConfigService.deepMerge(
+        JSON.parse(JSON.stringify(defaults.prompts || {})),
+        guildConfig?.prompts || {}
+      ),
       toolEmojis: {
         ...defaults.toolEmojis,
         ...(guildConfig?.toolEmojis || {})
@@ -448,6 +456,10 @@ export class ConfigService {
       features: {
         ...defaults.features,
         ...(guildConfig?.features || {})
+      },
+      avatarModes: {
+        ...defaults.avatarModes,
+        ...(guildConfig?.avatarModes || {})
       },
       viewDetailsEnabled: guildConfig?.viewDetailsEnabled !== undefined ? guildConfig.viewDetailsEnabled : defaults.viewDetailsEnabled
     };

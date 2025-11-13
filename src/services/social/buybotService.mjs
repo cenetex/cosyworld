@@ -2183,11 +2183,15 @@ export class BuybotService {
               this.logger.error(`[BuybotService] Failed to create buyer avatar for ${formatAddress(event.to)} - returned null`);
             }
           } catch (buyerError) {
-            this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
-              error: buyerError.message,
-              stack: buyerError.stack,
-              wallet: formatAddress(event.to)
-            });
+            if (buyerError?.message?.includes('Wallet avatars disabled')) {
+              this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping buyer avatar.`);
+            } else {
+              this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
+                error: buyerError.message,
+                stack: buyerError.stack,
+                wallet: formatAddress(event.to)
+              });
+            }
           }
         } else if (effectiveType === 'transfer') {
           if (event.from) {
@@ -2226,11 +2230,15 @@ export class BuybotService {
                 this.logger.error(`[BuybotService] Failed to create sender avatar for ${formatAddress(event.from)} - returned null`);
               }
             } catch (senderError) {
-              this.logger.error(`[BuybotService] Error creating sender avatar:`, {
-                error: senderError.message,
-                stack: senderError.stack,
-                wallet: formatAddress(event.from)
-              });
+              if (senderError?.message?.includes('Wallet avatars disabled')) {
+                this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping sender avatar.`);
+              } else {
+                this.logger.error(`[BuybotService] Error creating sender avatar:`, {
+                  error: senderError.message,
+                  stack: senderError.stack,
+                  wallet: formatAddress(event.from)
+                });
+              }
             }
           }
           if (event.to) {
@@ -2269,11 +2277,15 @@ export class BuybotService {
                 this.logger.error(`[BuybotService] Failed to create recipient avatar for ${formatAddress(event.to)} - returned null`);
               }
             } catch (recipientError) {
-              this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
-                error: recipientError.message,
-                stack: recipientError.stack,
-                wallet: formatAddress(event.to)
-              });
+              if (recipientError?.message?.includes('Wallet avatars disabled')) {
+                this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping recipient avatar.`);
+              } else {
+                this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
+                  error: recipientError.message,
+                  stack: recipientError.stack,
+                  wallet: formatAddress(event.to)
+                });
+              }
             }
           }
         }

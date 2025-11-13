@@ -1561,6 +1561,7 @@ export class AvatarService {
       model,
       channelId,
       summoner,
+      guildId: guildId || null,
       lives: 3,
       status: 'alive',
       createdAt: new Date(),
@@ -1930,6 +1931,22 @@ export class AvatarService {
    * @returns {Promise<Avatar>} Avatar document
    */
   async createAvatarForWallet(walletAddress, context = {}) {
+    const guildIdForWallet = context?.guildId;
+    if (guildIdForWallet && this.configService?.getGuildConfig) {
+      try {
+        const guildConfig = await this.configService.getGuildConfig(guildIdForWallet);
+        const guildAvatarModes = guildConfig?.avatarModes || {};
+        if (guildAvatarModes.wallet === false) {
+          const reason = `Wallet avatars disabled for guild ${guildIdForWallet}`;
+          this.logger?.info?.(`[AvatarService] ${reason}`);
+          throw new Error(reason);
+        }
+      } catch (modeError) {
+        if (modeError?.message?.includes('disabled for guild')) throw modeError;
+        this.logger?.warn?.(`[AvatarService] Failed to evaluate wallet avatar mode for guild ${guildIdForWallet}: ${modeError.message}`);
+      }
+    }
+
     const db = await this._db();
     
     const walletShort = formatAddress(walletAddress);

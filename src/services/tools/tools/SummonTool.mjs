@@ -242,6 +242,14 @@ export class SummonTool extends BasicTool {
       // Get guild configuration
       const guildId = message.guildId || message.guild?.id;
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
+      const guildAvatarModes = guildConfig?.avatarModes || {};
+      if (guildId && guildAvatarModes.free === false) {
+        await this.discordService.replyToMessage(
+          message,
+          'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
+        );
+        return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
+      }
       let summonPrompt = guildConfig?.prompts?.summon || 'Create an avatar with the following description:';
   let _arweavePrompt = null;
       if (summonPrompt.match(/^(https:\/\/.*\.arweave\.net\/|ar:\/\/)/)) {
@@ -270,7 +278,8 @@ export class SummonTool extends BasicTool {
       const avatarData = {
         prompt,
         channelId: message.channel.id,
-        imageUrl: imageUrlOverride
+        imageUrl: imageUrlOverride,
+        guildId
       };
 
       // Create new avatar

@@ -450,6 +450,14 @@ class GuildSettingsManager {
     document.getElementById("feature-moderation").checked =
       features.moderation !== false;
 
+    const avatarModes = guildConfig.avatarModes || {};
+    const freeModeCheckbox = document.getElementById("avatar-mode-free");
+    if (freeModeCheckbox) freeModeCheckbox.checked = avatarModes.free !== false;
+    const walletModeCheckbox = document.getElementById("avatar-mode-wallet");
+    if (walletModeCheckbox) walletModeCheckbox.checked = avatarModes.wallet !== false;
+    const pureModelModeCheckbox = document.getElementById("avatar-mode-pure-model");
+    if (pureModelModeCheckbox) pureModelModeCheckbox.checked = avatarModes.pureModel !== false;
+
     const prompts = guildConfig.prompts || {};
     document.getElementById("intro-prompt").value = prompts.intro || "";
     document.getElementById("summon-prompt").value = prompts.summon || "";
@@ -555,6 +563,11 @@ class GuildSettingsManager {
         combat: document.getElementById("feature-combat").checked,
         itemCreation: document.getElementById("feature-item-creation").checked,
         moderation: document.getElementById("feature-moderation").checked,
+      },
+      avatarModes: {
+        free: document.getElementById("avatar-mode-free")?.checked ?? true,
+        wallet: document.getElementById("avatar-mode-wallet")?.checked ?? true,
+        pureModel: document.getElementById("avatar-mode-pure-model")?.checked ?? true,
       },
       prompts: {
         intro: document.getElementById("intro-prompt").value.trim(),
