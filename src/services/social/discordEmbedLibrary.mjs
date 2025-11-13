@@ -5,17 +5,117 @@
 
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
+const MODEL_PROVIDER_LABELS = {
+  google: 'Google',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  meta: 'Meta',
+  'meta-llama': 'Meta',
+  cohere: 'Cohere',
+  perplexity: 'Perplexity',
+  qwen: 'Qwen',
+  nvidia: 'NVIDIA',
+  'x-ai': 'xAI',
+  x: 'xAI',
+  deepseek: 'DeepSeek',
+  baidu: 'Baidu',
+  ai21: 'AI21',
+  mistralai: 'Mistral',
+  inflection: 'Inflection',
+  'agentica-org': 'Agentica',
+  microsoft: 'Microsoft',
+  'nomic-ai': 'Nomic AI'
+};
+
+const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:.-]*$/i;
+
+const formatProviderLabel = (providerId = '') => {
+  if (!providerId) return '';
+  const lower = providerId.toLowerCase();
+  if (MODEL_PROVIDER_LABELS[lower]) return MODEL_PROVIDER_LABELS[lower];
+  return providerId
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ')
+    .trim();
+};
+
+const normalizeModelIdentifier = (value = '') => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/^["'`]+|["'`]+$/g, '');
+  if (!trimmed) return null;
+  if (!MODEL_SLUG_PATTERN.test(trimmed)) return null;
+  return trimmed.toLowerCase();
+};
+
+const humanizeSlugTokens = (segment = '') => {
+  if (!segment) return [];
+  return segment
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(token => {
+      const lower = token.toLowerCase();
+      if (/^[a-z]{1,3}$/.test(lower)) return lower.toUpperCase();
+      if (/^[a-z]+$/.test(lower)) return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return token;
+    });
+};
+
+const formatModelDisplayName = (modelId = '') => {
+  const normalized = normalizeModelIdentifier(modelId) || (typeof modelId === 'string' ? modelId.trim() : '');
+  if (!normalized || !normalized.includes('/')) return null;
+  const [providerRaw, restRaw] = normalized.split('/', 2);
+  if (!restRaw) return null;
+  const [slug, variantRaw] = restRaw.split(':');
+  const baseTokens = humanizeSlugTokens(slug);
+  const variantTokens = humanizeSlugTokens(variantRaw);
+  const displayTokens = [...baseTokens, ...variantTokens].filter(Boolean);
+  if (!displayTokens.length) return null;
+  const providerLabel = formatProviderLabel(providerRaw);
+  const displayName = displayTokens.join(' ');
+  return providerLabel ? `${displayName} (${providerLabel})` : displayName;
+};
+
+const isModelRosterAvatar = (avatar) => {
+  if (!avatar) return false;
+  if (Array.isArray(avatar.tags) && avatar.tags.includes('model-roster')) return true;
+  if (avatar.tags === 'model-roster') return true;
+  if (avatar.summoner === 'system:model-roster') return true;
+  return false;
+};
+
+const sentenceSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
+  ? new Intl.Segmenter('en', { granularity: 'sentence' })
+  : null;
+
+function extractFirstSentence(text) {
+  if (!text) return '';
+  const value = String(text);
+  if (sentenceSegmenter) {
+    for (const { segment } of sentenceSegmenter.segment(value)) {
+      if (segment && segment.trim()) {
+        return segment.trim();
+      }
+    }
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const parts = trimmed.split(/(?<=[.!?])\s+(?=[A-Z0-9"“'([])/u);
+  return (parts[0] || trimmed).trim();
+}
+
 function splitDescription(text) {
   if (!text) return { firstSentence: '', rest: '' };
-
-  // Match the first sentence considering ellipses, multiple punctuation, and trailing quotes/parens
-  const match = text.match(/([\s\S]*?[.!?]+(?:\.{2,}|[!?]+)?(?:['"”’)]*)\s*)([\s\S]*)/);
-
-  if (!match) return { firstSentence: text.trim(), rest: '' };
-
+  const firstSentence = extractFirstSentence(text);
+  if (!firstSentence) {
+    return { firstSentence: text.trim(), rest: '' };
+  }
+  const remainder = text.slice(firstSentence.length).trim();
   return {
-    firstSentence: match[1].trim(),
-    rest: match[2].trim()
+    firstSentence,
+    rest: remainder
   };
 }
 
@@ -42,17 +142,16 @@ function buildProfileTriggerButton(id, label = 'View Full Profile', type = 'avat
  * Build a sleek mini avatar embed for movement or notifications.
  */
 export function buildMiniAvatarEmbed(avatar, message = '') {
-  const text = message || `${avatar.name} has arrived!`;
+  const displayName = isModelRosterAvatar(avatar)
+    ? (formatModelDisplayName(avatar.model) || avatar.name)
+    : avatar.name;
+  const text = message || `${displayName} has arrived!`;
 
-  // Split into sentences
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  const randomSentence = sentences[Math.floor(Math.random() * sentences.length)].trim();
-
-  const { firstSentence } = splitDescription(randomSentence);
+  const firstSentence = extractFirstSentence(text);
 
   const embed = new EmbedBuilder()
     .setColor('#00b0f4')
-    .setAuthor({ name: `${avatar.emoji || ''} ${avatar.name}`, iconURL: avatar.imageUrl })
+    .setAuthor({ name: `${avatar.emoji || ''} ${displayName}`.trim(), iconURL: avatar.imageUrl })
     .setDescription(firstSentence)
     .setThumbnail(avatar.imageUrl)
     .setFooter({ text: 'Movement Update', iconURL: avatar.imageUrl });
@@ -69,6 +168,9 @@ export function buildMiniAvatarEmbed(avatar, message = '') {
  */
 export function buildFullAvatarEmbed(avatar, options = {}) {
   const aiService = options.aiService;
+  const displayName = isModelRosterAvatar(avatar)
+    ? (formatModelDisplayName(avatar.model) || avatar.name)
+    : avatar.name;
 
   let rarity = avatar.rarity;
 
@@ -104,14 +206,14 @@ export function buildFullAvatarEmbed(avatar, options = {}) {
   const _url = options.viewDetailsUrl || `${process.env.BASE_URL}/avatar.html?id=${avatar._id}`;
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle(`${avatar.emoji || ''} ${avatar.name}`)
+    .setTitle(`${avatar.emoji || ''} ${displayName}`.trim())
     .setDescription(firstSentence)
     .setThumbnail(avatar.imageUrl)
     .addFields(
       { name: 'Model', value: `${avatar.model} (Tier ${tier})` || 'N/A', inline: true },
       { name: 'Summonsday', value: avatar.summonsday || 'N/A', inline: true },
     )
-    .setFooter({ text: `RATi Avatar: ${avatar.name}`, iconURL: avatar.imageUrl });
+    .setFooter({ text: `RATi Avatar: ${displayName}`, iconURL: avatar.imageUrl });
 
   if (avatar.stats) {
     const { strength, dexterity, constitution, intelligence, wisdom, charisma, hp } = avatar.stats;

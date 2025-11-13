@@ -4,6 +4,30 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQuery.js';
+
+const levenshteinDistance = (a = '', b = '') => {
+  const s = a.toLowerCase();
+  const t = b.toLowerCase();
+  const m = s.length;
+  const n = t.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[m][n];
+};
 
 const MODEL_PROVIDER_LABELS = {
   google: 'Google',
@@ -445,34 +469,74 @@ export class SummonTool extends BasicTool {
 
       const findClosestModelAvatar = async (query, guildId) => {
         if (!query) return null;
-        const modelMatch = normalizeModelIdentifier(query);
-        if (modelMatch) {
-          const direct = await findModelAvatarForModelId(modelMatch, guildId);
+        const normalized = normalizeModelIdentifier(query);
+        if (normalized) {
+          const direct = await findModelAvatarForModelId(normalized, guildId);
           if (direct) return direct;
         }
-        const tryFind = async (opts = {}) => {
-          try {
-            const matches = await this.avatarService.fuzzyAvatarByName(query, { limit: 5, ...opts });
-            if (!Array.isArray(matches) || matches.length === 0) return null;
-            const rosterMatch = matches.find(isModelRosterAvatar);
-            return rosterMatch || matches[0];
-          } catch (err) {
-            this.logger?.debug?.(`[SummonTool] fuzzy search failed (${query}): ${err?.message}`);
-            return null;
+
+        const db = await this.avatarService._db();
+        const filters = {
+          status: { $ne: 'dead' },
+          isPartial: { $ne: true },
+          tags: 'model-roster'
+        };
+        if (guildId) filters.guildId = guildId;
+        const rosterQuery = buildAvatarQuery(filters);
+        let rosterAvatars = [];
+        try {
+          rosterAvatars = await db.collection(this.avatarService.AVATARS_COLLECTION)
+            .find(rosterQuery)
+            .project({
+              name: 1,
+              model: 1,
+              tags: 1,
+              description: 1,
+              guildId: 1,
+              stats: 1,
+              emoji: 1,
+              imageUrl: 1,
+              summoner: 1,
+              createdAt: 1,
+              summonsday: 1
+            })
+            .toArray();
+        } catch (err) {
+          this.logger?.debug?.(`[SummonTool] roster lookup failed: ${err?.message}`);
+          rosterAvatars = [];
+        }
+
+        if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) return null;
+
+        const target = query.trim().toLowerCase();
+        let bestMatch = null;
+        let bestScore = Infinity;
+
+        const evaluate = (candidate, weight = 1) => {
+          if (!candidate) return;
+          const name = String(candidate.name || candidate.model || '').toLowerCase();
+          if (!name) return;
+          const distance = levenshteinDistance(name, target) * weight;
+          if (distance < bestScore) {
+            bestScore = distance;
+            bestMatch = candidate;
           }
         };
 
-        let candidate = guildId ? await tryFind({ guildId }) : null;
-        if (!candidate) {
-          candidate = await tryFind();
+        for (const avatar of rosterAvatars) {
+          evaluate(avatar, 1);
+          if (avatar.model) {
+            evaluate({ ...avatar, name: avatar.model }, 0.8);
+            const display = formatModelDisplayName(avatar.model);
+            if (display) evaluate({ ...avatar, name: display }, 0.7);
+            const providerSlug = avatar.model.split('/', 2)[1] || '';
+            if (providerSlug) evaluate({ ...avatar, name: providerSlug.replace(/[:_-]+/g, ' ') }, 0.9);
+          }
         }
-        if (candidate && !isModelRosterAvatar(candidate)) {
-          candidate = null;
-        }
-        if (candidate && candidate.isPartial) {
-          candidate = null;
-        }
-        return candidate;
+
+        if (!bestMatch) return null;
+        if (bestMatch.isPartial) return null;
+        return bestMatch;
       };
 
       const pickRandomModelAvatar = async (guildId) => {
@@ -585,9 +649,16 @@ export class SummonTool extends BasicTool {
         .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
         .replace(/^(summon)\s+/i,'')
         .trim();
-      const [avatarName] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
+      const slugCandidate = content.match(/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:.-]*/)?.[0] || null;
+      const requestedModelId = normalizeModelIdentifier(slugCandidate);
+      let avatarName = null;
+      if (requestedModelId) {
+        avatarName = slugCandidate.trim();
+      } else {
+        const [firstToken] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
+        avatarName = firstToken || '';
+      }
       const guildId = message.guildId || message.guild?.id;
-      const requestedModelId = normalizeModelIdentifier(avatarName);
 
       // If no textual description provided, but an image is attached, switch to image-based summoning
       const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
@@ -677,6 +748,23 @@ export class SummonTool extends BasicTool {
           'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
         );
         return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
+      }
+
+      if (!freeSummonsDisabled && (pureModelOnly || guildAvatarModes.free === false)) {
+        const fallbackModel = await pickRandomModelAvatar(guildId);
+        if (fallbackModel) {
+          const handled = await respondWithExistingAvatar(fallbackModel, {
+            preface: 'This server is limited to pure model avatars, so a roster avatar steps forward instead.',
+            enforceModelName: true,
+            requestedModelId: fallbackModel.model
+          });
+          if (handled) return handled;
+        }
+        await this.discordService.replyToMessage(
+          message,
+          'Summoning is restricted to curated model avatars here. Try referencing a specific model from the roster.'
+        );
+        return '-# [ Summon blocked: pure model roster only. ]';
       }
 
       if (!avatarName && !hasImageForSummon) {
