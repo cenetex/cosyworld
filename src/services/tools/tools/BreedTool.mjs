@@ -57,9 +57,14 @@ export class BreedTool extends BasicTool {
     try {
       const commandLine = message.content.trim().substring(2).trim();
       const avatars = await this.avatarService.getAvatarsInChannel(message.channel.id, message.guildId);
-      const mentionedAvatars = Array.from(this.avatarService.extractMentionedAvatars(commandLine, avatars))
-        .sort(() => Math.random() - 0.5)
-        .slice(-2);
+      let mentionedAvatars = [];
+      if (this.avatarService?.matchAvatarsByContent) {
+        mentionedAvatars = this.avatarService.matchAvatarsByContent(commandLine, avatars, { limit: 2 });
+      } else {
+        mentionedAvatars = Array.from(this.avatarService.extractMentionedAvatars(commandLine, avatars))
+          .sort(() => Math.random() - 0.5)
+          .slice(-2);
+      }
 
       if (mentionedAvatars.length !== 2) {
         return "-# [ Failed to breed: Both mentioned avatars must be in this channel. ]";

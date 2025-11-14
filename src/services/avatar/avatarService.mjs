@@ -565,6 +565,95 @@ export class AvatarService {
   }
 
   /**
+   * Match avatars from the provided list that are mentioned in content.
+   * Applies multiple heuristics (normalized text, word boundaries, emoji) and
+   * keeps the order in which avatars appear in the text.
+   *
+   * @param {string} content - User supplied text to scan
+   * @param {Array<Object>} avatars - Avatars scoped to the current channel
+   * @param {Object} [options]
+   * @param {number|null} [options.limit] - Max avatars to return
+   * @param {Array<string|ObjectId>} [options.excludeAvatarIds] - Avatar ids to skip
+   * @returns {Array<Object>} ordered list of mentioned avatars
+   */
+  matchAvatarsByContent(content, avatars = [], options = {}) {
+    if (!content || !Array.isArray(avatars) || avatars.length === 0) return [];
+
+    const text = String(content || '');
+    const lower = text.toLowerCase();
+    const limit = Number.isInteger(options.limit) ? options.limit : null;
+    const excludeIds = new Set((options.excludeAvatarIds || []).map(id => String(id)));
+
+    const pushUnique = (collection, avatar) => {
+      if (!avatar) return;
+      const id = String(avatar._id || avatar.id || '');
+      if (!id || excludeIds.has(id)) return;
+      if (collection.some(av => String(av._id || av.id || '') === id)) return;
+      collection.push(avatar);
+    };
+
+    const positionOf = (avatar) => {
+      const name = String(avatar?.name || '').toLowerCase();
+      const emoji = String(avatar?.emoji || '').toLowerCase();
+      const nameIdx = name ? lower.indexOf(name) : -1;
+      if (nameIdx >= 0) return nameIdx;
+      const emojiIdx = emoji ? lower.indexOf(emoji) : -1;
+      return emojiIdx >= 0 ? emojiIdx : Number.MAX_SAFE_INTEGER;
+    };
+
+    const matches = Array.from(this.extractMentionedAvatars(text, avatars));
+    const orderedMatches = [];
+    for (const match of matches) {
+      pushUnique(orderedMatches, match);
+    }
+
+    if (orderedMatches.length === 0) {
+      const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      for (const avatar of avatars) {
+        const name = String(avatar?.name || '').trim();
+        const emoji = String(avatar?.emoji || '').trim();
+        let matched = false;
+        if (name) {
+          const simple = name.toLowerCase();
+          if (simple.length <= 2) {
+            try {
+              const rx = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(simple)}(?:$|[^\p{L}\p{N}])`, 'iu');
+              matched = rx.test(text);
+            } catch {
+              matched = lower.includes(simple);
+            }
+          } else {
+            matched = lower.includes(simple);
+          }
+        }
+        if (!matched && emoji) {
+          matched = lower.includes(emoji.toLowerCase());
+        }
+        if (matched) {
+          pushUnique(orderedMatches, avatar);
+        }
+        if (limit !== null && orderedMatches.length >= limit) break;
+      }
+    }
+
+    orderedMatches.sort((a, b) => positionOf(a) - positionOf(b));
+
+    if (limit !== null) {
+      return orderedMatches.slice(0, Math.max(0, limit));
+    }
+    return orderedMatches;
+  }
+
+  /**
+   * Convenience helper to detect mentions constrained to a single channel.
+   */
+  async detectMentionedAvatarsInChannel(content, channelId, guildId, options = {}) {
+    if (!content || !channelId) return [];
+    const avatars = options.avatars || await this.getAvatarsInChannel(channelId, guildId);
+    return this.matchAvatarsByContent(content, avatars, options);
+  }
+
+  /**
    * Fetch all verified wallet addresses linked to a Discord user.
    * Uses the discord_wallet_links collection (created by the wallet linking flow).
    * @param {string} discordId

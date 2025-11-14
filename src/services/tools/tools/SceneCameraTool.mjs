@@ -56,12 +56,22 @@ export class SceneCameraTool extends BasicTool {
       const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
       const present = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);
 
-      // Select up to 4 avatars (prioritize the calling avatar first if present)
-      const list = [];
-      if (avatar) list.push(avatar);
-      for (const av of present) {
-        if (!list.find(x => String(x._id) === String(av._id))) list.push(av);
-        if (list.length >= 4) break;
+      const mentionSource = userPrompt || message?.content || '';
+      let list = [];
+      if (mentionSource && this.avatarService?.matchAvatarsByContent) {
+        list = this.avatarService.matchAvatarsByContent(mentionSource, present, {
+          limit: 4,
+          excludeAvatarIds: avatar ? [String(avatar._id || avatar.id)] : []
+        });
+      }
+
+      // If no specific avatars were requested, fall back to caller + channel presence
+      if (!list.length) {
+        if (avatar) list.push(avatar);
+        for (const av of present) {
+          if (!list.find(x => String(x._id) === String(av._id))) list.push(av);
+          if (list.length >= 4) break;
+        }
       }
 
       // Collect images for composition: avatars + location

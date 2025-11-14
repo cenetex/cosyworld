@@ -42,11 +42,13 @@ export class DevilTool extends BasicTool {
 
       // Gather avatar images
       const channelAvatars = await this.avatarService.getAvatarsInChannel(message.channel.id, message.guildId);
-      const mentioned = Array.from(
-        this.avatarService.extractMentionedAvatars(message.content, channelAvatars)
-      );
-      mentioned.sort(() => Math.random() - 0.5);
-      mentioned.splice(3); // Limit to 3 images
+      let mentioned = [];
+      if (this.avatarService?.matchAvatarsByContent) {
+        mentioned = this.avatarService.matchAvatarsByContent(message.content, channelAvatars, { limit: 3 });
+      } else {
+        mentioned = Array.from(this.avatarService.extractMentionedAvatars(message.content, channelAvatars));
+      }
+      mentioned = mentioned.sort(() => Math.random() - 0.5).slice(0, 3); // Limit to 3 images
       for (const av of mentioned) {
         if (av.imageUrl) {
           const buf = await this.s3Service.downloadImage(av.imageUrl);

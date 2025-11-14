@@ -1196,34 +1196,43 @@ export class ConversationManager  {
     }
     if (!Array.isArray(others) || !others.length) return;
 
-    const lower = text.toLowerCase();
     const responders = this.channelResponders.get(channel.id) || new Set();
     const maxPerMessage = this.MAX_RESPONSES_PER_MESSAGE;
     if (responders.size >= maxPerMessage) return;
 
-    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const mentioned = [];
-    for (const av of others) {
-      if (!av || av._id === speakingAvatar._id) continue;
-      const name = String(av.name || '').trim();
-      if (!name) continue;
-      const nameLower = name.toLowerCase();
-      let matched = false;
-      if (/^[\p{L}\p{N}_'-]+$/u.test(name)) {
-        const re = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(nameLower)}(?:$|[^\p{L}\p{N}])`, 'u');
-        matched = re.test(lower);
-      } else {
-        matched = lower.includes(nameLower);
-      }
-      if (!matched && av.emoji) {
-        const emo = String(av.emoji).trim();
-        if (emo && lower.includes(emo.toLowerCase())) matched = true;
-      }
-      if (matched) mentioned.push(av);
-    }
-    if (!mentioned.length) return;
-
     const cascadeLimit = Number(process.env.BOT_MENTION_CASCADE_LIMIT ?? 3);
+    const mentionCandidates = this.avatarService?.matchAvatarsByContent
+      ? this.avatarService.matchAvatarsByContent(text, others, {
+          excludeAvatarIds: [speakingAvatar._id],
+          limit: cascadeLimit || undefined
+        })
+      : (() => {
+          const lower = text.toLowerCase();
+          const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const matches = [];
+          for (const av of others) {
+            if (!av || av._id === speakingAvatar._id) continue;
+            const name = String(av.name || '').trim();
+            if (!name) continue;
+            const nameLower = name.toLowerCase();
+            let matched = false;
+            if (/^[\p{L}\p{N}_'-]+$/u.test(name)) {
+              const re = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(nameLower)}(?:$|[^\p{L}\p{N}])`, 'u');
+              matched = re.test(lower);
+            } else {
+              matched = lower.includes(nameLower);
+            }
+            if (!matched && av.emoji) {
+              const emo = String(av.emoji).trim();
+              if (emo && lower.includes(emo.toLowerCase())) matched = true;
+            }
+            if (matched) matches.push(av);
+          }
+          return matches;
+        })();
+    if (!mentionCandidates.length) return;
+
+    const mentioned = mentionCandidates;
     const maxThreadTurns = Number(process.env.BOT_MENTION_THREAD_TURNS || this.conversationThreadService?.DEFAULT_MAX_TURNS || 6);
     const grantTurns = Number(process.env.BOT_MENTION_GRANT_TURNS || Math.min(2, maxThreadTurns));
     const createThread = String(process.env.BOT_MENTION_CREATE_THREAD || 'true').toLowerCase() === 'true';

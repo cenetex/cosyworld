@@ -335,7 +335,9 @@ export class ResponseCoordinator {
     // PRIORITY 3: Direct mention by name/emoji
     if (message && message.content) {
       try {
-        const mentionedAvatars = this.findMentionedAvatars(message.content, eligibleAvatars);
+        const mentionedAvatars = this.avatarService?.matchAvatarsByContent
+          ? this.avatarService.matchAvatarsByContent(message.content, eligibleAvatars, { limit: 1 })
+          : [];
         if (mentionedAvatars.length > 0) {
           // Take first mentioned avatar
           const mentioned = mentionedAvatars[0];
@@ -485,30 +487,6 @@ export class ResponseCoordinator {
       this.logger.debug?.(`[ResponseCoordinator] Thread participant lookup failed: ${err.message}`);
     }
     return null;
-  }
-
-  /**
-   * Find avatars mentioned by name or emoji in content
-   * @param {string} content - Message content
-   * @param {Array} avatars - Available avatars
-   * @returns {Array} Mentioned avatars
-   */
-  findMentionedAvatars(content, avatars) {
-    const lower = content.toLowerCase();
-    const mentioned = [];
-
-    for (const avatar of avatars) {
-      const name = String(avatar.name || '').toLowerCase();
-      const emoji = String(avatar.emoji || '').toLowerCase();
-      
-      if (name && lower.includes(name)) {
-        mentioned.push(avatar);
-      } else if (emoji && lower.includes(emoji)) {
-        mentioned.push(avatar);
-      }
-    }
-
-    return mentioned;
   }
 
   /**

@@ -187,23 +187,28 @@ export class TurnScheduler {
       }
 
       // Record mentions for presence tracking
-      const content = (message.content || '').toLowerCase();
-      for (const av of avatars) {
-        const name = String(av.name || '').toLowerCase();
-        const emoji = String(av.emoji || '').toLowerCase();
-        if ((name && content.includes(name)) || (emoji && content.includes(emoji))) {
-          await this.presenceService.recordMention(channelId, `${av._id}`);
-          
-          // Grant priority turn if none pending
-          try {
-            const c = await this.presenceService.col();
-            const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
-            if (!doc?.newSummonTurnsRemaining) {
-              await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
-            }
-          } catch (e) {
-            this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
+      const mentionTargets = this.avatarService?.matchAvatarsByContent
+        ? this.avatarService.matchAvatarsByContent(message.content || '', avatars)
+        : (() => {
+            const lower = (message.content || '').toLowerCase();
+            return avatars.filter(av => {
+              const name = String(av.name || '').toLowerCase();
+              const emoji = String(av.emoji || '').toLowerCase();
+              return (name && lower.includes(name)) || (emoji && lower.includes(emoji));
+            });
+          })();
+      for (const av of mentionTargets) {
+        await this.presenceService.recordMention(channelId, `${av._id}`);
+        
+        // Grant priority turn if none pending
+        try {
+          const c = await this.presenceService.col();
+          const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+          if (!doc?.newSummonTurnsRemaining) {
+            await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
           }
+        } catch (e) {
+          this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
         }
       }
 

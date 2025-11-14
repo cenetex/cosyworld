@@ -603,13 +603,19 @@ export class MessageHandler  {
       // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness and activate
       try {
         if (message?.author && !message.author.bot && typeof message.content === 'string' && message.content.trim()) {
-          const lower = message.content.toLowerCase();
-          const mentioned = eligibleAvatars.find(av => {
-            const name = String(av.name || '').toLowerCase();
-            const emo = String(av.emoji || '').toLowerCase();
-            if (!name && !emo) return false;
-            return (name && lower.includes(name)) || (emo && lower.includes(emo));
-          });
+          let mentioned = null;
+          if (this.avatarService?.matchAvatarsByContent) {
+            const mentionMatches = this.avatarService.matchAvatarsByContent(message.content, eligibleAvatars, { limit: 1 });
+            mentioned = mentionMatches[0];
+          } else {
+            const lower = message.content.toLowerCase();
+            mentioned = eligibleAvatars.find(av => {
+              const name = String(av.name || '').toLowerCase();
+              const emo = String(av.emoji || '').toLowerCase();
+              if (!name && !emo) return false;
+              return (name && lower.includes(name)) || (emo && lower.includes(emo));
+            });
+          }
           if (mentioned) {
             const avId = `${mentioned._id || mentioned.id}`;
             
