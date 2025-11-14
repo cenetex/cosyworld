@@ -81,7 +81,8 @@ class TelegramService {
     // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 100/day (Telegram-only counting)
     this.mediaGenerationLimits = {
       video: { hourly: 2, daily: 4 },
-      image: { hourly: 3, daily: 100 }
+      image: { hourly: 3, daily: 100 },
+      tweet: { hourly: 3, daily: 12 }
     };
     
     // Performance optimization: caching layer
@@ -1799,7 +1800,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
         mediaType,
         createdAt: new Date()
       });
-      this.logger?.info?.(`[TelegramService] Recorded ${mediaType} generation for user ${username} (${userId})`);
+      const actionLabel = mediaType === 'tweet' ? 'tweet post' : `${mediaType} generation`;
+      this.logger?.info?.(`[TelegramService] Recorded ${actionLabel} for user ${username} (${userId})`);
     } catch (error) {
       this.logger?.error?.(`[TelegramService] Failed to record media usage:`, error);
     }
@@ -2011,11 +2013,12 @@ Always consider calling plan_actions before executing media or tweet tools when 
     try {
       // Parallel data fetching with caching (PERFORMANCE OPTIMIZATION)
       // This reduces database query time by ~500-1000ms
-      const [persona, buybotContext, imageLimitCtx, videoLimitCtx] = await Promise.all([
+      const [persona, buybotContext, imageLimitCtx, videoLimitCtx, tweetLimitCtx] = await Promise.all([
         this._getCachedPersona(),
         this._getCachedBuybotContext(channelId),
         this.checkMediaGenerationLimit(null, 'image'),
-        this.checkMediaGenerationLimit(null, 'video')
+        this.checkMediaGenerationLimit(null, 'video'),
+        this.checkMediaGenerationLimit(null, 'tweet')
       ]);
 
       // Load conversation history if not already in memory
@@ -2075,7 +2078,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
       };
       
   const toolCreditContext = `
-Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')}
+Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')} | ${buildCreditInfo(tweetLimitCtx, 'X posts')}
 Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
 
   const planContext = await this._buildPlanContext(channelId, 3);
@@ -2397,6 +2400,20 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
 
         } else if (functionName === 'post_tweet') {
+          const limit = await this.checkMediaGenerationLimit(null, 'tweet');
+          if (!limit.allowed) {
+            const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
+              ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000)
+              : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
+            await ctx.reply(
+              `🕊️ X posting is on cooldown right now.\n\n` +
+              `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
+              `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
+              `⏰ Next post slot in ${timeUntilReset} minutes`
+            );
+            await this._recordBotResponse(channelId, userId);
+            continue;
+          }
           await this.executeTweetPost(ctx, {
             text: args.text,
             mediaId: args.mediaId,
@@ -2762,6 +2779,21 @@ Your caption:`;
         return;
       }
 
+      const tweetLimit = await this.checkMediaGenerationLimit(null, 'tweet');
+      if (!tweetLimit.allowed) {
+        const timeUntilReset = tweetLimit.hourlyUsed >= tweetLimit.hourlyLimit
+          ? Math.ceil((tweetLimit.resetTimes.hourly - new Date()) / 60000)
+          : Math.ceil((tweetLimit.resetTimes.daily - new Date()) / 60000);
+        await ctx.reply(
+          `🕊️ X posting is cooling down right now.\n\n` +
+          `Hourly: ${tweetLimit.hourlyUsed}/${tweetLimit.hourlyLimit} used\n` +
+          `Daily: ${tweetLimit.dailyUsed}/${tweetLimit.dailyLimit} used\n\n` +
+          `⏰ Next post slot in ${timeUntilReset} minutes`
+        );
+        await this._recordBotResponse(normalizedChannelId, userId);
+        return;
+      }
+
       const trimmedText = String(text || '').trim();
       if (!trimmedText) {
         await ctx.reply('I need a short message to share on X. Try again with the caption you want.');
@@ -2833,6 +2865,7 @@ Your caption:`;
         channelId: normalizedChannelId,
         userId
       });
+      await this._recordMediaUsage(userId, username, 'tweet');
     } catch (error) {
       this.logger?.error?.('[TelegramService] Tweet tool failed:', error);
       await ctx.reply('❌ Something went wrong sharing that. I\'ll try again later.');

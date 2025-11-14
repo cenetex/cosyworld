@@ -8,6 +8,7 @@ import eventBus from '../../utils/eventBus.mjs';
 export function registerXGlobalAutoPoster({ xService, aiService, logger, databaseService, globalBotService }) {
   if (!xService) return;
   logger?.debug?.('[XGlobalAutoPoster] Initialising (DB-config governed)');
+  const IMAGE_AUTOPOST_ENABLED = process.env.X_IMAGE_AUTOPOST_ENABLED === '1';
 
   const shouldSkipAutoPosting = async () => {
     try {
@@ -209,7 +210,11 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
     }
   };
 
-  eventBus.on('MEDIA.IMAGE.GENERATED', imageHandler);
+  if (IMAGE_AUTOPOST_ENABLED) {
+    eventBus.on('MEDIA.IMAGE.GENERATED', imageHandler);
+  } else {
+    logger?.info?.('[XGlobalAutoPoster] Image auto-posting disabled; MEDIA.IMAGE.GENERATED will be ignored');
+  }
   eventBus.on('MEDIA.VIDEO.GENERATED', videoHandler);
 }
 export default registerXGlobalAutoPoster;

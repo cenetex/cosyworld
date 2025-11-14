@@ -19,6 +19,7 @@ function createService(overrides = {}) {
     updateOne: vi.fn().mockResolvedValue({}),
     insertOne: vi.fn().mockResolvedValue({ insertedId: 'mock' }),
     createIndex: vi.fn().mockResolvedValue({ name: 'mock' }),
+    countDocuments: vi.fn().mockResolvedValue(0),
     findOne: vi.fn().mockResolvedValue(null),
     find: vi.fn().mockReturnValue({
       sort: () => ({
@@ -59,6 +60,18 @@ describe('TelegramService tweet tool helpers', () => {
 
   beforeEach(() => {
     service = createService();
+    service._recordMediaUsage = vi.fn().mockResolvedValue();
+    vi.spyOn(service, 'checkMediaGenerationLimit').mockResolvedValue({
+      allowed: true,
+      hourlyUsed: 0,
+      dailyUsed: 0,
+      hourlyLimit: 3,
+      dailyLimit: 12,
+      resetTimes: {
+        hourly: new Date(Date.now() + 60000),
+        daily: new Date(Date.now() + 3600000)
+      }
+    });
   });
 
   it('remembers generated media with bounded cache', async () => {
@@ -80,6 +93,18 @@ describe('TelegramService tweet tool helpers', () => {
     service._markMediaAsTweeted = vi.fn().mockResolvedValue();
     service._recordBotResponse = vi.fn().mockResolvedValue();
     service._trackBotMessage = vi.fn().mockResolvedValue();
+    service._recordMediaUsage = vi.fn().mockResolvedValue();
+    vi.spyOn(service, 'checkMediaGenerationLimit').mockResolvedValue({
+      allowed: true,
+      hourlyUsed: 0,
+      dailyUsed: 0,
+      hourlyLimit: 3,
+      dailyLimit: 12,
+      resetTimes: {
+        hourly: new Date(Date.now() + 60000),
+        daily: new Date(Date.now() + 3600000)
+      }
+    });
 
     const mediaEntry = {
       id: 'media-1',
@@ -114,6 +139,7 @@ describe('TelegramService tweet tool helpers', () => {
   expect(ctx.telegram.sendPhoto).toHaveBeenCalledWith('channel-1', 'https://example.com/1.png', expect.objectContaining({ caption: expect.stringContaining('Posted to X') }));
   expect(ctx.reply).not.toHaveBeenCalled();
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-1', 'media-1', expect.any(Object));
+    expect(service._recordMediaUsage).toHaveBeenCalledWith('user-1', 'tester', 'tweet');
   });
 
   it('falls back to database lookup when only a short ID is provided', async () => {
@@ -135,6 +161,17 @@ describe('TelegramService tweet tool helpers', () => {
     service.__collectionMock.findOne = vi.fn()
       .mockResolvedValueOnce(null) // exact match
       .mockResolvedValueOnce(dbMediaRecord); // prefix match
+    vi.spyOn(service, 'checkMediaGenerationLimit').mockResolvedValue({
+      allowed: true,
+      hourlyUsed: 0,
+      dailyUsed: 0,
+      hourlyLimit: 3,
+      dailyLimit: 12,
+      resetTimes: {
+        hourly: new Date(Date.now() + 60000),
+        daily: new Date(Date.now() + 3600000)
+      }
+    });
 
     const ctx = {
       reply: vi.fn(),
@@ -156,6 +193,39 @@ describe('TelegramService tweet tool helpers', () => {
     expect(postGlobalMediaUpdate).toHaveBeenCalled();
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-2', dbMediaRecord.id, expect.any(Object));
     expect(ctx.telegram.sendPhoto).toHaveBeenCalled();
+  });
+
+  it('prevents tweeting when quota exhausted', async () => {
+    const postGlobalMediaUpdate = vi.fn();
+    service = createService({ xService: { postGlobalMediaUpdate } });
+    service._recordBotResponse = vi.fn().mockResolvedValue();
+    vi.spyOn(service, 'checkMediaGenerationLimit').mockResolvedValue({
+      allowed: false,
+      hourlyUsed: 3,
+      dailyUsed: 5,
+      hourlyLimit: 3,
+      dailyLimit: 12,
+      resetTimes: {
+        hourly: new Date(Date.now() + 600000),
+        daily: new Date(Date.now() + 7200000)
+      }
+    });
+
+    const ctx = {
+      reply: vi.fn(),
+      chat: { id: 'channel-3' }
+    };
+
+    await service.executeTweetPost(ctx, {
+      text: 'Need to share this',
+      mediaId: 'media-3',
+      channelId: 'channel-3',
+      userId: 'user-9',
+      username: 'tester'
+    });
+
+    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('X posting is cooling down'));
+    expect(postGlobalMediaUpdate).not.toHaveBeenCalled();
   });
 });
 
