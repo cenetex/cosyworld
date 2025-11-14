@@ -519,7 +519,10 @@ export class AvatarService {
     const baseContent = String(content);
     const lowerContent = baseContent.toLowerCase();
     const normalizedContent = normalizeMentionText(baseContent);
+    const normalizedWords = normalizedContent ? normalizedContent.split(' ').filter(Boolean) : [];
+    const normalizedWordSet = new Set(normalizedWords);
     const contentTokens = mentionTokensFor(baseContent);
+    const contentTokenSet = new Set(contentTokens);
 
     // exact match / emoji first
     for (const av of avatars) {
@@ -531,19 +534,41 @@ export class AvatarService {
       const nameMatch = lowerContent.includes(lowerName);
       const emojiMatch = av.emoji && content.includes(av.emoji);
       const normalizedMatch = normalizedName && normalizedContent.includes(normalizedName);
-      const tokenMatch = contentTokens.length && nameTokens.length
-        && contentTokens.every(token => nameTokens.some(candidate => candidate.startsWith(token)));
-      const strongOverlap = contentTokens.length >= 2 && nameTokens.length
-        && contentTokens.filter(token => nameTokens.some(candidate => candidate.startsWith(token))).length >= 2;
-      if (nameMatch || emojiMatch || normalizedMatch || tokenMatch || strongOverlap) mentioned.add(av);
+      const overlappingTokens = nameTokens.length && contentTokens.length
+        ? contentTokens.filter(token => nameTokens.some(candidate =>
+            candidate.startsWith(token) || token.startsWith(candidate)
+          ))
+        : [];
+      const tokenMatch = overlappingTokens.length > 0;
+  const strongOverlap = nameTokens.length > 0 && overlappingTokens.length >= Math.min(nameTokens.length, 2);
+      const firstToken = nameTokens[0];
+      const wordMatch = firstToken && normalizedWordSet.has(firstToken);
+      const partialWordMatch = firstToken && normalizedWords.some(word =>
+        word.length >= 3 && (firstToken.startsWith(word) || word.startsWith(firstToken))
+      );
+      const anyTokenDirectMatch = nameTokens.some(token => contentTokenSet.has(token));
+      if (
+        nameMatch ||
+        emojiMatch ||
+        normalizedMatch ||
+        tokenMatch ||
+        strongOverlap ||
+        wordMatch ||
+        partialWordMatch ||
+        anyTokenDirectMatch
+      ) {
+        mentioned.add(av);
+      }
     }
 
     // fuzzy on remaining
-    const fuzzyPool = avatars.filter(a => !mentioned.has(a)).map(av => ({
+    const fuzzyPool = avatars
+      .filter(a => !mentioned.has(a) && String(a?.name || '').trim().length >= 3)
+      .map(av => ({
       avatar: av,
       name: av.name,
       normalizedName: normalizeMentionText(av.name || '')
-    }));
+      }));
     if (fuzzyPool.length) {
       const fuse = new Fuse(fuzzyPool, {
         keys: [
@@ -581,6 +606,15 @@ export class AvatarService {
 
     const text = String(content || '');
     const lower = text.toLowerCase();
+    const normalized = normalizeMentionText(text);
+    const normalizedWords = normalized ? normalized.split(' ').filter(Boolean) : [];
+    const wordPositions = new Map();
+    normalizedWords.forEach((word, idx) => {
+      if (!wordPositions.has(word)) {
+        wordPositions.set(word, idx);
+      }
+    });
+    const contentTokens = mentionTokensFor(text);
     const limit = Number.isInteger(options.limit) ? options.limit : null;
     const excludeIds = new Set((options.excludeAvatarIds || []).map(id => String(id)));
 
@@ -592,13 +626,49 @@ export class AvatarService {
       collection.push(avatar);
     };
 
+    const findWordIndex = (avatar) => {
+      const tokens = mentionTokensFor(avatar?.name || '');
+      for (const token of tokens) {
+        if (wordPositions.has(token)) {
+          return wordPositions.get(token);
+        }
+        const partialIdx = normalizedWords.findIndex(word =>
+          word.length >= 3 && (token.startsWith(word) || word.startsWith(token))
+        );
+        if (partialIdx !== -1) return partialIdx;
+      }
+      return Number.MAX_SAFE_INTEGER;
+    };
+
     const positionOf = (avatar) => {
+      if (!avatar) return Number.MAX_SAFE_INTEGER;
+      const wordIdx = findWordIndex(avatar);
+      if (wordIdx !== Number.MAX_SAFE_INTEGER) return wordIdx;
       const name = String(avatar?.name || '').toLowerCase();
       const emoji = String(avatar?.emoji || '').toLowerCase();
       const nameIdx = name ? lower.indexOf(name) : -1;
-      if (nameIdx >= 0) return nameIdx;
+      if (nameIdx >= 0) return normalizedWords.length + nameIdx;
       const emojiIdx = emoji ? lower.indexOf(emoji) : -1;
-      return emojiIdx >= 0 ? emojiIdx : Number.MAX_SAFE_INTEGER;
+      if (emojiIdx >= 0) return normalizedWords.length + lower.length + emojiIdx;
+      return Number.MAX_SAFE_INTEGER;
+    };
+
+    const hasWordOrTokenMatch = (avatar) => {
+      if (!avatar) return false;
+      const name = String(avatar?.name || '').trim();
+      const emoji = String(avatar?.emoji || '').trim();
+      const tokens = mentionTokensFor(name);
+      const wordHit = tokens.some(token => wordPositions.has(token));
+      const partialWordHit = tokens.some(token => normalizedWords.some(word =>
+        word.length >= 3 && (token.startsWith(word) || word.startsWith(token))
+      ));
+      const tokenOverlap = contentTokens.length && tokens.length
+        ? contentTokens.some(ct => tokens.some(token =>
+            token.startsWith(ct) || ct.startsWith(token)
+          ))
+        : false;
+      const emojiMatch = emoji && text.includes(emoji);
+      return wordHit || partialWordHit || tokenOverlap || emojiMatch;
     };
 
     const matches = Array.from(this.extractMentionedAvatars(text, avatars));
@@ -607,33 +677,11 @@ export class AvatarService {
       pushUnique(orderedMatches, match);
     }
 
-    if (orderedMatches.length === 0) {
-      const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      for (const avatar of avatars) {
-        const name = String(avatar?.name || '').trim();
-        const emoji = String(avatar?.emoji || '').trim();
-        let matched = false;
-        if (name) {
-          const simple = name.toLowerCase();
-          if (simple.length <= 2) {
-            try {
-              const rx = new RegExp(`(?:^|[^\p{L}\p{N}])${escapeRegExp(simple)}(?:$|[^\p{L}\p{N}])`, 'iu');
-              matched = rx.test(text);
-            } catch {
-              matched = lower.includes(simple);
-            }
-          } else {
-            matched = lower.includes(simple);
-          }
-        }
-        if (!matched && emoji) {
-          matched = lower.includes(emoji.toLowerCase());
-        }
-        if (matched) {
-          pushUnique(orderedMatches, avatar);
-        }
-        if (limit !== null && orderedMatches.length >= limit) break;
-      }
+    for (const avatar of avatars) {
+      if (limit !== null && orderedMatches.length >= limit) break;
+      if (orderedMatches.some(av => String(av._id || av.id || '') === String(avatar?._id || avatar?.id || ''))) continue;
+      if (!hasWordOrTokenMatch(avatar)) continue;
+      pushUnique(orderedMatches, avatar);
     }
 
     orderedMatches.sort((a, b) => positionOf(a) - positionOf(b));

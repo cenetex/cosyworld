@@ -34,6 +34,16 @@ describe('AvatarService matchAvatarsByContent', () => {
     expect(result.map(av => av._id)).toEqual(['a2', 'a1']);
   });
 
+  it('detects avatars when only first names are used in longer sentences', () => {
+    const result = service.matchAvatarsByContent('Hey Artemis could you ping Rohan about tonight?', avatars);
+    expect(result.map(av => av._id)).toEqual(['a1', 'a2']);
+  });
+
+  it('matches partial first-name prefixes of at least three letters', () => {
+    const result = service.matchAvatarsByContent('Roha, can you and Art join?', avatars);
+    expect(result.map(av => av._id)).toEqual(['a2', 'a1']);
+  });
+
   it('respects exclusions and uses emoji + short-name fallbacks', () => {
     const result = service.matchAvatarsByContent('🌙 and Li should join.', avatars, {
       excludeAvatarIds: ['a3']
