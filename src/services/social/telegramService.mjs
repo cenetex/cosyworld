@@ -105,6 +105,7 @@ class TelegramService {
     this.recentMediaByChannel = new Map(); // channelId -> [mediaEntries]
     this.RECENT_MEDIA_LIMIT = 10;
     this.RECENT_MEDIA_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
+  this.MEDIA_ID_PREFIX_MIN_LENGTH = 6; // allow short IDs from summaries
 
     // Agent planning context (for planner tool)
     this.agentPlansByChannel = new Map(); // channelId -> [planEntries]
@@ -445,6 +446,7 @@ class TelegramService {
         const recentMediaCollection = db.collection('telegram_recent_media');
         await this._createIndexSafe(recentMediaCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt' }, 'telegram_recent_media');
         await this._createIndexSafe(recentMediaCollection, { createdAt: 1 }, { name: 'createdAt_ttl_recent_media', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_recent_media');
+  await this._createIndexSafe(recentMediaCollection, { channelId: 1, id: 1 }, { name: 'channelId_mediaId', unique: true }, 'telegram_recent_media');
 
         const agentPlansCollection = db.collection('telegram_agent_plans');
         await this._createIndexSafe(agentPlansCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt_agent_plan' }, 'telegram_agent_plans');
@@ -504,20 +506,45 @@ class TelegramService {
     this.recentMediaByChannel.set(channelId, pruned);
   }
 
+  _normalizeMediaRecord(record = {}) {
+    if (!record?.id) return null;
+    const normalized = {
+      ...record,
+      channelId: record.channelId ? String(record.channelId) : null,
+      createdAt: record.createdAt instanceof Date
+        ? record.createdAt
+        : new Date(record.createdAt || Date.now())
+    };
+    return normalized;
+  }
+
+  _cacheRecentMediaRecord(channelId, record) {
+    if (!channelId || !record) return null;
+    const normalizedChannelId = String(channelId);
+    const normalizedRecord = this._normalizeMediaRecord(record);
+    if (!normalizedRecord) return null;
+    const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
+    const deduped = cache.filter(item => item.id !== normalizedRecord.id);
+    deduped.unshift(normalizedRecord);
+    this.recentMediaByChannel.set(normalizedChannelId, deduped.slice(0, this.RECENT_MEDIA_LIMIT));
+    this._pruneRecentMedia(normalizedChannelId);
+    return normalizedRecord;
+  }
+
   async _rememberGeneratedMedia(channelId, entry = {}) {
     try {
       if (!channelId || !entry?.mediaUrl) {
         return null;
       }
 
-      const normalized = {
+      const record = {
         id: entry.id || randomUUID(),
         channelId: String(channelId),
         type: entry.type || 'image',
         mediaUrl: entry.mediaUrl,
         prompt: entry.prompt || null,
         caption: entry.caption || null,
-        createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+        createdAt: entry.createdAt || new Date(),
         messageId: entry.messageId || null,
         userId: entry.userId || null,
         tweetedAt: entry.tweetedAt || null,
@@ -525,15 +552,12 @@ class TelegramService {
         metadata: entry.metadata || null
       };
 
-      const cache = this.recentMediaByChannel.get(normalized.channelId) || [];
-      const deduped = cache.filter(item => item.id !== normalized.id);
-      deduped.unshift(normalized);
-      this.recentMediaByChannel.set(normalized.channelId, deduped.slice(0, this.RECENT_MEDIA_LIMIT));
-      this._pruneRecentMedia(normalized.channelId);
+      const normalized = this._cacheRecentMediaRecord(record.channelId, record);
+      if (!normalized) {
+        return null;
+      }
 
-      this._persistRecentMediaRecord(normalized).catch(err => {
-        this.logger?.warn?.('[TelegramService] Failed to persist recent media:', err?.message || err);
-      });
+      await this._persistRecentMediaRecord(normalized);
 
       return normalized;
     } catch (error) {
@@ -581,10 +605,9 @@ class TelegramService {
         .sort({ createdAt: -1 })
         .limit(limit)
         .toArray();
-      return items.map(item => ({
-        ...item,
-        createdAt: item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt)
-      }));
+      return items
+        .map(item => this._normalizeMediaRecord(item))
+        .filter(Boolean);
     } catch (error) {
       this.logger?.warn?.('[TelegramService] Failed to load recent media:', error?.message || error);
       return [];
@@ -593,14 +616,15 @@ class TelegramService {
 
   async _getRecentMedia(channelId, limit = 5) {
     if (!channelId) return [];
-    this._pruneRecentMedia(String(channelId));
-    const cache = this.recentMediaByChannel.get(String(channelId));
+    const normalizedChannelId = String(channelId);
+    this._pruneRecentMedia(normalizedChannelId);
+    const cache = this.recentMediaByChannel.get(normalizedChannelId);
     if (cache?.length) {
       return cache.slice(0, limit);
     }
     const fromDb = await this._loadRecentMediaFromDb(channelId, Math.max(limit, this.RECENT_MEDIA_LIMIT));
     if (fromDb.length) {
-      this.recentMediaByChannel.set(String(channelId), fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
+      this.recentMediaByChannel.set(normalizedChannelId, fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
     }
     return fromDb.slice(0, limit);
   }
@@ -738,17 +762,47 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
   async _findRecentMediaById(channelId, mediaId) {
     if (!channelId || !mediaId) return null;
-    const cache = this.recentMediaByChannel.get(String(channelId));
+    const normalizedChannelId = String(channelId);
+    const lookupRaw = String(mediaId).trim();
+    const lookupLower = lookupRaw.toLowerCase();
+
+    const cache = this.recentMediaByChannel.get(normalizedChannelId);
     if (cache?.length) {
-      const found = cache.find(item => item.id === mediaId);
-      if (found) return found;
+      const foundCache = cache.find(item => {
+        if (!item?.id) return false;
+        const itemId = String(item.id).toLowerCase();
+        return itemId === lookupLower || itemId.startsWith(lookupLower);
+      });
+      if (foundCache) {
+        return foundCache;
+      }
     }
-    const results = await this._loadRecentMediaFromDb(channelId, this.RECENT_MEDIA_LIMIT);
-    const foundDb = results.find(item => item.id === mediaId);
-    if (foundDb) {
-      this.recentMediaByChannel.set(String(channelId), results.slice(0, this.RECENT_MEDIA_LIMIT));
+
+    if (!this.databaseService) return null;
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const collection = db.collection('telegram_recent_media');
+
+      let foundRecord = await collection.findOne({ channelId: normalizedChannelId, id: lookupRaw });
+
+      if (!foundRecord && lookupRaw.length >= this.MEDIA_ID_PREFIX_MIN_LENGTH) {
+        const regex = new RegExp(`^${escapeRegExp(lookupRaw)}`, 'i');
+        foundRecord = await collection.findOne(
+          { channelId: normalizedChannelId, id: { $regex: regex } },
+          { sort: { createdAt: -1 } }
+        );
+      }
+
+      if (foundRecord) {
+        const normalized = this._cacheRecentMediaRecord(normalizedChannelId, foundRecord);
+        return normalized || this._normalizeMediaRecord(foundRecord);
+      }
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to look up mediaId:', error?.message || error);
     }
-    return foundDb || null;
+
+    return null;
   }
 
   async _markMediaAsTweeted(channelId, mediaId, meta = {}) {
@@ -771,22 +825,79 @@ Always consider calling plan_actions before executing media or tweet tools when 
     }
   }
 
+  async _shareTweetResultToTelegram(ctx, {
+    tweetUrl,
+    tweetText,
+    mediaRecord,
+    channelId,
+    userId
+  }) {
+    const captionParts = ['🕊️ Posted to X'];
+    if (tweetText) {
+      captionParts.push(tweetText.slice(0, 500));
+    }
+    if (tweetUrl) {
+      captionParts.push(tweetUrl);
+    }
+    const caption = captionParts.filter(Boolean).join('\n\n').trim() || '🕊️ Posted to X';
+
+    try {
+      let sentMessage = null;
+      if (mediaRecord?.mediaUrl && ctx?.telegram) {
+        if (mediaRecord.type === 'video' && ctx.telegram.sendVideo) {
+          sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, mediaRecord.mediaUrl, {
+            caption,
+            supports_streaming: true
+          });
+        } else if (ctx.telegram.sendPhoto) {
+          sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, mediaRecord.mediaUrl, {
+            caption
+          });
+        }
+      }
+
+      if (!sentMessage) {
+        sentMessage = await ctx.reply(caption);
+      }
+
+      if (channelId) {
+        await this._recordBotResponse(channelId, userId);
+        await this._trackBotMessage(channelId, caption);
+      }
+
+      return sentMessage;
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] Failed to share tweet preview:', error?.message || error);
+      const fallback = tweetUrl ? `🕊️ Tweeted! ${tweetUrl}` : '🕊️ Tweeted!';
+      try {
+        await ctx.reply(fallback);
+        if (channelId) {
+          await this._recordBotResponse(channelId, userId);
+          await this._trackBotMessage(channelId, fallback);
+        }
+      } catch (replyError) {
+        this.logger?.error?.('[TelegramService] Fallback tweet confirmation failed:', replyError);
+      }
+      return null;
+    }
+  }
+
   async _buildRecentMediaContext(channelId, limit = 5) {
     const items = await this._getRecentMedia(channelId, limit);
     if (!items.length) {
       return { summary: 'Recent media you generated: none in the last few days.', items: [] };
     }
-      const summaryLines = items.map((item, idx) => {
+    const summaryLines = items.map((item, idx) => {
       const label = item.caption || item.prompt || `${item.type} without description`;
       const ageMs = Date.now() - new Date(item.createdAt).getTime();
       const ageMin = Math.max(1, Math.round(ageMs / 60000));
       const ago = ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
-      const shortId = item.id.slice(0, 8);
-        const tweetedMarker = item.tweetedAt ? ' (tweeted already)' : '';
-        return `${idx + 1}. [${shortId}] ${item.type} — ${label.slice(0, 120)} (${ago}${tweetedMarker})`;
+      const shortId = String(item.id).slice(0, 8).toUpperCase();
+      const tweetedMarker = item.tweetedAt ? ' (tweeted already)' : '';
+      return `${idx + 1}. [${shortId}] ${item.type} — ${label.slice(0, 120)} (${ago}${tweetedMarker})\n    full id: ${item.id}`;
     });
     return {
-      summary: `Recent media you generated (use the ID in brackets when tweeting):\n${summaryLines.join('\n')}`,
+      summary: `Recent media you generated (short ID in brackets works as a prefix, or copy the full id line when tweeting):\n${summaryLines.join('\n')}`,
       items
     };
   }
@@ -2644,6 +2755,7 @@ Your caption:`;
    * @param {string} opts.username - Telegram username requesting the tweet
    */
   async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
+    const normalizedChannelId = channelId ? String(channelId) : (ctx?.chat?.id ? String(ctx.chat.id) : null);
     try {
       if (!this.xService) {
         await ctx.reply('🚫 Tweeting isn\'t available right now.');
@@ -2653,32 +2765,32 @@ Your caption:`;
       const trimmedText = String(text || '').trim();
       if (!trimmedText) {
         await ctx.reply('I need a short message to share on X. Try again with the caption you want.');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
       if (!mediaId) {
         await ctx.reply('Please pick an image or video from my recent list (include the ID in brackets).');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
-      const mediaRecord = await this._findRecentMediaById(channelId, mediaId);
+      const mediaRecord = await this._findRecentMediaById(normalizedChannelId, mediaId);
       if (!mediaRecord) {
         await ctx.reply('I couldn\'t find that media ID anymore. Ask me to regenerate it or choose another one.');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
       if (mediaRecord.tweetedAt) {
         await ctx.reply('That one\'s already been posted to X. Pick a different image or ask me to make a new one.');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
       if (!mediaRecord.mediaUrl) {
         await ctx.reply('I lost the download link for that media. Let me create a new one.');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
@@ -2690,7 +2802,7 @@ Your caption:`;
         prompt: mediaRecord.prompt,
         context: mediaRecord.caption,
         metadata: {
-          telegramChannelId: channelId,
+          telegramChannelId: normalizedChannelId,
           telegramMediaId: mediaRecord.id,
           requestedBy: userId,
           requestedByUsername: username || null
@@ -2698,7 +2810,7 @@ Your caption:`;
       };
 
       this.logger?.info?.('[TelegramService] Posting tweet via tool', {
-        channelId,
+        channelId: normalizedChannelId,
         userId,
         mediaId: mediaRecord.id
       });
@@ -2707,22 +2819,24 @@ Your caption:`;
 
       if (!result) {
         await ctx.reply('❌ I tried to tweet it but the X service is busy. Let\'s try again later.');
-        await this._recordBotResponse(channelId, userId);
+        await this._recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
-      await this._markMediaAsTweeted(channelId, mediaRecord.id, { tweetId: result.tweetId || null });
+      await this._markMediaAsTweeted(normalizedChannelId, mediaRecord.id, { tweetId: result.tweetId || null });
 
       const tweetUrl = result.tweetUrl || (result.tweetId ? `https://x.com/i/web/status/${result.tweetId}` : null);
-      const confirmation = tweetUrl
-        ? `🕊️ Tweeted! ${tweetUrl}`
-        : '🕊️ Tweeted!';
-      await ctx.reply(confirmation);
-      await this._recordBotResponse(channelId, userId);
+      await this._shareTweetResultToTelegram(ctx, {
+        tweetUrl,
+        tweetText: trimmedText,
+        mediaRecord,
+        channelId: normalizedChannelId,
+        userId
+      });
     } catch (error) {
       this.logger?.error?.('[TelegramService] Tweet tool failed:', error);
       await ctx.reply('❌ Something went wrong sharing that. I\'ll try again later.');
-      await this._recordBotResponse(channelId, userId);
+      await this._recordBotResponse(normalizedChannelId, userId);
     }
   }
 

@@ -19,6 +19,7 @@ function createService(overrides = {}) {
     updateOne: vi.fn().mockResolvedValue({}),
     insertOne: vi.fn().mockResolvedValue({ insertedId: 'mock' }),
     createIndex: vi.fn().mockResolvedValue({ name: 'mock' }),
+    findOne: vi.fn().mockResolvedValue(null),
     find: vi.fn().mockReturnValue({
       sort: () => ({
         limit: () => ({
@@ -78,6 +79,7 @@ describe('TelegramService tweet tool helpers', () => {
     service = createService({ xService: { postGlobalMediaUpdate } });
     service._markMediaAsTweeted = vi.fn().mockResolvedValue();
     service._recordBotResponse = vi.fn().mockResolvedValue();
+    service._trackBotMessage = vi.fn().mockResolvedValue();
 
     const mediaEntry = {
       id: 'media-1',
@@ -89,7 +91,13 @@ describe('TelegramService tweet tool helpers', () => {
     };
     service.recentMediaByChannel.set('channel-1', [mediaEntry]);
 
-    const ctx = { reply: vi.fn() };
+    const ctx = {
+      reply: vi.fn(),
+      chat: { id: 'channel-1' },
+      telegram: {
+        sendPhoto: vi.fn().mockResolvedValue({ message_id: 99 })
+      }
+    };
 
     await service.executeTweetPost(ctx, {
       text: 'Look at this',
@@ -103,8 +111,51 @@ describe('TelegramService tweet tool helpers', () => {
       mediaUrl: 'https://example.com/1.png',
       source: 'telegram.tweet_tool'
     }), expect.any(Object));
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Tweeted'));
+  expect(ctx.telegram.sendPhoto).toHaveBeenCalledWith('channel-1', 'https://example.com/1.png', expect.objectContaining({ caption: expect.stringContaining('Posted to X') }));
+  expect(ctx.reply).not.toHaveBeenCalled();
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-1', 'media-1', expect.any(Object));
+  });
+
+  it('falls back to database lookup when only a short ID is provided', async () => {
+    const postGlobalMediaUpdate = vi.fn().mockResolvedValue({ tweetId: 'tweet-9', tweetUrl: 'https://x.com/i/web/status/tweet-9' });
+    service = createService({ xService: { postGlobalMediaUpdate } });
+    service._markMediaAsTweeted = vi.fn().mockResolvedValue();
+    service._recordBotResponse = vi.fn().mockResolvedValue();
+    service._trackBotMessage = vi.fn().mockResolvedValue();
+
+    const dbMediaRecord = {
+      id: 'abcd1234-1111-2222-3333-abcdefabcdef',
+      channelId: 'channel-2',
+      type: 'image',
+      mediaUrl: 'https://example.com/db.png',
+      caption: 'DB stored media',
+      createdAt: new Date()
+    };
+
+    service.__collectionMock.findOne = vi.fn()
+      .mockResolvedValueOnce(null) // exact match
+      .mockResolvedValueOnce(dbMediaRecord); // prefix match
+
+    const ctx = {
+      reply: vi.fn(),
+      chat: { id: 'channel-2' },
+      telegram: {
+        sendPhoto: vi.fn().mockResolvedValue({ message_id: 101 })
+      }
+    };
+
+    await service.executeTweetPost(ctx, {
+      text: 'Share this one',
+      mediaId: 'abcd1234',
+      channelId: 'channel-2',
+      userId: 'user-7',
+      username: 'tester'
+    });
+
+    expect(service.__collectionMock.findOne).toHaveBeenCalledTimes(2);
+    expect(postGlobalMediaUpdate).toHaveBeenCalled();
+    expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-2', dbMediaRecord.id, expect.any(Object));
+    expect(ctx.telegram.sendPhoto).toHaveBeenCalled();
   });
 });
 
@@ -160,7 +211,7 @@ describe('TelegramService index bootstrap', () => {
     await service._ensureTelegramIndexes();
     await service._ensureTelegramIndexes();
 
-    expect(service.__collectionMock.createIndex).toHaveBeenCalledTimes(4);
+    expect(service.__collectionMock.createIndex).toHaveBeenCalledTimes(5);
   });
 
   it('gracefully skips index creation when no databaseService is available', async () => {
