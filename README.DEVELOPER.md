@@ -367,6 +367,18 @@ if (response.error) {
 }
 ```
 
+### Token & Credit Guarding
+
+High-volume AI runs can burn through OpenRouter credits quickly. ConversationManager now enforces a lightweight budget guard controlled via environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AI_COMPLETION_MAX_TOKENS` | `1024` | Hard cap for completion tokens on standard replies. Requests asking for more are truncated to this ceiling. |
+| `AI_LOW_CREDIT_MAX_TOKENS` | `640` (or lower than the main cap) | Secondary cap applied when a request hits a payment/credit error before retrying with a cheaper model. |
+| `AI_LOW_CREDIT_MODEL_FALLBACKS` | `meta-llama/llama-3.2-1b-instruct,google/gemini-2.0-flash-exp:free` | Comma-separated list of low-cost models used when OpenRouter returns HTTP 402 / “insufficient credits.” |
+
+If OpenRouter responds with a payment/credit error, ConversationManager automatically retries the turn with the first available fallback model and the reduced max token budget above. The guard also logs when a recovery occurs so you can monitor how often the downgrade path is being used. Tune these knobs based on your current credit limits (e.g., lower the primary cap during heavy events or swap the fallback list to the cheapest free-tier models available in your account).
+
 ---
 
 ## Database Operations
