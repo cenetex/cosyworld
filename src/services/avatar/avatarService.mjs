@@ -112,6 +112,14 @@ const mentionTokensFor = (value = '') => normalizeMentionText(value)
   .split(' ')
   .filter(token => token && (token.length >= 3 || /^\d+$/.test(token)));
 
+const PARTIAL_UPGRADE_ACTIVITY_THRESHOLD = Number.isFinite(Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD))
+  ? Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD)
+  : 25;
+
+const PARTIAL_UPGRADE_COOLDOWN_MS = Number.isFinite(Number(process.env.WALLET_AVATAR_UPGRADE_COOLDOWN_MS))
+  ? Number(process.env.WALLET_AVATAR_UPGRADE_COOLDOWN_MS)
+  : 6 * 60 * 60 * 1000; // 6 hours
+
 export class AvatarService {
   constructor({
     databaseService,
@@ -136,7 +144,7 @@ export class AvatarService {
     this.walletInsights = walletInsights;
     this.pendingAvatarImageHydrations = new Set();
 
-  this.registeredCollectionCache = { keys: [], expiresAt: 0 };
+    this.registeredCollectionCache = { keys: [], expiresAt: 0 };
 
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
@@ -2259,20 +2267,37 @@ export class AvatarService {
     const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
     const effectiveShouldSendIntro = claimedSource ? false : shouldSendIntro;
     
+    let upgradeAppliedThisCall = false;
+
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
       const isPartialAvatar = !avatar.imageUrl;
       const needsUpgrade = isPartialAvatar && isEligibleForFullAvatar;
+      const activityCount = Number.isFinite(avatar?.activityCount) ? avatar.activityCount : 0;
+      const engagementEligible = isPartialAvatar && activityCount >= PARTIAL_UPGRADE_ACTIVITY_THRESHOLD;
+      const lastUpgradeAttemptAt = avatar?.lastUpgradeAttemptAt instanceof Date
+        ? avatar.lastUpgradeAttemptAt
+        : (avatar?.lastUpgradeAttemptAt ? new Date(avatar.lastUpgradeAttemptAt) : null);
+      const timeSinceLastUpgradeAttempt = lastUpgradeAttemptAt ? Date.now() - lastUpgradeAttemptAt.getTime() : Infinity;
+      const cooldownMs = PARTIAL_UPGRADE_COOLDOWN_MS;
+      const canRetryUpgrade = !Number.isFinite(cooldownMs) || cooldownMs <= 0 || timeSinceLastUpgradeAttempt >= cooldownMs;
+      const upgradeReason = needsUpgrade ? 'balance-threshold' : (engagementEligible ? 'high-activity' : null);
+      const shouldAttemptUpgrade = Boolean(upgradeReason) && canRetryUpgrade;
       
       // Debug logging for upgrade decision
-      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
+      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, activityCount: ${activityCount}, highActivityEligible: ${engagementEligible}, lastUpgradeAttemptAt: ${lastUpgradeAttemptAt || 'never'}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
       
-      if (needsUpgrade) {
+      if (shouldAttemptUpgrade) {
         const balanceDescription = context.tokenSymbol
           ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol}`
           : `${formatLargeNumber(normalizedBalance)} tokens`;
-        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (eligible holder with ${balanceDescription})`);
+        const upgradeAttemptedAt = new Date();
+        const upgradeContextMessage = upgradeReason === 'high-activity'
+          ? `high-activity holder (${activityCount} interactions)`
+          : `eligible holder with ${balanceDescription}`;
+        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (${upgradeContextMessage})`);
         
+        let appliedUpgrade = false;
         try {
           // Generate image for existing avatar
           const uploadOptions = {
@@ -2292,6 +2317,8 @@ export class AvatarService {
               imageUrl,
               isPartial: false,
               upgradedAt,
+              lastUpgradeAttemptAt: upgradeAttemptedAt,
+              lastUpgradeReason: upgradeReason,
             };
 
             if (hydratedModel && hydratedModel !== avatar.model) {
@@ -2310,16 +2337,42 @@ export class AvatarService {
             avatar.imageUrl = imageUrl;
             avatar.isPartial = false;
             avatar.upgradedAt = upgradedAt;
+            avatar.lastUpgradeAttemptAt = upgradeAttemptedAt;
+            avatar.lastUpgradeReason = upgradeReason;
             if (upgradeFields.model) {
               avatar.model = upgradeFields.model;
               this.logger?.info?.(`[AvatarService] Assigned upgraded model ${upgradeFields.model} to ${avatar.name}`);
             }
+            appliedUpgrade = true;
+            upgradeAppliedThisCall = true;
           } else {
             this.logger?.error?.(`[AvatarService] Failed to generate image for ${avatar.name}`);
           }
         } catch (error) {
           this.logger?.error?.(`[AvatarService] Error upgrading avatar ${avatar.name}:`, error);
+        } finally {
+          if (!appliedUpgrade) {
+            try {
+              await db.collection(this.AVATARS_COLLECTION).updateOne(
+                { _id: avatar._id },
+                {
+                  $set: {
+                    lastUpgradeAttemptAt: upgradeAttemptedAt,
+                    lastUpgradeReason: upgradeReason || null,
+                  },
+                }
+              );
+              avatar.lastUpgradeAttemptAt = upgradeAttemptedAt;
+              avatar.lastUpgradeReason = upgradeReason || null;
+            } catch (attemptError) {
+              this.logger?.debug?.(`[AvatarService] Failed to record upgrade attempt for ${avatar.name}: ${attemptError.message}`);
+            }
+          }
         }
+      } else if (upgradeReason && !canRetryUpgrade) {
+        const remainingMs = cooldownMs - timeSinceLastUpgradeAttempt;
+        const remainingMinutes = Math.max(0, remainingMs / 60_000).toFixed(1);
+        this.logger?.debug?.(`[AvatarService] Skipping upgrade attempt for ${avatar.name} (reason=${upgradeReason}) due to cooldown ${remainingMinutes}m remaining`);
       }
       
       // Update last activity and token balances
@@ -2431,7 +2484,7 @@ export class AvatarService {
       // Reload to get updated data
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
-      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
+  this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${upgradeAppliedThisCall ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
 
   const claimedActivationTarget = context.discordChannelId || context.channelId || avatar.channelId;
       if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && claimedActivationTarget) {

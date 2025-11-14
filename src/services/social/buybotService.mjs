@@ -80,11 +80,15 @@ export class BuybotService {
     this.activeWebhooks = new Map(); // channelId -> webhook data
     this.db = null;
     
-    // Price cache: tokenAddress -> { price, marketCap, timestamp }
-    this.priceCache = new Map();
+  // Price cache: tokenAddress -> { price, marketCap, timestamp }
+  this.priceCache = new Map();
     
-    // Token info cache: tokenAddress -> { tokenInfo, timestamp }
-    this.tokenInfoCache = new Map();
+  // Token info cache: tokenAddress -> { tokenInfo, timestamp }
+  this.tokenInfoCache = new Map();
+
+  // Cache repeated "not found" lookups to avoid hammering DexScreener for fresh mints
+  this.tokenNotFoundCache = new Map(); // tokenAddress -> { timestamp, count }
+  this.TOKEN_NOT_FOUND_CACHE_TTL_MS = Number(process.env.BUYBOT_TOKEN_NOT_FOUND_TTL_MS || (30 * 60_000));
     
     // Wallet insights helper encapsulates Lambda polling + caching
     this.walletInsights = walletInsights || new WalletInsights({ logger: this.logger });
@@ -1033,6 +1037,44 @@ export class BuybotService {
     return base58Regex.test(address);
   }
 
+  _isTokenTemporarilySuppressed(tokenAddress) {
+    if (!tokenAddress) return false;
+    const entry = this.tokenNotFoundCache.get(tokenAddress);
+    if (!entry) {
+      return false;
+    }
+
+    const age = Date.now() - entry.timestamp;
+    if (age > this.TOKEN_NOT_FOUND_CACHE_TTL_MS) {
+      this.tokenNotFoundCache.delete(tokenAddress);
+      return false;
+    }
+
+    return true;
+  }
+
+  _markTokenAsNotFound(tokenAddress, reason = 'unknown') {
+    if (!tokenAddress) {
+      return;
+    }
+
+    const previous = this.tokenNotFoundCache.get(tokenAddress);
+    const entry = {
+      timestamp: Date.now(),
+      count: (previous?.count || 0) + 1,
+      reason,
+    };
+
+    this.tokenNotFoundCache.set(tokenAddress, entry);
+
+    const ttlMinutes = (this.TOKEN_NOT_FOUND_CACHE_TTL_MS / 60_000).toFixed(1);
+    if (!previous) {
+      this.logger?.warn?.(`[BuybotService] Token ${tokenAddress} not found on DexScreener (${reason}); suppressing lookups for ~${ttlMinutes}m`);
+    } else {
+      this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} still unavailable on DexScreener (${reason}); attempts=${entry.count}`);
+    }
+  }
+
   /**
    * Get token price from DexScreener API with caching and retry
    * @param {string} tokenAddress - Token address
@@ -1055,6 +1097,11 @@ export class BuybotService {
         };
       }
 
+      if (this._isTokenTemporarilySuppressed(tokenAddress)) {
+        this.logger.debug(`[BuybotService] Skipping DexScreener lookup for ${tokenAddress} (recently not found)`);
+        return null;
+      }
+
       // Fetch with retry and backoff
       const data = await this.retryWithBackoff(async () => {
         const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
@@ -1066,6 +1113,7 @@ export class BuybotService {
 
       if (!data || !data.pairs || data.pairs.length === 0) {
         this.logger.debug(`[BuybotService] No pairs found on DexScreener for ${tokenAddress}`);
+        this._markTokenAsNotFound(tokenAddress, 'no-pairs');
         return null;
       }
 
@@ -1078,6 +1126,7 @@ export class BuybotService {
 
       if (!bestPair || !bestPair.priceUsd) {
         this.logger.debug(`[BuybotService] No valid price found on DexScreener for ${tokenAddress}`);
+        this._markTokenAsNotFound(tokenAddress, 'no-price');
         return null;
       }
 
@@ -1116,6 +1165,8 @@ export class BuybotService {
         priceChange,
         timestamp: Date.now()
       });
+
+      this.tokenNotFoundCache.delete(tokenAddress);
 
       this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
       
@@ -1174,7 +1225,11 @@ export class BuybotService {
       }
 
       // If DexScreener doesn't have the token, return minimal info
-      this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
+      if (this._isTokenTemporarilySuppressed(tokenAddress)) {
+        this.logger.debug(`[BuybotService] Token ${tokenAddress} suppressed after repeated DexScreener misses; returning fallback avatar info`);
+      } else {
+        this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
+      }
       const tokenInfo = {
         address: tokenAddress,
         name: 'Unknown Token',
@@ -2635,8 +2690,44 @@ export class BuybotService {
         this.logger.debug(`[BuybotService] No full avatars (with images) in trade, skipping responses`);
         return;
       }
+
+      const now = Date.now();
+      const eligibleAvatars = [];
+      const suppressedAvatars = [];
+
+      for (const entry of fullAvatars) {
+        const status = this._assessAvatarResponseEligibility(entry?.avatar, now);
+        if (status.eligible) {
+          eligibleAvatars.push(entry);
+        } else {
+          suppressedAvatars.push({ ...entry, reason: status.reason });
+        }
+      }
+
+      if (eligibleAvatars.length === 0) {
+        this.logger.info(`[BuybotService] All ${fullAvatars.length} avatar(s) were ineligible to respond (knocked out or inactive)`, {
+          suppressedReasons: suppressedAvatars.map(({ avatar, role, reason }) => ({
+            avatarId: avatar?._id?.toString?.(),
+            name: avatar?.name,
+            role,
+            reason,
+          })),
+        });
+        return;
+      }
+
+      if (suppressedAvatars.length > 0) {
+        this.logger.info(`[BuybotService] Skipping ${suppressedAvatars.length} avatar(s) that cannot currently speak`, {
+          suppressedReasons: suppressedAvatars.map(({ avatar, role, reason }) => ({
+            avatarId: avatar?._id?.toString?.(),
+            name: avatar?.name,
+            role,
+            reason,
+          })),
+        });
+      }
       
-      this.logger.info(`[BuybotService] Triggering responses for ${fullAvatars.length} full avatar(s) in trade`);
+      this.logger.info(`[BuybotService] Triggering responses for ${eligibleAvatars.length} eligible avatar(s) in trade`);
       
       // Get the channel object
       const channel = await this.discordService.client.channels.fetch(channelId);
@@ -2706,8 +2797,8 @@ export class BuybotService {
       };
 
       // Trigger each full avatar to respond with context about the trade
-      for (let i = 0; i < fullAvatars.length; i++) {
-        const { avatar, role } = fullAvatars[i];
+      for (let i = 0; i < eligibleAvatars.length; i++) {
+        const { avatar, role } = eligibleAvatars[i];
         try {
           const targetChannel = await resolveChannelForAvatar(avatar);
           if (!targetChannel || (typeof targetChannel.isTextBased === 'function' && !targetChannel.isTextBased())) {
@@ -2762,6 +2853,39 @@ export class BuybotService {
       this.logger.error('[BuybotService] Failed to trigger avatar trade responses:', error);
     }
   }
+
+      _assessAvatarResponseEligibility(avatar, now = Date.now()) {
+        if (!avatar) {
+          return { eligible: false, reason: 'avatar unavailable' };
+        }
+
+        if (avatar.status === 'dead') {
+          return { eligible: false, reason: 'status=dead' };
+        }
+
+        if (avatar.status === 'knocked_out') {
+          return { eligible: false, reason: 'status=knocked_out' };
+        }
+
+        if (typeof avatar.lives === 'number' && avatar.lives <= 0) {
+          return { eligible: false, reason: 'no lives remaining' };
+        }
+
+        if (avatar.knockedOutUntil) {
+          let untilTs = null;
+          if (avatar.knockedOutUntil instanceof Date) {
+            untilTs = avatar.knockedOutUntil.getTime();
+          } else {
+            const parsed = new Date(avatar.knockedOutUntil);
+            untilTs = Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+          }
+          if (untilTs && untilTs > now) {
+            return { eligible: false, reason: `knocked out until ${new Date(untilTs).toISOString()}` };
+          }
+        }
+
+        return { eligible: true, reason: null };
+      }
 
   /**
    * Record trade relationships between avatars

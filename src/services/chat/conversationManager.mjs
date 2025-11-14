@@ -77,6 +77,29 @@ export class ConversationManager  {
     this.useMetaPrompting = String(process.env.TOOL_USE_META_PROMPTING || 'true').toLowerCase() === 'true';
     this.toolFastPathEnabled = String(process.env.TOOL_FAST_PATH_ENABLED || 'true').toLowerCase() === 'true';
     this.skipFinalResponseAfterRespond = String(process.env.SKIP_FINAL_RESPONSE_AFTER_RESPOND_TOOL || 'true').toLowerCase() === 'true';
+
+    const parsedMax = Number(process.env.AI_COMPLETION_MAX_TOKENS || 1024);
+    this.maxCompletionTokens = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 1024;
+
+    const parsedLowCreditMax = Number(process.env.AI_LOW_CREDIT_MAX_TOKENS || Math.min(640, this.maxCompletionTokens));
+    this.lowCreditMaxTokens = Number.isFinite(parsedLowCreditMax) && parsedLowCreditMax > 0
+      ? parsedLowCreditMax
+      : Math.min(640, this.maxCompletionTokens);
+
+    const fallbackList = String(process.env.AI_LOW_CREDIT_MODEL_FALLBACKS || 'meta-llama/llama-3.2-1b-instruct,google/gemini-2.0-flash-exp:free')
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean);
+    this.lowCreditFallbackModels = fallbackList;
+
+    this.creditErrorCodes = new Set([
+      'HTTP_402',
+      '402',
+      'PAYMENT_REQUIRED',
+      'INSUFFICIENT_CREDITS',
+      'INSUFFICIENT_QUOTA',
+      'MODEL_PAYMENT_REQUIRED',
+    ]);
   }
 
   /** Normalize arbitrary AI response into a safe string. Logs when response isn't a plain string. */
@@ -885,7 +908,12 @@ export class ConversationManager  {
   // Build chat options
   // Increased max_tokens to accommodate models with extended reasoning (e.g., Nemotron with reasoning mode)
   // returnEnvelope: true allows us to detect and handle model errors (like 404 model not found)
-  const chatOptions = { model: avatar.model, max_tokens: 1024, corrId, returnEnvelope: true };
+  const chatOptions = {
+        model: avatar.model,
+        max_tokens: this._capCompletionTokens(1024),
+        corrId,
+        returnEnvelope: true,
+      };
   
   // Execute tools if meta-prompting decided on any
   if (toolCalls.length > 0) {
@@ -967,30 +995,31 @@ export class ConversationManager  {
     }
   }
   
-  let result = await ai.chat(chatMessages, chatOptions);
+      let result = await ai.chat(chatMessages, chatOptions);
+      result = await this._recoverFromAiEnvelope(result, {
+        avatar,
+        chatMessages,
+        chatOptions,
+        ai,
+        corrId,
+      });
       resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
-      
+
       this.logger.info?.(`[ConversationManager] AI chat returned for ${avatar.name}, result type: ${typeof result}, is null/undefined: ${result == null}`);
-      
-      // Handle model not found fallback
-      if (result && typeof result === 'object' && result.error?.code === 'MODEL_NOT_FOUND_FALLBACK') {
-        const { fallbackModel, originalModel } = result.error;
-        this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar.name}, updating to fallback model '${fallbackModel}'`);
-        
-        // Update avatar's model to the fallback
-        avatar.model = fallbackModel;
-        try {
-          await this.avatarService.updateAvatar(avatar);
-          this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
-        } catch (updateError) {
-          this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
-        }
-        
-        // Retry the chat with the new model
-        chatOptions.model = fallbackModel;
-        this.logger.info?.(`[ConversationManager] Retrying chat for ${avatar.name} with fallback model ${fallbackModel}`);
-        result = await ai.chat(chatMessages, chatOptions);
-        resultReasoning = (result && typeof result === 'object' && result.reasoning) ? String(result.reasoning) : '';
+
+      if (result && typeof result === 'object' && result._recovery) {
+        const recovery = result._recovery;
+        this.logger.info?.(`[ConversationManager] Applied AI recovery for ${avatar.name}`, {
+          type: recovery.type,
+          fromModel: recovery.from,
+          toModel: recovery.to,
+          maxTokens: recovery.maxTokens,
+        });
+      }
+
+      if (result && typeof result === 'object' && result.error) {
+        this.logger.error(`[ConversationManager] AI chat failed for ${avatar.name}: ${result.error.message || result.error.code || 'unknown error'}`);
+        return null;
       }
       
       // Log non-string/atypical shapes for diagnostics
@@ -1173,6 +1202,104 @@ export class ConversationManager  {
       this.logger.error(`CONVERSATION: Error sending response for ${avatar.name}: ${error.message}`);
       throw error;
     }
+  }
+
+  _capCompletionTokens(requested = 1024) {
+    const cap = Number.isFinite(this.maxCompletionTokens) && this.maxCompletionTokens > 0
+      ? this.maxCompletionTokens
+      : 1024;
+    if (!Number.isFinite(requested) || requested <= 0) {
+      return cap;
+    }
+    return Math.min(requested, cap);
+  }
+
+  _isCreditError(error) {
+    if (!error) return false;
+    const code = String(error.code || '').toUpperCase();
+    if (this.creditErrorCodes.has(code)) {
+      return true;
+    }
+    if (code.includes('402')) {
+      return true;
+    }
+    const message = String(error.message || '').toLowerCase();
+    return ['payment required', 'insufficient credit', 'insufficient quota', 'requires payment', 'billing'].some(fragment => message.includes(fragment));
+  }
+
+  _selectLowCreditModel(currentModel) {
+    if (!Array.isArray(this.lowCreditFallbackModels) || this.lowCreditFallbackModels.length === 0) {
+      return null;
+    }
+    const trimmedCurrent = String(currentModel || '').trim();
+    const alternative = this.lowCreditFallbackModels.find(model => model && model !== trimmedCurrent);
+    return alternative || this.lowCreditFallbackModels[0];
+  }
+
+  async _recoverFromAiEnvelope(result, { avatar, chatMessages, chatOptions, ai, corrId } = {}) {
+    if (!result || typeof result !== 'object' || !result.error) {
+      return result;
+    }
+
+    if (result.error.code === 'MODEL_NOT_FOUND_FALLBACK' && result.error.fallbackModel) {
+      const { fallbackModel, originalModel } = result.error;
+      this.logger.warn?.(`[ConversationManager] Model '${originalModel}' not found for ${avatar?.name}, updating to fallback model '${fallbackModel}'`);
+
+      if (avatar) {
+        avatar.model = fallbackModel;
+        try {
+          await this.avatarService.updateAvatar(avatar);
+          this.logger.info?.(`[ConversationManager] Updated ${avatar.name}'s model to ${fallbackModel}`);
+        } catch (updateError) {
+          this.logger.error?.(`[ConversationManager] Failed to update avatar model: ${updateError.message}`);
+        }
+      }
+
+      if (ai && chatMessages && chatOptions) {
+        const retryOptions = { ...chatOptions, model: fallbackModel };
+        this.logger.info?.(`[ConversationManager] Retrying chat for ${avatar?.name} with fallback model ${fallbackModel}`);
+        const retried = await ai.chat(chatMessages, retryOptions);
+        if (retried && typeof retried === 'object') {
+          retried._recovery = {
+            type: 'modelFallback',
+            from: originalModel || chatOptions?.model,
+            to: fallbackModel,
+            corrId,
+          };
+        }
+        return retried;
+      }
+      return result;
+    }
+
+    if (this._isCreditError(result.error) && ai && chatMessages && chatOptions) {
+      const fallbackModel = this._selectLowCreditModel(chatOptions.model || avatar?.model);
+      if (!fallbackModel) {
+        return result;
+      }
+
+      const limitedTokens = Math.min(
+        this.lowCreditMaxTokens || this._capCompletionTokens(chatOptions.max_tokens || this.maxCompletionTokens),
+        this._capCompletionTokens(chatOptions.max_tokens || this.maxCompletionTokens)
+      );
+
+      this.logger.warn?.(`[ConversationManager] Credit guard triggered for ${avatar?.name || 'unknown avatar'} on model ${chatOptions.model}; retrying with ${fallbackModel} (max_tokens=${limitedTokens})`);
+
+      const retryOptions = { ...chatOptions, model: fallbackModel, max_tokens: limitedTokens };
+      const retried = await ai.chat(chatMessages, retryOptions);
+      if (retried && typeof retried === 'object') {
+        retried._recovery = {
+          type: 'creditFallback',
+          from: chatOptions.model,
+          to: fallbackModel,
+          maxTokens: limitedTokens,
+          corrId,
+        };
+      }
+      return retried;
+    }
+
+    return result;
   }
 
   /**
