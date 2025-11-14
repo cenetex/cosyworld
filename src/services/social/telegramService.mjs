@@ -110,6 +110,10 @@ class TelegramService {
     this.agentPlansByChannel = new Map(); // channelId -> [planEntries]
     this.AGENT_PLAN_LIMIT = 5;
     this.AGENT_PLAN_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
+
+    // Index tracking (ensures TTL/topic indexes exist automatically)
+    this._indexesReady = false;
+    this._indexSetupPromise = null;
   }
 
   /**
@@ -117,6 +121,8 @@ class TelegramService {
    */
   async initializeGlobalBot() {
     try {
+      await this._ensureTelegramIndexes();
+
       // If bot is already running, don't start another instance
       if (this.globalBot && this.globalBot.botInfo) {
         this.logger?.warn?.('[TelegramService] Global bot already initialized, skipping');
@@ -412,6 +418,55 @@ class TelegramService {
     }
   }
 
+  async _createIndexSafe(collection, fields, options = {}, collectionLabel = 'collection') {
+    if (!collection?.createIndex) return;
+    try {
+      await collection.createIndex(fields, options);
+    } catch (error) {
+      if (error?.code === 85 || error?.codeName === 'IndexOptionsConflict') {
+        this.logger?.debug?.(`[TelegramService] Index already exists on ${collectionLabel}: ${options?.name || JSON.stringify(fields)}`);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  async _ensureTelegramIndexes() {
+    if (!this.databaseService) return;
+    if (this._indexesReady) return;
+    if (this._indexSetupPromise) {
+      return this._indexSetupPromise;
+    }
+
+    this._indexSetupPromise = (async () => {
+      let success = false;
+      try {
+        const db = await this.databaseService.getDatabase();
+        const recentMediaCollection = db.collection('telegram_recent_media');
+        await this._createIndexSafe(recentMediaCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt' }, 'telegram_recent_media');
+        await this._createIndexSafe(recentMediaCollection, { createdAt: 1 }, { name: 'createdAt_ttl_recent_media', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_recent_media');
+
+        const agentPlansCollection = db.collection('telegram_agent_plans');
+        await this._createIndexSafe(agentPlansCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt_agent_plan' }, 'telegram_agent_plans');
+        await this._createIndexSafe(agentPlansCollection, { createdAt: 1 }, { name: 'createdAt_ttl_agent_plan', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_agent_plans');
+
+        success = true;
+        if (!this._indexesReady) {
+          this.logger?.info?.('[TelegramService] Verified telegram indexes (recent media + agent plans)');
+        }
+      } catch (error) {
+        this.logger?.warn?.('[TelegramService] Failed to ensure telegram indexes:', error?.message || error);
+      } finally {
+        if (success) {
+          this._indexesReady = true;
+        }
+        this._indexSetupPromise = null;
+      }
+    })();
+
+    return this._indexSetupPromise;
+  }
+
   _getMemberCacheKey(channelId, userId) {
     return `${channelId}:${userId}`;
   }
@@ -490,6 +545,7 @@ class TelegramService {
   async _persistRecentMediaRecord(record) {
     if (!this.databaseService) return;
     try {
+      await this._ensureTelegramIndexes();
       const db = await this.databaseService.getDatabase();
       await db.collection('telegram_recent_media').updateOne(
         { channelId: record.channelId, id: record.id },
@@ -606,6 +662,7 @@ class TelegramService {
   async _persistAgentPlanRecord(record) {
     if (!this.databaseService) return;
     try {
+      await this._ensureTelegramIndexes();
       const db = await this.databaseService.getDatabase();
       await db.collection('telegram_agent_plans').insertOne({
         channelId: record.channelId,

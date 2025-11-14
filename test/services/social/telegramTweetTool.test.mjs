@@ -18,6 +18,7 @@ function createService(overrides = {}) {
   const collectionMock = {
     updateOne: vi.fn().mockResolvedValue({}),
     insertOne: vi.fn().mockResolvedValue({ insertedId: 'mock' }),
+    createIndex: vi.fn().mockResolvedValue({ name: 'mock' }),
     find: vi.fn().mockReturnValue({
       sort: () => ({
         limit: () => ({
@@ -33,7 +34,7 @@ function createService(overrides = {}) {
     })
   };
 
-  return new TelegramService({
+  const serviceInstance = new TelegramService({
     logger,
     databaseService,
     configService: { get: () => null },
@@ -46,6 +47,10 @@ function createService(overrides = {}) {
     xService: overrides.xService || null,
     ...overrides
   });
+
+  serviceInstance.__collectionMock = collectionMock;
+  serviceInstance.__databaseServiceMock = databaseService;
+  return serviceInstance;
 }
 
 describe('TelegramService tweet tool helpers', () => {
@@ -146,5 +151,22 @@ describe('TelegramService planning tool helpers', () => {
     const planContext = await service._buildPlanContext('channel-plan', 2);
     expect(planContext.summary).toContain('Recent agent plans');
     expect(planContext.plans).toHaveLength(1);
+  });
+});
+
+describe('TelegramService index bootstrap', () => {
+  it('creates telegram indexes only once even if requested repeatedly', async () => {
+    const service = createService();
+    await service._ensureTelegramIndexes();
+    await service._ensureTelegramIndexes();
+
+    expect(service.__collectionMock.createIndex).toHaveBeenCalledTimes(4);
+  });
+
+  it('gracefully skips index creation when no databaseService is available', async () => {
+    const service = createService({ databaseService: null });
+    await service._ensureTelegramIndexes();
+
+    expect(service._indexesReady).toBe(false);
   });
 });
