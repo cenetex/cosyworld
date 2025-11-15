@@ -1928,21 +1928,36 @@ export class BuybotService {
     const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
     const threshold = Number(thresholdRaw);
 
+    // Debug logging to understand why threshold isn't working
+    this.logger.debug?.(`[BuybotService] Transfer aggregation check:`, {
+      tokenSymbol: token?.tokenSymbol,
+      channelId,
+      thresholdRaw,
+      threshold,
+      usdValue,
+      hasNotificationsConfig: !!tokenPreferences?.notifications,
+      notificationsConfig: tokenPreferences?.notifications
+    });
+
     if (!Number.isFinite(threshold) || threshold <= 0) {
+      this.logger.debug?.(`[BuybotService] No valid threshold configured (${threshold}), continuing with normal notification`);
       return 'continue';
     }
 
     if (!Number.isFinite(usdValue) || usdValue <= 0) {
+      this.logger.debug?.(`[BuybotService] Invalid USD value (${usdValue}), continuing with normal notification`);
       return 'continue';
     }
 
     const key = this.getTransferAggregationKey(channelId, token, event);
     if (!key) {
+      this.logger.debug?.(`[BuybotService] Could not generate aggregation key, continuing with normal notification`);
       return 'continue';
     }
 
     // If this transfer alone exceeds the threshold, post immediately
     if (usdValue >= threshold) {
+      this.logger.debug?.(`[BuybotService] Transfer USD ${usdValue} >= threshold ${threshold}, posting immediately`);
       if (this.transferAggregationBuckets.has(key)) {
         this.transferAggregationBuckets.delete(key);
       }
@@ -2165,6 +2180,16 @@ export class BuybotService {
       const displayDescription = event?.displayDescription || event.description;
   const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
       const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
+
+      // Debug: Log token preferences for transfer threshold debugging
+      if (effectiveType === 'transfer') {
+        this.logger.debug?.(`[BuybotService] Token preferences for ${token?.tokenSymbol}:`, {
+          hasPreferences: !!tokenPreferences,
+          hasNotifications: !!tokenPreferences?.notifications,
+          transferThreshold: tokenPreferences?.notifications?.transferAggregationUsdThreshold,
+          fullNotificationsConfig: tokenPreferences?.notifications
+        });
+      }
 
       const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
       const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
