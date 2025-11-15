@@ -2921,8 +2921,21 @@ export class BuybotService {
     // Remove batch from map
     this.avatarResponseBatches.delete(channelId);
     
-    // Get conversation manager
-    const conversationManager = this.services?.conversationManager || this.conversationManager;
+    // Get conversation manager (use lazy resolution to avoid circular dependency issues)
+    let conversationManager;
+    try {
+      // Try services container first (preferred)
+      if (this.services?.cradle?.conversationManager) {
+        conversationManager = this.services.cradle.conversationManager;
+      } else if (this.services?.resolve) {
+        conversationManager = this.services.resolve('conversationManager');
+      } else if (this.configService?.services?.conversationManager) {
+        conversationManager = this.configService.services.conversationManager;
+      }
+    } catch (e) {
+      this.logger.debug(`[BuybotService] Failed to resolve conversationManager: ${e.message}`);
+    }
+    
     if (!conversationManager) {
       this.logger.error(`[BuybotService] ConversationManager not available for avatar responses`);
       return;
