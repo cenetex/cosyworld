@@ -424,7 +424,8 @@ export class ConfigService {
       },
       avatarModes: {
         free: true,
-        wallet: true,
+        onChain: true,
+        collection: true,
         pureModel: true
       },
       features: {

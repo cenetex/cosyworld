@@ -4,6 +4,7 @@
  */
 
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
 
 const MODEL_PROVIDER_LABELS = {
   google: 'Google',
@@ -76,14 +77,6 @@ const formatModelDisplayName = (modelId = '') => {
   const providerLabel = formatProviderLabel(providerRaw);
   const displayName = displayTokens.join(' ');
   return providerLabel ? `${displayName} (${providerLabel})` : displayName;
-};
-
-const isModelRosterAvatar = (avatar) => {
-  if (!avatar) return false;
-  if (Array.isArray(avatar.tags) && avatar.tags.includes('model-roster')) return true;
-  if (avatar.tags === 'model-roster') return true;
-  if (avatar.summoner === 'system:model-roster') return true;
-  return false;
 };
 
 const sentenceSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'

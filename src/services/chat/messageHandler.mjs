@@ -1,4 +1,6 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
+import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
+import { isCollectionAvatar, isOnChainAvatar } from '../avatar/helpers/walletAvatarClassifiers.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -70,6 +72,47 @@ export class MessageHandler  {
      * Dynamic AI-generated regex pattern (string or null).
      */
     this.dynamicModerationRegex = null;
+  }
+
+  _isPureModelOnlyGuild(guildConfig) {
+    const modes = guildConfig?.avatarModes || {};
+    const allowModelSummons = modes.pureModel !== false;
+    
+    // Backwards compat: if legacy 'wallet' exists, use it instead of split modes
+    const hasLegacyWallet = modes.wallet !== undefined;
+    if (hasLegacyWallet) {
+      return Boolean(allowModelSummons && modes.free === false && modes.wallet === false);
+    }
+    
+    return Boolean(allowModelSummons && modes.free === false && modes.onChain === false && modes.collection === false);
+  }
+
+  _filterAvatarsByGuildModes(avatars = [], guildConfig = null) {
+    if (!Array.isArray(avatars) || avatars.length === 0) {
+      return [];
+    }
+
+    const modes = guildConfig?.avatarModes || {};
+    
+    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
+    const hasLegacyWallet = modes.wallet !== undefined;
+    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
+    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
+    const allowFree = modes.free !== false;
+    const allowPureModel = modes.pureModel !== false;
+
+    // If all modes enabled, no filtering needed
+    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
+      return avatars;
+    }
+
+    return avatars.filter(avatar => {
+      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
+      if (allowCollection && isCollectionAvatar(avatar)) return true;
+      if (allowOnChain && isOnChainAvatar(avatar)) return true;
+      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
+      return false;
+    });
   }
 
   async start() {
@@ -566,6 +609,16 @@ export class MessageHandler  {
         return;
       }
 
+      const guildId = message?.guild?.id || null;
+      let guildConfig = null;
+      if (guildId && this.configService?.getGuildConfig) {
+        try {
+          guildConfig = await this.configService.getGuildConfig(guildId);
+        } catch (err) {
+          this.logger.warn?.(`[MessageHandler] Failed to load guild config for ${guildId}: ${err.message}`);
+        }
+      }
+
       // If users mention an avatar by name/emoji anywhere in the guild, move that avatar to this channel
       try {
         if (message?.content && message.guild?.id) {
@@ -591,6 +644,7 @@ export class MessageHandler  {
       } catch {}
 
       let eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
+      eligibleAvatars = this._filterAvatarsByGuildModes(eligibleAvatars, guildConfig);
       // Reorder by priority: in-channel already, then owned by user, then exact name matches
       try {
         eligibleAvatars = await this.avatarService.prioritizeAvatarsForMessage(eligibleAvatars, message);

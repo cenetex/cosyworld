@@ -2134,7 +2134,14 @@ export class AvatarService {
       try {
         const guildConfig = await this.configService.getGuildConfig(guildIdForWallet);
         const guildAvatarModes = guildConfig?.avatarModes || {};
-        if (guildAvatarModes.wallet === false) {
+        
+        // Backwards compatibility: if old 'wallet' setting exists, use it; otherwise check new split modes
+        const hasLegacyWallet = guildAvatarModes.wallet !== undefined;
+        const onChainDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.onChain === false;
+        const collectionDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.collection === false;
+        
+        // Block only if both on-chain and collection modes are disabled
+        if (onChainDisabled && collectionDisabled) {
           const reason = `Wallet avatars disabled for guild ${guildIdForWallet}`;
           this.logger?.info?.(`[AvatarService] ${reason}`);
           throw new Error(reason);

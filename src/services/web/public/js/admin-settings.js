@@ -179,8 +179,14 @@ function populateGuildForm(guildConfig = {}) {
   const avatarModes = resolvedConfig.avatarModes || {};
   const freeMode = document.getElementById('avatar-mode-free');
   if (freeMode) freeMode.checked = avatarModes.free !== false;
-  const walletMode = document.getElementById('avatar-mode-wallet');
-  if (walletMode) walletMode.checked = avatarModes.wallet !== false;
+  
+  // Backwards compat: if legacy 'wallet' exists, apply to both new modes
+  const hasLegacyWallet = avatarModes.wallet !== undefined;
+  const onChainMode = document.getElementById('avatar-mode-on-chain');
+  if (onChainMode) onChainMode.checked = hasLegacyWallet ? avatarModes.wallet !== false : avatarModes.onChain !== false;
+  const collectionMode = document.getElementById('avatar-mode-collection');
+  if (collectionMode) collectionMode.checked = hasLegacyWallet ? avatarModes.wallet !== false : avatarModes.collection !== false;
+  
   const pureModelMode = document.getElementById('avatar-mode-pure-model');
   if (pureModelMode) pureModelMode.checked = avatarModes.pureModel !== false;
 
@@ -257,7 +263,8 @@ function collectGuildFormData() {
     },
     avatarModes: {
       free: !!document.getElementById('avatar-mode-free')?.checked,
-      wallet: !!document.getElementById('avatar-mode-wallet')?.checked,
+      onChain: !!document.getElementById('avatar-mode-on-chain')?.checked,
+      collection: !!document.getElementById('avatar-mode-collection')?.checked,
       pureModel: !!document.getElementById('avatar-mode-pure-model')?.checked
     },
     prompts: {

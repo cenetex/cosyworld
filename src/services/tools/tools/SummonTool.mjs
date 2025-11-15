@@ -7,6 +7,7 @@ import { BasicTool } from '../BasicTool.mjs';
 import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQuery.js';
 import { aiModelService } from '../../ai/aiModelService.mjs';
 import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
+import { isModelRosterAvatar } from '../../avatar/helpers/isModelRosterAvatar.mjs';
 
 const levenshteinDistance = (a = '', b = '') => {
   const s = a.toLowerCase();
@@ -78,14 +79,6 @@ const MODEL_PROVIDER_EMOJI = {
 const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:.-]*$/i;
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const isModelRosterAvatar = (avatar) => {
-  if (!avatar) return false;
-  if (Array.isArray(avatar.tags) && avatar.tags.includes('model-roster')) return true;
-  if (avatar.tags === 'model-roster') return true;
-  if (avatar.summoner === 'system:model-roster') return true;
-  return false;
-};
 
 const formatSummonsday = (value) => {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
@@ -816,9 +809,15 @@ export class SummonTool extends BasicTool {
 
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
       const guildAvatarModes = guildConfig?.avatarModes || {};
+      
+      // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
+      const hasLegacyWallet = guildAvatarModes.wallet !== undefined;
+      const onChainDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.onChain === false;
+      const collectionDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.collection === false;
+      
       const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
       const allowModelSummons = guildAvatarModes.pureModel !== false;
-      const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && guildAvatarModes.wallet === false;
+      const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && onChainDisabled && collectionDisabled;
 
       if (this._shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons })) {
         const catalogLookup = resolveCatalogModelId(avatarName);
