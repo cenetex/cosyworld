@@ -5,6 +5,8 @@
 
 
 import express from 'express';
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
 
 const router = express.Router();
 
@@ -256,6 +258,54 @@ export default function(db, client, configService) {
     const updates = req.body;
 
     try {
+      // Extract signature data if present
+      const signatureData = updates._signature;
+      
+      // Verify signature if provided
+      if (signatureData) {
+        const { walletAddress, message, signature, timestamp } = signatureData;
+        
+        // Validate signature components
+        if (!walletAddress || !message || !signature || !timestamp) {
+          return res.status(400).json({ error: 'Invalid signature data' });
+        }
+        
+        // Check timestamp to prevent replay attacks (allow 5 minutes)
+        const now = Date.now();
+        if (Math.abs(now - Number(timestamp)) > 5 * 60 * 1000) {
+          return res.status(400).json({ error: 'Signature expired' });
+        }
+        
+        // Verify the signature matches the expected message
+        const expectedMessage = `Save settings for guild ${guildId} at ${timestamp}`;
+        if (message !== expectedMessage) {
+          return res.status(400).json({ error: 'Signature message mismatch' });
+        }
+        
+        // Verify signature cryptographically
+        try {
+          const pubKey = bs58.decode(walletAddress);
+          const messageBytes = new TextEncoder().encode(message);
+          const sigBytes = bs58.decode(signature);
+          
+          const valid = nacl.sign.detached.verify(messageBytes, sigBytes, pubKey);
+          if (!valid) {
+            return res.status(401).json({ error: 'Invalid signature' });
+          }
+        } catch (verifyError) {
+          console.error('Signature verification error:', verifyError);
+          return res.status(400).json({ error: 'Signature verification failed' });
+        }
+        
+        // Verify the signing wallet matches the authenticated admin
+        if (req.user?.walletAddress && req.user.walletAddress !== walletAddress) {
+          return res.status(403).json({ error: 'Signature wallet does not match authenticated admin' });
+        }
+        
+        // Remove signature data from updates before persisting
+        delete updates._signature;
+      }
+      
       await configService.updateGuildConfig(guildId, updates);
       const updatedConfig = await configService.getGuildConfig(guildId);
       res.json(updatedConfig);

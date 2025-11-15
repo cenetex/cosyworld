@@ -4,6 +4,7 @@ import { apiFetch } from './admin/admin-api.js';
 import { success, error as toastError, withButtonLoading } from './admin/admin-ui.js';
 import { ensureWallet } from './admin/admin-auth.js';
 import { escapeHtml } from './utils/dom.js';
+import { signMessage } from './services/wallet.js';
 
 async function fetchJSON(url, opts) {
   // Backward compatibility shim (will migrate all calls to apiFetch gradually)
@@ -315,14 +316,53 @@ async function saveSelectedGuildSettings(event) {
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.dataset.originalText = submitBtn.dataset.originalText || submitBtn.textContent || 'Save Settings';
-    submitBtn.textContent = 'Saving...';
+    submitBtn.textContent = 'Requesting signature...';
   }
+
   try {
-    showGuildConfigMessage('Saving guild settings...', 'info');
+    showGuildConfigMessage('Requesting signature to verify changes...', 'info');
     const payload = collectGuildFormData();
+    
+    // Create a message that includes guild ID and timestamp for signature
+    const timestamp = Date.now();
+    const message = `Save settings for guild ${selectedGuildId} at ${timestamp}`;
+    
+    // Request wallet signature
+    let signatureData;
+    try {
+      signatureData = await signMessage(message);
+    } catch (signError) {
+      // Handle user rejection or wallet not connected
+      const errorMsg = signError.message.includes('User rejected') 
+        ? 'Signature request was rejected.' 
+        : signError.message.includes('Wallet not connected')
+        ? 'Please connect your wallet to save settings.'
+        : `Signature failed: ${signError.message}`;
+      showGuildConfigMessage(errorMsg, 'error');
+      return;
+    }
+
+    // Update button text after signature obtained
+    if (submitBtn) {
+      submitBtn.textContent = 'Saving...';
+    }
+
+    showGuildConfigMessage('Saving guild settings...', 'info');
+    
+    // Include signature in payload
+    const payloadWithSignature = {
+      ...payload,
+      _signature: {
+        walletAddress: signatureData.walletAddress,
+        message: signatureData.message,
+        signature: signatureData.signature,
+        timestamp
+      }
+    };
+    
     const updated = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`, {
       method: 'POST',
-      body: payload
+      body: payloadWithSignature
     });
     showGuildConfigMessage('Guild settings saved successfully.', 'success');
     await refreshGuildList();

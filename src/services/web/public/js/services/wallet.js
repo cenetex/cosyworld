@@ -303,3 +303,40 @@ export async function signWriteHeaders(extra = {}) {
     'X-Signature': bs58sig
   };
 }
+
+/**
+ * Sign an arbitrary message with the connected wallet
+ * @param {string} message - Message to sign
+ * @returns {Promise<Object>} - { walletAddress, message, signature (base58) }
+ */
+export async function signMessage(message) {
+  const provider = window?.phantom?.solana;
+  if (!provider) throw new Error('Wallet not connected');
+  
+  // Ensure wallet is connected
+  const walletAddress = window.state?.wallet?.publicKey;
+  if (!walletAddress) {
+    // Try auto-connect if supported
+    const isConnected = provider.isConnected;
+    if (isConnected) {
+      const connection = await provider.connect({ onlyIfTrusted: true });
+      if (!connection?.publicKey) throw new Error('Wallet not connected');
+      setWallet({ publicKey: connection.publicKey.toString(), isConnected: true });
+    } else {
+      throw new Error('Wallet not connected');
+    }
+  }
+  
+  const finalAddress = window.state?.wallet?.publicKey;
+  if (!finalAddress) throw new Error('Wallet not connected');
+  
+  const encoded = new TextEncoder().encode(message);
+  const { signature } = await provider.signMessage(encoded, 'utf8');
+  const signatureBase58 = encodeBase58(signature);
+  
+  return {
+    walletAddress: finalAddress,
+    message,
+    signature: signatureBase58
+  };
+}
