@@ -672,6 +672,20 @@ export class ConversationManager  {
     this.logger.info?.(`[ConversationManager] About to get database connection for ${avatar.name}`);
     this.db = await this.databaseService.getDatabase();
     this.logger.info?.(`[ConversationManager] Database connection obtained for ${avatar.name}`);
+
+    // Safety: prevent multiple callers from abusing overrideCooldown to create reply storms.
+    // If an overrideCooldown is requested but another responder already used the override
+    // (or has responded) in this channel within the current message window, deny the override.
+    try {
+      const respondersNow = this.channelResponders.get(channel.id) || new Set();
+      const forceMultiple = options && options.forceOverrideMultiple;
+      if (overrideCooldown && !forceMultiple && respondersNow.size > 0) {
+        this.logger.info?.(`[ConversationManager] ${avatar.name} denied overrideCooldown because another avatar already responded in channel ${channel.id}`);
+        return null;
+      }
+    } catch (e) {
+      this.logger.debug?.(`[ConversationManager] overrideCooldown safety check failed: ${e.message}`);
+    }
     
     if (!await this.checkChannelPermissions(channel)) {
       this.logger.warn?.(`[ConversationManager] ${avatar.name} cannot send response - missing permissions in channel ${channel.id}`);

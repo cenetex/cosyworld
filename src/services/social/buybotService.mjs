@@ -115,6 +115,11 @@ export class BuybotService {
   this.transferAggregationBuckets = new Map();
   this.TRANSFER_AGGREGATION_TTL_MS = 15 * 60_000; // Flush cached transfers after 15 minutes
     
+    // Avatar response batching to prevent reply storms from rapid swap notifications
+    // channelId -> { avatars: Map(avatarId -> {avatar, roles, events, tradeContexts}), flushTimer }
+    this.avatarResponseBatches = new Map();
+    this.AVATAR_RESPONSE_BATCH_WINDOW_MS = Number(process.env.BUYBOT_AVATAR_BATCH_WINDOW_MS || 5000); // 5 second batch window
+    
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
@@ -2797,6 +2802,8 @@ export class BuybotService {
       };
 
       // Trigger each full avatar to respond with context about the trade
+      // BATCHING: Instead of immediately scheduling responses, accumulate avatars in a batch window
+      // and flush once to prevent reply storms from rapid swap notifications
       for (let i = 0; i < eligibleAvatars.length; i++) {
         const { avatar, role } = eligibleAvatars[i];
         try {
@@ -2816,32 +2823,13 @@ export class BuybotService {
             recipientAvatar
           });
           
-          this.logger.info(`[BuybotService] Scheduling avatar ${avatar.name} to respond to trade as ${role}`);
+          this.logger.info(`[BuybotService] Adding avatar ${avatar.name} (${role}) to batch for channel ${targetChannel.id}`);
           
-          // Generate response with trade context
-          // Use a small delay to avoid rate limits and allow embeds to appear first
-          setTimeout(async () => {
-            try {
-              this.logger.info(`[BuybotService] Triggering response for avatar ${avatar.name}`);
-              
-              // Send response with trade context passed via options (not as preset message)
-              await conversationManager.sendResponse(targetChannel, avatar, null, {
-                overrideCooldown: true,
-                cascadeDepth: 0,
-                tradeContext: tradeContext  // Pass as additional context for AI
-              });
-              
-              this.logger.info(`[BuybotService] Successfully sent response for avatar ${avatar.name}`);
-            } catch (respError) {
-              this.logger.error(`[BuybotService] Failed to generate response for ${avatar.name}:`, {
-                error: respError.message,
-                stack: respError.stack
-              });
-            }
-          }, 3000 * (i + 1)); // Stagger responses by 3 seconds each (increased from 2s)
+          // Add avatar to batch instead of immediately scheduling
+          this.addAvatarToBatch(targetChannel.id, avatar, role, event, token, tradeContext, targetChannel);
           
         } catch (error) {
-          this.logger.error(`[BuybotService] Error scheduling response for avatar:`, {
+          this.logger.error(`[BuybotService] Error adding avatar to batch:`, {
             error: error.message,
             stack: error.stack,
             avatarName: avatar.name
@@ -2851,6 +2839,140 @@ export class BuybotService {
       
     } catch (error) {
       this.logger.error('[BuybotService] Failed to trigger avatar trade responses:', error);
+    }
+  }
+
+  /**
+   * Add an avatar to the response batch for a channel
+   * Batching ensures that if multiple swaps happen in quick succession,
+   * each avatar only responds once with combined context
+   * @param {string} channelId - Channel ID
+   * @param {Object} avatar - Avatar object
+   * @param {string} role - Avatar role (buyer/sender/recipient)
+   * @param {Object} event - Trade event
+   * @param {Object} token - Token info
+   * @param {string} tradeContext - Formatted trade context for AI
+   * @param {Object} channel - Discord channel object
+   */
+  addAvatarToBatch(channelId, avatar, role, event, token, tradeContext, channel) {
+    const avatarId = String(avatar._id || avatar.id);
+    
+    // Get or create batch for this channel
+    let batch = this.avatarResponseBatches.get(channelId);
+    if (!batch) {
+      batch = {
+        avatars: new Map(),
+        flushTimer: null,
+        channel: channel
+      };
+      this.avatarResponseBatches.set(channelId, batch);
+    }
+    
+    // Get or create entry for this avatar in the batch
+    let avatarEntry = batch.avatars.get(avatarId);
+    if (!avatarEntry) {
+      avatarEntry = {
+        avatar: avatar,
+        roles: new Set(),
+        events: [],
+        tradeContexts: [],
+        firstAddedAt: Date.now()
+      };
+      batch.avatars.set(avatarId, avatarEntry);
+    }
+    
+    // Accumulate data for this avatar
+    avatarEntry.roles.add(role);
+    avatarEntry.events.push({ event, token, timestamp: Date.now() });
+    avatarEntry.tradeContexts.push(tradeContext);
+    
+    // Clear existing timer and set new one
+    if (batch.flushTimer) {
+      clearTimeout(batch.flushTimer);
+    }
+    
+    // Schedule flush after batch window
+    batch.flushTimer = setTimeout(() => {
+      this.flushAvatarBatch(channelId);
+    }, this.AVATAR_RESPONSE_BATCH_WINDOW_MS);
+    
+    this.logger.debug(`[BuybotService] Avatar ${avatar.name} added to batch (${batch.avatars.size} avatars batched, flush in ${this.AVATAR_RESPONSE_BATCH_WINDOW_MS}ms)`);
+  }
+
+  /**
+   * Flush a batch and trigger responses for all accumulated avatars
+   * Each avatar will respond once with combined context from all their trades in the batch window
+   * @param {string} channelId - Channel ID
+   */
+  async flushAvatarBatch(channelId) {
+    const batch = this.avatarResponseBatches.get(channelId);
+    if (!batch || batch.avatars.size === 0) {
+      return;
+    }
+    
+    this.logger.info(`[BuybotService] Flushing avatar batch for channel ${channelId} (${batch.avatars.size} avatars)`);
+    
+    // Clear timer
+    if (batch.flushTimer) {
+      clearTimeout(batch.flushTimer);
+      batch.flushTimer = null;
+    }
+    
+    // Remove batch from map
+    this.avatarResponseBatches.delete(channelId);
+    
+    // Get conversation manager
+    const conversationManager = this.services?.conversationManager || this.conversationManager;
+    if (!conversationManager) {
+      this.logger.error(`[BuybotService] ConversationManager not available for avatar responses`);
+      return;
+    }
+    
+    // Process each avatar in the batch
+    const avatarEntries = Array.from(batch.avatars.values());
+    for (let i = 0; i < avatarEntries.length; i++) {
+      const avatarEntry = avatarEntries[i];
+      const { avatar, roles, events, tradeContexts } = avatarEntry;
+      
+      try {
+        // Combine trade contexts if multiple trades in batch
+        let combinedContext;
+        if (tradeContexts.length === 1) {
+          combinedContext = tradeContexts[0];
+        } else {
+          // Multiple trades - create summary context
+          const rolesList = Array.from(roles).join(', ');
+          const eventCount = events.length;
+          combinedContext = `[Trade Context: You were involved in ${eventCount} recent trade(s) as ${rolesList}.\n\n${tradeContexts.join('\n\n')}]`;
+        }
+        
+        this.logger.info(`[BuybotService] Triggering batched response for avatar ${avatar.name} (${events.length} event(s), roles: ${Array.from(roles).join(', ')})`);
+        
+        // Send response with combined trade context
+        // Small stagger to avoid overwhelming the channel (but much less than before)
+        setTimeout(async () => {
+          try {
+            await conversationManager.sendResponse(batch.channel, avatar, null, {
+              overrideCooldown: false, // Let normal cooldown logic apply to batched responses
+              cascadeDepth: 0,
+              tradeContext: combinedContext
+            });
+            
+            this.logger.info(`[BuybotService] Successfully sent batched response for avatar ${avatar.name}`);
+          } catch (respError) {
+            this.logger.error(`[BuybotService] Failed to generate batched response for ${avatar.name}:`, {
+              error: respError.message,
+              stack: respError.stack
+            });
+          }
+        }, 500 * i); // Small stagger: 500ms per avatar (down from 3000ms)
+        
+      } catch (error) {
+        this.logger.error(`[BuybotService] Error processing batched avatar ${avatar.name}:`, {
+          error: error.message,
+          stack: error.stack
+        });
+      }
     }
   }
 
