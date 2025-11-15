@@ -805,6 +805,21 @@ export class ConversationManager  {
         }
       }
       
+      // Inject referenced message context if available (from Discord message links)
+      const referencedMessageContext = channelHistory.find(msg => msg.referencedMessageContext)?.referencedMessageContext;
+      if (referencedMessageContext) {
+        this.logger.info?.(`[ConversationManager] Injecting referenced message context for ${avatar.name}`);
+        // Find the user message and prepend the referenced message context
+        const userMsgIndex = chatMessages.findIndex(msg => msg.role === 'user');
+        if (userMsgIndex !== -1) {
+          const originalContent = typeof chatMessages[userMsgIndex].content === 'string' 
+            ? chatMessages[userMsgIndex].content 
+            : chatMessages[userMsgIndex].content.find(c => c.type === 'text')?.text || '';
+          
+          chatMessages[userMsgIndex].content = `${referencedMessageContext}\n\n${originalContent}`;
+        }
+      }
+      
       // Inject trade context if provided
       if (tradeContext) {
         this.logger.info?.(`[ConversationManager] Injecting trade context for ${avatar.name}: ${tradeContext}`);

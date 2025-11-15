@@ -1,6 +1,7 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
 import { isCollectionAvatar, isOnChainAvatar } from '../avatar/helpers/walletAvatarClassifiers.mjs';
+import { extractMessageLinks, fetchMessageContext, buildContextSummary } from '../discord/messageLinksHelper.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -187,6 +188,9 @@ export class MessageHandler  {
 
   // Handle reply tracking - detect if this message is a reply to an avatar
   await this.handleReplyTracking(message);
+
+  // Handle Discord message links - fetch referenced messages and context
+  await this.handleMessageLinks(message);
 
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
@@ -593,6 +597,63 @@ export class MessageHandler  {
       }
     } catch (error) {
       this.logger.error(`[ReplyTracking] Error handling reply tracking: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Handles Discord message links - fetches referenced messages and their context
+   * When a user includes a Discord message link, we fetch the message and surrounding context
+   * @param {Object} message - The Discord message object to analyze
+   */
+  async handleMessageLinks(message) {
+    if (!message.content || typeof message.content !== 'string') {
+      return;
+    }
+
+    try {
+      // Extract all Discord message links from the content
+      const messageLinks = extractMessageLinks(message.content);
+      
+      if (messageLinks.length === 0) {
+        this.logger.debug('[MessageLinks] No Discord message links found');
+        return;
+      }
+
+      this.logger.info(`[MessageLinks] Found ${messageLinks.length} Discord message link(s)`);
+
+      // Fetch context for each linked message
+      const contextSummaries = [];
+      for (const link of messageLinks) {
+        this.logger.debug(`[MessageLinks] Fetching context for ${link.url}`);
+        
+        // Fetch the message and surrounding context
+        const context = await fetchMessageContext(
+          this.discordService.client,
+          link.channelId,
+          link.messageId,
+          { before: 3, after: 2 }, // 3 messages before, 2 after
+          this.logger
+        );
+
+        // Build a formatted summary
+        const summary = buildContextSummary(context, link);
+        contextSummaries.push(summary);
+        
+        if (context.target) {
+          this.logger.info(`[MessageLinks] Successfully fetched context for message ${link.messageId}`);
+        } else {
+          this.logger.warn(`[MessageLinks] Could not fetch message ${link.messageId}`);
+        }
+      }
+
+      // Attach the context summaries to the message object
+      // This will be available when building prompts for AI
+      if (contextSummaries.length > 0) {
+        message.referencedMessageContext = contextSummaries.join('\n\n');
+        this.logger.info(`[MessageLinks] Attached ${contextSummaries.length} message context(s) to message`);
+      }
+    } catch (error) {
+      this.logger.error(`[MessageLinks] Error handling message links: ${error.message}`, error.stack);
     }
   }
 
