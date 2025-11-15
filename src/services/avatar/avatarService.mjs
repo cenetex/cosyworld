@@ -1748,8 +1748,7 @@ export class AvatarService {
       guildId: guildId || null,
       lives: 3,
       status: 'alive',
-      createdAt: now,
-      updatedAt: now
+      createdAt: now
     };
 
     const db = await this._db();
