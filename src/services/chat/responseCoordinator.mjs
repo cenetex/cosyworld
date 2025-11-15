@@ -38,6 +38,7 @@ export class ResponseCoordinator {
     this.RESPONSE_LOCK_TTL_MS = Number(process.env.RESPONSE_LOCK_TTL_MS || 5000);
     this.STICKY_AFFINITY_EXCLUSIVE = String(process.env.STICKY_AFFINITY_EXCLUSIVE || 'true').toLowerCase() === 'true';
     this.TURN_BASED_MODE = String(process.env.TURN_BASED_MODE || 'true').toLowerCase() === 'true';
+    this.AMBIENT_DIVERSITY_LOOKBACK = Number(process.env.AMBIENT_DIVERSITY_LOOKBACK || 8);
     
     // Cache for recent speakers to reduce Discord API calls
     this.recentSpeakersCache = new Map(); // channelId -> { speakers: [], at: timestamp }
@@ -380,26 +381,43 @@ export class ResponseCoordinator {
     
     // For ambient triggers, ensure conversational diversity
     if (trigger.type === 'ambient') {
-      // Get last 3 speakers in channel to avoid consecutive ambient responses from same avatar
-      const recentSpeakers = await this.getRecentChannelSpeakers(channel, 3);
-      const recentSpeakerAliases = new Set();
-      for (const msg of recentSpeakers) {
-        for (const alias of this.extractSpeakerAliases(msg)) {
-          recentSpeakerAliases.add(alias);
-        }
-      }
+      // Get recent speakers with extended lookback for better diversity
+      const recentSpeakers = await this.getRecentChannelSpeakers(channel, this.AMBIENT_DIVERSITY_LOOKBACK);
+      
+      // Build exponential decay scores for recent speakers
+      const recentSpeakerScores = new Map();
+      recentSpeakers.forEach((msg, index) => {
+        const aliases = this.extractSpeakerAliases(msg);
+        const decay = Math.pow(0.5, index); // 1.0, 0.5, 0.25, 0.125, ...
+        aliases.forEach(alias => {
+          const current = recentSpeakerScores.get(alias) || 0;
+          recentSpeakerScores.set(alias, current + decay);
+        });
+      });
 
       const lastSpeakerAliasSet = recentSpeakers.length > 0 ? new Set(this.extractSpeakerAliases(recentSpeakers[0])) : new Set();
+      const veryRecentAliases = new Set();
+      recentSpeakers.slice(0, 2).forEach(msg => {
+        this.extractSpeakerAliases(msg).forEach(alias => veryRecentAliases.add(alias));
+      });
 
-      this.logger.debug?.(`[ResponseCoordinator] Recent speakers: ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
+      this.logger.debug?.(`[ResponseCoordinator] Recent speakers (${this.AMBIENT_DIVERSITY_LOOKBACK}): ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
       
-      // Filter out avatars who spoke in the last 3 messages (creates natural back-and-forth)
-      const eligibleForAmbient = ranked.filter(r => {
+      // Apply diversity penalties and filter
+      const eligibleForAmbient = ranked.map(r => {
         const avatarAliases = this.getAvatarAliases(r.avatar);
-        const wasRecentSpeaker = avatarAliases.some(alias => recentSpeakerAliases.has(alias));
+        const penalty = Math.max(...avatarAliases.map(a => recentSpeakerScores.get(a) || 0));
+        return {
+          ...r,
+          score: r.score * (1 - Math.min(0.8, penalty)) // Up to 80% penalty for recent speakers
+        };
+      }).filter(r => {
+        const avatarAliases = this.getAvatarAliases(r.avatar);
         
-        if (wasRecentSpeaker) {
-          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - was recent speaker (ambient diversity)`);
+        // Hard filter: skip if spoke in last 2 messages
+        const wasVeryRecentSpeaker = avatarAliases.some(alias => veryRecentAliases.has(alias));
+        if (wasVeryRecentSpeaker) {
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - was very recent speaker (last 2 messages)`);
           return false;
         }
         
@@ -410,11 +428,11 @@ export class ResponseCoordinator {
         }
         
         return true;
-      });
+      }).sort((a, b) => b.score - a.score); // Re-sort after penalty adjustment
       
       if (eligibleForAmbient.length > 0) {
         const selected = eligibleForAmbient[0];
-        this.logger.info?.(`[ResponseCoordinator] Ambient selected: ${selected.avatar.name} (score: ${selected.score.toFixed(2)})`);
+        this.logger.info?.(`[ResponseCoordinator] Ambient selected: ${selected.avatar.name} (adjusted score: ${selected.score.toFixed(2)})`);
         return [selected.avatar];
       }
       

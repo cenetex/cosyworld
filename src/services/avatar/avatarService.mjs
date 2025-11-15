@@ -214,6 +214,40 @@ export class AvatarService {
     return filters;
   }
 
+  /**
+   * Filter avatars by guild avatar modes (free, onChain, collection, pureModel)
+   * @param {Array} avatars - Avatars to filter
+   * @param {Object} guildConfig - Guild configuration
+   * @returns {Array} Filtered avatars
+   */
+  _filterByAvatarModes(avatars, guildConfig) {
+    if (!Array.isArray(avatars) || avatars.length === 0) {
+      return [];
+    }
+
+    const modes = guildConfig?.avatarModes || {};
+    
+    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
+    const hasLegacyWallet = modes.wallet !== undefined;
+    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
+    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
+    const allowFree = modes.free !== false;
+    const allowPureModel = modes.pureModel !== false;
+
+    // If all modes enabled, no filtering needed
+    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
+      return avatars;
+    }
+
+    return avatars.filter(avatar => {
+      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
+      if (allowCollection && isCollectionAvatar(avatar)) return true;
+      if (allowOnChain && isOnChainAvatar(avatar)) return true;
+      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
+      return false;
+    });
+  }
+
   /* -------------------------------------------------- */
   /*  GENERIC DB QUERIES                                */
   /* -------------------------------------------------- */
