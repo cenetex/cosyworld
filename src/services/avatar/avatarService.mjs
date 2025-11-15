@@ -365,7 +365,8 @@ export class AvatarService {
 
     // Limit to MAX_ACTIVE_AVATARS_PER_CHANNEL active avatars
     // Return only avatars marked as "active" in the channel presence
-    const activeAvatars = await this.getActiveAvatarsInChannel(channelId, filtered);
+    // Pass guildConfig to auto-deactivate incompatible avatars
+    const activeAvatars = await this.getActiveAvatarsInChannel(channelId, filtered, guildConfig);
     return activeAvatars;
   }
 
@@ -373,10 +374,11 @@ export class AvatarService {
    * Get the active avatars in a channel (limited to MAX_ACTIVE_AVATARS_PER_CHANNEL)
    * Uses channel_avatar_presence collection to track which avatars are currently active
    * @param {string} channelId - Channel ID
-   * @param {Array} allAvatars - All avatars in the channel
+   * @param {Array} allAvatars - All avatars in the channel (already filtered by modes)
+   * @param {Object} guildConfig - Optional guild config to validate active avatars against current modes
    * @returns {Promise<Array>} Active avatars (max 8)
    */
-  async getActiveAvatarsInChannel(channelId, allAvatars) {
+  async getActiveAvatarsInChannel(channelId, allAvatars, guildConfig = null) {
     try {
       const MAX_ACTIVE = Number(process.env.MAX_ACTIVE_AVATARS_PER_CHANNEL || 8);
       
@@ -392,7 +394,24 @@ export class AvatarService {
       
       const activeIds = new Set(activePresence.map(p => String(p.avatarId)));
       
-      // Filter avatars to only those marked as active
+      // Create a set of valid avatar IDs (avatars that match current guild modes)
+      const validIds = new Set(allAvatars.map(av => String(av._id)));
+      
+      // Deactivate any avatars that are active but no longer match guild modes
+      if (guildConfig) {
+        const invalidActiveIds = [...activeIds].filter(id => !validIds.has(id));
+        if (invalidActiveIds.length > 0) {
+          await presenceCol.updateMany(
+            { channelId, avatarId: { $in: invalidActiveIds }, isActive: true },
+            { $set: { isActive: false, lastActivityAt: new Date() } }
+          );
+          // Remove them from activeIds set
+          invalidActiveIds.forEach(id => activeIds.delete(id));
+          this.logger.info(`Deactivated ${invalidActiveIds.length} incompatible avatar(s) in channel ${channelId}`);
+        }
+      }
+      
+      // Filter avatars to only those marked as active AND valid
       const activeAvatars = allAvatars.filter(av => activeIds.has(String(av._id)));
       
       // If we have fewer active avatars than available, auto-activate up to MAX_ACTIVE

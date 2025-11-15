@@ -8,6 +8,7 @@ import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQu
 import { aiModelService } from '../../ai/aiModelService.mjs';
 import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
 import { isModelRosterAvatar } from '../../avatar/helpers/isModelRosterAvatar.mjs';
+import { isCollectionAvatar, isOnChainAvatar } from '../../avatar/helpers/walletAvatarClassifiers.mjs';
 
 const levenshteinDistance = (a = '', b = '') => {
   const s = a.toLowerCase();
@@ -831,7 +832,11 @@ export class SummonTool extends BasicTool {
         existingAvatar = await this.avatarService.getAvatarByName(avatarName);
         if (existingAvatar) {
           if ((freeSummonsDisabled || pureModelOnly) && !isModelRosterAvatar(existingAvatar)) {
-            existingAvatar = null;
+            // Only discard if it's a truly "free" avatar (not NFT/wallet/collection)
+            // Allow collection and on-chain avatars even when free mode is disabled
+            if (!isCollectionAvatar(existingAvatar) && !isOnChainAvatar(existingAvatar)) {
+              existingAvatar = null;
+            }
           }
         }
       }
