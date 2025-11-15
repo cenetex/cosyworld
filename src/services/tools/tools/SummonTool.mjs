@@ -201,6 +201,15 @@ export class SummonTool extends BasicTool {
     this.conversationManager = conversationManager;
   }
 
+  _shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons }) {
+    if (requestedModelId) return false;
+    if (!avatarName) return false;
+    if (!allowModelSummons) return false;
+    if (freeSummonsDisabled) return true;
+    if (pureModelOnly) return true;
+    return false;
+  }
+
   /**
    * Returns a static description of the tool.
    * @returns {string} The description.
@@ -811,7 +820,7 @@ export class SummonTool extends BasicTool {
       const allowModelSummons = guildAvatarModes.pureModel !== false;
       const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && guildAvatarModes.wallet === false;
 
-      if (!requestedModelId && avatarName && (freeSummonsDisabled || pureModelOnly || allowModelSummons)) {
+      if (this._shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons })) {
         const catalogLookup = resolveCatalogModelId(avatarName);
         if (catalogLookup) {
           requestedModelId = catalogLookup;
