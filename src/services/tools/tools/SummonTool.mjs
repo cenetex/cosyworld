@@ -404,7 +404,7 @@ export class SummonTool extends BasicTool {
 
       const describeModelAppearance = async (modelId, displayName) => {
         const ai = this.unifiedAIService || this.aiService;
-        if (!ai?.chat) return null;
+        if (!ai?.chat) return `${displayName} manifests as converging bands of light and code, shimmering with its signature inference energy.`;
         const corrId = `model-self:${modelId}:${Date.now()}`;
         const messages = [
           {
@@ -417,7 +417,14 @@ export class SummonTool extends BasicTool {
           }
         ];
         try {
-          const result = await ai.chat(messages, { model: modelId, max_tokens: 220, corrId, returnEnvelope: true });
+          // Use a faster, cheaper model for descriptions (if available)
+          const descriptionModel = process.env.FAST_MODEL || modelId;
+          const result = await ai.chat(messages, { 
+            model: descriptionModel, 
+            max_tokens: 150,  // Reduced from 220
+            corrId, 
+            returnEnvelope: true 
+          });
           const rawText = typeof result === 'object' && result?.text ? result.text : result;
           const cleaned = typeof rawText === 'string' ? stripHiddenTags(rawText) : '';
           if (cleaned) return cleaned;
@@ -464,25 +471,29 @@ export class SummonTool extends BasicTool {
         }
 
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
-          try {
-            this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
-            const uploadOptions = {
-              source: 'avatar.summon',
-              avatarName: existingAvatar.name,
-              avatarEmoji: existingAvatar.emoji,
-              avatarId: existingAvatar._id,
-              prompt: existingAvatar.description,
-              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
-            };
-            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
+          // Generate image asynchronously - don't block the summon
+          (async () => {
+            try {
+              this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating asynchronously.`);
+              const uploadOptions = {
+                source: 'avatar.summon',
+                avatarName: existingAvatar.name,
+                avatarEmoji: existingAvatar.emoji,
+                avatarId: existingAvatar._id,
+                prompt: existingAvatar.description,
+                context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
+              };
+              const imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
 
-            if (existingAvatar.imageUrl) {
-              await this.avatarService.updateAvatar(existingAvatar);
-              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
+              if (imageUrl) {
+                existingAvatar.imageUrl = imageUrl;
+                await this.avatarService.updateAvatar(existingAvatar);
+                this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${imageUrl}`);
+              }
+            } catch (e) {
+              this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
             }
-          } catch (e) {
-            this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
-          }
+          })();
         }
 
         if (!alreadyHere) {
@@ -739,26 +750,30 @@ export class SummonTool extends BasicTool {
           const db = await this.avatarService._db();
           const res = await db.collection(this.avatarService.AVATARS_COLLECTION).insertOne(baseDoc);
           insertedAvatar = { ...baseDoc, _id: res.insertedId };
-          try {
-            const uploadOptions = {
-              source: 'avatar.model-roster',
-              avatarId: insertedAvatar._id?.toString?.(),
-              avatarName: insertedAvatar.name,
-              avatarEmoji: insertedAvatar.emoji,
-              prompt: insertedAvatar.description,
-              context: `${insertedAvatar.emoji || '💠'} ${insertedAvatar.name} embodies its core form.`.trim()
-            };
-            const imageUrl = await this.avatarService.generateAvatarImage(insertedAvatar.description, uploadOptions);
-            if (imageUrl) {
-              insertedAvatar.imageUrl = imageUrl;
-              await db.collection(this.avatarService.AVATARS_COLLECTION).updateOne(
-                { _id: insertedAvatar._id },
-                { $set: { imageUrl } }
-              );
+          
+          // Generate image asynchronously - don't block avatar creation
+          (async () => {
+            try {
+              const uploadOptions = {
+                source: 'avatar.model-roster',
+                avatarId: insertedAvatar._id?.toString?.(),
+                avatarName: insertedAvatar.name,
+                avatarEmoji: insertedAvatar.emoji,
+                prompt: insertedAvatar.description,
+                context: `${insertedAvatar.emoji || '💠'} ${insertedAvatar.name} embodies its core form.`.trim()
+              };
+              const imageUrl = await this.avatarService.generateAvatarImage(insertedAvatar.description, uploadOptions);
+              if (imageUrl) {
+                insertedAvatar.imageUrl = imageUrl;
+                await db.collection(this.avatarService.AVATARS_COLLECTION).updateOne(
+                  { _id: insertedAvatar._id },
+                  { $set: { imageUrl } }
+                );
+              }
+            } catch (imgErr) {
+              this.logger?.warn?.(`[SummonTool] Model roster image generation failed for ${displayName}: ${imgErr?.message}`);
             }
-          } catch (imgErr) {
-            this.logger?.warn?.(`[SummonTool] Model roster image generation failed for ${displayName}: ${imgErr?.message}`);
-          }
+          })();
         } catch (err) {
           if (err?.code === 11000) {
             const dup = await findModelAvatarForModelId(normalized, lookupGuildId);
@@ -794,20 +809,7 @@ export class SummonTool extends BasicTool {
 
       // If no textual description provided, but an image is attached, switch to image-based summoning
       const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
-      // Try to sync avatar from configured collections first (if it doesn't exist in DB yet)
-      if (avatarName) {
-        try {
-          const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
-          const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
-          if (syncedAvatar) {
-            this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection before summoning`);
-          }
-        } catch (e) {
-          this.logger.debug?.(`[SummonTool] Collection sync check failed: ${e.message}`);
-          // Continue anyway - not a critical failure
-        }
-      }
-
+      
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
       const guildAvatarModes = guildConfig?.avatarModes || {};
       
@@ -830,6 +832,21 @@ export class SummonTool extends BasicTool {
       let existingAvatar = null;
       if (!requestedModelId && avatarName) {
         existingAvatar = await this.avatarService.getAvatarByName(avatarName);
+        
+        // If avatar not found in DB and collection mode is enabled, try to sync from collections
+        if (!existingAvatar && !collectionDisabled) {
+          try {
+            const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
+            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
+            if (syncedAvatar) {
+              this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection`);
+              existingAvatar = syncedAvatar;
+            }
+          } catch (e) {
+            this.logger.debug?.(`[SummonTool] Collection sync failed: ${e.message}`);
+          }
+        }
+        
         if (existingAvatar) {
           if ((freeSummonsDisabled || pureModelOnly) && !isModelRosterAvatar(existingAvatar)) {
             // Only discard if it's a truly "free" avatar (not NFT/wallet/collection)
