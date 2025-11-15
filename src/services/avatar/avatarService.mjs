@@ -1,5 +1,7 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.mjs';
+import { isModelRosterAvatar } from './helpers/isModelRosterAvatar.mjs';
+import { isCollectionAvatar, isOnChainAvatar } from './helpers/walletAvatarClassifiers.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -295,7 +297,7 @@ export class AvatarService {
       .map(a => ({ ...a, id: a._id, active: true }));
   }
 
-  async getAvatarsInChannel(channelId, guildId = null) {
+  async getAvatarsInChannel(channelId, guildId = null, options = {}) {
     const { avatars } = await this.getMapService().getLocationAndAvatars(channelId);
     if (!guildId) return avatars;
   
@@ -320,6 +322,11 @@ export class AvatarService {
       filtered = exceptions.length
         ? filtered.filter(av => exceptions.includes(av.emoji))
         : [];
+    }
+
+    // Apply avatar mode restrictions (free, onChain, collection, pureModel)
+    if (options.skipModeFiltering !== true) {
+      filtered = this._filterByAvatarModes(filtered, guildConfig);
     }
 
     // Limit to MAX_ACTIVE_AVATARS_PER_CHANNEL active avatars

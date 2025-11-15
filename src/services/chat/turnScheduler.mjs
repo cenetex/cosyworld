@@ -19,6 +19,9 @@ export class TurnScheduler {
   // Suppress ambient chatter briefly after each human message to avoid pileups
   this.blockAmbientUntil = new Map(); // channelId -> timestamp
   this.HUMAN_SUPPRESSION_MS = Number(process.env.HUMAN_SUPPRESSION_MS || 4000);
+  // Dead channel detection
+  this.DEAD_CHANNEL_THRESHOLD = Number(process.env.DEAD_CHANNEL_THRESHOLD || 12);
+  this.DEAD_CHANNEL_CHECK_ENABLED = String(process.env.DEAD_CHANNEL_CHECK_ENABLED || 'true').toLowerCase() === 'true';
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -133,6 +136,15 @@ export class TurnScheduler {
     const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
     if (Date.now() < suppressedUntil) return 0;
 
+    // Check for dead channel (no human activity)
+    if (this.DEAD_CHANNEL_CHECK_ENABLED) {
+      const isDeadChannel = await this.checkDeadChannel(channelId);
+      if (isDeadChannel) {
+        this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - dead channel (no human activity)`);
+        return 0;
+      }
+    }
+
     try {
       let guildId = null;
       try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
@@ -170,6 +182,46 @@ export class TurnScheduler {
     } catch (e) {
       this.logger.warn(`[TurnScheduler] onChannelTick failed for ${channelId}: ${e.message}`);
       return 0;
+    }
+  }
+
+  /**
+   * Check if a channel is "dead" (only bot messages, no human activity)
+   * @param {string} channelId - Channel ID
+   * @returns {Promise<boolean>} True if channel is dead
+   */
+  async checkDeadChannel(channelId) {
+    try {
+      const channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel) return true; // Can't fetch = treat as dead
+      
+      // Fetch recent messages to check for human activity
+      const messages = await channel.messages.fetch({ limit: this.DEAD_CHANNEL_THRESHOLD + 5 });
+      let consecutiveBots = 0;
+      
+      for (const msg of messages.values()) {
+        if (msg.author.bot || msg.webhookId) {
+          consecutiveBots++;
+          if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
+            this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
+            return true;
+          }
+        } else {
+          // Found a human message - channel is alive
+          return false;
+        }
+      }
+      
+      // If we exhausted messages and all were bots, mark as dead if we have enough samples
+      if (consecutiveBots >= Math.floor(this.DEAD_CHANNEL_THRESHOLD * 0.75)) {
+        this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages, partial batch)`);
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      this.logger.warn?.(`[TurnScheduler] checkDeadChannel failed for ${channelId}: ${e.message}`);
+      return false; // Fail open - allow ambient responses on error
     }
   }
 
