@@ -212,6 +212,15 @@ export class ConfigService {
         ? String(lookup.address).toLowerCase()
         : null;
 
+      this.logger?.debug?.(`[ConfigService] getTokenPreferences lookup:`, {
+        inputSymbol: lookup.symbol,
+        normalizedSymbol,
+        lookupAddress,
+        availableOverrides: Object.keys(overrides),
+        defaultsHasNotifications: !!defaults?.notifications,
+        defaultTransferThreshold: defaults?.notifications?.transferAggregationUsdThreshold
+      });
+
       let override = null;
 
       const overrideEntries = Object.entries(overrides || {});
@@ -223,6 +232,12 @@ export class ConfigService {
 
         if (normalizedSymbol && (normalizedKey === normalizedSymbol || aliasSymbols.includes(normalizedSymbol))) {
           override = value;
+          this.logger?.debug?.(`[ConfigService] Found override for symbol ${normalizedSymbol}:`, {
+            matchedKey: key,
+            hasNotifications: !!override?.notifications,
+            transferThreshold: override?.notifications?.transferAggregationUsdThreshold,
+            fullOverride: override
+          });
           break;
         }
 
@@ -232,15 +247,26 @@ export class ConfigService {
             .map(addr => String(addr).toLowerCase());
           if (normalizedAddresses.includes(lookupAddress)) {
             override = value;
+            this.logger?.debug?.(`[ConfigService] Found override for address ${lookupAddress}:`, {
+              matchedKey: key,
+              hasNotifications: !!override?.notifications,
+              transferThreshold: override?.notifications?.transferAggregationUsdThreshold
+            });
             break;
           }
         }
       }
 
       if (override) {
-        return ConfigService.deepMerge(clone, override);
+        const merged = ConfigService.deepMerge(clone, override);
+        this.logger?.debug?.(`[ConfigService] Returning merged preferences:`, {
+          hasNotifications: !!merged?.notifications,
+          transferThreshold: merged?.notifications?.transferAggregationUsdThreshold
+        });
+        return merged;
       }
 
+      this.logger?.debug?.(`[ConfigService] No override found, returning defaults`);
       return clone;
     } catch (error) {
       this.logger?.warn?.(`[ConfigService] getTokenPreferences failed: ${error.message}`);

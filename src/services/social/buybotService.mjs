@@ -3587,9 +3587,31 @@ export class BuybotService {
         return cloneDefaultTokenPreferences();
       }
 
+      const lookupSymbol = token?.tokenSymbol || token?.symbol;
+      const lookupAddress = token?.tokenAddress || token?.mint;
+
+      this.logger.debug?.(`[BuybotService] getTokenPreferences lookup:`, {
+        lookupSymbol,
+        lookupAddress,
+        tokenObject: {
+          tokenSymbol: token?.tokenSymbol,
+          symbol: token?.symbol,
+          tokenAddress: token?.tokenAddress,
+          mint: token?.mint
+        }
+      });
+
       const preferences = this.configService.getTokenPreferences({
-        symbol: token?.tokenSymbol || token?.symbol,
-        address: token?.tokenAddress || token?.mint
+        symbol: lookupSymbol,
+        address: lookupAddress
+      });
+
+      this.logger.debug?.(`[BuybotService] getTokenPreferences result:`, {
+        symbol: lookupSymbol,
+        hasPreferences: !!preferences,
+        hasNotifications: !!preferences?.notifications,
+        transferThreshold: preferences?.notifications?.transferAggregationUsdThreshold,
+        fullPreferences: preferences
       });
 
       if (!preferences || typeof preferences !== 'object') {
