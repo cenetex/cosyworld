@@ -706,6 +706,28 @@ export class MessageHandler  {
 
       let eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
       eligibleAvatars = this._filterAvatarsByGuildModes(eligibleAvatars, guildConfig);
+      
+      // Filter wallet avatars to only respond in channels with buybot notifications
+      try {
+        const buybotService = this.services?.cradle?.buybotService || this.services?.buybotService;
+        if (buybotService && buybotService.hasbuybotNotifications) {
+          const hasBuybot = await buybotService.hasbuybotNotifications(channelId);
+          if (!hasBuybot) {
+            // Remove wallet avatars (both onChain and collection) from non-buybot channels
+            eligibleAvatars = eligibleAvatars.filter(avatar => {
+              const isWallet = isOnChainAvatar(avatar) || isCollectionAvatar(avatar);
+              if (isWallet) {
+                this.logger.debug?.(`[MessageHandler] Filtered wallet avatar ${avatar.name} - no buybot notifications in channel ${channelId}`);
+                return false;
+              }
+              return true;
+            });
+          }
+        }
+      } catch (filterError) {
+        this.logger.warn?.(`[MessageHandler] Failed to filter wallet avatars by buybot status: ${filterError.message}`);
+      }
+      
       // Reorder by priority: in-channel already, then owned by user, then exact name matches
       try {
         eligibleAvatars = await this.avatarService.prioritizeAvatarsForMessage(eligibleAvatars, message);

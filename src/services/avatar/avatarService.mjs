@@ -110,9 +110,18 @@ const normalizeMentionText = (value = '') => String(value || '')
   .trim()
   .toLowerCase();
 
-const mentionTokensFor = (value = '') => normalizeMentionText(value)
-  .split(' ')
-  .filter(token => token && (token.length >= 3 || /^\d+$/.test(token)));
+const mentionTokensFor = (value = '') => {
+  const normalized = normalizeMentionText(value);
+  const words = normalized.split(' ').filter(Boolean);
+  
+  // Include first word even if < 3 chars (for first names like "Al", "Bo")
+  // and all words >= 3 chars or all-digits
+  const tokens = words.filter((token, idx) => 
+    idx === 0 || token.length >= 3 || /^\d+$/.test(token)
+  );
+  
+  return tokens;
+};
 
 const PARTIAL_UPGRADE_ACTIVITY_THRESHOLD = Number.isFinite(Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD))
   ? Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD)

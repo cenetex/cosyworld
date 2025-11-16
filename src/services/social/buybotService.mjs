@@ -1028,6 +1028,30 @@ export class BuybotService {
   }
 
   /**
+   * Check if a channel has buybot notifications enabled (has tracked tokens)
+   * @param {string} channelId - Discord channel ID
+   * @returns {Promise<boolean>} True if channel has active buybot tracking
+   */
+  async hasbuybotNotifications(channelId) {
+    try {
+      if (!channelId || !this.db) {
+        return false;
+      }
+
+      const count = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
+        .countDocuments({
+          channelId,
+          active: true
+        });
+
+      return count > 0;
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to check buybot notifications:', error);
+      return false;
+    }
+  }
+
+  /**
    * Validate Solana token address format
    * @param {string} address - Token address to validate
    * @returns {boolean}
@@ -1922,9 +1946,11 @@ export class BuybotService {
    * @param {Object} token
    * @param {Object} tokenPreferences
    * @param {number|null} usdValue
+   * @param {Object} avatars - Object with senderAvatar and recipientAvatar
    * @returns {'continue'|'suppress'|'handled'}
    */
-  async handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue) {
+  async handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue, avatars = {}) {
+    const { senderAvatar, recipientAvatar } = avatars;
     const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
     const threshold = Number(thresholdRaw);
 
@@ -1996,7 +2022,17 @@ export class BuybotService {
       usdValue,
       amount: event.amount,
       formattedAmount: formatTokenAmount(event.amount, decimals),
-      timestamp: event.timestamp instanceof Date ? event.timestamp : new Date()
+      timestamp: event.timestamp instanceof Date ? event.timestamp : new Date(),
+      senderAvatar: senderAvatar ? { 
+        name: senderAvatar.name, 
+        emoji: senderAvatar.emoji,
+        walletAddress: senderAvatar.walletAddress 
+      } : null,
+      recipientAvatar: recipientAvatar ? { 
+        name: recipientAvatar.name, 
+        emoji: recipientAvatar.emoji,
+        walletAddress: recipientAvatar.walletAddress 
+      } : null
     });
     bucket.lastTimestamp = now;
     bucket.expireAt = now + this.TRANSFER_AGGREGATION_TTL_MS;
@@ -2052,6 +2088,32 @@ export class BuybotService {
       const minUsd = bucket.events.reduce((min, evt) => Math.min(min, evt.usdValue), Number.POSITIVE_INFINITY);
       const maxUsd = bucket.events.reduce((max, evt) => Math.max(max, evt.usdValue), 0);
 
+      // Collect unique avatars involved
+      const senderAvatars = new Map();
+      const recipientAvatars = new Map();
+      
+      for (const evt of bucket.events) {
+        if (evt.senderAvatar && evt.senderAvatar.walletAddress) {
+          senderAvatars.set(evt.senderAvatar.walletAddress, evt.senderAvatar);
+        }
+        if (evt.recipientAvatar && evt.recipientAvatar.walletAddress) {
+          recipientAvatars.set(evt.recipientAvatar.walletAddress, evt.recipientAvatar);
+        }
+      }
+
+      // Build participant display with avatars
+      const senderDisplay = senderAvatars.size > 0
+        ? Array.from(senderAvatars.values())
+            .map(av => `${this.getDisplayEmoji(av.emoji)} **${av.name}**`)
+            .join(', ')
+        : `\`${formatAddress(bucket.from)}\``;
+      
+      const recipientDisplay = recipientAvatars.size > 0
+        ? Array.from(recipientAvatars.values())
+            .map(av => `${this.getDisplayEmoji(av.emoji)} **${av.name}**`)
+            .join(', ')
+        : `\`${formatAddress(bucket.to)}\``;
+
       const recentTransfers = bucket.events
         .slice(-5)
         .map(evt => `• $${evt.usdValue.toFixed(2)} (${evt.formattedAmount} ${token.tokenSymbol})`)
@@ -2059,7 +2121,7 @@ export class BuybotService {
 
       const embed = {
         title: `${transferEmoji} ${token.tokenSymbol} Transfer Summary`,
-        description: `Multiple low-value transfers between \`${formatAddress(bucket.from)}\` and \`${formatAddress(bucket.to)}\` exceeded the configured $${threshold.toFixed(2)} threshold.`,
+        description: `Multiple low-value transfers from ${senderDisplay} to ${recipientDisplay} exceeded the configured $${threshold.toFixed(2)} threshold.`,
         color: 0x0099ff,
         fields: [
           { name: 'Transfers', value: `${bucket.events.length}`, inline: true },
@@ -2199,29 +2261,7 @@ export class BuybotService {
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
-      if (effectiveType === 'transfer') {
-        const aggregationOutcome = await this.handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue);
-        if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
-          return;
-        }
-      } else {
-        const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
-        const threshold = Number(thresholdRaw);
-        if (Number.isFinite(threshold) && threshold > 0) {
-          if (!Number.isFinite(usdValue) || usdValue < threshold) {
-            this.logger?.info?.('[BuybotService] Suppressing low-value event below threshold', {
-              eventType: effectiveType,
-              channelId,
-              token: token?.tokenSymbol || token?.symbol,
-              usdValue,
-              threshold
-            });
-            return;
-          }
-        }
-      }
-
-      // Get wallet avatars for addresses FIRST (before building embed)
+      // Get wallet avatars for addresses FIRST (before aggregation/embed building)
       let buyerAvatar = null;
       let senderAvatar = null;
       let recipientAvatar = null;
@@ -2380,6 +2420,37 @@ export class BuybotService {
           stack: avatarError.stack,
           eventType: event.type
         });
+      }
+
+      // NOW handle transfer aggregation with avatar info available
+      if (effectiveType === 'transfer') {
+        const aggregationOutcome = await this.handleTransferAggregation(
+          channelId, 
+          event, 
+          token, 
+          tokenPreferences, 
+          usdValue,
+          { senderAvatar, recipientAvatar }
+        );
+        if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
+          return;
+        }
+      } else {
+        // For non-transfer events (swaps), check threshold
+        const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
+        const threshold = Number(thresholdRaw);
+        if (Number.isFinite(threshold) && threshold > 0) {
+          if (!Number.isFinite(usdValue) || usdValue < threshold) {
+            this.logger?.info?.('[BuybotService] Suppressing low-value swap below threshold', {
+              eventType: effectiveType,
+              channelId,
+              token: token?.tokenSymbol || token?.symbol,
+              usdValue,
+              threshold
+            });
+            return;
+          }
+        }
       }
 
     const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
