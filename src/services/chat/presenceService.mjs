@@ -159,9 +159,15 @@ export class PresenceService {
     const cooldownPenalty = this.cooldownActive(doc) ? 1 : 0;
     const fatiguePenalty = clamp01((doc.fatigue || 0));
 
-    let score = 0.45 * mentionBoost
-      + 0.25 * summonRecency
-      + 0.15 * hunger
+    // For ambient scenarios (no mention, no recent summon), boost hunger significantly
+    const isAmbientScenario = !mentioned && summonRecency < 0.1;
+    const hungerWeight = isAmbientScenario ? 0.40 : 0.15; // 40% vs 15%
+    const mentionWeight = isAmbientScenario ? 0.30 : 0.45; // 30% vs 45%
+    const summonWeight = isAmbientScenario ? 0.15 : 0.25; // 15% vs 25%
+
+    let score = mentionWeight * mentionBoost
+      + summonWeight * summonRecency
+      + hungerWeight * hunger
       + 0.07 * topicMatch
       + 0.05 * priorityPins
       + 0.03 * socialBalance

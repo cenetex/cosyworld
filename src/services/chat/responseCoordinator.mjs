@@ -438,7 +438,8 @@ export class ResponseCoordinator {
       
       // If all avatars filtered out, allow a recent speaker but only if score is high enough
       // AND they weren't the very last speaker (most recent message)
-      if (ranked.length > 0 && ranked[0].score > 0.5) {
+      // Lowered threshold for ambient: score > 0.15 (was 0.5) since ambient scores are typically low
+      if (ranked.length > 0 && ranked[0].score > 0.15) {
         const fallback = ranked[0];
         const avatarAliases = this.getAvatarAliases(fallback.avatar);
         const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
@@ -453,8 +454,9 @@ export class ResponseCoordinator {
         return [fallback.avatar];
       }
       
-      // Lower threshold fallback for edge cases (score > 0.3)
-      if (ranked.length > 0 && ranked[0].score > 0.3) {
+      // Lower threshold fallback for edge cases - any avatar with non-zero score
+      // This ensures ambient responses happen regularly even without mentions/summons
+      if (ranked.length > 0 && ranked[0].score > 0.05) {
         const fallback = ranked[0];
         const avatarAliases = this.getAvatarAliases(fallback.avatar);
         const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
