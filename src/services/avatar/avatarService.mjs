@@ -2077,6 +2077,11 @@ export class AvatarService {
     const prompt = customPrompt || `Create an avatar that represents ${username}.`;
     const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(userId, prompt, channelId);
 
+    if (!avatar) {
+      this.logger?.error?.('[AvatarService] summonUserAvatar failed - avatar is null');
+      return null;
+    }
+
     if (avatar.channelId !== channelId)
       await this.getMapService().updateAvatarPosition(avatar, channelId, avatar.channelId);
 

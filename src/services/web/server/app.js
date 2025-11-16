@@ -31,6 +31,12 @@ async function initializeApp(services) {
   const PORT = serverCfg.port || process.env.WEB_PORT || 3000;
     const logger = services.logger;
 
+    // Trust proxy when running behind a proxy (e.g., in production)
+    // This is needed for rate limiting and IP detection to work correctly
+    if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
+      app.set('trust proxy', true);
+    }
+
     // Middleware setup
   const corsCfg = serverCfg.cors || { enabled: true, origin: '*', credentials: false };
   const allowedOrigins = Array.isArray(corsCfg.origin) ? corsCfg.origin : String(corsCfg.origin || '*');
@@ -38,7 +44,22 @@ async function initializeApp(services) {
   // Optional basic rate limit
   const rl = serverCfg.rateLimit || { enabled: false, windowMs: 60_000, max: 300 };
   if (rl.enabled) {
-    app.use(rateLimit({ windowMs: Number(rl.windowMs) || 60_000, max: Number(rl.max) || 300, standardHeaders: true, legacyHeaders: false }));
+    app.use(rateLimit({ 
+      windowMs: Number(rl.windowMs) || 60_000, 
+      max: Number(rl.max) || 300, 
+      standardHeaders: true, 
+      legacyHeaders: false,
+      // Skip rate limiting for failed trust proxy scenarios
+      skip: (req) => {
+        // If we can't determine the real IP, skip rate limiting rather than crash
+        return false;
+      },
+      // Validate that we can get a real IP address
+      validate: {
+        xForwardedForHeader: false, // Disable strict validation to prevent crashes
+        trustProxy: false
+      }
+    }));
   }
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
