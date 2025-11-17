@@ -415,8 +415,8 @@ async function initializeApp(services) {
     });
 
     // Catch-all for other paths
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api/') || path.extname(req.path)) {
+    app.get(/^\/(?!api\/).*/, (req, res, next) => {
+      if (path.extname(req.path)) {
         return next();
       }
       // Redirect unknown routes to landing page
