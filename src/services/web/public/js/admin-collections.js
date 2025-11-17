@@ -59,7 +59,7 @@ async function saveConfig(ev) {
         method: 'POST',
         sign: true,
         signMeta: { op: 'create_collection_config', key: payload.key },
-        body: JSON.stringify(payload),
+        body: payload,
         requireCsrf: true
       });
       status.textContent = 'Saved';
@@ -130,7 +130,13 @@ function renderItem(cfg) {
     startCardProgress(div, cfg.key);
     await ui.withButtonLoading(btn, async () => {
       try {
-  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', sign: true, signMeta: { op: 'sync_collection', key: cfg.key }, body: JSON.stringify({ force: false }), requireCsrf: true });
+  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, {
+    method: 'POST',
+    sign: true,
+    signMeta: { op: 'sync_collection', key: cfg.key },
+    body: { force: false },
+    requireCsrf: true
+  });
         stopCardProgress(div, true);
         const processed = r.result?.processed || 0;
         const okCt = r.result?.success || 0;
