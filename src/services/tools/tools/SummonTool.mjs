@@ -1174,6 +1174,16 @@ export class SummonTool extends BasicTool {
           await this.discordService.sendAvatarEmbed(createdAvatar, message.channel.id, this.aiService);
           createdAvatar.channelId = message.channel.id;
           await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
+          
+          // Mark introduction as completed
+          try {
+            await this.avatarService.updateAvatar({
+              ...createdAvatar,
+              introductionCompletedAt: new Date()
+            });
+          } catch (err) {
+            this.logger?.warn?.(`[SummonTool] Failed to mark intro complete: ${err.message}`);
+          }
         })().catch(err => {
           this.logger?.warn?.(`[SummonTool] Post-summon follow-up failed: ${err.message}`);
         });

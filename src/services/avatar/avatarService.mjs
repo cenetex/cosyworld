@@ -1845,14 +1845,13 @@ export class AvatarService {
       imageUrl,
       model,
       channelId: channelId || null,
-  summoner: summoner ? String(summoner) : null,
-  guildId: normalizedGuildId,
+      summoner: summoner ? String(summoner) : null,
+      guildId: normalizedGuildId,
       lives: 3,
       status: 'alive',
-      createdAt: now
-    };
-
-    const db = await this._db();
+      createdAt: now,
+      introductionCompletedAt: null
+    };    const db = await this._db();
     const collection = db.collection(this.AVATARS_COLLECTION);
     const guildMatch = buildAvatarGuildMatch(normalizedGuildId);
     const result = await collection.findOneAndUpdate(
@@ -1895,6 +1894,16 @@ export class AvatarService {
 
     if (!isNew && upsertedId && createdAvatar && createdAvatar._id?.equals?.(upsertedId)) {
       isNew = true;
+    }
+
+    // Final fallback: if no intro flag is present and the avatar was truly just created, treat as new
+    if (!isNew && !createdAvatar.introductionCompletedAt) {
+      const createdAtMs = createdAvatar?.createdAt instanceof Date
+        ? createdAvatar.createdAt.getTime()
+        : Date.parse(createdAvatar?.createdAt);
+      if (Number.isFinite(createdAtMs) && Math.abs(createdAtMs - now.getTime()) <= 5000) {
+        isNew = true;
+      }
     }
 
     if (!isNew && normalizedGuildId !== null && !createdAvatar.guildId) {
@@ -2002,6 +2011,7 @@ export class AvatarService {
       status: 'alive',
       createdAt: new Date(),
       updatedAt: new Date(),
+      introductionCompletedAt: null,
       ...metadata // Spread any additional metadata (walletAddress, tokenBalances, etc)
     };
 
