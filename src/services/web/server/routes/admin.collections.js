@@ -111,5 +111,17 @@ export default function(db) {
     res.json({ key, lastSyncAt: cfg.lastSyncAt || null, count });
   });
 
+  // Delete config
+  router.delete('/:key', async (req, res) => {
+    const { key } = req.params;
+    const result = await configs.deleteOne({ key });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Config not found' });
+    }
+    // Also clean up progress tracking
+    await db.collection('collection_sync_progress').deleteOne({ key }).catch(() => {});
+    res.json({ success: true, deleted: key });
+  });
+
   return router;
 }

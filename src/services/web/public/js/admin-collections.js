@@ -74,6 +74,7 @@ function renderItem(cfg) {
     <div class="flex gap-2 justify-end">
       <button class="px-2 py-1 rounded bg-gray-100 text-sm" data-act="status">Status</button>
       <button class="px-2 py-1 rounded bg-indigo-600 text-white text-sm" data-act="sync">Sync</button>
+      <button class="px-2 py-1 rounded bg-red-600 text-white text-sm" data-act="delete">Delete</button>
     </div>`;
   // hide progress by default until we have data
   const prog = div.querySelector('[data-prog]');
@@ -120,6 +121,25 @@ function renderItem(cfg) {
       } catch (err) {
         stopCardProgress(div, false);
         ui.error(err.message || 'Sync failed');
+      }
+    });
+  });
+  div.querySelector('[data-act="delete"]').addEventListener('click', async (e) => {
+    const ok = confirm(`Delete collection config "${cfg.key}"?\n\nThis will remove the configuration but NOT delete existing avatars from the database.`);
+    if (!ok) return;
+    const btn = e.currentTarget;
+    await ui.withButtonLoading(btn, async () => {
+      try {
+        await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}`, { 
+          method: 'DELETE', 
+          sign: true, 
+          signMeta: { op: 'delete_collection_config', key: cfg.key }, 
+          requireCsrf: true 
+        });
+        ui.success(`Deleted collection config: ${cfg.key}`);
+        await loadConfigs();
+      } catch (err) {
+        ui.error(err.message || 'Delete failed');
       }
     });
   });
