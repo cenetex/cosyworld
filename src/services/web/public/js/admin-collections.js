@@ -17,8 +17,19 @@ function ensureGlobals() {
 
 async function saveConfig(ev) {
   ev.preventDefault();
+  if (!ensureGlobals()) {
+    ui?.error?.('Admin system not ready. Please refresh the page.');
+    return;
+  }
+  
   const status = document.getElementById('status');
   const btn = document.querySelector('#cfgForm button[type="submit"]');
+  
+  if (!status || !btn) {
+    console.error('[admin-collections] Form elements not found');
+    return;
+  }
+  
   status.textContent = 'Saving...';
   const payload = {
     key: document.getElementById('key').value.trim(),
@@ -34,8 +45,16 @@ async function saveConfig(ev) {
       fileSource: document.getElementById('fileSource').value || undefined
     }
   };
+  
+  if (!payload.key) {
+    status.textContent = 'Error: Collection key is required';
+    ui.error('Collection key is required');
+    return;
+  }
+  
   await ui.withButtonLoading(btn, async () => {
     try {
+      console.log('[admin-collections] Saving collection config:', payload.key);
       await api.apiFetch('/api/admin/collections/configs', {
         method: 'POST',
         sign: true,
@@ -47,7 +66,8 @@ async function saveConfig(ev) {
       ui.success('Collection configuration saved');
       await loadConfigs();
     } catch (e) {
-      status.textContent = e.message;
+      console.error('[admin-collections] Save failed:', e);
+      status.textContent = e.message || 'Save failed';
       ui.error(e.message || 'Failed to save collection');
     }
   });
@@ -130,6 +150,7 @@ function renderItem(cfg) {
     const btn = e.currentTarget;
     await ui.withButtonLoading(btn, async () => {
       try {
+        console.log('[admin-collections] Deleting collection config:', cfg.key);
         await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}`, { 
           method: 'DELETE', 
           sign: true, 
@@ -139,6 +160,7 @@ function renderItem(cfg) {
         ui.success(`Deleted collection config: ${cfg.key}`);
         await loadConfigs();
       } catch (err) {
+        console.error('[admin-collections] Delete failed:', err);
         ui.error(err.message || 'Delete failed');
       }
     });
@@ -161,23 +183,48 @@ async function loadConfigs() {
   }
 }
 
-document.getElementById('cfgForm')?.addEventListener('submit', saveConfig);
-document.getElementById('refresh')?.addEventListener('click', loadConfigs);
-
 function initPage() {
   if (!ensureGlobals()) {
     // If still not ready, wait for event
     return;
   }
-  try { initializeWallet(); } catch {}
+  
+  // Initialize wallet for signing operations
+  try { 
+    console.log('[admin-collections] Initializing wallet...');
+    initializeWallet(); 
+  } catch (e) {
+    console.error('[admin-collections] Wallet initialization failed:', e);
+  }
+  
+  // Attach event listeners after DOM is ready
+  const cfgForm = document.getElementById('cfgForm');
+  const refreshBtn = document.getElementById('refresh');
+  const toggleBtn = document.getElementById('toggleForm');
+  
+  if (cfgForm) {
+    console.log('[admin-collections] Attaching form submit handler');
+    cfgForm.addEventListener('submit', saveConfig);
+  } else {
+    console.warn('[admin-collections] Form element #cfgForm not found');
+  }
+  
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadConfigs);
+  }
+  
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (cfgForm?.classList.contains('hidden')) {
+        cfgForm.classList.remove('hidden');
+      } else {
+        cfgForm?.classList.add('hidden');
+      }
+    });
+  }
+  
   loadConfigs();
-  const btn = document.getElementById('toggleForm');
-  const form = document.getElementById('cfgForm');
-  btn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (form?.classList.contains('hidden')) form.classList.remove('hidden');
-    else form?.classList.add('hidden');
-  });
   hydrateProgressBars();
 }
 
