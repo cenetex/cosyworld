@@ -52,7 +52,7 @@ async function saveConfig(ev) {
     return;
   }
   
-  await ui.withButtonLoading(btn, async () => {
+  const runWithLoading = ui.withButtonLoading(btn, async () => {
     try {
       console.log('[admin-collections] Saving collection config:', payload.key);
       await api.apiFetch('/api/admin/collections/configs', {
@@ -71,6 +71,7 @@ async function saveConfig(ev) {
       ui.error(e.message || 'Failed to save collection');
     }
   });
+  await runWithLoading();
 }
 
 function renderItem(cfg) {
@@ -114,7 +115,7 @@ function renderItem(cfg) {
   
   div.querySelector('[data-act="status"]').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    await ui.withButtonLoading(btn, async () => {
+    const runWithLoading = ui.withButtonLoading(btn, async () => {
       try {
         const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
         ui.success(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
@@ -122,13 +123,14 @@ function renderItem(cfg) {
         ui.error(err.message || 'Failed to fetch status');
       }
     });
+    await runWithLoading();
   });
   div.querySelector('[data-act="sync"]').addEventListener('click', async (e) => {
     const ok = confirm(`Sync ${cfg.key} now?\n\nThis will update avatar metadata while preserving existing data (channelId, status, lives).`);
     if (!ok) return;
     const btn = e.currentTarget;
     startCardProgress(div, cfg.key);
-    await ui.withButtonLoading(btn, async () => {
+    const runWithLoading = ui.withButtonLoading(btn, async () => {
       try {
   const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, {
     method: 'POST',
@@ -149,12 +151,13 @@ function renderItem(cfg) {
         ui.error(err.message || 'Sync failed');
       }
     });
+    await runWithLoading();
   });
   div.querySelector('[data-act="delete"]').addEventListener('click', async (e) => {
     const ok = confirm(`Delete collection config "${cfg.key}"?\n\nThis will remove the configuration but NOT delete existing avatars from the database.`);
     if (!ok) return;
     const btn = e.currentTarget;
-    await ui.withButtonLoading(btn, async () => {
+    const runWithLoading = ui.withButtonLoading(btn, async () => {
       try {
         console.log('[admin-collections] Deleting collection config:', cfg.key);
         await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}`, { 
@@ -170,6 +173,7 @@ function renderItem(cfg) {
         ui.error(err.message || 'Delete failed');
       }
     });
+    await runWithLoading();
   });
   return div;
 }
