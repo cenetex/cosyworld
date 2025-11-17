@@ -120,8 +120,9 @@ export class ToolPlannerService {
         // Execute via ToolService (will apply its own gating/cooldowns)
         try {
           const res = await this.toolService.executeTool(candidate.tool, message, candidate.params, avatar, context);
-          this.logger?.info?.(`[Agentic] ${avatar.name} → ${candidate.tool} (${candidate.params.join(' ')}) result: ${res && res.slice ? res.slice(0,120) : ''}`);
-          if (res) {
+          const resMessage = res?.message ?? (typeof res === 'string' ? res : '');
+          this.logger?.info?.(`[Agentic] ${avatar.name} → ${candidate.tool} (${candidate.params.join(' ')}) result: ${resMessage ? resMessage.slice(0,120) : ''}`);
+          if (resMessage) {
             // Log memory of the action succinctly
             try {
               await this.toolService.memoryService?.addMemory?.(avatar._id, `[agentic:${candidate.tool}] ${candidate.params.join(' ')}`);

@@ -68,19 +68,22 @@ export class ToolExecutor {
       // Handle null/undefined/empty results:
       // - null means intentional silence (e.g., out of turn, already KO'd)
       // - Return formatted message for other cases
+      const resultMessage = result?.message ?? (typeof result === 'string' ? result : null);
+      const shouldNotify = result?.notify !== false;
       let formattedResult;
-      if (result === null || result === undefined) {
+      if (!shouldNotify) {
+        formattedResult = null;
+      } else if (resultMessage === null || resultMessage === undefined) {
         // Silent execution - don't show anything to user
         formattedResult = null;
-      } else if (typeof result === 'string' && result.trim().length === 0) {
-        // Empty string - treat as silent
+      } else if (typeof resultMessage === 'string' && resultMessage.trim().length === 0) {
         formattedResult = null;
-      } else if (typeof result === 'string') {
+      } else if (typeof resultMessage === 'string') {
         // String result - use as-is if properly formatted, otherwise format it
-        formattedResult = result.trim().startsWith('-#') ? result : `-# [ ${result} ]`;
+        formattedResult = resultMessage.trim().startsWith('-#') ? resultMessage : `-# [ ${resultMessage} ]`;
       } else {
         // Non-string result - format as JSON in brackets
-        formattedResult = `-# [ ${JSON.stringify(result)} ]`;
+        formattedResult = `-# [ ${JSON.stringify(resultMessage)} ]`;
       }
       
       return {

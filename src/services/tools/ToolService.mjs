@@ -25,6 +25,26 @@ import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
 import { PotionTool } from './tools/PotionTool.mjs';
 
+function normalizeToolResult(rawResult) {
+  const base = { message: null, notify: true };
+  if (rawResult === undefined || rawResult === null) {
+    return { ...base, notify: false };
+  }
+  if (typeof rawResult === 'object' && !Array.isArray(rawResult)) {
+    const notify = rawResult.notify === undefined ? true : Boolean(rawResult.notify);
+    let message = rawResult.message ?? rawResult.result ?? rawResult.text ?? null;
+    if (message !== null && message !== undefined && typeof message !== 'string') {
+      try {
+        message = JSON.stringify(message);
+      } catch {
+        message = String(message);
+      }
+    }
+    return { message, notify };
+  }
+  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), notify: true };
+}
+
 export class ToolService {
   constructor({
     logger,
@@ -334,7 +354,7 @@ export class ToolService {
    * @param {string[]} params - The command parameters
    * @param {Object} avatar - The avatar performing the action
    * @param {Object} guildConfig - The guild configuration
-   * @returns {Promise<string>} The tool's response
+  * @returns {Promise<{message: string|null, notify: boolean}>} The tool's response and notification preference
    */
   // Note: Some callers pass `context` as the 5th argument (omitting guildConfig).
   // To maintain backward compatibility, accept either 5th or 6th param as context.
@@ -374,7 +394,7 @@ export class ToolService {
       return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
     }
 
-    let result;
+    let rawResult;
     try {
       // Augment context with combatEncounterService if available
       if (this.toolServices?.combatEncounterService) {
@@ -385,14 +405,18 @@ export class ToolService {
       }
       // Provide discordService for downstream actions (e.g., KO movement)
       if (this.discordService && !context.discordService) context.discordService = this.discordService;
-      result = await tool.execute(message, params, avatar, context);
+      rawResult = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {
-      result = `Error executing ${toolName}: ${error.message}`;
+      rawResult = { message: `Error executing ${toolName}: ${error.message}` };
     }
 
+    const normalized = normalizeToolResult(rawResult);
+    const resultForLog = normalized.message;
     try {
-      await this.memoryService.addMemory(avatar._id, result);
+      if (resultForLog) {
+        await this.memoryService.addMemory(avatar._id, resultForLog);
+      }
       await this.ActionLog.logAction({
         channelId: message.channel.id,
         action: toolName,
@@ -400,7 +424,7 @@ export class ToolService {
         actorName: avatar.name,
         displayName: avatar.displayName || avatar.name,
         target: params.join(' '),
-        result,
+        result: resultForLog,
         tool: toolName,
         emoji: tool.emoji,
         isCustom: false,
@@ -410,6 +434,6 @@ export class ToolService {
       this.logger?.error(`Failed to log action '${toolName}': ${logError.message}`);
     }
 
-    return result;
+    return normalized;
   }
 }

@@ -922,14 +922,14 @@ export class SummonTool extends BasicTool {
             message,
             'Summoning is limited to catalog avatars, but none were available to match that request.'
           );
-          return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
+          return { message: '-# [ Summon disabled: server configuration blocks free-form avatars. ]', notify: false };
         }
 
         await this.discordService.replyToMessage(
           message,
           'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
         );
-        return '-# [ Summon disabled: server configuration blocks free-form avatars. ]';
+        return { message: '-# [ Summon disabled: server configuration blocks free-form avatars. ]', notify: false };
       }
 
       if (!freeSummonsDisabled && (pureModelOnly || guildAvatarModes.free === false)) {
