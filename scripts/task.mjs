@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { container } from '../src/container.mjs';
-
-const logger = container.resolve('logger');
+import { container, containerReady } from '../src/container.mjs';
 
 async function main() {
+  // Wait for container to be fully initialized
+  await containerReady;
+  
+  const logger = container.resolve('logger');
+  
   const [,, cmd, ...rest] = process.argv;
   const args = Object.fromEntries(rest.filter(a=>a.includes('=')).map(a=>{
     const i = a.indexOf('=');
