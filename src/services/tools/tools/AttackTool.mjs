@@ -102,7 +102,7 @@ export class AttackTool extends BasicTool {
       }
     }
 
-    const targetName = params.join(' ').trim();
+    const targetText = params.join(' ').trim();
 
     try {
       // Find defender in location
@@ -110,34 +110,29 @@ export class AttackTool extends BasicTool {
       if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
-  const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
+
+      // Use flexible matching similar to camera/summon tools
+      const attackerId = String(avatar?._id || avatar?.id || '');
+      const matches = this.avatarService.matchAvatarsByContent(
+        targetText,
+        locationResult.avatars,
+        {
+          limit: 1,
+          excludeAvatarIds: attackerId ? [attackerId] : []
+        }
+      );
+
+      const defender = matches.length > 0 ? matches[0] : null;
       if (!defender) {
         // React to source message to indicate invalid local target without verbose reply
         if (this.discordService?.reactToMessage) {
           this.discordService.reactToMessage(message, '👀');
         }
-        return `-# 🫠 [ Target '${targetName}' not found here. ]`;
+        return `-# 🫠 [ Target '${targetText}' not found here. ]`;
       }
       
-      // Block self-combat - normalize both IDs properly
-      const normalizeId = (obj) => {
-        if (!obj) return '';
-        const id = obj._id || obj.id;
-        if (!id) return '';
-        // Handle ObjectId objects
-        if (typeof id === 'object' && id.toString) return id.toString();
-        return String(id);
-      };
-      
-      const attackerId = normalizeId(avatar);
-      const defenderId = normalizeId(defender);
-      
-      // Comprehensive debug logging
-      this.logger?.info?.(`[AttackTool] SELF-COMBAT CHECK:`);
-      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
-      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
-      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
-      
+      // Additional safeguard: Block self-combat (should already be filtered by excludeAvatarIds)
+      const defenderId = String(defender?._id || defender?.id || '');
       if (attackerId && defenderId && attackerId === defenderId) {
         this.logger?.warn?.(`[AttackTool] Self-combat blocked: ${avatar?.name} tried to attack themselves`);
         return `-# 🤔 [ You cannot attack yourself! ]`;
