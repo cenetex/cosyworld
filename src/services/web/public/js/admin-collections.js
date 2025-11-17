@@ -4,6 +4,14 @@ let polling = window.AdminPolling;
 let api = window.AdminAPI;
 let ui = window.AdminUI;
 
+function setPageStatus(message, variant = 'info') {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = message || '';
+  const color = variant === 'error' ? '#b91c1c' : variant === 'success' ? '#047857' : '#4b5563';
+  el.style.color = color;
+}
+
 function ensureGlobals() {
   if (!api || !ui) {
     api = window.AdminAPI;
@@ -18,7 +26,7 @@ function ensureGlobals() {
 async function saveConfig(ev) {
   ev.preventDefault();
   if (!ensureGlobals()) {
-    ui?.error?.('Admin system not ready. Please refresh the page.');
+    setPageStatus('Admin system not ready. Please refresh the page.', 'error');
     return;
   }
   
@@ -31,6 +39,7 @@ async function saveConfig(ev) {
   }
   
   status.textContent = 'Saving...';
+  setPageStatus('Saving...');
   const payload = {
     key: document.getElementById('key').value.trim(),
     type: document.getElementById('type').value,
@@ -48,7 +57,7 @@ async function saveConfig(ev) {
   
   if (!payload.key) {
     status.textContent = 'Error: Collection key is required';
-    ui.error('Collection key is required');
+    setPageStatus('Collection key is required', 'error');
     return;
   }
   
@@ -63,12 +72,12 @@ async function saveConfig(ev) {
         requireCsrf: true
       });
       status.textContent = 'Saved';
-      ui.success('Collection configuration saved');
+      setPageStatus('Collection configuration saved', 'success');
       await loadConfigs();
     } catch (e) {
       console.error('[admin-collections] Save failed:', e);
       status.textContent = e.message || 'Save failed';
-      ui.error(e.message || 'Failed to save collection');
+      setPageStatus(e.message || 'Failed to save collection', 'error');
     }
   });
   await runWithLoading();
@@ -118,9 +127,9 @@ function renderItem(cfg) {
     const runWithLoading = ui.withButtonLoading(btn, async () => {
       try {
         const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
-        ui.success(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
+        setPageStatus(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
       } catch (err) {
-        ui.error(err.message || 'Failed to fetch status');
+        setPageStatus(err.message || 'Failed to fetch status', 'error');
       }
     });
     await runWithLoading();
@@ -143,12 +152,12 @@ function renderItem(cfg) {
         const processed = r.result?.processed || 0;
         const okCt = r.result?.success || 0;
         const failCt = r.result?.failures || 0;
-        ui.success(`Processed ${processed} (ok ${okCt}, fail ${failCt})`);
+        setPageStatus(`Processed ${processed} (ok ${okCt}, fail ${failCt})`, 'success');
         // Reload configs to update UI with new lastSyncAt timestamp
         await loadConfigs();
       } catch (err) {
         stopCardProgress(div, false);
-        ui.error(err.message || 'Sync failed');
+        setPageStatus(err.message || 'Sync failed', 'error');
       }
     });
     await runWithLoading();
@@ -166,11 +175,11 @@ function renderItem(cfg) {
           signMeta: { op: 'delete_collection_config', key: cfg.key }, 
           requireCsrf: true 
         });
-        ui.success(`Deleted collection config: ${cfg.key}`);
+        setPageStatus(`Deleted collection config: ${cfg.key}`, 'success');
         await loadConfigs();
       } catch (err) {
         console.error('[admin-collections] Delete failed:', err);
-        ui.error(err.message || 'Delete failed');
+        setPageStatus(err.message || 'Delete failed', 'error');
       }
     });
     await runWithLoading();
@@ -189,7 +198,7 @@ async function loadConfigs() {
   await hydrateProgressBars();
   } catch (e) {
     list.textContent = e.message;
-    ui.error(e.message || 'Failed to load configs');
+    setPageStatus(e.message || 'Failed to load configs', 'error');
   }
 }
 
