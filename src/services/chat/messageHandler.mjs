@@ -253,7 +253,8 @@ export class MessageHandler  {
     }
 
     // Check if the message is a command
-    const avatar = (await this.avatarService.summonUserAvatar(message)).avatar;
+    const summonResult = await this.avatarService.summonUserAvatar(message);
+    const avatar = summonResult?.avatar;
     if (avatar) {
       await handleCommands(message, {
         logger: this.logger,
@@ -262,6 +263,8 @@ export class MessageHandler  {
         mapService: this.mapService,
         configService: this.configService,
       }, avatar, await this.conversationManager.getChannelContext(message.channel.id));
+    } else {
+      this.logger.warn?.('[MessageHandler] Skipping command handling - failed to summon user avatar');
     }
 
   const channelId = message.channel.id;
@@ -305,7 +308,15 @@ export class MessageHandler  {
     try {
       if (this.toolPlanner && !message.author.bot) {
         const context = await this.conversationManager.getChannelContext(message.channel.id);
-        await this.toolPlanner.planAndMaybeExecute(message, (await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id)) || (await this.avatarService.summonUserAvatar(message)).avatar, context);
+        let plannerAvatar = await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id);
+        if (!plannerAvatar) {
+          plannerAvatar = avatar || (await this.avatarService.summonUserAvatar(message))?.avatar || null;
+        }
+        if (!plannerAvatar) {
+          this.logger.debug?.('[MessageHandler] Agentic planner skipped: no avatar available for planner context');
+        } else {
+          await this.toolPlanner.planAndMaybeExecute(message, plannerAvatar, context);
+        }
       }
     } catch (e) {
       this.logger.debug?.(`Agentic planner skipped: ${e.message}`);

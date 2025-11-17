@@ -401,14 +401,14 @@ async function initializeApp(services) {
     });
 
     // SPA fallback for console routes
-    app.get('/console/*', (req, res, next) => {
+    app.get('/console/:path(*)', (req, res, next) => {
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
     // SPA fallback for app routes (backwards compatibility)
-    app.get('/app/*', (req, res, next) => {
+    app.get('/app/:path(*)', (req, res, next) => {
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });

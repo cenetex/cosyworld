@@ -1860,8 +1860,7 @@ export class AvatarService {
       {
         $setOnInsert: insertDoc,
         $set: {
-          updatedAt: now,
-          ...(normalizedGuildId !== null ? { guildId: normalizedGuildId } : {}),
+          updatedAt: now
         }
       },
       { upsert: true, returnDocument: 'after' }
@@ -1874,6 +1873,11 @@ export class AvatarService {
     }
 
     const isNew = Boolean(result.lastErrorObject?.upserted);
+
+    if (!isNew && normalizedGuildId !== null && !createdAvatar.guildId) {
+      await collection.updateOne({ _id: createdAvatar._id }, { $set: { guildId: normalizedGuildId } });
+      createdAvatar.guildId = normalizedGuildId;
+    }
     if (!isNew) {
       createdAvatar._existing = true;
       createdAvatar.stats = createdAvatar.stats || await this.getOrCreateStats(createdAvatar);
@@ -2109,7 +2113,9 @@ export class AvatarService {
   }
 
   async summonUserAvatar(message, customPrompt = null) {
-    if (!message?.author) return null;
+    if (!message?.author) {
+      return { avatar: null, isNewAvatar: false };
+    }
     const { id: userId, username } = message.author;
     const channelId = message.channel.id;
     const prompt = customPrompt || `Create an avatar that represents ${username}.`;
@@ -2117,7 +2123,7 @@ export class AvatarService {
 
     if (!avatar) {
       this.logger?.error?.('[AvatarService] summonUserAvatar failed - avatar is null');
-      return null;
+      return { avatar: null, isNewAvatar: false };
     }
 
     if (avatar.channelId !== channelId)
