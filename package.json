@@ -28,6 +28,7 @@
     "backfill:agent-ids": "node scripts/task.mjs backfill:agent-ids",
     "migrate:agent-blocks": "node scripts/task.mjs migrate:agent-blocks",
     "migrate:agent-events": "node scripts/task.mjs migrate:agent-events",
+  "migrate:collections": "node scripts/migrateCollectionFields.mjs",
     "test:agent-events": "node scripts/testAgentEvents.mjs",
     "lint": "npx eslint .",
     "format": "npx prettier --write .",

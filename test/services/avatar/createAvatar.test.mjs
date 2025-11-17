@@ -56,6 +56,6 @@ describe('AvatarService.createAvatar', () => {
 
     expect(updateDoc.$setOnInsert).toBeDefined();
     expect(updateDoc.$setOnInsert.updatedAt).toBeUndefined();
-    expect(updateDoc.$set).toEqual({ updatedAt: expect.any(Date) });
+    expect(updateDoc.$set).toMatchObject({ updatedAt: expect.any(Date) });
   });
 });

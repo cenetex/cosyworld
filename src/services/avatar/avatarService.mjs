@@ -203,6 +203,35 @@ export class AvatarService {
       this.channelsCollection.createIndex({ lastActive: 1 }),
     ]);
 
+    const ensureUniqueIndex = async (keys, options) => {
+      try {
+        await this.avatarsCollection.createIndex(keys, options);
+      } catch (error) {
+        this.logger?.warn?.(`[AvatarService] Failed to ensure index ${options?.name || JSON.stringify(keys)}: ${error.message}`);
+      }
+    };
+
+    await ensureUniqueIndex(
+      { 'nft.collection': 1, 'nft.tokenId': 1 },
+      {
+        name: 'avatars_nft_collection_token_unique',
+        unique: true,
+        partialFilterExpression: { 'nft.tokenId': { $exists: true, $ne: null } },
+      }
+    );
+
+    await ensureUniqueIndex(
+      { 'nft.collection': 1, name: 1 },
+      {
+        name: 'avatars_nft_collection_name_unique',
+        unique: true,
+        partialFilterExpression: {
+          'nft.collection': { $exists: true, $ne: null },
+          'nft.tokenId': { $exists: false },
+        },
+      }
+    );
+
     this.logger.info('AvatarService database setup completed with wallet avatar indexes.');
   }
 

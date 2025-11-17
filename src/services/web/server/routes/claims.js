@@ -235,7 +235,7 @@ export default function(db) {
       }
 
       // Determine collection policy
-      const collKey = avatar?.nft?.collection || avatar?.collection;
+  const collKey = avatar?.nft?.collection || null;
       let policy = collKey ? 'strictTokenOwner' : 'free', chain = 'ethereum', provider = '', gateTarget = '';
       if (collKey) {
         const cfg = await db.collection('collection_configs').findOne({ key: collKey });

@@ -331,7 +331,6 @@ export class DatabaseService {
           { key: { emoji: 1 }, background: true },
           { key: { emoji: 1, _id: -1 }, name: 'avatars_emoji_id_desc', background: true },
           { key: { 'nft.collection': 1, _id: -1 }, name: 'avatars_nft_collection_id_desc', background: true },
-          { key: { collection: 1, _id: -1 }, name: 'avatars_collection_id_desc', background: true },
           { key: { parents: 1 }, background: true },
           { key: { createdAt: -1 }, background: true },
           { key: { channelId: 1 }, background: true },
