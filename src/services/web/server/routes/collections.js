@@ -56,12 +56,11 @@ export default function collectionsRoutes(db) {
       const skip = (page - 1) * limit;
 
       const pipeline = [
-        { $addFields: { collKey: { $ifNull: ['$nft.collection', '$collection'] } } },
-        { $match: { collKey: { $exists: true, $ne: null } } },
+        { $match: { 'nft.collection': { $exists: true, $ne: null } } },
         { $sort: { createdAt: -1 } },
         {
           $group: {
-            _id: '$collKey',
+            _id: '$nft.collection',
             count: { $sum: 1 },
             sample: { $first: '$$ROOT' },
           },
@@ -101,9 +100,8 @@ export default function collectionsRoutes(db) {
 
       // Total distinct collection count
       const totals = await db.collection('avatars').aggregate([
-        { $addFields: { collKey: { $ifNull: ['$nft.collection', '$collection'] } } },
-        { $match: { collKey: { $exists: true, $ne: null } } },
-        { $group: { _id: '$collKey' } },
+        { $match: { 'nft.collection': { $exists: true, $ne: null } } },
+        { $group: { _id: '$nft.collection' } },
         { $count: 'total' },
       ]).toArray();
       const total = totals?.[0]?.total || 0;
@@ -124,12 +122,7 @@ export default function collectionsRoutes(db) {
       const after = req.query.after;
       const thumbs = req.query.thumbs === '1' || req.query.thumbs === 'true';
 
-      const match = {
-        $or: [
-          { 'nft.collection': id },
-          { collection: id },
-        ],
-      };
+      const match = { 'nft.collection': id };
 
       const cursorQuery = after && ObjectId.isValid(after) ? { _id: { $lt: new ObjectId(after) } } : {};
 

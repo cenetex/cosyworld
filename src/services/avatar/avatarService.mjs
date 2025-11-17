@@ -1531,7 +1531,7 @@ export class AvatarService {
       if (!collectionSet || collectionSet.size === 0) {
         return false;
       }
-      const avatarCollection = (avatar?.nft?.collection || avatar?.collection || '')
+      const avatarCollection = (avatar?.nft?.collection || '')
         .toString()
         .trim()
         .toLowerCase();

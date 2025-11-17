@@ -147,10 +147,8 @@ export default function(db) {
     if (!cfg) return res.status(404).json({ error: 'Config not found' });
     const guildMatch = buildAvatarGuildMatch(cfg.guildId ?? null);
     const count = await db.collection('avatars').countDocuments({
-      $and: [
-        { $or: [{ 'nft.collection': key }, { collection: key }] },
-        guildMatch,
-      ],
+      'nft.collection': key,
+      ...guildMatch,
     });
     res.json({ key, lastSyncAt: cfg.lastSyncAt || null, count });
   });
