@@ -102,6 +102,7 @@ import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
 import { buildAvatarQuery } from './helpers/buildAvatarQuery.js';
+import { buildAvatarGuildMatch, normalizeGuildId } from '../../utils/guildScope.mjs';
 
 const normalizeMentionText = (value = '') => String(value || '')
   .replace(/\([^)]*\)/g, ' ')
@@ -1066,8 +1067,9 @@ export class AvatarService {
    * @returns {Promise<Object|null>} - Existing avatar with _existing flag, or null
    * @private
    */
-  async _checkExistingAvatar(name) {
-    const existing = await this.getAvatarByName(name);
+  async _checkExistingAvatar(name, guildId = null) {
+    const options = guildId ? { guildId } : {};
+    const existing = await this.getAvatarByName(name, options);
     if (existing) {
       this.logger?.info?.(`[AvatarService] Avatar "${name}" already exists, returning existing`);
       return { ...existing, _existing: true };
@@ -1738,6 +1740,7 @@ export class AvatarService {
   }
 
   async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
+    const normalizedGuildId = normalizeGuildId(guildId);
     let details = null;
     try {
       details = await this.generateAvatarDetails(prompt, guildId);
@@ -1783,7 +1786,7 @@ export class AvatarService {
     if (!validatedName) return null;
     details.name = validatedName;
 
-    const existing = await this._checkExistingAvatar(details.name);
+  const existing = await this._checkExistingAvatar(details.name, normalizedGuildId);
     if (existing) return existing;
 
     let imageUrl = null;
@@ -1814,7 +1817,7 @@ export class AvatarService {
       model,
       channelId: channelId || null,
       summoner: summoner ? String(summoner) : null,
-      guildId: guildId || null,
+  guildId: normalizedGuildId,
       lives: 3,
       status: 'alive',
       createdAt: now
@@ -1822,11 +1825,15 @@ export class AvatarService {
 
     const db = await this._db();
     const collection = db.collection(this.AVATARS_COLLECTION);
+    const guildMatch = buildAvatarGuildMatch(normalizedGuildId);
     const result = await collection.findOneAndUpdate(
-      { name: details.name },
+      { name: details.name, ...guildMatch },
       {
         $setOnInsert: insertDoc,
-        $set: { updatedAt: now }
+        $set: {
+          updatedAt: now,
+          ...(normalizedGuildId !== null ? { guildId: normalizedGuildId } : {}),
+        }
       },
       { upsert: true, returnDocument: 'after' }
     );
@@ -1901,6 +1908,7 @@ export class AvatarService {
    * @returns {Promise<Object>} Created partial avatar
    */
   async createPartialAvatar({ prompt, summoner, channelId, guildId: _guildId, metadata = {} }) {
+    const normalizedGuildId = normalizeGuildId(_guildId);
     let details = null;
     try {
       details = await this.generatePartialAvatarDetails(prompt);
@@ -1920,7 +1928,7 @@ export class AvatarService {
     details.name = validatedName;
 
     // Check for existing avatar with same name
-    const existing = await this._checkExistingAvatar(details.name);
+  const existing = await this._checkExistingAvatar(details.name, normalizedGuildId);
     if (existing) return existing;
 
     const doc = {
@@ -1932,6 +1940,7 @@ export class AvatarService {
       model: 'partial', // Mark as partial
       channelId,
       summoner,
+  guildId: normalizedGuildId,
       isPartial: true, // Flag for easy filtering
       lives: 3,
       status: 'alive',

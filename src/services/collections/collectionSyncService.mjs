@@ -7,6 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import pkg from 'js-sha3';
+import { buildAvatarGuildMatch, buildCollectionConfigScopeQuery, normalizeGuildId } from '../../utils/guildScope.mjs';
 
 // Lazy helpers to avoid resolving before container is ready
 const getLogger = () => {
@@ -321,27 +322,24 @@ async function synthesizeDynamicPersonality(baseDescription, providedPersonality
 }
 
 async function upsertAvatarFromNft(nft, ctx) {
-  const { collectionId, chain, provider, force } = ctx;
+  const { collectionId, chain, provider, force: _force, guildId: rawGuildId } = ctx;
+  const guildId = normalizeGuildId(rawGuildId);
   const databaseService = getDBService();
   const db = await databaseService.getDatabase();
   const avatarsCol = db.collection('avatars');
-  // Ensure unique index for nft identity (token scoped)
-  try {
-    await avatarsCol.createIndex({ 'nft.collection': 1, 'nft.tokenId': 1 }, { unique: true, partialFilterExpression: { 'nft.tokenId': { $exists: true, $ne: null } } });
-  } catch {}
+
   const name = (nft.name || '').trim();
-  if (!name) { getLogger().warn('Skipping NFT with no name.'); return null; }
-  const tokenKey = (nft.token_id || nft.tokenId || nft.mint || nft.id || null);
-  // Prefer matching by token identity within collection; fallback to legacy name+collection
-  let existing = null;
-  if (tokenKey) {
-    existing = await avatarsCol.findOne({ 'nft.collection': collectionId, 'nft.tokenId': tokenKey });
+  if (!name) {
+    getLogger().warn('Skipping NFT with no name.');
+    return null;
   }
-  if (!existing) {
-    existing = await avatarsCol.findOne({ name, collection: collectionId });
-  }
-  // If an existing doc is found and not forcing, we still lightly update a few evolving fields
-  // to keep idempotent syncs useful without heavy overwrite.
+
+  const tokenKey = nft.token_id || nft.tokenId || nft.mint || nft.id || null;
+  const baseQuery = tokenKey
+    ? { 'nft.collection': collectionId, 'nft.tokenId': tokenKey }
+    : { name, 'nft.collection': collectionId };
+  const guildMatch = buildAvatarGuildMatch(guildId);
+  const query = { ...baseQuery, ...guildMatch };
 
   const description = nft.description?.trim() || 'A mysterious entity.';
   const providedPersonality = nft.personality?.trim() || nft.attributes?.Personality || null;
@@ -349,7 +347,6 @@ async function upsertAvatarFromNft(nft, ctx) {
   const coordinator = nft.attributes?.Coordinator || nft.attributes?.Faction || null;
   const dynamicPersonality = await synthesizeDynamicPersonality(description, providedPersonality, traitSummary, coordinator);
 
-  // Resolve AI service for optional model selection
   const aiSvc = getAIService();
 
   const rawImageUrl = resolveImageUrl(nft);
@@ -360,12 +357,12 @@ async function upsertAvatarFromNft(nft, ctx) {
       const buf = await s3Service.downloadImage(rawImageUrl).catch(() => null);
       if (buf) {
         const ext = rawImageUrl.split('?')[0].split('.').pop().toLowerCase();
-        const valid = ['png','jpg','jpeg','gif'];
+        const valid = ['png', 'jpg', 'jpeg', 'gif'];
         const useExt = valid.includes(ext) ? ext : 'png';
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nft-'));
-        const tmpFile = path.join(tmpDir, 'img.' + useExt);
+        const tmpFile = path.join(tmpDir, `img.${useExt}`);
         await fs.writeFile(tmpFile, buf);
-        const uploaded = await s3Service.uploadImage(tmpFile).catch(()=>null);
+        const uploaded = await s3Service.uploadImage(tmpFile).catch(() => null);
         if (uploaded) imageUrl = uploaded;
       }
     }
@@ -373,8 +370,9 @@ async function upsertAvatarFromNft(nft, ctx) {
     getLogger().warn(`Rehosting failed for ${rawImageUrl}: ${e.message}`);
   }
 
-  // Compute optional agent identity
-  let agentId = null, chainId, originContract;
+  let agentId = null;
+  let chainId;
+  let originContract;
   try {
     const { computeAgentId, resolveChainId } = await getIdentityFns();
     if (computeAgentId && resolveChainId) {
@@ -385,12 +383,22 @@ async function upsertAvatarFromNft(nft, ctx) {
       let tokenNumeric = null;
       if (rawToken && /^\d+$/.test(String(rawToken))) tokenNumeric = BigInt(rawToken);
       else if (rawToken && /^0x[0-9a-fA-F]+$/.test(String(rawToken))) tokenNumeric = BigInt(rawToken);
-      else if (rawToken) tokenNumeric = BigInt('0x' + pkg.keccak_256(rawToken).slice(0,16));
+      else if (rawToken) tokenNumeric = BigInt(`0x${pkg.keccak_256(rawToken).slice(0, 16)}`);
       if (tokenNumeric != null) agentId = computeAgentId({ chainId, originContract, tokenId: tokenNumeric });
     }
   } catch {}
 
-  const doc = {
+  const now = new Date();
+  const nftMetadata = {
+    collection: collectionId,
+    tokenId: tokenKey || null,
+    chain: chain === 'solana' ? 'solana' : (chain || 'ethereum'),
+    originalImageUrl: rawImageUrl,
+    provider: provider || null,
+    fetchedAt: now,
+  };
+
+  const setFields = {
     name,
     description,
     personality: providedPersonality || 'Reserved yet undefined.',
@@ -399,42 +407,38 @@ async function upsertAvatarFromNft(nft, ctx) {
     model: await aiSvc?.getModel?.(nft.model || ''),
     imageUrl,
     source: 'nft-sync',
-    collection: collectionId,
-    nft: {
-      collection: collectionId,
-      tokenId: tokenKey || null,
-      chain: chain === 'solana' ? 'solana' : (chain || 'ethereum'),
-      originalImageUrl: rawImageUrl,
-      provider: provider || null,
-      fetchedAt: new Date()
-    },
+    nft: nftMetadata,
     agentId: agentId || null,
-    chainId: agentId ? chainId : undefined,
-    originContract: agentId ? originContract : undefined,
     traits: nft.attributes || nft.traits || [],
-    updatedAt: new Date(),
-    createdAt: existing?.createdAt || new Date(),
-    channelId: existing?.channelId || null,
-    status: existing?.status || 'alive',
-    lives: existing?.lives ?? 3
+    updatedAt: now,
+    guildId: guildId || null,
   };
 
-  if (existing) {
-    if (!force) {
-      // Minimal merge: keep existing createdAt/status/channelId/lives, update dynamic fields
-      const update = { ...doc };
-      update.createdAt = existing.createdAt || update.createdAt;
-      update.status = existing.status || update.status;
-      update.channelId = existing.channelId || update.channelId;
-      update.lives = existing.lives ?? update.lives;
-      await avatarsCol.updateOne({ _id: existing._id }, { $set: update });
-      return await avatarsCol.findOne({ _id: existing._id });
-    }
-    await avatarsCol.updateOne({ _id: existing._id }, { $set: doc });
-    return await avatarsCol.findOne({ _id: existing._id });
+  if (agentId && chainId) {
+    setFields.chainId = chainId;
+    setFields.originContract = originContract;
   }
-  const { insertedId } = await avatarsCol.insertOne(doc);
-  return { ...doc, _id: insertedId };
+
+  const setOnInsert = {
+    createdAt: now,
+    status: 'alive',
+    channelId: null,
+    lives: 3,
+  };
+
+  try {
+    const result = await avatarsCol.findOneAndUpdate(
+      query,
+      { $set: setFields, $setOnInsert: setOnInsert },
+      { upsert: true, returnDocument: 'after' }
+    );
+    return result.value;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error('NFT avatar already exists for another guild scope');
+    }
+    throw error;
+  }
 }
 
 export async function syncAvatarsForCollection({
@@ -444,10 +448,13 @@ export async function syncAvatarsForCollection({
   chain = (process.env.NFT_CHAIN || 'ethereum').toLowerCase(),
   fileSource,
   force = false,
+  guildId = null,
 }, progressReporter = null) {
   if (!collectionId) throw new Error('collectionId required');
   const databaseService = getDBService();
   await databaseService.getDatabase();
+
+  const normalizedGuildId = normalizeGuildId(guildId);
 
   let apiNfts = null;
   try {
@@ -473,22 +480,29 @@ export async function syncAvatarsForCollection({
 
   // Notify UI of total to enable percentage rendering
   if (typeof progressReporter === 'function') {
-    try { await progressReporter({ collectionId, total: (apiNfts && apiNfts.length) ? (apiNfts.length) : (fileNfts?.length || 0), startedAt: new Date() }); } catch {}
+    try {
+      await progressReporter({
+        collectionId,
+        guildId: normalizedGuildId,
+        total: (apiNfts && apiNfts.length) ? apiNfts.length : (fileNfts?.length || 0),
+        startedAt: new Date(),
+      });
+    } catch {}
   }
   let success = 0, failures = 0;
   let processed = 0;
   for (const nft of nfts) {
     try {
-      await upsertAvatarFromNft(nft, { collectionId, chain, provider, force });
+      await upsertAvatarFromNft(nft, { collectionId, chain, provider, force, guildId: normalizedGuildId });
       processed++; success++;
       if (typeof progressReporter === 'function') {
-        try { await progressReporter({ collectionId, processed, success, failures, nft }); } catch {}
+        try { await progressReporter({ collectionId, processed, success, failures, nft, guildId: normalizedGuildId }); } catch {}
       }
     } catch (e) {
       processed++; failures++;
       getLogger().error(`Failed processing NFT '${nft?.name}': ${e.message}`);
       if (typeof progressReporter === 'function') {
-        try { await progressReporter({ collectionId, processed, success, failures, nft, error: e.message }); } catch {}
+        try { await progressReporter({ collectionId, processed, success, failures, nft, error: e.message, guildId: normalizedGuildId }); } catch {}
       }
     }
   }
@@ -500,16 +514,20 @@ export async function syncAvatarsForCollection({
  * @param {string} avatarName - The name to search for
  * @returns {Promise<object|null>} The synced avatar document or null if not found
  */
-export async function syncAvatarByNameFromCollections(avatarName) {
+export async function syncAvatarByNameFromCollections(avatarName, guildId = null) {
   if (!avatarName) return null;
   const logger = getLogger();
+  const normalizedGuildId = normalizeGuildId(guildId);
   
   try {
     const databaseService = getDBService();
     const db = await databaseService.getDatabase();
     
     // Check if there are any configured collections
-    const configs = await db.collection('collection_configs').find().toArray();
+    const configFilter = normalizedGuildId
+      ? buildCollectionConfigScopeQuery(normalizedGuildId)
+      : buildCollectionConfigScopeQuery(null, { matchAllWhenMissing: false });
+    const configs = await db.collection('collection_configs').find(configFilter).toArray();
     if (!configs || configs.length === 0) {
       logger.debug?.('No collection configs found for avatar sync');
       return null;
@@ -518,10 +536,11 @@ export async function syncAvatarByNameFromCollections(avatarName) {
     // Try each collection to find a matching avatar
     for (const cfg of configs) {
       try {
-        const provider = cfg.provider || process.env.NFT_API_PROVIDER || '';
+  const provider = cfg.provider || process.env.NFT_API_PROVIDER || '';
         const apiKey = process.env.NFT_API_KEY || process.env.RESERVOIR_API_KEY || process.env.OPENSEA_API_KEY || process.env.ALCHEMY_API_KEY || process.env.HELIUS_API_KEY;
         const chain = (cfg.chain || process.env.NFT_CHAIN || 'ethereum').toLowerCase();
         const fileSource = (cfg.sync?.source?.includes('file') && cfg.sync?.fileSource) ? cfg.sync.fileSource : undefined;
+  const cfgGuildId = normalizeGuildId(cfg.guildId ?? normalizedGuildId ?? null);
         
         // Try to load collection metadata
         let nfts = [];
@@ -565,7 +584,8 @@ export async function syncAvatarByNameFromCollections(avatarName) {
             collectionId: cfg.key,
             chain,
             provider,
-            force: false
+            force: false,
+            guildId: cfgGuildId,
           });
           
           if (avatar) {

@@ -49,11 +49,14 @@ async function main() {
     process.exit(1);
   }
 
-  logger.info(`Starting NFT avatar sync for collection: ${collectionId}`);
+  const guildId = optionValue('guild') || process.env.AVATAR_COLLECTION_GUILD || null;
+
+  logger.info(`Starting NFT avatar sync for collection: ${collectionId}${guildId ? ` (guild ${guildId})` : ''}`);
   const res = await syncAvatarsForCollection({
     collectionId,
     fileSource,
     force,
+    guildId,
   });
   logger.info(`NFT avatar sync complete. Success ${res.success}/${res.processed}, failures ${res.failures}.`);
   process.exit(res.failures ? 1 : 0);

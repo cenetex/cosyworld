@@ -582,7 +582,7 @@ export class SummonTool extends BasicTool {
           const friendlyName = formatModelDisplayName(normalized);
           if (friendlyName) {
             try {
-              avatar = await this.avatarService.getAvatarByName(friendlyName);
+              avatar = await this.avatarService.getAvatarByName(friendlyName, { guildId });
             } catch (err) {
               this.logger?.debug?.(`[SummonTool] direct friendly lookup failed: ${err?.message}`);
             }
@@ -831,13 +831,13 @@ export class SummonTool extends BasicTool {
 
       let existingAvatar = null;
       if (!requestedModelId && avatarName) {
-        existingAvatar = await this.avatarService.getAvatarByName(avatarName);
+  existingAvatar = await this.avatarService.getAvatarByName(avatarName, { guildId });
         
         // If avatar not found in DB and collection mode is enabled, try to sync from collections
         if (!existingAvatar && !collectionDisabled) {
           try {
             const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
-            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
+            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName, guildId);
             if (syncedAvatar) {
               this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection`);
               existingAvatar = syncedAvatar;

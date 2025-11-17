@@ -21,11 +21,12 @@ async function main() {
       const collectionId = args.key || process.env.AVATAR_COLLECTION;
       const fileSource = args.file || process.env.AVATAR_COLLECTION_FILE;
       const force = flags.has('--force');
+      const guildId = args.guild || process.env.AVATAR_COLLECTION_GUILD || null;
       if (!collectionId) {
         console.error('Missing --key or AVATAR_COLLECTION');
         process.exit(1);
       }
-      const res = await syncAvatarsForCollection({ collectionId, fileSource, force });
+      const res = await syncAvatarsForCollection({ collectionId, fileSource, force, guildId });
       logger.info(`Sync done: success ${res.success}/${res.processed}, failures ${res.failures}`);
       process.exit(res.failures ? 1 : 0);
     }
@@ -52,8 +53,8 @@ async function main() {
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
-      console.log('  sync:collection       Sync avatars for a collection');
-      console.log('  migrate:agent-blocks  Run agent blocks migration');
+  console.log('  sync:collection       Sync avatars for a collection');
+  console.log('  migrate:agent-blocks  Run agent blocks migration');
       console.log('  migrate:agent-events  Run agent events migration');
       console.log('  backfill:agent-ids    Backfill agent IDs');
       console.log('  update:models         Refresh available models');
