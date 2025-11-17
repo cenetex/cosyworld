@@ -335,8 +335,8 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   async initializeAvatar(avatar, locationId) {
-    const defaultStats = await this.getOrCreateStats(avatar);
-    await this.updateAvatarStats(avatar, avatar.stats || defaultStats);
+  const defaultStats = await this.getOrCreateStats(avatar);
+  await this.updateAvatarStats(avatar, avatar.stats || defaultStats);
     if (locationId)
       await this.getMapService().updateAvatarPosition(avatar, locationId);
     this.logger.info(`Initialized avatar ${avatar._id}${locationId ? ' @' + locationId : ''}`);
@@ -350,8 +350,8 @@ export class AvatarService {
 
   async getOrCreateStats(avatar) {
     let stats = avatar.stats || (await this.getAvatarStats(avatar._id));
-    if (!stats || !this.statService.constructor.validateStats(stats)) {
-      stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
+  if (!stats || !this.statService.constructor.validateStats(stats)) {
+    stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
       await this.updateAvatarStats(avatar, stats);
       avatar.stats = stats;
       await this.updateAvatar(avatar);
@@ -1845,7 +1845,7 @@ export class AvatarService {
       imageUrl,
       model,
       channelId: channelId || null,
-      summoner: summoner ? String(summoner) : null,
+  summoner: summoner ? String(summoner) : null,
   guildId: normalizedGuildId,
       lives: 3,
       status: 'alive',
@@ -1866,13 +1866,36 @@ export class AvatarService {
       { upsert: true, returnDocument: 'after' }
     );
 
-    const createdAvatar = result.value;
+    let createdAvatar = result.value;
+    const upsertedId = result.lastErrorObject?.upserted || result.lastErrorObject?._id || null;
+    let isNew = Boolean(upsertedId);
+    if (!isNew && typeof result.lastErrorObject?.updatedExisting === 'boolean') {
+      isNew = result.lastErrorObject.updatedExisting === false;
+    }
+
     if (!createdAvatar) {
-      this.logger?.error?.(`[AvatarService] Failed to create or fetch avatar for ${details.name}`);
+      if (upsertedId) {
+        createdAvatar = await collection.findOne({ _id: upsertedId });
+      }
+    }
+
+    if (!createdAvatar) {
+      const fallbackQuery = { name: details.name, ...guildMatch };
+      createdAvatar = await collection.findOne(fallbackQuery);
+    }
+
+    if (!createdAvatar) {
+      this.logger?.error?.('[AvatarService] Failed to create or fetch avatar after upsert', {
+        name: details.name,
+        guildId: normalizedGuildId,
+        upsertMeta: result?.lastErrorObject || null
+      });
       return null;
     }
 
-    const isNew = Boolean(result.lastErrorObject?.upserted);
+    if (!isNew && upsertedId && createdAvatar && createdAvatar._id?.equals?.(upsertedId)) {
+      isNew = true;
+    }
 
     if (!isNew && normalizedGuildId !== null && !createdAvatar.guildId) {
       await collection.updateOne({ _id: createdAvatar._id }, { $set: { guildId: normalizedGuildId } });
