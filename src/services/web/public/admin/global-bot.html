@@ -1162,16 +1162,13 @@
       btn.textContent = 'Uploading...';
       
       try {
-        const res = await fetch('/api/admin/upload-image', {
+        // Use AdminAPI to handle CSRF and auth headers
+        const data = await window.AdminAPI.apiFetch('/api/admin/upload-image', {
           method: 'POST',
-          body: formData
+          body: formData,
+          requireCsrf: true,
+          sign: true // Add signature just in case, though mainly CSRF is the blocker
         });
-        
-        const data = await res.json();
-        
-        if (!res.ok || (data.error && !data.success)) {
-          throw new Error(data.error || 'Upload failed');
-        }
         
         // Update URL input
         const url = data.url || data.imageUrl;
@@ -1185,7 +1182,8 @@
         
         showSuccess('Image uploaded successfully');
       } catch (err) {
-        showError('Upload failed: ' + err.message);
+        console.error('Upload failed:', err);
+        showError('Upload failed: ' + (err.message || 'Unknown error'));
       } finally {
         btn.disabled = false;
         btn.textContent = originalText;
