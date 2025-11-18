@@ -608,7 +608,7 @@ export class AvatarService {
       const db = await this._db();
       const _ids = avatarIds.map(id => (typeof id === 'string' ? new ObjectId(id) : id));
       const query = { ...buildAvatarQuery(filters), _id: { $in: _ids } };
-      return db.collection(this.AVATARS_COLLECTION).find(query).toArray();
+      return db.collection(this.AVATARS_COLLECTION).find(query).toArray
     } catch (err) {
       this.logger.error(`Failed to fetch avatars – ${err.message}`);
       return [];
@@ -2661,8 +2661,8 @@ export class AvatarService {
     const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';
     const balanceInfo = normalizedBalance 
       ? `with ${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
-      : '';
-
+      : `${context.tokenSymbol || 'their token position'}`;
+    
     let avatarPromptTheme = null;
     if (this.configService) {
       try {
@@ -2926,135 +2926,47 @@ export class AvatarService {
   }
 
   /* -------------------------------------------------- */
-  /*  MISC                                               */
+  /*  INITIATIVE & STATS                                 */
   /* -------------------------------------------------- */
 
-  generateRatiMetadata(avatar, storageUris) {
-    return {
-      tokenId: avatar._id.toString(),
-      name: avatar.name,
-      description: avatar.description,
-      media: { image: avatar.imageUrl, video: avatar.videoUrl || null },
-      attributes: [
-        { trait_type: 'Personality', value: avatar.personality },
-        { trait_type: 'Status', value: avatar.status },
-        { trait_type: 'Lives', value: String(avatar.lives) },
-      ],
-      signature: null,
-      storage: storageUris,
-      evolution: {
-        level: avatar.evolutionLevel || 1,
-        previous: avatar.previousTokenIds || [],
-        timestamp: avatar.updatedAt
-      },
-      memory: {
-        recent: avatar.memoryRecent || null,
-        archive: avatar.memoryArchive || null
-      }
-    };
+  /**
+   * Roll initiative for an avatar based on their stats.
+   * Formula: d20 + Dexterity Modifier
+   * @param {Object} avatar 
+   * @returns {Promise<number>} Initiative score
+   */
+  async rollInitiative(avatar) {
+    try {
+      // Ensure we have stats
+      const stats = avatar.stats || await this.getOrCreateStats(avatar);
+      
+      // Calculate modifier: (Score - 10) / 2
+      // Default to Dexterity (reaction speed)
+      const dex = stats.dexterity || 10;
+      const modifier = Math.floor((dex - 10) / 2);
+      
+      // Roll d20
+      const d20 = Math.floor(Math.random() * 20) + 1;
+      
+      const total = d20 + modifier;
+      this.logger?.debug?.(`[AvatarService] ${avatar.name} rolled initiative: ${d20} + ${modifier} (DEX ${dex}) = ${total}`);
+      
+      return total;
+    } catch (err) {
+      this.logger?.warn?.(`[AvatarService] Initiative roll failed for ${avatar.name}: ${err.message}`);
+      return Math.floor(Math.random() * 20) + 1; // Fallback to straight d20
+    }
   }
 
-  async getInventoryItems(avatar) {
-    if (!avatar) return [];
-    const ids = [avatar.selectedItemId, avatar.storedItemId].filter(Boolean);
-    if (!ids.length) return [];
+  /**
+   * Get the active status of an avatar in a channel
+   * @param {string} channelId - Channel ID
+   * @param {string} avatarId - Avatar ID
+   * @returns {Promise<boolean>} - True if active, false if not found or inactive
+   */
+  async isAvatarActiveInChannel(channelId, avatarId) {
     const db = await this._db();
-    return db.collection('items').find({ _id: { $in: ids.map(toObjectId) } }).toArray();
-  }
-
-  /* -------------------------------------------------- */
-  /*  BREED TRACKING                                     */
-  /* -------------------------------------------------- */
-
-  async getLastBredDate(avatarId) {
-    try {
-      const db = await this._db();
-      const doc = await db.collection(this.AVATARS_COLLECTION).findOne(
-        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
-        { projection: { lastBredAt: 1 } }
-      );
-      return doc?.lastBredAt || null;
-    } catch (err) {
-      this.logger.error(`getLastBredDate failed – ${err.message}`);
-      return null;
-    }
-  }
-
-  async setLastBredDate(avatarId, date = new Date()) {
-    try {
-      const db = await this._db();
-      await db.collection(this.AVATARS_COLLECTION).updateOne(
-        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
-        { $set: { lastBredAt: date, updatedAt: new Date() } }
-      );
-    } catch (err) {
-      this.logger.error(`setLastBredDate failed – ${err.message}`);
-    }
-  }
-
-  /* -------------------------------------------------- */
-  /*  THOUGHTS MANAGEMENT                                */
-  /* -------------------------------------------------- */
-
-  /**
-   * Get recent thoughts for an avatar
-   * @param {string|ObjectId} avatarId - Avatar ID
-   * @param {number} limit - Maximum number of thoughts to return (default: 10)
-   * @returns {Promise<Array>} Array of thought objects
-   */
-  async getRecentThoughts(avatarId, limit = 10) {
-    try {
-      const db = await this._db();
-      const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(
-        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
-        { projection: { thoughts: 1 } }
-      );
-      
-      if (!avatar?.thoughts) return [];
-      
-      return avatar.thoughts
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, limit);
-    } catch (err) {
-      this.logger.error(`getRecentThoughts failed – ${err.message}`);
-      return [];
-    }
-  }
-
-  /**
-   * Add a thought to an avatar's thoughts collection
-   * @param {string|ObjectId} avatarId - Avatar ID
-   * @param {string} content - Thought content
-   * @param {string} guildName - Guild name where thought occurred
-   * @returns {Promise<boolean>} Success status
-   */
-  async addThought(avatarId, content, guildName = 'Unknown') {
-    try {
-      const db = await this._db();
-      const thoughtData = {
-        content: content.trim(),
-        timestamp: Date.now(),
-        guildName
-      };
-
-      const result = await db.collection(this.AVATARS_COLLECTION).updateOne(
-        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
-        { 
-          $push: { 
-            thoughts: { 
-              $each: [thoughtData], 
-              $position: 0,
-              $slice: 20  // Keep only the most recent 20 thoughts
-            } 
-          },
-          $set: { updatedAt: new Date() }
-        }
-      );
-
-      return result.modifiedCount > 0;
-    } catch (err) {
-      this.logger.error(`addThought failed – ${err.message}`);
-      return false;
-    }
+    const presence = await db.collection('channel_avatar_presence').findOne({ channelId, avatarId });
+    return presence?.isActive === true;
   }
 }

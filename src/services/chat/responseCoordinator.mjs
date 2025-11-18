@@ -23,6 +23,7 @@ export class ResponseCoordinator {
     decisionMaker,
     discordService,
     conversationThreadService,
+    encounterService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -31,7 +32,8 @@ export class ResponseCoordinator {
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.discordService = discordService;
-  this.conversationThreadService = conversationThreadService;
+    this.conversationThreadService = conversationThreadService;
+    this.encounterService = encounterService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
@@ -262,6 +264,12 @@ export class ResponseCoordinator {
           // Even if avatar is on cooldown, we should respond to direct replies
           // This creates a natural conversation flow
           this.logger.info?.(`[ResponseCoordinator] 🎯 REPLY PRIORITY: ${repliedToAvatar.name} will respond to reply (overriding all other priorities)`);
+          
+          // Ensure replied-to avatar is in the encounter
+          if (this.encounterService) {
+            await this.encounterService.joinEncounter(channelId, repliedToAvatar);
+          }
+          
           return [repliedToAvatar];
         } else {
           this.logger.error?.(`[ResponseCoordinator] ❌ Could not find or fetch replied-to avatar ${message.repliedToAvatarName} (ID: ${message.repliedToAvatarId})`);
@@ -324,6 +332,12 @@ export class ResponseCoordinator {
               // This keeps the avatar "locked on" to this user as long as they keep talking
               this.decisionMaker._recordAffinity(channelId, message.author.id, stickyAvatarId);
               this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed)`);
+              
+              // Ensure sticky avatar is in the encounter
+              if (this.encounterService) {
+                await this.encounterService.joinEncounter(channelId, stickyAvatar);
+              }
+              
               return [stickyAvatar];
             }
           }
@@ -353,6 +367,12 @@ export class ResponseCoordinator {
           }
           
           this.logger.info?.(`[ResponseCoordinator] Direct mention: ${mentioned.name}`);
+          
+          // Ensure mentioned avatar is in the encounter
+          if (this.encounterService) {
+            await this.encounterService.joinEncounter(channelId, mentioned);
+          }
+          
           return [mentioned];
         }
       } catch (e) {
@@ -360,8 +380,70 @@ export class ResponseCoordinator {
       }
     }
 
-    // PRIORITY 4: Turn-based selection (active speaker)
-    if (this.TURN_BASED_MODE && message) {
+    // PRIORITY 4: Initiative System (Encounter Turn)
+    if (this.encounterService) {
+      try {
+        // Check if there's an active encounter
+        let encounter = this.encounterService.getEncounter(channelId);
+        
+        // If no encounter, but we have a message, start one with eligible avatars
+        if (!encounter && message) {
+          // Filter eligible avatars to a reasonable number for the encounter
+          const participants = eligibleAvatars.slice(0, this.encounterService.MAX_PARTICIPANTS || 10);
+          encounter = await this.encounterService.startEncounter(channelId, participants, { trigger });
+        }
+
+        if (encounter) {
+          // Get whose turn it is
+          const turnParticipant = this.encounterService.getCurrentTurn(channelId);
+          
+          if (turnParticipant) {
+            const avatar = eligibleAvatars.find(av => String(av._id || av.id) === turnParticipant.avatarId);
+            
+            if (avatar) {
+              // Check if avatar wants to speak (using DecisionMaker)
+              // We lower the threshold slightly since it's their turn
+              const shouldRespond = await this.decisionMaker.shouldRespond(channel, avatar, message);
+              
+              if (shouldRespond) {
+                this.logger.info?.(`[ResponseCoordinator] Initiative Turn: ${avatar.name} (Init: ${turnParticipant.initiative})`);
+                
+                // Advance turn for next time
+                this.encounterService.nextTurn(channelId);
+                
+                return [avatar];
+              } else {
+                this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} passed their turn`);
+                // Advance turn and try next participant (recurse or loop?)
+                // For safety, we just advance turn and fall through to other logic or return empty
+                // Ideally we'd loop, but let's keep it simple for now: pass turn, no response this tick.
+                this.encounterService.nextTurn(channelId);
+                
+                // Optional: Try one more time with next participant?
+                // Let's try one recursion depth
+                const nextParticipant = this.encounterService.getCurrentTurn(channelId);
+                if (nextParticipant && nextParticipant.avatarId !== turnParticipant.avatarId) {
+                   const nextAvatar = eligibleAvatars.find(av => String(av._id || av.id) === nextParticipant.avatarId);
+                   if (nextAvatar) {
+                     const nextShouldRespond = await this.decisionMaker.shouldRespond(channel, nextAvatar, message);
+                     if (nextShouldRespond) {
+                        this.logger.info?.(`[ResponseCoordinator] Initiative Turn (Next): ${nextAvatar.name}`);
+                        this.encounterService.nextTurn(channelId);
+                        return [nextAvatar];
+                     }
+                   }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.warn?.(`[ResponseCoordinator] Initiative system failed: ${e.message}`);
+      }
+    }
+
+    // PRIORITY 5: Turn-based selection (Legacy/Fallback)
+    if (this.TURN_BASED_MODE && message && !this.encounterService) {
       try {
         const activeSpeaker = await this.getActiveSpeaker(channelId, eligibleAvatars);
         if (activeSpeaker) {
