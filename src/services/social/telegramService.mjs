@@ -2496,38 +2496,43 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       this.logger?.info?.('[TelegramService] Generating image:', { prompt, userId, username });
 
-      // Apply character design if enabled in global bot config
-      let enhancedPrompt = prompt;
-      if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
-        const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
-        
-        // Build the character prompt prefix from template
-        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
-        characterPrefix = characterPrefix
-          .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
-          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
-        
-        enhancedPrompt = characterPrefix + prompt;
-        this.logger?.info?.('[TelegramService] Applied character design to prompt:', { 
-          original: prompt, 
-          enhanced: enhancedPrompt,
-          characterName: charDesign.characterName 
-        });
-      }
-
-      // Generate image using the AI service
+      // Generate image using GlobalBotService (handles character design consistency)
       let imageUrl = null;
+      let enhancedPrompt = prompt;
       
-      // Try aiService first (usually OpenRouter/Replicate)
-      if (this.aiService?.generateImage) {
+      if (this.globalBotService?.generateImage) {
         try {
-          imageUrl = await this.aiService.generateImage(enhancedPrompt, [], {
+          imageUrl = await this.globalBotService.generateImage(prompt, {
             source: 'telegram.user_request',
-            purpose: 'user_generated',
-            context: enhancedPrompt
+            purpose: 'user_generated'
           });
         } catch (err) {
-          this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
+          this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
+        }
+      }
+      
+      // Fallback to direct AI service calls if globalBotService failed
+      if (!imageUrl) {
+        // Apply character design manually if globalBotService.generateImage wasn't available but config exists
+        if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
+             const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
+             let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
+             characterPrefix = characterPrefix
+               .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
+               .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
+             enhancedPrompt = characterPrefix + prompt;
+        }
+
+        if (this.aiService?.generateImage) {
+            try {
+              imageUrl = await this.aiService.generateImage(enhancedPrompt, [], {
+                source: 'telegram.user_request',
+                purpose: 'user_generated',
+                context: enhancedPrompt
+              });
+            } catch (err) {
+              this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
+            }
         }
       }
 
@@ -2685,16 +2690,31 @@ Your caption:`;
         throw new Error('Video generation service not available');
       }
 
-      // Generate video (returns array of URLs)
-      const videoUrls = await this.veoService.generateVideos({
-        prompt: enhancedPrompt,
-        config: {
-          numberOfVideos: 1,
-          aspectRatio: '16:9'
-          // Note: durationSeconds and resolution parameters are not supported for text-to-video generation
-        },
-        model: 'veo-3.1-generate-preview'
-      });
+      let videoUrls;
+      const charDesign = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
+      
+      if (charDesign?.enabled && charDesign?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
+         this.logger?.info?.('[TelegramService] Using character reference image for video generation');
+         videoUrls = await this.veoService.generateVideosWithReferenceImages({
+            prompt: enhancedPrompt,
+            referenceImages: [charDesign.referenceImageUrl],
+            config: {
+              numberOfVideos: 1,
+              aspectRatio: '16:9'
+            }
+         });
+      } else {
+          // Generate video (returns array of URLs)
+          videoUrls = await this.veoService.generateVideos({
+            prompt: enhancedPrompt,
+            config: {
+              numberOfVideos: 1,
+              aspectRatio: '16:9'
+              // Note: durationSeconds and resolution parameters are not supported for text-to-video generation
+            },
+          });
+      }
+
 
       if (!videoUrls || videoUrls.length === 0) {
         throw new Error('Video generation returned no results');

@@ -395,7 +395,13 @@
             
             <div style="margin-bottom: 15px;">
               <label for="character-reference-url">Character Reference Image URL</label>
-              <input type="text" id="character-reference-url" placeholder="https://..." style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="character-reference-url" placeholder="https://..." style="flex: 1; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                <input type="file" id="character-upload-input" accept="image/*" style="display: none;" onchange="uploadCharacterImage(this)">
+                <button class="btn-secondary" onclick="document.getElementById('character-upload-input').click()" style="white-space: nowrap;">
+                  📤 Upload
+                </button>
+              </div>
               <p style="color: #718096; font-size: 0.85em; margin-top: 3px;">
                 URL of the character reference image (upload to S3 or use public URL)
               </p>
@@ -1142,8 +1148,53 @@
       setTimeout(() => telegramEls.alert?.classList.add('hidden'), type === 'error' ? 6000 : 4000);
     }
 
+    // Upload character reference image
+    async function uploadCharacterImage(input) {
+      if (!input.files || !input.files[0]) return;
+      
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const btn = input.nextElementSibling; // The upload button
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      
+      try {
+        const res = await fetch('/api/admin/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok || (data.error && !data.success)) {
+          throw new Error(data.error || 'Upload failed');
+        }
+        
+        // Update URL input
+        const url = data.url || data.imageUrl;
+        document.getElementById('character-reference-url').value = url;
+        
+        // Update preview
+        const previewDiv = document.getElementById('character-preview');
+        const previewImg = document.getElementById('character-preview-img');
+        previewImg.src = url;
+        previewDiv.style.display = 'block';
+        
+        showSuccess('Image uploaded successfully');
+      } catch (err) {
+        showError('Upload failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        input.value = '';
+      }
+    }
+
     // Preview character reference image
-    function previewCharacterImage() {
+    async function previewCharacterImage() {
       const imageUrl = document.getElementById('character-reference-url').value;
       const previewDiv = document.getElementById('character-preview');
       const previewImg = document.getElementById('character-preview-img');
@@ -1154,21 +1205,49 @@
         return;
       }
       
-      // Show loading state
-      previewImg.src = '';
-      previewDiv.style.display = 'block';
+      const btn = document.querySelector('button[onclick="previewCharacterImage()"]');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Generating Preview...';
       
-      // Set the image source
-      previewImg.src = imageUrl.trim();
-      previewImg.onerror = function() {
-        showError('Failed to load character image. Please check the URL.');
-        previewDiv.style.display = 'none';
-      };
-      previewImg.onload = function() {
-        showSuccess('Character image loaded successfully!');
-      };
+      try {
+        const characterDesign = {
+          enabled: true,
+          characterName: document.getElementById('character-name').value || '',
+          referenceImageUrl: imageUrl,
+          characterDescription: document.getElementById('character-description').value || '',
+          imagePromptPrefix: document.getElementById('character-prompt-prefix').value || ''
+        };
+        
+        const res = await window.AdminAPI.apiFetch('/api/admin/global-bot/generate-image', {
+          method: 'POST',
+          body: {
+            prompt: 'standing in a heroic pose, detailed background',
+            characterDesign
+          },
+          requireCsrf: true,
+          sign: true
+        });
+        
+        if (!res.success) {
+          throw new Error(res.error || 'Generation failed');
+        }
+        
+        previewImg.src = res.imageUrl;
+        previewDiv.style.display = 'block';
+        
+        showSuccess('Preview generated successfully');
+      } catch (err) {
+        console.error('Preview generation failed:', err);
+        showError('Preview generation failed: ' + err.message);
+        previewImg.src = imageUrl;
+        previewDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     }
-
+    
     function clearTelegramAlert() {
       if (!telegramEls.alert) return;
       telegramEls.alert.classList.add('hidden');

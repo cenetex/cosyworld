@@ -924,6 +924,66 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       this.logger?.info?.('[GlobalBotService] Stopped narrative generation');
     }
   }
+
+  /**
+   * Generate an image using the global bot's character design settings
+   * @param {string} prompt - The base prompt
+   * @param {Object} options - Generation options
+   * @returns {Promise<string>} - Generated image URL
+   */
+  async generateImage(prompt, options = {}) {
+    try {
+      // Ensure bot is loaded
+      if (!this.bot) {
+        this.botId = await this.getOrCreateGlobalBot();
+        this.bot = await this.avatarService.getAvatarById(this.botId);
+      }
+
+      // Use provided character design or fall back to bot config
+      const config = this.bot.globalBotConfig || {};
+      const charDesign = options.characterDesign || config.characterDesign || {};
+      
+      let enhancedPrompt = prompt;
+      const referenceImages = [];
+
+      // Apply character design if enabled
+      if (charDesign.enabled) {
+        // 1. Apply prompt prefix
+        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
+        characterPrefix = characterPrefix
+          .replace(/\{\{characterName\}\}/g, charDesign.characterName || config.universeName || '')
+          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
+        
+        enhancedPrompt = characterPrefix + prompt;
+        
+        // 2. Add reference image if available
+        if (charDesign.referenceImageUrl) {
+          referenceImages.push(charDesign.referenceImageUrl);
+        }
+        
+        this.logger?.info?.('[GlobalBotService] Applied character design to image generation', {
+          originalPrompt: prompt,
+          enhancedPrompt,
+          hasReferenceImage: !!charDesign.referenceImageUrl
+        });
+      }
+
+      // Call AI service
+      // Try aiService first (usually OpenRouter/Replicate)
+      if (this.aiService?.generateImage) {
+        return await this.aiService.generateImage(enhancedPrompt, referenceImages, {
+          ...options,
+          source: 'global_bot',
+          context: enhancedPrompt
+        });
+      }
+      
+      throw new Error('No image generation service available');
+    } catch (err) {
+      this.logger?.error?.(`[GlobalBotService] generateImage error: ${err.message}`);
+      throw err;
+    }
+  }
 }
 
 export default GlobalBotService;

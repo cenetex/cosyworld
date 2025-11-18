@@ -1587,6 +1587,26 @@ Please ensure the server is fully initialized.
     }
   }));
 
+  // Generate image with global bot character
+  router.post('/global-bot/generate-image', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const { prompt, characterDesign } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Prompt is required' });
+      }
+      
+      const imageUrl = await services.globalBotService.generateImage(prompt, { characterDesign });
+      
+      res.json({ success: true, imageUrl });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to generate image' });
+    }
+  }));
 
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);
