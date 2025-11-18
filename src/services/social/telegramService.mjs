@@ -2496,16 +2496,35 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
 
       this.logger?.info?.('[TelegramService] Generating image:', { prompt, userId, username });
 
+      // Apply character design if enabled in global bot config
+      let enhancedPrompt = prompt;
+      if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
+        const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
+        
+        // Build the character prompt prefix from template
+        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
+        characterPrefix = characterPrefix
+          .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
+          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
+        
+        enhancedPrompt = characterPrefix + prompt;
+        this.logger?.info?.('[TelegramService] Applied character design to prompt:', { 
+          original: prompt, 
+          enhanced: enhancedPrompt,
+          characterName: charDesign.characterName 
+        });
+      }
+
       // Generate image using the AI service
       let imageUrl = null;
       
       // Try aiService first (usually OpenRouter/Replicate)
       if (this.aiService?.generateImage) {
         try {
-          imageUrl = await this.aiService.generateImage(prompt, [], {
+          imageUrl = await this.aiService.generateImage(enhancedPrompt, [], {
             source: 'telegram.user_request',
             purpose: 'user_generated',
-            context: prompt
+            context: enhancedPrompt
           });
         } catch (err) {
           this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
@@ -2515,10 +2534,10 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       // Fallback to googleAIService if available
       if (!imageUrl && this.googleAIService?.generateImage) {
         try {
-          imageUrl = await this.googleAIService.generateImage(prompt, '1:1', {
+          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
             source: 'telegram.user_request',
             purpose: 'user_generated',
-            context: prompt
+            context: enhancedPrompt
           });
         } catch (err) {
           this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
@@ -2642,6 +2661,25 @@ Your caption:`;
 
       this.logger?.info?.('[TelegramService] Generating video:', { prompt, userId, username });
 
+      // Apply character design if enabled in global bot config
+      let enhancedPrompt = prompt;
+      if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
+        const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
+        
+        // Build the character prompt prefix from template
+        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
+        characterPrefix = characterPrefix
+          .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
+          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
+        
+        enhancedPrompt = characterPrefix + prompt;
+        this.logger?.info?.('[TelegramService] Applied character design to video prompt:', { 
+          original: prompt, 
+          enhanced: enhancedPrompt,
+          characterName: charDesign.characterName 
+        });
+      }
+
       // Generate video using VeoService
       if (!this.veoService) {
         throw new Error('Video generation service not available');
@@ -2649,7 +2687,7 @@ Your caption:`;
 
       // Generate video (returns array of URLs)
       const videoUrls = await this.veoService.generateVideos({
-        prompt: prompt,
+        prompt: enhancedPrompt,
         config: {
           numberOfVideos: 1,
           aspectRatio: '16:9'

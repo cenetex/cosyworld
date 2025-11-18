@@ -59,6 +59,14 @@ export class GlobalBotService {
         x: process.env.GLOBAL_BOT_X_HANDLE || '',
         telegram: process.env.GLOBAL_BOT_TELEGRAM_HANDLE || '',
         discord: process.env.GLOBAL_BOT_DISCORD_HANDLE || ''
+      },
+      // Character consistency for image generation
+      characterDesign: {
+        enabled: false, // Set to true to use character in all image generations
+        referenceImageUrl: '', // URL of the character reference image
+        characterDescription: '', // Detailed description of the character (appearance, clothing, style)
+        imagePromptPrefix: 'Show {{characterName}} ({{characterDescription}}) in this situation: ', // Prefix added to all image prompts
+        characterName: universeName // Name to use when referring to the character in prompts
       }
     };
   }
