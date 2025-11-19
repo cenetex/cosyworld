@@ -380,11 +380,19 @@ export function setupBuybotTelegramCommands(bot, services) {
 
   // Handle text messages for interactive flows
   bot.on('text', async (ctx, next) => {
+    if (!ctx.from) {
+      return next();
+    }
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
     if (!state) {
-      return next(); // Not in a flow, continue to other handlers
+      try {
+        return await next(); // Not in a flow, continue to other handlers
+      } catch (err) {
+        logger?.error('[BuybotTelegram] Error in downstream handler:', err);
+        throw err; // Re-throw to let Telegraf global handler catch it
+      }
     }
 
     const channelId = state.channelId;

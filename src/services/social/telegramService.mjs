@@ -202,6 +202,11 @@ class TelegramService {
 
       this.globalBot = new Telegraf(token);
       
+      // Add global error handler to catch unhandled errors
+      this.globalBot.catch((err, ctx) => {
+        this.logger?.error?.(`[TelegramService] Global bot error for ${ctx.updateType}:`, err);
+      });
+      
       // Setup buybot commands FIRST (order matters in Telegraf - first matching handler wins!)
       if (this.buybotService) {
         this.logger?.info?.('[TelegramService] Setting up buybot commands...');
@@ -2113,9 +2118,23 @@ Always consider calling plan_actions before executing media or tweet tools when 
       const recentHistory = fullHistory.slice(-20); // Use last 20 for AI context
       
       // Build rich conversation context from history
-      const conversationContext = recentHistory.length > 0
+      let conversationContext = recentHistory.length > 0
         ? recentHistory.map(m => `${m.from}: ${m.text}`).join('\n')
         : `${ctx.message.from.first_name || ctx.message.from.username || 'User'}: ${ctx.message.text}`;
+
+      // Add reply context if available
+      if (ctx.message?.reply_to_message) {
+        const reply = ctx.message.reply_to_message;
+        const replyFrom = reply.from?.first_name || reply.from?.username || 'User';
+        let replyContent = '[Message]';
+        
+        if (reply.text) replyContent = reply.text;
+        else if (reply.caption) replyContent = `[Media with caption] ${reply.caption}`;
+        else if (reply.video) replyContent = '[Video]';
+        else if (reply.photo) replyContent = '[Image]';
+        
+        conversationContext += `\n(User is replying to ${replyFrom}: "${replyContent}")`;
+      }
 
       this.logger?.info?.(`[TelegramService] Generating reply with ${recentHistory.length} messages of context`);
 
@@ -2575,6 +2594,10 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
     }
   }
 
+  /**
+   * Execute plan_actions directly (no AI involvement)
+   * For cases where we want precise control over the action sequence
+   */
   async executePlanActions(ctx, args = {}, channelId, userId, username, conversationContext = '') {
     try {
       const planEntry = await this._rememberAgentPlan(channelId, {
