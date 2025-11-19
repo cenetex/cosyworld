@@ -139,6 +139,19 @@ class TelegramService {
     // Index tracking (ensures TTL/topic indexes exist automatically)
     this._indexesReady = false;
     this._indexSetupPromise = null;
+
+    // Service exhaustion tracking (for API quotas)
+    this._serviceExhausted = new Map(); // mediaType -> Date (expiry)
+  }
+
+  /**
+   * Mark a service as exhausted for a duration
+   * @param {string} mediaType - 'video' or 'image'
+   * @param {number} durationMs - Duration in ms (default 1 hour)
+   */
+  _markServiceAsExhausted(mediaType, durationMs = 60 * 60 * 1000) {
+    this._serviceExhausted.set(mediaType, new Date(Date.now() + durationMs));
+    this.logger?.warn?.(`[TelegramService] Marked ${mediaType} service as exhausted until ${this._serviceExhausted.get(mediaType).toISOString()}`);
   }
 
   /**
@@ -1747,6 +1760,19 @@ Always consider calling plan_actions before executing media or tweet tools when 
       if (!limits) {
         throw new Error(`Invalid media type: ${mediaType}`);
       }
+
+      // Check for service exhaustion (API quota)
+      const exhaustedUntil = this._serviceExhausted.get(mediaType);
+      if (exhaustedUntil && exhaustedUntil > now) {
+        return {
+          allowed: false,
+          hourlyUsed: limits.hourly, // Fake it to look full
+          dailyUsed: limits.daily,   // Fake it to look full
+          hourlyLimit: limits.hourly,
+          dailyLimit: limits.daily,
+          resetTimes: { hourly: exhaustedUntil, daily: exhaustedUntil }
+        };
+      }
       
       // Count usage in last hour and last day
       const usageCol = db.collection('telegram_media_usage');
@@ -2897,6 +2923,21 @@ Your caption:`;
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video generation failed:', error);
+
+      // Check for quota exhaustion
+      const isQuotaError = error?.status === 'RESOURCE_EXHAUSTED' || 
+                           error?.code === 429 || 
+                           (error?.message && (error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')));
+
+      if (isQuotaError) {
+         // Mark as exhausted for 1 hour
+         const cooldown = 60 * 60 * 1000; 
+         this._markServiceAsExhausted('video', cooldown);
+         
+         await ctx.reply("🚫 *System Alert*: My video generation circuits are overheated (API quota reached). I need to rest for a while. Try again in an hour.");
+         await this._recordBotResponse(String(ctx.chat.id), userId);
+         return;
+      }
       
       // Generate natural error message
       let errorText = '❌ Sorry, I couldn\'t generate that video. Video generation is complex and sometimes fails! 😅';
