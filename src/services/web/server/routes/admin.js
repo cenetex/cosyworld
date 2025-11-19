@@ -585,17 +585,43 @@ function createRouter(db, services) {
 
   router.post('/unban', asyncHandler(async (req, res) => {
     try {
-      const { userId } = req.body;
-      await db.collection('user_spam_penalties').updateOne(
-        { userId },
-        {
-          $set: {
-            strikeCount: 0,
-            permanentlyBlacklisted: false,
-            penaltyExpires: new Date()
+      const { userId, channelId, source } = req.body;
+      
+      if (source === 'telegram_members' || channelId) {
+        // Unban from telegram_members
+        await db.collection('telegram_members').updateOne(
+          { userId, ...(channelId ? { channelId } : {}) },
+          {
+            $set: {
+              strikeCount: 0,
+              spamStrikes: 0,
+              permanentlyBlacklisted: false,
+              trustLevel: 'probation', // Reset to probation
+              penaltyExpires: new Date()
+            }
+          }
+        );
+        
+        // Also clear from memory cache if service is available
+        if (services.telegramService && services.telegramService._invalidateMemberCache) {
+          if (channelId) {
+            services.telegramService._invalidateMemberCache(channelId, userId);
           }
         }
-      );
+      } else {
+        // Legacy/Global unban
+        await db.collection('user_spam_penalties').updateOne(
+          { userId },
+          {
+            $set: {
+              strikeCount: 0,
+              permanentlyBlacklisted: false,
+              penaltyExpires: new Date()
+            }
+          }
+        );
+      }
+      
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -622,17 +648,54 @@ function createRouter(db, services) {
 
       // Get blacklisted users
   const config = await loadConfig(services);
-      const blacklistedUsers = await db.collection('user_spam_penalties')
-        .find({})
-        .sort({ strikeCount: -1 })
-        .project({
-          userId: 1,
-          strikeCount: 1,
-          penaltyExpires: 1,
-          permanentlyBlacklisted: 1,
-          server: 1
-        })
-        .toArray();
+      
+      // Fetch from both collections to be safe, but prioritize telegram_members for display
+      const [spamPenalties, telegramBlacklisted] = await Promise.all([
+        db.collection('user_spam_penalties')
+          .find({ permanentlyBlacklisted: true })
+          .sort({ strikeCount: -1 })
+          .project({
+            userId: 1,
+            strikeCount: 1,
+            penaltyExpires: 1,
+            permanentlyBlacklisted: 1,
+            server: 1
+          })
+          .toArray(),
+        db.collection('telegram_members')
+          .find({ permanentlyBlacklisted: true })
+          .project({
+            userId: 1,
+            username: 1,
+            firstName: 1,
+            lastName: 1,
+            spamStrikes: 1,
+            lastSpamStrike: 1,
+            channelId: 1,
+            permanentlyBlacklisted: 1
+          })
+          .toArray()
+      ]);
+
+      // Merge lists
+      const blacklistedUsers = [...spamPenalties];
+      
+      // Add telegram members if not already present (by userId)
+      for (const member of telegramBlacklisted) {
+        // We treat telegram members as distinct entries because they have channelId
+        // But for the UI we might want to show them clearly
+        blacklistedUsers.push({
+          userId: member.userId,
+          username: member.username,
+          displayName: [member.firstName, member.lastName].filter(Boolean).join(' '),
+          strikeCount: member.spamStrikes,
+          penaltyExpires: null, // Permanent
+          permanentlyBlacklisted: true,
+          source: 'telegram_members',
+          channelId: member.channelId,
+          lastSpamStrike: member.lastSpamStrike
+        });
+      }
 
       res.json({
         counts: {

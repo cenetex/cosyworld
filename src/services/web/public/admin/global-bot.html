@@ -506,6 +506,34 @@
       </div>
     </div>
 
+    <!-- Blacklisted Users Section -->
+    <div class="section">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <h2 class="m-0">Blacklisted Users</h2>
+        <button class="btn-secondary" onclick="loadBlacklist()">↻ Refresh</button>
+      </div>
+      <p class="text-sm text-gray-600 mb-3">Users who have been permanently banned from interacting with the bot due to spam or abuse.</p>
+      
+      <div id="blacklist-loading" class="loading" style="display: none;">Loading blacklist...</div>
+      <div id="blacklist-empty" class="p-4 text-center text-gray-500 bg-gray-50 rounded" style="display: none;">No blacklisted users found.</div>
+      
+      <div class="overflow-x-auto">
+        <table id="blacklist-table" class="min-w-full divide-y divide-gray-200" style="display: none;">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strikes</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200" id="blacklist-tbody">
+            <!-- Rows will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Stats Section -->
     <div class="section">
       <h2>Statistics</h2>
@@ -1618,6 +1646,110 @@
       }
     }
     
+    // Load blacklisted users
+    async function loadBlacklist() {
+      try {
+        document.getElementById('blacklist-loading').style.display = 'block';
+        document.getElementById('blacklist-table').style.display = 'none';
+        document.getElementById('blacklist-empty').style.display = 'none';
+        
+        const res = await fetch('/api/admin/stats');
+        const data = await res.json();
+        
+        const users = data.blacklistedUsers || [];
+        const tbody = document.getElementById('blacklist-tbody');
+        tbody.innerHTML = '';
+        
+        if (users.length === 0) {
+          document.getElementById('blacklist-empty').style.display = 'block';
+        } else {
+          users.forEach(user => {
+            const tr = document.createElement('tr');
+            
+            // User info
+            const userCell = document.createElement('td');
+            userCell.className = 'px-6 py-4 whitespace-nowrap';
+            let userHtml = `<div class="text-sm font-medium text-gray-900">${user.displayName || user.username || 'Unknown'}</div>`;
+            userHtml += `<div class="text-sm text-gray-500">ID: ${user.userId}</div>`;
+            if (user.username) {
+              userHtml += `<div class="text-xs text-gray-400">@${user.username}</div>`;
+            }
+            userCell.innerHTML = userHtml;
+            tr.appendChild(userCell);
+            
+            // Strikes
+            const strikesCell = document.createElement('td');
+            strikesCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+            strikesCell.textContent = user.strikeCount || 0;
+            tr.appendChild(strikesCell);
+            
+            // Source
+            const sourceCell = document.createElement('td');
+            sourceCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+            if (user.source === 'telegram_members') {
+              sourceCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Telegram</span>`;
+              if (user.channelId) {
+                sourceCell.innerHTML += `<div class="text-xs mt-1">Channel: ${user.channelId}</div>`;
+              }
+            } else {
+              sourceCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Global</span>`;
+            }
+            tr.appendChild(sourceCell);
+            
+            // Actions
+            const actionsCell = document.createElement('td');
+            actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
+            
+            const unbanBtn = document.createElement('button');
+            unbanBtn.className = 'text-indigo-600 hover:text-indigo-900 font-bold';
+            unbanBtn.textContent = 'Unban';
+            unbanBtn.onclick = () => unbanUser(user.userId, user.channelId, user.source);
+            
+            actionsCell.appendChild(unbanBtn);
+            tr.appendChild(actionsCell);
+            
+            tbody.appendChild(tr);
+          });
+          
+          document.getElementById('blacklist-table').style.display = 'table';
+        }
+        
+        document.getElementById('blacklist-loading').style.display = 'none';
+      } catch (err) {
+        console.error('Failed to load blacklist:', err);
+        showError('Failed to load blacklist: ' + err.message);
+        document.getElementById('blacklist-loading').style.display = 'none';
+      }
+    }
+    
+    // Unban user
+    async function unbanUser(userId, channelId, source) {
+      if (!confirm(`Are you sure you want to unban user ${userId}?`)) {
+        return;
+      }
+      
+      try {
+        // Use AdminAPI with CSRF and signing
+        const data = await window.AdminAPI.apiFetch('/api/admin/unban', {
+          method: 'POST',
+          body: { userId, channelId, source },
+          requireCsrf: true,
+          sign: true,
+          signMeta: { op: 'unban_user', userId }
+        });
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Unban failed');
+        }
+        
+        showSuccess(`User ${userId} unbanned successfully`);
+        loadBlacklist(); // Refresh list
+      } catch (err) {
+        const errMsg = err.message || err.error || String(err);
+        showError('Failed to unban user: ' + errMsg);
+      }
+    }
+
     // Utility functions
     function showError(msg) {
       const el = document.getElementById('status-message');
@@ -1660,6 +1792,7 @@
   setupTelegramConfigHandlers();
   await loadTelegramConfig();
   loadPosts();
+  loadBlacklist();
     }
     
     // Load data on page load
