@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateVideosOperation } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -526,10 +526,26 @@ export class VeoService {
       try {
         if (opName && this.ai?.operations?.getVideosOperation) {
           try {
-            return await this.ai.operations.getVideosOperation({ operation: { name: opName } });
+            // Ensure we have a proper GenerateVideosOperation instance with _fromAPIResponse method
+            let opInstance = operation;
+            if (!opInstance || typeof opInstance._fromAPIResponse !== 'function') {
+              opInstance = new GenerateVideosOperation();
+              if (operation) Object.assign(opInstance, operation);
+              if (!opInstance.name) opInstance.name = opName;
+            }
+            return await this.ai.operations.getVideosOperation({ operation: opInstance });
           } catch (inner) {
-            this.logger?.info?.(`[VeoService] getVideosOperation alt signature after error: ${inner?.message || inner}`);
-            return await this.ai.operations.getVideosOperation({ name: opName });
+            this.logger?.info?.(`[VeoService] getVideosOperation error: ${inner?.message || inner}`);
+            // Fallback to internal method if available and public method fails
+            if (this.ai.operations.getVideosOperationInternal) {
+               try {
+                 const rawOp = await this.ai.operations.getVideosOperationInternal({ operationName: opName });
+                 // Return raw JSON which has .done property
+                 return rawOp;
+               } catch (e2) {
+                 this.logger?.warn?.(`[VeoService] getVideosOperationInternal error: ${e2?.message}`);
+               }
+            }
           }
         }
       } catch (e) {
