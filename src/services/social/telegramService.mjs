@@ -2450,7 +2450,11 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       const uniqueToolCalls = [];
       const seenCalls = new Set();
       for (const tc of effectiveToolCalls) {
-        const key = `${tc.function?.name}:${tc.function?.arguments}`;
+        // Use a more robust key that includes the arguments to differentiate distinct calls
+        // But for generation tools, we want to be aggressive about deduplication if they are identical
+        const argsStr = typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || {});
+        const key = `${tc.function?.name}:${argsStr}`;
+        
         if (!seenCalls.has(key)) {
           seenCalls.add(key);
           uniqueToolCalls.push(tc);
@@ -2459,7 +2463,13 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         }
       }
 
-      for (const toolCall of uniqueToolCalls) {
+      // Additional safety: If we have a plan, ensure we don't also have loose generation calls that slipped through
+      // (Some models might output plan_actions AND generate_image with slightly different args)
+      const finalToolCalls = hasPlan 
+        ? uniqueToolCalls.filter(tc => tc.function?.name === 'plan_actions' || tc.function?.name === 'get_token_stats' || tc.function?.name === 'research')
+        : uniqueToolCalls;
+
+      for (const toolCall of finalToolCalls) {
         const functionName = toolCall.function?.name;
         const args = typeof toolCall.function?.arguments === 'string' 
           ? JSON.parse(toolCall.function.arguments)
