@@ -1919,8 +1919,14 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
     // If mentioned, reply immediately
     if (isMentioned) {
-      // Mark as processing to prevent gap polling from interfering
+      // Check if already processing a reply for this channel
       const pending = this.pendingReplies.get(channelId) || {};
+      if (pending.isProcessing) {
+        this.logger?.debug?.(`[TelegramService] Skipping concurrent mention in ${channelId}`);
+        return;
+      }
+
+      // Mark as processing to prevent gap polling from interfering
       pending.isProcessing = true;
       this.pendingReplies.set(channelId, pending);
 

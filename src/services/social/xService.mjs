@@ -847,8 +847,26 @@ class XService {
       const v2Active = workingClient.v2;
       const isVideo = type === 'video';
 
+      // Try OAuth 1.0a first if available (required for media upload)
+      const oauth1Creds = await this._getOAuth1Credentials();
+      let mediaId;
+      let useOAuth1 = false;
+      let oauth1Client = null;
+      
+      if (oauth1Creds) {
+        this.logger?.debug?.('[XService][globalPost] using OAuth 1.0a credentials for upload');
+        useOAuth1 = true;
+        oauth1Client = new TwitterApi({
+          appKey: oauth1Creds.apiKey,
+          appSecret: oauth1Creds.apiSecret,
+          accessToken: oauth1Creds.accessToken,
+          accessSecret: oauth1Creds.accessTokenSecret,
+        });
+      }
+
       // If attempting video with an OAuth2 PKCE token (no accessSecret present) we may hit v1 media upload auth limitations.
-      if (isVideo && authRecord && !authRecord.accessSecret) {
+      // However, if we have system-level OAuth 1.0a credentials (oauth1Creds), we can use those instead.
+      if (isVideo && authRecord && !authRecord.accessSecret && !useOAuth1) {
         // If guild override was attempted, note explicitly
         if (guildId) {
           this.logger?.info?.('[XService][globalPost] skip: unsupported video for guild override (OAuth2 bearer; need OAuth1)', { mediaUrl, guildId });
@@ -889,23 +907,8 @@ class XService {
       // - OAuth 1.0a: Works with both library methods and raw API calls
       // The library handles the OAuth2 -> internal conversion magic
       
-      // Try OAuth 1.0a first if available (required for media upload)
-      const oauth1Creds = await this._getOAuth1Credentials();
-      let mediaId;
-      let useOAuth1 = false;
-      let oauth1Client = null;
-      
-      if (oauth1Creds) {
-        this.logger?.debug?.('[XService][globalPost] using OAuth 1.0a credentials for upload');
-        useOAuth1 = true;
+      if (useOAuth1 && oauth1Client) {
         try {
-          oauth1Client = new TwitterApi({
-            appKey: oauth1Creds.apiKey,
-            appSecret: oauth1Creds.apiSecret,
-            accessToken: oauth1Creds.accessToken,
-            accessSecret: oauth1Creds.accessTokenSecret
-          });
-          
           mediaId = await oauth1Client.v1.uploadMedia(buffer, { mimeType });
           this.logger?.debug?.('[XService][globalPost] OAuth 1.0a upload success', { mediaId });
         } catch (oauth1Err) {
