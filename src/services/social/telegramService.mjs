@@ -2376,7 +2376,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         .trim();
 
       if (cleanResponse) {
-        await ctx.reply(cleanResponse);
+        await ctx.reply(this._formatTelegramMarkdown(cleanResponse), { parse_mode: 'HTML' });
         const replyUserId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
         await this._recordBotResponse(channelId, replyUserId);
         
@@ -2517,14 +2517,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           // Handle 'speak' tool which models sometimes hallucinate from plan_actions
           const text = args.description || args.text || args.message || args.content;
           if (text) {
-            await ctx.reply(text);
+            await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
             await this._recordBotResponse(channelId, userId);
           }
         } else if (functionName === 'wait') {
-           await ctx.reply("⏳ *Processing...*");
+           await ctx.reply("⏳ <b>Processing...</b>", { parse_mode: 'HTML' });
            await this._recordBotResponse(channelId, userId);
         } else if (functionName === 'research') {
-           await ctx.reply("🔍 *Checking my sources...*");
+           await ctx.reply("🔍 <b>Checking my sources...</b>", { parse_mode: 'HTML' });
            await this._recordBotResponse(channelId, userId);
 
         } else if (functionName === 'post_tweet') {
@@ -2626,7 +2626,7 @@ Write the message you should send to the user now to fulfill this action. Keep i
                
                const text = String(response || '').trim().replace(/^["']|["']$/g, '');
                if (text) {
-                 await ctx.reply(text);
+                 await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
                  await this._recordBotResponse(channelId, userId);
                }
              } catch (err) {
@@ -2807,7 +2807,8 @@ Your caption:`;
 
       // Send the image with natural caption
       const sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
-        caption: caption || undefined // No caption if AI generation failed
+        caption: caption ? this._formatTelegramMarkdown(caption) : undefined,
+        parse_mode: 'HTML'
       });
 
       await this._recordBotResponse(String(ctx.chat.id), userId);
@@ -3003,8 +3004,9 @@ Your caption:`;
 
       // Send the video with natural caption
       const sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
-        caption: caption || undefined,
-        supports_streaming: true
+        caption: caption ? this._formatTelegramMarkdown(caption) : undefined,
+        supports_streaming: true,
+        parse_mode: 'HTML'
       });
       await this._recordBotResponse(String(ctx.chat.id), userId);
       
