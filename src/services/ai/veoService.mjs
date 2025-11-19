@@ -287,15 +287,21 @@ export class VeoService {
     // Determine correct personGeneration based on input type
     const personGeneration = hasImages ? "allow_adult" : "allow_all";
 
+    // Ensure durationSeconds is a number if present
+    const videoConfig = {
+      ...config,
+      personGeneration
+    };
+    if (videoConfig.durationSeconds) {
+      videoConfig.durationSeconds = Number(videoConfig.durationSeconds);
+    }
+
     // Start operation (text-to-video when no image)
     let operation = await this.ai.models.generateVideos({
       model,
       prompt,
       ...(imageParam ? { image: imageParam } : {}),
-      config: {
-        ...config,
-        personGeneration
-      }
+      config: videoConfig
     });
 
     // Poll until complete

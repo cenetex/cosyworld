@@ -2951,7 +2951,7 @@ Your caption:`;
             config: {
               numberOfVideos: 1,
               aspectRatio: '16:9',
-              durationSeconds: '8'
+              durationSeconds: 8
             },
           });
       }
