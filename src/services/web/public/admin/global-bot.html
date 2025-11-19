@@ -1162,12 +1162,27 @@
       btn.textContent = 'Uploading...';
       
       try {
-        // Use AdminAPI to handle CSRF and auth headers
+        // Manually get signed headers to ensure signing prompt appears
+        // This helps debug "no opportunity to sign" issues
+        let signedHeaders = {};
+        try {
+          if (window.AdminAuth) {
+            signedHeaders = await window.AdminAuth.getSignedHeaders();
+          }
+        } catch (signErr) {
+          console.warn('Signing failed or cancelled:', signErr);
+          // Continue without signature if it fails, server might reject it but we tried
+          // Or we could throw here to stop the request
+          throw new Error('Wallet signature required for upload');
+        }
+
+        // Use AdminAPI to handle CSRF
         const data = await window.AdminAPI.apiFetch('/api/admin/upload-image', {
           method: 'POST',
           body: formData,
+          headers: signedHeaders,
           requireCsrf: true,
-          sign: true // Add signature just in case, though mainly CSRF is the blocker
+          sign: false // We already signed
         });
         
         // Update URL input
