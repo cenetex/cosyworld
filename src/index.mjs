@@ -201,6 +201,18 @@ async function main() {
       logTiming('Web service failed');
     }
 
+    // Check for reset-quotas flag
+    if (process.argv.includes('--reset-quotas')) {
+      logger.info('[startup] Resetting media quotas as requested...');
+      try {
+        const dbInstance = await db.getDatabase();
+        await dbInstance.collection('telegram_media_usage').deleteMany({});
+        logger.info('[startup] ✓ Media quotas reset successfully');
+      } catch (error) {
+        logger.error('[startup] Failed to reset media quotas:', error);
+      }
+    }
+
   } catch (err) {
     logger.error(`[fatal] Startup failed: ${err.message}\n${err.stack}`);
     process.exit(1);

@@ -23,6 +23,7 @@ import { Telegraf } from 'telegraf';
 import { randomUUID } from 'crypto';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
+import MarkdownIt from 'markdown-it';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -42,6 +43,25 @@ function safeDecrypt(value) {
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const md = new MarkdownIt({
+  html: false, // Disable HTML tags in source
+  breaks: true, // Convert '\n' in paragraphs into <br>
+  linkify: true // Autoconvert URL-like text to links
+});
+
+// Custom renderer to ensure Telegram-compatible HTML
+// Telegram supports: <b>, <i>, <u>, <s>, <a>, <code>, <pre>
+// We need to map markdown to these specific tags
+md.renderer.rules.strong_open = () => '<b>';
+md.renderer.rules.strong_close = () => '</b>';
+md.renderer.rules.em_open = () => '<i>';
+md.renderer.rules.em_close = () => '</i>';
+md.renderer.rules.s_open = () => '<s>';
+md.renderer.rules.s_close = () => '</s>';
+md.renderer.rules.code_inline = (tokens, idx) => `<code>${tokens[idx].content}</code>`;
+md.renderer.rules.code_block = (tokens, idx) => `<pre><code>${tokens[idx].content}</code></pre>`;
+md.renderer.rules.fence = (tokens, idx) => `<pre><code>${tokens[idx].content}</code></pre>`;
 
 class TelegramService {
   constructor({
@@ -1899,11 +1919,20 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
     // If mentioned, reply immediately
     if (isMentioned) {
-      await this.generateAndSendReply(ctx, channelId, true);
-      // Mark that we've responded to this conversation
+      // Mark as processing to prevent gap polling from interfering
       const pending = this.pendingReplies.get(channelId) || {};
-      pending.lastBotResponseTime = Date.now();
+      pending.isProcessing = true;
       this.pendingReplies.set(channelId, pending);
+
+      try {
+        await this.generateAndSendReply(ctx, channelId, true);
+      } finally {
+        // Mark that we've responded to this conversation and clear processing flag
+        const updatedPending = this.pendingReplies.get(channelId) || {};
+        updatedPending.lastBotResponseTime = Date.now();
+        updatedPending.isProcessing = false;
+        this.pendingReplies.set(channelId, updatedPending);
+      }
       return;
     }
 
@@ -1949,6 +1978,10 @@ Always consider calling plan_actions before executing media or tweet tools when 
           
           // Check if we've already responded to this conversation
           const pending = this.pendingReplies.get(channelId) || {};
+          
+          // Skip if currently processing a message for this channel
+          if (pending.isProcessing) continue;
+
           if (pending.lastBotResponseTime && pending.lastBotResponseTime > lastMessageTime) {
             // We already responded after this message
             continue;
@@ -1961,28 +1994,42 @@ Always consider calling plan_actions before executing media or tweet tools when 
           
           // Mark this message as checked to avoid duplicate responses
           pending.lastCheckedMessageTime = lastMessageTime;
+          // Mark as processing to prevent concurrent handling
+          pending.isProcessing = true;
           this.pendingReplies.set(channelId, pending);
           
-          // Generate a response to the conversation
-          // Create a mock context object for the reply
-          if (!this.globalBot) continue;
-          
-          const mockCtx = {
-            chat: { id: channelId },
-            message: {
-              text: lastMessage.text,
-              from: { first_name: lastMessage.from, id: lastMessage.userId || undefined },
-              date: lastMessage.date
-            },
-            telegram: this.globalBot.telegram, // CRITICAL: Need this for sendPhoto/sendVideo
-            reply: async (text) => {
-              return await this.globalBot.telegram.sendMessage(channelId, text);
-            }
-          };
-          
-          await this.generateAndSendReply(mockCtx, channelId, false);
-          pending.lastBotResponseTime = Date.now();
-          this.pendingReplies.set(channelId, pending);
+          try {
+            // Generate a response to the conversation
+            // Create a mock context object for the reply
+            if (!this.globalBot) continue;
+            
+            const mockCtx = {
+              chat: { id: channelId },
+              message: {
+                text: lastMessage.text,
+                from: { first_name: lastMessage.from, id: lastMessage.userId || undefined },
+                date: lastMessage.date
+              },
+              telegram: this.globalBot.telegram, // CRITICAL: Need this for sendPhoto/sendVideo
+              reply: async (text) => {
+                return await this.globalBot.telegram.sendMessage(channelId, text);
+              }
+            };
+            
+            await this.generateAndSendReply(mockCtx, channelId, false);
+            
+            // Update pending state after successful reply
+            const updatedPending = this.pendingReplies.get(channelId) || {};
+            updatedPending.lastBotResponseTime = Date.now();
+            updatedPending.isProcessing = false;
+            this.pendingReplies.set(channelId, updatedPending);
+          } catch (error) {
+            // Clear processing flag on error
+            const updatedPending = this.pendingReplies.get(channelId) || {};
+            updatedPending.isProcessing = false;
+            this.pendingReplies.set(channelId, updatedPending);
+            throw error;
+          }
           
         } catch (error) {
           this.logger?.error?.(`[TelegramService] Gap polling error for ${channelId}:`, error);
@@ -2124,7 +2171,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           type: 'function',
           function: {
             name: 'plan_actions',
-            description: 'Outline a plan that lists upcoming actions (speak, generate_image, generate_video, post_tweet, research, etc.) before executing them.',
+            description: 'Outline a plan that lists upcoming actions (speak, generate_image, generate_video, post_tweet, research, wait, etc.) before executing them.',
             parameters: {
               type: 'object',
               properties: {
@@ -2894,39 +2941,39 @@ Your caption:`;
           `Daily: ${tweetLimit.dailyUsed}/${tweetLimit.dailyLimit} used\n\n` +
           `⏰ Next post slot in ${timeUntilReset} minutes`
         );
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
       const trimmedText = String(text || '').trim();
       if (!trimmedText) {
         await ctx.reply('I need a short message to share on X. Try again with the caption you want.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
       if (!mediaId) {
         await ctx.reply('Please pick an image or video from my recent list (include the ID in brackets).');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
       const mediaRecord = await this._findRecentMediaById(normalizedChannelId, mediaId);
       if (!mediaRecord) {
         await ctx.reply('I couldn\'t find that media ID anymore. Ask me to regenerate it or choose another one.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
       if (mediaRecord.tweetedAt) {
         await ctx.reply('That one\'s already been posted to X. Pick a different image or ask me to make a new one.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
       if (!mediaRecord.mediaUrl) {
         await ctx.reply('I lost the download link for that media. Let me create a new one.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this._recordBotResponse(channelId, userId);
         return;
       }
 
@@ -3037,7 +3084,7 @@ Your caption:`;
         `📊 24h Volume: ${formatNumber(priceData.volume24h)}\n\n` +
         `🔗 CA: \`${trackedToken.tokenAddress}\``;
 
-      await ctx.reply(message, { parse_mode: 'Markdown' });
+      await ctx.reply(this._formatTelegramMarkdown(message), { parse_mode: 'HTML' });
       await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
       
       this.logger?.info?.(`[TelegramService] Sent stats for ${tokenSymbol}: price=$${priceData.price}, mcap=$${priceData.marketCap}`);
@@ -3194,17 +3241,17 @@ Your caption:`;
       // Post with media if provided
       if (options.imageUrl) {
         messageResult = await bot.telegram.sendPhoto(channelId, options.imageUrl, {
-          caption: content,
-          parse_mode: 'Markdown',
+          caption: this._formatTelegramMarkdown(content),
+          parse_mode: 'HTML',
         });
       } else if (options.videoUrl) {
         messageResult = await bot.telegram.sendVideo(channelId, options.videoUrl, {
-          caption: content,
-          parse_mode: 'Markdown',
+          caption: this._formatTelegramMarkdown(content),
+          parse_mode: 'HTML',
         });
       } else {
-        messageResult = await bot.telegram.sendMessage(channelId, content, {
-          parse_mode: 'Markdown',
+        messageResult = await bot.telegram.sendMessage(channelId, this._formatTelegramMarkdown(content), {
+          parse_mode: 'HTML',
         });
       }
 
@@ -3235,14 +3282,29 @@ Your caption:`;
    * Format text with Markdown for Telegram
    * Escapes special characters but preserves intentional markdown
    * @param {string} text - Text to format
-   * @returns {string} - Markdown formatted text
+   * @returns {string} - HTML formatted text
    */
   _formatTelegramMarkdown(text) {
     if (!text) return '';
     
-    // Use standard Markdown (not MarkdownV2) for better compatibility
-    // Telegram supports: *bold* _italic_ [text](URL) `code` ```pre```
-    return String(text).trim();
+    try {
+      // Convert Markdown to HTML using markdown-it
+      // This handles **bold**, *italic*, [links](url), `code` etc.
+      let html = md.render(String(text).trim());
+      
+      // Remove wrapping <p> tags added by markdown-it
+      html = html.replace(/^<p>|<\/p>$/g, '');
+      
+      // Ensure only supported tags are present (basic sanitization)
+      // Telegram supports: <b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <a>, <code>, <pre>
+      // markdown-it with our custom rules should be safe, but we can do a quick pass if needed.
+      // For now, we trust markdown-it configuration.
+      
+      return html;
+    } catch (e) {
+      this.logger?.warn?.('[TelegramService] Markdown conversion failed, falling back to plain text:', e);
+      return String(text).trim();
+    }
   }
 
   /**
@@ -3347,8 +3409,8 @@ Your caption:`;
           ? text 
           : `Check out this post from CosyWorld!\n\n${opts.tweetUrl}`;
         
-        const messageResult = await this.globalBot.telegram.sendMessage(channelId, tweetText, {
-          parse_mode: 'Markdown',
+        const messageResult = await this.globalBot.telegram.sendMessage(channelId, this._formatTelegramMarkdown(tweetText), {
+          parse_mode: 'HTML',
           disable_web_page_preview: false // Show preview
         });
         
@@ -3475,7 +3537,7 @@ Create a warm, welcoming introduction message (max 200 chars) that:
           // Add timeout for video uploads (Telegram can be slow to process)
           const videoPromise = this.globalBot.telegram.sendVideo(channelId, mediaUrl, {
             caption: this._formatTelegramMarkdown(caption),
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             supports_streaming: true, // Enable streaming for better playback
           });
           
@@ -3500,7 +3562,7 @@ Create a warm, welcoming introduction message (max 200 chars) that:
           try {
             messageResult = await this.globalBot.telegram.sendDocument(channelId, mediaUrl, {
               caption: this._formatTelegramMarkdown(caption + '\n\n🎥 Video file'),
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
             });
             this.logger?.info?.('[TelegramService][globalPost] Posted video as document successfully');
           } catch (docErr) {
@@ -3513,7 +3575,7 @@ Create a warm, welcoming introduction message (max 200 chars) that:
         this.logger?.info?.('[TelegramService][globalPost] Attempting to send photo:', mediaUrl);
         messageResult = await this.globalBot.telegram.sendPhoto(channelId, mediaUrl, {
           caption: this._formatTelegramMarkdown(caption),
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
         });
         this.logger?.info?.('[TelegramService][globalPost] Photo posted successfully');
       }

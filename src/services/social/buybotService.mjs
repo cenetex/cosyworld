@@ -3464,39 +3464,39 @@ export class BuybotService {
       if (event.type === 'swap') {
         const emoji = swapEmoji;
         const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
-        message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
+        message += `<b>${token.tokenSymbol} Buy</b>\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
         
         // Add description with avatar name
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
-          message += `${buyerEmoji} *${buyerAvatar.name}* (\`${formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+          message += `${buyerEmoji} <b>${buyerAvatar.name}</b> (<code>${formatAddress(event.to)}</code>) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         } else {
           message += `Purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         }
       } else {
         // Transfer
-  message += `${transferEmoji} *${token.tokenSymbol} Transfer*\n\n`;
+  message += `${transferEmoji} <b>${token.tokenSymbol} Transfer</b>\n\n`;
         
         // Add description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
-          ? `${senderEmoji} *${senderAvatar.name}* (\`${formatAddress(event.from)}\`)`
-          : `\`${formatAddress(event.from)}\``;
+          ? `${senderEmoji} <b>${senderAvatar.name}</b> (<code>${formatAddress(event.from)}</code>)`
+          : `<code>${formatAddress(event.from)}</code>`;
         
         const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
-          ? `${recipientEmoji} *${recipientAvatar.name}* (\`${formatAddress(event.to)}\`)`
-          : `\`${formatAddress(event.to)}\``;
+          ? `${recipientEmoji} <b>${recipientAvatar.name}</b> (<code>${formatAddress(event.to)}</code>)`
+          : `<code>${formatAddress(event.to)}</code>`;
         
         message += `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}\n\n`;
       }
 
       // Amount and USD value (for both swaps and transfers)
       if (usdValue) {
-        message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
+        message += `💵 <b>$${usdValue.toFixed(2)}</b>\n\n`;
       }
 
       // Addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
-          message += `${buyerEmoji} Buyer: *${buyerAvatar.name}*\n`;
+          message += `${buyerEmoji} Buyer: <b>${buyerAvatar.name}</b>\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
@@ -3508,14 +3508,14 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    \`${formatAddress(event.to)}\`\n`;
+          message += `    <code>${formatAddress(event.to)}</code>\n`;
         } else {
-          message += `👤 Buyer: \`${formatAddress(event.to)}\`\n`;
+          message += `👤 Buyer: <code>${formatAddress(event.to)}</code>\n`;
         }
       } else {
         // Transfer - show both parties with avatars
         if (senderAvatar && senderAvatar.name && senderEmoji) {
-          message += `${senderEmoji} From: *${senderAvatar.name}*\n`;
+          message += `${senderEmoji} From: <b>${senderAvatar.name}</b>\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
@@ -3527,13 +3527,13 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    \`${formatAddress(event.from)}\`\n`;
+          message += `    <code>${formatAddress(event.from)}</code>\n`;
         } else {
-          message += `📤 From: \`${formatAddress(event.from)}\`\n`;
+          message += `📤 From: <code>${formatAddress(event.from)}</code>\n`;
         }
         
         if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
-          message += `${recipientEmoji} To: *${recipientAvatar.name}*\n`;
+          message += `${recipientEmoji} To: <b>${recipientAvatar.name}</b>\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
@@ -3545,16 +3545,16 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    \`${formatAddress(event.to)}\`\n`;
+          message += `    <code>${formatAddress(event.to)}</code>\n`;
         } else {
-          message += `📥 To: \`${formatAddress(event.to)}\`\n`;
+          message += `📥 To: <code>${formatAddress(event.to)}</code>\n`;
         }
       }
 
 
       // Balance changes (new holder, increase, decrease)
       if (event.isNewHolder) {
-        message += `🆕 *New Holder!*\n`;
+        message += `🆕 <b>New Holder!</b>\n`;
       } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
         const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
         message += `📈 Balance increased ${increasePercent}%\n`;
@@ -3588,24 +3588,24 @@ export class BuybotService {
       message += `\n`;
       
       // Transaction link
-      message += `[Tx](${event.txUrl})`;
+      message += `<a href="${event.txUrl}">Tx</a>`;
       
       // DexScreener link
       const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
-      message += ` • [DexScreener](${dexScreenerUrl})`;
+      message += ` • <a href="${dexScreenerUrl}">DexScreener</a>`;
 
   const telegramLink = tokenPreferences?.telegram || {};
       const telegramLinkUrl = this.resolveUrlTemplate(telegramLink.linkUrlTemplate, token) || `https://jup.ag/swap/SOL-${token.tokenAddress}`;
       const telegramLinkLabel = telegramLink.linkLabel || 'Swap';
       if (telegramLinkUrl) {
-        message += ` • [${telegramLinkLabel}](${telegramLinkUrl})`;
+        message += ` • <a href="${telegramLinkUrl}">${telegramLinkLabel}</a>`;
       }
 
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         message,
         {
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           disable_web_page_preview: true,
         }
       );
@@ -3872,14 +3872,14 @@ export class BuybotService {
   async generateAndSendMedia(telegramService, channelId, prompt, mediaType, usdValue, tokenSymbol) {
     try {
       const message = mediaType === 'video'
-        ? `🚀 *HUGE ${tokenSymbol} BUY ALERT!*\n\n💵 *$${usdValue.toFixed(0)} purchase detected!*\n\nGenerating celebration video...`
-        : `💰 *BIG ${tokenSymbol} BUY!*\n\n💵 *$${usdValue.toFixed(0)} purchase!*\n\nGenerating celebration image...`;
+        ? `🚀 <b>HUGE ${tokenSymbol} BUY ALERT!</b>\n\n💵 <b>$${usdValue.toFixed(0)} purchase detected!</b>\n\nGenerating celebration video...`
+        : `💰 <b>BIG ${tokenSymbol} BUY!</b>\n\n💵 <b>$${usdValue.toFixed(0)} purchase!</b>\n\nGenerating celebration image...`;
 
       // Send initial message
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         message,
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       );
 
       // Generate media using the appropriate service
@@ -3928,7 +3928,7 @@ export class BuybotService {
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         `⚠️ Couldn't generate ${mediaType}, but what a buy! 🚀`,
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       );
     }
   }

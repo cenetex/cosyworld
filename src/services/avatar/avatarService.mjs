@@ -2897,13 +2897,13 @@ export class AvatarService {
                   if (telegramService) {
                     const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
                     const telegramMessage = 
-                      `${avatar.emoji} *New Trader: ${avatar.name}*\n\n` +
-                      `_${introText.trim()}_\n\n` +
-                      `🔗 Wallet: \`${walletSlug}\`\n` +
+                      `${avatar.emoji} <b>New Trader: ${avatar.name}</b>\n\n` +
+                      `<i>${introText.trim()}</i>\n\n` +
+                      `🔗 Wallet: <code>${walletSlug}</code>\n` +
                       `💰 Balance: ${balanceStr}`;
                     
                     await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
-                      parse_mode: 'Markdown'
+                      parse_mode: 'HTML'
                     });
                     
                     this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
