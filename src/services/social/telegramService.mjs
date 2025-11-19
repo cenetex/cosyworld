@@ -2585,14 +2585,29 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       // Execute the steps immediately instead of just showing them
       this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
       
+      let latestGeneratedMediaId = null;
+      let generationFailed = false;
+
       if (planEntry.steps && Array.isArray(planEntry.steps)) {
         for (const step of planEntry.steps) {
           const action = step.action?.toLowerCase();
           
           if (action === 'generate_image') {
-             await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
+             const record = await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
+             if (record) {
+               latestGeneratedMediaId = record.id;
+               generationFailed = false;
+             } else {
+               generationFailed = true;
+             }
           } else if (action === 'generate_video') {
-             await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
+             const record = await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
+             if (record) {
+               latestGeneratedMediaId = record.id;
+               generationFailed = false;
+             } else {
+               generationFailed = true;
+             }
           } else if (action === 'speak') {
              // Generate a response based on the description
              try {
@@ -2618,11 +2633,21 @@ Write the message you should send to the user now to fulfill this action. Keep i
                this.logger?.warn?.('[TelegramService] Failed to generate speech for plan:', err);
              }
           } else if (action === 'post_tweet') {
-             const recent = await this._getRecentMedia(channelId, 1);
-             if (recent && recent.length > 0) {
+             if (generationFailed) {
+                await ctx.reply('Skipping X post because the media generation failed.');
+                continue;
+             }
+
+             let mediaIdToTweet = latestGeneratedMediaId;
+             if (!mediaIdToTweet) {
+                const recent = await this._getRecentMedia(channelId, 1);
+                if (recent && recent.length > 0) mediaIdToTweet = recent[0].id;
+             }
+
+             if (mediaIdToTweet) {
                await this.executeTweetPost(ctx, {
                  text: step.description,
-                 mediaId: recent[0].id,
+                 mediaId: mediaIdToTweet,
                  channelId,
                  userId,
                  username
@@ -2771,7 +2796,7 @@ Your caption:`;
       this.pendingReplies.set(channelId, pending);
       
       // Remember media so the tweet tool can use it later
-      await this._rememberGeneratedMedia(String(ctx.chat.id), {
+      const mediaRecord = await this._rememberGeneratedMedia(String(ctx.chat.id), {
         type: 'image',
         mediaUrl: imageUrl,
         prompt,
@@ -2785,6 +2810,7 @@ Your caption:`;
         }
       });
       this.logger?.info?.('[TelegramService] Image posted, marked as bot activity');
+      return mediaRecord;
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Image generation failed:', error);
@@ -2809,6 +2835,7 @@ Your caption:`;
       }
       await ctx.reply(errorText);
       await this._recordBotResponse(String(ctx.chat.id), userId);
+      return null;
     }
   }
 
@@ -2938,7 +2965,7 @@ Your caption:`;
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
       
-      await this._rememberGeneratedMedia(String(ctx.chat.id), {
+      const mediaRecord = await this._rememberGeneratedMedia(String(ctx.chat.id), {
         type: 'video',
         mediaUrl: videoUrl,
         prompt,
@@ -2952,6 +2979,7 @@ Your caption:`;
         }
       });
       this.logger?.info?.('[TelegramService] Video posted, marked as bot activity');
+      return mediaRecord;
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video generation failed:', error);
@@ -2968,7 +2996,7 @@ Your caption:`;
          
          await ctx.reply("🚫 *System Alert*: My video generation circuits are overheated (API quota reached). I need to rest for a while. Try again in an hour.");
          await this._recordBotResponse(String(ctx.chat.id), userId);
-         return;
+         return null;
       }
       
       // Generate natural error message
@@ -2991,6 +3019,7 @@ Your caption:`;
       }
       await ctx.reply(errorText);
       await this._recordBotResponse(String(ctx.chat.id), userId);
+      return null;
     }
   }
 
