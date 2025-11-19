@@ -2354,7 +2354,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args, userId, username });
 
         if (functionName === 'plan_actions') {
-          await this.executePlanActions(ctx, args, channelId, userId, username);
+          await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext);
         } else if (functionName === 'get_token_stats') {
           // Fetch token stats using buybotService
           await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
@@ -2437,7 +2437,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
     }
   }
 
-  async executePlanActions(ctx, args = {}, channelId, userId, username) {
+  async executePlanActions(ctx, args = {}, channelId, userId, username, conversationContext = '') {
     try {
       const planEntry = await this._rememberAgentPlan(channelId, {
         objective: args.objective,
@@ -2454,28 +2454,25 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         return;
       }
 
-      const stepsText = planEntry.steps?.length
-        ? planEntry.steps.map((step, idx) => {
-            const actionLabel = step.action ? `[${step.action.toUpperCase()}] ` : '';
-            const outcome = step.expectedOutcome ? ` → ${step.expectedOutcome}` : '';
-            return `${idx + 1}. ${actionLabel}${step.description}${outcome}`;
-          }).join('\n')
-        : '1. [SPEAK] Share a thoughtful reply with the user.';
-
-      const confidenceLine = typeof planEntry.confidence === 'number'
-        ? `Confidence: ${(planEntry.confidence * 100).toFixed(0)}%`
-        : null;
-
-      const planMessage = [
-        '🧠 Planning sequence ready.',
-        `Goal: ${planEntry.objective}`,
-        stepsText,
-        confidenceLine
-      ].filter(Boolean).join('\n');
-
-      await ctx.reply(planMessage);
-      await this._recordBotResponse(channelId, userId);
-      await this._trackBotMessage(channelId, planMessage);
+      // Execute the steps immediately instead of just showing them
+      this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
+      
+      if (planEntry.steps && Array.isArray(planEntry.steps)) {
+        for (const step of planEntry.steps) {
+          const action = step.action?.toLowerCase();
+          
+          if (action === 'generate_image') {
+             await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
+          } else if (action === 'generate_video') {
+             await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
+          } else if (action === 'speak') {
+             // Skip speak as it's usually covered by the initial response
+             this.logger?.info?.('[TelegramService] Skipping speak step in plan execution');
+          } else {
+             this.logger?.info?.(`[TelegramService] Skipping unimplemented plan action: ${action}`);
+          }
+        }
+      }
     } catch (error) {
       this.logger?.error?.('[TelegramService] executePlanActions error:', error);
       await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
