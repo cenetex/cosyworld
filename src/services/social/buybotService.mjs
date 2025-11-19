@@ -89,6 +89,9 @@ export class BuybotService {
   // Cache repeated "not found" lookups to avoid hammering DexScreener for fresh mints
   this.tokenNotFoundCache = new Map(); // tokenAddress -> { timestamp, count }
   this.TOKEN_NOT_FOUND_CACHE_TTL_MS = Number(process.env.BUYBOT_TOKEN_NOT_FOUND_TTL_MS || (30 * 60_000));
+
+  // Deduplication for in-flight token info requests
+  this.pendingTokenInfoRequests = new Map(); // tokenAddress -> Promise<tokenInfo>
     
     // Wallet insights helper encapsulates Lambda polling + caching
     this.walletInsights = walletInsights || new WalletInsights({ logger: this.logger });
@@ -1219,6 +1222,12 @@ export class BuybotService {
         this.logger.debug(`[BuybotService] Using cached token info for ${tokenAddress}`);
         return cached.tokenInfo;
       }
+
+      // Check for pending request to avoid duplicate calls
+      if (this.pendingTokenInfoRequests.has(tokenAddress)) {
+        this.logger.debug(`[BuybotService] Reusing pending token info request for ${tokenAddress}`);
+        return this.pendingTokenInfoRequests.get(tokenAddress);
+      }
       
       // First validate the address format
       if (!this.isValidSolanaAddress(tokenAddress)) {
@@ -1226,61 +1235,75 @@ export class BuybotService {
         return null;
       }
 
-      // Use DexScreener as primary source for token info
-      this.logger.info(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
-      const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
-      
-      if (dexScreenerData) {
-        const tokenInfo = {
-          address: tokenAddress,
-          name: dexScreenerData.name || 'Unknown Token',
-          symbol: dexScreenerData.symbol || 'UNKNOWN',
-          decimals: 9, // Default for SPL tokens
-          supply: null,
-          image: dexScreenerData.image || null,
-          usdPrice: dexScreenerData.usdPrice || null,
-          marketCap: dexScreenerData.marketCap || null,
-          priceChange: dexScreenerData.priceChange || null,
-        };
-        
-        // Cache the token info
-        this.tokenInfoCache.set(tokenAddress, {
-          tokenInfo,
-          timestamp: Date.now()
-        });
-        
-        this.logger.info(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
-        return tokenInfo;
-      }
+      // Create the promise for fetching data
+      const fetchPromise = (async () => {
+        try {
+          // Use DexScreener as primary source for token info
+          this.logger.info(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
+          const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
+          
+          if (dexScreenerData) {
+            const tokenInfo = {
+              address: tokenAddress,
+              name: dexScreenerData.name || 'Unknown Token',
+              symbol: dexScreenerData.symbol || 'UNKNOWN',
+              decimals: 9, // Default for SPL tokens
+              supply: null,
+              image: dexScreenerData.image || null,
+              usdPrice: dexScreenerData.usdPrice || null,
+              marketCap: dexScreenerData.marketCap || null,
+              priceChange: dexScreenerData.priceChange || null,
+            };
+            
+            // Cache the token info
+            this.tokenInfoCache.set(tokenAddress, {
+              tokenInfo,
+              timestamp: Date.now()
+            });
+            
+            this.logger.info(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
+            return tokenInfo;
+          }
 
-      // If DexScreener doesn't have the token, return minimal info
-      if (this._isTokenTemporarilySuppressed(tokenAddress)) {
-        this.logger.debug(`[BuybotService] Token ${tokenAddress} suppressed after repeated DexScreener misses; returning fallback avatar info`);
-      } else {
-        this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
-      }
-      const tokenInfo = {
-        address: tokenAddress,
-        name: 'Unknown Token',
-        symbol: 'UNKNOWN',
-        decimals: 9, // Default for SPL tokens
-        supply: null,
-        image: null,
-        usdPrice: null,
-        marketCap: null,
-        priceChange: null,
-        warning: 'Token not found - may be newly created or invalid',
-      };
+          // If DexScreener doesn't have the token, return minimal info
+          if (this._isTokenTemporarilySuppressed(tokenAddress)) {
+            this.logger.debug(`[BuybotService] Token ${tokenAddress} suppressed after repeated DexScreener misses; returning fallback avatar info`);
+          } else {
+            this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
+          }
+          const tokenInfo = {
+            address: tokenAddress,
+            name: 'Unknown Token',
+            symbol: 'UNKNOWN',
+            decimals: 9, // Default for SPL tokens
+            supply: null,
+            image: null,
+            usdPrice: null,
+            marketCap: null,
+            priceChange: null,
+            warning: 'Token not found - may be newly created or invalid',
+          };
+          
+          // Cache the fallback token info
+          this.tokenInfoCache.set(tokenAddress, {
+            tokenInfo,
+            timestamp: Date.now()
+          });
+          
+          return tokenInfo;
+        } finally {
+          // Clean up pending request
+          this.pendingTokenInfoRequests.delete(tokenAddress);
+        }
+      })();
+
+      // Store the pending request
+      this.pendingTokenInfoRequests.set(tokenAddress, fetchPromise);
       
-      // Cache the fallback token info
-      this.tokenInfoCache.set(tokenAddress, {
-        tokenInfo,
-        timestamp: Date.now()
-      });
-      
-      return tokenInfo;
+      return fetchPromise;
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
+      this.pendingTokenInfoRequests.delete(tokenAddress);
       return null;
     }
   }
@@ -2601,6 +2624,7 @@ export class BuybotService {
         }
       }
 
+
       // Balance changes
       if (event.isNewHolder) {
         embed.fields.push({
@@ -3373,6 +3397,8 @@ export class BuybotService {
     const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
     const tokenDecimals = event.decimals || token.tokenDecimals || 9;
     const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
+    const swapEmoji = tokenPreferences?.displayEmoji || '💰';
+    const transferEmoji = tokenPreferences?.transferEmoji || '📤';
     const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
     const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
 
@@ -3453,9 +3479,6 @@ export class BuybotService {
   const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
   const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
   const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
-
-  const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
-  const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
 
   // Build enhanced notification message with avatar names
       let message = '';
