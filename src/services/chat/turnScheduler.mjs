@@ -22,6 +22,10 @@ export class TurnScheduler {
   // Dead channel detection
   this.DEAD_CHANNEL_THRESHOLD = Number(process.env.DEAD_CHANNEL_THRESHOLD || 12);
   this.DEAD_CHANNEL_CHECK_ENABLED = String(process.env.DEAD_CHANNEL_CHECK_ENABLED || 'true').toLowerCase() === 'true';
+  
+  // Turn lease timeout (how long an avatar has to complete their turn)
+  // Default: 10 minutes (600000ms) to accommodate video generation
+  this.TURN_LEASE_TIMEOUT_MS = Number(process.env.TURN_LEASE_TIMEOUT_MS || 600000);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -78,7 +82,15 @@ export class TurnScheduler {
 
   async tryLease(channelId, avatarId, tickId, meta = {}) {
     const leases = await this.col('turn_leases');
-    const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending', ...meta };
+    const lease = { 
+      channelId, 
+      avatarId, 
+      tickId, 
+      createdAt: new Date(), 
+      leaseExpiresAt: new Date(Date.now() + this.TURN_LEASE_TIMEOUT_MS), 
+      status: 'pending', 
+      ...meta 
+    };
     try {
       await leases.insertOne(lease);
       this.logger.debug?.(`[TurnScheduler] lease granted ${channelId}:${avatarId}:${tickId} mode=${meta.mode || 'ambient'}`);
