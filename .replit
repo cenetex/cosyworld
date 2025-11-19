@@ -1,6 +1,5 @@
-
-run = "node src/index.mjs"
 modules = ["nodejs-20:v8-20230920-bd784b9"]
+run = "bash"
 
 [nix]
 channel = "stable-24_05"
@@ -15,68 +14,9 @@ localPort = 3000
 externalPort = 80
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 5000
-
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Development"
-mode = "parallel"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm install"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev:js"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev:css"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run serve"
-
-[[workflows.workflow]]
-name = "Production"
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm install"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run build"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=production npm run serve:prod"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Server"
-
-[[workflows.workflow]]
-name = "Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "WEB_PORT=5000 npm start"
-waitForPort = 5000
-
-[agent]
-expertMode = true
