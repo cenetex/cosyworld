@@ -14,6 +14,13 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
 import eventBus from '../../utils/eventBus.mjs';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -335,9 +342,18 @@ class XService {
 
     const res = await fetch(videoUrl);
     if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
-    const buffer = Buffer.from(await res.arrayBuffer());
+    let buffer = Buffer.from(await res.arrayBuffer());
     const mimeHeader = res.headers.get('content-type') || '';
-    const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+    let mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+
+    // Process video
+    try {
+      buffer = await this._processVideoForX(buffer);
+      mimeType = 'video/mp4';
+    } catch (processErr) {
+      this.logger?.warn?.('[XService] Video processing failed, attempting upload with original buffer', processErr);
+    }
+
     const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
 
     const replyContent = String(content || '').trim().slice(0, 280);
@@ -368,9 +384,17 @@ class XService {
       // Download the video
       const res = await fetch(videoUrl);
       if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
-      const buffer = Buffer.from(await res.arrayBuffer());
+      let buffer = Buffer.from(await res.arrayBuffer());
       const mimeHeader = res.headers.get('content-type') || '';
-      const mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+      let mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
+
+      // Process video
+      try {
+        buffer = await this._processVideoForX(buffer);
+        mimeType = 'video/mp4';
+      } catch (processErr) {
+        this.logger?.warn?.('[XService] Video processing failed, attempting upload with original buffer', processErr);
+      }
 
       // Upload media (chunked for video)
       const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
@@ -839,7 +863,7 @@ class XService {
       // Fetch media
       const res = await fetch(mediaUrl);
       if (!res.ok) throw new Error(`media fetch failed ${res.status}`);
-      const buffer = Buffer.from(await res.arrayBuffer());
+      let buffer = Buffer.from(await res.arrayBuffer());
       const contentType = res.headers.get('content-type');
       let mimeType = contentType?.split(';')[0]?.trim();
       
@@ -847,6 +871,16 @@ class XService {
       if (!mimeType) {
         mimeType = isVideo ? 'video/mp4' : 'image/png';
         this.logger?.warn?.('[XService][globalPost] no content-type header, using fallback', { mimeType, mediaUrl });
+      }
+
+      // Process video if needed
+      if (isVideo) {
+        try {
+          buffer = await this._processVideoForX(buffer);
+          mimeType = 'video/mp4'; // Force mp4 after processing
+        } catch (processErr) {
+          this.logger?.warn?.('[XService][globalPost] Video processing failed, attempting upload with original buffer', processErr);
+        }
       }
 
       // Use proper v2 chunked upload: INIT -> APPEND -> FINALIZE (-> STATUS if needed)
@@ -1321,6 +1355,50 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
       try { this._globalPostMetrics && this._globalPostMetrics.reasons && this._globalPostMetrics.reasons.error !== undefined && (this._globalPostMetrics.reasons.error++); } catch {}
       return null;
+    }
+  }
+
+  /**
+   * Process video using ffmpeg to meet X (Twitter) requirements
+   * @param {Buffer} buffer - Input video buffer
+   * @returns {Promise<Buffer>} - Processed video buffer
+   */
+  async _processVideoForX(buffer) {
+    const tempDir = os.tmpdir();
+    const inputPath = path.join(tempDir, `input_${Date.now()}.mp4`);
+    const outputPath = path.join(tempDir, `output_${Date.now()}.mp4`);
+
+    try {
+      await fs.promises.writeFile(inputPath, buffer);
+
+      // FFmpeg command to convert video to X compatible format
+      // -c:v libx264: Use H.264 video codec
+      // -profile:v high: Use High Profile
+      // -pix_fmt yuv420p: Use YUV 4:2:0 pixel format
+      // -c:a aac: Use AAC audio codec
+      // -b:a 128k: Audio bitrate 128k
+      // -ar 44100: Audio sample rate 44.1kHz
+      // -movflags +faststart: Move metadata to beginning of file (good for streaming)
+      // -vf "scale='min(1280,iw)':-2": Scale down if larger than 1280 width, keeping aspect ratio, ensure even dimensions
+      // -r 30: Frame rate 30 fps (safe bet)
+      const command = `ffmpeg -i "${inputPath}" -c:v libx264 -profile:v high -pix_fmt yuv420p -c:a aac -b:a 128k -ar 44100 -movflags +faststart -vf "scale='min(1280,iw)':-2" -r 30 "${outputPath}"`;
+      
+      this.logger?.info?.(`[XService] Processing video with ffmpeg: ${command}`);
+      await execAsync(command);
+
+      const processedBuffer = await fs.promises.readFile(outputPath);
+      return processedBuffer;
+    } catch (error) {
+      this.logger?.error?.('[XService] Video processing failed:', error);
+      throw error;
+    } finally {
+      // Cleanup
+      try {
+        if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
+        if (fs.existsSync(outputPath)) await fs.promises.unlink(outputPath);
+      } catch (cleanupError) {
+        this.logger?.warn?.('[XService] Failed to cleanup temp files:', cleanupError);
+      }
     }
   }
 
