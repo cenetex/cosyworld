@@ -50,6 +50,9 @@ const md = new MarkdownIt({
   linkify: true // Autoconvert URL-like text to links
 });
 
+// Helper for escaping HTML in code blocks
+const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 // Custom renderer to ensure Telegram-compatible HTML
 // Telegram supports: <b>, <i>, <u>, <s>, <a>, <code>, <pre>
 // We need to map markdown to these specific tags
@@ -59,9 +62,9 @@ md.renderer.rules.em_open = () => '<i>';
 md.renderer.rules.em_close = () => '</i>';
 md.renderer.rules.s_open = () => '<s>';
 md.renderer.rules.s_close = () => '</s>';
-md.renderer.rules.code_inline = (tokens, idx) => `<code>${tokens[idx].content}</code>`;
-md.renderer.rules.code_block = (tokens, idx) => `<pre><code>${tokens[idx].content}</code></pre>`;
-md.renderer.rules.fence = (tokens, idx) => `<pre><code>${tokens[idx].content}</code></pre>`;
+md.renderer.rules.code_inline = (tokens, idx) => `<code>${escapeHtml(tokens[idx].content)}</code>`;
+md.renderer.rules.code_block = (tokens, idx) => `<pre><code>${escapeHtml(tokens[idx].content)}</code></pre>`;
+md.renderer.rules.fence = (tokens, idx) => `<pre><code>${escapeHtml(tokens[idx].content)}</code></pre>`;
 
 class TelegramService {
   constructor({
@@ -3298,15 +3301,21 @@ Your caption:`;
       // This handles **bold**, *italic*, [links](url), `code` etc.
       let html = md.render(String(text).trim());
       
-      // Remove wrapping <p> tags added by markdown-it
-      html = html.replace(/^<p>|<\/p>$/g, '');
+      // Fix paragraphs: replace </p><p> with double newline
+      html = html.replace(/<\/p>\s*<p>/g, '\n\n');
+      
+      // Remove remaining <p> tags (start and end)
+      html = html.replace(/<\/?p>/g, '');
+      
+      // Replace <br> with newline
+      html = html.replace(/<br\s*\/?>\n?/g, '\n');
       
       // Ensure only supported tags are present (basic sanitization)
       // Telegram supports: <b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <a>, <code>, <pre>
       // markdown-it with our custom rules should be safe, but we can do a quick pass if needed.
       // For now, we trust markdown-it configuration.
       
-      return html;
+      return html.trim();
     } catch (e) {
       this.logger?.warn?.('[TelegramService] Markdown conversion failed, falling back to plain text:', e);
       return String(text).trim();
