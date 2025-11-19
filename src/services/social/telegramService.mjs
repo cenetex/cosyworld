@@ -2482,6 +2482,20 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           } else if (action === 'speak') {
              // Skip speak as it's usually covered by the initial response
              this.logger?.info?.('[TelegramService] Skipping speak step in plan execution');
+          } else if (action === 'post_tweet') {
+             const recent = await this._getRecentMedia(channelId, 1);
+             if (recent && recent.length > 0) {
+               await this.executeTweetPost(ctx, {
+                 text: step.description,
+                 mediaId: recent[0].id,
+                 channelId,
+                 userId,
+                 username
+               });
+             } else {
+               this.logger?.warn?.('[TelegramService] Cannot post_tweet in plan: no recent media found');
+               await ctx.reply('I wanted to post to X, but I couldn\'t find the image/video I just made! 🕵️‍♀️');
+             }
           } else {
              this.logger?.info?.(`[TelegramService] Skipping unimplemented plan action: ${action}`);
           }
