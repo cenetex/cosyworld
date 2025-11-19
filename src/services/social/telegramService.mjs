@@ -2645,8 +2645,36 @@ Write the message you should send to the user now to fulfill this action. Keep i
              }
 
              if (mediaIdToTweet) {
+               // Generate a creative tweet caption instead of using the raw description
+               let tweetText = step.description;
+               try {
+                 const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
+Context: ${conversationContext}
+Task: ${step.description}
+
+Write a creative, engaging tweet caption (under 280 chars) to accompany the media you just generated.
+- Be in character (witty, slightly chaotic, or helpful depending on the persona).
+- Do not use quotation marks.
+- Do not include "Here is the tweet:" or similar prefixes.
+- Make it sound like a real tweet, not a bot command.`;
+
+                 const response = await this.aiService.chat([
+                   { role: 'user', content: tweetPrompt }
+                 ], {
+                   model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+                   temperature: 0.8
+                 });
+                 
+                 const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
+                 if (generatedTweet) {
+                   tweetText = generatedTweet;
+                 }
+               } catch (err) {
+                 this.logger?.warn?.('[TelegramService] Failed to generate tweet caption, falling back to description:', err);
+               }
+
                await this.executeTweetPost(ctx, {
-                 text: step.description,
+                 text: tweetText,
                  mediaId: mediaIdToTweet,
                  channelId,
                  userId,
