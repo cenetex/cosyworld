@@ -142,6 +142,10 @@ class TelegramService {
 
     // Service exhaustion tracking (for API quotas)
     this._serviceExhausted = new Map(); // mediaType -> Date (expiry)
+
+    // Active conversation tracking (for instant replies)
+    this.activeConversations = new Map(); // channelId -> Map<userId, expiry>
+    this.ACTIVE_CONVERSATION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
   }
 
   /**
@@ -1862,6 +1866,44 @@ Always consider calling plan_actions before executing media or tweet tools when 
   }
 
   /**
+   * Update active conversation status for a user in a channel
+   * @private
+   */
+  _updateActiveConversation(channelId, userId) {
+    if (!channelId || !userId) return;
+    if (!this.activeConversations.has(channelId)) {
+      this.activeConversations.set(channelId, new Map());
+    }
+    const channelParticipants = this.activeConversations.get(channelId);
+    channelParticipants.set(userId, Date.now() + this.ACTIVE_CONVERSATION_WINDOW_MS);
+    
+    // Cleanup expired participants
+    const now = Date.now();
+    for (const [uid, expiry] of channelParticipants.entries()) {
+      if (now > expiry) channelParticipants.delete(uid);
+    }
+  }
+
+  /**
+   * Check if a user is in an active conversation window
+   * @private
+   */
+  _isActiveConversation(channelId, userId) {
+    if (!channelId || !userId) return false;
+    const channelParticipants = this.activeConversations.get(channelId);
+    if (!channelParticipants) return false;
+    
+    const expiry = channelParticipants.get(userId);
+    if (!expiry) return false;
+    
+    if (Date.now() > expiry) {
+      channelParticipants.delete(userId);
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Handle incoming messages with debouncing and mention detection
    */
   async handleIncomingMessage(ctx) {
@@ -1876,6 +1918,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
     }
 
     // Ignore commands - they should be handled by command handlers
+   
     if (message.text && message.text.startsWith('/')) {
       this.logger?.debug?.(`[TelegramService] Ignoring command in message handler: ${message.text}`);
       return;
@@ -1948,15 +1991,32 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
     this.logger?.debug?.(`[TelegramService] Tracked message in ${channelId}, history: ${history.length} messages`);
 
-    // Check if bot is mentioned
-  this.logger?.debug?.(`[TelegramService] Message received in ${channelId}, mentioned: ${isMentioned}`);
+    // Check if message is a reply to the bot
+    const botId = this.globalBot?.botInfo?.id || ctx.botInfo?.id;
+    const isReplyToBot = message.reply_to_message && 
+      botId && 
+      message.reply_to_message.from?.id === botId;
 
-    // If mentioned, reply immediately
-    if (isMentioned) {
+    // Check if user is in active conversation window
+    const isActiveParticipant = this._isActiveConversation(channelId, userId);
+
+    // Determine if we should respond instantly
+    // 1. Direct mention
+    // 2. Reply to bot's message
+    // 3. Active conversation (user talked to us recently)
+    const shouldRespond = isMentioned || isReplyToBot || isActiveParticipant;
+
+    this.logger?.debug?.(`[TelegramService] Message in ${channelId}: mentioned=${isMentioned}, reply=${isReplyToBot}, active=${isActiveParticipant}`);
+
+    // If we should respond, do so immediately
+    if (shouldRespond) {
+      // Update active conversation status (refresh timer)
+      this._updateActiveConversation(channelId, userId);
+
       // Check if already processing a reply for this channel
       const pending = this.pendingReplies.get(channelId) || {};
       if (pending.isProcessing) {
-        this.logger?.debug?.(`[TelegramService] Skipping concurrent mention in ${channelId}`);
+        this.logger?.debug?.(`[TelegramService] Skipping concurrent response in ${channelId}`);
         return;
       }
 
@@ -1965,6 +2025,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
       this.pendingReplies.set(channelId, pending);
 
       try {
+        // Pass true for isMention to ensure fast response (skip long delay)
         await this.generateAndSendReply(ctx, channelId, true);
       } finally {
         // Mark that we've responded to this conversation and clear processing flag
@@ -3925,7 +3986,6 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       for (const [avatarId, bot] of this.bots.entries()) {
         try {
           await bot.stop('SIGTERM');
-          this.logger?.debug?.(`[TelegramService] Bot for avatar ${avatarId} stopped`);
         } catch (e) {
           this.logger?.warn?.(`[TelegramService] Error stopping bot for ${avatarId}:`, e.message);
         }

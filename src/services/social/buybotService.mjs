@@ -1356,18 +1356,23 @@ export class BuybotService {
       }
     };
 
+    // Add random jitter to initial poll to spread load (0-60 seconds)
+    // This prevents all tokens from polling simultaneously on startup
+    const initialJitter = Math.floor(Math.random() * 60000);
+    const initialDelay = POLLING_INTERVAL_MS + initialJitter;
+
     // Store webhook data
     const webhookData = {
       channelId,
       tokenAddress,
       platform,
-      pollTimeout: setTimeout(doPoll, POLLING_INTERVAL_MS),
+      pollTimeout: setTimeout(doPoll, initialDelay),
       lastChecked: Date.now(),
     };
     
     this.activeWebhooks.set(key, webhookData);
 
-    this.logger.info(`[BuybotService] Started polling for ${tokenAddress} in channel ${channelId} (${platform})`);
+    this.logger.info(`[BuybotService] Started polling for ${tokenAddress} in channel ${channelId} (${platform}) - first poll in ${Math.round(initialDelay/1000)}s`);
   }
 
   /**
