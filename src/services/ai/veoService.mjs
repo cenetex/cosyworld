@@ -362,7 +362,7 @@ export class VeoService {
       config: {
         ...config,
         referenceImages: refImages,
-        durationSeconds: "8", // Required when using reference images
+        durationSeconds: Number(config.durationSeconds || 8), // Required when using reference images
         personGeneration: "allow_adult" // Required for reference images
       }
     });
@@ -434,7 +434,7 @@ export class VeoService {
       video: videoParam,
       config: {
         ...config,
-        durationSeconds: "8", // Required for extension
+        durationSeconds: Number(config.durationSeconds || 8), // Required for extension
         resolution: "720p", // Required for extension
         personGeneration: "allow_all" // Required for extension
       }
@@ -502,7 +502,7 @@ export class VeoService {
       config: {
         ...config,
         lastFrame: lastFrameParam,
-        durationSeconds: "8", // Required for interpolation
+        durationSeconds: Number(config.durationSeconds || 8), // Required for interpolation
         personGeneration: "allow_adult" // Required for interpolation
       }
     });
