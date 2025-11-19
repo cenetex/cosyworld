@@ -375,8 +375,8 @@ export class OpenRouterAIService {
     this.ready = this._validateStructuredModelSupport(this.structured_model)
       .catch(err => {
         const msg = `[OpenRouterAIService] Structured model validation failed for ${this.structured_model}: ${err?.message || err}`;
-        this.logger?.error?.(msg);
-        throw err;
+        this.logger?.warn?.(msg);
+        // Do not throw here to prevent startup crash.
       });
 
     // Register models with this.aiModelService
