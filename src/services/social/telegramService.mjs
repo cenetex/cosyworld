@@ -2480,8 +2480,29 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           } else if (action === 'generate_video') {
              await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
           } else if (action === 'speak') {
-             // Skip speak as it's usually covered by the initial response
-             this.logger?.info?.('[TelegramService] Skipping speak step in plan execution');
+             // Generate a response based on the description
+             try {
+               const speechPrompt = `You are executing a planned action.
+Context: ${conversationContext}
+Action Description: ${step.description}
+
+Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character.`;
+
+               const response = await this.aiService.chat([
+                 { role: 'user', content: speechPrompt }
+               ], {
+                 model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+                 temperature: 0.7
+               });
+               
+               const text = String(response || '').trim().replace(/^["']|["']$/g, '');
+               if (text) {
+                 await ctx.reply(text);
+                 await this._recordBotResponse(channelId, userId);
+               }
+             } catch (err) {
+               this.logger?.warn?.('[TelegramService] Failed to generate speech for plan:', err);
+             }
           } else if (action === 'post_tweet') {
              const recent = await this._getRecentMedia(channelId, 1);
              if (recent && recent.length > 0) {
