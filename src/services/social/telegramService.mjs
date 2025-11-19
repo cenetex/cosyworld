@@ -2399,6 +2399,20 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           
           await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
 
+        } else if (functionName === 'speak') {
+          // Handle 'speak' tool which models sometimes hallucinate from plan_actions
+          const text = args.description || args.text || args.message || args.content;
+          if (text) {
+            await ctx.reply(text);
+            await this._recordBotResponse(channelId, userId);
+          }
+        } else if (functionName === 'wait') {
+           await ctx.reply("⏳ *Processing...*");
+           await this._recordBotResponse(channelId, userId);
+        } else if (functionName === 'research') {
+           await ctx.reply("🔍 *Checking my sources...*");
+           await this._recordBotResponse(channelId, userId);
+
         } else if (functionName === 'post_tweet') {
           const limit = await this.checkMediaGenerationLimit(null, 'tweet');
           if (!limit.allowed) {
