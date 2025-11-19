@@ -3911,7 +3911,7 @@ export class BuybotService {
         
         const videoUrls = await telegramService.veoService.generateVideos({ 
           prompt, 
-          config: { numberOfVideos: 1, personGeneration: "allow_adult" } 
+          config: { numberOfVideos: 1, personGeneration: "allow_adult", durationSeconds: '8' } 
         });
         
         if (videoUrls && videoUrls.length > 0) {
