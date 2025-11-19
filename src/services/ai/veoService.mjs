@@ -193,12 +193,11 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Optional text prompt for video generation.
    * @param {{data: string, mimeType: string}[]} params.images - Array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, personGeneration).
-   *                                   Note: resolution and durationSeconds are NOT supported for image-to-video.
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, personGeneration, resolution, durationSeconds).
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of video URIs.
    */
-  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult"  }, model = 'veo-3.1-generate-preview' }) {
+  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!images || images.length === 0) throw new Error('At least one image is required');
 
@@ -224,7 +223,10 @@ export class VeoService {
       model,
       prompt,
       image: imageParam,
-      config
+      config: {
+        ...config,
+        personGeneration: "allow_adult" // Required for image-to-video
+      }
     });
 
     // Poll until complete
@@ -249,12 +251,11 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Required text prompt when no image is provided.
    * @param {{data: string, mimeType: string}[]} [params.images] - Optional array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration).
-   *                                   Note: resolution and durationSeconds are NOT supported for basic text/image-to-video.
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration, resolution, durationSeconds).
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideos({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
+  async generateVideos({ prompt, images, config = { numberOfVideos: 1 }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     const hasImages = Array.isArray(images) && images.length > 0;
     if (!hasImages && !prompt) throw new Error('Prompt is required when no image is provided');
@@ -283,12 +284,18 @@ export class VeoService {
       };
     }
 
+    // Determine correct personGeneration based on input type
+    const personGeneration = hasImages ? "allow_adult" : "allow_all";
+
     // Start operation (text-to-video when no image)
     let operation = await this.ai.models.generateVideos({
       model,
       prompt,
       ...(imageParam ? { image: imageParam } : {}),
-      config
+      config: {
+        ...config,
+        personGeneration
+      }
     });
 
     // Poll until complete
@@ -318,7 +325,7 @@ export class VeoService {
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { aspectRatio: '16:9', durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
+  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { aspectRatio: '16:9', durationSeconds: "8" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!prompt) throw new Error('Prompt is required');
     if (!Array.isArray(referenceImages) || referenceImages.length === 0 || referenceImages.length > 3) {
@@ -355,7 +362,8 @@ export class VeoService {
       config: {
         ...config,
         referenceImages: refImages,
-        durationSeconds: 8 // Required when using reference images
+        durationSeconds: "8", // Required when using reference images
+        personGeneration: "allow_adult" // Required for reference images
       }
     });
 
@@ -425,8 +433,10 @@ export class VeoService {
       prompt,
       video: videoParam,
       config: {
-        ...config
-        // Note: resolution parameter is not supported in Gemini API
+        ...config,
+        durationSeconds: "8", // Required for extension
+        resolution: "720p", // Required for extension
+        personGeneration: "allow_all" // Required for extension
       }
     });
 
@@ -456,7 +466,7 @@ export class VeoService {
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideosWithInterpolation({ prompt, firstFrame, lastFrame, config = { personGeneration: "allow_adult", durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
+  async generateVideosWithInterpolation({ prompt, firstFrame, lastFrame, config = { personGeneration: "allow_adult", durationSeconds: "8" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!prompt) throw new Error('Prompt is required');
     if (!firstFrame || !lastFrame) throw new Error('Both firstFrame and lastFrame are required');
@@ -492,7 +502,8 @@ export class VeoService {
       config: {
         ...config,
         lastFrame: lastFrameParam,
-        durationSeconds: 8 // Required for interpolation
+        durationSeconds: "8", // Required for interpolation
+        personGeneration: "allow_adult" // Required for interpolation
       }
     });
 
