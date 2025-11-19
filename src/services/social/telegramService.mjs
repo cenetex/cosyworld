@@ -2427,7 +2427,39 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
       const channelId = String(ctx.chat?.id || '');
       
-      for (const toolCall of toolCalls) {
+      // Check if plan_actions is present - if so, it takes precedence over direct action tools
+      // to avoid double execution (e.g. plan says "generate video" AND tool call says "generate video")
+      const hasPlan = toolCalls.some(tc => tc.function?.name === 'plan_actions');
+      
+      // Filter out redundant direct calls if a plan is present
+      const effectiveToolCalls = hasPlan 
+        ? toolCalls.filter(tc => {
+            const name = tc.function?.name;
+            // Keep plan_actions and informational tools
+            if (name === 'plan_actions' || name === 'get_token_stats' || name === 'research') return true;
+            // Filter out action tools that should be in the plan
+            if (['generate_image', 'generate_video', 'post_tweet', 'speak', 'wait'].includes(name)) {
+              this.logger?.info?.(`[TelegramService] Skipping direct ${name} call in favor of plan_actions`);
+              return false;
+            }
+            return true;
+          })
+        : toolCalls;
+
+      // Deduplicate tool calls to prevent double execution
+      const uniqueToolCalls = [];
+      const seenCalls = new Set();
+      for (const tc of effectiveToolCalls) {
+        const key = `${tc.function?.name}:${tc.function?.arguments}`;
+        if (!seenCalls.has(key)) {
+          seenCalls.add(key);
+          uniqueToolCalls.push(tc);
+        } else {
+          this.logger?.warn?.(`[TelegramService] Skipping duplicate tool call: ${tc.function?.name}`);
+        }
+      }
+
+      for (const toolCall of uniqueToolCalls) {
         const functionName = toolCall.function?.name;
         const args = typeof toolCall.function?.arguments === 'string' 
           ? JSON.parse(toolCall.function.arguments)
