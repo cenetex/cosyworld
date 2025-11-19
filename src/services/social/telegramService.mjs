@@ -2910,14 +2910,40 @@ Your caption:`;
       
       if (charDesign?.enabled && charDesign?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
          this.logger?.info?.('[TelegramService] Using character reference image for video generation');
-         videoUrls = await this.veoService.generateVideosWithReferenceImages({
-            prompt: enhancedPrompt,
-            referenceImages: [charDesign.referenceImageUrl],
-            config: {
-              numberOfVideos: 1,
-              aspectRatio: '16:9'
-            }
-         });
+         
+         try {
+           // Download and prepare reference image
+           const response = await fetch(charDesign.referenceImageUrl);
+           if (!response.ok) throw new Error(`Failed to fetch reference image: ${response.statusText}`);
+           
+           const arrayBuffer = await response.arrayBuffer();
+           const buffer = Buffer.from(arrayBuffer);
+           const base64Image = buffer.toString('base64');
+           const mimeType = response.headers.get('content-type') || 'image/png';
+
+           videoUrls = await this.veoService.generateVideosWithReferenceImages({
+              prompt: enhancedPrompt,
+              referenceImages: [{
+                data: base64Image,
+                mimeType: mimeType
+              }],
+              config: {
+                numberOfVideos: 1,
+                aspectRatio: '16:9'
+              }
+           });
+         } catch (err) {
+           this.logger?.warn?.('[TelegramService] Failed to use reference image, falling back to standard generation:', err);
+           // Fallback to standard generation
+           videoUrls = await this.veoService.generateVideos({
+              prompt: enhancedPrompt,
+              config: {
+                numberOfVideos: 1,
+                aspectRatio: '16:9',
+                durationSeconds: '8'
+              },
+           });
+         }
       } else {
           // Generate video (returns array of URLs)
           videoUrls = await this.veoService.generateVideos({
