@@ -770,6 +770,22 @@ export default {
     "topP": 0.95,
     "topK": 64,
     "maxTemperature": 2
+  },
+  {
+    "name": "models/gemini-3-pro-image-preview",
+    "version": "3-preview",
+    "displayName": "Gemini 3 Pro Image Preview",
+    "description": "Gemini 3 Pro Image Preview model for professional asset production and complex instructions.",
+    "inputTokenLimit": 1048576,
+    "outputTokenLimit": 65536,
+    "supportedGenerationMethods": [
+      "generateContent",
+      "countTokens"
+    ],
+    "temperature": 1,
+    "topP": 0.95,
+    "topK": 64,
+    "maxTemperature": 2
   }
 ]
 };

@@ -359,6 +359,7 @@ export class OpenRouterAIService {
       'HTTP-Referer': 'https://ratimics.com',
       'X-Title': 'cosyworld',
     };
+    this.provider = 'openrouter';
     this.openai = new OpenAI({
       apiKey: this.apiKey,
       baseURL: this.baseURL,

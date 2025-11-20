@@ -32,6 +32,7 @@ export class GoogleAIService {
       return;
     }
 
+    this.provider = 'google';
     this.googleAI = new GoogleGenerativeAI(this.apiKey);
     this.model = config.defaultModel || 'gemini-2.0-flash-001';
     this.structured_model = config.structuredModel || this.model;
@@ -524,9 +525,7 @@ export class GoogleAIService {
     delete options.guildId;
 
     let fullPrompt = prompt ? prompt.trim() : '';
-    if (aspectRatio) {
-      fullPrompt += `\nDesired aspect ratio: ${aspectRatio}`;
-    }
+    // Note: aspectRatio is now handled in imageConfig, not prompt
     if (avatar) {
       fullPrompt += `\nSubject: ${avatar.name || ''} ${avatar.emoji || ''}. Description: ${avatar.description || ''}`;
     }
@@ -548,19 +547,32 @@ export class GoogleAIService {
         attemptPrompt += `\nOnly respond with an image.`;
       }
       try {
-  const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
+        const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
         // Only include supported options for image generation
-  const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
-        const generationConfig = { temperature, maxOutputTokens, topP, topK, ...options };
+        const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
+        const generationConfig = { 
+          temperature, 
+          maxOutputTokens, 
+          topP, 
+          topK, 
+          ...options,
+          responseModalities: ['text', 'image'],
+        };
+        
+        // Add imageConfig if aspectRatio is present
+        if (aspectRatio) {
+          generationConfig.imageConfig = {
+            aspectRatio: aspectRatio
+          };
+        }
+
         // Remove penalty fields if present (always for image models)
         delete generationConfig.frequencyPenalty;
         delete generationConfig.presencePenalty;
+        
         const response = await generativeModel.generateContent({
           contents: [{ role: 'user', parts: [{ text: attemptPrompt }] }],
-          generationConfig: {
-            ...generationConfig,
-            responseModalities: ['text', 'image'],
-          },
+          generationConfig,
         });
         // Find the first image part
         for (const part of response.response.candidates?.[0]?.content?.parts || []) {
@@ -617,8 +629,8 @@ export class GoogleAIService {
   }
 
   /**
-   * Generate a composed image from up to 3 images (avatar, location, item) using Gemini's image editing.
-   * @param {object[]} images - Array of { data: base64, mimeType: string, label: string } (max 3).
+   * Generate a composed image from up to 14 images (avatar, location, item) using Gemini's image editing.
+   * @param {object[]} images - Array of { data: base64, mimeType: string, label: string } (max 14).
    * @param {string} prompt - Text prompt describing the desired composition.
    * @param {object} [options] - Optional config (model, etc).
    * @returns {Promise<string|null>} - base64 image string or null.
@@ -627,7 +639,7 @@ export class GoogleAIService {
     if (!this.googleAI) throw new Error("Google AI client not initialized.");
     if (!this.s3Service) throw new Error("s3Service not initialized.");
     if (!Array.isArray(images) || images.length === 0) throw new Error("At least one image is required");
-    if (images.length > 3) images = images.slice(0, 3); // Limit to 3 images
+    if (images.length > 14) images = images.slice(0, 14); // Limit to 14 images
     
     // Extract purpose for upload metadata and remove from generation config
     const uploadPurpose = options.purpose || 'general';
@@ -661,6 +673,7 @@ export class GoogleAIService {
       context: _context, 
       source: _source,
       prompt: _prompt, // Remove prompt from options if present
+      aspectRatio,
       ...genOptions 
     } = options;
     
@@ -677,7 +690,7 @@ export class GoogleAIService {
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-  const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-2.5-flash-image-preview' });
+        const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-3-pro-image-preview' });
         // Remove penalty fields and other unsupported fields (always for image models)
         // Only include valid generation config fields
         const validConfigFields = ['temperature', 'maxOutputTokens', 'topP', 'topK', 'responseModalities', 'candidateCount', 'stopSequences'];
@@ -689,6 +702,10 @@ export class GoogleAIService {
           responseModalities: ['text', 'image']
         };
         
+        if (aspectRatio) {
+            generationConfig.imageConfig = { aspectRatio };
+        }
+
         const response = await generativeModel.generateContent({
           contents: contents,
           generationConfig,

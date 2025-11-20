@@ -372,6 +372,10 @@ export default [
     "rarity": "uncommon"
   },
   {
+    "model": "google/gemini-3-pro-image-preview",
+    "rarity": "rare"
+  },
+  {
     "model": "google/gemini-2.5-flash-image",
     "rarity": "uncommon"
   },

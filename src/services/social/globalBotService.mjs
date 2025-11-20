@@ -21,6 +21,7 @@ export class GlobalBotService {
     avatarService, 
     memoryService, 
     aiService,
+    googleAIService,
     xService,
     logger = console 
   }) {
@@ -28,6 +29,7 @@ export class GlobalBotService {
     this.avatarService = avatarService;
     this.memoryService = memoryService;
     this.aiService = aiService;
+    this.googleAIService = googleAIService;
     this.xService = xService;
     this.logger = logger;
     this.botId = null;
@@ -971,7 +973,16 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       }
 
       // Call AI service
-      // Try aiService first (usually OpenRouter/Replicate)
+      // Prefer Google AI (Gemini 3 Pro) for global bot images if available
+      if (this.googleAIService?.generateImage) {
+        return await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
+          ...options,
+          source: 'global_bot',
+          context: enhancedPrompt
+        });
+      }
+
+      // Fallback to aiService (usually OpenRouter/Replicate)
       if (this.aiService?.generateImage) {
         return await this.aiService.generateImage(enhancedPrompt, referenceImages, {
           ...options,
