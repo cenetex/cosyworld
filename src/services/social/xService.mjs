@@ -745,10 +745,14 @@ class XService {
         return null;
       }
       const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
-      if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
-        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'invalid_media_url', mediaUrl };
-        this.logger?.warn?.('[XService][globalPost] Invalid mediaUrl');
-        _bump('invalid_media_url', { mediaUrl });
+      
+      // Allow text-only posts if mediaUrl is missing but text is present
+      const hasMedia = mediaUrl && /^https?:\/\//i.test(mediaUrl);
+      
+      if (!hasMedia && !text) {
+        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'invalid_content', mediaUrl };
+        this.logger?.warn?.('[XService][globalPost] No mediaUrl and no text provided');
+        _bump('invalid_content', { mediaUrl });
         return null;
       }
 
@@ -817,213 +821,218 @@ class XService {
       if (process.env.DEBUG_GLOBAL_X === '1') {
         this.logger?.debug?.('[XService][globalPost][diag] proceeding', { mediaUrl, isVideo: type === 'video', hourlyCount: this._globalRate.count });
       }
-      this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
-
-  const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-  const v2 = twitterClient.v2;
-
-      // Pre-flight validation: ensure token still valid; if 401 and we can refresh, attempt once.
-      let refreshed = false;
-      try {
-        await v2.me();
-      } catch (preErr) {
-        const unauthorized = preErr?.code === 401 || preErr?.status === 401 || /401/.test(preErr?.message || '');
-        if (unauthorized && authRecord?.refreshToken && authRecord?.avatarId) {
-          if (process.env.DEBUG_GLOBAL_X === '1') this.logger?.info?.('[XService][globalPost][diag] preflight unauthorized -> refresh attempt');
-          try {
-            const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
-            accessToken = newToken;
-            refreshed = true;
-          } catch (rErr) {
-            this.logger?.warn?.('[XService][globalPost] preflight token refresh failed: ' + rErr.message);
-          }
-        }
-      }
-      // If refreshed, rebuild clients
-      let workingClient = twitterClient;
-      if (refreshed) {
-        workingClient = new TwitterApi({ accessToken: accessToken.trim() });
-      }
-      const v2Active = workingClient.v2;
-      const isVideo = type === 'video';
-
-      // Try OAuth 1.0a first if available (required for media upload)
-      const oauth1Creds = await this._getOAuth1Credentials();
-      let mediaId;
-      let useOAuth1 = false;
-      let oauth1Client = null;
       
-      if (oauth1Creds) {
-        this.logger?.debug?.('[XService][globalPost] using OAuth 1.0a credentials for upload');
-        useOAuth1 = true;
-        oauth1Client = new TwitterApi({
-          appKey: oauth1Creds.apiKey,
-          appSecret: oauth1Creds.apiSecret,
-          accessToken: oauth1Creds.accessToken,
-          accessSecret: oauth1Creds.accessTokenSecret,
-        });
-      }
+      let mediaId = null;
+      let isVideo = type === 'video';
+      let accessToken = safeDecrypt(authRecord.accessToken);
 
-      // If attempting video with an OAuth2 PKCE token (no accessSecret present) we may hit v1 media upload auth limitations.
-      // However, if we have system-level OAuth 1.0a credentials (oauth1Creds), we can use those instead.
-      if (isVideo && authRecord && !authRecord.accessSecret && !useOAuth1) {
-        // If guild override was attempted, note explicitly
-        if (guildId) {
-          this.logger?.info?.('[XService][globalPost] skip: unsupported video for guild override (OAuth2 bearer; need OAuth1)', { mediaUrl, guildId });
-        } else {
-          this.logger?.info?.('[XService][globalPost] skip: unsupported video with OAuth2 bearer token (no accessSecret)', { mediaUrl });
-        }
-        this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'unsupported_video', mediaUrl, guildId: guildId || null };
-        try { this._globalPostMetrics.reasons.unsupported_video++; } catch {}
-        return null;
-      }
+      if (hasMedia) {
+        this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
 
-      // Fetch media
-      const res = await fetch(mediaUrl);
-      if (!res.ok) throw new Error(`media fetch failed ${res.status}`);
-      let buffer = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers.get('content-type');
-      let mimeType = contentType?.split(';')[0]?.trim();
-      
-      // Ensure mimeType has a valid fallback
-      if (!mimeType) {
-        mimeType = isVideo ? 'video/mp4' : 'image/png';
-        this.logger?.warn?.('[XService][globalPost] no content-type header, using fallback', { mimeType, mediaUrl });
-      }
-
-      // Process video if needed
-      if (isVideo) {
-        try {
-          buffer = await this._processVideoForX(buffer);
-          mimeType = 'video/mp4'; // Force mp4 after processing
-        } catch (processErr) {
-          this.logger?.warn?.('[XService][globalPost] Video processing failed, attempting upload with original buffer', processErr);
-        }
-      }
-
-      // Use proper v2 chunked upload: INIT -> APPEND -> FINALIZE (-> STATUS if needed)
-      // CRITICAL: X's upload endpoints work differently based on auth type:
-      // - OAuth 2.0 bearer tokens: Only work with twitter-api-v2 library's convenience methods (NOT raw API calls)
-      // - OAuth 1.0a: Works with both library methods and raw API calls
-      // The library handles the OAuth2 -> internal conversion magic
-      
-      if (useOAuth1 && oauth1Client) {
-        try {
-          mediaId = await oauth1Client.v1.uploadMedia(buffer, { mimeType });
-          this.logger?.debug?.('[XService][globalPost] OAuth 1.0a upload success', { mediaId });
-        } catch (oauth1Err) {
-          this.logger?.error?.('[XService][globalPost] OAuth 1.0a upload failed', {
-            message: oauth1Err?.message,
-            code: oauth1Err?.code
-          });
-          throw oauth1Err;
-        }
-      } else {
-        // Fallback to OAuth 2.0 (will likely fail for media upload)
-        this.logger?.warn?.('[XService][globalPost] No OAuth 1.0a credentials found, trying OAuth 2.0 (may fail)');
-        try {
-        // IMPORTANT: Must pass accessToken as an object { accessToken } not a string
         const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-        const clientV2 = twitterClient.v2;
-        
-        if (isVideo) {
-          this.logger?.debug?.('[XService][globalPost] uploading video via library v1', { mimeType, bufferSize: buffer.length });
-          mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
-        } else {
-          this.logger?.debug?.('[XService][globalPost] uploading image via library v2', { mimeType, bufferSize: buffer.length });
-          // Use the same pattern as postImageToX which works with OAuth2
-          mediaId = await clientV2.uploadMedia(buffer, {
-            media_category: 'tweet_image',
-            media_type: mimeType,
-          });
-        }
-        this.logger?.debug?.('[XService][globalPost] upload success', { mediaId });
-        } catch (uploadErr) {
-          // Log detailed error information for debugging
-          this.logger?.error?.('[XService][globalPost] media upload error details', {
-          message: uploadErr?.message,
-          code: uploadErr?.code,
-          status: uploadErr?.status,
-          data: uploadErr?.data,
-          errors: uploadErr?.data?.errors,
-          type: uploadErr?.type,
-          stack: uploadErr?.stack?.split('\n')[0]
-        });
-        
-        const code = uploadErr?.code || uploadErr?.status || uploadErr?.data?.errors?.[0]?.code;
-        if (code === 215) {
-          this.logger?.error?.('[XService][globalPost] media upload auth error (code 215). Likely unsupported auth method for this media type.', { hint: 'Use OAuth1.0a credentials for video or restrict to images.' });
-          try {
-            const db = await this.databaseService.getDatabase();
-            await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'media_upload_bad_auth', lastErrorAt: new Date() } });
-          } catch {}
-        } else if (code === 401) {
-          // Unauthorized during media upload. Most common cause: missing media.write scope or revoked token.
-          this.logger?.error?.('[XService][globalPost] media upload 401 Unauthorized. Likely causes: missing media.write scope or revoked/expired token.', { hint: 'Re-authorize admin X account via /admin (Connect) to grant media.write scope.' });
-          // Persist a hint for admin UIs
-          try {
-            const db = await this.databaseService.getDatabase();
-            await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'unauthorized_media_upload', lastErrorAt: new Date() } });
-          } catch {}
-          // Attempt a one-time refresh + retry if we have a refreshToken (PKCE OAuth2) and avatarId present
-          if (authRecord?.refreshToken && authRecord?.avatarId) {
+        const v2 = twitterClient.v2;
+
+        // Pre-flight validation: ensure token still valid; if 401 and we can refresh, attempt once.
+        let refreshed = false;
+        try {
+          await v2.me();
+        } catch (preErr) {
+          const unauthorized = preErr?.code === 401 || preErr?.status === 401 || /401/.test(preErr?.message || '');
+          if (unauthorized && authRecord?.refreshToken && authRecord?.avatarId) {
+            if (process.env.DEBUG_GLOBAL_X === '1') this.logger?.info?.('[XService][globalPost][diag] preflight unauthorized -> refresh attempt');
             try {
               const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
               accessToken = newToken;
-              this.logger?.debug?.('[XService][globalPost] retrying media upload after refresh');
-              const retryTwitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-              const retryClientV2 = retryTwitterClient.v2;
-              if (isVideo) {
-                mediaId = await retryTwitterClient.v1.uploadMedia(buffer, { mimeType });
-              } else {
-                // Use v2 for images, same as postImageToX
-                mediaId = await retryClientV2.uploadMedia(buffer, {
-                  media_category: 'tweet_image',
-                  media_type: mimeType,
-                });
-              }
-            } catch (retryErr) {
-              this.logger?.error?.('[XService][globalPost] media upload retry failed after refresh', retryErr?.message || retryErr);
-              throw retryErr;
+              refreshed = true;
+            } catch (rErr) {
+              this.logger?.warn?.('[XService][globalPost] preflight token refresh failed: ' + rErr.message);
             }
+          }
+        }
+        // If refreshed, rebuild clients
+        let workingClient = twitterClient;
+        if (refreshed) {
+          workingClient = new TwitterApi({ accessToken: accessToken.trim() });
+        }
+        const v2Active = workingClient.v2;
+
+        // Try OAuth 1.0a first if available (required for media upload)
+        const oauth1Creds = await this._getOAuth1Credentials();
+        let useOAuth1 = false;
+        let oauth1Client = null;
+        
+        if (oauth1Creds) {
+          this.logger?.debug?.('[XService][globalPost] using OAuth 1.0a credentials for upload');
+          useOAuth1 = true;
+          oauth1Client = new TwitterApi({
+            appKey: oauth1Creds.apiKey,
+            appSecret: oauth1Creds.apiSecret,
+            accessToken: oauth1Creds.accessToken,
+            accessSecret: oauth1Creds.accessTokenSecret,
+          });
+        }
+
+        // If attempting video with an OAuth2 PKCE token (no accessSecret present) we may hit v1 media upload auth limitations.
+        // However, if we have system-level OAuth 1.0a credentials (oauth1Creds), we can use those instead.
+        if (isVideo && authRecord && !authRecord.accessSecret && !useOAuth1) {
+          // If guild override was attempted, note explicitly
+          if (guildId) {
+            this.logger?.info?.('[XService][globalPost] skip: unsupported video for guild override (OAuth2 bearer; need OAuth1)', { mediaUrl, guildId });
           } else {
-            throw uploadErr;
+            this.logger?.info?.('[XService][globalPost] skip: unsupported video with OAuth2 bearer token (no accessSecret)', { mediaUrl });
+          }
+          this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'unsupported_video', mediaUrl, guildId: guildId || null };
+          try { this._globalPostMetrics.reasons.unsupported_video++; } catch {}
+          return null;
+        }
+
+        // Fetch media
+        const res = await fetch(mediaUrl);
+        if (!res.ok) throw new Error(`media fetch failed ${res.status}`);
+        let buffer = Buffer.from(await res.arrayBuffer());
+        const contentType = res.headers.get('content-type');
+        let mimeType = contentType?.split(';')[0]?.trim();
+        
+        // Ensure mimeType has a valid fallback
+        if (!mimeType) {
+          mimeType = isVideo ? 'video/mp4' : 'image/png';
+          this.logger?.warn?.('[XService][globalPost] no content-type header, using fallback', { mimeType, mediaUrl });
+        }
+
+        // Process video if needed
+        if (isVideo) {
+          try {
+            buffer = await this._processVideoForX(buffer);
+            mimeType = 'video/mp4'; // Force mp4 after processing
+          } catch (processErr) {
+            this.logger?.warn?.('[XService][globalPost] Video processing failed, attempting upload with original buffer', processErr);
+          }
+        }
+
+        // Use proper v2 chunked upload: INIT -> APPEND -> FINALIZE (-> STATUS if needed)
+        // CRITICAL: X's upload endpoints work differently based on auth type:
+        // - OAuth 2.0 bearer tokens: Only work with twitter-api-v2 library's convenience methods (NOT raw API calls)
+        // - OAuth 1.0a: Works with both library methods and raw API calls
+        // The library handles the OAuth2 -> internal conversion magic
+        
+        if (useOAuth1 && oauth1Client) {
+          try {
+            mediaId = await oauth1Client.v1.uploadMedia(buffer, { mimeType });
+            this.logger?.debug?.('[XService][globalPost] OAuth 1.0a upload success', { mediaId });
+          } catch (oauth1Err) {
+            this.logger?.error?.('[XService][globalPost] OAuth 1.0a upload failed', {
+              message: oauth1Err?.message,
+              code: oauth1Err?.code
+            });
+            throw oauth1Err;
           }
         } else {
-          this.logger?.error?.('[XService][globalPost] media upload failed', uploadErr?.message || uploadErr);
-        }
-        throw uploadErr;
-        }
-      }
-      
-      if (!mediaId) throw new Error('upload failed');
-
-      // Alt text (images only)
-      let altText = rawAlt;
-      if (!altText && !isVideo && services.aiService?.analyzeImage) {
-        try {
-          altText = await services.aiService.analyzeImage(mediaUrl, mimeType, 'Provide concise accessible alt text (<=240 chars).');
-          if (altText) altText = String(altText).slice(0, 1000);
-        } catch (e) { this.logger?.warn?.(`[XService][globalPost] alt generation failed: ${e.message}`); }
-      }
-      if (altText && !isVideo) {
-        try {
-          // Use OAuth 1.0a client if available, otherwise OAuth 2.0
-          const metadataClient = useOAuth1 && oauth1Client ? oauth1Client.v2 : v2Active;
-          // Twitter API requires alt_text to be wrapped in an object with a 'text' property
-          await metadataClient.createMediaMetadata(mediaId, { 
-            alt_text: { 
-              text: altText.slice(0, 1000) 
-            } 
+          // Fallback to OAuth 2.0 (will likely fail for media upload)
+          this.logger?.warn?.('[XService][globalPost] No OAuth 1.0a credentials found, trying OAuth 2.0 (may fail)');
+          try {
+          // IMPORTANT: Must pass accessToken as an object { accessToken } not a string
+          const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+          const clientV2 = twitterClient.v2;
+          
+          if (isVideo) {
+            this.logger?.debug?.('[XService][globalPost] uploading video via library v1', { mimeType, bufferSize: buffer.length });
+            mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
+          } else {
+            this.logger?.debug?.('[XService][globalPost] uploading image via library v2', { mimeType, bufferSize: buffer.length });
+            // Use the same pattern as postImageToX which works with OAuth2
+            mediaId = await clientV2.uploadMedia(buffer, {
+              media_category: 'tweet_image',
+              media_type: mimeType,
+            });
+          }
+          this.logger?.debug?.('[XService][globalPost] upload success', { mediaId });
+          } catch (uploadErr) {
+            // Log detailed error information for debugging
+            this.logger?.error?.('[XService][globalPost] media upload error details', {
+            message: uploadErr?.message,
+            code: uploadErr?.code,
+            status: uploadErr?.status,
+            data: uploadErr?.data,
+            errors: uploadErr?.data?.errors,
+            type: uploadErr?.type,
+            stack: uploadErr?.stack?.split('\n')[0]
           });
-        } catch (e) {
-          this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`);
+          
+          const code = uploadErr?.code || uploadErr?.status || uploadErr?.data?.errors?.[0]?.code;
+          if (code === 215) {
+            this.logger?.error?.('[XService][globalPost] media upload auth error (code 215). Likely unsupported auth method for this media type.', { hint: 'Use OAuth1.0a credentials for video or restrict to images.' });
+            try {
+              const db = await this.databaseService.getDatabase();
+              await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'media_upload_bad_auth', lastErrorAt: new Date() } });
+            } catch {}
+          } else if (code === 401) {
+            // Unauthorized during media upload. Most common cause: missing media.write scope or revoked token.
+            this.logger?.error?.('[XService][globalPost] media upload 401 Unauthorized. Likely causes: missing media.write scope or revoked/expired token.', { hint: 'Re-authorize admin X account via /admin (Connect) to grant media.write scope.' });
+            // Persist a hint for admin UIs
+            try {
+              const db = await this.databaseService.getDatabase();
+              await db.collection('x_auth').updateOne({ _id: authRecord?._id }, { $set: { error: 'unauthorized_media_upload', lastErrorAt: new Date() } });
+            } catch {}
+            // Attempt a one-time refresh + retry if we have a refreshToken (PKCE OAuth2) and avatarId present
+            if (authRecord?.refreshToken && authRecord?.avatarId) {
+              try {
+                const { accessToken: newToken } = await this.refreshAccessToken(authRecord);
+                accessToken = newToken;
+                this.logger?.debug?.('[XService][globalPost] retrying media upload after refresh');
+                const retryTwitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+                const retryClientV2 = retryTwitterClient.v2;
+                if (isVideo) {
+                  mediaId = await retryTwitterClient.v1.uploadMedia(buffer, { mimeType });
+                } else {
+                  // Use v2 for images, same as postImageToX
+                  mediaId = await retryClientV2.uploadMedia(buffer, {
+                    media_category: 'tweet_image',
+                    media_type: mimeType,
+                  });
+                }
+              } catch (retryErr) {
+                this.logger?.error?.('[XService][globalPost] media upload retry failed after refresh', retryErr?.message || retryErr);
+                throw retryErr;
+              }
+            } else {
+              throw uploadErr;
+            }
+          } else {
+            this.logger?.error?.('[XService][globalPost] media upload failed', uploadErr?.message || uploadErr);
+          }
+          throw uploadErr;
+          }
+        }
+        
+        if (!mediaId) throw new Error('upload failed');
+
+        // Alt text (images only)
+        let altText = rawAlt;
+        if (!altText && !isVideo && services.aiService?.analyzeImage) {
+          try {
+            altText = await services.aiService.analyzeImage(mediaUrl, mimeType, 'Provide concise accessible alt text (<=240 chars).');
+            if (altText) altText = String(altText).slice(0, 1000);
+          } catch (e) { this.logger?.warn?.(`[XService][globalPost] alt generation failed: ${e.message}`); }
+        }
+        if (altText && !isVideo) {
+          try {
+            // Use OAuth 1.0a client if available, otherwise OAuth 2.0
+            const metadataClient = useOAuth1 && oauth1Client ? oauth1Client.v2 : v2Active;
+            // Twitter API requires alt_text to be wrapped in an object with a 'text' property
+            await metadataClient.createMediaMetadata(mediaId, { 
+              alt_text: { 
+                text: altText.slice(0, 1000) 
+              } 
+            });
+          } catch (e) {
+            this.logger?.warn?.(`[XService][globalPost] set alt text failed: ${e.message}`);
+          }
         }
       }
 
       // Caption generation: if no text provided, attempt AI caption (image/video aware)
       let baseText = String(text || '').trim();
-      if (!baseText && services.aiService?.analyzeImage && !isVideo) {
+      if (!baseText && hasMedia && services.aiService?.analyzeImage && !isVideo) {
         try {
           // Use context-aware prompts based on source and available data
           let captionPrompt;
@@ -1047,7 +1056,7 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
           
           const caption = await services.aiService.analyzeImage(
             mediaUrl,
-            mimeType,
+            'image/png', // Default if we don't have it handy here, or pass mimeType from above if we refactor
             captionPrompt
           );
           if (caption) baseText = String(caption).replace(/[#\n\r]+/g, ' ').trim();
@@ -1059,12 +1068,12 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
       }
       
       // If we have text but it looks like a simple description, enhance it with AI
-      if (baseText && baseText.length < 100 && services.aiService?.analyzeImage && !isVideo && opts.source !== 'avatar.create') {
+      if (baseText && baseText.length < 100 && hasMedia && services.aiService?.analyzeImage && !isVideo && opts.source !== 'avatar.create') {
         try {
           this.logger?.debug?.('[XService][globalPost] enhancing short text with AI analysis');
           const enhancement = await services.aiService.analyzeImage(
             mediaUrl,
-            mimeType,
+            'image/png',
             `The image context is: "${baseText}". Create an engaging tweet (max 250 chars) that expands on this context. Make it interesting and share-worthy. Use a natural, conversational tone. No extra hashtags or quotes.`
           );
           if (enhancement) baseText = String(enhancement).replace(/[#\n\r]+/g, ' ').trim();
@@ -1107,14 +1116,14 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
         } else {
           // No good sentence boundary found, try to regenerate with strict length limit
           this.logger?.debug?.('[XService][globalPost] no sentence boundary found, attempting regeneration');
-          if (services.aiService?.analyzeImage && !isVideo) {
+          if (hasMedia && services.aiService?.analyzeImage && !isVideo) {
             try {
               const regeneratePrompt = `Previous tweet was too long. Create a concise, engaging tweet about this image (MAX 250 chars including spaces). 
 Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characters total.`;
               
               const newCaption = await services.aiService.analyzeImage(
                 mediaUrl,
-                mimeType,
+                'image/png',
                 regeneratePrompt
               );
               
@@ -1161,11 +1170,21 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         tweetText = tweetText.slice(0, 280);
       }
       
-      const payload = isVideo ? { text: tweetText, media: { media_ids: [mediaId] } } : { text: tweetText, media: { media_ids: [mediaId] } };
+      const payload = mediaId 
+        ? { text: tweetText, media: { media_ids: [mediaId] } } 
+        : { text: tweetText };
+        
       let tweet;
       const sendTweet = async () => {
         // Use OAuth 1.0a client if we have it, otherwise fall back to OAuth 2.0
-        if (useOAuth1 && oauth1Client) {
+        const oauth1Creds = await this._getOAuth1Credentials();
+        if (oauth1Creds) {
+          const oauth1Client = new TwitterApi({
+            appKey: oauth1Creds.apiKey,
+            appSecret: oauth1Creds.apiSecret,
+            accessToken: oauth1Creds.accessToken,
+            accessSecret: oauth1Creds.accessTokenSecret,
+          });
           this.logger?.debug?.('[XService][globalPost] posting tweet with OAuth 1.0a');
           return oauth1Client.v2.tweet(payload);
         } else {

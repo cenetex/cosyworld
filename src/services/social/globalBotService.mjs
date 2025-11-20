@@ -46,7 +46,8 @@ export class GlobalBotService {
       universeName,
       maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
       preferredHashtags: [universeName],
-      systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
+      xPostStyle: "Use a warm, engaging narrator voice. Be concise but descriptive. No hashtags in the body, only at the end if needed. Avoid corporate speak.",
+      systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nStyle Guide for X (Twitter):\n{{xPostStyle}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
       avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
       locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
       scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`,
@@ -214,7 +215,7 @@ export class GlobalBotService {
       
       // Get system prompt template from config
       const systemPromptTemplate = this.bot.globalBotConfig?.systemPromptTemplate || 
-        `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
+        `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nStyle Guide for X (Twitter):\n{{xPostStyle}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
       
       const systemPrompt = fillTemplate(systemPromptTemplate, {
         botName: this.bot.name,
@@ -222,7 +223,8 @@ export class GlobalBotService {
         universeName: universeName,
         personality: this.bot.personality,
         dynamicPrompt: this.bot.dynamicPrompt || '',
-        memories: memoryText || 'Just starting my journey as narrator.'
+        memories: memoryText || 'Just starting my journey as narrator.',
+        xPostStyle: this.bot.globalBotConfig?.xPostStyle || 'Use a warm, engaging narrator voice. Be concise.'
       });
 
       let userPrompt;
