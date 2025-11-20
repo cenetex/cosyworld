@@ -824,7 +824,11 @@ class XService {
       
       let mediaId = null;
       let isVideo = type === 'video';
-      let accessToken = safeDecrypt(authRecord.accessToken);
+      accessToken = safeDecrypt(authRecord.accessToken);
+
+      let refreshed = false;
+      let altText = null;
+      let v2Active = null;
 
       if (hasMedia) {
         this.logger?.debug?.('[XService][globalPost] proceeding to fetch media');
@@ -833,7 +837,7 @@ class XService {
         const v2 = twitterClient.v2;
 
         // Pre-flight validation: ensure token still valid; if 401 and we can refresh, attempt once.
-        let refreshed = false;
+        refreshed = false;
         try {
           await v2.me();
         } catch (preErr) {
@@ -854,7 +858,7 @@ class XService {
         if (refreshed) {
           workingClient = new TwitterApi({ accessToken: accessToken.trim() });
         }
-        const v2Active = workingClient.v2;
+        v2Active = workingClient.v2;
 
         // Try OAuth 1.0a first if available (required for media upload)
         const oauth1Creds = await this._getOAuth1Credentials();
@@ -1007,7 +1011,7 @@ class XService {
         if (!mediaId) throw new Error('upload failed');
 
         // Alt text (images only)
-        let altText = rawAlt;
+        altText = rawAlt;
         if (!altText && !isVideo && services.aiService?.analyzeImage) {
           try {
             altText = await services.aiService.analyzeImage(mediaUrl, mimeType, 'Provide concise accessible alt text (<=240 chars).');
@@ -1335,7 +1339,13 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
 
       // Attempt to derive username from token (extra call). Cache once.
       if (!this._globalUser) {
-        try { const me = await v2Active.me(); this._globalUser = me?.data?.username || 'user'; } catch { this._globalUser = 'user'; }
+        try { 
+          if (!v2Active) {
+            v2Active = new TwitterApi({ accessToken: accessToken.trim() }).v2;
+          }
+          const me = await v2Active.me(); 
+          this._globalUser = me?.data?.username || 'user'; 
+        } catch { this._globalUser = 'user'; }
       }
       const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };
