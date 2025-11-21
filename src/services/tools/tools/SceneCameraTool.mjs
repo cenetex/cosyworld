@@ -96,8 +96,50 @@ export class SceneCameraTool extends BasicTool {
 
       const subjectLine = list.map(a => `${a.name || 'Unknown'} ${a.emoji || ''}`.trim()).join(', ');
       const locLine = location ? `${location.name || 'Unknown Location'}` : 'Unknown Location';
+
+      // Enhance scene description using LLM for better composition
+      let enhancedSceneDescription = '';
+      try {
+        const avatarDetails = list.map(a => `- ${a.name} (${a.emoji}): ${a.description || 'No description'}`).join('\n');
+        const locationDetails = location ? `${location.name}: ${location.description || ''}` : 'Unknown Location';
+        
+        const scenePrompt = `
+You are a cinematic director. Compose a visual scene description for an image generator.
+Context:
+Location: ${locationDetails}
+Characters present:
+${avatarDetails}
+
+User Request: "${userPrompt || 'A candid moment'}"
+
+Instructions:
+- Describe the scene visually.
+- Position the characters naturally within the location.
+- Describe their actions or interactions based on their personalities.
+- Keep it under 100 words.
+- Focus on lighting, mood, and composition.
+- Do not include "Here is a description" or similar meta-text. Just the description.
+`.trim();
+
+        let response;
+        if (this.googleAIService) {
+             response = await this.googleAIService.chat([
+                { role: 'user', content: scenePrompt }
+            ], { model: 'gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
+        } else {
+             response = await this.aiService.chat([
+                { role: 'user', content: scenePrompt }
+            ], { model: 'google/gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
+        }
+        
+        enhancedSceneDescription = typeof response === 'string' ? response : response?.text || '';
+      } catch (e) {
+        this.logger?.warn?.(`[SceneCamera] LLM enhancement failed: ${e.message}`);
+        enhancedSceneDescription = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`;
+      }
+
       const style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
-      const compositePrompt = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`.trim();
+      const compositePrompt = `${enhancedSceneDescription}. ${style}`.trim();
 
       // Build metadata for social media posts
       const metadata = {
