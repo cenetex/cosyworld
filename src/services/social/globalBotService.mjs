@@ -950,6 +950,16 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       let enhancedPrompt = prompt;
       const referenceImages = [];
 
+      // 0. Apply Director Mode (LLM Scene Composition) if requested
+      if (options.enhanceWithDirector) {
+        enhancedPrompt = await this.composeSceneDescription(prompt, {
+          avatars: options.avatars || [],
+          location: options.location || null,
+          additionalContext: options.context || ''
+        });
+        this.logger?.info?.('[GlobalBotService] Enhanced prompt with Director Mode:', { original: prompt, enhanced: enhancedPrompt });
+      }
+
       // Apply character design if enabled
       if (charDesign.enabled) {
         // 1. Apply prompt prefix
@@ -995,6 +1005,61 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
     } catch (err) {
       this.logger?.error?.(`[GlobalBotService] generateImage error: ${err.message}`);
       throw err;
+    }
+  }
+
+  /**
+   * Compose a cinematic scene description using an LLM (Director Mode)
+   * @param {string} userPrompt - The user's request or base prompt
+   * @param {Object} context - Context for the scene
+   * @param {Array} context.avatars - List of avatars present
+   * @param {Object} context.location - Location details
+   * @returns {Promise<string>} - Enhanced scene description
+   */
+  async composeSceneDescription(userPrompt, context = {}) {
+    try {
+      const avatars = context.avatars || [];
+      const location = context.location || null;
+      const additionalContext = context.additionalContext || '';
+      
+      const avatarDetails = avatars.map(a => `- ${a.name} (${a.emoji}): ${a.description || 'No description'}`).join('\n');
+      const locationDetails = location ? `${location.name}: ${location.description || ''}` : 'Unknown Location';
+      
+      const scenePrompt = `
+You are a cinematic director. Compose a visual scene description for an image generator.
+Context:
+Location: ${locationDetails}
+Characters present:
+${avatarDetails}
+${additionalContext ? `Additional Context:\n${additionalContext}` : ''}
+
+User Request: "${userPrompt || 'A candid moment'}"
+
+Instructions:
+- Describe the scene visually.
+- Position the characters naturally within the location.
+- Describe their actions or interactions based on their personalities.
+- Keep it under 100 words.
+- Focus on lighting, mood, and composition.
+- Do not include "Here is a description" or similar meta-text. Just the description.
+`.trim();
+
+      let response;
+      // Prefer Google AI for text generation if available (fast & capable)
+      if (this.googleAIService) {
+           response = await this.googleAIService.chat([
+              { role: 'user', content: scenePrompt }
+          ], { model: 'gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
+      } else if (this.aiService) {
+           response = await this.aiService.chat([
+              { role: 'user', content: scenePrompt }
+          ], { model: 'google/gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
+      }
+      
+      return typeof response === 'string' ? response : response?.text || userPrompt;
+    } catch (e) {
+      this.logger?.warn?.(`[GlobalBotService] Scene composition failed: ${e.message}`);
+      return userPrompt;
     }
   }
 }

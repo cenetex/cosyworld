@@ -2811,7 +2811,9 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
         try {
           imageUrl = await this.globalBotService.generateImage(prompt, {
             source: 'telegram.user_request',
-            purpose: 'user_generated'
+            purpose: 'user_generated',
+            enhanceWithDirector: true,
+            context: conversationContext
           });
         } catch (err) {
           this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
