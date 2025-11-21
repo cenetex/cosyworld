@@ -17,6 +17,7 @@ export class SceneCameraTool extends BasicTool {
     s3Service,
     locationService,
     avatarService,
+    databaseService,
     logger
   }) {
     super();
@@ -31,6 +32,7 @@ export class SceneCameraTool extends BasicTool {
     this.s3Service = s3Service;
     this.locationService = locationService;
     this.avatarService = avatarService;
+    this.databaseService = databaseService;
     this.logger = logger || console;
   }
 
@@ -138,7 +140,21 @@ Instructions:
         enhancedSceneDescription = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`;
       }
 
-      const style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
+      let style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
+      
+      // Override style from guild config if available
+      if (guildId && this.databaseService) {
+        try {
+          const db = await this.databaseService.getDatabase();
+          const guildConfig = await db.collection('guild_configs').findOne({ guildId: guildId });
+          if (guildConfig?.cameraStyle) {
+            style = guildConfig.cameraStyle;
+          }
+        } catch (e) {
+          this.logger?.warn?.(`[SceneCamera] Failed to fetch guild config: ${e.message}`);
+        }
+      }
+
       const compositePrompt = `${enhancedSceneDescription}. ${style}`.trim();
 
       // Build metadata for social media posts

@@ -203,6 +203,9 @@ function populateGuildForm(guildConfig = {}) {
   const breedPrompt = document.getElementById('breed-prompt');
   if (breedPrompt) breedPrompt.value = prompts.breed || '';
 
+  const cameraStylePrompt = document.getElementById('camera-style-prompt');
+  if (cameraStylePrompt) cameraStylePrompt.value = resolvedConfig.cameraStyle || '';
+
   const tribeConfig = resolvedConfig.avatarTribeRestrictions || {};
   const defaultRestrictions = tribeConfig.default || {};
   const tribeMode = document.getElementById('avatar-tribe-mode');
@@ -275,6 +278,7 @@ function collectGuildFormData() {
       defend: (document.getElementById('defend-prompt')?.value || '').trim(),
       breed: (document.getElementById('breed-prompt')?.value || '').trim()
     },
+    cameraStyle: (document.getElementById('camera-style-prompt')?.value || '').trim(),
     viewDetailsEnabled: !!document.getElementById('feature-view-details')?.checked,
     avatarTribeRestrictions: {
       default: {
