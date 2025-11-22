@@ -237,6 +237,7 @@ async function initializeApp(services) {
     logger.warn('[Web] Failed to register story public routes:', e.message);
   }
   
+  app.use('/api/config', (await import('./routes/config.js')).default(services));
   app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
   app.use('/api/payment', (await import('./routes/payment.js')).default(services));

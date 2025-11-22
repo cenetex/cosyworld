@@ -29,9 +29,14 @@ function normalizeNotificationPrefs(raw = {}) {
   };
 }
 
+const GLOBAL_SCOPE_ID = 'global';
 let selectedGuildId = '';
 let guildListData = [];
 let selectedGuildMeta = null; // { id, name, authorized, iconUrl }
+
+function isGlobalScope() {
+  return !selectedGuildId;
+}
 
 const DEFAULT_WALLET_AVATAR_PREFS = {
   createFullAvatar: false,
@@ -131,19 +136,34 @@ function populateGuildForm(guildConfig = {}) {
   const form = document.getElementById('guild-settings-form');
   if (!form) return;
   const resolvedConfig = guildConfig || {};
+  const editingGlobal = isGlobalScope();
+  document.getElementById('guild-basic-section')?.classList.toggle('hidden', editingGlobal);
   const guildIdInput = document.getElementById('guild-id');
-  if (guildIdInput) guildIdInput.value = resolvedConfig.guildId || resolvedConfig.id || selectedGuildId || '';
+  if (guildIdInput) {
+    guildIdInput.value = editingGlobal ? GLOBAL_SCOPE_ID : (resolvedConfig.guildId || resolvedConfig.id || selectedGuildId || '');
+    guildIdInput.disabled = editingGlobal;
+  }
   const guildNameInput = document.getElementById('guild-name');
-  if (guildNameInput) guildNameInput.value = resolvedConfig.guildName || resolvedConfig.name || '';
+  if (guildNameInput) {
+    guildNameInput.value = resolvedConfig.guildName || resolvedConfig.name || (editingGlobal ? 'Global Defaults' : '');
+    guildNameInput.disabled = editingGlobal;
+  }
   const summonerRoleInput = document.getElementById('summoner-role');
-  if (summonerRoleInput) summonerRoleInput.value = resolvedConfig.summonerRole || '';
+  if (summonerRoleInput) {
+    summonerRoleInput.value = resolvedConfig.summonerRole || '';
+    summonerRoleInput.disabled = editingGlobal;
+  }
   const adminRolesInput = document.getElementById('admin-roles');
   if (adminRolesInput) {
     const roles = Array.isArray(resolvedConfig.adminRoles) ? resolvedConfig.adminRoles : [];
     adminRolesInput.value = roles.join(', ');
+    adminRolesInput.disabled = editingGlobal;
   }
   const authorizedCheckbox = document.getElementById('guild-authorized');
-  if (authorizedCheckbox) authorizedCheckbox.checked = !!resolvedConfig.authorized;
+  if (authorizedCheckbox) {
+    authorizedCheckbox.checked = editingGlobal ? true : !!resolvedConfig.authorized;
+    authorizedCheckbox.disabled = editingGlobal;
+  }
 
   const rateLimiting = resolvedConfig.rateLimiting || {};
   const rateMessagesInput = document.getElementById('rate-limit-messages');
@@ -152,7 +172,9 @@ function populateGuildForm(guildConfig = {}) {
   if (rateIntervalInput) rateIntervalInput.value = rateLimiting.interval ?? 60;
   const rateLimitEnabledCheckbox = document.getElementById('rate-limit-enabled');
   const rateEnabled = rateLimiting.enabled !== false;
-  if (rateLimitEnabledCheckbox) rateLimitEnabledCheckbox.checked = rateEnabled;
+  if (rateLimitEnabledCheckbox) {
+    rateLimitEnabledCheckbox.checked = rateEnabled;
+  }
   setRateLimitInputsState(rateEnabled);
 
   const toolEmojis = resolvedConfig.toolEmojis || {};
@@ -228,7 +250,7 @@ function populateGuildForm(guildConfig = {}) {
 }
 
 function collectGuildFormData() {
-  const guildId = (document.getElementById('guild-id')?.value || '').trim();
+  const guildId = (document.getElementById('guild-id')?.value || selectedGuildId || GLOBAL_SCOPE_ID).trim();
   const guildName = (document.getElementById('guild-name')?.value || '').trim();
   const summonerRole = (document.getElementById('summoner-role')?.value || '').trim();
   const summonEmoji = (document.getElementById('tool-emoji-summon')?.value || '').trim();
@@ -311,12 +333,42 @@ function collectGuildFormData() {
 
 async function saveSelectedGuildSettings(event) {
   event?.preventDefault();
+  const form = document.getElementById('guild-settings-form');
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  const editingGlobal = isGlobalScope();
+
+  if (editingGlobal) {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.dataset.originalText = submitBtn.dataset.originalText || submitBtn.textContent || 'Save Settings';
+      submitBtn.textContent = 'Saving...';
+    }
+    try {
+      showGuildConfigMessage('Saving global defaults...', 'info');
+      const payload = collectGuildFormData();
+      payload.guildId = GLOBAL_SCOPE_ID;
+      payload.name = payload.name || 'Global Defaults';
+      payload.guildName = payload.guildName || payload.name;
+      await fetchJSON('/api/config/global', { method: 'PUT', body: payload });
+      showGuildConfigMessage('Global defaults saved successfully.', 'success');
+      await loadGuildConfiguration();
+    } catch (err) {
+      console.error('Failed to save global defaults:', err);
+      showGuildConfigMessage(err?.message || 'Failed to save global defaults.', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitBtn.dataset.originalText || 'Save Settings';
+      }
+    }
+    return;
+  }
+
   if (!selectedGuildId) {
     showGuildConfigMessage('Select a Discord server before saving.', 'error');
     return;
   }
-  const form = document.getElementById('guild-settings-form');
-  const submitBtn = form?.querySelector('button[type="submit"]');
+
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.dataset.originalText = submitBtn.dataset.originalText || submitBtn.textContent || 'Save Settings';
@@ -326,34 +378,27 @@ async function saveSelectedGuildSettings(event) {
   try {
     showGuildConfigMessage('Requesting signature to verify changes...', 'info');
     const payload = collectGuildFormData();
-    
-    // Create a message that includes guild ID and timestamp for signature
     const timestamp = Date.now();
     const message = `Save settings for guild ${selectedGuildId} at ${timestamp}`;
-    
-    // Request wallet signature
+
     let signatureData;
     try {
       signatureData = await signMessage(message);
     } catch (signError) {
-      // Handle user rejection or wallet not connected
-      const errorMsg = signError.message.includes('User rejected') 
-        ? 'Signature request was rejected.' 
+      const errorMsg = signError.message.includes('User rejected')
+        ? 'Signature request was rejected.'
         : signError.message.includes('Wallet not connected')
-        ? 'Please connect your wallet to save settings.'
-        : `Signature failed: ${signError.message}`;
+          ? 'Please connect your wallet to save settings.'
+          : `Signature failed: ${signError.message}`;
       showGuildConfigMessage(errorMsg, 'error');
       return;
     }
 
-    // Update button text after signature obtained
     if (submitBtn) {
       submitBtn.textContent = 'Saving...';
     }
 
     showGuildConfigMessage('Saving guild settings...', 'info');
-    
-    // Include signature in payload
     const payloadWithSignature = {
       ...payload,
       _signature: {
@@ -363,7 +408,7 @@ async function saveSelectedGuildSettings(event) {
         timestamp
       }
     };
-    
+
     const updated = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`, {
       method: 'POST',
       body: payloadWithSignature
@@ -387,22 +432,26 @@ async function loadGuildConfiguration() {
   const form = document.getElementById('guild-settings-form');
   const emptyState = document.getElementById('guild-config-empty');
   if (!form || !emptyState) return;
-  if (!selectedGuildId) {
-    form.classList.add('hidden');
-    emptyState.classList.remove('hidden');
-    emptyState.textContent = 'Select a Discord server from the scope sidebar to edit its configuration.';
-    showGuildConfigMessage(null);
-    return;
-  }
-  emptyState.textContent = 'Loading configuration...';
+  const editingGlobal = isGlobalScope();
+  emptyState.textContent = editingGlobal ? 'Loading global defaults...' : 'Loading configuration...';
   emptyState.classList.remove('hidden');
   form.classList.add('hidden');
   try {
-    const config = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`);
+    let config;
+    if (editingGlobal) {
+      const response = await fetchJSON('/api/config/global');
+      config = response?.config || {};
+    } else {
+      config = await fetchJSON(`/api/guilds/${encodeURIComponent(selectedGuildId)}`);
+    }
     populateGuildForm(config || {});
     form.classList.remove('hidden');
     emptyState.classList.add('hidden');
-    showGuildConfigMessage(null);
+    if (editingGlobal) {
+      showGuildConfigMessage('Editing Global Defaults. Changes here apply to every guild unless overridden.', 'info');
+    } else {
+      showGuildConfigMessage(null);
+    }
   } catch (err) {
     console.error('Failed to load guild configuration:', err);
     emptyState.textContent = 'Failed to load configuration. Try refreshing or check the server logs.';
@@ -609,7 +658,7 @@ let walletAvatarEditorOriginalSymbol = null;
 let availableCollections = [];
 
 function getGuildMetaById(id) {
-  if (!id) return { id: '', name: 'Global Defaults', authorized: true };
+  if (!id) return { id: GLOBAL_SCOPE_ID, name: 'Global Defaults', authorized: true };
   const idStr = String(id);
   const found = guildListData.find(g => String(g.id) === idStr || String(g.guildId) === idStr);
   if (!found) return { id: idStr, name: idStr, authorized: false };
@@ -683,24 +732,23 @@ async function loadGuildOptions() {
 function updateSelectedGuildCard() {
   const card = document.getElementById('selectedGuildCard');
   if (!card) return;
-  if (!selectedGuildId) {
-    card.classList.add('hidden');
-    return;
-  }
-  const meta = selectedGuildMeta || getGuildMetaById(selectedGuildId);
+  const editingGlobal = isGlobalScope();
+  const meta = editingGlobal ? getGuildMetaById('') : (selectedGuildMeta || getGuildMetaById(selectedGuildId));
   card.classList.remove('hidden');
   const icon = document.getElementById('selectedGuildIcon');
   const nameEl = document.getElementById('selectedGuildName');
   const idEl = document.getElementById('selectedGuildId');
   const statusEl = document.getElementById('selectedGuildStatus');
   if (icon) icon.src = meta.iconUrl || 'https://cdn.discordapp.com/embed/avatars/0.png';
-  if (nameEl) nameEl.textContent = meta.name || 'Guild';
-  if (idEl) idEl.textContent = meta.id || selectedGuildId;
-  if (statusEl) statusEl.textContent = meta.authorized ? 'Authorized' : 'Not authorized';
+  if (nameEl) nameEl.textContent = editingGlobal ? 'Global Defaults' : (meta.name || 'Guild');
+  if (idEl) idEl.textContent = editingGlobal ? GLOBAL_SCOPE_ID : (meta.id || selectedGuildId);
+  if (statusEl) statusEl.textContent = editingGlobal ? 'Baseline configuration' : (meta.authorized ? 'Authorized' : 'Not authorized');
   const btnAuth = document.getElementById('btnAuthorizeGuild');
   const btnDeauth = document.getElementById('btnDeauthorizeGuild');
-  btnAuth?.classList.toggle('hidden', !!meta.authorized);
-  btnDeauth?.classList.toggle('hidden', !meta.authorized);
+  const actions = card.querySelector('[data-guild-actions]');
+  if (actions) actions.classList.toggle('hidden', editingGlobal);
+  btnAuth?.classList.toggle('hidden', editingGlobal ? true : !!meta.authorized);
+  btnDeauth?.classList.toggle('hidden', editingGlobal ? true : !meta.authorized);
 }
 
 async function setGuildAuthorized(guildId, value) {

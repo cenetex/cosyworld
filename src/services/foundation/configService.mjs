@@ -153,9 +153,46 @@ export class ConfigService {
       this.config.TELEGRAM_GLOBAL_CHANNEL_ID = this.secrets?.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
 
     this.guildConfigCache = new Map(); // Cache for guild configurations
+    this.globalDefaultsCache = null; // Cache for global defaults document
         this.initialTokenDefaults = JSON.parse(JSON.stringify(this.config.tokens?.defaults || {}));
         this.tokenPreferencesCache = null;
     this._promptDefaultsLoaded = false;
+  }
+
+  async getGlobalDefaults({ forceRefresh = false, db: explicitDb = null } = {}) {
+    if (!forceRefresh && this.globalDefaultsCache) {
+      return JSON.parse(JSON.stringify(this.globalDefaultsCache));
+    }
+
+    let dbConnection = explicitDb;
+    try {
+      if (!dbConnection) {
+        dbConnection = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
+      }
+
+      if (!dbConnection) {
+        return JSON.parse(JSON.stringify(this.globalDefaultsCache || {}));
+      }
+
+      this.db = this.db || dbConnection;
+
+      const doc = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
+      const config = doc?.config || {};
+      this.globalDefaultsCache = JSON.parse(JSON.stringify(config));
+      return JSON.parse(JSON.stringify(this.globalDefaultsCache));
+    } catch (error) {
+      this.logger?.warn?.(`[ConfigService] Failed to load global defaults: ${error.message}`);
+      return JSON.parse(JSON.stringify(this.globalDefaultsCache || {}));
+    }
+  }
+
+  async getGlobalConfig({ forceRefresh = false } = {}) {
+    const overrides = await this.getGlobalDefaults({ forceRefresh });
+    return this.mergeWithDefaults(overrides, 'global', overrides);
+  }
+
+  clearGlobalDefaultsCache() {
+    this.globalDefaultsCache = null;
   }
 
   static deepMerge(target, source) {
@@ -391,8 +428,8 @@ export class ConfigService {
 
       this.db = this.db || dbConnection;
 
-      const globalSettings = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
-      const promptsFromDb = globalSettings?.config?.prompts;
+      const overrides = await this.getGlobalDefaults({ db: dbConnection, forceRefresh: force });
+      const promptsFromDb = overrides?.prompts;
 
       if (promptsFromDb && typeof promptsFromDb === 'object') {
         const merged = ConfigService.deepMerge(JSON.parse(JSON.stringify(this.config.prompt || {})), promptsFromDb);
@@ -467,8 +504,12 @@ export class ConfigService {
   }
 
   // Merge database guild config with defaults
-  mergeWithDefaults(guildConfig, guildId) {
-    const defaults = this.getDefaultGuildConfig(guildId);
+  mergeWithDefaults(guildConfig, guildId, globalOverrides = null) {
+    const baseDefaults = this.getDefaultGuildConfig(guildId);
+    const defaults = ConfigService.deepMerge(
+      JSON.parse(JSON.stringify(baseDefaults)),
+      globalOverrides || {}
+    );
     const merged = {
       ...defaults,
       ...guildConfig,
@@ -503,6 +544,10 @@ export class ConfigService {
       return this.getDefaultGuildConfig(guildId);
     }
 
+    if (guildId === 'global') {
+      return this.getGlobalConfig({ forceRefresh });
+    }
+
     // Check cache first
     if (!forceRefresh && this.guildConfigCache.has(guildId)) {
       return this.guildConfigCache.get(guildId);
@@ -518,7 +563,8 @@ export class ConfigService {
     try {
       const collection = db.collection(this.config.mongo.collections.guildConfigs);
       const guildConfig = await collection.findOne({ guildId });
-      const mergedConfig = this.mergeWithDefaults(guildConfig, guildId);
+      const globalDefaults = await this.getGlobalDefaults();
+      const mergedConfig = this.mergeWithDefaults(guildConfig, guildId, globalDefaults);
       this.guildConfigCache.set(guildId, mergedConfig);
       return mergedConfig;
     } catch (error) {
@@ -546,7 +592,8 @@ export class ConfigService {
 
       // Update cache with the latest config
       const newGuildConfig = await collection.findOne({ guildId });
-      const mergedConfig = this.mergeWithDefaults(newGuildConfig, guildId);
+      const globalDefaults = await this.getGlobalDefaults();
+      const mergedConfig = this.mergeWithDefaults(newGuildConfig, guildId, globalDefaults);
       this.guildConfigCache.set(guildId, mergedConfig);
       return result;
     } catch (error) {
