@@ -2741,6 +2741,29 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         return;
       }
 
+      // Share the plan summary with the channel before executing steps so folks see the roadmap
+      const summaryLines = ['🧠 Planning sequence ready.'];
+      if (planEntry.objective) {
+        summaryLines.push(`Objective: ${planEntry.objective}`);
+      }
+
+      if (planEntry.steps?.length) {
+        const formattedSteps = planEntry.steps
+          .map((step, idx) => {
+            const label = step.action ? step.action.replace(/_/g, ' ') : 'step';
+            return `${idx + 1}. ${label}: ${step.description}`;
+          })
+          .join('\n');
+        summaryLines.push('Steps:\n' + formattedSteps);
+      }
+
+      if (typeof planEntry.confidence === 'number') {
+        summaryLines.push(`Confidence: ${Math.round(planEntry.confidence * 100)}%`);
+      }
+
+      await ctx.reply(summaryLines.join('\n'));
+      await this._recordBotResponse(channelId, userId);
+
       // Execute the steps immediately instead of just showing them
       this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
       
