@@ -116,8 +116,15 @@ class TelegramService {
     // Spam prevention + membership tracking
     this.telegramSpamTracker = new Map(); // userId -> [timestamps]
     this.USER_PROBATION_MS = 5 * 60 * 1000; // 5 minutes probation window
-    this.SPAM_WINDOW_MS = 3000; // 3 seconds window for burst detection
-    this.SPAM_THRESHOLD = 5; // 5 messages within window -> spam
+    this.SPAM_WINDOW_MS = 10_000; // 10 second window for burst detection
+    this.SPAM_THRESHOLD = 8; // 8 messages within window -> spam
+    this.TELEGRAM_PENALTY_TIERS = [
+      { strikes: 1, durationMs: 30_000, notice: 'First warning: please slow down (30s timeout applied).' },
+      { strikes: 2, durationMs: 120_000, notice: 'Second warning: take a breather for 2 minutes.' },
+      { strikes: 3, durationMs: 600_000, notice: 'Third warning: you are muted for 10 minutes.' },
+      { strikes: 4, durationMs: 3_600_000, notice: 'Final warning: 1 hour cooldown before you can chat again.' },
+      { strikes: 5, durationMs: Infinity, notice: 'Permanent ban for repeated spam. Contact a moderator to appeal.' }
+    ];
     this.REPLY_DELAY_CONFIG = {
       mentioned: 2000, // 2 seconds for direct mentions
       default: 10000 // 10 seconds for gap responses / unsolicited chats
@@ -1190,14 +1197,25 @@ Always consider calling plan_actions before executing media or tweet tools when 
     return filtered.length;
   }
 
+  _getTelegramPenaltyTier(strikeCount) {
+    if (!Array.isArray(this.TELEGRAM_PENALTY_TIERS) || !this.TELEGRAM_PENALTY_TIERS.length) {
+      return null;
+    }
+    const normalized = Math.max(1, Number(strikeCount) || 1);
+    return this.TELEGRAM_PENALTY_TIERS.find(tier => normalized <= tier.strikes) || this.TELEGRAM_PENALTY_TIERS[this.TELEGRAM_PENALTY_TIERS.length - 1];
+  }
+
   async _recordTelegramSpamStrike(channelId, userId, strikeCount) {
     if (!this.databaseService || !userId) return;
 
     try {
       const db = await this.databaseService.getDatabase();
-      const basePenaltyMs = 60_000; // 1 minute base
-      const penaltyMs = basePenaltyMs * Math.pow(2, Math.max(0, strikeCount - 1));
-      const penaltyExpires = new Date(Date.now() + penaltyMs);
+      const tier = this._getTelegramPenaltyTier(strikeCount);
+      const penaltyMs = tier?.durationMs ?? 60_000;
+      const isPermanent = !Number.isFinite(penaltyMs);
+      const penaltyExpires = isPermanent
+        ? new Date(8640000000000000)
+        : new Date(Date.now() + penaltyMs);
 
       const update = {
         $set: {
@@ -1210,7 +1228,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
         }
       };
 
-      if (strikeCount >= 3) {
+      if (isPermanent) {
         update.$set.permanentlyBlacklisted = true;
         update.$set.trustLevel = 'banned';
         this.logger?.error?.(`[TelegramService] User ${userId} permanently blacklisted in ${channelId} (spam)`);
@@ -1220,7 +1238,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
       this._invalidateMemberCache(channelId, userId);
   this.telegramSpamTracker.set(userId, []);
 
-      this.logger?.warn?.(`[TelegramService] Spam strike for ${userId} -> ${strikeCount} in ${channelId}. Penalty until ${penaltyExpires.toISOString()}`);
+      const notice = tier?.notice ? ` ${tier.notice}` : '';
+      this.logger?.warn?.(`[TelegramService] Spam strike for ${userId} -> ${strikeCount} in ${channelId}. Penalty until ${penaltyExpires.toISOString()}.${notice}`);
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to record spam strike:', error);
     }
@@ -1608,7 +1627,17 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
       const windowCount = this._checkTelegramSpamWindow(userId);
       if (windowCount > this.SPAM_THRESHOLD) {
-        await this._recordTelegramSpamStrike(channelId, userId, preExistingStrikes + 1);
+        const nextStrike = preExistingStrikes + 1;
+        await this._recordTelegramSpamStrike(channelId, userId, nextStrike);
+        const tier = this._getTelegramPenaltyTier(nextStrike);
+        const warning = tier?.notice ? `⚠️ ${tier.notice}` : '⚠️ Slow down a bit before sending more messages.';
+        if (ctx?.reply) {
+          try {
+            await ctx.reply(warning);
+          } catch (warnErr) {
+            this.logger?.debug?.('[TelegramService] Failed to send spam warning reply:', warnErr?.message || warnErr);
+          }
+        }
         return false;
       }
 
@@ -3271,7 +3300,14 @@ Your caption:`;
 
       await this._markMediaAsTweeted(normalizedChannelId, mediaRecord.id, { tweetId: result.tweetId || null });
 
-      const tweetUrl = result.tweetUrl || (result.tweetId ? `https://x.com/i/web/status/${result.tweetId}` : null);
+      if (result.tweetId && this.xService?.isValidTweetId && !this.xService.isValidTweetId(result.tweetId)) {
+        this.logger?.error?.('[TelegramService] X returned an invalid tweet ID', { tweetId: result.tweetId, channelId: normalizedChannelId });
+        await ctx.reply('⚠️ I posted the update, but the tweet link looks off. Please check the X account directly.');
+        await this._recordBotResponse(normalizedChannelId, userId);
+        return;
+      }
+
+      const tweetUrl = result.tweetUrl || (this.xService?.buildTweetUrl ? this.xService.buildTweetUrl(result.tweetId) : null);
       await this._shareTweetResultToTelegram(ctx, {
         tweetUrl,
         tweetText: trimmedText,

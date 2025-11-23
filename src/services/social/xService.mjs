@@ -50,6 +50,151 @@ class XService {
     this.configService = configService;
     this.secretsService = secretsService;
     this.metricsService = metricsService;
+    this._usernameCache = new Map();
+    this._usernameFetches = new Map();
+  }
+
+  _normalizeAvatarId(avatarOrId) {
+    if (!avatarOrId) return null;
+    if (typeof avatarOrId === 'string') return avatarOrId;
+    if (typeof avatarOrId === 'object') {
+      if (avatarOrId._id) return String(avatarOrId._id);
+      if (avatarOrId.avatarId) return String(avatarOrId.avatarId);
+    }
+    return null;
+  }
+
+  _getCachedTwitterUsername(avatarId) {
+    if (!avatarId) return null;
+    const entry = this._usernameCache.get(avatarId);
+    if (entry && entry.expires > Date.now()) {
+      return entry.username;
+    }
+    if (entry) {
+      this._usernameCache.delete(avatarId);
+    }
+    return null;
+  }
+
+  _cacheTwitterUsername(avatarId, username, ttlMs = 5 * 60 * 1000) {
+    if (!avatarId || !this._isValidTwitterHandle(username)) return;
+    this._usernameCache.set(avatarId, {
+      username,
+      expires: Date.now() + ttlMs
+    });
+  }
+
+  _isValidTwitterHandle(username) {
+    if (!username || typeof username !== 'string') return false;
+    return /^[A-Za-z0-9_]{1,15}$/.test(username);
+  }
+
+  _isValidTweetId(tweetId) {
+    if (!tweetId) return false;
+    const idStr = String(tweetId).trim();
+    if (!/^\d{15,20}$/.test(idStr)) return false;
+    try {
+      return BigInt(idStr) > 0n;
+    } catch {
+      return false;
+    }
+  }
+
+  isValidTweetId(tweetId) {
+    return this._isValidTweetId(tweetId);
+  }
+
+  buildTweetUrl(tweetId, username = null) {
+    if (!this._isValidTweetId(tweetId)) {
+      return null;
+    }
+    const idStr = String(tweetId).trim();
+    if (this._isValidTwitterHandle(username)) {
+      return `https://x.com/${username}/status/${idStr}`;
+    }
+    return `https://x.com/i/web/status/${idStr}`;
+  }
+
+  async _resolveXUsernameForAvatar(avatarOrId) {
+    const avatarId = this._normalizeAvatarId(avatarOrId);
+    if (!avatarId) return null;
+
+    const cached = this._getCachedTwitterUsername(avatarId);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const auth = await db.collection('x_auth').findOne({ avatarId });
+      if (!auth) {
+        return null;
+      }
+
+      const profileUsername = auth?.profile?.username;
+      if (this._isValidTwitterHandle(profileUsername)) {
+        this._cacheTwitterUsername(avatarId, profileUsername);
+        return profileUsername;
+      }
+
+      if (!auth?.accessToken) {
+        return null;
+      }
+
+      if (this._usernameFetches.has(avatarId)) {
+        return this._usernameFetches.get(avatarId);
+      }
+
+      const fetchPromise = (async () => {
+        try {
+          const client = new TwitterApi(safeDecrypt(auth.accessToken));
+          const me = await client.v2.me({ 'user.fields': 'username,profile_image_url,name,id' });
+          const username = me?.data?.username;
+          if (this._isValidTwitterHandle(username)) {
+            this._cacheTwitterUsername(avatarId, username);
+            try {
+              await db.collection('x_auth').updateOne(
+                { avatarId },
+                { $set: { profile: { ...(auth.profile || {}), ...me.data }, updatedAt: new Date() } }
+              );
+            } catch (e) {
+              this.logger?.debug?.('[XService] Failed to persist refreshed X profile:', e.message);
+            }
+            return username;
+          }
+        } catch (error) {
+          this.logger?.warn?.(`[XService] Failed to resolve X username for avatar ${avatarId}: ${error.message}`);
+        }
+        return null;
+      })();
+
+      this._usernameFetches.set(avatarId, fetchPromise);
+      try {
+        return await fetchPromise;
+      } finally {
+        this._usernameFetches.delete(avatarId);
+      }
+    } catch (error) {
+      this.logger?.warn?.(`[XService] Unable to look up X username for avatar ${avatarId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  _sanitizeTweetText(rawText, { fallback = '', maxLength = 280 } = {}) {
+    const urlRegex = /(https?:\/\/|www\.)[^\s]+/gi;
+    const normalized = typeof rawText === 'string' ? rawText : String(rawText ?? '');
+    let cleaned = normalized.replace(urlRegex, ' ').replace(/\s+/g, ' ').trim();
+
+    if (!cleaned && fallback) {
+      const fallbackText = typeof fallback === 'string' ? fallback : String(fallback ?? '');
+      cleaned = fallbackText.replace(urlRegex, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    if (!cleaned) return '';
+    if (cleaned.length > maxLength) {
+      return cleaned.slice(0, maxLength);
+    }
+    return cleaned;
   }
 
   // --- Client-side methods (for browser, can be static or moved elsewhere if needed) ---
@@ -222,7 +367,10 @@ class XService {
       });
 
       // 3. Post the tweet with the attached media
-      const tweetContent = content.trim().slice(0, 280);
+      const tweetContent = this._sanitizeTweetText(content);
+      if (!tweetContent) {
+        throw new Error('Tweet content is empty after removing links. Please provide descriptive text.');
+      }
       const tweet = await clientV2.tweet({
         text: tweetContent,
         media: { media_ids: [mediaId] }
@@ -234,7 +382,12 @@ class XService {
 
       // 4. Record it in your database
       const tweetId = tweet.data.id;
-      const tweetUrl = `https://x.com/${avatar.username}/status/${tweetId}`;
+      if (!this.isValidTweetId(tweetId)) {
+        this.logger?.error?.('[XService] Invalid tweet ID returned after posting image', { avatarId, tweetId });
+        return '-# [ ✅ Posted image to X but could not confirm the tweet URL. Please verify manually. ]';
+      }
+      const username = await this._resolveXUsernameForAvatar(avatar);
+      const tweetUrl = this.buildTweetUrl(tweetId, username);
       await db.collection('social_posts').insertOne({
         avatarId: avatar._id,
         content: tweetContent,
@@ -277,14 +430,22 @@ class XService {
       media_category: 'tweet_image',
       media_type: mimeType,
     });
-    const tweetContent = String(content || '').trim().slice(0, 280);
+    const tweetContent = this._sanitizeTweetText(content);
+    if (!tweetContent) {
+      throw new Error('Tweet content is empty after removing links. Please provide descriptive text.');
+    }
     const tweet = await clientV2.tweet({
       text: tweetContent,
       media: { media_ids: [mediaId] }
     });
     if (!tweet?.data?.id) throw new Error('Failed to post image to X');
     const tweetId = tweet.data.id;
-    const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+    if (!this.isValidTweetId(tweetId)) {
+      this.logger?.error?.('[XService] Invalid tweet ID returned after detailed image post', { avatarId, tweetId });
+      throw new Error('Invalid tweet ID returned by X');
+    }
+    const username = await this._resolveXUsernameForAvatar(avatar);
+    const tweetUrl = this.buildTweetUrl(tweetId, username);
 
     await db.collection('social_posts').insertOne({
       avatarId: avatar._id,
@@ -400,11 +561,19 @@ class XService {
       const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
 
       // Post tweet with video
-      const tweetContent = String(content || '').trim().slice(0, 280);
+      const tweetContent = this._sanitizeTweetText(content);
+      if (!tweetContent) {
+        throw new Error('Tweet content is empty after removing links. Please provide descriptive text.');
+      }
       const tweet = await v2Client.tweet({ text: tweetContent, media: { media_ids: [mediaId] } });
       if (!tweet?.data?.id) return '-# [ ❌ Failed to post video to X. ]';
       const tweetId = tweet.data.id;
-      const tweetUrl = `https://x.com/${avatar.username || 'user'}/status/${tweetId}`;
+      if (!this.isValidTweetId(tweetId)) {
+        this.logger?.error?.('[XService] Invalid tweet ID returned after posting video', { avatarId, tweetId });
+        return '-# [ ✅ Posted video to X but could not confirm the tweet URL. Please verify manually. ]';
+      }
+      const username = await this._resolveXUsernameForAvatar(avatar);
+      const tweetUrl = this.buildTweetUrl(tweetId, username);
       await db.collection('social_posts').insertOne({
         avatarId: avatar._id,
         content: tweetContent,
@@ -455,11 +624,19 @@ class XService {
     const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
-    const tweetContent = content.trim().slice(0, 280);
+    const tweetContent = this._sanitizeTweetText(content);
+    if (!tweetContent) {
+      return '-# [ ❌ Error: Tweet content cannot be empty after removing links. Please add descriptive text. ]';
+    }
     const result = await v2Client.tweet(tweetContent);
     if (!result) return '-# [ ❌ Failed to post to X. ]';
     const tweetId = result.data.id;
-    const tweetUrl = `https://x.com/ratimics/status/${tweetId}`;
+    if (!this.isValidTweetId(tweetId)) {
+      this.logger?.error?.('[XService] Invalid tweet ID returned after posting text tweet', { avatarId, tweetId });
+      return '-# [ ✅ Posted to X but could not confirm the tweet URL. Please verify manually. ]';
+    }
+    const username = await this._resolveXUsernameForAvatar(avatar);
+    const tweetUrl = this.buildTweetUrl(tweetId, username);
     await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: tweetContent, timestamp: new Date(), postedToX: true, tweetId });
     return `-# ✨ [ [Posted to X](${tweetUrl}) ]`;
   }
@@ -471,11 +648,16 @@ class XService {
     const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
-    const replyContent = content.trim().slice(0, 280);
+    const replyContent = this._sanitizeTweetText(content);
+    if (!replyContent) {
+      return '-# [ ❌ Error: Reply content cannot be empty after removing links. ]';
+    }
     const result = await v2Client.reply(replyContent, tweetId);
     if (!result) return '-# [ ❌ Failed to reply on X. ]';
     await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId, timestamp: new Date(), postedToX: true, type: 'reply' });
-    return `↩️ [Replied to post](https://x.com/ratimics/status/${tweetId}): "${replyContent}"`;
+    const targetUrl = this.buildTweetUrl(tweetId);
+    const linkText = targetUrl ? `[Replied to post](${targetUrl})` : 'Replied to post';
+    return `↩️ ${linkText}: "${replyContent}"`;
   }
 
   async quoteToX(avatar, tweetId, content) {
@@ -485,11 +667,16 @@ class XService {
     const auth = await db.collection('x_auth').findOne({ avatarId });
     const twitterClient = new TwitterApi(decrypt(auth.accessToken));
     const v2Client = twitterClient.v2;
-    const quoteContent = content.trim().slice(0, 280);
+    const quoteContent = this._sanitizeTweetText(content);
+    if (!quoteContent) {
+      return '-# [ ❌ Error: Quote content cannot be empty after removing links. ]';
+    }
     const result = await v2Client.tweet({ text: quoteContent, quote_tweet_id: tweetId });
     if (!result) return '-# [ ❌ Failed to quote on X. ]';
     await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: quoteContent, tweetId, timestamp: new Date(), postedToX: true, type: 'quote' });
-    return `📜 [Quoted post](https://x.com/ratimics/status/${tweetId}): "${quoteContent}"`;
+    const targetUrl = this.buildTweetUrl(tweetId);
+    const linkText = targetUrl ? `[Quoted post](${targetUrl})` : 'Quoted post';
+    return `📜 ${linkText}: "${quoteContent}"`;
   }
 
   async followOnX(avatar, userId) {
@@ -513,7 +700,8 @@ class XService {
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
     await v2Client.like(me.data.id, tweetId);
-    return `❤️ Liked post https://x.com/ratimics/status/${tweetId}`;
+    const targetUrl = this.buildTweetUrl(tweetId);
+    return targetUrl ? `❤️ Liked post ${targetUrl}` : '❤️ Liked post on X';
   }
 
   async repostOnX(avatar, tweetId) {
@@ -525,7 +713,8 @@ class XService {
     const v2Client = twitterClient.v2;
     const me = await v2Client.me();
     await v2Client.retweet(me.data.id, tweetId);
-    return `🔁 Reposted https://x.com/ratimics/status/${tweetId}`;
+    const targetUrl = this.buildTweetUrl(tweetId);
+    return targetUrl ? `🔁 Reposted ${targetUrl}` : '🔁 Reposted on X';
   }
 
   async blockOnX(avatar, userId) {
@@ -1169,9 +1358,13 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         }
       }
       
-      // Final safety check
+      // Final safety check and sanitization (strip any lingering links)
       if (tweetText.length > 280) {
         tweetText = tweetText.slice(0, 280);
+      }
+      tweetText = this._sanitizeTweetText(tweetText, { fallback: opts.context || opts.prompt || 'CosyWorld update' });
+      if (!tweetText) {
+        throw new Error('Tweet content unavailable after sanitizing links.');
       }
       
       const payload = mediaId 
@@ -1288,8 +1481,12 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         if (!tweet) throw apiErr;
       }
       if (!tweet?.data?.id) throw new Error('tweet failed');
+      const tweetId = tweet.data.id;
+      if (!this.isValidTweetId(tweetId)) {
+        throw new Error('X returned invalid tweet ID');
+      }
       if (process.env.DEBUG_GLOBAL_X === '1') {
-        this.logger?.info?.('[XService][globalPost][diag] tweetSuccess', { tweetId: tweet.data.id });
+        this.logger?.info?.('[XService][globalPost][diag] tweetSuccess', { tweetId });
       }
 
       this._globalRate.count++;
@@ -1328,7 +1525,7 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
           global: true,
           mediaUrl,
           mediaType: isVideo ? 'video' : 'image',
-          tweetId: tweet?.data?.id || null,
+          tweetId,
           content: tweetText,
           altText: altText || null,
           shadow: false,
@@ -1344,18 +1541,19 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
             v2Active = new TwitterApi({ accessToken: accessToken.trim() }).v2;
           }
           const me = await v2Active.me(); 
-          this._globalUser = me?.data?.username || 'user'; 
-        } catch { this._globalUser = 'user'; }
+          const username = me?.data?.username;
+          this._globalUser = this._isValidTwitterHandle(username) ? username : null; 
+        } catch { this._globalUser = null; }
       }
-      const tweetUrl = `https://x.com/${this._globalUser}/status/${tweet.data.id}`;
-      this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId: tweet.data.id, tweetUrl, mediaUrl };
+      const tweetUrl = this.buildTweetUrl(tweetId, this._globalUser);
+      this._lastGlobalPostAttempt = { at: Date.now(), skipped: false, reason: 'posted', tweetId, tweetUrl, mediaUrl };
       this.logger?.info?.('[XService][globalPost] posted media', { tweetUrl });
-      _bump('posted', { tweetId: tweet.data.id, tweetUrl, mediaUrl });
+      _bump('posted', { tweetId, tweetUrl, mediaUrl });
       
       // NEW: Emit event for cross-posting to other platforms (e.g., Telegram)
       try {
         eventBus.emit('X.POST.CREATED', {
-          tweetId: tweet.data.id,
+          tweetId,
           tweetUrl,
           content: tweetText,
           imageUrl: isVideo ? null : mediaUrl,
@@ -1372,7 +1570,7 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         this.logger?.warn?.('[XService][globalPost] failed to emit X.POST.CREATED event:', eventErr?.message);
       }
       
-      return { tweetId: tweet.data.id, tweetUrl };
+      return { tweetId, tweetUrl };
     } catch (err) {
       // Track failed post
       this.metricsService?.increment('xService', 'posts_failed');
