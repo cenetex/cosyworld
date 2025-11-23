@@ -44,6 +44,42 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const htmlEntityMap = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+const decodeHtmlEntities = (value) => {
+  if (!value || typeof value !== 'string') {
+    return typeof value === 'undefined' || value === null ? '' : String(value);
+  }
+
+  return value.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (match, entity) => {
+    if (!entity) return match;
+    const lower = entity.toLowerCase();
+
+    if (lower.startsWith('#x')) {
+      const codePoint = Number.parseInt(lower.slice(2), 16);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    if (lower.startsWith('#')) {
+      const codePoint = Number.parseInt(lower.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    if (htmlEntityMap[lower]) {
+      return htmlEntityMap[lower];
+    }
+
+    return match;
+  });
+};
+
 const md = new MarkdownIt({
   html: false, // Disable HTML tags in source
   breaks: true, // Convert '\n' in paragraphs into <br>
@@ -3587,9 +3623,11 @@ Your caption:`;
     if (!text) return '';
     
     try {
+      const normalized = typeof text === 'string' ? text : String(text ?? '');
+      const decoded = decodeHtmlEntities(normalized);
       // Convert Markdown to HTML using markdown-it
       // This handles **bold**, *italic*, [links](url), `code` etc.
-      let html = md.render(String(text).trim());
+      let html = md.render(decoded.trim());
       
       // Fix paragraphs: replace </p><p> with double newline
       html = html.replace(/<\/p>\s*<p>/g, '\n\n');
