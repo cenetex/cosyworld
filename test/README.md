@@ -282,12 +282,14 @@ it('should call function after delay', () => {
 
 ### Coverage Targets
 
-Current targets (defined in `vitest.config.js`):
+Current guardrails (from `vitest.config.js`):
 
-- **Lines**: 60%
-- **Functions**: 60%
-- **Branches**: 60%
-- **Statements**: 60%
+- **Lines**: 10%
+- **Functions**: 10%
+- **Branches**: 10%
+- **Statements**: 10%
+
+> These are intentionally low while we backfill tests. Monitor real coverage in `docs/analysis/coverage-metrics.md`.
 
 ### Viewing Coverage
 
@@ -297,6 +299,9 @@ npm run test:coverage
 
 # Open HTML report in browser
 open coverage/index.html
+
+# Generate fresh metrics snapshot and markdown summary
+npm run coverage:metrics
 ```
 
 ### Coverage Reports
@@ -305,6 +310,7 @@ open coverage/index.html
 - **HTML**: `coverage/index.html` (detailed, browsable)
 - **JSON**: `coverage/coverage-final.json` (machine-readable)
 - **LCOV**: `coverage/lcov.info` (for CI tools like Codecov)
+- **Markdown**: `docs/analysis/coverage-metrics.md` (summary table for PRs/docs)
 
 ### Excluding Files from Coverage
 
