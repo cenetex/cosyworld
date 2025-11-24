@@ -41,14 +41,22 @@ function runVitestCoverage() {
 
 function buildFileEntries(summary) {
   return Object.entries(summary)
-    .filter(([key]) => key !== 'total' && key.startsWith('src/'))
-    .map(([file, stats]) => {
+    .filter(([key]) => key !== 'total')
+    .map(([filePath, stats]) => {
+      const relativePath = filePath.startsWith('/') || filePath.startsWith('\\')
+        ? path.relative(repoRoot, filePath)
+        : filePath;
+      const normalized = relativePath.replace(/\\/g, '/');
+      if (!normalized.startsWith('src/')) {
+        return null;
+      }
+
       const statements = stats.statements || { total: 0, covered: 0, pct: 0 };
       const functions = stats.functions || { pct: 0 };
       const branches = stats.branches || { pct: 0 };
       const lines = stats.lines || { pct: 0 };
       return {
-        file,
+        file: normalized,
         statementsPct: statements.pct || 0,
         statementsTotal: statements.total || 0,
         missingStatements: Math.max(0, (statements.total || 0) - (statements.covered || 0)),
@@ -57,6 +65,7 @@ function buildFileEntries(summary) {
         linesPct: lines.pct || 0,
       };
     })
+    .filter(Boolean)
     .filter((entry) => entry.statementsTotal > 0);
 }
 
