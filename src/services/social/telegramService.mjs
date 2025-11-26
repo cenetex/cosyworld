@@ -3747,7 +3747,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           
           // Extract video options from tool arguments
           const videoOptions = {
-            aspectRatio: args.aspectRatio || '9:16',
+            aspectRatio: args.aspectRatio || '16:9',
             style: args.style,
             camera: args.camera,
             negativePrompt: args.negativePrompt
@@ -3794,7 +3794,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
             conversationContext,
             userId,
             username,
-            aspectRatio: args.aspectRatio || '9:16'
+            aspectRatio: args.aspectRatio || '16:9'
           });
 
         } else if (functionName === 'extend_video') {
@@ -4292,7 +4292,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
               }
             } else if (action === 'generate_video_from_image') {
               // Video typically uses 9:16, unless specified
-              const videoOptions = { aspectRatio: step.aspectRatio || '9:16' };
+              const videoOptions = { aspectRatio: step.aspectRatio || '16:9' };
               const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
               if (!sourceMediaId) {
                 // No source image - fall back to text-to-video
@@ -4975,13 +4975,13 @@ Your caption:`;
    * @param {string} userId - User ID for cooldown tracking
    * @param {string} username - Username for logging
    * @param {Object} [options] - Additional options
-   * @param {string} [options.aspectRatio='9:16'] - Aspect ratio (16:9 or 9:16)
+   * @param {string} [options.aspectRatio='16:9'] - Aspect ratio (16:9 or 9:16)
    * @param {string} [options.style] - Visual style (cinematic, animated, etc)
    * @param {string} [options.camera] - Camera motion/position
    * @param {string} [options.negativePrompt] - Things to avoid
    */
   async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
-    const { aspectRatio = '9:16', style, camera, negativePrompt } = options;
+    const { aspectRatio = '16:9', style, camera, negativePrompt } = options;
     const traceId = generateTraceId();
     const channelId = ctx?.chat?.id ? String(ctx.chat.id) : null;
     
@@ -5700,10 +5700,10 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
    * @param {string} [opts.conversationContext] - Conversation context
    * @param {string} [opts.userId] - User ID
    * @param {string} [opts.username] - Username
-   * @param {string} [opts.aspectRatio='9:16'] - Aspect ratio (16:9 or 9:16)
+   * @param {string} [opts.aspectRatio='16:9'] - Aspect ratio (16:9 or 9:16)
    * @returns {Promise<Object|null>} - New media record or null
    */
-  async executeVideoFromImage(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null, aspectRatio = '9:16' }) {
+  async executeVideoFromImage(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null, aspectRatio = '16:9' }) {
     const channelId = String(ctx.chat.id);
     try {
       if (!this.veoService) {
