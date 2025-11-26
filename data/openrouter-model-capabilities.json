@@ -1,74 +1,86 @@
 {
-  "generatedAt": "2025-11-22T07:50:21.289Z",
+  "generatedAt": "2025-11-26T01:45:14.937Z",
   "capabilities": {
-    "allenai/olmo-3-32b-think": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-5.1": {
-      "supportsResponseFormat": true
-    },
-    "allenai/olmo-3-7b-think": {
-      "supportsResponseFormat": true
-    },
-    "google/gemini-3-pro-preview": {
-      "supportsResponseFormat": true
-    },
-    "allenai/olmo-3-7b-instruct": {
-      "supportsResponseFormat": true
-    },
-    "google/gemini-3-pro-image-preview": {
-      "supportsResponseFormat": true
-    },
-    "x-ai/grok-4.1-fast": {
+    "anthropic/claude-opus-4.5": {
       "supportsResponseFormat": true
     },
     "deepcogito/cogito-v2.1-671b": {
       "supportsResponseFormat": true
     },
-    "openai/gpt-5.1-chat": {
-      "supportsResponseFormat": true
-    },
     "x-ai/grok-4.1-fast:free": {
       "supportsResponseFormat": true
     },
-    "openai/gpt-5.1-codex": {
+    "openrouter/bert-nebulon-alpha": {
+      "supportsResponseFormat": true
+    },
+    "allenai/olmo-3-7b-think": {
+      "supportsResponseFormat": true
+    },
+    "allenai/olmo-3-7b-instruct": {
+      "supportsResponseFormat": true
+    },
+    "allenai/olmo-3-32b-think": {
+      "supportsResponseFormat": true
+    },
+    "google/gemini-3-pro-preview": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-5.1": {
       "supportsResponseFormat": true
     },
     "openai/gpt-5.1-codex-mini": {
       "supportsResponseFormat": true
     },
-    "moonshotai/kimi-linear-48b-a3b-instruct": {
+    "openai/gpt-5.1-codex": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-5.1-chat": {
+      "supportsResponseFormat": true
+    },
+    "google/gemini-3-pro-image-preview": {
       "supportsResponseFormat": true
     },
     "kwaipilot/kat-coder-pro:free": {
       "supportsResponseFormat": true
     },
-    "amazon/nova-premier-v1": {
-      "supportsResponseFormat": false
-    },
-    "moonshotai/kimi-k2-thinking": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-oss-safeguard-20b": {
+    "moonshotai/kimi-linear-48b-a3b-instruct": {
       "supportsResponseFormat": true
     },
     "perplexity/sonar-pro-search": {
       "supportsResponseFormat": false
     },
-    "nvidia/nemotron-nano-12b-v2-vl:free": {
+    "amazon/nova-premier-v1": {
       "supportsResponseFormat": false
     },
-    "liquid/lfm2-8b-a1b": {
+    "openai/gpt-oss-safeguard-20b": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/voxtral-small-24b-2507": {
+      "supportsResponseFormat": true
+    },
+    "nvidia/nemotron-nano-12b-v2-vl:free": {
       "supportsResponseFormat": false
     },
     "nvidia/nemotron-nano-12b-v2-vl": {
       "supportsResponseFormat": true
     },
+    "moonshotai/kimi-k2-thinking": {
+      "supportsResponseFormat": true
+    },
     "minimax/minimax-m2": {
       "supportsResponseFormat": true
     },
+    "liquid/lfm2-8b-a1b": {
+      "supportsResponseFormat": false
+    },
     "deepcogito/cogito-v2-preview-llama-405b": {
       "supportsResponseFormat": true
+    },
+    "liquid/lfm-2.2-6b": {
+      "supportsResponseFormat": false
+    },
+    "anthropic/claude-haiku-4.5": {
+      "supportsResponseFormat": false
     },
     "ibm-granite/granite-4.0-h-micro": {
       "supportsResponseFormat": false
@@ -76,43 +88,34 @@
     "qwen/qwen3-vl-8b-thinking": {
       "supportsResponseFormat": true
     },
-    "anthropic/claude-haiku-4.5": {
-      "supportsResponseFormat": false
-    },
     "qwen/qwen3-vl-8b-instruct": {
-      "supportsResponseFormat": true
-    },
-    "mistralai/voxtral-small-24b-2507": {
       "supportsResponseFormat": true
     },
     "openai/gpt-5-image": {
       "supportsResponseFormat": true
     },
-    "liquid/lfm-2.2-6b": {
-      "supportsResponseFormat": false
-    },
-    "openai/o4-mini-deep-research": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-5-image-mini": {
-      "supportsResponseFormat": true
-    },
-    "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
-      "supportsResponseFormat": true
-    },
     "baidu/ernie-4.5-21b-a3b-thinking": {
       "supportsResponseFormat": false
     },
-    "google/gemini-2.5-flash-image": {
+    "openai/o3-deep-research": {
       "supportsResponseFormat": true
     },
-    "openai/o3-deep-research": {
+    "openai/o4-mini-deep-research": {
       "supportsResponseFormat": true
     },
     "qwen/qwen3-vl-30b-a3b-thinking": {
       "supportsResponseFormat": true
     },
+    "openai/gpt-5-image-mini": {
+      "supportsResponseFormat": true
+    },
     "qwen/qwen3-vl-30b-a3b-instruct": {
+      "supportsResponseFormat": true
+    },
+    "google/gemini-2.5-flash-image": {
+      "supportsResponseFormat": true
+    },
+    "nvidia/llama-3.3-nemotron-super-49b-v1.5": {
       "supportsResponseFormat": true
     },
     "openai/gpt-5-pro": {
@@ -121,58 +124,58 @@
     "anthropic/claude-sonnet-4.5": {
       "supportsResponseFormat": true
     },
-    "deepseek/deepseek-v3.2-exp": {
-      "supportsResponseFormat": true
-    },
     "z-ai/glm-4.6:exacto": {
       "supportsResponseFormat": true
     },
-    "z-ai/glm-4.6": {
-      "supportsResponseFormat": true
-    },
-    "thedrummer/cydonia-24b-v4.1": {
+    "deepseek/deepseek-v3.2-exp": {
       "supportsResponseFormat": true
     },
     "relace/relace-apply-3": {
       "supportsResponseFormat": false
     },
-    "qwen/qwen3-coder-plus": {
+    "thedrummer/cydonia-24b-v4.1": {
+      "supportsResponseFormat": true
+    },
+    "z-ai/glm-4.6": {
       "supportsResponseFormat": true
     },
     "google/gemini-2.5-flash-preview-09-2025": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-max": {
-      "supportsResponseFormat": true
-    },
     "google/gemini-2.5-flash-lite-preview-09-2025": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-vl-235b-a22b-instruct": {
+    "qwen/qwen3-max": {
       "supportsResponseFormat": true
     },
-    "deepseek/deepseek-v3.1-terminus": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-5-codex": {
+    "qwen/qwen3-coder-plus": {
       "supportsResponseFormat": true
     },
     "qwen/qwen3-vl-235b-a22b-thinking": {
       "supportsResponseFormat": true
     },
-    "deepseek/deepseek-v3.1-terminus:exacto": {
+    "qwen/qwen3-vl-235b-a22b-instruct": {
       "supportsResponseFormat": true
     },
     "x-ai/grok-4-fast": {
       "supportsResponseFormat": true
     },
+    "deepseek/deepseek-v3.1-terminus:exacto": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-5-codex": {
+      "supportsResponseFormat": true
+    },
+    "deepseek/deepseek-v3.1-terminus": {
+      "supportsResponseFormat": true
+    },
     "qwen/qwen3-coder-flash": {
       "supportsResponseFormat": true
     },
-    "arcee-ai/afm-4.5b": {
+    "opengvlab/internvl3-78b": {
       "supportsResponseFormat": true
     },
-    "opengvlab/internvl3-78b": {
+    "alibaba/tongyi-deepresearch-30b-a3b:free": {
       "supportsResponseFormat": true
     },
     "qwen/qwen3-next-80b-a3b-thinking": {
@@ -181,16 +184,10 @@
     "alibaba/tongyi-deepresearch-30b-a3b": {
       "supportsResponseFormat": true
     },
-    "alibaba/tongyi-deepresearch-30b-a3b:free": {
-      "supportsResponseFormat": true
-    },
-    "meituan/longcat-flash-chat": {
-      "supportsResponseFormat": false
-    },
-    "nvidia/nemotron-nano-9b-v2:free": {
-      "supportsResponseFormat": true
-    },
     "qwen/qwen3-next-80b-a3b-instruct": {
+      "supportsResponseFormat": true
+    },
+    "meituan/longcat-flash-chat:free": {
       "supportsResponseFormat": true
     },
     "qwen/qwen-plus-2025-07-28": {
@@ -199,16 +196,16 @@
     "qwen/qwen-plus-2025-07-28:thinking": {
       "supportsResponseFormat": true
     },
-    "meituan/longcat-flash-chat:free": {
-      "supportsResponseFormat": true
-    },
-    "moonshotai/kimi-k2-0905": {
-      "supportsResponseFormat": true
+    "meituan/longcat-flash-chat": {
+      "supportsResponseFormat": false
     },
     "moonshotai/kimi-k2-0905:exacto": {
       "supportsResponseFormat": true
     },
     "nvidia/nemotron-nano-9b-v2": {
+      "supportsResponseFormat": true
+    },
+    "moonshotai/kimi-k2-0905": {
       "supportsResponseFormat": true
     },
     "deepcogito/cogito-v2-preview-llama-70b": {
@@ -217,8 +214,8 @@
     "deepcogito/cogito-v2-preview-llama-109b-moe": {
       "supportsResponseFormat": false
     },
-    "deepcogito/cogito-v2-preview-deepseek-671b": {
-      "supportsResponseFormat": false
+    "nvidia/nemotron-nano-9b-v2:free": {
+      "supportsResponseFormat": true
     },
     "stepfun-ai/step3": {
       "supportsResponseFormat": true
@@ -226,31 +223,31 @@
     "x-ai/grok-code-fast-1": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-30b-a3b-thinking-2507": {
+    "google/gemini-2.5-flash-image-preview": {
+      "supportsResponseFormat": true
+    },
+    "deepcogito/cogito-v2-preview-deepseek-671b": {
+      "supportsResponseFormat": false
+    },
+    "nousresearch/hermes-4-405b": {
       "supportsResponseFormat": true
     },
     "nousresearch/hermes-4-70b": {
       "supportsResponseFormat": true
     },
-    "nousresearch/hermes-4-405b": {
-      "supportsResponseFormat": true
-    },
-    "google/gemini-2.5-flash-image-preview": {
-      "supportsResponseFormat": true
-    },
-    "baidu/ernie-4.5-21b-a3b": {
-      "supportsResponseFormat": false
-    },
-    "baidu/ernie-4.5-vl-28b-a3b": {
-      "supportsResponseFormat": false
-    },
-    "openai/gpt-4o-audio-preview": {
+    "qwen/qwen3-30b-a3b-thinking-2507": {
       "supportsResponseFormat": true
     },
     "deepseek/deepseek-chat-v3.1": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-medium-3.1": {
+    "openai/gpt-4o-audio-preview": {
+      "supportsResponseFormat": true
+    },
+    "baidu/ernie-4.5-21b-a3b": {
+      "supportsResponseFormat": false
+    },
+    "ai21/jamba-mini-1.7": {
       "supportsResponseFormat": true
     },
     "z-ai/glm-4.5v": {
@@ -259,43 +256,34 @@
     "ai21/jamba-large-1.7": {
       "supportsResponseFormat": true
     },
-    "ai21/jamba-mini-1.7": {
+    "mistralai/mistral-medium-3.1": {
       "supportsResponseFormat": true
+    },
+    "baidu/ernie-4.5-vl-28b-a3b": {
+      "supportsResponseFormat": false
     },
     "openai/gpt-5-chat": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-5-mini": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-5-nano": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-oss-120b:exacto": {
       "supportsResponseFormat": true
     },
     "openai/gpt-5": {
       "supportsResponseFormat": true
     },
+    "openai/gpt-oss-120b:exacto": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-5-nano": {
+      "supportsResponseFormat": true
+    },
     "openai/gpt-oss-120b": {
-      "supportsResponseFormat": true
-    },
-    "anthropic/claude-opus-4.1": {
-      "supportsResponseFormat": true
-    },
-    "mistralai/codestral-2508": {
-      "supportsResponseFormat": true
-    },
-    "qwen/qwen3-30b-a3b-instruct-2507": {
       "supportsResponseFormat": true
     },
     "openai/gpt-oss-20b:free": {
       "supportsResponseFormat": true
     },
-    "z-ai/glm-4.5-air:free": {
+    "openai/gpt-5-mini": {
       "supportsResponseFormat": true
     },
-    "z-ai/glm-4.5": {
+    "anthropic/claude-opus-4.1": {
       "supportsResponseFormat": true
     },
     "qwen/qwen3-coder-30b-a3b-instruct": {
@@ -304,14 +292,29 @@
     "openai/gpt-oss-20b": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-235b-a22b-thinking-2507": {
+    "qwen/qwen3-30b-a3b-instruct-2507": {
+      "supportsResponseFormat": true
+    },
+    "z-ai/glm-4.5": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/codestral-2508": {
       "supportsResponseFormat": true
     },
     "z-ai/glm-4.5-air": {
       "supportsResponseFormat": true
     },
+    "z-ai/glm-4.5-air:free": {
+      "supportsResponseFormat": true
+    },
     "z-ai/glm-4-32b": {
       "supportsResponseFormat": false
+    },
+    "qwen/qwen3-coder:exacto": {
+      "supportsResponseFormat": true
+    },
+    "qwen/qwen3-235b-a22b-thinking-2507": {
+      "supportsResponseFormat": true
     },
     "qwen/qwen3-coder:free": {
       "supportsResponseFormat": false
@@ -319,62 +322,56 @@
     "qwen/qwen3-coder": {
       "supportsResponseFormat": true
     },
-    "bytedance/ui-tars-1.5-7b": {
-      "supportsResponseFormat": false
-    },
     "google/gemini-2.5-flash-lite": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-coder:exacto": {
-      "supportsResponseFormat": true
+    "bytedance/ui-tars-1.5-7b": {
+      "supportsResponseFormat": false
     },
     "qwen/qwen3-235b-a22b-2507": {
-      "supportsResponseFormat": true
-    },
-    "switchpoint/router": {
-      "supportsResponseFormat": false
-    },
-    "thudm/glm-4.1v-9b-thinking": {
-      "supportsResponseFormat": false
-    },
-    "moonshotai/kimi-k2:free": {
-      "supportsResponseFormat": false
-    },
-    "mistralai/devstral-medium": {
-      "supportsResponseFormat": true
-    },
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free": {
       "supportsResponseFormat": true
     },
     "mistralai/devstral-small": {
       "supportsResponseFormat": true
     },
+    "mistralai/devstral-medium": {
+      "supportsResponseFormat": true
+    },
+    "switchpoint/router": {
+      "supportsResponseFormat": false
+    },
     "moonshotai/kimi-k2": {
+      "supportsResponseFormat": true
+    },
+    "moonshotai/kimi-k2:free": {
+      "supportsResponseFormat": false
+    },
+    "thudm/glm-4.1v-9b-thinking": {
+      "supportsResponseFormat": false
+    },
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free": {
       "supportsResponseFormat": true
     },
     "x-ai/grok-4": {
       "supportsResponseFormat": true
     },
-    "morph/morph-v3-large": {
+    "tngtech/deepseek-r1t2-chimera": {
+      "supportsResponseFormat": true
+    },
+    "tngtech/deepseek-r1t2-chimera:free": {
+      "supportsResponseFormat": false
+    },
+    "morph/morph-v3-fast": {
       "supportsResponseFormat": false
     },
     "tencent/hunyuan-a13b-instruct": {
       "supportsResponseFormat": true
     },
-    "baidu/ernie-4.5-300b-a47b": {
-      "supportsResponseFormat": true
-    },
-    "morph/morph-v3-fast": {
-      "supportsResponseFormat": false
-    },
-    "tngtech/deepseek-r1t2-chimera:free": {
+    "morph/morph-v3-large": {
       "supportsResponseFormat": false
     },
     "baidu/ernie-4.5-vl-424b-a47b": {
       "supportsResponseFormat": false
-    },
-    "tngtech/deepseek-r1t2-chimera": {
-      "supportsResponseFormat": true
     },
     "google/gemma-3n-e2b-it:free": {
       "supportsResponseFormat": true
@@ -385,14 +382,14 @@
     "thedrummer/anubis-70b-v1.1": {
       "supportsResponseFormat": false
     },
-    "google/gemini-2.5-pro": {
-      "supportsResponseFormat": true
+    "mistralai/mistral-small-3.2-24b-instruct:free": {
+      "supportsResponseFormat": false
     },
     "minimax/minimax-m1": {
       "supportsResponseFormat": false
     },
-    "mistralai/mistral-small-3.2-24b-instruct:free": {
-      "supportsResponseFormat": false
+    "baidu/ernie-4.5-300b-a47b": {
+      "supportsResponseFormat": true
     },
     "google/gemini-2.5-flash": {
       "supportsResponseFormat": true
@@ -403,13 +400,13 @@
     "moonshotai/kimi-dev-72b": {
       "supportsResponseFormat": true
     },
-    "x-ai/grok-3": {
-      "supportsResponseFormat": true
-    },
-    "x-ai/grok-3-mini": {
-      "supportsResponseFormat": true
-    },
     "openai/o3-pro": {
+      "supportsResponseFormat": true
+    },
+    "google/gemini-2.5-pro": {
+      "supportsResponseFormat": true
+    },
+    "x-ai/grok-3": {
       "supportsResponseFormat": true
     },
     "mistralai/magistral-small-2506": {
@@ -418,14 +415,14 @@
     "mistralai/magistral-medium-2506": {
       "supportsResponseFormat": true
     },
-    "google/gemini-2.5-pro-preview": {
+    "x-ai/grok-3-mini": {
       "supportsResponseFormat": true
     },
     "mistralai/magistral-medium-2506:thinking": {
       "supportsResponseFormat": true
     },
-    "deepseek/deepseek-r1-0528:free": {
-      "supportsResponseFormat": false
+    "google/gemini-2.5-pro-preview": {
+      "supportsResponseFormat": true
     },
     "deepseek/deepseek-r1-0528-qwen3-8b:free": {
       "supportsResponseFormat": false
@@ -433,8 +430,8 @@
     "deepseek/deepseek-r1-0528-qwen3-8b": {
       "supportsResponseFormat": true
     },
-    "google/gemma-3n-e4b-it:free": {
-      "supportsResponseFormat": true
+    "deepseek/deepseek-r1-0528:free": {
+      "supportsResponseFormat": false
     },
     "anthropic/claude-sonnet-4": {
       "supportsResponseFormat": false
@@ -448,14 +445,20 @@
     "deepseek/deepseek-r1-0528": {
       "supportsResponseFormat": true
     },
+    "google/gemma-3n-e4b-it:free": {
+      "supportsResponseFormat": true
+    },
+    "openai/codex-mini": {
+      "supportsResponseFormat": true
+    },
     "google/gemma-3n-e4b-it": {
       "supportsResponseFormat": false
     },
     "nousresearch/deephermes-3-mistral-24b-preview": {
       "supportsResponseFormat": true
     },
-    "openai/codex-mini": {
-      "supportsResponseFormat": true
+    "arcee-ai/spotlight": {
+      "supportsResponseFormat": false
     },
     "google/gemini-2.5-pro-preview-05-06": {
       "supportsResponseFormat": true
@@ -463,13 +466,10 @@
     "mistralai/mistral-medium-3": {
       "supportsResponseFormat": true
     },
-    "arcee-ai/maestro-reasoning": {
-      "supportsResponseFormat": false
-    },
     "arcee-ai/virtuoso-large": {
       "supportsResponseFormat": false
     },
-    "arcee-ai/spotlight": {
+    "arcee-ai/maestro-reasoning": {
       "supportsResponseFormat": false
     },
     "arcee-ai/coder-large": {
@@ -478,23 +478,14 @@
     "inception/mercury-coder": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-30b-a3b": {
-      "supportsResponseFormat": true
-    },
     "microsoft/phi-4-reasoning-plus": {
-      "supportsResponseFormat": true
-    },
-    "deepseek/deepseek-prover-v2": {
       "supportsResponseFormat": true
     },
     "qwen/qwen3-30b-a3b:free": {
       "supportsResponseFormat": false
     },
-    "qwen/qwen3-4b:free": {
+    "deepseek/deepseek-prover-v2": {
       "supportsResponseFormat": true
-    },
-    "qwen/qwen3-14b:free": {
-      "supportsResponseFormat": false
     },
     "qwen/qwen3-8b": {
       "supportsResponseFormat": true
@@ -502,79 +493,82 @@
     "qwen/qwen3-14b": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen3-235b-a22b:free": {
+    "qwen/qwen3-30b-a3b": {
       "supportsResponseFormat": true
+    },
+    "qwen/qwen3-4b:free": {
+      "supportsResponseFormat": true
+    },
+    "qwen/qwen3-14b:free": {
+      "supportsResponseFormat": false
     },
     "qwen/qwen3-32b": {
       "supportsResponseFormat": true
     },
-    "tngtech/deepseek-r1t-chimera:free": {
-      "supportsResponseFormat": false
-    },
-    "microsoft/mai-ds-r1:free": {
-      "supportsResponseFormat": false
-    },
-    "qwen/qwen3-235b-a22b": {
+    "qwen/qwen3-235b-a22b:free": {
       "supportsResponseFormat": true
     },
-    "microsoft/mai-ds-r1": {
+    "qwen/qwen3-235b-a22b": {
       "supportsResponseFormat": true
     },
     "tngtech/deepseek-r1t-chimera": {
       "supportsResponseFormat": true
     },
-    "openai/o4-mini-high": {
-      "supportsResponseFormat": true
+    "microsoft/mai-ds-r1:free": {
+      "supportsResponseFormat": false
     },
-    "openai/o3": {
+    "microsoft/mai-ds-r1": {
       "supportsResponseFormat": true
     },
     "openai/o4-mini": {
       "supportsResponseFormat": true
     },
-    "openai/gpt-4.1-mini": {
+    "openai/o4-mini-high": {
+      "supportsResponseFormat": true
+    },
+    "tngtech/deepseek-r1t-chimera:free": {
+      "supportsResponseFormat": false
+    },
+    "openai/o3": {
       "supportsResponseFormat": true
     },
     "qwen/qwen2.5-coder-7b-instruct": {
       "supportsResponseFormat": true
     },
-    "alfredpros/codellama-7b-instruct-solidity": {
-      "supportsResponseFormat": false
-    },
     "openai/gpt-4.1": {
-      "supportsResponseFormat": true
-    },
-    "arliai/qwq-32b-arliai-rpr-v1:free": {
-      "supportsResponseFormat": false
-    },
-    "arliai/qwq-32b-arliai-rpr-v1": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-4.1-nano": {
       "supportsResponseFormat": true
     },
     "eleutherai/llemma_7b": {
       "supportsResponseFormat": false
     },
-    "x-ai/grok-3-mini-beta": {
+    "openai/gpt-4.1-nano": {
       "supportsResponseFormat": true
+    },
+    "openai/gpt-4.1-mini": {
+      "supportsResponseFormat": true
+    },
+    "arliai/qwq-32b-arliai-rpr-v1:free": {
+      "supportsResponseFormat": false
     },
     "x-ai/grok-3-beta": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen2.5-vl-32b-instruct": {
+    "x-ai/grok-3-mini-beta": {
+      "supportsResponseFormat": true
+    },
+    "arliai/qwq-32b-arliai-rpr-v1": {
       "supportsResponseFormat": true
     },
     "nvidia/llama-3.1-nemotron-ultra-253b-v1": {
       "supportsResponseFormat": true
     },
+    "alfredpros/codellama-7b-instruct-solidity": {
+      "supportsResponseFormat": false
+    },
     "meta-llama/llama-4-maverick": {
       "supportsResponseFormat": true
     },
     "qwen/qwen2.5-vl-32b-instruct:free": {
-      "supportsResponseFormat": false
-    },
-    "deepseek/deepseek-chat-v3-0324:free": {
       "supportsResponseFormat": false
     },
     "meta-llama/llama-4-scout": {
@@ -583,10 +577,13 @@
     "deepseek/deepseek-chat-v3-0324": {
       "supportsResponseFormat": true
     },
-    "openai/o1-pro": {
+    "qwen/qwen2.5-vl-32b-instruct": {
       "supportsResponseFormat": true
     },
-    "google/gemma-3-4b-it:free": {
+    "deepseek/deepseek-chat-v3-0324:free": {
+      "supportsResponseFormat": false
+    },
+    "mistralai/mistral-small-3.1-24b-instruct": {
       "supportsResponseFormat": true
     },
     "mistralai/mistral-small-3.1-24b-instruct:free": {
@@ -595,68 +592,71 @@
     "allenai/olmo-2-0325-32b-instruct": {
       "supportsResponseFormat": false
     },
-    "google/gemma-3-4b-it": {
-      "supportsResponseFormat": true
-    },
-    "cohere/command-a": {
-      "supportsResponseFormat": true
-    },
-    "google/gemma-3-12b-it": {
+    "google/gemma-3-4b-it:free": {
       "supportsResponseFormat": true
     },
     "google/gemma-3-12b-it:free": {
       "supportsResponseFormat": false
     },
-    "mistralai/mistral-small-3.1-24b-instruct": {
+    "google/gemma-3-4b-it": {
+      "supportsResponseFormat": true
+    },
+    "google/gemma-3-12b-it": {
+      "supportsResponseFormat": true
+    },
+    "cohere/command-a": {
+      "supportsResponseFormat": true
+    },
+    "openai/o1-pro": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-4o-search-preview": {
       "supportsResponseFormat": true
     },
     "openai/gpt-4o-mini-search-preview": {
       "supportsResponseFormat": true
     },
-    "google/gemma-3-27b-it:free": {
-      "supportsResponseFormat": true
-    },
-    "thedrummer/skyfall-36b-v2": {
-      "supportsResponseFormat": false
-    },
     "perplexity/sonar-reasoning-pro": {
       "supportsResponseFormat": false
     },
-    "google/gemma-3-27b-it": {
+    "google/gemma-3-27b-it:free": {
       "supportsResponseFormat": true
     },
     "perplexity/sonar-pro": {
       "supportsResponseFormat": false
     },
-    "openai/gpt-4o-search-preview": {
-      "supportsResponseFormat": true
-    },
-    "anthropic/claude-3.7-sonnet:thinking": {
-      "supportsResponseFormat": false
-    },
-    "perplexity/sonar-deep-research": {
-      "supportsResponseFormat": false
-    },
-    "mistralai/mistral-saba": {
-      "supportsResponseFormat": true
-    },
-    "anthropic/claude-3.7-sonnet": {
-      "supportsResponseFormat": false
-    },
-    "openai/o3-mini-high": {
-      "supportsResponseFormat": true
-    },
-    "google/gemini-2.0-flash-lite-001": {
-      "supportsResponseFormat": true
-    },
-    "qwen/qwq-32b": {
+    "google/gemma-3-27b-it": {
       "supportsResponseFormat": true
     },
     "microsoft/phi-4-multimodal-instruct": {
       "supportsResponseFormat": true
     },
-    "aion-labs/aion-1.0-mini": {
+    "thedrummer/skyfall-36b-v2": {
       "supportsResponseFormat": false
+    },
+    "qwen/qwq-32b": {
+      "supportsResponseFormat": true
+    },
+    "perplexity/sonar-deep-research": {
+      "supportsResponseFormat": false
+    },
+    "anthropic/claude-3.7-sonnet:thinking": {
+      "supportsResponseFormat": false
+    },
+    "google/gemini-2.0-flash-lite-001": {
+      "supportsResponseFormat": true
+    },
+    "anthropic/claude-3.7-sonnet": {
+      "supportsResponseFormat": false
+    },
+    "mistralai/mistral-saba": {
+      "supportsResponseFormat": true
+    },
+    "openai/o3-mini-high": {
+      "supportsResponseFormat": true
+    },
+    "google/gemini-2.0-flash-001": {
+      "supportsResponseFormat": true
     },
     "qwen/qwen-vl-plus": {
       "supportsResponseFormat": true
@@ -664,37 +664,19 @@
     "aion-labs/aion-1.0": {
       "supportsResponseFormat": false
     },
-    "qwen/qwen-vl-max": {
-      "supportsResponseFormat": true
+    "aion-labs/aion-1.0-mini": {
+      "supportsResponseFormat": false
     },
     "qwen/qwen-turbo": {
+      "supportsResponseFormat": true
+    },
+    "qwen/qwen-vl-max": {
       "supportsResponseFormat": true
     },
     "aion-labs/aion-rp-llama-3.1-8b": {
       "supportsResponseFormat": false
     },
-    "google/gemini-2.0-flash-001": {
-      "supportsResponseFormat": true
-    },
     "qwen/qwen2.5-vl-72b-instruct": {
-      "supportsResponseFormat": true
-    },
-    "perplexity/sonar-reasoning": {
-      "supportsResponseFormat": false
-    },
-    "openai/o3-mini": {
-      "supportsResponseFormat": true
-    },
-    "deepseek/deepseek-r1-distill-qwen-14b": {
-      "supportsResponseFormat": true
-    },
-    "mistralai/mistral-small-24b-instruct-2501": {
-      "supportsResponseFormat": true
-    },
-    "qwen/qwen-max": {
-      "supportsResponseFormat": true
-    },
-    "deepseek/deepseek-r1-distill-qwen-32b": {
       "supportsResponseFormat": true
     },
     "qwen/qwen-plus": {
@@ -703,52 +685,67 @@
     "mistralai/mistral-small-24b-instruct-2501:free": {
       "supportsResponseFormat": false
     },
+    "qwen/qwen-max": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/mistral-small-24b-instruct-2501": {
+      "supportsResponseFormat": true
+    },
+    "deepseek/deepseek-r1-distill-qwen-14b": {
+      "supportsResponseFormat": true
+    },
     "perplexity/sonar": {
       "supportsResponseFormat": false
     },
-    "deepseek/deepseek-r1-distill-llama-70b:free": {
+    "perplexity/sonar-reasoning": {
       "supportsResponseFormat": false
     },
-    "minimax/minimax-01": {
-      "supportsResponseFormat": false
-    },
-    "microsoft/phi-4": {
-      "supportsResponseFormat": true
-    },
-    "deepseek/deepseek-r1:free": {
-      "supportsResponseFormat": true
-    },
-    "deepseek/deepseek-r1": {
+    "openai/o3-mini": {
       "supportsResponseFormat": true
     },
     "deepseek/deepseek-r1-distill-llama-70b": {
       "supportsResponseFormat": true
     },
+    "deepseek/deepseek-r1-distill-qwen-32b": {
+      "supportsResponseFormat": true
+    },
+    "deepseek/deepseek-r1:free": {
+      "supportsResponseFormat": true
+    },
+    "minimax/minimax-01": {
+      "supportsResponseFormat": false
+    },
     "mistralai/codestral-2501": {
       "supportsResponseFormat": true
     },
-    "sao10k/l3.1-70b-hanami-x1": {
-      "supportsResponseFormat": false
-    },
-    "deepseek/deepseek-chat": {
+    "deepseek/deepseek-r1": {
       "supportsResponseFormat": true
     },
-    "meta-llama/llama-3.3-70b-instruct:free": {
+    "microsoft/phi-4": {
+      "supportsResponseFormat": true
+    },
+    "deepseek/deepseek-r1-distill-llama-70b:free": {
+      "supportsResponseFormat": false
+    },
+    "sao10k/l3.1-70b-hanami-x1": {
       "supportsResponseFormat": false
     },
     "google/gemini-2.0-flash-exp:free": {
       "supportsResponseFormat": true
     },
-    "openai/o1": {
-      "supportsResponseFormat": true
+    "meta-llama/llama-3.3-70b-instruct:free": {
+      "supportsResponseFormat": false
     },
-    "cohere/command-r7b-12-2024": {
+    "openai/o1": {
       "supportsResponseFormat": true
     },
     "sao10k/l3.3-euryale-70b": {
       "supportsResponseFormat": true
     },
-    "meta-llama/llama-3.3-70b-instruct": {
+    "deepseek/deepseek-chat": {
+      "supportsResponseFormat": true
+    },
+    "cohere/command-r7b-12-2024": {
       "supportsResponseFormat": true
     },
     "amazon/nova-lite-v1": {
@@ -756,6 +753,9 @@
     },
     "amazon/nova-micro-v1": {
       "supportsResponseFormat": false
+    },
+    "mistralai/mistral-large-2411": {
+      "supportsResponseFormat": true
     },
     "openai/gpt-4o-2024-11-20": {
       "supportsResponseFormat": true
@@ -766,22 +766,19 @@
     "mistralai/mistral-large-2407": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen-2.5-coder-32b-instruct:free": {
-      "supportsResponseFormat": false
-    },
-    "raifle/sorcererlm-8x22b": {
-      "supportsResponseFormat": false
-    },
-    "qwen/qwen-2.5-coder-32b-instruct": {
+    "meta-llama/llama-3.3-70b-instruct": {
       "supportsResponseFormat": true
     },
     "mistralai/pixtral-large-2411": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-large-2411": {
+    "qwen/qwen-2.5-coder-32b-instruct": {
       "supportsResponseFormat": true
     },
-    "anthropic/claude-3.5-sonnet": {
+    "qwen/qwen-2.5-coder-32b-instruct:free": {
+      "supportsResponseFormat": false
+    },
+    "raifle/sorcererlm-8x22b": {
       "supportsResponseFormat": false
     },
     "thedrummer/unslopnemo-12b": {
@@ -790,52 +787,52 @@
     "anthropic/claude-3.5-haiku-20241022": {
       "supportsResponseFormat": false
     },
-    "anthropic/claude-3.5-haiku": {
+    "anthropic/claude-3.5-sonnet": {
       "supportsResponseFormat": false
-    },
-    "anthracite-org/magnum-v4-72b": {
-      "supportsResponseFormat": true
     },
     "mistralai/ministral-8b": {
       "supportsResponseFormat": true
     },
-    "mistralai/ministral-3b": {
+    "anthracite-org/magnum-v4-72b": {
       "supportsResponseFormat": true
     },
-    "nvidia/llama-3.1-nemotron-70b-instruct": {
-      "supportsResponseFormat": true
-    },
-    "inflection/inflection-3-productivity": {
+    "anthropic/claude-3.5-haiku": {
       "supportsResponseFormat": false
     },
-    "thedrummer/rocinante-12b": {
-      "supportsResponseFormat": true
-    },
-    "meta-llama/llama-3.2-11b-vision-instruct": {
-      "supportsResponseFormat": true
-    },
     "qwen/qwen-2.5-7b-instruct": {
+      "supportsResponseFormat": false
+    },
+    "nvidia/llama-3.1-nemotron-70b-instruct": {
       "supportsResponseFormat": true
     },
     "inflection/inflection-3-pi": {
       "supportsResponseFormat": false
     },
-    "meta-llama/llama-3.2-90b-vision-instruct": {
+    "inflection/inflection-3-productivity": {
+      "supportsResponseFormat": false
+    },
+    "mistralai/ministral-3b": {
       "supportsResponseFormat": true
     },
     "meta-llama/llama-3.2-1b-instruct": {
       "supportsResponseFormat": false
     },
+    "meta-llama/llama-3.2-90b-vision-instruct": {
+      "supportsResponseFormat": true
+    },
+    "meta-llama/llama-3.2-11b-vision-instruct": {
+      "supportsResponseFormat": true
+    },
     "meta-llama/llama-3.2-3b-instruct:free": {
       "supportsResponseFormat": false
     },
-    "qwen/qwen-2.5-72b-instruct:free": {
-      "supportsResponseFormat": false
+    "thedrummer/rocinante-12b": {
+      "supportsResponseFormat": true
     },
     "meta-llama/llama-3.2-3b-instruct": {
       "supportsResponseFormat": true
     },
-    "cohere/command-r-08-2024": {
+    "neversleep/llama-3.1-lumimaid-8b": {
       "supportsResponseFormat": true
     },
     "mistralai/pixtral-12b": {
@@ -844,32 +841,32 @@
     "qwen/qwen-2.5-72b-instruct": {
       "supportsResponseFormat": true
     },
-    "neversleep/llama-3.1-lumimaid-8b": {
+    "cohere/command-r-08-2024": {
       "supportsResponseFormat": true
     },
     "cohere/command-r-plus-08-2024": {
       "supportsResponseFormat": true
     },
-    "qwen/qwen-2.5-vl-7b-instruct": {
+    "qwen/qwen-2.5-72b-instruct:free": {
       "supportsResponseFormat": false
     },
-    "openai/chatgpt-4o-latest": {
-      "supportsResponseFormat": true
-    },
-    "microsoft/phi-3.5-mini-128k-instruct": {
+    "qwen/qwen-2.5-vl-7b-instruct": {
       "supportsResponseFormat": false
     },
     "nousresearch/hermes-3-llama-3.1-70b": {
       "supportsResponseFormat": true
     },
-    "nousresearch/hermes-3-llama-3.1-405b": {
-      "supportsResponseFormat": true
+    "nousresearch/hermes-3-llama-3.1-405b:free": {
+      "supportsResponseFormat": false
+    },
+    "microsoft/phi-3.5-mini-128k-instruct": {
+      "supportsResponseFormat": false
     },
     "sao10k/l3.1-euryale-70b": {
       "supportsResponseFormat": true
     },
-    "nousresearch/hermes-3-llama-3.1-405b:free": {
-      "supportsResponseFormat": false
+    "nousresearch/hermes-3-llama-3.1-405b": {
+      "supportsResponseFormat": true
     },
     "openai/gpt-4o-2024-08-06": {
       "supportsResponseFormat": true
@@ -877,17 +874,17 @@
     "sao10k/l3-lunaris-8b": {
       "supportsResponseFormat": true
     },
-    "meta-llama/llama-3.1-70b-instruct": {
+    "openai/chatgpt-4o-latest": {
       "supportsResponseFormat": true
     },
     "meta-llama/llama-3.1-405b": {
       "supportsResponseFormat": false
     },
-    "meta-llama/llama-3.1-8b-instruct": {
+    "meta-llama/llama-3.1-70b-instruct": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-nemo:free": {
-      "supportsResponseFormat": false
+    "meta-llama/llama-3.1-8b-instruct": {
+      "supportsResponseFormat": true
     },
     "meta-llama/llama-3.1-405b-instruct": {
       "supportsResponseFormat": true
@@ -895,28 +892,19 @@
     "openai/gpt-4o-mini": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-nemo": {
-      "supportsResponseFormat": true
-    },
-    "google/gemma-2-27b-it": {
-      "supportsResponseFormat": true
-    },
-    "google/gemma-2-9b-it": {
-      "supportsResponseFormat": false
-    },
-    "mistralai/mistral-7b-instruct:free": {
-      "supportsResponseFormat": true
-    },
-    "sao10k/l3-euryale-70b": {
+    "mistralai/mistral-nemo:free": {
       "supportsResponseFormat": false
     },
     "openai/gpt-4o-mini-2024-07-18": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-7b-instruct": {
+    "mistralai/mistral-nemo": {
       "supportsResponseFormat": true
     },
-    "microsoft/phi-3-medium-128k-instruct": {
+    "google/gemma-2-9b-it": {
+      "supportsResponseFormat": false
+    },
+    "sao10k/l3-euryale-70b": {
       "supportsResponseFormat": false
     },
     "mistralai/mistral-7b-instruct-v0.3": {
@@ -925,10 +913,22 @@
     "nousresearch/hermes-2-pro-llama-3-8b": {
       "supportsResponseFormat": true
     },
+    "mistralai/mistral-7b-instruct": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/mistral-7b-instruct:free": {
+      "supportsResponseFormat": true
+    },
+    "microsoft/phi-3-medium-128k-instruct": {
+      "supportsResponseFormat": false
+    },
     "microsoft/phi-3-mini-128k-instruct": {
       "supportsResponseFormat": false
     },
     "openai/gpt-4o": {
+      "supportsResponseFormat": true
+    },
+    "google/gemma-2-27b-it": {
       "supportsResponseFormat": true
     },
     "openai/gpt-4o:extended": {
@@ -937,20 +937,20 @@
     "openai/gpt-4o-2024-05-13": {
       "supportsResponseFormat": true
     },
+    "meta-llama/llama-3-70b-instruct": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/mixtral-8x22b-instruct": {
+      "supportsResponseFormat": true
+    },
     "meta-llama/llama-3-8b-instruct": {
       "supportsResponseFormat": true
-    },
-    "openai/gpt-4-turbo": {
-      "supportsResponseFormat": true
-    },
-    "anthropic/claude-3-haiku": {
-      "supportsResponseFormat": false
     },
     "microsoft/wizardlm-2-8x22b": {
       "supportsResponseFormat": true
     },
-    "meta-llama/llama-3-70b-instruct": {
-      "supportsResponseFormat": true
+    "anthropic/claude-3-haiku": {
+      "supportsResponseFormat": false
     },
     "mistralai/mistral-large": {
       "supportsResponseFormat": true
@@ -958,61 +958,61 @@
     "anthropic/claude-3-opus": {
       "supportsResponseFormat": false
     },
-    "openai/gpt-4-turbo-preview": {
+    "openai/gpt-4-turbo": {
       "supportsResponseFormat": true
     },
     "openai/gpt-3.5-turbo-0613": {
       "supportsResponseFormat": true
     },
-    "mistralai/mistral-small": {
-      "supportsResponseFormat": true
-    },
-    "mistralai/mixtral-8x22b-instruct": {
-      "supportsResponseFormat": true
-    },
     "mistralai/mistral-tiny": {
       "supportsResponseFormat": true
     },
-    "mistralai/mixtral-8x7b-instruct": {
+    "openai/gpt-4-turbo-preview": {
+      "supportsResponseFormat": true
+    },
+    "mistralai/mistral-small": {
+      "supportsResponseFormat": true
+    },
+    "neversleep/noromaid-20b": {
       "supportsResponseFormat": true
     },
     "mistralai/mistral-7b-instruct-v0.2": {
       "supportsResponseFormat": false
     },
-    "neversleep/noromaid-20b": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-3.5-turbo-instruct": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-3.5-turbo-16k": {
-      "supportsResponseFormat": true
-    },
-    "mistralai/mistral-7b-instruct-v0.1": {
-      "supportsResponseFormat": false
-    },
-    "alpindale/goliath-120b": {
+    "mistralai/mixtral-8x7b-instruct": {
       "supportsResponseFormat": true
     },
     "openai/gpt-4-1106-preview": {
       "supportsResponseFormat": true
     },
-    "mancer/weaver": {
-      "supportsResponseFormat": true
+    "mistralai/mistral-7b-instruct-v0.1": {
+      "supportsResponseFormat": false
     },
     "undi95/remm-slerp-l2-13b": {
       "supportsResponseFormat": true
     },
+    "openai/gpt-3.5-turbo-instruct": {
+      "supportsResponseFormat": true
+    },
+    "mancer/weaver": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-3.5-turbo-16k": {
+      "supportsResponseFormat": true
+    },
+    "alpindale/goliath-120b": {
+      "supportsResponseFormat": true
+    },
     "gryphe/mythomax-l2-13b": {
+      "supportsResponseFormat": true
+    },
+    "openai/gpt-4-0314": {
       "supportsResponseFormat": true
     },
     "openai/gpt-4": {
       "supportsResponseFormat": true
     },
     "openai/gpt-3.5-turbo": {
-      "supportsResponseFormat": true
-    },
-    "openai/gpt-4-0314": {
       "supportsResponseFormat": true
     }
   }
