@@ -3352,11 +3352,204 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
   }
 
   /**
+   * Valid plan actions
+   * @private
+   */
+  static VALID_PLAN_ACTIONS = new Set([
+    'generate_image', 'generate_keyframe', 'generate_video', 
+    'generate_video_from_image', 'edit_image', 'extend_video',
+    'speak', 'post_tweet', 'research', 'wait'
+  ]);
+
+  /**
+   * Step timeout configuration (ms)
+   * @private
+   */
+  static STEP_TIMEOUTS = {
+    generate_image: 120000,      // 2 minutes
+    generate_keyframe: 120000,   // 2 minutes
+    generate_video: 300000,      // 5 minutes
+    generate_video_from_image: 300000, // 5 minutes
+    edit_image: 120000,          // 2 minutes
+    extend_video: 300000,        // 5 minutes
+    speak: 30000,                // 30 seconds
+    post_tweet: 60000,           // 1 minute
+    research: 30000,             // 30 seconds
+    wait: 5000,                  // 5 seconds
+    default: 120000              // 2 minutes default
+  };
+
+  /**
+   * Validate a plan before execution
+   * @param {Object} plan - The plan to validate
+   * @returns {{ valid: boolean, errors: string[], warnings: string[] }}
+   * @private
+   */
+  _validatePlan(plan) {
+    const errors = [];
+    const warnings = [];
+    
+    if (!plan) {
+      errors.push('Plan is empty or undefined');
+      return { valid: false, errors, warnings };
+    }
+    
+    if (!plan.objective || typeof plan.objective !== 'string') {
+      warnings.push('Plan has no objective - execution may lack context');
+    }
+    
+    if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
+      errors.push('Plan has no steps to execute');
+      return { valid: false, errors, warnings };
+    }
+    
+    if (plan.steps.length > 10) {
+      warnings.push(`Plan has ${plan.steps.length} steps - consider breaking into smaller plans`);
+    }
+    
+    let hasMediaGeneration = false;
+    
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
+      const stepNum = i + 1;
+      const action = step.action?.toLowerCase();
+      
+      // Check if action is valid
+      if (!action) {
+        errors.push(`Step ${stepNum}: Missing action type`);
+        continue;
+      }
+      
+      if (!TelegramService.VALID_PLAN_ACTIONS.has(action)) {
+        errors.push(`Step ${stepNum}: Unknown action "${action}"`);
+        continue;
+      }
+      
+      // Check for description
+      if (!step.description && !['wait', 'research'].includes(action)) {
+        warnings.push(`Step ${stepNum} (${action}): Missing description`);
+      }
+      
+      // Track media generation
+      if (['generate_image', 'generate_keyframe', 'generate_video', 'generate_video_from_image'].includes(action)) {
+        hasMediaGeneration = true;
+      }
+      
+      // Check dependencies
+      if (['edit_image', 'extend_video'].includes(action)) {
+        if (!step.sourceMediaId && !hasMediaGeneration) {
+          errors.push(`Step ${stepNum} (${action}): Requires prior media generation or sourceMediaId`);
+        }
+      }
+      
+      if (action === 'post_tweet') {
+        if (!step.sourceMediaId && !hasMediaGeneration) {
+          errors.push(`Step ${stepNum} (post_tweet): Requires prior media generation or sourceMediaId`);
+        }
+      }
+      
+      if (action === 'generate_video_from_image') {
+        if (!step.sourceMediaId && !hasMediaGeneration) {
+          warnings.push(`Step ${stepNum} (generate_video_from_image): No prior image - will fall back to text-to-video`);
+        }
+      }
+    }
+    
+    return { valid: errors.length === 0, errors, warnings };
+  }
+
+  /**
+   * Execute a step with timeout
+   * @param {Function} stepFn - The step function to execute
+   * @param {string} action - Action name for timeout lookup
+   * @param {number} stepNum - Step number for logging
+   * @returns {Promise<any>}
+   * @private
+   */
+  async _executeStepWithTimeout(stepFn, action, stepNum) {
+    const timeoutMs = TelegramService.STEP_TIMEOUTS[action] || TelegramService.STEP_TIMEOUTS.default;
+    
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`Step ${stepNum} (${action}) timed out after ${Math.round(timeoutMs / 1000)}s`));
+      }, timeoutMs);
+      
+      stepFn()
+        .then(result => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch(err => {
+          clearTimeout(timeoutId);
+          reject(err);
+        });
+    });
+  }
+
+  /**
+   * Update progress message
+   * @param {Object} ctx - Telegram context
+   * @param {number|null} messageId - Message ID to edit, or null to send new
+   * @param {string} text - Progress text
+   * @param {string} channelId - Channel ID
+   * @returns {Promise<number>} - Message ID
+   * @private
+   */
+  async _updateProgressMessage(ctx, messageId, text, channelId) {
+    try {
+      if (messageId) {
+        await ctx.telegram.editMessageText(channelId, messageId, null, text, { parse_mode: 'HTML' });
+        return messageId;
+      } else {
+        const msg = await ctx.reply(text, { parse_mode: 'HTML' });
+        return msg.message_id;
+      }
+    } catch (err) {
+      // If edit fails (e.g., message unchanged), just log and continue
+      this.logger?.debug?.('[TelegramService] Progress message update failed:', err.message);
+      return messageId;
+    }
+  }
+
+  /**
+   * Delete progress message
+   * @param {Object} ctx - Telegram context  
+   * @param {number} messageId - Message ID to delete
+   * @param {string} channelId - Channel ID
+   * @private
+   */
+  async _deleteProgressMessage(ctx, messageId, channelId) {
+    if (!messageId) return;
+    try {
+      await ctx.telegram.deleteMessage(channelId, messageId);
+    } catch (err) {
+      this.logger?.debug?.('[TelegramService] Failed to delete progress message:', err.message);
+    }
+  }
+
+  /**
    * Execute plan_actions directly (no AI involvement)
    * For cases where we want precise control over the action sequence
    */
   async executePlanActions(ctx, args = {}, channelId, userId, username, conversationContext = '') {
+    let progressMessageId = null;
+    
     try {
+      // Validate plan before execution
+      const validation = this._validatePlan(args);
+      
+      if (!validation.valid) {
+        const errorList = validation.errors.map(e => `• ${e}`).join('\n');
+        await ctx.reply(`⚠️ I can't execute this plan:\n${errorList}\n\nPlease adjust and try again!`);
+        this.logger?.warn?.('[TelegramService] Plan validation failed:', validation.errors);
+        return;
+      }
+      
+      // Log warnings but continue
+      if (validation.warnings.length > 0) {
+        this.logger?.info?.('[TelegramService] Plan validation warnings:', validation.warnings);
+      }
+
       const planEntry = await this._rememberAgentPlan(channelId, {
         objective: args.objective,
         steps: args.steps,
@@ -3402,169 +3595,204 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       
       this.logger?.info?.(planLogLines.join('\n'));
 
-      // Execute the steps immediately (no longer posting plan to Telegram)
+      // Execute the steps with progress feedback
       this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
       
       let latestGeneratedMediaId = null;
       let generationFailed = false;
+      const totalSteps = planEntry.steps?.length || 0;
+      const executionResults = [];
+      const startTime = Date.now();
 
       if (planEntry.steps && Array.isArray(planEntry.steps)) {
         for (let stepIdx = 0; stepIdx < planEntry.steps.length; stepIdx++) {
           const step = planEntry.steps[stepIdx];
           const action = step.action?.toLowerCase();
           const stepNum = stepIdx + 1;
-          const totalSteps = planEntry.steps.length;
+          
+          // Update progress message
+          const progressIcon = this._getActionIcon(action);
+          const progressText = `${progressIcon} <b>Step ${stepNum}/${totalSteps}:</b> ${this._getActionLabel(action)}...`;
+          progressMessageId = await this._updateProgressMessage(ctx, progressMessageId, progressText, channelId);
           
           this.logger?.info?.(`[TelegramService] 📍 Step ${stepNum}/${totalSteps}: ${(action || 'unknown').toUpperCase()} - "${(step.description || '').substring(0, 50)}..."`);
           
-          if (action === 'generate_image') {
-             const record = await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
-             if (record) {
-               latestGeneratedMediaId = record.id;
-               generationFailed = false;
-             } else {
-               generationFailed = true;
-             }
-          } else if (action === 'generate_keyframe') {
-             // Generate an image specifically as a keyframe for video generation
-             const record = await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
-             if (record) {
-               // Mark it as a keyframe type for downstream use
-               latestGeneratedMediaId = record.id;
-               generationFailed = false;
-               // Update the record type to keyframe
-               try {
-                 if (this.databaseService) {
-                   const db = await this.databaseService.getDatabase();
-                   await db.collection('telegram_recent_media').updateOne(
-                     { channelId: record.channelId, id: record.id },
-                     { $set: { type: 'keyframe', source: 'telegram.generate_keyframe' } }
-                   );
-                 }
-               } catch (err) {
-                 this.logger?.warn?.('[TelegramService] Failed to mark media as keyframe:', err.message);
-               }
-             } else {
-               generationFailed = true;
-             }
-          } else if (action === 'edit_image') {
-             // Edit an existing image using Gemini's image editing capabilities
-             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-             if (!sourceMediaId) {
-               await ctx.reply('I need an image to edit first! Generate one or provide a reference.');
-               generationFailed = true;
-               continue;
-             }
-             const record = await this.executeImageEdit(ctx, {
-               prompt: step.description,
-               sourceMediaId,
-               conversationContext,
-               userId,
-               username
-             });
-             if (record) {
-               latestGeneratedMediaId = record.id;
-               generationFailed = false;
-             } else {
-               generationFailed = true;
-             }
-          } else if (action === 'generate_video_from_image') {
-             // Generate video from the most recent image/keyframe
-             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-             if (!sourceMediaId) {
-               // Fall back to regular video generation if no source image
-               const record = await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
-               if (record) {
-                 latestGeneratedMediaId = record.id;
-                 generationFailed = false;
-               } else {
-                 generationFailed = true;
-               }
-             } else {
-               const record = await this.executeVideoFromImage(ctx, {
-                 prompt: step.description,
-                 sourceMediaId,
-                 conversationContext,
-                 userId,
-                 username
-               });
-               if (record) {
-                 latestGeneratedMediaId = record.id;
-                 generationFailed = false;
-               } else {
-                 generationFailed = true;
-               }
-             }
-          } else if (action === 'extend_video') {
-             // Extend an existing video
-             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-             if (!sourceMediaId) {
-               await ctx.reply('I need a video to extend! Generate one first.');
-               generationFailed = true;
-               continue;
-             }
-             const record = await this.executeVideoExtension(ctx, {
-               prompt: step.description,
-               sourceMediaId,
-               conversationContext,
-               userId,
-               username
-             });
-             if (record) {
-               latestGeneratedMediaId = record.id;
-               generationFailed = false;
-             } else {
-               generationFailed = true;
-             }
-          } else if (action === 'generate_video') {
-             const record = await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
-             if (record) {
-               latestGeneratedMediaId = record.id;
-               generationFailed = false;
-             } else {
-               generationFailed = true;
-             }
-          } else if (action === 'speak') {
-             // Generate a response based on the description
-             try {
-               const speechPrompt = `You are executing a planned action.
+          const stepStartTime = Date.now();
+          let stepResult = { success: false, action, stepNum };
+          
+          try {
+            if (action === 'generate_image') {
+              const record = await this._executeStepWithTimeout(
+                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username),
+                action, stepNum
+              );
+              if (record) {
+                latestGeneratedMediaId = record.id;
+                generationFailed = false;
+                stepResult = { success: true, action, stepNum, mediaId: record.id };
+              } else {
+                generationFailed = true;
+              }
+            } else if (action === 'generate_keyframe') {
+              const record = await this._executeStepWithTimeout(
+                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username),
+                action, stepNum
+              );
+              if (record) {
+                latestGeneratedMediaId = record.id;
+                generationFailed = false;
+                stepResult = { success: true, action, stepNum, mediaId: record.id };
+                try {
+                  if (this.databaseService) {
+                    const db = await this.databaseService.getDatabase();
+                    await db.collection('telegram_recent_media').updateOne(
+                      { channelId: record.channelId, id: record.id },
+                      { $set: { type: 'keyframe', source: 'telegram.generate_keyframe' } }
+                    );
+                  }
+                } catch (err) {
+                  this.logger?.warn?.('[TelegramService] Failed to mark media as keyframe:', err.message);
+                }
+              } else {
+                generationFailed = true;
+              }
+            } else if (action === 'edit_image') {
+              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+              if (!sourceMediaId) {
+                await ctx.reply('I need an image to edit first! Generate one or provide a reference.');
+                generationFailed = true;
+                stepResult = { success: false, action, stepNum, error: 'No source image' };
+                executionResults.push(stepResult);
+                continue;
+              }
+              const record = await this._executeStepWithTimeout(
+                () => this.executeImageEdit(ctx, {
+                  prompt: step.description,
+                  sourceMediaId,
+                  conversationContext,
+                  userId,
+                  username
+                }),
+                action, stepNum
+              );
+              if (record) {
+                latestGeneratedMediaId = record.id;
+                generationFailed = false;
+                stepResult = { success: true, action, stepNum, mediaId: record.id };
+              } else {
+                generationFailed = true;
+              }
+            } else if (action === 'generate_video_from_image') {
+              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+              if (!sourceMediaId) {
+                const record = await this._executeStepWithTimeout(
+                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                  action, stepNum
+                );
+                if (record) {
+                  latestGeneratedMediaId = record.id;
+                  generationFailed = false;
+                  stepResult = { success: true, action, stepNum, mediaId: record.id };
+                } else {
+                  generationFailed = true;
+                }
+              } else {
+                const record = await this._executeStepWithTimeout(
+                  () => this.executeVideoFromImage(ctx, {
+                    prompt: step.description,
+                    sourceMediaId,
+                    conversationContext,
+                    userId,
+                    username
+                  }),
+                  action, stepNum
+                );
+                if (record) {
+                  latestGeneratedMediaId = record.id;
+                  generationFailed = false;
+                  stepResult = { success: true, action, stepNum, mediaId: record.id };
+                } else {
+                  generationFailed = true;
+                }
+              }
+            } else if (action === 'extend_video') {
+              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+              if (!sourceMediaId) {
+                await ctx.reply('I need a video to extend! Generate one first.');
+                generationFailed = true;
+                stepResult = { success: false, action, stepNum, error: 'No source video' };
+                executionResults.push(stepResult);
+                continue;
+              }
+              const record = await this._executeStepWithTimeout(
+                () => this.executeVideoExtension(ctx, {
+                  prompt: step.description,
+                  sourceMediaId,
+                  conversationContext,
+                  userId,
+                  username
+                }),
+                action, stepNum
+              );
+              if (record) {
+                latestGeneratedMediaId = record.id;
+                generationFailed = false;
+                stepResult = { success: true, action, stepNum, mediaId: record.id };
+              } else {
+                generationFailed = true;
+              }
+            } else if (action === 'generate_video') {
+              const record = await this._executeStepWithTimeout(
+                () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                action, stepNum
+              );
+              if (record) {
+                latestGeneratedMediaId = record.id;
+                generationFailed = false;
+                stepResult = { success: true, action, stepNum, mediaId: record.id };
+              } else {
+                generationFailed = true;
+              }
+            } else if (action === 'speak') {
+              await this._executeStepWithTimeout(async () => {
+                const speechPrompt = `You are executing a planned action.
 Context: ${conversationContext}
 Action Description: ${step.description}
 
 Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character.`;
 
-               const response = await this.aiService.chat([
-                 { role: 'user', content: speechPrompt }
-               ], {
-                 model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-                 temperature: 0.7
-               });
-               
-               const text = String(response || '').trim().replace(/^["']|["']$/g, '');
-               if (text) {
-                 await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
-                 await this._recordBotResponse(channelId, userId);
-               }
-             } catch (err) {
-               this.logger?.warn?.('[TelegramService] Failed to generate speech for plan:', err);
-             }
-          } else if (action === 'post_tweet') {
-             if (generationFailed) {
+                const response = await this.aiService.chat([
+                  { role: 'user', content: speechPrompt }
+                ], {
+                  model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+                  temperature: 0.7
+                });
+                
+                const text = String(response || '').trim().replace(/^["']|["']$/g, '');
+                if (text) {
+                  await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
+                  await this._recordBotResponse(channelId, userId);
+                }
+              }, action, stepNum);
+              stepResult = { success: true, action, stepNum };
+            } else if (action === 'post_tweet') {
+              if (generationFailed) {
                 await ctx.reply('Skipping X post because the media generation failed.');
+                stepResult = { success: false, action, stepNum, error: 'Prior media generation failed' };
+                executionResults.push(stepResult);
                 continue;
-             }
+              }
 
-             let mediaIdToTweet = latestGeneratedMediaId;
-             if (!mediaIdToTweet) {
+              let mediaIdToTweet = latestGeneratedMediaId;
+              if (!mediaIdToTweet) {
                 const recent = await this._getRecentMedia(channelId, 1);
                 if (recent && recent.length > 0) mediaIdToTweet = recent[0].id;
-             }
+              }
 
-             if (mediaIdToTweet) {
-               // Generate a creative tweet caption instead of using the raw description
-               let tweetText = step.description;
-               try {
-                 const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
+              if (mediaIdToTweet) {
+                let tweetText = step.description;
+                try {
+                  const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
 Context: ${conversationContext}
 Task: ${step.description}
 
@@ -3574,41 +3802,114 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
 - Do not include "Here is the tweet:" or similar prefixes.
 - Make it sound like a real tweet, not a bot command.`;
 
-                 const response = await this.aiService.chat([
-                   { role: 'user', content: tweetPrompt }
-                 ], {
-                   model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-                   temperature: 0.8
-                 });
-                 
-                 const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
-                 if (generatedTweet) {
-                   tweetText = generatedTweet;
-                 }
-               } catch (err) {
-                 this.logger?.warn?.('[TelegramService] Failed to generate tweet caption, falling back to description:', err);
-               }
+                  const response = await this.aiService.chat([
+                    { role: 'user', content: tweetPrompt }
+                  ], {
+                    model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+                    temperature: 0.8
+                  });
+                  
+                  const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
+                  if (generatedTweet) {
+                    tweetText = generatedTweet;
+                  }
+                } catch (err) {
+                  this.logger?.warn?.('[TelegramService] Failed to generate tweet caption, falling back to description:', err);
+                }
 
-               await this.executeTweetPost(ctx, {
-                 text: tweetText,
-                 mediaId: mediaIdToTweet,
-                 channelId,
-                 userId,
-                 username
-               });
-             } else {
-               this.logger?.warn?.('[TelegramService] Cannot post_tweet in plan: no recent media found');
-               await ctx.reply('I wanted to post to X, but I couldn\'t find the image/video I just made! 🕵️‍♀️');
-             }
-          } else {
-             this.logger?.info?.(`[TelegramService] Skipping unimplemented plan action: ${action}`);
+                await this._executeStepWithTimeout(
+                  () => this.executeTweetPost(ctx, {
+                    text: tweetText,
+                    mediaId: mediaIdToTweet,
+                    channelId,
+                    userId,
+                    username
+                  }),
+                  action, stepNum
+                );
+                stepResult = { success: true, action, stepNum, mediaId: mediaIdToTweet };
+              } else {
+                this.logger?.warn?.('[TelegramService] Cannot post_tweet in plan: no recent media found');
+                await ctx.reply('I wanted to post to X, but I couldn\'t find the image/video I just made! 🕵️‍♀️');
+                stepResult = { success: false, action, stepNum, error: 'No media found' };
+              }
+            } else if (action === 'wait' || action === 'research') {
+              // Acknowledgment actions - just continue
+              stepResult = { success: true, action, stepNum };
+            } else {
+              this.logger?.info?.(`[TelegramService] Skipping unimplemented plan action: ${action}`);
+              stepResult = { success: false, action, stepNum, error: 'Unimplemented action' };
+            }
+          } catch (stepError) {
+            const isTimeout = stepError.message?.includes('timed out');
+            this.logger?.error?.(`[TelegramService] Step ${stepNum} failed:`, stepError.message);
+            
+            if (isTimeout) {
+              await ctx.reply(`⏱️ Step ${stepNum} (${this._getActionLabel(action)}) timed out. Continuing with next step...`);
+            }
+            
+            stepResult = { success: false, action, stepNum, error: stepError.message };
+            generationFailed = true;
           }
+          
+          stepResult.durationMs = Date.now() - stepStartTime;
+          executionResults.push(stepResult);
         }
       }
+      
+      // Delete progress message on completion
+      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
+      
+      // Log execution summary
+      const totalDuration = Date.now() - startTime;
+      const successCount = executionResults.filter(r => r.success).length;
+      this.logger?.info?.(`[TelegramService] Plan execution complete: ${successCount}/${totalSteps} steps succeeded in ${Math.round(totalDuration / 1000)}s`);
+      
     } catch (error) {
       this.logger?.error?.('[TelegramService] executePlanActions error:', error);
+      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
       await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
     }
+  }
+
+  /**
+   * Get icon for action type
+   * @private
+   */
+  _getActionIcon(action) {
+    const icons = {
+      generate_image: '🎨',
+      generate_keyframe: '🖼️',
+      generate_video: '🎬',
+      generate_video_from_image: '🎥',
+      edit_image: '✏️',
+      extend_video: '📹',
+      speak: '💬',
+      post_tweet: '🐦',
+      research: '🔍',
+      wait: '⏳'
+    };
+    return icons[action] || '⚡';
+  }
+
+  /**
+   * Get human-readable label for action type
+   * @private
+   */
+  _getActionLabel(action) {
+    const labels = {
+      generate_image: 'Generating image',
+      generate_keyframe: 'Creating keyframe',
+      generate_video: 'Generating video',
+      generate_video_from_image: 'Creating video from image',
+      edit_image: 'Editing image',
+      extend_video: 'Extending video',
+      speak: 'Composing message',
+      post_tweet: 'Posting to X',
+      research: 'Researching',
+      wait: 'Processing'
+    };
+    return labels[action] || action;
   }
 
   /**
