@@ -945,16 +945,24 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
 
       // Use provided character design or fall back to bot config
       const config = this.bot.globalBotConfig || {};
-      const charDesign = options.characterDesign || config.characterDesign || {};
+      const {
+        enhanceWithDirector,
+        characterDesign: overrideCharacterDesign,
+        avatars: directorAvatars,
+        location: directorLocation,
+        ...forwardOptions
+      } = options;
+
+      const charDesign = overrideCharacterDesign || config.characterDesign || {};
       
       let enhancedPrompt = prompt;
       const referenceImages = [];
 
       // 0. Apply Director Mode (LLM Scene Composition) if requested
-      if (options.enhanceWithDirector) {
+      if (enhanceWithDirector) {
         enhancedPrompt = await this.composeSceneDescription(prompt, {
-          avatars: options.avatars || [],
-          location: options.location || null,
+          avatars: directorAvatars || [],
+          location: directorLocation || null,
           additionalContext: options.context || ''
         });
         this.logger?.info?.('[GlobalBotService] Enhanced prompt with Director Mode:', { original: prompt, enhanced: enhancedPrompt });
@@ -986,7 +994,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       // Prefer Google AI (Gemini 3 Pro) for global bot images if available
       if (this.googleAIService?.generateImage) {
         return await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
-          ...options,
+          ...forwardOptions,
           source: 'global_bot',
           context: enhancedPrompt
         });
@@ -995,7 +1003,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
       // Fallback to aiService (usually OpenRouter/Replicate)
       if (this.aiService?.generateImage) {
         return await this.aiService.generateImage(enhancedPrompt, referenceImages, {
-          ...options,
+          ...forwardOptions,
           source: 'global_bot',
           context: enhancedPrompt
         });
