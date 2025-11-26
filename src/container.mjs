@@ -123,6 +123,7 @@ import { PricingService } from './services/payment/pricingService.mjs';
 import { MarketplaceService } from './services/payment/marketplaceService.mjs';
 import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceServiceRegistry.mjs';
 import { MetricsService } from './services/monitoring/metricsService.mjs';
+import { MediaGenerationService } from './services/media/mediaGenerationService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -419,6 +420,7 @@ async function initializeContainer() {
   // Optional secondary Google AI service
   let googleAIService = null;
   let unifiedAIService = null;
+  let mediaGenerationService = null;
   try {
     const googleApiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
     if (googleApiKey) {
@@ -568,6 +570,27 @@ async function initializeContainer() {
     }
   } catch (e) {
     console.warn('[container] Failed to set aiService alias:', e.message);
+  }
+
+  // Create MediaGenerationService after dynamic services (veoService) are available
+  try {
+    const veoService = container.registrations.veoService ? container.resolve('veoService') : null;
+    const aiService = container.registrations.aiService ? container.resolve('aiService') : null;
+    mediaGenerationService = new MediaGenerationService({
+      googleAIService,
+      veoService,
+      aiService,
+      logger,
+      config: { aspectRatio: '1:1' } // Default to square for images
+    });
+    container.register({ mediaGenerationService: asValue(mediaGenerationService) });
+    logger.info('[container] ✅ MediaGenerationService initialized', { 
+      hasVeo: !!veoService, 
+      hasGoogleAI: !!googleAIService,
+      hasAI: !!aiService
+    });
+  } catch (e) {
+    console.warn('[container] Failed to init MediaGenerationService:', e.message);
   }
 
   // Provide late-binding getters early to break circular deps before resolving any dependents
