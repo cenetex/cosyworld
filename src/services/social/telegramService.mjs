@@ -3242,7 +3242,16 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function?.arguments || {};
 
-        this.logger?.info?.(`[TelegramService] Executing tool: ${functionName}`, { args, userId, username });
+        // Clean tool execution log
+        const argsSummary = functionName === 'plan_actions' 
+          ? `objective="${(args.objective || '').substring(0, 40)}..." steps=${args.steps?.length || 0}`
+          : functionName === 'generate_image' || functionName === 'generate_video'
+            ? `prompt="${(args.prompt || '').substring(0, 50)}..."`
+            : functionName === 'post_tweet'
+              ? `text="${(args.text || '').substring(0, 40)}..."`
+              : JSON.stringify(args).substring(0, 80);
+        
+        this.logger?.info?.(`[TelegramService] ⚡ Tool: ${functionName} | ${argsSummary} | user: ${username || userId}`);
 
         if (functionName === 'plan_actions') {
           await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext);
@@ -3363,38 +3372,50 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
         return;
       }
 
-      // Share the plan summary with the channel before executing steps so folks see the roadmap
-      const summaryLines = ['🧠 Planning sequence ready.'];
+      // Log clean plan summary to console (not to Telegram - keep inner thoughts private)
+      const planLogLines = [
+        '\n╔══════════════════════════════════════════════════════════════╗',
+        '║                    🧠 AGENT PLAN SEQUENCE                    ║',
+        '╠══════════════════════════════════════════════════════════════╣'
+      ];
+      
       if (planEntry.objective) {
-        summaryLines.push(`Objective: ${planEntry.objective}`);
+        planLogLines.push(`║ Objective: ${planEntry.objective.substring(0, 50).padEnd(50)} ║`);
       }
-
+      
       if (planEntry.steps?.length) {
-        const formattedSteps = planEntry.steps
-          .map((step, idx) => {
-            const label = step.action ? step.action.replace(/_/g, ' ') : 'step';
-            return `${idx + 1}. ${label}: ${step.description}`;
-          })
-          .join('\n');
-        summaryLines.push('Steps:\n' + formattedSteps);
+        planLogLines.push('╠──────────────────────────────────────────────────────────────╣');
+        planEntry.steps.forEach((step, idx) => {
+          const action = (step.action || 'step').toUpperCase().padEnd(20);
+          const desc = (step.description || '').substring(0, 35).padEnd(35);
+          planLogLines.push(`║ ${(idx + 1).toString().padStart(2)}. [${action}] ${desc} ║`);
+        });
       }
-
+      
       if (typeof planEntry.confidence === 'number') {
-        summaryLines.push(`Confidence: ${Math.round(planEntry.confidence * 100)}%`);
+        planLogLines.push('╠──────────────────────────────────────────────────────────────╣');
+        const confidenceBar = '█'.repeat(Math.round(planEntry.confidence * 20)).padEnd(20);
+        planLogLines.push(`║ Confidence: [${confidenceBar}] ${Math.round(planEntry.confidence * 100).toString().padStart(3)}%            ║`);
       }
+      
+      planLogLines.push('╚══════════════════════════════════════════════════════════════╝\n');
+      
+      this.logger?.info?.(planLogLines.join('\n'));
 
-      await ctx.reply(summaryLines.join('\n'));
-      await this._recordBotResponse(channelId, userId);
-
-      // Execute the steps immediately instead of just showing them
+      // Execute the steps immediately (no longer posting plan to Telegram)
       this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
       
       let latestGeneratedMediaId = null;
       let generationFailed = false;
 
       if (planEntry.steps && Array.isArray(planEntry.steps)) {
-        for (const step of planEntry.steps) {
+        for (let stepIdx = 0; stepIdx < planEntry.steps.length; stepIdx++) {
+          const step = planEntry.steps[stepIdx];
           const action = step.action?.toLowerCase();
+          const stepNum = stepIdx + 1;
+          const totalSteps = planEntry.steps.length;
+          
+          this.logger?.info?.(`[TelegramService] 📍 Step ${stepNum}/${totalSteps}: ${(action || 'unknown').toUpperCase()} - "${(step.description || '').substring(0, 50)}..."`);
           
           if (action === 'generate_image') {
              const record = await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
