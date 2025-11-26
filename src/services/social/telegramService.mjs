@@ -3162,79 +3162,96 @@ Your caption:`;
 
       this.logger?.info?.('[TelegramService] Generating video:', { prompt, userId, username });
 
-      // Apply character design if enabled in global bot config
-      let enhancedPrompt = prompt;
-      if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
-        const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
-        
-        // Build the character prompt prefix from template
-        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
-        characterPrefix = characterPrefix
-          .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
-          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
-        
-        enhancedPrompt = characterPrefix + prompt;
-        this.logger?.info?.('[TelegramService] Applied character design to video prompt:', { 
-          original: prompt, 
-          enhanced: enhancedPrompt,
-          characterName: charDesign.characterName 
-        });
-      }
-
       // Generate video using VeoService
       if (!this.veoService) {
         throw new Error('Video generation service not available');
       }
 
       let videoUrls;
-      const charDesign = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
-      
-      if (charDesign?.enabled && charDesign?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
-         this.logger?.info?.('[TelegramService] Using character reference image for video generation');
-         
-         try {
-           // Download and prepare reference image
-           const response = await fetch(charDesign.referenceImageUrl);
-           if (!response.ok) throw new Error(`Failed to fetch reference image: ${response.statusText}`);
-           
-           const arrayBuffer = await response.arrayBuffer();
-           const buffer = Buffer.from(arrayBuffer);
-           const base64Image = buffer.toString('base64');
-           const mimeType = response.headers.get('content-type') || 'image/png';
+      let enhancedPrompt = prompt;
+      let keyframeAsset = null;
+      const charDesignConfig = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
 
-           videoUrls = await this.veoService.generateVideosWithReferenceImages({
-              prompt: enhancedPrompt,
-              referenceImages: [{
-                data: base64Image,
-                mimeType: mimeType
-              }],
-              config: {
-                numberOfVideos: 1,
-                aspectRatio: '16:9'
-              }
-           });
-         } catch (err) {
-           this.logger?.warn?.('[TelegramService] Failed to use reference image, falling back to standard generation:', err);
-           // Fallback to standard generation
-           videoUrls = await this.veoService.generateVideos({
-              prompt: enhancedPrompt,
-              config: {
-                numberOfVideos: 1,
-                aspectRatio: '16:9',
-                durationSeconds: '8'
-              },
-           });
-         }
-      } else {
-          // Generate video (returns array of URLs)
-          videoUrls = await this.veoService.generateVideos({
+      try {
+        keyframeAsset = await this._generateImageAsset({
+          prompt,
+          conversationContext,
+          userId,
+          username,
+          fetchBinary: true,
+          source: 'telegram.video_keyframe'
+        });
+        if (keyframeAsset?.enhancedPrompt) {
+          enhancedPrompt = keyframeAsset.enhancedPrompt;
+        }
+        this.logger?.info?.('[TelegramService] Generated keyframe image for video', { imageUrl: keyframeAsset?.imageUrl });
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Keyframe generation failed, falling back to reference assets:', err.message);
+        if (charDesignConfig?.enabled) {
+          const applied = this._applyCharacterPrompt(prompt, charDesignConfig);
+          enhancedPrompt = applied.prompt;
+        }
+      }
+
+      if (keyframeAsset?.binary?.data) {
+        try {
+          this.logger?.info?.('[TelegramService] Sending keyframe to Veo for video generation');
+          videoUrls = await this.veoService.generateVideosFromImages({
             prompt: enhancedPrompt,
+            images: [{
+              data: keyframeAsset.binary.data,
+              mimeType: keyframeAsset.binary.mimeType || 'image/png'
+            }],
             config: {
               numberOfVideos: 1,
               aspectRatio: '16:9',
               durationSeconds: 8
-            },
+            }
           });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Veo image-to-video generation failed, trying fallback:', err.message);
+        }
+      }
+
+      if ((!videoUrls || videoUrls.length === 0) && charDesignConfig?.enabled && charDesignConfig?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
+        this.logger?.info?.('[TelegramService] Using configured character reference image for Veo');
+
+        try {
+          const response = await fetch(charDesignConfig.referenceImageUrl);
+          if (!response.ok) throw new Error(`Failed to fetch reference image: ${response.statusText}`);
+
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const base64Image = buffer.toString('base64');
+          const mimeType = response.headers.get('content-type') || 'image/png';
+
+          videoUrls = await this.veoService.generateVideosWithReferenceImages({
+            prompt: enhancedPrompt,
+            referenceImages: [{
+              data: base64Image,
+              mimeType
+            }],
+            config: {
+              numberOfVideos: 1,
+              aspectRatio: '16:9',
+              durationSeconds: 8
+            }
+          });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Character reference fallback failed, trying text-to-video:', err.message);
+        }
+      }
+
+      if (!videoUrls || videoUrls.length === 0) {
+        // Generate video (returns array of URLs)
+        videoUrls = await this.veoService.generateVideos({
+          prompt: enhancedPrompt,
+          config: {
+            numberOfVideos: 1,
+            aspectRatio: '16:9',
+            durationSeconds: 8
+          },
+        });
       }
 
 
