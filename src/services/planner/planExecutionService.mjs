@@ -51,7 +51,8 @@ export class PlanExecutionService {
    */
   static VALID_PLAN_ACTIONS = new Set([
     'generate_image', 'generate_keyframe', 'generate_video', 
-    'generate_video_from_image', 'edit_image', 'extend_video',
+    'generate_video_from_image', 'generate_video_with_reference',
+    'generate_video_interpolation', 'edit_image', 'extend_video',
     'speak', 'post_tweet', 'research', 'wait'
   ]);
 
@@ -63,6 +64,8 @@ export class PlanExecutionService {
     generate_keyframe: '🖼️',
     generate_video: '🎬',
     generate_video_from_image: '🎥',
+    generate_video_with_reference: '🎭',
+    generate_video_interpolation: '🔄',
     edit_image: '✏️',
     extend_video: '📹',
     speak: '💬',
@@ -79,6 +82,8 @@ export class PlanExecutionService {
     generate_keyframe: 'Creating keyframe',
     generate_video: 'Generating video',
     generate_video_from_image: 'Creating video from image',
+    generate_video_with_reference: 'Creating video with reference',
+    generate_video_interpolation: 'Creating video interpolation',
     edit_image: 'Editing image',
     extend_video: 'Extending video',
     speak: 'Composing message',

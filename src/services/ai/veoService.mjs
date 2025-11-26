@@ -8,6 +8,28 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+/**
+ * VeoService - Video generation using Google Veo 3.1
+ * 
+ * Prompt Writing Best Practices (from Veo 3.1 Guide):
+ * 
+ * REQUIRED ELEMENTS:
+ * - Subject: Object, person, animal, or scenery
+ * - Action: What the subject is doing (walking, running, turning)
+ * - Style: Creative direction (cinematic, animated, film noir, sci-fi)
+ * 
+ * OPTIONAL ENHANCEMENTS:
+ * - Camera: aerial view, eye-level, dolly shot, tracking shot, POV
+ * - Composition: wide shot, close-up, medium shot, extreme close-up
+ * - Focus/Lens: shallow focus, deep focus, macro lens, wide-angle
+ * - Ambiance: blue tones, warm lighting, night, sunrise
+ * - Audio cues: Use quotes for dialogue, describe sound effects explicitly
+ * 
+ * AUDIO PROMPTING (Veo 3.1):
+ * - Dialogue: Use quotes - "This must be the key," he murmured.
+ * - SFX: Describe explicitly - tires screeching loudly, engine roaring
+ * - Ambient: Describe environment - A faint, eerie hum resonates
+ */
 export class VeoService {
   constructor({ configService, logger, s3Service, databaseService }) {
     this.configService = configService;
@@ -26,6 +48,70 @@ export class VeoService {
 
   // DEPRECATED: In-memory tracking (kept for backward compatibility but not used for primary rate limiting)
   recentRequests = [];
+
+  /**
+   * Enhance a video prompt using Veo 3.1 best practices
+   * @param {string} prompt - Original user prompt
+   * @param {object} options - Enhancement options
+   * @param {string} [options.style] - Visual style (cinematic, animated, documentary, etc)
+   * @param {string} [options.camera] - Camera motion/position
+   * @param {string} [options.ambiance] - Mood and lighting
+   * @param {string} [options.audioHints] - Dialogue, SFX, or ambient audio hints
+   * @param {string} [options.characterDescription] - Character appearance for consistency
+   * @returns {string} - Enhanced prompt
+   */
+  enhanceVideoPrompt(prompt, options = {}) {
+    const { 
+      style, 
+      camera, 
+      ambiance, 
+      audioHints, 
+      characterDescription
+    } = options;
+
+    const parts = [];
+
+    // Add style prefix
+    if (style) {
+      parts.push(`${style} style video.`);
+    }
+
+    // Add camera direction
+    if (camera) {
+      parts.push(`Camera: ${camera}.`);
+    }
+
+    // Add character consistency if provided
+    if (characterDescription) {
+      parts.push(`The subject is ${characterDescription}.`);
+    }
+
+    // Add the main prompt
+    parts.push(prompt);
+
+    // Add ambiance/mood
+    if (ambiance) {
+      parts.push(`The atmosphere is ${ambiance}.`);
+    }
+
+    // Add audio cues for Veo 3.1
+    if (audioHints) {
+      parts.push(`Audio: ${audioHints}`);
+    }
+
+    return parts.join(' ').trim();
+  }
+
+  /**
+   * Build a negative prompt from elements to avoid
+   * @param {string[]} elements - Things to avoid in the video
+   * @returns {string} - Formatted negative prompt
+   */
+  buildNegativePrompt(elements = []) {
+    const defaults = ['low quality', 'blurry', 'distorted faces', 'artifacts'];
+    const combined = [...new Set([...defaults, ...elements])];
+    return combined.join(', ');
+  }
 
   /**
    * Get database collection for video generation tracking
