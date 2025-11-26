@@ -27,6 +27,8 @@ import MarkdownIt from 'markdown-it';
 import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
 import { PlanExecutionService } from '../planner/planExecutionService.mjs';
 import { actionExecutorRegistry } from '../planner/actionExecutor.mjs';
+import eventBus from '../../utils/eventBus.mjs';
+import { generateTraceId } from '../../utils/tracing.mjs';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -118,6 +120,7 @@ class TelegramService {
     buybotService,
     xService,
     mediaGenerationService,
+    mediaIndexService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
@@ -130,6 +133,7 @@ class TelegramService {
     this.buybotService = buybotService;
     this.xService = xService;
     this.mediaGenerationService = mediaGenerationService;
+    this.mediaIndexService = mediaIndexService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
@@ -217,6 +221,96 @@ class TelegramService {
 
     // Debounce lock tracking
     this._debounceLocks = new Map(); // channelId -> Promise (lock)
+
+    // Video progress tracking for streaming updates
+    this._videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate }
+    this._setupVideoProgressListener();
+  }
+
+  /**
+   * Set up listener for video generation progress events
+   * @private
+   */
+  _setupVideoProgressListener() {
+    eventBus.on('video:progress', async (event) => {
+      try {
+        await this._handleVideoProgress(event);
+      } catch (err) {
+        this.logger?.debug?.('[TelegramService] Video progress handler error:', err?.message);
+      }
+    });
+  }
+
+  /**
+   * Handle video progress event and update Telegram message
+   * @param {Object} event - Progress event from VeoService
+   * @private
+   */
+  async _handleVideoProgress(event) {
+    const { traceId, channelId, status, progress, eta } = event;
+    if (!traceId) return;
+
+    const handler = this._videoProgressHandlers.get(traceId);
+    if (!handler) return;
+
+    const { ctx, messageId, lastUpdate } = handler;
+    
+    // Throttle updates to once every 5 seconds
+    if (Date.now() - lastUpdate < 5000 && status !== 'complete' && status !== 'error') {
+      return;
+    }
+
+    // Build progress message
+    const statusMessages = {
+      starting: '🎬 Starting video generation...',
+      submitting: '📤 Submitting to video service...',
+      processing: `🎥 Processing video... ${progress}%${eta ? ` (${eta})` : ''}`,
+      uploading: '☁️ Uploading video...',
+      complete: '✅ Video ready!',
+      error: '❌ Video generation failed',
+      rate_limited: '⏰ Video generation rate limited, try again later',
+      timeout: '⏱️ Video generation timed out'
+    };
+
+    const message = statusMessages[status] || `🎬 ${status}... ${progress}%`;
+
+    try {
+      if (messageId) {
+        // Update existing progress message
+        await ctx.telegram.editMessageText(
+          channelId || ctx.chat?.id,
+          messageId,
+          null,
+          message
+        );
+      }
+      
+      // Update last update time
+      handler.lastUpdate = Date.now();
+      
+      // Clean up on completion
+      if (status === 'complete' || status === 'error' || status === 'rate_limited' || status === 'timeout') {
+        this._videoProgressHandlers.delete(traceId);
+      }
+    } catch (err) {
+      // Ignore edit errors (message may have been deleted)
+      this.logger?.debug?.('[TelegramService] Failed to update progress message:', err?.message);
+    }
+  }
+
+  /**
+   * Register a video generation for progress tracking
+   * @param {string} traceId - Trace ID for correlation
+   * @param {Object} ctx - Telegram context
+   * @param {number} [messageId] - Optional message ID to update
+   * @private
+   */
+  _registerVideoProgress(traceId, ctx, messageId = null) {
+    this._videoProgressHandlers.set(traceId, {
+      ctx,
+      messageId,
+      lastUpdate: 0
+    });
   }
 
   /**
@@ -1222,6 +1316,13 @@ class TelegramService {
         },
         { upsert: true }
       );
+      
+      // Index media for semantic search (async, non-blocking)
+      if (this.mediaIndexService) {
+        this.mediaIndexService.indexMedia(record).catch(err => {
+          this.logger?.debug?.('[TelegramService] Media indexing failed (non-critical):', err?.message);
+        });
+      }
     } catch (error) {
       this.logger?.warn?.('[TelegramService] Failed to store recent media:', error?.message || error);
     }
@@ -1320,6 +1421,117 @@ class TelegramService {
       this.logger?.warn?.('[TelegramService] _getRecentMediaByType error:', error?.message);
       return [];
     }
+  }
+
+  /**
+   * Search media by content using semantic search
+   * @param {string} channelId - Channel ID
+   * @param {string} query - Natural language query describing desired content
+   * @param {Object} options - Search options
+   * @param {string} [options.type] - Filter by media type ('image', 'video')
+   * @param {string} [options.aspectRatio] - Filter by aspect ratio
+   * @param {boolean} [options.untweeted] - Only return media not yet tweeted
+   * @param {number} [options.limit] - Maximum results
+   * @returns {Promise<Array>} - Matching media records
+   */
+  async _searchMediaByContent(channelId, query, options = {}) {
+    const { type, aspectRatio, untweeted = false, limit = 5 } = options;
+    
+    if (!channelId || !query) return [];
+    const normalizedChannelId = String(channelId);
+
+    // Use MediaIndexService for semantic search if available
+    if (this.mediaIndexService) {
+      try {
+        const results = await this.mediaIndexService.searchMedia(query, {
+          channelId: normalizedChannelId,
+          type,
+          aspectRatio,
+          limit
+        });
+
+        // Filter untweeted if requested
+        const filtered = untweeted 
+          ? results.filter(r => !r.tweetedAt)
+          : results;
+
+        return filtered.map(r => this._normalizeMediaRecord(r)).filter(Boolean);
+      } catch (error) {
+        this.logger?.warn?.('[TelegramService] Semantic search failed, falling back:', error?.message);
+      }
+    }
+
+    // Fallback: simple text search on recent media
+    const allRecent = await this._getRecentMedia(normalizedChannelId, 50);
+    const queryLower = query.toLowerCase();
+    const queryWords = queryLower.split(/\W+/).filter(w => w.length > 2);
+
+    const scored = allRecent
+      .filter(item => {
+        if (type && item.type !== type) return false;
+        if (aspectRatio && item.toolingState?.aspectRatio !== aspectRatio) return false;
+        if (untweeted && item.tweetedAt) return false;
+        return true;
+      })
+      .map(item => {
+        // Score based on text matching
+        const text = [
+          item.prompt || '',
+          item.caption || '',
+          item.metadata?.contentDescription || '',
+          item.toolingState?.originalPrompt || ''
+        ].join(' ').toLowerCase();
+
+        let score = 0;
+        for (const word of queryWords) {
+          if (text.includes(word)) score += 1;
+        }
+        return { item, score };
+      })
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return scored.map(({ item }) => item);
+  }
+
+  /**
+   * Find best matching media for a tweet based on content description
+   * @param {string} channelId - Channel ID
+   * @param {string} tweetContent - The tweet text/description
+   * @param {Object} options - Search options
+   * @returns {Promise<Object|null>} - Best matching media record
+   */
+  async _findBestMediaForTweet(channelId, tweetContent, options = {}) {
+    const { type, aspectRatio } = options;
+    
+    // Search for matching content
+    const matches = await this._searchMediaByContent(channelId, tweetContent, {
+      type,
+      aspectRatio,
+      untweeted: true,
+      limit: 3
+    });
+
+    if (matches.length > 0) {
+      this.logger?.info?.('[TelegramService] Found content-matched media for tweet', {
+        channelId,
+        matchedId: matches[0].id,
+        matchCount: matches.length
+      });
+      return matches[0];
+    }
+
+    // Fallback to most recent untweeted media
+    const recent = await this._getRecentMedia(channelId, 10);
+    const untweeted = recent.filter(m => !m.tweetedAt);
+    
+    if (type) {
+      const byType = untweeted.filter(m => m.type === type);
+      if (byType.length > 0) return byType[0];
+    }
+
+    return untweeted[0] || null;
   }
 
   /**
@@ -4758,10 +4970,22 @@ Your caption:`;
    */
   async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
     const { aspectRatio = '9:16', style, camera, negativePrompt } = options;
+    const traceId = generateTraceId();
+    const channelId = ctx?.chat?.id ? String(ctx.chat.id) : null;
+    
     try {
-      // No status message - the AI already sent a natural acknowledgment
+      // Send initial progress message and register for updates
+      let progressMessageId = null;
+      try {
+        const progressMsg = await ctx.reply('🎬 Starting video generation...');
+        progressMessageId = progressMsg?.message_id;
+        this._registerVideoProgress(traceId, ctx, progressMessageId);
+      } catch (err) {
+        this.logger?.debug?.('[TelegramService] Could not send progress message:', err?.message);
+      }
 
       this.logger?.info?.('[TelegramService] Generating video:', { 
+        traceId,
         prompt: prompt.substring(0, 100), 
         userId, username, aspectRatio, style, camera,
         usingMediaGenerationService: !!this.mediaGenerationService 
@@ -4780,13 +5004,16 @@ Your caption:`;
             characterDesign: charDesignConfig,
             aspectRatio,
             durationSeconds: 8,
-            source: 'telegram.generate_video'
+            source: 'telegram.generate_video',
+            traceId,
+            channelId
           });
           
           if (result?.videoUrl) {
             videoUrl = result.videoUrl;
             enhancedPrompt = result.enhancedPrompt || prompt;
             this.logger?.info?.('[TelegramService] MediaGenerationService video success', { 
+              traceId,
               videoUrl: videoUrl?.substring(0, 50),
               keyframeUsed: result.keyframeUsed
             });
@@ -4857,7 +5084,9 @@ Your caption:`;
                 aspectRatio,
                 durationSeconds: 8,
                 negativePrompt: negativePromptStr
-              }
+              },
+              traceId,
+              channelId
             });
           } catch (err) {
             this.logger?.warn?.('[TelegramService] Veo image-to-video generation failed, trying fallback:', err.message);
@@ -4887,7 +5116,9 @@ Your caption:`;
                 aspectRatio,
                 durationSeconds: 8,
                 negativePrompt: negativePromptStr
-              }
+              },
+              traceId,
+              channelId
             });
           } catch (err) {
             this.logger?.warn?.('[TelegramService] Character reference fallback failed, trying text-to-video:', err.message);
@@ -4904,6 +5135,8 @@ Your caption:`;
               durationSeconds: 8,
               negativePrompt: negativePromptStr
             },
+            traceId,
+            channelId
           });
         }
 

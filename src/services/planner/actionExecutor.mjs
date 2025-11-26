@@ -354,6 +354,24 @@ export class PostTweetExecutor extends ActionExecutor {
     }
 
     let mediaIdToTweet = latestMediaId;
+    
+    // If no explicit media ID, try semantic search based on step description
+    if (!mediaIdToTweet && step.description && services.telegram._findBestMediaForTweet) {
+      try {
+        const matched = await services.telegram._findBestMediaForTweet(channelId, step.description);
+        if (matched) {
+          mediaIdToTweet = matched.id;
+          logger?.info?.('[PostTweetExecutor] Found content-matched media', { 
+            mediaId: mediaIdToTweet, 
+            description: step.description.substring(0, 50) 
+          });
+        }
+      } catch (err) {
+        logger?.debug?.('[PostTweetExecutor] Semantic search failed, falling back:', err?.message);
+      }
+    }
+    
+    // Fallback to most recent media
     if (!mediaIdToTweet) {
       const recent = await services.telegram._getRecentMedia(channelId, 1);
       if (recent && recent.length > 0) mediaIdToTweet = recent[0].id;

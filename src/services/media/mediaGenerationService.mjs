@@ -236,6 +236,7 @@ export class MediaGenerationService {
    * @param {number} [options.durationSeconds] - Video duration
    * @param {string} [options.source] - Source identifier
    * @param {string} [options.traceId] - Optional trace ID for correlation
+   * @param {string} [options.channelId] - Optional channel ID for progress routing
    * @returns {Promise<Object>} - { videoUrl, enhancedPrompt, keyframeUsed, traceId }
    */
   async generateVideo(prompt, options = {}) {
@@ -246,7 +247,8 @@ export class MediaGenerationService {
       aspectRatio = this.config.aspectRatio,
       durationSeconds = this.config.video.durationSeconds,
       source = 'media_service',
-      traceId: existingTraceId = null
+      traceId: existingTraceId = null,
+      channelId = null
     } = options;
 
     // Initialize tracing context
@@ -312,7 +314,9 @@ export class MediaGenerationService {
                 data: imageData.data || imageData,
                 mimeType: imageData.mimeType || 'image/png'
               }],
-              config: videoConfig
+              config: videoConfig,
+              traceId: ctx.traceId,
+              channelId
             }),
             'veo-keyframe'
           );
@@ -351,7 +355,9 @@ export class MediaGenerationService {
                 data: keyframe.binary.data,
                 mimeType: keyframe.binary.mimeType || 'image/png'
               }],
-              config: videoConfig
+              config: videoConfig,
+              traceId: ctx.traceId,
+              channelId
             }),
             'veo-keyframe'
           );
@@ -384,7 +390,9 @@ export class MediaGenerationService {
                 data: refData.data || refData,
                 mimeType: refData.mimeType || 'image/png'
               }],
-              config: videoConfig
+              config: videoConfig,
+              traceId: ctx.traceId,
+              channelId
             }),
             'veo-reference'
           );
@@ -407,7 +415,9 @@ export class MediaGenerationService {
         videoUrls = await this._executeWithRetry(
           () => this.veoService.generateVideos({
             prompt: enhancedPrompt,
-            config: videoConfig
+            config: videoConfig,
+            traceId: ctx.traceId,
+            channelId
           }),
           'veo-text'
         );
