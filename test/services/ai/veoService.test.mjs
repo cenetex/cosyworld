@@ -9,23 +9,29 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { VeoService } from '../../../src/services/ai/veoService.mjs';
 
+// Mock functions for the AI client - defined outside so we can access in tests
+const mockGenerateVideos = vi.fn().mockResolvedValue({
+  name: 'operations/test-op-123',
+  done: true,
+  response: {
+    generatedVideos: [{
+      video: { uri: 'https://storage.googleapis.com/test-video.mp4' }
+    }]
+  }
+});
+
+const mockGetVideosOperation = vi.fn();
+const mockGetOperation = vi.fn();
+
 // Mock @google/genai
 vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn().mockImplementation(() => ({
     models: {
-      generateVideos: vi.fn().mockResolvedValue({
-        name: 'operations/test-op-123',
-        done: true,
-        response: {
-          generatedVideos: [{
-            video: { uri: 'https://storage.googleapis.com/test-video.mp4' }
-          }]
-        }
-      })
+      generateVideos: mockGenerateVideos
     },
     operations: {
-      getVideosOperation: vi.fn(),
-      getOperation: vi.fn()
+      getVideosOperation: mockGetVideosOperation,
+      getOperation: mockGetOperation
     }
   })),
   GenerateVideosOperation: vi.fn().mockImplementation(() => ({}))
@@ -106,6 +112,29 @@ describe('VeoService', () => {
       s3Service: mockS3Service,
       databaseService: mockDatabaseService
     });
+
+    // Reset and re-configure mocks for each test
+    mockGenerateVideos.mockClear();
+    mockGenerateVideos.mockResolvedValue({
+      name: 'operations/test-op-123',
+      done: true,
+      response: {
+        generatedVideos: [{
+          video: { uri: 'https://storage.googleapis.com/test-video.mp4' }
+        }]
+      }
+    });
+    
+    // Ensure the service.ai.models is properly mocked
+    service.ai = {
+      models: {
+        generateVideos: mockGenerateVideos
+      },
+      operations: {
+        getVideosOperation: mockGetVideosOperation,
+        getOperation: mockGetOperation
+      }
+    };
   });
 
   afterEach(() => {
@@ -318,7 +347,7 @@ describe('VeoService', () => {
         prompt: 'A sunset scene'
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             personGeneration: 'allow_all'
@@ -335,7 +364,7 @@ describe('VeoService', () => {
         images: [{ data: 'base64', mimeType: 'image/png' }]
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             personGeneration: 'allow_adult'
@@ -352,7 +381,7 @@ describe('VeoService', () => {
         config: { durationSeconds: '8' } // String
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             durationSeconds: 8 // Number
@@ -398,7 +427,7 @@ describe('VeoService', () => {
         ]
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             referenceImages: expect.arrayContaining([
@@ -421,7 +450,7 @@ describe('VeoService', () => {
         ]
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             referenceImages: expect.arrayContaining([
@@ -497,7 +526,7 @@ describe('VeoService', () => {
         lastFrame: { data: 'last', mimeType: 'image/jpeg' }
       });
 
-      expect(service.ai.models.generateVideos).toHaveBeenCalledWith(
+      expect(mockGenerateVideos).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
             lastFrame: expect.objectContaining({
