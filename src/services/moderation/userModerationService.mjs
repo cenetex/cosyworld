@@ -19,7 +19,7 @@
  * @module services/moderation/moderationService
  */
 
-import { ModerationError } from '../../utils/errors.mjs';
+// ModerationError available in ../../utils/errors.mjs if needed
 
 /**
  * Trust levels

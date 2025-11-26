@@ -22,8 +22,7 @@ import {
   RateLimitError, 
   ServiceUnavailableError,
   MediaErrorCodes,
-  withRetry,
-  parseServiceError 
+  withRetry
 } from '../../utils/errors.mjs';
 
 /**
@@ -738,7 +737,7 @@ export class MediaGenerationService {
    * Record failed request
    * @private
    */
-  _recordFailure(providerName, error) {
+  _recordFailure(providerName, _error) {
     const breaker = this._getCircuitBreaker(providerName);
     breaker.failures++;
     breaker.lastFailure = Date.now();

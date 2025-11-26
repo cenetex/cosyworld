@@ -664,6 +664,177 @@ class TelegramService {
   }
 
   /**
+   * Initialize global bot in webhook mode for production
+   * @param {Object} options - Webhook configuration
+   * @param {string} options.domain - Domain for webhook (e.g., 'api.example.com')
+   * @param {string} [options.path] - Webhook path (default: '/telegram/webhook')
+   * @param {string} [options.secretToken] - Secret token for webhook verification
+   * @returns {Promise<Object>} - { success, webhookInfo, middleware }
+   */
+  async initializeWebhookMode(options = {}) {
+    const { domain, path = '/telegram/webhook', secretToken } = options;
+
+    if (!domain) {
+      throw new Error('Webhook domain is required');
+    }
+
+    // Get bot token
+    let token = null;
+    if (this.secretsService) {
+      try {
+        token = await this.secretsService.getAsync('telegram_global_bot_token');
+      } catch (e) {
+        this.logger?.debug?.('[TelegramService] Could not get token from secrets:', e.message);
+      }
+    }
+    token = token || this.configService?.config?.telegram?.globalBotToken || process.env.TELEGRAM_BOT_TOKEN;
+
+    if (!token) {
+      this.logger?.warn?.('[TelegramService] No Telegram bot token configured for webhook mode');
+      return { success: false, error: 'No bot token configured' };
+    }
+
+    try {
+      // Create bot instance if not exists
+      if (!this.globalBot) {
+        this.globalBot = new Telegraf(token);
+      }
+
+      // Construct webhook URL
+      const webhookUrl = `https://${domain}${path}`;
+      this.logger?.info?.(`[TelegramService] Setting webhook to: ${webhookUrl}`);
+
+      // Set up all handlers before setting webhook
+      await this._setupBotHandlers();
+
+      // Set webhook with Telegram
+      const webhookOptions = {};
+      if (secretToken) {
+        webhookOptions.secret_token = secretToken;
+      }
+
+      await this.globalBot.telegram.setWebhook(webhookUrl, webhookOptions);
+
+      // Verify webhook was set
+      const webhookInfo = await this.globalBot.telegram.getWebhookInfo();
+      this.logger?.info?.('[TelegramService] Webhook info:', {
+        url: webhookInfo.url,
+        hasCustomCertificate: webhookInfo.has_custom_certificate,
+        pendingUpdateCount: webhookInfo.pending_update_count,
+        lastErrorDate: webhookInfo.last_error_date,
+        lastErrorMessage: webhookInfo.last_error_message
+      });
+
+      // Get bot info
+      const botInfo = await this.globalBot.telegram.getMe();
+      this.logger?.info?.(`[TelegramService] Webhook bot initialized: @${botInfo.username}`);
+
+      // Start cache cleanup
+      this._startCacheCleanup();
+
+      // Return middleware for Express
+      const middleware = this.globalBot.webhookCallback(path, { secretToken });
+
+      return {
+        success: true,
+        webhookInfo,
+        middleware,
+        botInfo,
+        path
+      };
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to set up webhook:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get Express middleware for webhook handling
+   * @param {string} [secretToken] - Secret token for verification
+   * @returns {Function} - Express middleware
+   */
+  getWebhookMiddleware(secretToken) {
+    if (!this.globalBot) {
+      throw new Error('Bot not initialized - call initializeWebhookMode first');
+    }
+    return this.globalBot.webhookCallback('/telegram/webhook', { secretToken });
+  }
+
+  /**
+   * Delete webhook and switch to polling mode
+   * @returns {Promise<boolean>}
+   */
+  async deleteWebhook() {
+    if (!this.globalBot) {
+      return false;
+    }
+
+    try {
+      await this.globalBot.telegram.deleteWebhook({ drop_pending_updates: false });
+      this.logger?.info?.('[TelegramService] Webhook deleted');
+      return true;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to delete webhook:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get current webhook status
+   * @returns {Promise<Object>}
+   */
+  async getWebhookStatus() {
+    if (!this.globalBot) {
+      return { configured: false };
+    }
+
+    try {
+      const info = await this.globalBot.telegram.getWebhookInfo();
+      return {
+        configured: !!info.url,
+        url: info.url || null,
+        pendingUpdates: info.pending_update_count || 0,
+        lastError: info.last_error_message || null,
+        lastErrorDate: info.last_error_date ? new Date(info.last_error_date * 1000) : null
+      };
+    } catch (error) {
+      return { configured: false, error: error.message };
+    }
+  }
+
+  /**
+   * Internal: Set up all bot handlers (used by both polling and webhook modes)
+   * @private
+   */
+  async _setupBotHandlers() {
+    if (!this.globalBot) return;
+
+    // Ensure indexes are ready
+    await this._ensureTelegramIndexes();
+
+    // Load global bot service
+    if (this.globalBotService?.getOrCreateGlobalBot) {
+      this.globalBotService.botId = await this.globalBotService.getOrCreateGlobalBot();
+      this.globalBotService.bot = await this.globalBotService.avatarService?.getAvatarById(
+        this.globalBotService.botId
+      );
+    }
+
+    // Set up buybot if available
+    if (this.buybotService && setupBuybotTelegramCommands) {
+      setupBuybotTelegramCommands(this.globalBot, this.buybotService, this.logger);
+    }
+
+    // Set up commands
+    this.globalBot.help((ctx) => ctx.reply('I\'m the CosyWorld bot! I can chat about our community and answer questions. Just message me anytime!'));
+
+    // Set up message handlers
+    this.setupMessageHandlers();
+
+    this.logger?.debug?.('[TelegramService] Bot handlers configured');
+  }
+
+  /**
    * Set up message handlers for the global bot
    */
   setupMessageHandlers() {
