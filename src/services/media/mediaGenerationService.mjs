@@ -13,6 +13,7 @@
  * - Circuit breaker pattern
  * - Character design consistency
  * - Reference image handling
+ * - Request tracing with correlation IDs
  * 
  * @module services/media/mediaGenerationService
  */
@@ -24,6 +25,7 @@ import {
   MediaErrorCodes,
   withRetry
 } from '../../utils/errors.mjs';
+import { TracingContext } from '../../utils/tracing.mjs';
 
 /**
  * Circuit breaker states
@@ -106,7 +108,8 @@ export class MediaGenerationService {
    * @param {string} [options.source] - Source identifier for tracking
    * @param {string} [options.purpose] - Purpose identifier
    * @param {boolean} [options.fetchBinary] - Whether to return binary data
-   * @returns {Promise<Object>} - { imageUrl, enhancedPrompt, binary? }
+   * @param {string} [options.traceId] - Optional trace ID for correlation
+   * @returns {Promise<Object>} - { imageUrl, enhancedPrompt, binary?, traceId }
    */
   async generateImage(prompt, options = {}) {
     const {
@@ -115,12 +118,21 @@ export class MediaGenerationService {
       aspectRatio = this.config.aspectRatio,
       source = 'media_service',
       purpose = 'user_generated',
-      fetchBinary = false
+      fetchBinary = false,
+      traceId: existingTraceId = null
     } = options;
+
+    // Initialize tracing context
+    const ctx = new TracingContext({
+      traceId: existingTraceId,
+      metadata: { operation: 'generateImage', source, aspectRatio }
+    });
+    ctx.recordEvent('generation_started', { promptLength: prompt.length });
 
     // Check if service is exhausted
     if (this._isServiceExhausted('image')) {
       const resetTime = this._serviceExhausted.get('image');
+      ctx.recordEvent('service_exhausted', { resetTime });
       throw RateLimitError.quotaExceeded('image', resetTime, 'all');
     }
 
@@ -130,12 +142,14 @@ export class MediaGenerationService {
     
     if (characterDesign?.enabled) {
       enhancedPrompt = this._applyCharacterPrompt(prompt, characterDesign);
+      ctx.recordEvent('character_design_applied');
       if (characterDesign.referenceImageUrl && !refImages.includes(characterDesign.referenceImageUrl)) {
         refImages.push(characterDesign.referenceImageUrl);
       }
     }
 
     this.logger?.info?.('[MediaGenerationService] Generating image', {
+      traceId: ctx.traceId,
       prompt: prompt.substring(0, 100),
       hasReferenceImages: refImages.length > 0,
       aspectRatio,
@@ -148,10 +162,12 @@ export class MediaGenerationService {
 
     for (const provider of providers) {
       if (!this._checkCircuitBreaker(provider.name)) {
+        ctx.recordEvent('provider_skipped', { provider: provider.name, reason: 'circuit_open' });
         this.logger?.debug?.(`[MediaGenerationService] Skipping ${provider.name} - circuit open`);
         continue;
       }
 
+      const providerSpan = ctx.startSpan(`provider_${provider.name}`, { provider: provider.name });
       try {
         const imageUrl = await this._executeWithRetry(
           () => this._generateImageWithProvider(provider, enhancedPrompt, {
@@ -165,31 +181,47 @@ export class MediaGenerationService {
 
         if (imageUrl) {
           this._recordSuccess(provider.name);
+          providerSpan.finish({ imageUrl: imageUrl.substring(0, 50) });
           
           let binary = null;
           if (fetchBinary) {
+            ctx.recordEvent('fetching_binary');
             binary = await this._downloadImageAsBase64(imageUrl);
           }
 
-          return { imageUrl, enhancedPrompt, binary };
+          ctx.recordEvent('generation_complete', { provider: provider.name });
+          this.logger?.info?.('[MediaGenerationService] Image generated', {
+            traceId: ctx.traceId,
+            duration: ctx.getDuration(),
+            provider: provider.name
+          });
+
+          return { imageUrl, enhancedPrompt, binary, traceId: ctx.traceId };
         }
       } catch (err) {
         lastError = err;
+        providerSpan.fail(err);
         this._recordFailure(provider.name, err);
-        this.logger?.warn?.(`[MediaGenerationService] ${provider.name} failed:`, err.message);
+        this.logger?.warn?.(`[MediaGenerationService] ${provider.name} failed:`, {
+          traceId: ctx.traceId,
+          error: err.message
+        });
         
         // If quota error, mark all services as exhausted
         if (err instanceof RateLimitError || this._isQuotaError(err)) {
+          ctx.recordEvent('quota_exhausted', { provider: provider.name });
           this._markServiceExhausted('image', 60 * 60 * 1000); // 1 hour
           throw err;
         }
       }
     }
 
+    ctx.recordEvent('all_providers_failed');
     throw lastError || new MediaGenerationError('All image providers failed', {
       code: MediaErrorCodes.GENERATION_FAILED,
       mediaType: 'image',
-      retryable: false
+      retryable: false,
+      context: { traceId: ctx.traceId }
     });
   }
 
@@ -203,7 +235,8 @@ export class MediaGenerationService {
    * @param {string} [options.aspectRatio] - Aspect ratio (default: '9:16')
    * @param {number} [options.durationSeconds] - Video duration
    * @param {string} [options.source] - Source identifier
-   * @returns {Promise<Object>} - { videoUrl, enhancedPrompt, keyframeUsed }
+   * @param {string} [options.traceId] - Optional trace ID for correlation
+   * @returns {Promise<Object>} - { videoUrl, enhancedPrompt, keyframeUsed, traceId }
    */
   async generateVideo(prompt, options = {}) {
     const {
@@ -212,16 +245,27 @@ export class MediaGenerationService {
       characterDesign = null,
       aspectRatio = this.config.aspectRatio,
       durationSeconds = this.config.video.durationSeconds,
-      source = 'media_service'
+      source = 'media_service',
+      traceId: existingTraceId = null
     } = options;
+
+    // Initialize tracing context
+    const ctx = new TracingContext({
+      traceId: existingTraceId,
+      metadata: { operation: 'generateVideo', source, aspectRatio, durationSeconds }
+    });
+    ctx.recordEvent('video_generation_started', { promptLength: prompt.length, hasKeyframe: !!keyframeImage });
+    const strategiesAttempted = [];
 
     // Check if service is exhausted
     if (this._isServiceExhausted('video')) {
       const resetTime = this._serviceExhausted.get('video');
+      ctx.recordEvent('service_exhausted', { resetTime });
       throw MediaGenerationError.quotaExceeded('video', resetTime, 'veo');
     }
 
     if (!this.veoService) {
+      ctx.recordEvent('veo_unavailable');
       throw new ServiceUnavailableError('Video generation service not available', {
         mediaType: 'video',
         provider: 'veo'
@@ -232,9 +276,11 @@ export class MediaGenerationService {
     let enhancedPrompt = prompt;
     if (characterDesign?.enabled) {
       enhancedPrompt = this._applyCharacterPrompt(prompt, characterDesign);
+      ctx.recordEvent('character_design_applied');
     }
 
     this.logger?.info?.('[MediaGenerationService] Generating video', {
+      traceId: ctx.traceId,
       prompt: prompt.substring(0, 100),
       hasKeyframe: !!keyframeImage,
       hasReferenceImages: referenceImages.length > 0,
@@ -254,6 +300,8 @@ export class MediaGenerationService {
 
     // Strategy 1: Use provided keyframe image
     if (keyframeImage) {
+      const span = ctx.startSpan('strategy_keyframe_provided');
+      strategiesAttempted.push('keyframe_provided');
       try {
         const imageData = keyframeImage.data || await this._getImageData(keyframeImage.url);
         if (imageData) {
@@ -270,24 +318,29 @@ export class MediaGenerationService {
           );
           if (videoUrls?.length) {
             keyframeUsed = true;
+            span.finish({ success: true });
           }
         }
       } catch (err) {
-        this.logger?.warn?.('[MediaGenerationService] Keyframe video generation failed:', err.message);
+        span.fail(err);
+        this.logger?.warn?.('[MediaGenerationService] Keyframe video generation failed:', { traceId: ctx.traceId, error: err.message });
         this._handleVideoError(err);
       }
     }
 
     // Strategy 2: Generate keyframe, then video
     if (!videoUrls?.length && !keyframeImage) {
+      const span = ctx.startSpan('strategy_keyframe_generated');
+      strategiesAttempted.push('keyframe_generated');
       try {
-        this.logger?.info?.('[MediaGenerationService] Generating keyframe for video');
+        this.logger?.info?.('[MediaGenerationService] Generating keyframe for video', { traceId: ctx.traceId });
         const keyframe = await this.generateImage(prompt, {
           referenceImages,
           characterDesign,
           aspectRatio,
           fetchBinary: true,
-          source: `${source}.keyframe`
+          source: `${source}.keyframe`,
+          traceId: ctx.traceId
         });
 
         if (keyframe?.binary?.data) {
@@ -305,16 +358,20 @@ export class MediaGenerationService {
           if (videoUrls?.length) {
             keyframeUsed = true;
             enhancedPrompt = keyframe.enhancedPrompt || enhancedPrompt;
+            span.finish({ success: true });
           }
         }
       } catch (err) {
-        this.logger?.warn?.('[MediaGenerationService] Keyframe-to-video failed:', err.message);
+        span.fail(err);
+        this.logger?.warn?.('[MediaGenerationService] Keyframe-to-video failed:', { traceId: ctx.traceId, error: err.message });
         this._handleVideoError(err);
       }
     }
 
     // Strategy 3: Use reference images for video
     if (!videoUrls?.length && (referenceImages.length > 0 || characterDesign?.referenceImageUrl)) {
+      const span = ctx.startSpan('strategy_reference_image');
+      strategiesAttempted.push('reference_image');
       try {
         const refUrl = referenceImages[0] || characterDesign?.referenceImageUrl;
         const refData = await this._getImageData(refUrl);
@@ -331,15 +388,21 @@ export class MediaGenerationService {
             }),
             'veo-reference'
           );
+          if (videoUrls?.length) {
+            span.finish({ success: true });
+          }
         }
       } catch (err) {
-        this.logger?.warn?.('[MediaGenerationService] Reference video generation failed:', err.message);
+        span.fail(err);
+        this.logger?.warn?.('[MediaGenerationService] Reference video generation failed:', { traceId: ctx.traceId, error: err.message });
         this._handleVideoError(err);
       }
     }
 
     // Strategy 4: Text-to-video fallback
     if (!videoUrls?.length) {
+      const span = ctx.startSpan('strategy_text_to_video');
+      strategiesAttempted.push('text_to_video');
       try {
         videoUrls = await this._executeWithRetry(
           () => this.veoService.generateVideos({
@@ -348,26 +411,48 @@ export class MediaGenerationService {
           }),
           'veo-text'
         );
+        if (videoUrls?.length) {
+          span.finish({ success: true });
+        }
       } catch (err) {
-        this.logger?.error?.('[MediaGenerationService] Text-to-video failed:', err.message);
+        span.fail(err);
+        this.logger?.error?.('[MediaGenerationService] Text-to-video failed:', { traceId: ctx.traceId, error: err.message });
         this._handleVideoError(err);
-        throw err;
+        ctx.recordEvent('all_strategies_failed', { strategiesAttempted });
+        throw MediaGenerationError.videoStrategyExhausted(strategiesAttempted);
       }
     }
 
     if (!videoUrls?.length) {
+      ctx.recordEvent('no_results', { strategiesAttempted });
       throw new MediaGenerationError('Video generation returned no results', {
         code: MediaErrorCodes.GENERATION_FAILED,
         mediaType: 'video',
         provider: 'veo',
-        retryable: false
+        retryable: false,
+        context: { traceId: ctx.traceId, strategiesAttempted }
       });
     }
+
+    ctx.recordEvent('video_generation_complete', { 
+      keyframeUsed, 
+      strategiesAttempted,
+      duration: ctx.getDuration()
+    });
+
+    this.logger?.info?.('[MediaGenerationService] Video generated', {
+      traceId: ctx.traceId,
+      duration: ctx.getDuration(),
+      keyframeUsed,
+      strategiesAttempted
+    });
 
     return {
       videoUrl: videoUrls[0],
       enhancedPrompt,
-      keyframeUsed
+      keyframeUsed,
+      traceId: ctx.traceId,
+      strategiesAttempted
     };
   }
 

@@ -124,6 +124,7 @@ import { MarketplaceService } from './services/payment/marketplaceService.mjs';
 import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceServiceRegistry.mjs';
 import { MetricsService } from './services/monitoring/metricsService.mjs';
 import { MediaGenerationService } from './services/media/mediaGenerationService.mjs';
+import { MediaIndexService } from './services/media/mediaIndexService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -591,6 +592,20 @@ async function initializeContainer() {
     });
   } catch (e) {
     console.warn('[container] Failed to init MediaGenerationService:', e.message);
+  }
+
+  // Create MediaIndexService for semantic media search
+  try {
+    const dbService = container.resolve('databaseService');
+    const mediaIndexService = new MediaIndexService({
+      databaseService: dbService,
+      googleAIService,
+      logger
+    });
+    container.register({ mediaIndexService: asValue(mediaIndexService) });
+    logger.info('[container] ✅ MediaIndexService initialized');
+  } catch (e) {
+    console.warn('[container] Failed to init MediaIndexService:', e.message);
   }
 
   // Provide late-binding getters early to break circular deps before resolving any dependents

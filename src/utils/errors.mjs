@@ -64,7 +64,18 @@ export const MediaErrorCodes = {
   GENERATION_FAILED: 'GENERATION_FAILED',
   UPLOAD_FAILED: 'UPLOAD_FAILED',
   DOWNLOAD_FAILED: 'DOWNLOAD_FAILED',
-  COMPOSITION_FAILED: 'COMPOSITION_FAILED'
+  COMPOSITION_FAILED: 'COMPOSITION_FAILED',
+  
+  // Enhanced error classifications (P7)
+  ASPECT_RATIO_MISMATCH: 'ASPECT_RATIO_MISMATCH',
+  KEYFRAME_GENERATION_FAILED: 'KEYFRAME_GENERATION_FAILED',
+  REFERENCE_IMAGE_INVALID: 'REFERENCE_IMAGE_INVALID',
+  CHARACTER_DESIGN_MISSING: 'CHARACTER_DESIGN_MISSING',
+  PROMPT_TOO_LONG: 'PROMPT_TOO_LONG',
+  PROMPT_UNCLEAR: 'PROMPT_UNCLEAR',
+  VIDEO_STRATEGY_EXHAUSTED: 'VIDEO_STRATEGY_EXHAUSTED',
+  INTERPOLATION_FAILED: 'INTERPOLATION_FAILED',
+  EXTENSION_FAILED: 'EXTENSION_FAILED'
 };
 
 /**
@@ -159,6 +170,120 @@ export class MediaGenerationError extends CosyWorldError {
       retryable: true,
       userMessage: `⏱️ The ${mediaType} is taking too long. Let's try a simpler prompt!`,
       context: { timeoutMs }
+    });
+  }
+
+  /**
+   * Create an aspect ratio mismatch error
+   */
+  static aspectRatioMismatch(requested, actual, mediaType = 'image') {
+    return new MediaGenerationError(`Aspect ratio mismatch: requested ${requested}, got ${actual}`, {
+      code: MediaErrorCodes.ASPECT_RATIO_MISMATCH,
+      mediaType,
+      retryable: true,
+      userMessage: `📐 The ${mediaType} didn't match the requested ${requested} aspect ratio. Let me regenerate with the correct dimensions.`,
+      context: { requested, actual }
+    });
+  }
+
+  /**
+   * Create a keyframe generation failed error
+   */
+  static keyframeGenerationFailed(provider, reason = '') {
+    return new MediaGenerationError(`Keyframe generation failed: ${reason}`, {
+      code: MediaErrorCodes.KEYFRAME_GENERATION_FAILED,
+      mediaType: 'video',
+      provider,
+      retryable: true,
+      userMessage: '🎬 The video keyframe didn\'t generate properly. Trying a different approach...'
+    });
+  }
+
+  /**
+   * Create a reference image invalid error
+   */
+  static referenceImageInvalid(reason = 'Invalid or inaccessible reference image') {
+    return new MediaGenerationError(`Reference image invalid: ${reason}`, {
+      code: MediaErrorCodes.REFERENCE_IMAGE_INVALID,
+      mediaType: 'video',
+      retryable: true,
+      userMessage: '🖼️ The reference image couldn\'t be used. Trying without it...'
+    });
+  }
+
+  /**
+   * Create a character design missing error
+   */
+  static characterDesignMissing() {
+    return new MediaGenerationError('Character design not configured for this bot', {
+      code: MediaErrorCodes.CHARACTER_DESIGN_MISSING,
+      mediaType: 'image',
+      retryable: false,
+      userMessage: '🎨 No character design configured. Using default image generation.'
+    });
+  }
+
+  /**
+   * Create a prompt too long error
+   */
+  static promptTooLong(length, maxLength, mediaType = 'image') {
+    return new MediaGenerationError(`Prompt too long: ${length} chars exceeds ${maxLength} limit`, {
+      code: MediaErrorCodes.PROMPT_TOO_LONG,
+      mediaType,
+      retryable: false,
+      userMessage: `✍️ The prompt is too long. Try a shorter description (max ${maxLength} characters).`,
+      context: { length, maxLength }
+    });
+  }
+
+  /**
+   * Create a prompt unclear error
+   */
+  static promptUnclear(mediaType = 'image', suggestion = '') {
+    return new MediaGenerationError('Prompt is unclear or ambiguous', {
+      code: MediaErrorCodes.PROMPT_UNCLEAR,
+      mediaType,
+      retryable: false,
+      userMessage: suggestion ? `🤔 I'm not sure what to generate. ${suggestion}` : '🤔 The prompt is unclear. Try being more specific!'
+    });
+  }
+
+  /**
+   * Create a video strategy exhausted error
+   */
+  static videoStrategyExhausted(strategiesAttempted = []) {
+    return new MediaGenerationError(`All video generation strategies failed: ${strategiesAttempted.join(', ')}`, {
+      code: MediaErrorCodes.VIDEO_STRATEGY_EXHAUSTED,
+      mediaType: 'video',
+      retryable: false,
+      userMessage: '🎬 Video generation is having trouble right now. Try again with a simpler prompt, or try later!',
+      context: { strategiesAttempted }
+    });
+  }
+
+  /**
+   * Create an interpolation failed error
+   */
+  static interpolationFailed(provider, reason = '') {
+    return new MediaGenerationError(`Video interpolation failed: ${reason}`, {
+      code: MediaErrorCodes.INTERPOLATION_FAILED,
+      mediaType: 'video',
+      provider,
+      retryable: true,
+      userMessage: '🎬 The video morphing effect didn\'t work. Try different start/end images!'
+    });
+  }
+
+  /**
+   * Create an extension failed error
+   */
+  static extensionFailed(provider, reason = '') {
+    return new MediaGenerationError(`Video extension failed: ${reason}`, {
+      code: MediaErrorCodes.EXTENSION_FAILED,
+      mediaType: 'video',
+      provider,
+      retryable: true,
+      userMessage: '📹 I couldn\'t extend that video. The original might be too complex.'
     });
   }
 
