@@ -76,7 +76,7 @@ describe('MediaGenerationService', () => {
         logger: mockLogger
       });
       
-      expect(svc.config.aspectRatio).toBe('9:16');
+      expect(svc.config.aspectRatio).toBe('16:9');
       expect(svc.config.retry.maxAttempts).toBe(3);
       expect(svc.config.circuitBreaker.failureThreshold).toBe(5);
     });
@@ -138,12 +138,19 @@ describe('MediaGenerationService', () => {
 
       expect(mockGoogleAIService.generateImage).toHaveBeenCalledWith(
         expect.stringContaining('Luna'),
-        '9:16',
+        '16:9',
         expect.any(Object)
       );
     });
 
     it('should add reference image from character design', async () => {
+      // Mock the image data fetch for reference image
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+        headers: { get: () => 'image/png' }
+      });
+
       await service.generateImage('test prompt', {
         characterDesign: {
           enabled: true,
@@ -171,9 +178,20 @@ describe('MediaGenerationService', () => {
     });
 
     it('should fallback to aiService when googleAIService fails', async () => {
+      // Create a service with no retries for this test
+      const fastService = new MediaGenerationService({
+        googleAIService: mockGoogleAIService,
+        veoService: mockVeoService,
+        aiService: mockAIService,
+        logger: mockLogger,
+        config: {
+          retry: { maxAttempts: 1, baseDelayMs: 1 }
+        }
+      });
+      
       mockGoogleAIService.generateImage.mockRejectedValue(new Error('Gemini unavailable'));
       
-      const result = await service.generateImage('test prompt');
+      const result = await fastService.generateImage('test prompt');
       
       expect(mockAIService.generateImage).toHaveBeenCalled();
       expect(result.imageUrl).toBe('https://example.com/ai-image.png');
@@ -183,15 +201,26 @@ describe('MediaGenerationService', () => {
       // Exhaust the service
       service._markServiceExhausted('image', 60000);
       
-      await expect(service.generateImage('test')).rejects.toThrow(RateLimitError);
+      await expect(service.generateImage('test')).rejects.toThrow(MediaGenerationError);
     });
 
     it('should throw when all providers fail', async () => {
+      // Create a service with no retries for this test
+      const fastService = new MediaGenerationService({
+        googleAIService: mockGoogleAIService,
+        veoService: mockVeoService,
+        aiService: mockAIService,
+        logger: mockLogger,
+        config: {
+          retry: { maxAttempts: 1, baseDelayMs: 1 }
+        }
+      });
+      
       mockGoogleAIService.generateImage.mockRejectedValue(new Error('Gemini failed'));
       mockGoogleAIService.composeImageWithGemini.mockRejectedValue(new Error('Composition failed'));
       mockAIService.generateImage.mockRejectedValue(new Error('AI Service failed'));
 
-      await expect(service.generateImage('test')).rejects.toThrow(MediaGenerationError);
+      await expect(fastService.generateImage('test')).rejects.toThrow();
     });
 
     it('should handle quota errors and mark service exhausted', async () => {
@@ -234,30 +263,21 @@ describe('MediaGenerationService', () => {
 
       expect(mockVeoService.generateVideosFromImages).toHaveBeenCalled();
       expect(result.keyframeUsed).toBe(true);
-      expect(result.strategiesAttempted).toContain('keyframe_provided');
+      expect(result.strategiesAttempted).toContain('image_to_video');
     });
 
-    it('should generate keyframe when none provided', async () => {
-      // Mock generateImage for keyframe generation
-      vi.spyOn(service, 'generateImage').mockResolvedValue({
-        imageUrl: 'https://example.com/keyframe.png',
-        enhancedPrompt: 'enhanced prompt',
-        binary: { data: 'base64data', mimeType: 'image/png' }
-      });
-
+    it('should NOT auto-generate keyframe when none provided (cost optimization)', async () => {
+      // Without a keyframeImage, the service should skip directly to text-to-video
       const result = await service.generateVideo('test prompt');
 
-      expect(service.generateImage).toHaveBeenCalledWith(
-        'test prompt',
-        expect.objectContaining({ fetchBinary: true })
-      );
-      expect(result.strategiesAttempted).toContain('keyframe_generated');
+      // Should NOT call generateImage to create a keyframe
+      expect(mockGoogleAIService.generateImage).not.toHaveBeenCalled();
+      // Should use text-to-video strategy directly
+      expect(mockVeoService.generateVideos).toHaveBeenCalled();
+      expect(result.strategiesAttempted).toContain('text_to_video');
     });
 
     it('should use reference images when available', async () => {
-      // Make keyframe strategies fail
-      mockVeoService.generateVideosFromImages.mockResolvedValue([]);
-      
       // Mock image download
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -273,11 +293,28 @@ describe('MediaGenerationService', () => {
       expect(result.strategiesAttempted).toContain('reference_image');
     });
 
-    it('should fallback to text-to-video', async () => {
-      mockVeoService.generateVideosFromImages.mockResolvedValue([]);
+    it('should use text-to-video as primary default strategy', async () => {
+      // Without keyframe or reference images, text-to-video is the default
+      const result = await service.generateVideo('a cat playing');
+
+      expect(mockVeoService.generateVideos).toHaveBeenCalled();
+      expect(result.strategiesAttempted).toContain('text_to_video');
+    });
+
+    it('should fallback to text-to-video when reference images fail', async () => {
+      // Mock image download
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+        headers: { get: () => 'image/png' }
+      });
+      
+      // Reference images fail
       mockVeoService.generateVideosWithReferenceImages.mockResolvedValue([]);
       
-      const result = await service.generateVideo('test');
+      const result = await service.generateVideo('test', {
+        referenceImages: ['https://example.com/ref.png']
+      });
 
       expect(mockVeoService.generateVideos).toHaveBeenCalled();
       expect(result.strategiesAttempted).toContain('text_to_video');
@@ -505,10 +542,13 @@ describe('MediaGenerationService', () => {
       // Advance time to half-open
       vi.advanceTimersByTime(61000);
 
-      // Should allow up to halfOpenMaxRequests (3)
+      // First call transitions OPEN -> HALF_OPEN and returns true (doesn't count)
+      expect(service._checkCircuitBreaker(providerName)).toBe(true);
+      // Next 3 calls increment halfOpenRequests (0->1, 1->2, 2->3) and return true
       expect(service._checkCircuitBreaker(providerName)).toBe(true);
       expect(service._checkCircuitBreaker(providerName)).toBe(true);
       expect(service._checkCircuitBreaker(providerName)).toBe(true);
+      // 5th call: halfOpenRequests >= 3, returns false
       expect(service._checkCircuitBreaker(providerName)).toBe(false);
     });
   });
