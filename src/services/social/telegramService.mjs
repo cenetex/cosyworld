@@ -3180,7 +3180,9 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
           source,
           purpose: 'user_generated',
           enhanceWithDirector: true,
-          context: conversationContext
+          context: conversationContext,
+          referenceImages,
+          characterDesign: charDesign
         });
       } catch (err) {
         this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
@@ -3205,11 +3207,25 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
 
     if (!imageUrl && this.googleAIService?.generateImage) {
       try {
-        imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
-          source,
-          purpose: 'user_generated',
-          context: enhancedPrompt
-        });
+        // Use composition when reference images are available
+        if (referenceImages.length > 0 && this.googleAIService.composeImageWithGemini) {
+          const refImageData = await this._downloadImageAsBase64(referenceImages[0]);
+          if (refImageData) {
+            imageUrl = await this.googleAIService.composeImageWithGemini(
+              [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'reference' }],
+              enhancedPrompt,
+              { source, purpose: 'user_generated', context: enhancedPrompt }
+            );
+          }
+        }
+        // Fallback to regular generation if composition failed or no refs
+        if (!imageUrl) {
+          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
+            source,
+            purpose: 'user_generated',
+            context: enhancedPrompt
+          });
+        }
       } catch (err) {
         this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
       }

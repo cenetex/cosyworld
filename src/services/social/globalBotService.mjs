@@ -950,13 +950,15 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         characterDesign: overrideCharacterDesign,
         avatars: directorAvatars,
         location: directorLocation,
+        referenceImages: passedReferenceImages,
         ...forwardOptions
       } = options;
 
       const charDesign = overrideCharacterDesign || config.characterDesign || {};
       
       let enhancedPrompt = prompt;
-      const referenceImages = [];
+      // Start with any reference images passed from caller
+      const referenceImages = Array.isArray(passedReferenceImages) ? [...passedReferenceImages] : [];
 
       // 0. Apply Director Mode (LLM Scene Composition) if requested
       if (enhanceWithDirector) {
@@ -978,20 +980,68 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         
         enhancedPrompt = characterPrefix + prompt;
         
-        // 2. Add reference image if available
-        if (charDesign.referenceImageUrl) {
+        // 2. Add reference image if available and not already included
+        if (charDesign.referenceImageUrl && !referenceImages.includes(charDesign.referenceImageUrl)) {
           referenceImages.push(charDesign.referenceImageUrl);
         }
         
         this.logger?.info?.('[GlobalBotService] Applied character design to image generation', {
           originalPrompt: prompt,
           enhancedPrompt,
-          hasReferenceImage: !!charDesign.referenceImageUrl
+          hasReferenceImage: referenceImages.length > 0
         });
       }
 
-      // Call AI service
-      // Prefer Google AI (Gemini 3 Pro) for global bot images if available
+      // Call AI service - prefer services that support reference images when we have them
+      const hasReferenceImages = referenceImages.length > 0;
+
+      // If we have reference images, prefer composition or services that support them
+      if (hasReferenceImages) {
+        // Try Gemini composition first (best quality with references)
+        if (this.googleAIService?.composeImageWithGemini) {
+          try {
+            // Download the reference image for composition
+            const refUrl = referenceImages[0];
+            const response = await fetch(refUrl);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              const base64 = Buffer.from(buffer).toString('base64');
+              const mimeType = response.headers.get('content-type') || 'image/png';
+              
+              const result = await this.googleAIService.composeImageWithGemini(
+                [{ data: base64, mimeType, label: 'character_reference' }],
+                enhancedPrompt,
+                { ...forwardOptions, source: 'global_bot', context: enhancedPrompt }
+              );
+              if (result) {
+                this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and reference');
+                return result;
+              }
+            }
+          } catch (err) {
+            this.logger?.warn?.(`[GlobalBotService] Gemini composition failed: ${err.message}`);
+          }
+        }
+
+        // Fallback to aiService which routes to Replicate/Flux (supports reference images)
+        if (this.aiService?.generateImage) {
+          try {
+            const result = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
+              ...forwardOptions,
+              source: 'global_bot',
+              context: enhancedPrompt
+            });
+            if (result) {
+              this.logger?.info?.('[GlobalBotService] Generated image with aiService and reference');
+              return result;
+            }
+          } catch (err) {
+            this.logger?.warn?.(`[GlobalBotService] aiService image generation failed: ${err.message}`);
+          }
+        }
+      }
+
+      // No reference images or reference-aware services failed - use standard generation
       if (this.googleAIService?.generateImage) {
         return await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
           ...forwardOptions,
@@ -1000,7 +1050,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         });
       }
 
-      // Fallback to aiService (usually OpenRouter/Replicate)
+      // Final fallback to aiService without references
       if (this.aiService?.generateImage) {
         return await this.aiService.generateImage(enhancedPrompt, referenceImages, {
           ...forwardOptions,
