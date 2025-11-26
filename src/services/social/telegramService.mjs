@@ -190,6 +190,11 @@ class TelegramService {
     // Flag to use new plan execution service (can be toggled for gradual rollout)
     this.USE_PLAN_EXECUTION_SERVICE = true;
     this.AGENT_PLAN_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
+    
+    // Async video generation: queue jobs instead of blocking the handler
+    // Enable this if video generation frequently causes timeout errors
+    const asyncVideoEnv = (process.env.TELEGRAM_ASYNC_VIDEO ?? 'true').toString().toLowerCase();
+    this.USE_ASYNC_VIDEO_GENERATION = asyncVideoEnv === 'true' || asyncVideoEnv === '1' || asyncVideoEnv === 'yes';
 
     // Index tracking (ensures TTL/topic indexes exist automatically)
     this._indexesReady = false;
@@ -573,7 +578,11 @@ class TelegramService {
         }
       }
 
-      this.globalBot = new Telegraf(token);
+      // Configure Telegraf with extended handler timeout for long-running operations
+      // Default is 90s, but video generation can take 2-5 minutes
+      this.globalBot = new Telegraf(token, {
+        handlerTimeout: 600_000, // 10 minutes - ample time for video generation
+      });
       
       // Add global error handler to catch unhandled errors
       this.globalBot.catch((err, ctx) => {
@@ -715,7 +724,11 @@ class TelegramService {
     try {
       // Create bot instance if not exists
       if (!this.globalBot) {
-        this.globalBot = new Telegraf(token);
+        // Configure Telegraf with extended handler timeout for long-running operations
+        // Default is 90s, but video generation can take 2-5 minutes
+        this.globalBot = new Telegraf(token, {
+          handlerTimeout: 600_000, // 10 minutes - ample time for video generation
+        });
       }
 
       // Construct webhook URL
@@ -3315,7 +3328,12 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
             continue;
           }
           
-          await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
+          // Use async video generation if enabled (avoids handler timeout)
+          if (this.USE_ASYNC_VIDEO_GENERATION) {
+            await this.queueVideoGenerationAsync(ctx, args.prompt, { conversationContext, userId, username });
+          } else {
+            await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
+          }
 
         } else if (functionName === 'speak') {
           // Handle 'speak' tool which models sometimes hallucinate from plan_actions
@@ -3771,16 +3789,29 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
             } else if (action === 'generate_video_from_image') {
               const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
               if (!sourceMediaId) {
-                const record = await this._executeStepWithTimeout(
-                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
-                  action, stepNum
-                );
-                if (record) {
-                  latestGeneratedMediaId = record.id;
-                  generationFailed = false;
-                  stepResult = { success: true, action, stepNum, mediaId: record.id };
+                // No source image - fall back to text-to-video
+                if (this.USE_ASYNC_VIDEO_GENERATION) {
+                  const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
+                    conversationContext, userId, username
+                  });
+                  if (queueResult.queued) {
+                    stepResult = { success: true, action, stepNum, queued: true, jobId: queueResult.jobId };
+                  } else {
+                    generationFailed = true;
+                    stepResult = { success: false, action, stepNum, error: queueResult.error };
+                  }
                 } else {
-                  generationFailed = true;
+                  const record = await this._executeStepWithTimeout(
+                    () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                    action, stepNum
+                  );
+                  if (record) {
+                    latestGeneratedMediaId = record.id;
+                    generationFailed = false;
+                    stepResult = { success: true, action, stepNum, mediaId: record.id };
+                  } else {
+                    generationFailed = true;
+                  }
                 }
               } else {
                 const record = await this._executeStepWithTimeout(
@@ -3828,16 +3859,31 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 generationFailed = true;
               }
             } else if (action === 'generate_video') {
-              const record = await this._executeStepWithTimeout(
-                () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
+              // Use async video generation if enabled (avoids handler timeout)
+              if (this.USE_ASYNC_VIDEO_GENERATION) {
+                const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
+                  conversationContext, userId, username
+                });
+                if (queueResult.queued) {
+                  // For async, we don't get a media record immediately
+                  // Mark as success since the job is queued
+                  stepResult = { success: true, action, stepNum, queued: true, jobId: queueResult.jobId };
+                } else {
+                  generationFailed = true;
+                  stepResult = { success: false, action, stepNum, error: queueResult.error };
+                }
               } else {
-                generationFailed = true;
+                const record = await this._executeStepWithTimeout(
+                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                  action, stepNum
+                );
+                if (record) {
+                  latestGeneratedMediaId = record.id;
+                  generationFailed = false;
+                  stepResult = { success: true, action, stepNum, mediaId: record.id };
+                } else {
+                  generationFailed = true;
+                }
               }
             } else if (action === 'speak') {
               await this._executeStepWithTimeout(async () => {
@@ -4468,6 +4514,274 @@ Your caption:`;
   }
 
   /**
+   * Queue video generation asynchronously and return immediately.
+   * 
+   * This method queues a video generation job to the database and returns immediately,
+   * avoiding the 90-second Telegraf handler timeout. The video job worker will process
+   * the job and deliver the result when ready.
+   * 
+   * @param {Object} ctx - Telegram context
+   * @param {string} prompt - Video generation prompt
+   * @param {Object} options - Additional options
+   * @param {string} [options.conversationContext] - Context for prompt enhancement
+   * @param {string} [options.userId] - User ID for tracking
+   * @param {string} [options.username] - Username for tracking
+   * @param {string} [options.keyframeUrl] - Pre-generated keyframe URL
+   * @returns {Promise<Object>} - Job queue result { queued: true, jobId: string }
+   */
+  async queueVideoGenerationAsync(ctx, prompt, options = {}) {
+    const channelId = String(ctx.chat.id);
+    const { conversationContext = '', userId = null, username = null } = options;
+    
+    try {
+      // Check rate limits before queuing
+      if (userId) {
+        const canGenerate = await this._checkMediaRateLimit(userId, 'video');
+        if (!canGenerate.allowed) {
+          await ctx.reply(`⏳ ${canGenerate.message}`);
+          return { queued: false, error: 'rate_limit', message: canGenerate.message };
+        }
+      }
+
+      // Generate keyframe image first (this is relatively quick ~30s)
+      let keyframeUrl = options.keyframeUrl;
+      let enhancedPrompt = prompt;
+      
+      if (!keyframeUrl) {
+        try {
+          const keyframeAsset = await this._generateImageAsset({
+            prompt,
+            conversationContext,
+            userId,
+            username,
+            fetchBinary: false, // Just need the URL for the job
+            source: 'telegram.video_keyframe_async'
+          });
+          
+          if (keyframeAsset?.imageUrl) {
+            keyframeUrl = keyframeAsset.imageUrl;
+            if (keyframeAsset.enhancedPrompt) {
+              enhancedPrompt = keyframeAsset.enhancedPrompt;
+            }
+            this.logger?.info?.('[TelegramService] Generated keyframe for async video job', { keyframeUrl });
+          }
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Keyframe generation failed for async job:', err.message);
+        }
+      }
+
+      // Store the video job in the database for async processing
+      const db = await this.databaseService.getDatabase();
+      const now = new Date();
+      const jobDoc = {
+        type: 'telegram-video',
+        status: 'queued',
+        platform: 'telegram',
+        createdAt: now,
+        updatedAt: now,
+        nextRunAt: now,
+        attempts: 0,
+        prompt: enhancedPrompt,
+        originalPrompt: prompt,
+        keyframeUrl: keyframeUrl || null,
+        channelId,
+        chatId: ctx.chat.id,
+        userId,
+        username,
+        conversationContext: conversationContext.slice(0, 2000), // Limit context size
+        config: {
+          aspectRatio: '9:16',
+          numberOfVideos: 1,
+          durationSeconds: 8
+        },
+        result: null,
+        lastError: null,
+      };
+      
+      const result = await db.collection('telegram_video_jobs').insertOne(jobDoc);
+      const jobId = result.insertedId?.toString() || 'unknown';
+      
+      this.logger?.info?.(`[TelegramService] Queued async video job: ${jobId}`, { 
+        channelId, userId, hasKeyframe: !!keyframeUrl 
+      });
+
+      // Acknowledge immediately
+      await ctx.reply('🎬 Video generation queued! This takes 2-5 minutes. I\'ll send it when ready...');
+      
+      // Record usage preemptively (will be adjusted if job fails)
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'video');
+      }
+
+      // Kick off the video job processing (fire and forget)
+      this._processVideoJobAsync(jobId, ctx).catch(err => {
+        this.logger?.error?.('[TelegramService] Background video job failed:', err.message);
+      });
+
+      return { queued: true, jobId };
+      
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Failed to queue video job:', error.message);
+      await ctx.reply('Sorry, there was an error queueing your video. Please try again.');
+      return { queued: false, error: error.message };
+    }
+  }
+
+  /**
+   * Process a video job asynchronously (runs outside the Telegraf handler timeout)
+   * @private
+   * @param {string} jobId - The job ID to process
+   * @param {Object} _ctx - Telegram context (unused - we use stored chatId)
+   */
+  async _processVideoJobAsync(jobId, _ctx) {
+    const db = await this.databaseService.getDatabase();
+    const collection = db.collection('telegram_video_jobs');
+    
+    // Claim the job
+    const job = await collection.findOneAndUpdate(
+      { _id: new (await import('mongodb')).ObjectId(jobId), status: 'queued' },
+      { $set: { status: 'processing', startedAt: new Date(), updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    
+    if (!job) {
+      this.logger?.warn?.(`[TelegramService] Video job ${jobId} not found or already claimed`);
+      return;
+    }
+
+    const jobData = job;
+    
+    try {
+      this.logger?.info?.(`[TelegramService] Processing video job ${jobId}...`);
+      
+      // Generate the video
+      let videoUrls;
+      
+      if (jobData.keyframeUrl && this.veoService) {
+        // Try image-to-video first
+        try {
+          // Download keyframe as base64
+          const response = await fetch(jobData.keyframeUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const base64Image = Buffer.from(arrayBuffer).toString('base64');
+          const mimeType = response.headers.get('content-type') || 'image/png';
+          
+          videoUrls = await this.veoService.generateVideosFromImages({
+            prompt: jobData.prompt,
+            images: [{ data: base64Image, mimeType }],
+            config: jobData.config || { aspectRatio: '9:16', numberOfVideos: 1 }
+          });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Keyframe-to-video failed, trying text-to-video:', err.message);
+        }
+      }
+      
+      // Fallback to text-to-video
+      if (!videoUrls?.length && this.veoService) {
+        videoUrls = await this.veoService.generateVideos({
+          prompt: jobData.prompt,
+          config: jobData.config || { aspectRatio: '9:16', numberOfVideos: 1 }
+        });
+      }
+      
+      if (!videoUrls?.length) {
+        throw new Error('No video URLs returned from generation');
+      }
+      
+      const videoUrl = videoUrls[0];
+      
+      // Generate caption
+      let caption = null;
+      if (this.globalBotService) {
+        try {
+          const captionPrompt = `You're a helpful narrator bot. You just generated a video based on: "${jobData.originalPrompt || jobData.prompt}"
+Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
+
+          const captionResponse = await this.aiService.chat([
+            { role: 'user', content: captionPrompt }
+          ], {
+            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+            temperature: 0.7
+          });
+          
+          caption = String(captionResponse || '').trim().replace(/^["']|["']$/g, '');
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Failed to generate video caption:', err.message);
+        }
+      }
+      
+      // Send the video to the chat
+      const sentMessage = await this.globalBot.telegram.sendVideo(jobData.chatId, videoUrl, {
+        caption: caption ? this._formatTelegramMarkdown(caption) : '🎬 Here\'s your video!',
+        supports_streaming: true,
+        parse_mode: 'HTML'
+      });
+      
+      // Mark job as completed
+      await collection.updateOne(
+        { _id: new (await import('mongodb')).ObjectId(jobId) },
+        { 
+          $set: { 
+            status: 'completed', 
+            completedAt: new Date(),
+            updatedAt: new Date(),
+            result: { videoUrl, messageId: sentMessage.message_id }
+          } 
+        }
+      );
+      
+      // Store the media record
+      await this._rememberGeneratedMedia(jobData.channelId, {
+        type: 'video',
+        mediaUrl: videoUrl,
+        prompt: jobData.prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId: jobData.userId,
+        source: 'telegram.generate_video_async',
+        metadata: {
+          jobId,
+          requestedBy: jobData.userId,
+          requestedByUsername: jobData.username
+        }
+      });
+      
+      this.logger?.info?.(`[TelegramService] Video job ${jobId} completed successfully`);
+      
+    } catch (error) {
+      this.logger?.error?.(`[TelegramService] Video job ${jobId} failed:`, error.message);
+      
+      // Update job status
+      const attempts = (jobData.attempts || 0) + 1;
+      const status = attempts >= 3 ? 'failed' : 'queued';
+      const nextRunAt = status === 'queued' ? new Date(Date.now() + 60_000 * attempts) : null;
+      
+      await collection.updateOne(
+        { _id: new (await import('mongodb')).ObjectId(jobId) },
+        { 
+          $set: { 
+            status, 
+            attempts, 
+            lastError: error.message,
+            updatedAt: new Date(),
+            nextRunAt
+          } 
+        }
+      );
+      
+      // Notify user of failure (only on final failure)
+      if (status === 'failed') {
+        try {
+          await this.globalBot.telegram.sendMessage(
+            jobData.chatId, 
+            '❌ Sorry, video generation failed after multiple attempts. Please try again later.'
+          );
+        } catch {}
+      }
+    }
+  }
+
+  /**
    * Execute image editing using Gemini's image editing capabilities
    * @param {Object} ctx - Telegram context
    * @param {Object} opts - Edit options
@@ -5083,7 +5397,10 @@ Your caption:`;
 
     try {
       const token = safeDecrypt(auth.botToken);
-      const bot = new Telegraf(token);
+      // Configure Telegraf with extended handler timeout for long-running operations
+      const bot = new Telegraf(token, {
+        handlerTimeout: 600_000, // 10 minutes for video generation
+      });
       
       // Store in cache
       this.bots.set(avatarId, bot);
