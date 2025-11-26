@@ -693,8 +693,16 @@ export class GoogleAIService {
       img.label === 'character_reference' || img.label === 'reference'
     ) || characterReference;
     
+    this.logger?.info?.('[GoogleAIService] composeImageWithGemini called', {
+      imageCount: images.length,
+      imageLabels: images.map(img => img.label).filter(Boolean),
+      hasCharacterRef,
+      promptPreview: prompt?.substring(0, 100)
+    });
+    
     // Add reference instruction if we have character references
     if (hasCharacterRef) {
+      this.logger?.info?.('[GoogleAIService] Character reference mode ENABLED - adding consistency instructions');
       parts.push({ 
         text: `IMPORTANT: The attached image(s) show the character's appearance that MUST be maintained in the generated image. Study the character's face, body shape, clothing, colors, and distinctive features carefully. The generated image must depict this EXACT same character with consistent visual identity.\n\n` 
       });

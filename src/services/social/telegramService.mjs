@@ -3684,10 +3684,23 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
     const referenceImages = [];
     if (charDesign?.enabled && charDesign?.referenceImageUrl) {
       referenceImages.push(charDesign.referenceImageUrl);
+      this.logger?.info?.('[TelegramService] Character reference image configured', { 
+        referenceUrl: charDesign.referenceImageUrl,
+        characterName: charDesign.characterName 
+      });
+    } else {
+      this.logger?.debug?.('[TelegramService] No character reference configured', { 
+        charDesignEnabled: charDesign?.enabled,
+        hasReferenceUrl: !!charDesign?.referenceImageUrl 
+      });
     }
 
     if (this.globalBotService?.generateImage) {
       try {
+        this.logger?.info?.('[TelegramService] Calling globalBotService.generateImage', { 
+          hasReferenceImages: referenceImages.length > 0,
+          referenceCount: referenceImages.length
+        });
         imageUrl = await this.globalBotService.generateImage(prompt, {
           source,
           purpose: 'user_generated',
