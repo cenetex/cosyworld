@@ -236,12 +236,12 @@ describe('TelegramService planning tool helpers', () => {
     service = createService();
   });
 
-  it('records plan entries and replies with formatted plan', async () => {
+  it('records plan entries and executes steps with progress messages', async () => {
     service._recordBotResponse = vi.fn().mockResolvedValue();
     service._saveMessageToDatabase = vi.fn().mockResolvedValue();
     service._persistAgentPlanRecord = vi.fn().mockResolvedValue();
 
-    const ctx = { reply: vi.fn() };
+    const ctx = { reply: vi.fn(), chat: { id: 'channel-plan' } };
 
     await service.executePlanActions(ctx, {
       objective: 'Share a fresh creation',
@@ -252,7 +252,11 @@ describe('TelegramService planning tool helpers', () => {
       confidence: 0.82
     }, 'channel-plan', 'user-42', 'tester');
 
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('🧠 Planning sequence ready.'));
+    // Now shows step progress messages instead of planning summary
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Step 1/2'),
+      expect.any(Object)
+    );
     const plans = service.agentPlansByChannel.get('channel-plan');
     expect(plans).toBeDefined();
     expect(plans[0].steps).toHaveLength(2);
@@ -281,7 +285,8 @@ describe('TelegramService index bootstrap', () => {
     await service._ensureTelegramIndexes();
     await service._ensureTelegramIndexes();
 
-    expect(service.__collectionMock.createIndex).toHaveBeenCalledTimes(5);
+    // 7 indexes: 5 on telegram_recent_media + 2 on telegram_agent_plans
+    expect(service.__collectionMock.createIndex).toHaveBeenCalledTimes(7);
   });
 
   it('gracefully skips index creation when no databaseService is available', async () => {
