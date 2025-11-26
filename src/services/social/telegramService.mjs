@@ -25,6 +25,8 @@ import { decrypt, encrypt } from '../../utils/encryption.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
 import MarkdownIt from 'markdown-it';
 import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
+import { PlanExecutionService } from '../planner/planExecutionService.mjs';
+import { actionExecutorRegistry } from '../planner/actionExecutor.mjs';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -173,11 +175,20 @@ class TelegramService {
     this.recentMediaByChannel = new Map(); // channelId -> [mediaEntries]
     this.RECENT_MEDIA_LIMIT = 10;
     this.RECENT_MEDIA_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
-  this.MEDIA_ID_PREFIX_MIN_LENGTH = 6; // allow short IDs from summaries
+    this.MEDIA_ID_PREFIX_MIN_LENGTH = 6; // allow short IDs from summaries
 
     // Agent planning context (for planner tool)
     this.agentPlansByChannel = new Map(); // channelId -> [planEntries]
     this.AGENT_PLAN_LIMIT = 5;
+    
+    // Phase 2: Initialize PlanExecutionService for refactored plan execution
+    this.planExecutionService = new PlanExecutionService({
+      logger: this.logger,
+      executorRegistry: actionExecutorRegistry
+    });
+    
+    // Flag to use new plan execution service (can be toggled for gradual rollout)
+    this.USE_PLAN_EXECUTION_SERVICE = true;
     this.AGENT_PLAN_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
 
     // Index tracking (ensures TTL/topic indexes exist automatically)
@@ -330,16 +341,19 @@ class TelegramService {
 
     // Create a new lock
     let releaseFn;
-    const lockPromise = new Promise((resolve, reject) => {
+    let timeoutId;
+    const lockPromise = new Promise((resolve) => {
       releaseFn = () => {
+        clearTimeout(timeoutId);
         this._debounceLocks.delete(channelId);
         resolve();
       };
       // Auto-release after 60 seconds to prevent deadlocks
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         if (this._debounceLocks.get(channelId) === lockPromise) {
           this._debounceLocks.delete(channelId);
-          reject(new Error('Lock timeout'));
+          this.logger?.warn?.(`[TelegramService] Lock timeout for channel ${channelId}, auto-releasing`);
+          resolve(); // Resolve instead of reject to prevent unhandled rejections
         }
       }, 60000);
     });
@@ -360,15 +374,19 @@ class TelegramService {
     }
 
     let releaseFn;
-    const lockPromise = new Promise((resolve, reject) => {
+    let timeoutId;
+    const lockPromise = new Promise((resolve) => {
       releaseFn = () => {
+        clearTimeout(timeoutId);
         this._debounceLocks.delete(channelId);
         resolve();
       };
-      setTimeout(() => {
+      // Auto-release after 60 seconds to prevent deadlocks
+      timeoutId = setTimeout(() => {
         if (this._debounceLocks.get(channelId) === lockPromise) {
           this._debounceLocks.delete(channelId);
-          reject(new Error('Lock timeout'));
+          this.logger?.warn?.(`[TelegramService] Lock timeout for channel ${channelId}, auto-releasing`);
+          resolve(); // Resolve instead of reject to prevent unhandled rejections
         }
       }, 60000);
     });
@@ -3528,6 +3546,61 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
   }
 
   /**
+   * Execute plan using the refactored PlanExecutionService
+   * @private
+   */
+  async _executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext) {
+    let progressMessageId = null;
+    
+    try {
+      // Build services context for executors
+      const services = {
+        telegram: this,
+        database: this.databaseService,
+        ai: this.aiService,
+        globalBot: this.globalBotService
+      };
+
+      const context = {
+        ctx,
+        channelId,
+        userId,
+        username,
+        conversationContext,
+        services
+      };
+
+      // Log plan summary
+      this.planExecutionService.logPlanSummary(planEntry);
+
+      // Execute with callbacks for progress updates
+      const result = await this.planExecutionService.executePlan(planEntry, context, {
+        onProgress: async (stepNum, totalSteps, action) => {
+          const progressIcon = this.planExecutionService.getActionIcon(action);
+          const progressText = `${progressIcon} <b>Step ${stepNum}/${totalSteps}:</b> ${this.planExecutionService.getActionLabel(action)}...`;
+          progressMessageId = await this._updateProgressMessage(ctx, progressMessageId, progressText, channelId);
+        },
+        onError: async (error, stepNum, action, isTimeout) => {
+          if (isTimeout) {
+            await ctx.reply(`⏱️ Step ${stepNum} (${this.planExecutionService.getActionLabel(action)}) timed out. Continuing with next step...`);
+          }
+        }
+      });
+
+      // Clean up progress message
+      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
+
+      this.logger?.info?.(`[TelegramService] Plan execution complete via service: ${result.successCount}/${result.totalSteps} steps in ${Math.round(result.durationMs / 1000)}s`);
+      
+      return result;
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] _executePlanWithService error:', error);
+      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
+      throw error;
+    }
+  }
+
+  /**
    * Execute plan_actions directly (no AI involvement)
    * For cases where we want precise control over the action sequence
    */
@@ -3535,8 +3608,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
     let progressMessageId = null;
     
     try {
-      // Validate plan before execution
-      const validation = this._validatePlan(args);
+      // Use PlanExecutionService for validation (consistent across both paths)
+      const validation = this.planExecutionService.validatePlan(args);
       
       if (!validation.valid) {
         const errorList = validation.errors.map(e => `• ${e}`).join('\n');
@@ -3595,8 +3668,21 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
       
       this.logger?.info?.(planLogLines.join('\n'));
 
-      // Execute the steps with progress feedback
-      this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps`);
+      // PHASE 2: Use PlanExecutionService when enabled
+      // This uses the refactored ActionExecutor pattern for cleaner code
+      // Can be toggled off via this.USE_PLAN_EXECUTION_SERVICE = false for rollback
+      if (this.USE_PLAN_EXECUTION_SERVICE) {
+        try {
+          await this._executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext);
+          return;
+        } catch (serviceError) {
+          // If service execution fails, log and fall back to inline execution
+          this.logger?.error?.('[TelegramService] PlanExecutionService failed, falling back to inline:', serviceError.message);
+        }
+      }
+
+      // LEGACY: Inline execution (fallback or when USE_PLAN_EXECUTION_SERVICE is false)
+      this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps (inline mode)`);
       
       let latestGeneratedMediaId = null;
       let generationFailed = false;
