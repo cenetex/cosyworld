@@ -3671,7 +3671,14 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
         : uniqueToolCalls;
 
       for (const toolCall of finalToolCalls) {
-        const functionName = toolCall.function?.name;
+        let functionName = toolCall.function?.name;
+        
+        // Normalize function name - some models return prefixed names like "default_api:speak"
+        if (functionName && functionName.includes(':')) {
+          functionName = functionName.split(':').pop();
+          this.logger?.debug?.(`[TelegramService] Normalized tool name to: ${functionName}`);
+        }
+        
         const args = typeof toolCall.function?.arguments === 'string' 
           ? JSON.parse(toolCall.function.arguments)
           : toolCall.function?.arguments || {};

@@ -365,30 +365,37 @@ export class ConversationService {
     const results = [];
     
     for (const call of toolCalls) {
-      const handler = toolHandlers[call.name];
+      // Normalize tool name - some models return prefixed names like "default_api:speak"
+      let toolName = call.name;
+      if (toolName && toolName.includes(':')) {
+        toolName = toolName.split(':').pop();
+        this.logger?.debug?.(`[ConversationService] Normalized tool name to: ${toolName}`);
+      }
+      
+      const handler = toolHandlers[toolName];
       
       if (!handler) {
-        this.logger?.warn?.(`[ConversationService] Unknown tool: ${call.name}`);
+        this.logger?.warn?.(`[ConversationService] Unknown tool: ${call.name} (normalized: ${toolName})`);
         results.push({
           toolName: call.name,
           success: false,
-          error: `Unknown tool: ${call.name}`
+          error: `Unknown tool: ${toolName}`
         });
         continue;
       }
 
       try {
-        this.logger?.info?.(`[ConversationService] Executing tool: ${call.name}`);
+        this.logger?.info?.(`[ConversationService] Executing tool: ${toolName}`);
         const result = await handler(call.arguments, context);
         results.push({
-          toolName: call.name,
+          toolName: toolName,
           success: true,
           result
         });
       } catch (err) {
-        this.logger?.error?.(`[ConversationService] Tool ${call.name} failed:`, err.message);
+        this.logger?.error?.(`[ConversationService] Tool ${toolName} failed:`, err.message);
         results.push({
-          toolName: call.name,
+          toolName: toolName,
           success: false,
           error: err.message
         });
