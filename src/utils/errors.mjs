@@ -78,6 +78,7 @@ export class MediaGenerationError extends CosyWorldError {
     this.provider = options.provider || 'unknown'; // 'gemini', 'veo', 'replicate'
     this.attempt = options.attempt || 1;
     this.maxAttempts = options.maxAttempts || 3;
+    this.metadata = options.metadata || options; // Support metadata property for compatibility
   }
 
   /**
@@ -193,6 +194,38 @@ export class ConversationError extends CosyWorldError {
     this.name = 'ConversationError';
     this.channelId = options.channelId || null;
     this.userId = options.userId || null;
+  }
+}
+
+/**
+ * Rate limit / quota exceeded error
+ */
+export class RateLimitError extends MediaGenerationError {
+  constructor(message, metadata = {}) {
+    super(message, {
+      code: MediaErrorCodes.RATE_LIMITED,
+      retryable: true,
+      userMessage: metadata.userMessage || '🚫 Rate limit reached. Please try again in a few minutes.',
+      ...metadata
+    });
+    this.name = 'RateLimitError';
+    this.metadata = metadata;
+  }
+}
+
+/**
+ * Service unavailable error
+ */
+export class ServiceUnavailableError extends MediaGenerationError {
+  constructor(message, metadata = {}) {
+    super(message, {
+      code: MediaErrorCodes.SERVICE_UNAVAILABLE,
+      retryable: true,
+      userMessage: metadata.userMessage || '⏳ Service temporarily unavailable. Please try again in a moment.',
+      ...metadata
+    });
+    this.name = 'ServiceUnavailableError';
+    this.metadata = metadata;
   }
 }
 
