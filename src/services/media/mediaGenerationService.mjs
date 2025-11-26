@@ -51,11 +51,13 @@ const DEFAULT_CONFIG = {
     resetTimeoutMs: 60000,    // Try again after 1 minute
     halfOpenMaxRequests: 3    // Test with 3 requests before closing
   },
-  aspectRatio: '9:16',        // Default vertical format for TikTok
+  aspectRatio: '16:9',        // Default widescreen format
   video: {
     durationSeconds: 8,
     numberOfVideos: 1
-  }
+  },
+  // Supported aspect ratios
+  supportedAspectRatios: ['16:9', '9:16', '1:1', '6:2']
 };
 
 /**
@@ -300,10 +302,10 @@ export class MediaGenerationService {
     let videoUrls = null;
     let keyframeUsed = false;
 
-    // Strategy 1: Use provided keyframe image
+    // Strategy 1: Use provided keyframe/source image (explicit image-to-video)
     if (keyframeImage) {
-      const span = ctx.startSpan('strategy_keyframe_provided');
-      strategiesAttempted.push('keyframe_provided');
+      const span = ctx.startSpan('strategy_image_to_video');
+      strategiesAttempted.push('image_to_video');
       try {
         const imageData = keyframeImage.data || await this._getImageData(keyframeImage.url);
         if (imageData) {
@@ -318,7 +320,7 @@ export class MediaGenerationService {
               traceId: ctx.traceId,
               channelId
             }),
-            'veo-keyframe'
+            'veo-image'
           );
           if (videoUrls?.length) {
             keyframeUsed = true;
@@ -327,54 +329,12 @@ export class MediaGenerationService {
         }
       } catch (err) {
         span.fail(err);
-        this.logger?.warn?.('[MediaGenerationService] Keyframe video generation failed:', { traceId: ctx.traceId, error: err.message });
+        this.logger?.warn?.('[MediaGenerationService] Image-to-video failed:', { traceId: ctx.traceId, error: err.message });
         this._handleVideoError(err);
       }
     }
 
-    // Strategy 2: Generate keyframe, then video
-    if (!videoUrls?.length && !keyframeImage) {
-      const span = ctx.startSpan('strategy_keyframe_generated');
-      strategiesAttempted.push('keyframe_generated');
-      try {
-        this.logger?.info?.('[MediaGenerationService] Generating keyframe for video', { traceId: ctx.traceId });
-        const keyframe = await this.generateImage(prompt, {
-          referenceImages,
-          characterDesign,
-          aspectRatio,
-          fetchBinary: true,
-          source: `${source}.keyframe`,
-          traceId: ctx.traceId
-        });
-
-        if (keyframe?.binary?.data) {
-          videoUrls = await this._executeWithRetry(
-            () => this.veoService.generateVideosFromImages({
-              prompt: keyframe.enhancedPrompt || enhancedPrompt,
-              images: [{
-                data: keyframe.binary.data,
-                mimeType: keyframe.binary.mimeType || 'image/png'
-              }],
-              config: videoConfig,
-              traceId: ctx.traceId,
-              channelId
-            }),
-            'veo-keyframe'
-          );
-          if (videoUrls?.length) {
-            keyframeUsed = true;
-            enhancedPrompt = keyframe.enhancedPrompt || enhancedPrompt;
-            span.finish({ success: true });
-          }
-        }
-      } catch (err) {
-        span.fail(err);
-        this.logger?.warn?.('[MediaGenerationService] Keyframe-to-video failed:', { traceId: ctx.traceId, error: err.message });
-        this._handleVideoError(err);
-      }
-    }
-
-    // Strategy 3: Use reference images for video
+    // Strategy 2: Use reference images for video (character consistency)
     if (!videoUrls?.length && (referenceImages.length > 0 || characterDesign?.referenceImageUrl)) {
       const span = ctx.startSpan('strategy_reference_image');
       strategiesAttempted.push('reference_image');
@@ -407,7 +367,7 @@ export class MediaGenerationService {
       }
     }
 
-    // Strategy 4: Text-to-video fallback
+    // Strategy 3: Text-to-video (primary method - no keyframe generation)
     if (!videoUrls?.length) {
       const span = ctx.startSpan('strategy_text_to_video');
       strategiesAttempted.push('text_to_video');

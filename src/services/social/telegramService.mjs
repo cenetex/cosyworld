@@ -3334,11 +3334,12 @@ CRITICAL: When user requests widescreen/banner/landscape images, you MUST set as
           function: {
             name: 'generate_image',
             description: `Generate an image based on a text prompt.
-CRITICAL ASPECT RATIO RULES:
-- If user says "widescreen", "banner", "landscape", "wide", "horizontal" → SET aspectRatio to '16:9'
-- If user says "portrait", "tall", "vertical" → SET aspectRatio to '9:16'
-- Otherwise default to '1:1' (square)
-The aspectRatio parameter controls the actual image dimensions - you MUST set it explicitly!`,
+ASPECT RATIO GUIDE:
+- 16:9 = widescreen, banner, landscape, cinematic, YouTube thumbnail
+- 9:16 = portrait, tall, vertical, story, TikTok, mobile
+- 1:1 = square, profile picture, icon
+- 6:2 = ultrawide banner, header image
+You MUST set aspectRatio explicitly - it controls the actual image dimensions!`,
             parameters: {
               type: 'object',
               properties: {
@@ -3348,8 +3349,8 @@ The aspectRatio parameter controls the actual image dimensions - you MUST set it
                 },
                 aspectRatio: {
                   type: 'string',
-                  enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
-                  description: 'CRITICAL - You MUST set this! 16:9 for widescreen/banner/landscape/wide, 9:16 for portrait/tall/vertical/story, 1:1 for square/profile. Default to 1:1 if unclear.'
+                  enum: ['16:9', '9:16', '1:1', '6:2'],
+                  description: 'REQUIRED - 16:9 for widescreen/banner, 9:16 for portrait/story, 1:1 for square, 6:2 for ultrawide banner. Default to 16:9 if unclear.'
                 }
               },
               required: ['prompt', 'aspectRatio']
@@ -3360,14 +3361,17 @@ The aspectRatio parameter controls the actual image dimensions - you MUST set it
           type: 'function',
           function: {
             name: 'generate_video',
-            description: `Generate a short video (8 seconds) with AI-generated audio. Use when users ask to create videos. 
+            description: `Generate a short video (8 seconds) with AI-generated audio using TEXT-TO-VIDEO.
+This creates a completely new video from your text description - no source image needed.
+
 PROMPT BEST PRACTICES:
 - Include SUBJECT (who/what), ACTION (what they're doing), and STYLE (cinematic, animated, etc.)
 - Add CAMERA directions: "tracking shot", "dolly in", "aerial view", "POV shot"
 - Add AMBIANCE: "warm sunset lighting", "moody blue tones", "misty atmosphere"
 - For DIALOGUE: Use quotes - "Hello there," she said
 - For SOUND EFFECTS: Describe explicitly - "footsteps echo on marble floor"
-- For AMBIENT AUDIO: "distant city sounds", "wind through trees"`,
+
+NOTE: If you want to animate an existing image, use generate_video_from_image instead.`,
             parameters: {
               type: 'object',
               properties: {
@@ -3378,7 +3382,7 @@ PROMPT BEST PRACTICES:
                 aspectRatio: {
                   type: 'string',
                   enum: ['16:9', '9:16'],
-                  description: 'REQUIRED - 9:16 (vertical) for social media/TikTok/Stories, 16:9 (wide) for cinematic/YouTube. Default to 9:16.'
+                  description: 'REQUIRED - 16:9 (widescreen/cinematic/YouTube) or 9:16 (vertical/TikTok/Stories). Default to 16:9.'
                 },
                 style: {
                   type: 'string',
@@ -3405,7 +3409,7 @@ PROMPT BEST PRACTICES:
             description: `Generate a video using 1-3 reference images to preserve character/subject appearance. 
 Use this when you need to maintain visual consistency with a specific character, person, or product. 
 The reference images guide what the subject looks like in the generated video.
-Note: Requires 16:9 aspect ratio and 8 second duration.`,
+Note: Uses 16:9 aspect ratio and 8 second duration.`,
             parameters: {
               type: 'object',
               properties: {
@@ -3427,23 +3431,24 @@ Note: Requires 16:9 aspect ratio and 8 second duration.`,
           type: 'function',
           function: {
             name: 'generate_video_from_image',
-            description: `Animate an existing image into a video. Use the image as the starting frame and bring it to life.
-Perfect for animating generated images, artwork, or photos.`,
+            description: `Animate an existing image into a video. The image becomes the starting frame and comes to life.
+ONLY use this with images YOU have generated - you can find them in your recent media list.
+Perfect for bringing your generated artwork to life with motion and sound.`,
             parameters: {
               type: 'object',
               properties: {
                 prompt: {
                   type: 'string',
-                  description: 'Describe how to animate the image - what movements, actions, and sounds should occur.'
+                  description: 'Describe how to animate the image - what movements, actions, camera motion, and sounds should occur.'
                 },
                 sourceMediaId: {
                   type: 'string',
-                  description: 'ID of the image to animate (from your recent media list).'
+                  description: 'ID of YOUR generated image to animate (from your recent media list). Only works with images you created.'
                 },
                 aspectRatio: {
                   type: 'string',
                   enum: ['16:9', '9:16'],
-                  description: 'REQUIRED - Should match source image orientation. 16:9 for wide images, 9:16 for tall images.'
+                  description: 'Should match source image orientation. 16:9 for wide images, 9:16 for tall images.'
                 }
               },
               required: ['prompt', 'sourceMediaId', 'aspectRatio']
