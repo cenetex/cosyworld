@@ -2878,6 +2878,156 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
   }
 
   /**
+   * Apply the configured character design prompt prefix when enabled
+   * @param {string} prompt - Original user prompt
+   * @param {Object} [overrideDesign] - Optional override character design config
+   * @returns {{ prompt: string, charDesign: Object }} - Enhanced prompt and design reference
+   */
+  _applyCharacterPrompt(prompt, overrideDesign = null) {
+    const charDesign = overrideDesign ?? this.globalBotService?.bot?.globalBotConfig?.characterDesign;
+    if (!charDesign?.enabled) {
+      return { prompt, charDesign };
+    }
+
+    let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
+    characterPrefix = characterPrefix
+      .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
+      .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
+
+    return { prompt: characterPrefix + prompt, charDesign };
+  }
+
+  /**
+   * Download an image and provide base64 payload for downstream consumers
+   * @param {string} imageUrl - Remote image URL (S3, CDN, etc.)
+   * @returns {Promise<{ data: string, mimeType: string }|null>}
+   */
+  async _downloadImageAsBase64(imageUrl) {
+    if (!imageUrl) return null;
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const mimeType = response.headers.get('content-type') || this._inferMimeTypeFromUrl(imageUrl);
+      return {
+        data: Buffer.from(arrayBuffer).toString('base64'),
+        mimeType: mimeType || 'image/png'
+      };
+    } catch (err) {
+      this.logger?.warn?.('[TelegramService] Failed to download image for keyframe:', err.message);
+      return null;
+    }
+  }
+
+  _inferMimeTypeFromUrl(imageUrl) {
+    try {
+      const urlWithoutQuery = imageUrl.split('?')[0] || imageUrl;
+      const ext = urlWithoutQuery.split('.').pop()?.toLowerCase();
+      switch (ext) {
+        case 'jpg':
+        case 'jpeg':
+          return 'image/jpeg';
+        case 'png':
+          return 'image/png';
+        case 'webp':
+          return 'image/webp';
+        case 'gif':
+          return 'image/gif';
+        default:
+          return 'image/png';
+      }
+    } catch {
+      return 'image/png';
+    }
+  }
+
+  /**
+   * Shared image generation helper so we can reuse media for keyframes
+   * @param {Object} params
+   * @param {string} params.prompt
+   * @param {string} [params.conversationContext]
+   * @param {string} [params.userId]
+   * @param {string} [params.username]
+   * @param {boolean} [params.fetchBinary]
+   * @param {string} [params.source]
+   * @returns {Promise<{ imageUrl: string, enhancedPrompt: string, binary?: { data: string, mimeType: string } }>} 
+   */
+  async _generateImageAsset({
+    prompt,
+    conversationContext = '',
+    userId = null,
+    username = null,
+    fetchBinary = false,
+    source = 'telegram.user_request'
+  }) {
+    this.logger?.info?.('[TelegramService] Generating image asset', { prompt, userId, username, source });
+
+    let imageUrl = null;
+    let enhancedPrompt = prompt;
+    const { prompt: promptWithCharacter, charDesign } = this._applyCharacterPrompt(prompt);
+    const referenceImages = [];
+    if (charDesign?.enabled && charDesign?.referenceImageUrl) {
+      referenceImages.push(charDesign.referenceImageUrl);
+    }
+
+    if (this.globalBotService?.generateImage) {
+      try {
+        imageUrl = await this.globalBotService.generateImage(prompt, {
+          source,
+          purpose: 'user_generated',
+          enhanceWithDirector: true,
+          context: conversationContext
+        });
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
+      }
+    }
+
+    if (!imageUrl) {
+      enhancedPrompt = promptWithCharacter;
+
+      if (this.aiService?.generateImage) {
+        try {
+          imageUrl = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
+            source,
+            purpose: 'user_generated',
+            context: enhancedPrompt
+          });
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
+        }
+      }
+    }
+
+    if (!imageUrl && this.googleAIService?.generateImage) {
+      try {
+        imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
+          source,
+          purpose: 'user_generated',
+          context: enhancedPrompt
+        });
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
+      }
+    }
+
+    if (!imageUrl) {
+      throw new Error('All image generation services failed');
+    }
+
+    let binary = null;
+    if (fetchBinary) {
+      binary = await this._downloadImageAsBase64(imageUrl);
+    }
+
+    this.logger?.info?.('[TelegramService] Image asset ready', { imageUrl });
+    return { imageUrl, enhancedPrompt, binary };
+  }
+
+  /**
    * Execute image generation and send to channel
    * @param {Object} ctx - Telegram context
    * @param {string} prompt - Image generation prompt (enhanced by AI)
@@ -2889,67 +3039,13 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
     try {
       // No status message - the AI already sent a natural acknowledgment
 
-      this.logger?.info?.('[TelegramService] Generating image:', { prompt, userId, username });
-
-      // Generate image using GlobalBotService (handles character design consistency)
-      let imageUrl = null;
-      let enhancedPrompt = prompt;
-      
-      if (this.globalBotService?.generateImage) {
-        try {
-          imageUrl = await this.globalBotService.generateImage(prompt, {
-            source: 'telegram.user_request',
-            purpose: 'user_generated',
-            enhanceWithDirector: true,
-            context: conversationContext
-          });
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
-        }
-      }
-      
-      // Fallback to direct AI service calls if globalBotService failed
-      if (!imageUrl) {
-        // Apply character design manually if globalBotService.generateImage wasn't available but config exists
-        if (this.globalBotService?.bot?.globalBotConfig?.characterDesign?.enabled) {
-             const charDesign = this.globalBotService.bot.globalBotConfig.characterDesign;
-             let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
-             characterPrefix = characterPrefix
-               .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
-               .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
-             enhancedPrompt = characterPrefix + prompt;
-        }
-
-        if (this.aiService?.generateImage) {
-            try {
-              imageUrl = await this.aiService.generateImage(enhancedPrompt, [], {
-                source: 'telegram.user_request',
-                purpose: 'user_generated',
-                context: enhancedPrompt
-              });
-            } catch (err) {
-              this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
-            }
-        }
-      }
-
-      // Fallback to googleAIService if available
-      if (!imageUrl && this.googleAIService?.generateImage) {
-        try {
-          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
-            source: 'telegram.user_request',
-            purpose: 'user_generated',
-            context: enhancedPrompt
-          });
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
-        }
-      }
-
-      if (!imageUrl) {
-        throw new Error('All image generation services failed');
-      }
-
+      const { imageUrl } = await this._generateImageAsset({
+        prompt,
+        conversationContext,
+        userId,
+        username,
+        source: 'telegram.user_request'
+      });
       this.logger?.info?.('[TelegramService] Image generated successfully:', { imageUrl });
 
       // Generate natural caption using AI

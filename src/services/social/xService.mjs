@@ -112,7 +112,7 @@ class XService {
     if (this._isValidTwitterHandle(username)) {
       return `https://x.com/${username}/status/${idStr}`;
     }
-    return `https://x.com/i/web/status/${idStr}`;
+    return `https://x.com/web/status/${idStr}`;
   }
 
   async _resolveXUsernameForAvatar(avatarOrId) {

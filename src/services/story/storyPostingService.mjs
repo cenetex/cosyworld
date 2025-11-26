@@ -381,7 +381,7 @@ export class StoryPostingService {
         
         if (xResult?.id) {
           posts.xTweetId = xResult.id;
-          posts.xTweetUrl = `https://twitter.com/i/web/status/${xResult.id}`;
+          posts.xTweetUrl = `https://twitter.com/web/status/${xResult.id}`;
           this.logger.info(`[StoryPosting] Posted to X: ${xResult.id}`);
         }
       }

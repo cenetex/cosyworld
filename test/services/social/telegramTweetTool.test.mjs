@@ -88,7 +88,7 @@ describe('TelegramService tweet tool helpers', () => {
   });
 
   it('posts tweet when media exists and xService resolves', async () => {
-    const postGlobalMediaUpdate = vi.fn().mockResolvedValue({ tweetId: '123', tweetUrl: 'https://x.com/i/web/status/123' });
+    const postGlobalMediaUpdate = vi.fn().mockResolvedValue({ tweetId: '123', tweetUrl: 'https://x.com/web/status/123' });
     service = createService({ xService: { postGlobalMediaUpdate } });
     service._markMediaAsTweeted = vi.fn().mockResolvedValue();
     service._recordBotResponse = vi.fn().mockResolvedValue();
@@ -143,7 +143,7 @@ describe('TelegramService tweet tool helpers', () => {
   });
 
   it('falls back to database lookup when only a short ID is provided', async () => {
-    const postGlobalMediaUpdate = vi.fn().mockResolvedValue({ tweetId: 'tweet-9', tweetUrl: 'https://x.com/i/web/status/tweet-9' });
+    const postGlobalMediaUpdate = vi.fn().mockResolvedValue({ tweetId: 'tweet-9', tweetUrl: 'https://x.com/web/status/tweet-9' });
     service = createService({ xService: { postGlobalMediaUpdate } });
     service._markMediaAsTweeted = vi.fn().mockResolvedValue();
     service._recordBotResponse = vi.fn().mockResolvedValue();
