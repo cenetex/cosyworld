@@ -5044,7 +5044,6 @@ Your caption:`;
         }
 
         let videoUrls;
-        let keyframeAsset = null;
 
         // Apply Veo prompt enhancement if available
         if (this.veoService.enhanceVideoPrompt) {
@@ -5059,53 +5058,8 @@ Your caption:`;
         // Build negative prompt if provided
         const negativePromptStr = negativePrompt || (this.veoService.buildNegativePrompt ? this.veoService.buildNegativePrompt([]) : null);
 
-        try {
-          // Use matching aspect ratio for keyframe (compatible with video)
-          keyframeAsset = await this._generateImageAsset({
-            prompt: enhancedPrompt,
-            conversationContext,
-            userId,
-            username,
-            fetchBinary: true,
-            source: 'telegram.video_keyframe',
-            aspectRatio // Use same aspect ratio as video
-          });
-          if (keyframeAsset?.enhancedPrompt) {
-            enhancedPrompt = keyframeAsset.enhancedPrompt;
-          }
-          this.logger?.info?.('[TelegramService] Generated keyframe image for video', { imageUrl: keyframeAsset?.imageUrl });
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] Keyframe generation failed, falling back to reference assets:', err.message);
-          if (charDesignConfig?.enabled) {
-            const applied = this._applyCharacterPrompt(prompt, charDesignConfig);
-            enhancedPrompt = applied.prompt;
-          }
-        }
-
-        if (keyframeAsset?.binary?.data) {
-          try {
-            this.logger?.info?.('[TelegramService] Sending keyframe to Veo for video generation');
-            videoUrls = await this.veoService.generateVideosFromImages({
-              prompt: enhancedPrompt,
-              images: [{
-                data: keyframeAsset.binary.data,
-                mimeType: keyframeAsset.binary.mimeType || 'image/png'
-              }],
-              config: {
-                numberOfVideos: 1,
-                aspectRatio,
-                durationSeconds: 8,
-                negativePrompt: negativePromptStr
-              },
-              traceId,
-              channelId
-            });
-          } catch (err) {
-            this.logger?.warn?.('[TelegramService] Veo image-to-video generation failed, trying fallback:', err.message);
-          }
-        }
-
-        if ((!videoUrls || videoUrls.length === 0) && charDesignConfig?.enabled && charDesignConfig?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
+        // Strategy 1: Try character reference images if configured (for consistency)
+        if (charDesignConfig?.enabled && charDesignConfig?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
           this.logger?.info?.('[TelegramService] Using configured character reference image for Veo');
 
           try {
@@ -5116,6 +5070,10 @@ Your caption:`;
             const buffer = Buffer.from(arrayBuffer);
             const base64Image = buffer.toString('base64');
             const mimeType = response.headers.get('content-type') || 'image/png';
+
+            // Apply character prompt
+            const applied = this._applyCharacterPrompt(prompt, charDesignConfig);
+            enhancedPrompt = applied.prompt || enhancedPrompt;
 
             videoUrls = await this.veoService.generateVideosWithReferenceImages({
               prompt: enhancedPrompt,
@@ -5133,12 +5091,13 @@ Your caption:`;
               channelId
             });
           } catch (err) {
-            this.logger?.warn?.('[TelegramService] Character reference fallback failed, trying text-to-video:', err.message);
+            this.logger?.warn?.('[TelegramService] Character reference video failed, trying text-to-video:', err.message);
           }
         }
 
+        // Strategy 2: Text-to-video (primary default - no expensive keyframe generation)
         if (!videoUrls || videoUrls.length === 0) {
-          // Generate video (returns array of URLs)
+          this.logger?.info?.('[TelegramService] Using text-to-video generation');
           videoUrls = await this.veoService.generateVideos({
             prompt: enhancedPrompt,
             config: {
