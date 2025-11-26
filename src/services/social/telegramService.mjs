@@ -535,7 +535,10 @@ class TelegramService {
         const recentMediaCollection = db.collection('telegram_recent_media');
         await this._createIndexSafe(recentMediaCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt' }, 'telegram_recent_media');
         await this._createIndexSafe(recentMediaCollection, { createdAt: 1 }, { name: 'createdAt_ttl_recent_media', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_recent_media');
-  await this._createIndexSafe(recentMediaCollection, { channelId: 1, id: 1 }, { name: 'channelId_mediaId', unique: true }, 'telegram_recent_media');
+        await this._createIndexSafe(recentMediaCollection, { channelId: 1, id: 1 }, { name: 'channelId_mediaId', unique: true }, 'telegram_recent_media');
+        // Phase 1: Add indexes for type filtering and origin tracking
+        await this._createIndexSafe(recentMediaCollection, { channelId: 1, type: 1, createdAt: -1 }, { name: 'channelId_type_createdAt' }, 'telegram_recent_media');
+        await this._createIndexSafe(recentMediaCollection, { originMediaId: 1 }, { name: 'originMediaId', sparse: true }, 'telegram_recent_media');
 
         const agentPlansCollection = db.collection('telegram_agent_plans');
         await this._createIndexSafe(agentPlansCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt_agent_plan' }, 'telegram_agent_plans');
@@ -629,6 +632,7 @@ class TelegramService {
       const record = {
         id: entry.id || randomUUID(),
         channelId: String(channelId),
+        // Asset type: 'image', 'video', 'clip', 'keyframe'
         type: entry.type || 'image',
         mediaUrl: entry.mediaUrl,
         prompt: entry.prompt || null,
@@ -638,7 +642,26 @@ class TelegramService {
         userId: entry.userId || null,
         tweetedAt: entry.tweetedAt || null,
         source: entry.source || null,
-        metadata: entry.metadata || null
+        metadata: entry.metadata || null,
+        // Phase 1: Agentic tooling state
+        toolingState: {
+          // Original prompt before enhancement
+          originalPrompt: entry.toolingState?.originalPrompt || entry.prompt || null,
+          // Enhanced/composed prompt used for generation
+          enhancedPrompt: entry.toolingState?.enhancedPrompt || null,
+          // Reference media IDs used as input
+          referenceMediaIds: entry.toolingState?.referenceMediaIds || [],
+          // Gemini Files API handle for reuse
+          geminiFileUri: entry.toolingState?.geminiFileUri || null,
+          geminiFileName: entry.toolingState?.geminiFileName || null,
+          // Generation parameters
+          aspectRatio: entry.toolingState?.aspectRatio || null,
+          model: entry.toolingState?.model || null
+        },
+        // Origin tracking for derived media
+        originMediaId: entry.originMediaId || null,
+        // Edit/extension depth counter
+        derivationDepth: typeof entry.derivationDepth === 'number' ? entry.derivationDepth : 0
       };
 
       const normalized = this._cacheRecentMediaRecord(record.channelId, record);
@@ -675,6 +698,10 @@ class TelegramService {
             tweetedAt: record.tweetedAt || null,
             source: record.source || null,
             metadata: record.metadata || null,
+            // Phase 1: Persist tooling state
+            toolingState: record.toolingState || null,
+            originMediaId: record.originMediaId || null,
+            derivationDepth: record.derivationDepth || 0,
             createdAt: record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt)
           }
         },
@@ -716,6 +743,89 @@ class TelegramService {
       this.recentMediaByChannel.set(normalizedChannelId, fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
     }
     return fromDb.slice(0, limit);
+  }
+
+  /**
+   * Find a specific media record by ID
+   * @param {string} channelId - Channel ID
+   * @param {string} mediaId - Media record ID to find
+   * @returns {Promise<Object|null>} - Media record or null
+   */
+  async _getMediaById(channelId, mediaId) {
+    if (!channelId || !mediaId) return null;
+    const normalizedChannelId = String(channelId);
+    
+    // Check cache first
+    const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
+    const cached = cache.find(m => m.id === mediaId);
+    if (cached) return cached;
+    
+    // Query database
+    if (!this.databaseService) return null;
+    try {
+      const db = await this.databaseService.getDatabase();
+      const record = await db.collection('telegram_recent_media').findOne({
+        channelId: normalizedChannelId,
+        id: mediaId
+      });
+      return record ? this._normalizeMediaRecord(record) : null;
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] _getMediaById error:', error?.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get recent media filtered by type
+   * @param {string} channelId - Channel ID
+   * @param {string} type - Media type: 'image', 'video', 'keyframe', 'clip'
+   * @param {number} limit - Max records to return
+   * @returns {Promise<Array>}
+   */
+  async _getRecentMediaByType(channelId, type, limit = 5) {
+    if (!channelId || !type) return [];
+    const normalizedChannelId = String(channelId);
+    
+    // Query database with type filter (more efficient than filtering cache)
+    if (!this.databaseService) {
+      // Fallback to cache filter
+      const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
+      return cache.filter(m => m.type === type).slice(0, limit);
+    }
+    
+    try {
+      const db = await this.databaseService.getDatabase();
+      const items = await db.collection('telegram_recent_media')
+        .find({ channelId: normalizedChannelId, type })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return items.map(item => this._normalizeMediaRecord(item)).filter(Boolean);
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] _getRecentMediaByType error:', error?.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get derived media (edits/extensions) from an origin
+   * @param {string} originMediaId - Original media ID
+   * @returns {Promise<Array>}
+   */
+  async _getDerivedMedia(originMediaId) {
+    if (!originMediaId || !this.databaseService) return [];
+    try {
+      const db = await this.databaseService.getDatabase();
+      const items = await db.collection('telegram_recent_media')
+        .find({ originMediaId })
+        .sort({ derivationDepth: 1, createdAt: -1 })
+        .limit(20)
+        .toArray();
+      return items.map(item => this._normalizeMediaRecord(item)).filter(Boolean);
+    } catch (error) {
+      this.logger?.warn?.('[TelegramService] _getDerivedMedia error:', error?.message);
+      return [];
+    }
   }
 
   _pruneAgentPlans(channelId) {
@@ -2782,6 +2892,97 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
              } else {
                generationFailed = true;
              }
+          } else if (action === 'generate_keyframe') {
+             // Generate an image specifically as a keyframe for video generation
+             const record = await this.executeImageGeneration(ctx, step.description, conversationContext, userId, username);
+             if (record) {
+               // Mark it as a keyframe type for downstream use
+               latestGeneratedMediaId = record.id;
+               generationFailed = false;
+               // Update the record type to keyframe
+               try {
+                 if (this.databaseService) {
+                   const db = await this.databaseService.getDatabase();
+                   await db.collection('telegram_recent_media').updateOne(
+                     { channelId: record.channelId, id: record.id },
+                     { $set: { type: 'keyframe', source: 'telegram.generate_keyframe' } }
+                   );
+                 }
+               } catch (err) {
+                 this.logger?.warn?.('[TelegramService] Failed to mark media as keyframe:', err.message);
+               }
+             } else {
+               generationFailed = true;
+             }
+          } else if (action === 'edit_image') {
+             // Edit an existing image using Gemini's image editing capabilities
+             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+             if (!sourceMediaId) {
+               await ctx.reply('I need an image to edit first! Generate one or provide a reference.');
+               generationFailed = true;
+               continue;
+             }
+             const record = await this.executeImageEdit(ctx, {
+               prompt: step.description,
+               sourceMediaId,
+               conversationContext,
+               userId,
+               username
+             });
+             if (record) {
+               latestGeneratedMediaId = record.id;
+               generationFailed = false;
+             } else {
+               generationFailed = true;
+             }
+          } else if (action === 'generate_video_from_image') {
+             // Generate video from the most recent image/keyframe
+             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+             if (!sourceMediaId) {
+               // Fall back to regular video generation if no source image
+               const record = await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
+               if (record) {
+                 latestGeneratedMediaId = record.id;
+                 generationFailed = false;
+               } else {
+                 generationFailed = true;
+               }
+             } else {
+               const record = await this.executeVideoFromImage(ctx, {
+                 prompt: step.description,
+                 sourceMediaId,
+                 conversationContext,
+                 userId,
+                 username
+               });
+               if (record) {
+                 latestGeneratedMediaId = record.id;
+                 generationFailed = false;
+               } else {
+                 generationFailed = true;
+               }
+             }
+          } else if (action === 'extend_video') {
+             // Extend an existing video
+             const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
+             if (!sourceMediaId) {
+               await ctx.reply('I need a video to extend! Generate one first.');
+               generationFailed = true;
+               continue;
+             }
+             const record = await this.executeVideoExtension(ctx, {
+               prompt: step.description,
+               sourceMediaId,
+               conversationContext,
+               userId,
+               username
+             });
+             if (record) {
+               latestGeneratedMediaId = record.id;
+               generationFailed = false;
+             } else {
+               generationFailed = true;
+             }
           } else if (action === 'generate_video') {
              const record = await this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username);
              if (record) {
@@ -3372,6 +3573,398 @@ Your caption:`;
       }
       await ctx.reply(errorText);
       await this._recordBotResponse(String(ctx.chat.id), userId);
+      return null;
+    }
+  }
+
+  /**
+   * Execute image editing using Gemini's image editing capabilities
+   * @param {Object} ctx - Telegram context
+   * @param {Object} opts - Edit options
+   * @param {string} opts.prompt - Edit instruction
+   * @param {string} opts.sourceMediaId - Source media ID to edit
+   * @param {string} [opts.conversationContext] - Conversation context
+   * @param {string} [opts.userId] - User ID
+   * @param {string} [opts.username] - Username
+   * @returns {Promise<Object|null>} - New media record or null
+   */
+  async executeImageEdit(ctx, { prompt, sourceMediaId, conversationContext = '', userId = null, username = null }) {
+    const channelId = String(ctx.chat.id);
+    try {
+      // Find the source media
+      const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
+      if (!sourceMedia) {
+        await ctx.reply('I couldn\'t find the image to edit. Try generating a new one first! 🔍');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      if (sourceMedia.type !== 'image' && sourceMedia.type !== 'keyframe') {
+        await ctx.reply('I can only edit images, not videos. Let me know if you want to generate a new image instead!');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      this.logger?.info?.('[TelegramService] Editing image:', { sourceMediaId, prompt });
+
+      // Download the source image
+      const sourceImageData = await this._downloadImageAsBase64(sourceMedia.mediaUrl);
+      if (!sourceImageData) {
+        await ctx.reply('I couldn\'t load the original image. It may have expired. Try generating a new one!');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Use Gemini for image editing (if available)
+      let editedImageUrl = null;
+      const { prompt: enhancedPrompt } = this._applyCharacterPrompt(prompt);
+
+      if (this.googleAIService?.composeImageWithGemini) {
+        try {
+          editedImageUrl = await this.googleAIService.composeImageWithGemini(
+            [{ data: sourceImageData.data, mimeType: sourceImageData.mimeType, label: 'source' }],
+            enhancedPrompt,
+            {
+              source: 'telegram.edit_image',
+              purpose: 'user_edit',
+              context: conversationContext
+            }
+          );
+        } catch (err) {
+          this.logger?.warn?.('[TelegramService] Gemini image edit failed:', err.message);
+        }
+      }
+
+      // Fallback: generate a new image with the edit instruction if Gemini edit failed
+      if (!editedImageUrl) {
+        const combinedPrompt = `Edit the following image according to these instructions: ${prompt}. Original image description: ${sourceMedia.prompt || 'No description available'}`;
+        const asset = await this._generateImageAsset({
+          prompt: combinedPrompt,
+          conversationContext,
+          userId,
+          username,
+          source: 'telegram.edit_image_fallback'
+        });
+        editedImageUrl = asset?.imageUrl;
+      }
+
+      if (!editedImageUrl) {
+        await ctx.reply('I couldn\'t complete the edit. Try again with different instructions! 🎨');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Generate a natural caption
+      let caption = `✏️ Edited: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`;
+
+      // Send the edited image
+      const sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, editedImageUrl, {
+        caption: this._formatTelegramMarkdown(caption),
+        parse_mode: 'HTML'
+      });
+
+      await this._recordBotResponse(channelId, userId);
+
+      // Record usage
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'image');
+      }
+
+      // Remember the edited media with origin tracking
+      const mediaRecord = await this._rememberGeneratedMedia(channelId, {
+        type: 'image',
+        mediaUrl: editedImageUrl,
+        prompt: prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId,
+        source: 'telegram.edit_image',
+        originMediaId: sourceMediaId,
+        derivationDepth: (sourceMedia.derivationDepth || 0) + 1,
+        toolingState: {
+          originalPrompt: prompt,
+          enhancedPrompt,
+          referenceMediaIds: [sourceMediaId],
+          model: 'gemini-3-pro-image-preview'
+        },
+        metadata: {
+          requestedBy: userId,
+          requestedByUsername: username || null,
+          editType: 'gemini_compose'
+        }
+      });
+
+      this.logger?.info?.('[TelegramService] Image edit completed', { mediaId: mediaRecord?.id });
+      return mediaRecord;
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Image edit failed:', error);
+      await ctx.reply('The edit didn\'t work out. Let\'s try something else! 🎨');
+      await this._recordBotResponse(channelId, userId);
+      return null;
+    }
+  }
+
+  /**
+   * Execute video generation from an existing image/keyframe
+   * @param {Object} ctx - Telegram context
+   * @param {Object} opts - Generation options
+   * @param {string} opts.prompt - Video generation prompt
+   * @param {string} opts.sourceMediaId - Source image/keyframe ID
+   * @param {string} [opts.conversationContext] - Conversation context
+   * @param {string} [opts.userId] - User ID
+   * @param {string} [opts.username] - Username
+   * @returns {Promise<Object|null>} - New media record or null
+   */
+  async executeVideoFromImage(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null }) {
+    const channelId = String(ctx.chat.id);
+    try {
+      if (!this.veoService) {
+        await ctx.reply('Video generation isn\'t available right now. 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Find the source image
+      const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
+      if (!sourceMedia) {
+        await ctx.reply('I couldn\'t find the source image. Try generating one first! 🖼️');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      if (sourceMedia.type !== 'image' && sourceMedia.type !== 'keyframe') {
+        await ctx.reply('I need an image to create a video from. This looks like a video already!');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      this.logger?.info?.('[TelegramService] Generating video from image:', { sourceMediaId, prompt });
+
+      // Download the source image
+      const sourceImageData = await this._downloadImageAsBase64(sourceMedia.mediaUrl);
+      if (!sourceImageData) {
+        await ctx.reply('I couldn\'t load the source image. It may have expired. Try generating a new one!');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Apply character prompt enhancement
+      const { prompt: enhancedPrompt } = this._applyCharacterPrompt(prompt);
+
+      // Generate video using Veo image-to-video
+      let videoUrls = [];
+      try {
+        videoUrls = await this.veoService.generateVideosFromImages({
+          prompt: enhancedPrompt,
+          images: [{
+            data: sourceImageData.data,
+            mimeType: sourceImageData.mimeType || 'image/png'
+          }],
+          config: {
+            numberOfVideos: 1,
+            aspectRatio: '16:9',
+            durationSeconds: 8
+          }
+        });
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Veo image-to-video failed:', err.message);
+        // Check for quota exhaustion
+        if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+          this._markServiceAsExhausted('video', 60 * 60 * 1000);
+          await ctx.reply('🚫 Video generation quota reached. Try again in an hour!');
+          await this._recordBotResponse(channelId, userId);
+          return null;
+        }
+      }
+
+      if (!videoUrls || videoUrls.length === 0) {
+        await ctx.reply('The video generation didn\'t work out. Let\'s try again! 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      const videoUrl = videoUrls[0];
+      this.logger?.info?.('[TelegramService] Video from image generated:', { videoUrl });
+
+      // Generate caption
+      const caption = `🎬 Animated from keyframe: ${prompt.substring(0, 40)}${prompt.length > 40 ? '...' : ''}`;
+
+      // Send the video
+      const sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
+        caption: this._formatTelegramMarkdown(caption),
+        supports_streaming: true,
+        parse_mode: 'HTML'
+      });
+
+      await this._recordBotResponse(channelId, userId);
+
+      // Record usage
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'video');
+      }
+
+      // Remember with origin tracking
+      const mediaRecord = await this._rememberGeneratedMedia(channelId, {
+        type: 'video',
+        mediaUrl: videoUrl,
+        prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId,
+        source: 'telegram.video_from_image',
+        originMediaId: sourceMediaId,
+        derivationDepth: (sourceMedia.derivationDepth || 0) + 1,
+        toolingState: {
+          originalPrompt: prompt,
+          enhancedPrompt,
+          referenceMediaIds: [sourceMediaId],
+          model: 'veo-3.1-generate-preview'
+        },
+        metadata: {
+          requestedBy: userId,
+          requestedByUsername: username || null,
+          sourceImageUrl: sourceMedia.mediaUrl
+        }
+      });
+
+      this.logger?.info?.('[TelegramService] Video from image completed', { mediaId: mediaRecord?.id });
+      return mediaRecord;
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Video from image failed:', error);
+      await ctx.reply('Something went wrong creating the video. Let\'s try again! 🎬');
+      await this._recordBotResponse(channelId, userId);
+      return null;
+    }
+  }
+
+  /**
+   * Execute video extension using Veo
+   * @param {Object} ctx - Telegram context
+   * @param {Object} opts - Extension options
+   * @param {string} opts.prompt - Extension prompt
+   * @param {string} opts.sourceMediaId - Source video ID to extend
+   * @param {string} [opts.conversationContext] - Conversation context
+   * @param {string} [opts.userId] - User ID
+   * @param {string} [opts.username] - Username
+   * @returns {Promise<Object|null>} - New media record or null
+   */
+  async executeVideoExtension(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null }) {
+    const channelId = String(ctx.chat.id);
+    try {
+      if (!this.veoService?.extendVideo) {
+        await ctx.reply('Video extension isn\'t available right now. 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Find the source video
+      const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
+      if (!sourceMedia) {
+        await ctx.reply('I couldn\'t find the video to extend. Try generating one first! 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      if (sourceMedia.type !== 'video' && sourceMedia.type !== 'clip') {
+        await ctx.reply('I can only extend videos, not images. Want me to create a video first?');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Check derivation depth limit (max 20 extensions per Veo docs)
+      const currentDepth = sourceMedia.derivationDepth || 0;
+      if (currentDepth >= 20) {
+        await ctx.reply('This video has been extended too many times! Try starting fresh with a new video. 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      this.logger?.info?.('[TelegramService] Extending video:', { sourceMediaId, prompt, currentDepth });
+
+      // Apply character prompt enhancement
+      const { prompt: enhancedPrompt } = this._applyCharacterPrompt(prompt);
+
+      // Extend the video
+      let extendedUrls = [];
+      try {
+        extendedUrls = await this.veoService.extendVideo({
+          videoUrl: sourceMedia.mediaUrl,
+          prompt: enhancedPrompt,
+          config: {
+            personGeneration: 'allow_all',
+            durationSeconds: 8
+          }
+        });
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Veo video extension failed:', err.message);
+        if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
+          this._markServiceAsExhausted('video', 60 * 60 * 1000);
+          await ctx.reply('🚫 Video extension quota reached. Try again in an hour!');
+          await this._recordBotResponse(channelId, userId);
+          return null;
+        }
+      }
+
+      if (!extendedUrls || extendedUrls.length === 0) {
+        await ctx.reply('The video extension didn\'t work out. The original video might not be compatible. 🎬');
+        await this._recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      const videoUrl = extendedUrls[0];
+      this.logger?.info?.('[TelegramService] Video extended:', { videoUrl });
+
+      // Generate caption
+      const caption = `🎬 Extended: ${prompt.substring(0, 40)}${prompt.length > 40 ? '...' : ''} (${currentDepth + 1}/20)`;
+
+      // Send the extended video
+      const sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
+        caption: this._formatTelegramMarkdown(caption),
+        supports_streaming: true,
+        parse_mode: 'HTML'
+      });
+
+      await this._recordBotResponse(channelId, userId);
+
+      // Record usage
+      if (userId && username) {
+        await this._recordMediaUsage(userId, username, 'video');
+      }
+
+      // Remember with origin tracking
+      const mediaRecord = await this._rememberGeneratedMedia(channelId, {
+        type: 'video',
+        mediaUrl: videoUrl,
+        prompt,
+        caption,
+        messageId: sentMessage?.message_id || null,
+        userId,
+        source: 'telegram.extend_video',
+        originMediaId: sourceMediaId,
+        derivationDepth: currentDepth + 1,
+        toolingState: {
+          originalPrompt: prompt,
+          enhancedPrompt,
+          referenceMediaIds: [sourceMediaId],
+          model: 'veo-3.1-generate-preview'
+        },
+        metadata: {
+          requestedBy: userId,
+          requestedByUsername: username || null,
+          sourceVideoUrl: sourceMedia.mediaUrl,
+          extensionCount: currentDepth + 1
+        }
+      });
+
+      this.logger?.info?.('[TelegramService] Video extension completed', { mediaId: mediaRecord?.id, depth: currentDepth + 1 });
+      return mediaRecord;
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Video extension failed:', error);
+      await ctx.reply('Something went wrong extending the video. Let\'s try again! 🎬');
+      await this._recordBotResponse(channelId, userId);
       return null;
     }
   }

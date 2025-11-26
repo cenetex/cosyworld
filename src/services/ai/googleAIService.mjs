@@ -4,9 +4,11 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';
 import fs from 'fs/promises';
+import { Blob } from 'buffer';
 import { parseWithRetries } from '../../utils/jsonParse.mjs';
 import { CircuitBreaker } from '../../utils/circuitBreaker.mjs';
 
@@ -34,6 +36,11 @@ export class GoogleAIService {
 
     this.provider = 'google';
     this.googleAI = new GoogleGenerativeAI(this.apiKey);
+    // New GenAI client for Files API and advanced features
+    this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
+    // File cache: hash -> { uri, mimeType, expiry }
+    this._fileCache = new Map();
+    this.FILE_CACHE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours (Gemini files expire after 48h)
     this.model = config.defaultModel || 'gemini-2.0-flash-001';
     this.structured_model = config.structuredModel || this.model;
     this.rawModels = modelsConfig.rawModels;
@@ -730,5 +737,160 @@ export class GoogleAIService {
     this.logger?.error(`[GoogleAIService] Gemini compose image failed after retries: ${lastError?.message}`);
     throw lastError || new Error('Image composition failed');
   }
-  
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Gemini Files API
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Compute a simple hash for cache key from buffer content
+   * @private
+   */
+  _computeBufferHash(buffer) {
+    if (!buffer) return null;
+    // Simple FNV-1a hash for speed (not cryptographic)
+    let hash = 2166136261;
+    for (let i = 0; i < Math.min(buffer.length, 8192); i++) {
+      hash ^= buffer[i];
+      hash = (hash * 16777619) >>> 0;
+    }
+    return `${hash.toString(16)}_${buffer.length}`;
+  }
+
+  /**
+   * Upload a file to Gemini Files API for reuse across requests
+   * @param {Buffer|string} data - File data as Buffer or base64 string
+   * @param {string} mimeType - MIME type of the file
+   * @param {Object} [options] - Optional configuration
+   * @param {string} [options.displayName] - Display name for the file
+   * @param {boolean} [options.skipCache] - Skip cache lookup/storage
+   * @returns {Promise<{ uri: string, mimeType: string, name: string }>}
+   */
+  async uploadFile(data, mimeType, options = {}) {
+    if (!this.genAI) {
+      throw new Error('GoogleGenAI client not initialized');
+    }
+
+    // Convert base64 to buffer if needed
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data, 'base64');
+    const hash = this._computeBufferHash(buffer);
+
+    // Check cache first
+    if (!options.skipCache && hash) {
+      const cached = this._fileCache.get(hash);
+      if (cached && Date.now() < cached.expiry) {
+        this.logger?.debug?.(`[GoogleAIService] File cache hit: ${hash}`);
+        return { uri: cached.uri, mimeType: cached.mimeType, name: cached.name };
+      }
+      // Clean up expired entry
+      if (cached) {
+        this._fileCache.delete(hash);
+      }
+    }
+
+    try {
+      // Upload via Files API
+      const uploadResult = await this.genAI.files.upload({
+        file: new Blob([buffer], { type: mimeType }),
+        config: {
+          mimeType,
+          displayName: options.displayName || `upload_${Date.now()}`
+        }
+      });
+
+      const result = {
+        uri: uploadResult.uri,
+        mimeType: uploadResult.mimeType || mimeType,
+        name: uploadResult.name
+      };
+
+      // Cache the result
+      if (!options.skipCache && hash) {
+        this._fileCache.set(hash, {
+          ...result,
+          expiry: Date.now() + this.FILE_CACHE_TTL_MS
+        });
+        this.logger?.debug?.(`[GoogleAIService] File cached: ${hash} -> ${result.uri}`);
+      }
+
+      this.logger?.info?.(`[GoogleAIService] Uploaded file to Gemini: ${result.name}`);
+      return result;
+    } catch (err) {
+      this.logger?.error?.(`[GoogleAIService] File upload failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Get file info from Gemini Files API
+   * @param {string} name - File name (from upload response)
+   * @returns {Promise<Object>}
+   */
+  async getFile(name) {
+    if (!this.genAI) {
+      throw new Error('GoogleGenAI client not initialized');
+    }
+    try {
+      return await this.genAI.files.get({ name });
+    } catch (err) {
+      this.logger?.warn?.(`[GoogleAIService] getFile failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a file from Gemini Files API
+   * @param {string} name - File name to delete
+   * @returns {Promise<void>}
+   */
+  async deleteFile(name) {
+    if (!this.genAI) {
+      throw new Error('GoogleGenAI client not initialized');
+    }
+    try {
+      await this.genAI.files.delete({ name });
+      // Remove from cache if present
+      for (const [hash, entry] of this._fileCache.entries()) {
+        if (entry.name === name) {
+          this._fileCache.delete(hash);
+          break;
+        }
+      }
+      this.logger?.info?.(`[GoogleAIService] Deleted file: ${name}`);
+    } catch (err) {
+      this.logger?.warn?.(`[GoogleAIService] deleteFile failed: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Prune expired entries from file cache
+   */
+  pruneFileCache() {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [hash, entry] of this._fileCache.entries()) {
+      if (now >= entry.expiry) {
+        this._fileCache.delete(hash);
+        pruned++;
+      }
+    }
+    if (pruned > 0) {
+      this.logger?.debug?.(`[GoogleAIService] Pruned ${pruned} expired file cache entries`);
+    }
+    return pruned;
+  }
+
+  /**
+   * Get file cache statistics
+   * @returns {{ size: number, validEntries: number }}
+   */
+  getFileCacheStats() {
+    const now = Date.now();
+    let valid = 0;
+    for (const entry of this._fileCache.values()) {
+      if (now < entry.expiry) valid++;
+    }
+    return { size: this._fileCache.size, validEntries: valid };
+  }
 }
