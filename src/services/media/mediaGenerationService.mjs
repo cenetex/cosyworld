@@ -239,6 +239,9 @@ export class MediaGenerationService {
    * @param {string} [options.source] - Source identifier
    * @param {string} [options.traceId] - Optional trace ID for correlation
    * @param {string} [options.channelId] - Optional channel ID for progress routing
+   * @param {string} [options.style] - Visual style (cinematic, animated, etc)
+   * @param {string} [options.camera] - Camera motion/position
+   * @param {string} [options.negativePrompt] - Things to avoid in generation
    * @returns {Promise<Object>} - { videoUrl, enhancedPrompt, keyframeUsed, traceId }
    */
   async generateVideo(prompt, options = {}) {
@@ -250,7 +253,10 @@ export class MediaGenerationService {
       durationSeconds = this.config.video.durationSeconds,
       source = 'media_service',
       traceId: existingTraceId = null,
-      channelId = null
+      channelId = null,
+      style = null,
+      camera = null,
+      negativePrompt = null
     } = options;
 
     // Initialize tracing context
@@ -283,6 +289,16 @@ export class MediaGenerationService {
       ctx.recordEvent('character_design_applied');
     }
 
+    // Apply Veo-specific prompt enhancement if available
+    if (this.veoService?.enhanceVideoPrompt && (style || camera || characterDesign?.characterDescription)) {
+      enhancedPrompt = this.veoService.enhanceVideoPrompt(enhancedPrompt, {
+        style,
+        camera,
+        characterDescription: characterDesign?.enabled ? characterDesign.characterDescription : null
+      });
+      ctx.recordEvent('veo_prompt_enhanced');
+    }
+
     this.logger?.info?.('[MediaGenerationService] Generating video', {
       traceId: ctx.traceId,
       prompt: prompt.substring(0, 100),
@@ -290,13 +306,19 @@ export class MediaGenerationService {
       hasReferenceImages: referenceImages.length > 0,
       aspectRatio,
       durationSeconds,
-      source
+      source,
+      style,
+      camera
     });
+
+    // Build negative prompt
+    const negativePromptStr = negativePrompt || (this.veoService?.buildNegativePrompt ? this.veoService.buildNegativePrompt([]) : null);
 
     const videoConfig = {
       numberOfVideos: 1,
       aspectRatio,
-      durationSeconds
+      durationSeconds,
+      ...(negativePromptStr && { negativePrompt: negativePromptStr })
     };
 
     let videoUrls = null;

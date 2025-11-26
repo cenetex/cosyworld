@@ -4999,8 +4999,7 @@ Your caption:`;
       this.logger?.info?.('[TelegramService] Generating video:', { 
         traceId,
         prompt: prompt.substring(0, 100), 
-        userId, username, aspectRatio, style, camera,
-        usingMediaGenerationService: !!this.mediaGenerationService 
+        userId, username, aspectRatio, style, camera
       });
 
       // Get character design configuration
@@ -5009,116 +5008,35 @@ Your caption:`;
       let videoUrl = null;
       let enhancedPrompt = prompt;
 
-      // Primary path: Use MediaGenerationService (unified provider with retry/circuit breaker)
-      if (this.mediaGenerationService) {
-        try {
-          const result = await this.mediaGenerationService.generateVideo(prompt, {
-            characterDesign: charDesignConfig,
-            aspectRatio,
-            durationSeconds: 8,
-            source: 'telegram.generate_video',
-            traceId,
-            channelId
-          });
-          
-          if (result?.videoUrl) {
-            videoUrl = result.videoUrl;
-            enhancedPrompt = result.enhancedPrompt || prompt;
-            this.logger?.info?.('[TelegramService] MediaGenerationService video success', { 
-              traceId,
-              videoUrl: videoUrl?.substring(0, 50),
-              keyframeUsed: result.keyframeUsed
-            });
-          }
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] MediaGenerationService video failed, trying fallback:', err.message);
-          // Fall through to legacy implementation
-        }
+      // Use MediaGenerationService (unified provider with retry/circuit breaker)
+      if (!this.mediaGenerationService) {
+        throw new Error('Video generation service not available');
       }
 
-      // Fallback path: Direct VeoService usage (legacy)
-      if (!videoUrl) {
-        // Generate video using VeoService
-        if (!this.veoService) {
-          throw new Error('Video generation service not available');
-        }
-
-        let videoUrls;
-
-        // Apply Veo prompt enhancement if available
-        if (this.veoService.enhanceVideoPrompt) {
-          enhancedPrompt = this.veoService.enhanceVideoPrompt(prompt, {
-            style,
-            camera,
-            characterDescription: charDesignConfig?.enabled ? charDesignConfig.characterDescription : null
-          });
-          this.logger?.debug?.('[TelegramService] Enhanced video prompt for Veo');
-        }
-
-        // Build negative prompt if provided
-        const negativePromptStr = negativePrompt || (this.veoService.buildNegativePrompt ? this.veoService.buildNegativePrompt([]) : null);
-
-        // Strategy 1: Try character reference images if configured (for consistency)
-        if (charDesignConfig?.enabled && charDesignConfig?.referenceImageUrl && typeof this.veoService.generateVideosWithReferenceImages === 'function') {
-          this.logger?.info?.('[TelegramService] Using configured character reference image for Veo');
-
-          try {
-            const response = await fetch(charDesignConfig.referenceImageUrl);
-            if (!response.ok) throw new Error(`Failed to fetch reference image: ${response.statusText}`);
-
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            const base64Image = buffer.toString('base64');
-            const mimeType = response.headers.get('content-type') || 'image/png';
-
-            // Apply character prompt
-            const applied = this._applyCharacterPrompt(prompt, charDesignConfig);
-            enhancedPrompt = applied.prompt || enhancedPrompt;
-
-            videoUrls = await this.veoService.generateVideosWithReferenceImages({
-              prompt: enhancedPrompt,
-              referenceImages: [{
-                data: base64Image,
-                mimeType
-              }],
-              config: {
-                numberOfVideos: 1,
-                aspectRatio,
-                durationSeconds: 8,
-                negativePrompt: negativePromptStr
-              },
-              traceId,
-              channelId
-            });
-          } catch (err) {
-            this.logger?.warn?.('[TelegramService] Character reference video failed, trying text-to-video:', err.message);
-          }
-        }
-
-        // Strategy 2: Text-to-video (primary default - no expensive keyframe generation)
-        if (!videoUrls || videoUrls.length === 0) {
-          this.logger?.info?.('[TelegramService] Using text-to-video generation');
-          videoUrls = await this.veoService.generateVideos({
-            prompt: enhancedPrompt,
-            config: {
-              numberOfVideos: 1,
-              aspectRatio,
-              durationSeconds: 8,
-              negativePrompt: negativePromptStr
-            },
-            traceId,
-            channelId
-          });
-        }
-
-        if (!videoUrls || videoUrls.length === 0) {
-          throw new Error('Video generation returned no results');
-        }
-
-        videoUrl = videoUrls[0];
+      const result = await this.mediaGenerationService.generateVideo(prompt, {
+        characterDesign: charDesignConfig,
+        aspectRatio,
+        durationSeconds: 8,
+        source: 'telegram.generate_video',
+        traceId,
+        channelId,
+        style,
+        camera,
+        negativePrompt
+      });
+      
+      if (!result?.videoUrl) {
+        throw new Error('Video generation returned no results');
       }
 
-      this.logger?.info?.('[TelegramService] Video generated successfully:', { videoUrl: videoUrl?.substring(0, 60) });
+      videoUrl = result.videoUrl;
+      enhancedPrompt = result.enhancedPrompt || prompt;
+      this.logger?.info?.('[TelegramService] Video generated successfully', { 
+        traceId,
+        videoUrl: videoUrl?.substring(0, 50),
+        keyframeUsed: result.keyframeUsed,
+        strategiesAttempted: result.strategiesAttempted
+      });
 
       // Generate natural caption using AI
       let caption = null;
