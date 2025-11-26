@@ -992,67 +992,38 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         });
       }
 
-      // Call AI service - prefer services that support reference images when we have them
+      // Call AI service - use Gemini for all image generation
       const hasReferenceImages = referenceImages.length > 0;
 
-      // If we have reference images, prefer composition or services that support them
-      if (hasReferenceImages) {
-        // Try Gemini composition first (best quality with references)
-        if (this.googleAIService?.composeImageWithGemini) {
-          try {
-            // Download the reference image for composition
-            const refUrl = referenceImages[0];
-            const response = await fetch(refUrl);
-            if (response.ok) {
-              const buffer = await response.arrayBuffer();
-              const base64 = Buffer.from(buffer).toString('base64');
-              const mimeType = response.headers.get('content-type') || 'image/png';
-              
-              const result = await this.googleAIService.composeImageWithGemini(
-                [{ data: base64, mimeType, label: 'character_reference' }],
-                enhancedPrompt,
-                { ...forwardOptions, source: 'global_bot', context: enhancedPrompt }
-              );
-              if (result) {
-                this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and reference');
-                return result;
-              }
-            }
-          } catch (err) {
-            this.logger?.warn?.(`[GlobalBotService] Gemini composition failed: ${err.message}`);
-          }
-        }
-
-        // Fallback to aiService which routes to Replicate/Flux (supports reference images)
-        if (this.aiService?.generateImage) {
-          try {
-            const result = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
-              ...forwardOptions,
-              source: 'global_bot',
-              context: enhancedPrompt
-            });
+      // If we have reference images, use Gemini composition for character consistency
+      if (hasReferenceImages && this.googleAIService?.composeImageWithGemini) {
+        try {
+          // Download the reference image for composition
+          const refUrl = referenceImages[0];
+          const response = await fetch(refUrl);
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            const base64 = Buffer.from(buffer).toString('base64');
+            const mimeType = response.headers.get('content-type') || 'image/png';
+            
+            const result = await this.googleAIService.composeImageWithGemini(
+              [{ data: base64, mimeType, label: 'character_reference' }],
+              enhancedPrompt,
+              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio: '9:16' }
+            );
             if (result) {
-              this.logger?.info?.('[GlobalBotService] Generated image with aiService and reference');
+              this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and reference');
               return result;
             }
-          } catch (err) {
-            this.logger?.warn?.(`[GlobalBotService] aiService image generation failed: ${err.message}`);
           }
+        } catch (err) {
+          this.logger?.warn?.(`[GlobalBotService] Gemini composition failed: ${err.message}`);
         }
       }
 
-      // No reference images or reference-aware services failed - use standard generation
+      // Standard generation without references (or composition failed)
       if (this.googleAIService?.generateImage) {
-        return await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
-          ...forwardOptions,
-          source: 'global_bot',
-          context: enhancedPrompt
-        });
-      }
-
-      // Final fallback to aiService without references
-      if (this.aiService?.generateImage) {
-        return await this.aiService.generateImage(enhancedPrompt, referenceImages, {
+        return await this.googleAIService.generateImage(enhancedPrompt, '9:16', {
           ...forwardOptions,
           source: 'global_bot',
           context: enhancedPrompt

@@ -3214,13 +3214,13 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
             imageUrl = await this.googleAIService.composeImageWithGemini(
               [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'reference' }],
               enhancedPrompt,
-              { source, purpose: 'user_generated', context: enhancedPrompt }
+              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio: '9:16' }
             );
           }
         }
         // Fallback to regular generation if composition failed or no refs
         if (!imageUrl) {
-          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '1:1', {
+          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '9:16', {
             source,
             purpose: 'user_generated',
             context: enhancedPrompt
@@ -3421,7 +3421,7 @@ Your caption:`;
             }],
             config: {
               numberOfVideos: 1,
-              aspectRatio: '16:9',
+              aspectRatio: '9:16',
               durationSeconds: 8
             }
           });
@@ -3450,7 +3450,7 @@ Your caption:`;
             }],
             config: {
               numberOfVideos: 1,
-              aspectRatio: '16:9',
+              aspectRatio: '9:16',
               durationSeconds: 8
             }
           });
@@ -3465,7 +3465,7 @@ Your caption:`;
           prompt: enhancedPrompt,
           config: {
             numberOfVideos: 1,
-            aspectRatio: '16:9',
+            aspectRatio: '9:16',
             durationSeconds: 8
           },
         });
@@ -3779,7 +3779,7 @@ Your caption:`;
           }],
           config: {
             numberOfVideos: 1,
-            aspectRatio: '16:9',
+            aspectRatio: '9:16',
             durationSeconds: 8
           }
         });
