@@ -681,17 +681,47 @@ export class GoogleAIService {
       source: _source,
       prompt: _prompt, // Remove prompt from options if present
       aspectRatio,
+      characterReference, // Flag to indicate character reference mode
       ...genOptions 
     } = options;
     
     // Build a single content object with role 'user' and a parts array
-    const parts = images.map(img => ({
-      inline_data: {
-        mime_type: img.mimeType || 'image/png',
-        data: img.data,
+    const parts = [];
+    
+    // Check if any images are labeled as character references
+    const hasCharacterRef = images.some(img => 
+      img.label === 'character_reference' || img.label === 'reference'
+    ) || characterReference;
+    
+    // Add reference instruction if we have character references
+    if (hasCharacterRef) {
+      parts.push({ 
+        text: `IMPORTANT: The attached image(s) show the character's appearance that MUST be maintained in the generated image. Study the character's face, body shape, clothing, colors, and distinctive features carefully. The generated image must depict this EXACT same character with consistent visual identity.\n\n` 
+      });
+    }
+    
+    // Add images with labels
+    for (const img of images) {
+      if (img.label) {
+        parts.push({ text: `[${img.label.toUpperCase()}]:` });
       }
-    }));
-    parts.push({ text: prompt });
+      parts.push({
+        inline_data: {
+          mime_type: img.mimeType || 'image/png',
+          data: img.data,
+        }
+      });
+    }
+    
+    // Add the main prompt with character consistency reminder if needed
+    if (hasCharacterRef) {
+      parts.push({ 
+        text: `\n\nNow generate a new image following this prompt while maintaining EXACT character consistency with the reference image above:\n\n${prompt}` 
+      });
+    } else {
+      parts.push({ text: prompt });
+    }
+    
     const contents = [{ role: 'user', parts }];
 
     let lastError = null;

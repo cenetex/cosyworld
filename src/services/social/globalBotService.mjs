@@ -1009,10 +1009,10 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
             const result = await this.googleAIService.composeImageWithGemini(
               [{ data: base64, mimeType, label: 'character_reference' }],
               enhancedPrompt,
-              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio: '9:16' }
+              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio: '9:16', characterReference: true }
             );
             if (result) {
-              this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and reference');
+              this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and character reference');
               return result;
             }
           }

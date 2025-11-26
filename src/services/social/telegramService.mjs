@@ -3724,9 +3724,9 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
           const refImageData = await this._downloadImageAsBase64(referenceImages[0]);
           if (refImageData) {
             imageUrl = await this.googleAIService.composeImageWithGemini(
-              [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'reference' }],
+              [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'character_reference' }],
               enhancedPrompt,
-              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio: '9:16' }
+              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio: '9:16', characterReference: true }
             );
           }
         }
