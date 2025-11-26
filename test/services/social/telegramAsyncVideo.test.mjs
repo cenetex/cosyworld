@@ -122,7 +122,14 @@ function createTestService(overrides = {}) {
   serviceInstance.USE_ASYNC_VIDEO_GENERATION = true;
   
   // Mock rate limit check to allow
-  serviceInstance._checkMediaRateLimit = vi.fn().mockResolvedValue({ allowed: true });
+  serviceInstance.checkMediaGenerationLimit = vi.fn().mockResolvedValue({
+    allowed: true,
+    hourlyUsed: 0,
+    dailyUsed: 0,
+    hourlyLimit: 2,
+    dailyLimit: 4,
+    resetTimes: { hourly: new Date(), daily: new Date() }
+  });
   
   // Mock image asset generation
   serviceInstance._generateImageAsset = vi.fn().mockResolvedValue({
@@ -189,9 +196,13 @@ describe('TelegramService Async Video Generation', () => {
       const { serviceInstance } = createTestService();
       const ctx = createMockCtx();
       
-      serviceInstance._checkMediaRateLimit = vi.fn().mockResolvedValue({
+      serviceInstance.checkMediaGenerationLimit = vi.fn().mockResolvedValue({
         allowed: false,
-        message: 'Rate limit exceeded',
+        hourlyUsed: 2,
+        dailyUsed: 4,
+        hourlyLimit: 2,
+        dailyLimit: 4,
+        resetTimes: { hourly: new Date(Date.now() + 30 * 60000), daily: new Date(Date.now() + 60 * 60000) }
       });
       
       const result = await serviceInstance.queueVideoGenerationAsync(ctx, 'Test prompt', {
@@ -200,7 +211,7 @@ describe('TelegramService Async Video Generation', () => {
       
       expect(result.queued).toBe(false);
       expect(result.error).toBe('rate_limit');
-      expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Rate limit exceeded'));
+      expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Video generation charges'));
     });
     
     it('should accept pre-generated keyframe URL', async () => {
@@ -292,7 +303,14 @@ describe('TelegramService Async Video Generation', () => {
       };
       
       // Mock rate limit check
-      serviceInstance._checkMediaRateLimit = vi.fn().mockResolvedValue({ allowed: true });
+      serviceInstance.checkMediaGenerationLimit = vi.fn().mockResolvedValue({
+        allowed: true,
+        hourlyUsed: 0,
+        dailyUsed: 0,
+        hourlyLimit: 2,
+        dailyLimit: 4,
+        resetTimes: { hourly: new Date(), daily: new Date() }
+      });
       
       // Mock keyframe generation to FAIL
       serviceInstance._generateImageAsset = vi.fn().mockRejectedValue(new Error('Keyframe failed'));

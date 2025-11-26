@@ -5270,10 +5270,17 @@ Your caption:`;
     try {
       // Check rate limits before queuing
       if (userId) {
-        const canGenerate = await this._checkMediaRateLimit(userId, 'video');
-        if (!canGenerate.allowed) {
-          await ctx.reply(`⏳ ${canGenerate.message}`);
-          return { queued: false, error: 'rate_limit', message: canGenerate.message };
+        const limitCheck = await this.checkMediaGenerationLimit(userId, 'video');
+        if (!limitCheck.allowed) {
+          const timeUntilReset = limitCheck.hourlyUsed >= limitCheck.hourlyLimit
+            ? Math.ceil((limitCheck.resetTimes.hourly - new Date()) / 60000)
+            : Math.ceil((limitCheck.resetTimes.daily - new Date()) / 60000);
+          const message = `🎬 Video generation charges are fully used up right now.\n\n` +
+            `Hourly: ${limitCheck.hourlyUsed}/${limitCheck.hourlyLimit} used\n` +
+            `Daily: ${limitCheck.dailyUsed}/${limitCheck.dailyLimit} used\n\n` +
+            `⏰ Next charge available in ${timeUntilReset} minutes`;
+          await ctx.reply(message);
+          return { queued: false, error: 'rate_limit', message };
         }
       }
 
