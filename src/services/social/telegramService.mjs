@@ -24,6 +24,7 @@ import { randomUUID } from 'crypto';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
 import MarkdownIt from 'markdown-it';
+import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
 
 // Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
 function safeDecrypt(value) {
@@ -189,6 +190,202 @@ class TelegramService {
     // Active conversation tracking (for instant replies)
     this.activeConversations = new Map(); // channelId -> Map<userId, expiry>
     this.ACTIVE_CONVERSATION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+    // Periodic cleanup configuration
+    this.CACHE_CLEANUP_INTERVAL_MS = 60 * 1000; // Run every 60 seconds
+    this.MAX_CONVERSATION_HISTORY_PER_CHANNEL = 100;
+    this.MAX_CACHE_ENTRIES = 500;
+    this._cleanupInterval = null;
+
+    // Debounce lock tracking
+    this._debounceLocks = new Map(); // channelId -> Promise (lock)
+  }
+
+  /**
+   * Start periodic cache cleanup to prevent memory leaks
+   * @private
+   */
+  _startCacheCleanup() {
+    if (this._cleanupInterval) return;
+    
+    this._cleanupInterval = setInterval(() => {
+      this._pruneAllCaches();
+    }, this.CACHE_CLEANUP_INTERVAL_MS);
+    
+    this.logger?.info?.('[TelegramService] Started periodic cache cleanup');
+  }
+
+  /**
+   * Stop periodic cache cleanup (call on shutdown)
+   * @private
+   */
+  _stopCacheCleanup() {
+    if (this._cleanupInterval) {
+      clearInterval(this._cleanupInterval);
+      this._cleanupInterval = null;
+      this.logger?.info?.('[TelegramService] Stopped periodic cache cleanup');
+    }
+  }
+
+  /**
+   * Prune all in-memory caches to prevent memory leaks
+   * @private
+   */
+  _pruneAllCaches() {
+    const now = Date.now();
+    let totalPruned = 0;
+
+    // 1. Prune conversation history - keep last N messages per channel
+    for (const [channelId, history] of this.conversationHistory.entries()) {
+      if (history.length > this.MAX_CONVERSATION_HISTORY_PER_CHANNEL) {
+        const removed = history.length - this.MAX_CONVERSATION_HISTORY_PER_CHANNEL;
+        this.conversationHistory.set(channelId, history.slice(-this.MAX_CONVERSATION_HISTORY_PER_CHANNEL));
+        totalPruned += removed;
+      }
+    }
+
+    // 2. Prune member cache - remove expired entries
+    for (const [key, entry] of this._memberCache.entries()) {
+      if (now > entry.expiry) {
+        this._memberCache.delete(key);
+        totalPruned++;
+      }
+    }
+
+    // 3. Prune buybot cache - remove expired entries
+    for (const [channelId, entry] of this._buybotCache.entries()) {
+      if (now > entry.expiry) {
+        this._buybotCache.delete(channelId);
+        totalPruned++;
+      }
+    }
+
+    // 4. Prune active conversations - remove expired entries
+    for (const [channelId, userMap] of this.activeConversations.entries()) {
+      for (const [userId, expiry] of userMap.entries()) {
+        if (now > expiry) {
+          userMap.delete(userId);
+          totalPruned++;
+        }
+      }
+      if (userMap.size === 0) {
+        this.activeConversations.delete(channelId);
+      }
+    }
+
+    // 5. Prune service exhaustion - remove expired entries
+    for (const [mediaType, expiry] of this._serviceExhausted.entries()) {
+      if (now > expiry.getTime()) {
+        this._serviceExhausted.delete(mediaType);
+        totalPruned++;
+      }
+    }
+
+    // 6. Prune pending replies - remove stale entries (older than 5 minutes)
+    const staleThreshold = now - 5 * 60 * 1000;
+    for (const [channelId, pending] of this.pendingReplies.entries()) {
+      if (pending.lastMessageTime && pending.lastMessageTime < staleThreshold) {
+        if (pending.timeout) clearTimeout(pending.timeout);
+        this.pendingReplies.delete(channelId);
+        totalPruned++;
+      }
+    }
+
+    // 7. Limit total cache entries to prevent unbounded growth
+    if (this.conversationHistory.size > this.MAX_CACHE_ENTRIES) {
+      const toRemove = this.conversationHistory.size - this.MAX_CACHE_ENTRIES;
+      const keys = Array.from(this.conversationHistory.keys()).slice(0, toRemove);
+      keys.forEach(k => this.conversationHistory.delete(k));
+      totalPruned += toRemove;
+    }
+
+    if (this.recentMediaByChannel.size > this.MAX_CACHE_ENTRIES) {
+      const toRemove = this.recentMediaByChannel.size - this.MAX_CACHE_ENTRIES;
+      const keys = Array.from(this.recentMediaByChannel.keys()).slice(0, toRemove);
+      keys.forEach(k => this.recentMediaByChannel.delete(k));
+      totalPruned += toRemove;
+    }
+
+    if (totalPruned > 0) {
+      this.logger?.debug?.(`[TelegramService] Cache cleanup: pruned ${totalPruned} entries`);
+    }
+  }
+
+  /**
+   * Acquire a lock for a channel to prevent race conditions in debouncing
+   * Uses a promise-based mutex pattern
+   * @private
+   * @param {string} channelId - Channel ID
+   * @returns {Promise<Function>} - Release function to call when done
+   */
+  async _acquireChannelLock(channelId) {
+    // Wait for any existing lock to release
+    while (this._debounceLocks.has(channelId)) {
+      try {
+        await this._debounceLocks.get(channelId);
+      } catch {
+        // Lock was released (rejected), continue
+      }
+    }
+
+    // Create a new lock
+    let releaseFn;
+    const lockPromise = new Promise((resolve, reject) => {
+      releaseFn = () => {
+        this._debounceLocks.delete(channelId);
+        resolve();
+      };
+      // Auto-release after 60 seconds to prevent deadlocks
+      setTimeout(() => {
+        if (this._debounceLocks.get(channelId) === lockPromise) {
+          this._debounceLocks.delete(channelId);
+          reject(new Error('Lock timeout'));
+        }
+      }, 60000);
+    });
+
+    this._debounceLocks.set(channelId, lockPromise);
+    return releaseFn;
+  }
+
+  /**
+   * Try to acquire a lock without waiting (returns null if lock is held)
+   * @private
+   * @param {string} channelId - Channel ID
+   * @returns {Function|null} - Release function or null if lock is held
+   */
+  _tryAcquireChannelLock(channelId) {
+    if (this._debounceLocks.has(channelId)) {
+      return null; // Lock is held
+    }
+
+    let releaseFn;
+    const lockPromise = new Promise((resolve, reject) => {
+      releaseFn = () => {
+        this._debounceLocks.delete(channelId);
+        resolve();
+      };
+      setTimeout(() => {
+        if (this._debounceLocks.get(channelId) === lockPromise) {
+          this._debounceLocks.delete(channelId);
+          reject(new Error('Lock timeout'));
+        }
+      }, 60000);
+    });
+
+    this._debounceLocks.set(channelId, lockPromise);
+    return releaseFn;
+  }
+
+  /**
+   * Generate a unique request ID for deduplication
+   * @private
+   */
+  _generateRequestId(ctx) {
+    const messageId = ctx?.message?.message_id;
+    const updateId = ctx?.update?.update_id;
+    const chatId = ctx?.chat?.id;
+    return `${chatId}:${messageId || updateId || Date.now()}`;
   }
 
   /**
@@ -199,6 +396,117 @@ class TelegramService {
   _markServiceAsExhausted(mediaType, durationMs = 60 * 60 * 1000) {
     this._serviceExhausted.set(mediaType, new Date(Date.now() + durationMs));
     this.logger?.warn?.(`[TelegramService] Marked ${mediaType} service as exhausted until ${this._serviceExhausted.get(mediaType).toISOString()}`);
+  }
+
+  /**
+   * Wrap an error in appropriate error class based on type
+   * @param {Error} error - Original error
+   * @param {string} operation - Operation name (e.g., 'image_generation')
+   * @param {Object} metadata - Additional metadata
+   * @returns {MediaGenerationError|RateLimitError|ServiceUnavailableError}
+   */
+  _wrapMediaError(error, operation, metadata = {}) {
+    const errorMessage = error?.message || String(error);
+    const errorCode = error?.code || error?.status;
+    
+    // Check for rate limit / quota errors
+    if (errorCode === 429 || 
+        errorCode === 'RESOURCE_EXHAUSTED' ||
+        errorMessage.includes('quota') || 
+        errorMessage.includes('RESOURCE_EXHAUSTED') ||
+        errorMessage.includes('rate limit')) {
+      return new RateLimitError(
+        `Rate limit exceeded for ${operation}`,
+        { operation, originalError: errorMessage, ...metadata }
+      );
+    }
+    
+    // Check for service unavailable
+    if (errorCode === 503 || 
+        errorCode === 502 ||
+        errorMessage.includes('unavailable') ||
+        errorMessage.includes('temporarily') ||
+        errorMessage.includes('overloaded')) {
+      return new ServiceUnavailableError(
+        `Service unavailable for ${operation}`,
+        { operation, originalError: errorMessage, ...metadata }
+      );
+    }
+    
+    // Default to MediaGenerationError
+    return new MediaGenerationError(
+      errorMessage || `Failed to execute ${operation}`,
+      { operation, originalError: errorMessage, code: errorCode, ...metadata }
+    );
+  }
+
+  /**
+   * Handle media generation errors uniformly
+   * @param {Object} ctx - Telegram context
+   * @param {Error} error - The error that occurred
+   * @param {string} mediaType - 'image' or 'video'
+   * @param {string} userId - User ID for recording response
+   * @returns {Promise<null>}
+   */
+  async _handleMediaError(ctx, error, mediaType, userId) {
+    const wrappedError = error instanceof MediaGenerationError ? error : 
+                         this._wrapMediaError(error, `${mediaType}_generation`);
+    
+    this.logger?.error?.(`[TelegramService] ${mediaType} generation failed:`, {
+      errorType: wrappedError.constructor.name,
+      message: wrappedError.message,
+      metadata: wrappedError.metadata
+    });
+    
+    // Handle rate limit errors
+    if (wrappedError instanceof RateLimitError) {
+      const cooldown = 60 * 60 * 1000; // 1 hour
+      this._markServiceAsExhausted(mediaType, cooldown);
+      
+      await ctx.reply(
+        `🚫 My ${mediaType} generation is overheated (API quota reached). ` +
+        'I need to rest for a while. Try again in an hour.'
+      );
+      await this._recordBotResponse(String(ctx.chat.id), userId);
+      return null;
+    }
+    
+    // Handle service unavailable
+    if (wrappedError instanceof ServiceUnavailableError) {
+      await ctx.reply(
+        `⏳ The ${mediaType} generation service is temporarily busy. ` +
+        'Please try again in a few minutes.'
+      );
+      await this._recordBotResponse(String(ctx.chat.id), userId);
+      return null;
+    }
+    
+    // Generate natural error message for other errors
+    let errorText = `❌ Sorry, I couldn't generate that ${mediaType}. `;
+    errorText += mediaType === 'video' 
+      ? 'Video generation is complex and sometimes fails! 😅'
+      : 'The AI gods weren\'t smiling today! 😅';
+    
+    if (this.globalBotService) {
+      try {
+        const errorResponse = await this.aiService.chat([
+          { role: 'user', content: `You tried to generate a ${mediaType} but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).` }
+        ], {
+          model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+          temperature: 0.9
+        });
+        const naturalError = String(errorResponse || '').trim();
+        if (naturalError) {
+          errorText = naturalError;
+        }
+      } catch {
+        // Use default error message
+      }
+    }
+    
+    await ctx.reply(errorText);
+    await this._recordBotResponse(String(ctx.chat.id), userId);
+    return null;
   }
 
   /**
@@ -340,6 +648,9 @@ class TelegramService {
       }
       
       this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
+      
+      // Start periodic cache cleanup
+      this._startCacheCleanup();
       
       // Start conversation gap polling
       this.startConversationGapPolling();
@@ -2188,15 +2499,24 @@ Always consider calling plan_actions before executing media or tweet tools when 
       // Update active conversation status (refresh timer)
       this._updateActiveConversation(channelId, userId);
 
-      // Check if already processing a reply for this channel
+      // Try to acquire lock without waiting - if lock is held, skip this request
+      const releaseLock = this._tryAcquireChannelLock(channelId);
+      if (!releaseLock) {
+        this.logger?.debug?.(`[TelegramService] Skipping concurrent response in ${channelId} (lock held)`);
+        return;
+      }
+
+      // Double-check processing flag (belt and suspenders)
       const pending = this.pendingReplies.get(channelId) || {};
       if (pending.isProcessing) {
-        this.logger?.debug?.(`[TelegramService] Skipping concurrent response in ${channelId}`);
+        releaseLock();
+        this.logger?.debug?.(`[TelegramService] Skipping concurrent response in ${channelId} (processing flag)`);
         return;
       }
 
       // Mark as processing to prevent gap polling from interfering
       pending.isProcessing = true;
+      pending.requestId = this._generateRequestId(ctx);
       this.pendingReplies.set(channelId, pending);
 
       try {
@@ -2207,7 +2527,9 @@ Always consider calling plan_actions before executing media or tweet tools when 
         const updatedPending = this.pendingReplies.get(channelId) || {};
         updatedPending.lastBotResponseTime = Date.now();
         updatedPending.isProcessing = false;
+        updatedPending.requestId = null;
         this.pendingReplies.set(channelId, updatedPending);
+        releaseLock();
       }
       return;
     }
@@ -2254,9 +2576,6 @@ Always consider calling plan_actions before executing media or tweet tools when 
           
           // Check if we've already responded to this conversation
           const pending = this.pendingReplies.get(channelId) || {};
-          
-          // Skip if currently processing a message for this channel
-          if (pending.isProcessing) continue;
 
           if (pending.lastBotResponseTime && pending.lastBotResponseTime > lastMessageTime) {
             // We already responded after this message
@@ -2266,18 +2585,36 @@ Always consider calling plan_actions before executing media or tweet tools when 
           // Check if we've already marked this gap as handled
           if (pending.lastCheckedMessageTime === lastMessageTime) continue;
           
+          // Try to acquire lock - skip if another handler has the lock
+          const releaseLock = this._tryAcquireChannelLock(channelId);
+          if (!releaseLock) {
+            this.logger?.debug?.(`[TelegramService] Gap polling skipped for ${channelId} (lock held)`);
+            continue;
+          }
+          
+          // Double-check processing flag after acquiring lock
+          const pendingAfterLock = this.pendingReplies.get(channelId) || {};
+          if (pendingAfterLock.isProcessing) {
+            releaseLock();
+            continue;
+          }
+          
           this.logger?.info?.(`[TelegramService] Conversation gap detected in ${channelId} (${Math.round(timeSinceLastMessage/1000)}s silence)`);
           
           // Mark this message as checked to avoid duplicate responses
-          pending.lastCheckedMessageTime = lastMessageTime;
+          pendingAfterLock.lastCheckedMessageTime = lastMessageTime;
           // Mark as processing to prevent concurrent handling
-          pending.isProcessing = true;
-          this.pendingReplies.set(channelId, pending);
+          pendingAfterLock.isProcessing = true;
+          pendingAfterLock.requestId = `gap:${channelId}:${lastMessageTime}`;
+          this.pendingReplies.set(channelId, pendingAfterLock);
           
           try {
             // Generate a response to the conversation
             // Create a mock context object for the reply
-            if (!this.globalBot) continue;
+            if (!this.globalBot) {
+              releaseLock();
+              continue;
+            }
             
             const mockCtx = {
               chat: { id: channelId },
@@ -2298,13 +2635,17 @@ Always consider calling plan_actions before executing media or tweet tools when 
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.lastBotResponseTime = Date.now();
             updatedPending.isProcessing = false;
+            updatedPending.requestId = null;
             this.pendingReplies.set(channelId, updatedPending);
           } catch (error) {
             // Clear processing flag on error
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.isProcessing = false;
+            updatedPending.requestId = null;
             this.pendingReplies.set(channelId, updatedPending);
             throw error;
+          } finally {
+            releaseLock();
           }
           
         } catch (error) {
@@ -3339,29 +3680,7 @@ Your caption:`;
       return mediaRecord;
 
     } catch (error) {
-      this.logger?.error?.('[TelegramService] Image generation failed:', error);
-      
-      // Generate natural error message
-      let errorText = '❌ Sorry, I couldn\'t generate that image. The AI gods weren\'t smiling today! 😅';
-      if (this.globalBotService) {
-        try {
-          const errorResponse = await this.aiService.chat([
-            { role: 'user', content: 'You tried to generate an image but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
-          ], {
-            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            temperature: 0.9
-          });
-          const naturalError = String(errorResponse || '').trim();
-          if (naturalError) {
-            errorText = naturalError;
-          }
-        } catch {
-          // Use default error message
-        }
-      }
-      await ctx.reply(errorText);
-      await this._recordBotResponse(String(ctx.chat.id), userId);
-      return null;
+      return await this._handleMediaError(ctx, error, 'image', userId);
     }
   }
 
@@ -3552,44 +3871,7 @@ Your caption:`;
       return mediaRecord;
 
     } catch (error) {
-      this.logger?.error?.('[TelegramService] Video generation failed:', error);
-
-      // Check for quota exhaustion
-      const isQuotaError = error?.status === 'RESOURCE_EXHAUSTED' || 
-                           error?.code === 429 || 
-                           (error?.message && (error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')));
-
-      if (isQuotaError) {
-         // Mark as exhausted for 1 hour
-         const cooldown = 60 * 60 * 1000; 
-         this._markServiceAsExhausted('video', cooldown);
-         
-         await ctx.reply("🚫 *System Alert*: My video generation circuits are overheated (API quota reached). I need to rest for a while. Try again in an hour.");
-         await this._recordBotResponse(String(ctx.chat.id), userId);
-         return null;
-      }
-      
-      // Generate natural error message
-      let errorText = '❌ Sorry, I couldn\'t generate that video. Video generation is complex and sometimes fails! 😅';
-      if (this.globalBotService) {
-        try {
-          const errorResponse = await this.aiService.chat([
-            { role: 'user', content: 'You tried to generate a video but it failed. Give a brief, sympathetic, slightly humorous apology (under 50 words).' }
-          ], {
-            model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            temperature: 0.9
-          });
-          const naturalError = String(errorResponse || '').trim();
-          if (naturalError) {
-            errorText = naturalError;
-          }
-        } catch {
-          // Use default error message
-        }
-      }
-      await ctx.reply(errorText);
-      await this._recordBotResponse(String(ctx.chat.id), userId);
-      return null;
+      return await this._handleMediaError(ctx, error, 'video', userId);
     }
   }
 
@@ -4814,6 +5096,9 @@ Create a warm, welcoming introduction message (max 200 chars) that:
 
       this.bots.clear();
       this.logger?.info?.('[TelegramService] All bots stopped');
+
+      // Stop periodic cache cleanup
+      this._stopCacheCleanup();
 
       this.telegramSpamTracker.clear();
       this._memberCache.clear();
