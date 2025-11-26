@@ -84,8 +84,13 @@ export class GenerateImageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum } = context;
     
+    // Extract aspectRatio from step if specified, default to square
+    const options = {
+      aspectRatio: step.aspectRatio || '1:1'
+    };
+    
     const record = await services.telegram.executeImageGeneration(
-      ctx, step.description, conversationContext, userId, username
+      ctx, step.description, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -110,8 +115,13 @@ export class GenerateKeyframeExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum, logger } = context;
     
+    // Keyframes typically use 16:9 for video compatibility, unless specified
+    const options = {
+      aspectRatio: step.aspectRatio || '16:9'
+    };
+    
     const record = await services.telegram.executeImageGeneration(
-      ctx, step.description, conversationContext, userId, username
+      ctx, step.description, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -184,8 +194,13 @@ export class GenerateVideoExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum } = context;
     
+    // Video typically uses 9:16 (vertical) for social media, unless specified
+    const options = {
+      aspectRatio: step.aspectRatio || '9:16'
+    };
+    
     const record = await services.telegram.executeVideoGeneration(
-      ctx, step.description, conversationContext, userId, username
+      ctx, step.description, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -210,12 +225,17 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum, latestMediaId } = context;
     
+    // Video typically uses 9:16 (vertical) for social media, unless specified
+    const options = {
+      aspectRatio: step.aspectRatio || '9:16'
+    };
+    
     const sourceMediaId = step.sourceMediaId || latestMediaId;
     
     if (!sourceMediaId) {
       // Fall back to text-to-video
       const record = await services.telegram.executeVideoGeneration(
-        ctx, step.description, conversationContext, userId, username
+        ctx, step.description, conversationContext, userId, username, options
       );
       if (record) {
         return { success: true, action: this.actionType, stepNum, mediaId: record.id };
@@ -228,7 +248,8 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
       sourceMediaId,
       conversationContext,
       userId,
-      username
+      username,
+      aspectRatio: options.aspectRatio
     });
     
     if (record) {

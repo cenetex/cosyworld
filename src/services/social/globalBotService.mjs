@@ -933,6 +933,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
    * Generate an image using the global bot's character design settings
    * @param {string} prompt - The base prompt
    * @param {Object} options - Generation options
+   * @param {string} [options.aspectRatio='1:1'] - Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
    * @returns {Promise<string>} - Generated image URL
    */
   async generateImage(prompt, options = {}) {
@@ -951,6 +952,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
         avatars: directorAvatars,
         location: directorLocation,
         referenceImages: passedReferenceImages,
+        aspectRatio = '1:1', // Default to square
         ...forwardOptions
       } = options;
 
@@ -1009,7 +1011,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
             const result = await this.googleAIService.composeImageWithGemini(
               [{ data: base64, mimeType, label: 'character_reference' }],
               enhancedPrompt,
-              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio: '9:16', characterReference: true }
+              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio, characterReference: true }
             );
             if (result) {
               this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and character reference');
@@ -1023,7 +1025,7 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
 
       // Standard generation without references (or composition failed)
       if (this.googleAIService?.generateImage) {
-        return await this.googleAIService.generateImage(enhancedPrompt, '9:16', {
+        return await this.googleAIService.generateImage(enhancedPrompt, aspectRatio, {
           ...forwardOptions,
           source: 'global_bot',
           context: enhancedPrompt

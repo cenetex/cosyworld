@@ -1600,16 +1600,21 @@ Always consider calling plan_actions before executing media or tweet tools when 
       return { summary: 'Recent media you generated: none in the last few days.', items: [] };
     }
     const summaryLines = items.map((item, idx) => {
-      const label = item.caption || item.prompt || `${item.type} without description`;
+      // Prefer content description, then prompt, then caption for content awareness
+      const contentDesc = item.metadata?.contentDescription || item.toolingState?.originalPrompt || item.prompt || item.caption || `${item.type} without description`;
       const ageMs = Date.now() - new Date(item.createdAt).getTime();
       const ageMin = Math.max(1, Math.round(ageMs / 60000));
       const ago = ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
       const shortId = String(item.id).slice(0, 8).toUpperCase();
-      const tweetedMarker = item.tweetedAt ? ' (tweeted already)' : '';
-      return `${idx + 1}. [${shortId}] ${item.type} — ${label.slice(0, 120)} (${ago}${tweetedMarker})\n    full id: ${item.id}`;
+      const tweetedMarker = item.tweetedAt ? ' ⚠️ALREADY TWEETED' : '';
+      const aspectRatio = item.toolingState?.aspectRatio || item.metadata?.aspectRatio || '';
+      const aspectMarker = aspectRatio ? ` [${aspectRatio}]` : '';
+      const msgIdMarker = item.messageId ? ` (msg#${item.messageId})` : '';
+      // Include more context about what's in the image
+      return `${idx + 1}. [${shortId}] ${item.type}${aspectMarker} — "${contentDesc.slice(0, 150)}" (${ago}${tweetedMarker}${msgIdMarker})\n    full id: ${item.id}`;
     });
     return {
-      summary: `Recent media you generated (short ID in brackets works as a prefix, or copy the full id line when tweeting):\n${summaryLines.join('\n')}`,
+      summary: `Recent media you generated (use the short ID in brackets to reference):\n${summaryLines.join('\n')}\n\nIMPORTANT: Match the media ID to what the user asked for. Check the description to ensure you're posting the right image!`,
       items
     };
   }
@@ -2984,7 +2989,16 @@ ${planContext.summary}
 Call plan_actions before big multi-step moves (e.g., SPEAK -> GENERATE_IMAGE -> POST_TWEET) so you can outline the sequence explicitly for later reference.
 
 ${recentMediaContext.summary}
-When a user clearly wants to post to X/Twitter, call the tweet tool with the matching media ID from the list above (images/videos only). Never tweet automatically; confirm intent and only use media the user referenced.
+
+CRITICAL MEDIA SELECTION RULES:
+1. When posting to X, ALWAYS use the most recently generated image that matches the user's request.
+2. Read the image descriptions carefully - each entry shows what the image depicts.
+3. If you just generated an image, it will be at position #1 in the list above.
+4. Never post an old image unless the user specifically asks for it.
+5. Images marked "ALREADY TWEETED" cannot be posted again.
+6. Match the content description to what the user asked for before tweeting.
+
+When a user clearly wants to post to X/Twitter, call the tweet tool with the matching media ID from the list above (images/videos only). Never tweet automatically; confirm intent and verify you're using the correct image.
 Tool usage: When tools are available and user asks for media, provide natural acknowledgment + tool call together.`;
 
       const userPrompt = `Recent conversation:
@@ -3027,6 +3041,11 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                         type: 'string',
                         description: 'Friendly description of what you will do and why.'
                       },
+                      aspectRatio: {
+                        type: 'string',
+                        enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+                        description: 'For generate_image action: aspect ratio. Use 1:1 (square) by default, 16:9 for wide/landscape, 9:16 for tall/portrait.'
+                      },
                       expectedOutcome: {
                         type: 'string',
                         description: 'Optional expected result of the step.'
@@ -3065,13 +3084,18 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           type: 'function',
           function: {
             name: 'generate_image',
-            description: 'Generate an image based on a text prompt. Use this when users ask you to create, generate, or make an image or photo.',
+            description: 'Generate an image based on a text prompt. Use this when users ask you to create, generate, or make an image or photo. Default to square (1:1) aspect ratio unless user specifies otherwise.',
             parameters: {
               type: 'object',
               properties: {
                 prompt: {
                   type: 'string',
                   description: 'A detailed description of the image to generate. Be creative and descriptive.'
+                },
+                aspectRatio: {
+                  type: 'string',
+                  enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+                  description: 'Image aspect ratio. Use 1:1 (square) by default. Use 16:9 for wide/landscape, 9:16 for tall/portrait/vertical, 4:3 for standard landscape, 3:4 for standard portrait.'
                 }
               },
               required: ['prompt']
@@ -3082,13 +3106,18 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           type: 'function',
           function: {
             name: 'generate_video',
-            description: 'Generate a short video based on a text prompt. Use this when users ask you to create, generate, or make a video.',
+            description: 'Generate a short video based on a text prompt. Use this when users ask you to create, generate, or make a video. Videos are typically vertical (9:16) for social media.',
             parameters: {
               type: 'object',
               properties: {
                 prompt: {
                   type: 'string',
                   description: 'A detailed description of the video to generate. Include motion, action, and visual details.'
+                },
+                aspectRatio: {
+                  type: 'string',
+                  enum: ['16:9', '9:16'],
+                  description: 'Video aspect ratio. Use 9:16 (vertical/portrait) by default for social media. Use 16:9 for wide/landscape videos.'
                 }
               },
               required: ['prompt']
@@ -3308,7 +3337,9 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
             continue;
           }
           
-          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username);
+          // Default to square (1:1) if not specified
+          const aspectRatio = args.aspectRatio || '1:1';
+          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio });
           
         } else if (functionName === 'generate_video') {
           // Check cooldown limit
@@ -3328,11 +3359,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
             continue;
           }
           
+          // Default to vertical (9:16) for social media if not specified
+          const videoAspectRatio = args.aspectRatio || '9:16';
+          
           // Use async video generation if enabled (avoids handler timeout)
           if (this.USE_ASYNC_VIDEO_GENERATION) {
-            await this.queueVideoGenerationAsync(ctx, args.prompt, { conversationContext, userId, username });
+            await this.queueVideoGenerationAsync(ctx, args.prompt, { conversationContext, userId, username, aspectRatio: videoAspectRatio });
           } else {
-            await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username);
+            await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio: videoAspectRatio });
           }
 
         } else if (functionName === 'speak') {
@@ -3726,8 +3760,10 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
           
           try {
             if (action === 'generate_image') {
+              // Use aspectRatio from step if specified, default to square
+              const imageOptions = { aspectRatio: step.aspectRatio || '1:1' };
               const record = await this._executeStepWithTimeout(
-                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username),
+                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username, imageOptions),
                 action, stepNum
               );
               if (record) {
@@ -3738,8 +3774,10 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 generationFailed = true;
               }
             } else if (action === 'generate_keyframe') {
+              // Keyframes typically use 16:9 for video compatibility
+              const keyframeOptions = { aspectRatio: step.aspectRatio || '16:9' };
               const record = await this._executeStepWithTimeout(
-                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username),
+                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username, keyframeOptions),
                 action, stepNum
               );
               if (record) {
@@ -3787,12 +3825,14 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 generationFailed = true;
               }
             } else if (action === 'generate_video_from_image') {
+              // Video typically uses 9:16, unless specified
+              const videoOptions = { aspectRatio: step.aspectRatio || '9:16' };
               const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
               if (!sourceMediaId) {
                 // No source image - fall back to text-to-video
                 if (this.USE_ASYNC_VIDEO_GENERATION) {
                   const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
-                    conversationContext, userId, username
+                    conversationContext, userId, username, aspectRatio: videoOptions.aspectRatio
                   });
                   if (queueResult.queued) {
                     stepResult = { success: true, action, stepNum, queued: true, jobId: queueResult.jobId };
@@ -3802,7 +3842,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                   }
                 } else {
                   const record = await this._executeStepWithTimeout(
-                    () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                    () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username, videoOptions),
                     action, stepNum
                   );
                   if (record) {
@@ -3820,7 +3860,8 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                     sourceMediaId,
                     conversationContext,
                     userId,
-                    username
+                    username,
+                    aspectRatio: videoOptions.aspectRatio
                   }),
                   action, stepNum
                 );
@@ -3859,10 +3900,13 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 generationFailed = true;
               }
             } else if (action === 'generate_video') {
+              // Video typically uses 9:16 (vertical) for social media, unless specified
+              const videoOptions = { aspectRatio: step.aspectRatio || '9:16' };
+              
               // Use async video generation if enabled (avoids handler timeout)
               if (this.USE_ASYNC_VIDEO_GENERATION) {
                 const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
-                  conversationContext, userId, username
+                  conversationContext, userId, username, aspectRatio: videoOptions.aspectRatio
                 });
                 if (queueResult.queued) {
                   // For async, we don't get a media record immediately
@@ -3874,7 +3918,7 @@ Respond naturally to this conversation. Be warm, engaging, and reflect your narr
                 }
               } else {
                 const record = await this._executeStepWithTimeout(
-                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username),
+                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username, videoOptions),
                   action, stepNum
                 );
                 if (record) {
@@ -4120,6 +4164,7 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
    * @param {string} [params.username]
    * @param {boolean} [params.fetchBinary]
    * @param {string} [params.source]
+   * @param {string} [params.aspectRatio='1:1'] - Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
    * @returns {Promise<{ imageUrl: string, enhancedPrompt: string, binary?: { data: string, mimeType: string } }>} 
    */
   async _generateImageAsset({
@@ -4128,9 +4173,10 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
     userId = null,
     username = null,
     fetchBinary = false,
-    source = 'telegram.user_request'
+    source = 'telegram.user_request',
+    aspectRatio = '1:1'
   }) {
-    this.logger?.info?.('[TelegramService] Generating image asset', { prompt, userId, username, source });
+    this.logger?.info?.('[TelegramService] Generating image asset', { prompt, userId, username, source, aspectRatio });
 
     let imageUrl = null;
     let enhancedPrompt = prompt;
@@ -4153,7 +4199,8 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
       try {
         this.logger?.info?.('[TelegramService] Calling globalBotService.generateImage', { 
           hasReferenceImages: referenceImages.length > 0,
-          referenceCount: referenceImages.length
+          referenceCount: referenceImages.length,
+          aspectRatio
         });
         imageUrl = await this.globalBotService.generateImage(prompt, {
           source,
@@ -4161,7 +4208,8 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
           enhanceWithDirector: true,
           context: conversationContext,
           referenceImages,
-          characterDesign: charDesign
+          characterDesign: charDesign,
+          aspectRatio
         });
       } catch (err) {
         this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
@@ -4176,7 +4224,8 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
           imageUrl = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
             source,
             purpose: 'user_generated',
-            context: enhancedPrompt
+            context: enhancedPrompt,
+            aspectRatio
           });
         } catch (err) {
           this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
@@ -4193,13 +4242,13 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
             imageUrl = await this.googleAIService.composeImageWithGemini(
               [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'character_reference' }],
               enhancedPrompt,
-              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio: '9:16', characterReference: true }
+              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio, characterReference: true }
             );
           }
         }
         // Fallback to regular generation if composition failed or no refs
         if (!imageUrl) {
-          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, '9:16', {
+          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, aspectRatio, {
             source,
             purpose: 'user_generated',
             context: enhancedPrompt
@@ -4219,7 +4268,7 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
       binary = await this._downloadImageAsBase64(imageUrl);
     }
 
-    this.logger?.info?.('[TelegramService] Image asset ready', { imageUrl });
+    this.logger?.info?.('[TelegramService] Image asset ready', { imageUrl, aspectRatio });
     return { imageUrl, enhancedPrompt, binary };
   }
 
@@ -4230,19 +4279,23 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
    * @param {string} conversationContext - Recent conversation history
    * @param {string} userId - User ID for cooldown tracking
    * @param {string} username - Username for logging
+   * @param {Object} [options] - Additional options
+   * @param {string} [options.aspectRatio='1:1'] - Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
    */
-  async executeImageGeneration(ctx, prompt, conversationContext = '', userId = null, username = null) {
+  async executeImageGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
+    const { aspectRatio = '1:1' } = options;
     try {
       // No status message - the AI already sent a natural acknowledgment
 
-      const { imageUrl } = await this._generateImageAsset({
+      const { imageUrl, enhancedPrompt } = await this._generateImageAsset({
         prompt,
         conversationContext,
         userId,
         username,
+        aspectRatio,
         source: 'telegram.user_request'
       });
-      this.logger?.info?.('[TelegramService] Image generated successfully:', { imageUrl });
+      this.logger?.info?.('[TelegramService] Image generated successfully:', { imageUrl, aspectRatio });
 
       // Generate natural caption using AI
       let caption = null;
@@ -4301,6 +4354,7 @@ Your caption:`;
       this.pendingReplies.set(channelId, pending);
       
       // Remember media so the tweet tool can use it later
+      // Store both original prompt and enhanced prompt for better content awareness
       const mediaRecord = await this._rememberGeneratedMedia(String(ctx.chat.id), {
         type: 'image',
         mediaUrl: imageUrl,
@@ -4309,12 +4363,23 @@ Your caption:`;
         messageId: sentMessage?.message_id || null,
         userId,
         source: 'telegram.generate_image',
+        toolingState: {
+          originalPrompt: prompt,
+          enhancedPrompt: enhancedPrompt || prompt,
+          aspectRatio,
+          model: 'gemini-3-pro-image-preview'
+        },
         metadata: {
           requestedBy: userId,
-          requestedByUsername: username || null
+          requestedByUsername: username || null,
+          aspectRatio,
+          // Store a brief description of what the image shows for the AI to reference
+          contentDescription: prompt.slice(0, 200),
+          // Track which user message triggered this generation
+          triggeringMessageId: ctx.message?.message_id || null
         }
       });
-      this.logger?.info?.('[TelegramService] Image posted, marked as bot activity');
+      this.logger?.info?.('[TelegramService] Image posted, marked as bot activity', { mediaId: mediaRecord?.id, aspectRatio });
       return mediaRecord;
 
     } catch (error) {
@@ -4329,12 +4394,15 @@ Your caption:`;
    * @param {string} conversationContext - Recent conversation history
    * @param {string} userId - User ID for cooldown tracking
    * @param {string} username - Username for logging
+   * @param {Object} [options] - Additional options
+   * @param {string} [options.aspectRatio='9:16'] - Aspect ratio (16:9 or 9:16)
    */
-  async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null) {
+  async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
+    const { aspectRatio = '9:16' } = options;
     try {
       // No status message - the AI already sent a natural acknowledgment
 
-      this.logger?.info?.('[TelegramService] Generating video:', { prompt, userId, username });
+      this.logger?.info?.('[TelegramService] Generating video:', { prompt, userId, username, aspectRatio });
 
       // Generate video using VeoService
       if (!this.veoService) {
@@ -4347,13 +4415,15 @@ Your caption:`;
       const charDesignConfig = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
 
       try {
+        // Use matching aspect ratio for keyframe (compatible with video)
         keyframeAsset = await this._generateImageAsset({
           prompt,
           conversationContext,
           userId,
           username,
           fetchBinary: true,
-          source: 'telegram.video_keyframe'
+          source: 'telegram.video_keyframe',
+          aspectRatio // Use same aspect ratio as video
         });
         if (keyframeAsset?.enhancedPrompt) {
           enhancedPrompt = keyframeAsset.enhancedPrompt;
@@ -4378,7 +4448,7 @@ Your caption:`;
             }],
             config: {
               numberOfVideos: 1,
-              aspectRatio: '9:16',
+              aspectRatio,
               durationSeconds: 8
             }
           });
@@ -4407,7 +4477,7 @@ Your caption:`;
             }],
             config: {
               numberOfVideos: 1,
-              aspectRatio: '9:16',
+              aspectRatio,
               durationSeconds: 8
             }
           });
@@ -4422,7 +4492,7 @@ Your caption:`;
           prompt: enhancedPrompt,
           config: {
             numberOfVideos: 1,
-            aspectRatio: '9:16',
+            aspectRatio,
             durationSeconds: 8
           },
         });
@@ -4500,12 +4570,21 @@ Your caption:`;
         messageId: sentMessage?.message_id || null,
         userId,
         source: 'telegram.generate_video',
+        toolingState: {
+          originalPrompt: prompt,
+          enhancedPrompt: enhancedPrompt || prompt,
+          aspectRatio,
+          model: 'veo-3.1-generate-preview'
+        },
         metadata: {
           requestedBy: userId,
-          requestedByUsername: username || null
+          requestedByUsername: username || null,
+          aspectRatio,
+          contentDescription: prompt.slice(0, 200),
+          triggeringMessageId: ctx.message?.message_id || null
         }
       });
-      this.logger?.info?.('[TelegramService] Video posted, marked as bot activity');
+      this.logger?.info?.('[TelegramService] Video posted, marked as bot activity', { mediaId: mediaRecord?.id, aspectRatio });
       return mediaRecord;
 
     } catch (error) {
@@ -4531,7 +4610,7 @@ Your caption:`;
    */
   async queueVideoGenerationAsync(ctx, prompt, options = {}) {
     const channelId = String(ctx.chat.id);
-    const { conversationContext = '', userId = null, username = null } = options;
+    const { conversationContext = '', userId = null, username = null, aspectRatio = '9:16' } = options;
     
     try {
       // Check rate limits before queuing
@@ -4589,8 +4668,10 @@ Your caption:`;
         userId,
         username,
         conversationContext: conversationContext.slice(0, 2000), // Limit context size
+        aspectRatio,
+        triggeringMessageId: ctx?.message?.message_id || null,
         config: {
-          aspectRatio: '9:16',
+          aspectRatio,
           numberOfVideos: 1,
           durationSeconds: 8
         },
@@ -4739,11 +4820,20 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         messageId: sentMessage?.message_id || null,
         userId: jobData.userId,
         source: 'telegram.generate_video_async',
+        toolingState: {
+          originalPrompt: jobData.prompt,
+          aspectRatio: jobData.aspectRatio || '9:16',
+          model: 'veo-3.1-generate-preview'
+        },
         metadata: {
           jobId,
           requestedBy: jobData.userId,
-          requestedByUsername: jobData.username
-        }
+          requestedByUsername: jobData.username,
+          aspectRatio: jobData.aspectRatio || '9:16'
+        },
+        // Enhanced content awareness fields
+        contentDescription: `Video generated: ${jobData.prompt?.slice(0, 200) || 'video content'}`,
+        triggeringMessageId: jobData.triggeringMessageId || null
       });
       
       this.logger?.info?.(`[TelegramService] Video job ${jobId} completed successfully`);
@@ -4918,9 +5008,10 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
    * @param {string} [opts.conversationContext] - Conversation context
    * @param {string} [opts.userId] - User ID
    * @param {string} [opts.username] - Username
+   * @param {string} [opts.aspectRatio='9:16'] - Aspect ratio (16:9 or 9:16)
    * @returns {Promise<Object|null>} - New media record or null
    */
-  async executeVideoFromImage(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null }) {
+  async executeVideoFromImage(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null, aspectRatio = '9:16' }) {
     const channelId = String(ctx.chat.id);
     try {
       if (!this.veoService) {
@@ -4967,7 +5058,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           }],
           config: {
             numberOfVideos: 1,
-            aspectRatio: '9:16',
+            aspectRatio: aspectRatio,
             durationSeconds: 8
           }
         });
@@ -5028,8 +5119,12 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         metadata: {
           requestedBy: userId,
           requestedByUsername: username || null,
-          sourceImageUrl: sourceMedia.mediaUrl
-        }
+          sourceImageUrl: sourceMedia.mediaUrl,
+          aspectRatio: aspectRatio
+        },
+        // Enhanced content awareness fields
+        contentDescription: `Video animated from keyframe showing: ${sourceMedia.contentDescription || sourceMedia.prompt || prompt}`,
+        triggeringMessageId: ctx?.message?.message_id || null
       });
 
       this.logger?.info?.('[TelegramService] Video from image completed', { mediaId: mediaRecord?.id });
@@ -5159,7 +5254,10 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           requestedByUsername: username || null,
           sourceVideoUrl: sourceMedia.mediaUrl,
           extensionCount: currentDepth + 1
-        }
+        },
+        // Enhanced content awareness fields
+        contentDescription: `Extended video (${currentDepth + 1}/20): ${sourceMedia.contentDescription || sourceMedia.prompt || prompt}`,
+        triggeringMessageId: ctx?.message?.message_id || null
       });
 
       this.logger?.info?.('[TelegramService] Video extension completed', { mediaId: mediaRecord?.id, depth: currentDepth + 1 });
