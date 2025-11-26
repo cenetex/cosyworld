@@ -83,13 +83,14 @@ describe('PlanExecutionService.validatePlan', () => {
   });
 
   describe('dependency validation', () => {
-    it('requires prior media for post_tweet', () => {
+    it('warns but allows post_tweet without prior media (uses recent media)', () => {
       const result = service.validatePlan({
         objective: 'Test',
         steps: [{ action: 'post_tweet', description: 'Tweet' }]
       });
-      expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('post_tweet') && e.includes('Requires prior media'))).toBe(true);
+      // Changed from error to warning - executor can use recent media from context
+      expect(result.valid).toBe(true);
+      expect(result.warnings.some(w => w.includes('post_tweet') && w.includes('No media in plan'))).toBe(true);
     });
 
     it('allows post_tweet after media generation', () => {

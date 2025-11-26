@@ -162,9 +162,11 @@ export class PlanExecutionService {
         }
       }
       
+      // For post_tweet, missing media is a warning not an error
+      // The executor can use latestMediaId from context (previously generated media)
       if (action === 'post_tweet') {
-        if (!step.sourceMediaId && !hasMediaGeneration) {
-          errors.push(`Step ${stepNum} (post_tweet): Requires prior media generation or sourceMediaId`);
+        if (!step.sourceMediaId && !hasMediaGeneration && !step.useLatestMedia) {
+          warnings.push(`Step ${stepNum} (post_tweet): No media in plan - will use most recent media if available`);
         }
       }
     }
