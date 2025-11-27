@@ -8,15 +8,14 @@ import { BasicTool } from '../BasicTool.mjs';
 const MAX_RESULTS = 5;
 const MAX_HISTORY = 5;
 const MAX_OPENED = 5;
-const PRIMARY_SEARCH_MODEL = (process.env.OPENROUTER_WEB_SEARCH_MODEL || '').trim() || 'perplexity/llama-3.1-sonar-large-128k-online';
+const PRIMARY_SEARCH_MODEL = (process.env.OPENROUTER_WEB_SEARCH_MODEL || '').trim() || 'perplexity/sonar-pro-search';
 const CONFIGURED_FALLBACK_MODELS = (process.env.OPENROUTER_WEB_SEARCH_FALLBACKS || '')
   .split(',')
   .map(value => value.trim())
   .filter(Boolean);
 const DEFAULT_FALLBACK_MODELS = [
-  'perplexity/llama-3.1-sonar-medium-128k-online',
-  'perplexity/llama-3.1-sonar-small-128k-online',
-  'perplexity/sonar-reasoning'
+  'perplexity/sonar', // Fallback to standard sonar if pro fails
+  'openai/gpt-4o-mini:online' // OpenRouter's :online suffix for web search
 ];
 const ENABLE_EXA_PLUGIN = /^true$/i.test(process.env.OPENROUTER_WEB_SEARCH_USE_PLUGIN || 'false');
 

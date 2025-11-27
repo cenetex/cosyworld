@@ -3843,8 +3843,15 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
            await ctx.reply("⏳ <b>Processing...</b>", { parse_mode: 'HTML' });
            await this._recordBotResponse(channelId, userId);
         } else if (functionName === 'research') {
-           await ctx.reply("🔍 <b>Checking my sources...</b>", { parse_mode: 'HTML' });
-           await this._recordBotResponse(channelId, userId);
+           // Execute research action with query
+           const researchQuery = args.query || args.topic || args.description || 'general information';
+           await this.executeResearch(ctx, {
+             query: researchQuery,
+             conversationContext,
+             channelId,
+             userId,
+             username
+           });
 
         } else if (functionName === 'post_tweet') {
           const limit = await this.checkMediaGenerationLimit(null, 'tweet');
@@ -4156,7 +4163,21 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
         return;
       }
 
-      // Log clean plan summary to console (not to Telegram - keep inner thoughts private)
+      // PHASE 2: Use PlanExecutionService when enabled
+      // This uses the refactored ActionExecutor pattern for cleaner code
+      // Can be toggled off via this.USE_PLAN_EXECUTION_SERVICE = false for rollback
+      if (this.USE_PLAN_EXECUTION_SERVICE) {
+        try {
+          await this._executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext);
+          return;
+        } catch (serviceError) {
+          // If service execution fails, log and fall back to inline execution
+          this.logger?.error?.('[TelegramService] PlanExecutionService failed, falling back to inline:', serviceError.message);
+        }
+      }
+
+      // LEGACY: Inline execution (fallback or when USE_PLAN_EXECUTION_SERVICE is false)
+      // Log plan summary for legacy path only
       const planLogLines = [
         '\n╔══════════════════════════════════════════════════════════════╗',
         '║                    🧠 AGENT PLAN SEQUENCE                    ║',
@@ -4176,30 +4197,9 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
         });
       }
       
-      if (typeof planEntry.confidence === 'number') {
-        planLogLines.push('╠──────────────────────────────────────────────────────────────╣');
-        const confidenceBar = '█'.repeat(Math.round(planEntry.confidence * 20)).padEnd(20);
-        planLogLines.push(`║ Confidence: [${confidenceBar}] ${Math.round(planEntry.confidence * 100).toString().padStart(3)}%            ║`);
-      }
-      
       planLogLines.push('╚══════════════════════════════════════════════════════════════╝\n');
       
       this.logger?.info?.(planLogLines.join('\n'));
-
-      // PHASE 2: Use PlanExecutionService when enabled
-      // This uses the refactored ActionExecutor pattern for cleaner code
-      // Can be toggled off via this.USE_PLAN_EXECUTION_SERVICE = false for rollback
-      if (this.USE_PLAN_EXECUTION_SERVICE) {
-        try {
-          await this._executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext);
-          return;
-        } catch (serviceError) {
-          // If service execution fails, log and fall back to inline execution
-          this.logger?.error?.('[TelegramService] PlanExecutionService failed, falling back to inline:', serviceError.message);
-        }
-      }
-
-      // LEGACY: Inline execution (fallback or when USE_PLAN_EXECUTION_SERVICE is false)
       this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps (inline mode)`);
       
       let latestGeneratedMediaId = null;
@@ -6270,6 +6270,96 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       this.logger?.error?.('[TelegramService] Tweet tool failed:', error);
       await ctx.reply('❌ Something went wrong sharing that. I\'ll try again later.');
       await this._recordBotResponse(normalizedChannelId, userId);
+    }
+  }
+
+  /**
+   * Execute web research and return results to the conversation
+   * Uses OpenRouter's :online suffix for model-agnostic web search grounding
+   * @param {Object} ctx - Telegram context
+   * @param {Object} options - Research options
+   * @param {string} options.query - Search query
+   * @param {string} options.conversationContext - Current conversation context for better search targeting
+   * @param {string} options.channelId - Channel ID
+   * @param {string} options.userId - User ID
+   * @param {string} options.username - Username for personalization
+   */
+  async executeResearch(ctx, { query, conversationContext, channelId, userId, username }) {
+    const normalizedChannelId = channelId ? String(channelId) : (ctx?.chat?.id ? String(ctx.chat.id) : null);
+    
+    try {
+      if (!this.aiService) {
+        await ctx.reply('🔍 Research capability is not available right now.');
+        await this._recordBotResponse(normalizedChannelId, userId);
+        return null;
+      }
+
+      // Send typing indicator
+      await ctx.sendChatAction('typing');
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Build context-aware search prompt
+      const contextSection = conversationContext 
+        ? `\n\nConversation context for better understanding:\n${conversationContext.slice(-1500)}`
+        : '';
+      
+      const userContext = username ? ` (asked by ${username})` : '';
+      
+      const searchPrompt = `Today is ${today}. Search the web for: "${query}"${userContext}${contextSection}
+
+Based on the search query and conversation context, provide:
+1. Key facts and current information directly relevant to the query
+2. Cite your sources with URLs where available
+3. Any recent developments or breaking news
+4. Practical insights the user can act on
+
+Keep the response focused and actionable.`;
+
+      this.logger?.info?.('[TelegramService] Executing research', { 
+        query, 
+        channelId: normalizedChannelId,
+        hasContext: !!conversationContext,
+        contextLength: conversationContext?.length || 0
+      });
+
+      // Use Perplexity's native web search model
+      const response = await this.aiService.chat([
+        { role: 'user', content: searchPrompt }
+      ], {
+        model: 'perplexity/sonar-pro-search', // Native web search model
+        temperature: 0.3,
+        web_search_options: {
+          search_context_size: 'medium'
+        }
+      });
+
+      if (!response) {
+        await ctx.reply('🔍 I couldn\'t find relevant information for that query. Try rephrasing?');
+        await this._recordBotResponse(normalizedChannelId, userId);
+        return null;
+      }
+
+      // Format and send the research results
+      const formattedResponse = this._formatTelegramMarkdown(
+        `🔍 <b>Research Results:</b> ${query}\n\n${response}`
+      );
+
+      await ctx.reply(formattedResponse, { parse_mode: 'HTML' });
+      await this._recordBotResponse(normalizedChannelId, userId);
+
+      // Return the research results so they can be used in subsequent plan actions
+      return {
+        query,
+        results: response,
+        timestamp: Date.now()
+      };
+
+    } catch (error) {
+      this.logger?.error?.('[TelegramService] Research failed:', error);
+      await ctx.reply('🔍 Research hit a snag. Let me try a different approach...');
+      await this._recordBotResponse(normalizedChannelId, userId);
+      return null;
     }
   }
 
