@@ -5089,7 +5089,6 @@ Your caption:`;
       }
       
       // Mark that bot posted media - this counts as bot attention/activity
-      const channelId = String(ctx.chat.id);
       const pending = this.pendingReplies.get(channelId) || {};
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
