@@ -3,82 +3,13 @@
  * @module services/social/telegram/toolDefinitions
  */
 
-/**
- * Valid plan actions that can be executed
- * @constant {Set<string>}
- */
-export const VALID_PLAN_ACTIONS = new Set([
-  'generate_image', 
-  'generate_keyframe', 
-  'generate_video', 
-  'generate_video_from_image', 
-  'generate_video_with_reference', 
-  'generate_video_interpolation', 
-  'edit_image', 
-  'extend_video',
-  'speak', 
-  'post_tweet', 
-  'research', 
-  'wait'
-]);
-
-/**
- * Step timeout configuration (ms)
- * @constant {Object<string, number>}
- */
-export const STEP_TIMEOUTS = {
-  generate_image: 120000,      // 2 minutes
-  generate_keyframe: 120000,   // 2 minutes
-  generate_video: 300000,      // 5 minutes
-  generate_video_from_image: 300000, // 5 minutes
-  generate_video_with_reference: 360000, // 6 minutes (reference processing)
-  generate_video_interpolation: 360000, // 6 minutes
-  edit_image: 120000,          // 2 minutes
-  extend_video: 300000,        // 5 minutes
-  speak: 30000,                // 30 seconds
-  post_tweet: 60000,           // 1 minute
-  research: 30000,             // 30 seconds
-  wait: 5000,                  // 5 seconds
-  default: 120000              // 2 minutes default
-};
-
-/**
- * Action icons for display
- * @constant {Object<string, string>}
- */
-export const ACTION_ICONS = {
-  generate_image: '🎨',
-  generate_keyframe: '🖼️',
-  generate_video: '🎬',
-  generate_video_from_image: '🎥',
-  generate_video_with_reference: '🎭',
-  generate_video_interpolation: '🔄',
-  edit_image: '✏️',
-  extend_video: '📹',
-  speak: '💬',
-  post_tweet: '🐦',
-  research: '🔍',
-  wait: '⏳'
-};
-
-/**
- * Action labels for display
- * @constant {Object<string, string>}
- */
-export const ACTION_LABELS = {
-  generate_image: 'Generating image',
-  generate_keyframe: 'Creating keyframe',
-  generate_video: 'Generating video',
-  generate_video_from_image: 'Creating video from image',
-  generate_video_with_reference: 'Creating video with character reference',
-  generate_video_interpolation: 'Creating video interpolation',
-  edit_image: 'Editing image',
-  extend_video: 'Extending video',
-  speak: 'Composing message',
-  post_tweet: 'Posting to X',
-  research: 'Researching',
-  wait: 'Processing'
-};
+import {
+  VALID_PLAN_ACTIONS,
+  STEP_TIMEOUTS,
+  ACTION_ICONS,
+  ACTION_LABELS
+} from './constants.mjs';
+import { buildCreditInfo } from './utils.mjs';
 
 /**
  * Get icon for an action type
@@ -630,43 +561,6 @@ export function filterToolCalls(toolCalls, options = {}) {
     : uniqueToolCalls;
 
   return finalToolCalls;
-}
-
-/**
- * Build credit info string for tool context
- * @param {Object} limit - Limit check result
- * @param {string} label - Display label (e.g., "Images")
- * @returns {string} Formatted credit info
- */
-export function buildCreditInfo(limit, label) {
-  if (!limit) return `${label}: unavailable`;
-  
-  const now = Date.now();
-  const hLeft = Math.max(0, (limit.hourlyLimit ?? 0) - (limit.hourlyUsed ?? 0));
-  const dLeft = Math.max(0, (limit.dailyLimit ?? 0) - (limit.dailyUsed ?? 0));
-  const available = hLeft > 0 && dLeft > 0;
-  
-  if (available) {
-    return `${label}: ${Math.min(hLeft, dLeft)} available`;
-  }
-  
-  // No credits - calculate time until next reset
-  let nextResetMin = null;
-  if (hLeft === 0 && limit.resetTimes?.hourly) {
-    const msUntilHourly = limit.resetTimes.hourly.getTime() - now;
-    if (msUntilHourly > 0) nextResetMin = Math.ceil(msUntilHourly / 60000);
-  }
-  if (dLeft === 0 && limit.resetTimes?.daily) {
-    const msUntilDaily = limit.resetTimes.daily.getTime() - now;
-    if (msUntilDaily > 0) {
-      const dailyMin = Math.ceil(msUntilDaily / 60000);
-      nextResetMin = nextResetMin ? Math.min(nextResetMin, dailyMin) : dailyMin;
-    }
-  }
-  
-  return nextResetMin 
-    ? `${label}: 0 left, resets in ${nextResetMin}m`
-    : `${label}: 0 left`;
 }
 
 /**

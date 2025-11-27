@@ -511,7 +511,7 @@ export class CacheManager {
   // Spam Tracking
   // ============================================================================
 
-  checkSpamWindow(userId, windowMs, threshold) {
+  checkSpamWindow(userId, windowMs, _threshold) {
     if (!userId) return 0;
     
     const now = Date.now();

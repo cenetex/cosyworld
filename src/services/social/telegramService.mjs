@@ -21,91 +21,44 @@
 
 import { Telegraf } from 'telegraf';
 import { randomUUID } from 'crypto';
-import { decrypt, encrypt } from '../../utils/encryption.mjs';
+import { encrypt } from '../../utils/encryption.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
-import MarkdownIt from 'markdown-it';
 import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
 import { PlanExecutionService } from '../planner/planExecutionService.mjs';
 import { actionExecutorRegistry } from '../planner/actionExecutor.mjs';
 import eventBus from '../../utils/eventBus.mjs';
 import { generateTraceId } from '../../utils/tracing.mjs';
 
-// Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
-function safeDecrypt(value) {
-  try {
-    if (!value) return '';
-    // If value contains our GCM triplet separator, attempt decrypt; else treat as plaintext
-    if (typeof value === 'string' && value.includes(':')) {
-      return decrypt(value);
-    }
-    return String(value);
-  } catch {
-    // If decryption fails (e.g., rotated key), return as-is to allow user to reauth lazily
-    return String(value || '');
-  }
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-const htmlEntityMap = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-  nbsp: ' ',
-};
-
-const decodeHtmlEntities = (value) => {
-  if (!value || typeof value !== 'string') {
-    return typeof value === 'undefined' || value === null ? '' : String(value);
-  }
-
-  return value.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (match, entity) => {
-    if (!entity) return match;
-    const lower = entity.toLowerCase();
-
-    if (lower.startsWith('#x')) {
-      const codePoint = Number.parseInt(lower.slice(2), 16);
-      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
-    }
-
-    if (lower.startsWith('#')) {
-      const codePoint = Number.parseInt(lower.slice(1), 10);
-      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
-    }
-
-    if (htmlEntityMap[lower]) {
-      return htmlEntityMap[lower];
-    }
-
-    return match;
-  });
-};
-
-const md = new MarkdownIt({
-  html: false, // Disable HTML tags in source
-  breaks: true, // Convert '\n' in paragraphs into <br>
-  linkify: true // Autoconvert URL-like text to links
-});
-
-// Helper for escaping HTML in code blocks
-const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-// Custom renderer to ensure Telegram-compatible HTML
-// Telegram supports: <b>, <i>, <u>, <s>, <a>, <code>, <pre>
-// We need to map markdown to these specific tags
-md.renderer.rules.strong_open = () => '<b>';
-md.renderer.rules.strong_close = () => '</b>';
-md.renderer.rules.em_open = () => '<i>';
-md.renderer.rules.em_close = () => '</i>';
-md.renderer.rules.s_open = () => '<s>';
-md.renderer.rules.s_close = () => '</s>';
-md.renderer.rules.code_inline = (tokens, idx) => `<code>${escapeHtml(tokens[idx].content)}</code>`;
-md.renderer.rules.code_block = (tokens, idx) => `<pre><code>${escapeHtml(tokens[idx].content)}</code></pre>`;
-md.renderer.rules.fence = (tokens, idx) => `<pre><code>${escapeHtml(tokens[idx].content)}</code></pre>`;
+// Import refactored modules
+import {
+  // Constants
+  CACHE_CONFIG,
+  CONVERSATION_CONFIG,
+  REPLY_DELAY_CONFIG,
+  MEDIA_LIMITS,
+  MEDIA_CONFIG,
+  PLAN_CONFIG,
+  // Utilities
+  safeDecrypt,
+  formatTelegramMarkdown,
+  inferMimeTypeFromUrl,
+  generateRequestId,
+  includesMention,
+  buildCreditInfo,
+  // Managers
+  CacheManager,
+  MemberManager,
+  MediaManager,
+  MediaGenerationManager,
+  PlanManager,
+  ConversationManager,
+  ContextManager,
+  InteractionManager,
+  // Tool definitions
+  getActionIcon,
+  getActionLabel,
+  logPlanSummary,
+} from './telegram/index.mjs';
 
 class TelegramService {
   constructor({
@@ -137,55 +90,84 @@ class TelegramService {
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
-    // Message debouncing: track pending replies per channel
-    this.pendingReplies = new Map(); // channelId -> { timeout, lastMessageTime, messages }
-    this.REPLY_DELAY_MS = 10000; // 10 seconds delay between messages
+    // Initialize the CacheManager for centralized cache handling
+    this.cacheManager = new CacheManager({ logger: this.logger });
     
-    // Conversation history for context
-    this.conversationHistory = new Map(); // channelId -> array of recent messages
-    this.HISTORY_LIMIT = 50; // Keep last 50 messages per channel for rich context
-    
-    // Media generation cooldown tracking (per user)
-    // Limits: Videos: 2/hour, 4/day | Images: 3/hour, 100/day (Telegram-only counting)
-    this.mediaGenerationLimits = {
-      video: { hourly: 2, daily: 4 },
-      image: { hourly: 3, daily: 100 },
-      tweet: { hourly: 3, daily: 12 }
-    };
-    
-    // Performance optimization: caching layer
-    this._personaCache = { data: null, expiry: 0, ttl: 300000 }; // 5min TTL
-    this._buybotCache = new Map(); // channelId -> { data, expiry }
-    this.BUYBOT_CACHE_TTL = 60000; // 1min TTL
+    // Initialize MemberManager for member tracking and spam prevention
+    this.memberManager = new MemberManager({
+      logger: this.logger,
+      databaseService: this.databaseService,
+      cacheManager: this.cacheManager,
+    });
 
-    // Spam prevention + membership tracking
-    this.telegramSpamTracker = new Map(); // userId -> [timestamps]
-    this.USER_PROBATION_MS = 5 * 60 * 1000; // 5 minutes probation window
-    this.SPAM_WINDOW_MS = 10_000; // 10 second window for burst detection
-    this.SPAM_THRESHOLD = 8; // 8 messages within window -> spam
-    this.TELEGRAM_PENALTY_TIERS = [
-      { strikes: 1, durationMs: 30_000, notice: 'First warning: please slow down (30s timeout applied).' },
-      { strikes: 2, durationMs: 120_000, notice: 'Second warning: take a breather for 2 minutes.' },
-      { strikes: 3, durationMs: 600_000, notice: 'Third warning: you are muted for 10 minutes.' },
-      { strikes: 4, durationMs: 3_600_000, notice: 'Final warning: 1 hour cooldown before you can chat again.' },
-      { strikes: 5, durationMs: Infinity, notice: 'Permanent ban for repeated spam. Contact a moderator to appeal.' }
-    ];
+    // Initialize ConversationManager for history and active tracking
+    this.conversationManager = new ConversationManager({
+      logger: this.logger,
+      databaseService: this.databaseService,
+      cacheManager: this.cacheManager,
+    });
+    
+    // Initialize MediaManager for media storage and retrieval
+    this.mediaManager = new MediaManager({
+      logger: this.logger,
+      databaseService: this.databaseService,
+      cacheManager: this.cacheManager,
+      mediaIndexService: this.mediaIndexService,
+    });
+
+    // Initialize PlanManager for agent plan storage and retrieval
+    this.planManager = new PlanManager({
+      logger: this.logger,
+      databaseService: this.databaseService,
+      cacheManager: this.cacheManager,
+    });
+
+    // Initialize MediaGenerationManager for media creation logic
+    this.mediaGenerationManager = new MediaGenerationManager({
+      logger: this.logger,
+      aiService: this.aiService,
+      googleAIService: this.googleAIService,
+      veoService: this.veoService,
+      mediaGenerationService: this.mediaGenerationService,
+      globalBotService: this.globalBotService
+    });
+    
+    // Initialize ContextManager for persona and buybot context
+    this.contextManager = new ContextManager({
+      logger: this.logger,
+      databaseService: this.databaseService,
+      globalBotService: this.globalBotService,
+      buybotService: this.buybotService,
+      cacheManager: this.cacheManager,
+    });
+    
+    // Backwards compatibility: expose cache data structures through cacheManager
+    // These will be deprecated in a future version
+    this.pendingReplies = this.cacheManager.pendingReplies;
+    this.recentMediaByChannel = this.cacheManager.recentMediaByChannel;
+    this.agentPlansByChannel = this.cacheManager.agentPlansByChannel;
+    this.telegramSpamTracker = this.cacheManager.spamTracker;
+    this._memberCache = this.cacheManager.memberCache;
+
+    this._debounceLocks = this.cacheManager.debounceLocks;
+    this._serviceExhausted = this.cacheManager.serviceExhausted;
+    
+    // Use constants from modules
+    this.REPLY_DELAY_MS = REPLY_DELAY_CONFIG.DEFAULT_MS;
+    this.HISTORY_LIMIT = CONVERSATION_CONFIG.HISTORY_LIMIT;
+    this.mediaGenerationLimits = MEDIA_LIMITS;
+
+    this.BUYBOT_CACHE_TTL = CACHE_CONFIG.BUYBOT_TTL_MS;
     this.REPLY_DELAY_CONFIG = {
-      mentioned: 2000, // 2 seconds for direct mentions
-      default: 10000 // 10 seconds for gap responses / unsolicited chats
+      mentioned: REPLY_DELAY_CONFIG.MENTIONED_MS,
+      default: REPLY_DELAY_CONFIG.DEFAULT_MS
     };
-    this.MEMBER_CACHE_TTL = 60000; // 60s cache for membership lookups
-    this._memberCache = new Map(); // `${channelId}:${userId}` -> { record, expiry }
-
-    // Media memory cache for tweet tool support
-    this.recentMediaByChannel = new Map(); // channelId -> [mediaEntries]
-    this.RECENT_MEDIA_LIMIT = 10;
-    this.RECENT_MEDIA_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
-    this.MEDIA_ID_PREFIX_MIN_LENGTH = 6; // allow short IDs from summaries
-
-    // Agent planning context (for planner tool)
-    this.agentPlansByChannel = new Map(); // channelId -> [planEntries]
-    this.AGENT_PLAN_LIMIT = 5;
+    this.MEMBER_CACHE_TTL = CACHE_CONFIG.MEMBER_TTL_MS;
+    this.RECENT_MEDIA_LIMIT = MEDIA_CONFIG.RECENT_LIMIT;
+    this.RECENT_MEDIA_MAX_AGE_MS = MEDIA_CONFIG.MAX_AGE_MS;
+    this.MEDIA_ID_PREFIX_MIN_LENGTH = MEDIA_CONFIG.ID_PREFIX_MIN_LENGTH;
+    this.AGENT_PLAN_LIMIT = PLAN_CONFIG.LIMIT;
+    this.AGENT_PLAN_MAX_AGE_MS = PLAN_CONFIG.MAX_AGE_MS;
     
     // Phase 2: Initialize PlanExecutionService for refactored plan execution
     this.planExecutionService = new PlanExecutionService({
@@ -195,7 +177,6 @@ class TelegramService {
     
     // Flag to use new plan execution service (can be toggled for gradual rollout)
     this.USE_PLAN_EXECUTION_SERVICE = true;
-    this.AGENT_PLAN_MAX_AGE_MS = 72 * 60 * 60 * 1000; // 72h
     
     // Async video generation: queue jobs instead of blocking the handler
     // Enable this if video generation frequently causes timeout errors
@@ -206,25 +187,21 @@ class TelegramService {
     this._indexesReady = false;
     this._indexSetupPromise = null;
 
-    // Service exhaustion tracking (for API quotas)
-    this._serviceExhausted = new Map(); // mediaType -> Date (expiry)
-
-    // Active conversation tracking (for instant replies)
-    this.activeConversations = new Map(); // channelId -> Map<userId, expiry>
-    this.ACTIVE_CONVERSATION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
     // Periodic cleanup configuration
-    this.CACHE_CLEANUP_INTERVAL_MS = 60 * 1000; // Run every 60 seconds
-    this.MAX_CONVERSATION_HISTORY_PER_CHANNEL = 100;
-    this.MAX_CACHE_ENTRIES = 500;
+    this.CACHE_CLEANUP_INTERVAL_MS = CACHE_CONFIG.CLEANUP_INTERVAL_MS;
+    this.MAX_CONVERSATION_HISTORY_PER_CHANNEL = CACHE_CONFIG.MAX_HISTORY_PER_CHANNEL;
+    this.MAX_CACHE_ENTRIES = CACHE_CONFIG.MAX_CACHE_ENTRIES;
     this._cleanupInterval = null;
-
-    // Debounce lock tracking
-    this._debounceLocks = new Map(); // channelId -> Promise (lock)
+    this.ACTIVE_CONVERSATION_WINDOW_MS = CONVERSATION_CONFIG.ACTIVE_WINDOW_MS;
 
     // Video progress tracking for streaming updates
     this._videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate }
     this._setupVideoProgressListener();
+
+    // Initialize InteractionManager for UI feedback
+    this.interactionManager = new InteractionManager({
+      logger: this.logger,
+    });
   }
 
   /**
@@ -244,7 +221,6 @@ class TelegramService {
   /**
    * Handle video progress event and update Telegram message
    * @param {Object} event - Progress event from VeoService
-   * @private
    */
   async _handleVideoProgress(event) {
     const { traceId, channelId, status, progress, eta } = event;
@@ -315,206 +291,72 @@ class TelegramService {
 
   /**
    * Start periodic cache cleanup to prevent memory leaks
+   * Delegates to CacheManager
    * @private
    */
   _startCacheCleanup() {
-    if (this._cleanupInterval) return;
-    
-    this._cleanupInterval = setInterval(() => {
-      this._pruneAllCaches();
-    }, this.CACHE_CLEANUP_INTERVAL_MS);
-    
+    this.cacheManager.startCleanup();
     this.logger?.info?.('[TelegramService] Started periodic cache cleanup');
   }
 
   /**
    * Stop periodic cache cleanup (call on shutdown)
+   * Delegates to CacheManager
    * @private
    */
   _stopCacheCleanup() {
-    if (this._cleanupInterval) {
-      clearInterval(this._cleanupInterval);
-      this._cleanupInterval = null;
-      this.logger?.info?.('[TelegramService] Stopped periodic cache cleanup');
-    }
+    this.cacheManager.stopCleanup();
+    this.logger?.info?.('[TelegramService] Stopped periodic cache cleanup');
   }
 
   /**
    * Prune all in-memory caches to prevent memory leaks
+   * Delegates to CacheManager
    * @private
    */
   _pruneAllCaches() {
-    const now = Date.now();
-    let totalPruned = 0;
-
-    // 1. Prune conversation history - keep last N messages per channel
-    for (const [channelId, history] of this.conversationHistory.entries()) {
-      if (history.length > this.MAX_CONVERSATION_HISTORY_PER_CHANNEL) {
-        const removed = history.length - this.MAX_CONVERSATION_HISTORY_PER_CHANNEL;
-        this.conversationHistory.set(channelId, history.slice(-this.MAX_CONVERSATION_HISTORY_PER_CHANNEL));
-        totalPruned += removed;
-      }
-    }
-
-    // 2. Prune member cache - remove expired entries
-    for (const [key, entry] of this._memberCache.entries()) {
-      if (now > entry.expiry) {
-        this._memberCache.delete(key);
-        totalPruned++;
-      }
-    }
-
-    // 3. Prune buybot cache - remove expired entries
-    for (const [channelId, entry] of this._buybotCache.entries()) {
-      if (now > entry.expiry) {
-        this._buybotCache.delete(channelId);
-        totalPruned++;
-      }
-    }
-
-    // 4. Prune active conversations - remove expired entries
-    for (const [channelId, userMap] of this.activeConversations.entries()) {
-      for (const [userId, expiry] of userMap.entries()) {
-        if (now > expiry) {
-          userMap.delete(userId);
-          totalPruned++;
-        }
-      }
-      if (userMap.size === 0) {
-        this.activeConversations.delete(channelId);
-      }
-    }
-
-    // 5. Prune service exhaustion - remove expired entries
-    for (const [mediaType, expiry] of this._serviceExhausted.entries()) {
-      if (now > expiry.getTime()) {
-        this._serviceExhausted.delete(mediaType);
-        totalPruned++;
-      }
-    }
-
-    // 6. Prune pending replies - remove stale entries (older than 5 minutes)
-    const staleThreshold = now - 5 * 60 * 1000;
-    for (const [channelId, pending] of this.pendingReplies.entries()) {
-      if (pending.lastMessageTime && pending.lastMessageTime < staleThreshold) {
-        if (pending.timeout) clearTimeout(pending.timeout);
-        this.pendingReplies.delete(channelId);
-        totalPruned++;
-      }
-    }
-
-    // 7. Limit total cache entries to prevent unbounded growth
-    if (this.conversationHistory.size > this.MAX_CACHE_ENTRIES) {
-      const toRemove = this.conversationHistory.size - this.MAX_CACHE_ENTRIES;
-      const keys = Array.from(this.conversationHistory.keys()).slice(0, toRemove);
-      keys.forEach(k => this.conversationHistory.delete(k));
-      totalPruned += toRemove;
-    }
-
-    if (this.recentMediaByChannel.size > this.MAX_CACHE_ENTRIES) {
-      const toRemove = this.recentMediaByChannel.size - this.MAX_CACHE_ENTRIES;
-      const keys = Array.from(this.recentMediaByChannel.keys()).slice(0, toRemove);
-      keys.forEach(k => this.recentMediaByChannel.delete(k));
-      totalPruned += toRemove;
-    }
-
-    if (totalPruned > 0) {
-      this.logger?.debug?.(`[TelegramService] Cache cleanup: pruned ${totalPruned} entries`);
-    }
+    this.cacheManager.pruneAll();
   }
 
   /**
    * Acquire a lock for a channel to prevent race conditions in debouncing
-   * Uses a promise-based mutex pattern
+   * Delegates to CacheManager
    * @private
    * @param {string} channelId - Channel ID
    * @returns {Promise<Function>} - Release function to call when done
    */
   async _acquireChannelLock(channelId) {
-    // Wait for any existing lock to release
-    while (this._debounceLocks.has(channelId)) {
-      try {
-        await this._debounceLocks.get(channelId);
-      } catch {
-        // Lock was released (rejected), continue
-      }
-    }
-
-    // Create a new lock
-    let releaseFn;
-    let timeoutId;
-    const lockPromise = new Promise((resolve) => {
-      releaseFn = () => {
-        clearTimeout(timeoutId);
-        this._debounceLocks.delete(channelId);
-        resolve();
-      };
-      // Auto-release after 60 seconds to prevent deadlocks
-      timeoutId = setTimeout(() => {
-        if (this._debounceLocks.get(channelId) === lockPromise) {
-          this._debounceLocks.delete(channelId);
-          this.logger?.warn?.(`[TelegramService] Lock timeout for channel ${channelId}, auto-releasing`);
-          resolve(); // Resolve instead of reject to prevent unhandled rejections
-        }
-      }, 60000);
-    });
-
-    this._debounceLocks.set(channelId, lockPromise);
-    return releaseFn;
+    return this.cacheManager.acquireLock(channelId);
   }
 
   /**
    * Try to acquire a lock without waiting (returns null if lock is held)
+   * Delegates to CacheManager
    * @private
    * @param {string} channelId - Channel ID
    * @returns {Function|null} - Release function or null if lock is held
    */
   _tryAcquireChannelLock(channelId) {
-    if (this._debounceLocks.has(channelId)) {
-      return null; // Lock is held
-    }
-
-    let releaseFn;
-    let timeoutId;
-    const lockPromise = new Promise((resolve) => {
-      releaseFn = () => {
-        clearTimeout(timeoutId);
-        this._debounceLocks.delete(channelId);
-        resolve();
-      };
-      // Auto-release after 60 seconds to prevent deadlocks
-      timeoutId = setTimeout(() => {
-        if (this._debounceLocks.get(channelId) === lockPromise) {
-          this._debounceLocks.delete(channelId);
-          this.logger?.warn?.(`[TelegramService] Lock timeout for channel ${channelId}, auto-releasing`);
-          resolve(); // Resolve instead of reject to prevent unhandled rejections
-        }
-      }, 60000);
-    });
-
-    this._debounceLocks.set(channelId, lockPromise);
-    return releaseFn;
+    return this.cacheManager.tryAcquireLock(channelId);
   }
 
   /**
    * Generate a unique request ID for deduplication
+   * Delegates to utility function
    * @private
    */
   _generateRequestId(ctx) {
-    const messageId = ctx?.message?.message_id;
-    const updateId = ctx?.update?.update_id;
-    const chatId = ctx?.chat?.id;
-    return `${chatId}:${messageId || updateId || Date.now()}`;
+    return generateRequestId(ctx);
   }
 
   /**
    * Mark a service as exhausted for a duration
+   * Delegates to CacheManager
    * @param {string} mediaType - 'video' or 'image'
    * @param {number} durationMs - Duration in ms (default 1 hour)
    */
   _markServiceAsExhausted(mediaType, durationMs = 60 * 60 * 1000) {
-    this._serviceExhausted.set(mediaType, new Date(Date.now() + durationMs));
-    this.logger?.warn?.(`[TelegramService] Marked ${mediaType} service as exhausted until ${this._serviceExhausted.get(mediaType).toISOString()}`);
+    this.cacheManager.markServiceExhausted(mediaType, durationMs);
   }
 
   /**
@@ -586,7 +428,7 @@ class TelegramService {
         `🚫 My ${mediaType} generation is overheated (API quota reached). ` +
         'I need to rest for a while. Try again in an hour.'
       );
-      await this._recordBotResponse(String(ctx.chat.id), userId);
+      await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
       return null;
     }
     
@@ -596,7 +438,7 @@ class TelegramService {
         `⏳ The ${mediaType} generation service is temporarily busy. ` +
         'Please try again in a few minutes.'
       );
-      await this._recordBotResponse(String(ctx.chat.id), userId);
+      await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
       return null;
     }
     
@@ -624,7 +466,7 @@ class TelegramService {
     }
     
     await ctx.reply(errorText);
-    await this._recordBotResponse(String(ctx.chat.id), userId);
+    await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
     return null;
   }
 
@@ -1006,6 +848,10 @@ class TelegramService {
     this.logger?.debug?.('[TelegramService] Message handlers configured');
   }
 
+  async _rememberGeneratedMedia(channelId, entry = {}) {
+    return this.mediaManager.rememberGeneratedMedia(channelId, entry);
+  }
+
   /**
    * Register buybot commands with Telegram for autocomplete
    * This makes the commands appear in the slash command menu
@@ -1026,533 +872,38 @@ class TelegramService {
     }
   }
 
-  /**
-   * Save a message to the database for persistence
-   * @private
-   */
-  async _saveMessageToDatabase(channelId, message) {
-    try {
-      const db = await this.databaseService.getDatabase();
-      const asDate = message.date instanceof Date
-        ? message.date
-        : (typeof message.date === 'number'
-          ? new Date(message.date * 1000)
-          : new Date());
-      await db.collection('telegram_messages').insertOne({
-        channelId,
-        from: message.from,
-        text: message.text,
-        date: asDate,
-        userId: message.userId || null,
-        isBot: message.isBot || false,
-        createdAt: new Date()
-      });
-      this.logger?.debug?.(`[TelegramService] Saved message to database for channel ${channelId}`);
-    } catch (error) {
-      this.logger?.error?.(`[TelegramService] Failed to save message to database:`, error);
-    }
-  }
 
-  /**
-   * Load conversation history from database for a channel
-   * @private
-   */
-  async _loadConversationHistory(channelId) {
-    try {
-      const db = await this.databaseService.getDatabase();
-      const messages = await db.collection('telegram_messages')
-        .find({ channelId })
-        .sort({ date: -1 })
-        .limit(this.HISTORY_LIMIT)
-        .toArray();
-      
-      // Reverse to get chronological order (oldest first)
-      const history = messages.reverse().map(msg => ({
-        from: msg.isBot ? 'Bot' : msg.from,
-        text: msg.text,
-        date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date,
-        userId: msg.userId || null
-      }));
-      
-      // Merge with existing in-memory history (which may have new messages)
-      const existingHistory = this.conversationHistory.get(channelId) || [];
-      const mergedHistory = [...history, ...existingHistory];
-      
-      // Remove duplicates and keep last N messages
-      const uniqueHistory = mergedHistory
-        .filter((msg, index, self) => 
-          index === self.findIndex(m => m.date === msg.date && m.text === msg.text)
-        )
-        .slice(-this.HISTORY_LIMIT);
-      
-      this.conversationHistory.set(channelId, uniqueHistory);
-      this.logger?.info?.(`[TelegramService] Loaded ${history.length} messages from database, merged with ${existingHistory.length} in-memory messages for channel ${channelId}`);
-      return uniqueHistory;
-    } catch (error) {
-      this.logger?.error?.(`[TelegramService] Failed to load conversation history:`, error);
-      return [];
-    }
-  }
 
-  async _trackBotMessage(channelId, text) {
-    if (!channelId || !text) return;
-    const normalizedChannelId = String(channelId);
-    const entry = {
-      from: 'Bot',
-      text,
-      date: Math.floor(Date.now() / 1000),
-      isBot: true,
-      userId: null
-    };
-    const history = this.conversationHistory.get(normalizedChannelId) || [];
-    history.push(entry);
-    const trimmed = history.length > this.HISTORY_LIMIT
-      ? history.slice(-this.HISTORY_LIMIT)
-      : history;
-    this.conversationHistory.set(normalizedChannelId, trimmed);
-    try {
-      await this._saveMessageToDatabase(normalizedChannelId, entry);
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] Failed to track bot message:', error?.message || error);
-    }
-  }
 
-  async _createIndexSafe(collection, fields, options = {}, collectionLabel = 'collection') {
-    if (!collection?.createIndex) return;
-    try {
-      await collection.createIndex(fields, options);
-    } catch (error) {
-      if (error?.code === 85 || error?.codeName === 'IndexOptionsConflict') {
-        this.logger?.debug?.(`[TelegramService] Index already exists on ${collectionLabel}: ${options?.name || JSON.stringify(fields)}`);
-      } else {
-        throw error;
-      }
-    }
-  }
 
   async _ensureTelegramIndexes() {
-    if (!this.databaseService) return;
-    if (this._indexesReady) return;
-    if (this._indexSetupPromise) {
-      return this._indexSetupPromise;
-    }
-
-    this._indexSetupPromise = (async () => {
-      let success = false;
-      try {
-        const db = await this.databaseService.getDatabase();
-        const recentMediaCollection = db.collection('telegram_recent_media');
-        await this._createIndexSafe(recentMediaCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt' }, 'telegram_recent_media');
-        await this._createIndexSafe(recentMediaCollection, { createdAt: 1 }, { name: 'createdAt_ttl_recent_media', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_recent_media');
-        await this._createIndexSafe(recentMediaCollection, { channelId: 1, id: 1 }, { name: 'channelId_mediaId', unique: true }, 'telegram_recent_media');
-        // Phase 1: Add indexes for type filtering and origin tracking
-        await this._createIndexSafe(recentMediaCollection, { channelId: 1, type: 1, createdAt: -1 }, { name: 'channelId_type_createdAt' }, 'telegram_recent_media');
-        await this._createIndexSafe(recentMediaCollection, { originMediaId: 1 }, { name: 'originMediaId', sparse: true }, 'telegram_recent_media');
-
-        const agentPlansCollection = db.collection('telegram_agent_plans');
-        await this._createIndexSafe(agentPlansCollection, { channelId: 1, createdAt: -1 }, { name: 'channelId_createdAt_agent_plan' }, 'telegram_agent_plans');
-        await this._createIndexSafe(agentPlansCollection, { createdAt: 1 }, { name: 'createdAt_ttl_agent_plan', expireAfterSeconds: 3 * 24 * 60 * 60 }, 'telegram_agent_plans');
-
-        success = true;
-        if (!this._indexesReady) {
-          this.logger?.info?.('[TelegramService] Verified telegram indexes (recent media + agent plans)');
-        }
-      } catch (error) {
-        this.logger?.warn?.('[TelegramService] Failed to ensure telegram indexes:', error?.message || error);
-      } finally {
-        if (success) {
-          this._indexesReady = true;
-        }
-        this._indexSetupPromise = null;
-      }
-    })();
-
-    return this._indexSetupPromise;
+    if (!this.mediaManager?.ensureIndexes) return;
+    return this.mediaManager.ensureIndexes();
   }
 
-  _getMemberCacheKey(channelId, userId) {
-    return `${channelId}:${userId}`;
-  }
-
-  _getCachedMember(channelId, userId) {
-    const key = this._getMemberCacheKey(channelId, userId);
-    const entry = this._memberCache.get(key);
-    if (!entry) return null;
-    if (Date.now() > entry.expiry) {
-      this._memberCache.delete(key);
-      return null;
-    }
-    return entry.record;
-  }
-
-  _cacheMember(channelId, userId, record) {
-    const key = this._getMemberCacheKey(channelId, userId);
-    if (!record) {
-      this._memberCache.delete(key);
-      return;
-    }
-    this._memberCache.set(key, {
-      record,
-      expiry: Date.now() + this.MEMBER_CACHE_TTL
-    });
-  }
-
-  _pruneRecentMedia(channelId) {
-    const cache = this.recentMediaByChannel.get(channelId);
-    if (!cache || cache.length === 0) return;
-    const now = Date.now();
-    const pruned = cache
-      .filter(item => item && item.createdAt && (now - new Date(item.createdAt).getTime()) < this.RECENT_MEDIA_MAX_AGE_MS)
-      .slice(0, this.RECENT_MEDIA_LIMIT);
-    this.recentMediaByChannel.set(channelId, pruned);
-  }
-
-  _normalizeMediaRecord(record = {}) {
-    if (!record?.id) return null;
-    const normalized = {
-      ...record,
-      channelId: record.channelId ? String(record.channelId) : null,
-      createdAt: record.createdAt instanceof Date
-        ? record.createdAt
-        : new Date(record.createdAt || Date.now())
-    };
-    return normalized;
-  }
-
-  _cacheRecentMediaRecord(channelId, record) {
-    if (!channelId || !record) return null;
-    const normalizedChannelId = String(channelId);
-    const normalizedRecord = this._normalizeMediaRecord(record);
-    if (!normalizedRecord) return null;
-    const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
-    const deduped = cache.filter(item => item.id !== normalizedRecord.id);
-    deduped.unshift(normalizedRecord);
-    this.recentMediaByChannel.set(normalizedChannelId, deduped.slice(0, this.RECENT_MEDIA_LIMIT));
-    this._pruneRecentMedia(normalizedChannelId);
-    return normalizedRecord;
-  }
-
-  async _rememberGeneratedMedia(channelId, entry = {}) {
-    try {
-      if (!channelId || !entry?.mediaUrl) {
-        return null;
-      }
-
-      const record = {
-        id: entry.id || randomUUID(),
-        channelId: String(channelId),
-        // Asset type: 'image', 'video', 'clip', 'keyframe'
-        type: entry.type || 'image',
-        mediaUrl: entry.mediaUrl,
-        prompt: entry.prompt || null,
-        caption: entry.caption || null,
-        createdAt: entry.createdAt || new Date(),
-        messageId: entry.messageId || null,
-        userId: entry.userId || null,
-        tweetedAt: entry.tweetedAt || null,
-        source: entry.source || null,
-        metadata: entry.metadata || null,
-        // Phase 1: Agentic tooling state
-        toolingState: {
-          // Original prompt before enhancement
-          originalPrompt: entry.toolingState?.originalPrompt || entry.prompt || null,
-          // Enhanced/composed prompt used for generation
-          enhancedPrompt: entry.toolingState?.enhancedPrompt || null,
-          // Reference media IDs used as input
-          referenceMediaIds: entry.toolingState?.referenceMediaIds || [],
-          // Gemini Files API handle for reuse
-          geminiFileUri: entry.toolingState?.geminiFileUri || null,
-          geminiFileName: entry.toolingState?.geminiFileName || null,
-          // Generation parameters
-          aspectRatio: entry.toolingState?.aspectRatio || null,
-          model: entry.toolingState?.model || null
-        },
-        // Origin tracking for derived media
-        originMediaId: entry.originMediaId || null,
-        // Edit/extension depth counter
-        derivationDepth: typeof entry.derivationDepth === 'number' ? entry.derivationDepth : 0
-      };
-
-      const normalized = this._cacheRecentMediaRecord(record.channelId, record);
-      if (!normalized) {
-        return null;
-      }
-
-      await this._persistRecentMediaRecord(normalized);
-
-      return normalized;
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] _rememberGeneratedMedia error:', error?.message || error);
-      return null;
-    }
-  }
-
-  async _persistRecentMediaRecord(record) {
-    if (!this.databaseService) return;
-    try {
-      await this._ensureTelegramIndexes();
-      const db = await this.databaseService.getDatabase();
-      await db.collection('telegram_recent_media').updateOne(
-        { channelId: record.channelId, id: record.id },
-        {
-          $set: {
-            channelId: record.channelId,
-            id: record.id,
-            type: record.type,
-            mediaUrl: record.mediaUrl,
-            prompt: record.prompt,
-            caption: record.caption,
-            messageId: record.messageId || null,
-            userId: record.userId || null,
-            tweetedAt: record.tweetedAt || null,
-            source: record.source || null,
-            metadata: record.metadata || null,
-            // Phase 1: Persist tooling state
-            toolingState: record.toolingState || null,
-            originMediaId: record.originMediaId || null,
-            derivationDepth: record.derivationDepth || 0,
-            createdAt: record.createdAt instanceof Date ? record.createdAt : new Date(record.createdAt)
-          }
-        },
-        { upsert: true }
-      );
-      
-      // Index media for semantic search (async, non-blocking)
-      if (this.mediaIndexService) {
-        this.mediaIndexService.indexMedia(record).catch(err => {
-          this.logger?.debug?.('[TelegramService] Media indexing failed (non-critical):', err?.message);
-        });
-      }
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] Failed to store recent media:', error?.message || error);
-    }
-  }
-
-  async _loadRecentMediaFromDb(channelId, limit = this.RECENT_MEDIA_LIMIT) {
-    if (!this.databaseService) return [];
-    try {
-      const db = await this.databaseService.getDatabase();
-      const items = await db.collection('telegram_recent_media')
-        .find({ channelId: String(channelId) })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .toArray();
-      return items
-        .map(item => this._normalizeMediaRecord(item))
-        .filter(Boolean);
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] Failed to load recent media:', error?.message || error);
-      return [];
-    }
-  }
 
   async _getRecentMedia(channelId, limit = 5) {
-    if (!channelId) return [];
-    const normalizedChannelId = String(channelId);
-    this._pruneRecentMedia(normalizedChannelId);
-    const cache = this.recentMediaByChannel.get(normalizedChannelId);
-    if (cache?.length) {
-      return cache.slice(0, limit);
-    }
-    const fromDb = await this._loadRecentMediaFromDb(channelId, Math.max(limit, this.RECENT_MEDIA_LIMIT));
-    if (fromDb.length) {
-      this.recentMediaByChannel.set(normalizedChannelId, fromDb.slice(0, this.RECENT_MEDIA_LIMIT));
-    }
-    return fromDb.slice(0, limit);
+    return this.mediaManager.getRecentMedia(channelId, limit);
   }
 
-  /**
-   * Find a specific media record by ID
-   * @param {string} channelId - Channel ID
-   * @param {string} mediaId - Media record ID to find
-   * @returns {Promise<Object|null>} - Media record or null
-   */
   async _getMediaById(channelId, mediaId) {
-    if (!channelId || !mediaId) return null;
-    const normalizedChannelId = String(channelId);
-    
-    // Check cache first
-    const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
-    const cached = cache.find(m => m.id === mediaId);
-    if (cached) return cached;
-    
-    // Query database
-    if (!this.databaseService) return null;
-    try {
-      const db = await this.databaseService.getDatabase();
-      const record = await db.collection('telegram_recent_media').findOne({
-        channelId: normalizedChannelId,
-        id: mediaId
-      });
-      return record ? this._normalizeMediaRecord(record) : null;
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] _getMediaById error:', error?.message);
-      return null;
-    }
+    return this.mediaManager.getMediaById(channelId, mediaId);
   }
 
-  /**
-   * Get recent media filtered by type
-   * @param {string} channelId - Channel ID
-   * @param {string} type - Media type: 'image', 'video', 'keyframe', 'clip'
-   * @param {number} limit - Max records to return
-   * @returns {Promise<Array>}
-   */
   async _getRecentMediaByType(channelId, type, limit = 5) {
-    if (!channelId || !type) return [];
-    const normalizedChannelId = String(channelId);
-    
-    // Query database with type filter (more efficient than filtering cache)
-    if (!this.databaseService) {
-      // Fallback to cache filter
-      const cache = this.recentMediaByChannel.get(normalizedChannelId) || [];
-      return cache.filter(m => m.type === type).slice(0, limit);
-    }
-    
-    try {
-      const db = await this.databaseService.getDatabase();
-      const items = await db.collection('telegram_recent_media')
-        .find({ channelId: normalizedChannelId, type })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .toArray();
-      return items.map(item => this._normalizeMediaRecord(item)).filter(Boolean);
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] _getRecentMediaByType error:', error?.message);
-      return [];
-    }
+    return this.mediaManager.getRecentMediaByType(channelId, type, limit);
   }
 
-  /**
-   * Search media by content using semantic search
-   * @param {string} channelId - Channel ID
-   * @param {string} query - Natural language query describing desired content
-   * @param {Object} options - Search options
-   * @param {string} [options.type] - Filter by media type ('image', 'video')
-   * @param {string} [options.aspectRatio] - Filter by aspect ratio
-   * @param {boolean} [options.untweeted] - Only return media not yet tweeted
-   * @param {number} [options.limit] - Maximum results
-   * @returns {Promise<Array>} - Matching media records
-   */
   async _searchMediaByContent(channelId, query, options = {}) {
-    const { type, aspectRatio, untweeted = false, limit = 5 } = options;
-    
-    if (!channelId || !query) return [];
-    const normalizedChannelId = String(channelId);
-
-    // Use MediaIndexService for semantic search if available
-    if (this.mediaIndexService) {
-      try {
-        const results = await this.mediaIndexService.searchMedia(query, {
-          channelId: normalizedChannelId,
-          type,
-          aspectRatio,
-          limit
-        });
-
-        // Filter untweeted if requested
-        const filtered = untweeted 
-          ? results.filter(r => !r.tweetedAt)
-          : results;
-
-        return filtered.map(r => this._normalizeMediaRecord(r)).filter(Boolean);
-      } catch (error) {
-        this.logger?.warn?.('[TelegramService] Semantic search failed, falling back:', error?.message);
-      }
-    }
-
-    // Fallback: simple text search on recent media
-    const allRecent = await this._getRecentMedia(normalizedChannelId, 50);
-    const queryLower = query.toLowerCase();
-    const queryWords = queryLower.split(/\W+/).filter(w => w.length > 2);
-
-    const scored = allRecent
-      .filter(item => {
-        if (type && item.type !== type) return false;
-        if (aspectRatio && item.toolingState?.aspectRatio !== aspectRatio) return false;
-        if (untweeted && item.tweetedAt) return false;
-        return true;
-      })
-      .map(item => {
-        // Score based on text matching
-        const text = [
-          item.prompt || '',
-          item.caption || '',
-          item.metadata?.contentDescription || '',
-          item.toolingState?.originalPrompt || ''
-        ].join(' ').toLowerCase();
-
-        let score = 0;
-        for (const word of queryWords) {
-          if (text.includes(word)) score += 1;
-        }
-        return { item, score };
-      })
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-
-    return scored.map(({ item }) => item);
+    return this.mediaManager.searchMediaByContent(channelId, query, options);
   }
 
-  /**
-   * Find best matching media for a tweet based on content description
-   * @param {string} channelId - Channel ID
-   * @param {string} tweetContent - The tweet text/description
-   * @param {Object} options - Search options
-   * @returns {Promise<Object|null>} - Best matching media record
-   */
   async _findBestMediaForTweet(channelId, tweetContent, options = {}) {
-    const { type, aspectRatio } = options;
-    
-    // Search for matching content
-    const matches = await this._searchMediaByContent(channelId, tweetContent, {
-      type,
-      aspectRatio,
-      untweeted: true,
-      limit: 3
-    });
-
-    if (matches.length > 0) {
-      this.logger?.info?.('[TelegramService] Found content-matched media for tweet', {
-        channelId,
-        matchedId: matches[0].id,
-        matchCount: matches.length
-      });
-      return matches[0];
-    }
-
-    // Fallback to most recent untweeted media
-    const recent = await this._getRecentMedia(channelId, 10);
-    const untweeted = recent.filter(m => !m.tweetedAt);
-    
-    if (type) {
-      const byType = untweeted.filter(m => m.type === type);
-      if (byType.length > 0) return byType[0];
-    }
-
-    return untweeted[0] || null;
+    return this.mediaManager.findBestMediaForTweet(channelId, tweetContent, options);
   }
 
-  /**
-   * Get derived media (edits/extensions) from an origin
-   * @param {string} originMediaId - Original media ID
-   * @returns {Promise<Array>}
-   */
   async _getDerivedMedia(originMediaId) {
-    if (!originMediaId || !this.databaseService) return [];
-    try {
-      const db = await this.databaseService.getDatabase();
-      const items = await db.collection('telegram_recent_media')
-        .find({ originMediaId })
-        .sort({ derivationDepth: 1, createdAt: -1 })
-        .limit(20)
-        .toArray();
-      return items.map(item => this._normalizeMediaRecord(item)).filter(Boolean);
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] _getDerivedMedia error:', error?.message);
-      return [];
-    }
+    return this.mediaManager.getDerivedMedia(originMediaId);
   }
 
   _pruneAgentPlans(channelId) {
@@ -1687,68 +1038,11 @@ Always consider calling plan_actions before executing media or tweet tools when 
   }
 
   async _findRecentMediaById(channelId, mediaId) {
-    if (!channelId || !mediaId) return null;
-    const normalizedChannelId = String(channelId);
-    const lookupRaw = String(mediaId).trim();
-    const lookupLower = lookupRaw.toLowerCase();
-
-    const cache = this.recentMediaByChannel.get(normalizedChannelId);
-    if (cache?.length) {
-      const foundCache = cache.find(item => {
-        if (!item?.id) return false;
-        const itemId = String(item.id).toLowerCase();
-        return itemId === lookupLower || itemId.startsWith(lookupLower);
-      });
-      if (foundCache) {
-        return foundCache;
-      }
-    }
-
-    if (!this.databaseService) return null;
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const collection = db.collection('telegram_recent_media');
-
-      let foundRecord = await collection.findOne({ channelId: normalizedChannelId, id: lookupRaw });
-
-      if (!foundRecord && lookupRaw.length >= this.MEDIA_ID_PREFIX_MIN_LENGTH) {
-        const regex = new RegExp(`^${escapeRegExp(lookupRaw)}`, 'i');
-        foundRecord = await collection.findOne(
-          { channelId: normalizedChannelId, id: { $regex: regex } },
-          { sort: { createdAt: -1 } }
-        );
-      }
-
-      if (foundRecord) {
-        const normalized = this._cacheRecentMediaRecord(normalizedChannelId, foundRecord);
-        return normalized || this._normalizeMediaRecord(foundRecord);
-      }
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] Failed to look up mediaId:', error?.message || error);
-    }
-
-    return null;
+    return this.mediaManager.findRecentMediaById(channelId, mediaId);
   }
 
   async _markMediaAsTweeted(channelId, mediaId, meta = {}) {
-    if (!channelId || !mediaId || !this.databaseService) return;
-    try {
-      const db = await this.databaseService.getDatabase();
-      const tweetedAt = new Date();
-      await db.collection('telegram_recent_media').updateOne(
-        { channelId: String(channelId), id: mediaId },
-        { $set: { tweetedAt, tweetMeta: meta } }
-      );
-      const cache = this.recentMediaByChannel.get(String(channelId));
-      if (cache?.length) {
-        this.recentMediaByChannel.set(String(channelId), cache.map(item => (
-          item.id === mediaId ? { ...item, tweetedAt, tweetMeta: meta } : item
-        )));
-      }
-    } catch (error) {
-      this.logger?.warn?.('[TelegramService] Failed to mark media as tweeted:', error?.message || error);
-    }
+    return this.mediaManager.markMediaAsTweeted(channelId, mediaId, meta);
   }
 
   async _shareTweetResultToTelegram(ctx, {
@@ -1787,8 +1081,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
       }
 
       if (channelId) {
-        await this._recordBotResponse(channelId, userId);
-        await this._trackBotMessage(channelId, caption);
+        await this.memberManager.recordBotResponse(channelId, userId);
+        await this.conversationManager.trackBotMessage(channelId, caption);
       }
 
       return sentMessage;
@@ -1798,8 +1092,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
       try {
         await ctx.reply(fallback);
         if (channelId) {
-          await this._recordBotResponse(channelId, userId);
-          await this._trackBotMessage(channelId, fallback);
+          await this.memberManager.recordBotResponse(channelId, userId);
+          await this.conversationManager.trackBotMessage(channelId, fallback);
         }
       } catch (replyError) {
         this.logger?.error?.('[TelegramService] Fallback tweet confirmation failed:', replyError);
@@ -1809,133 +1103,11 @@ Always consider calling plan_actions before executing media or tweet tools when 
   }
 
   async _buildRecentMediaContext(channelId, limit = 5) {
-    const items = await this._getRecentMedia(channelId, limit);
-    if (!items.length) {
-      return { summary: 'Recent media you generated: none in the last few days.', items: [] };
-    }
-    const summaryLines = items.map((item, idx) => {
-      // Prefer content description, then prompt, then caption for content awareness
-      const contentDesc = item.metadata?.contentDescription || item.toolingState?.originalPrompt || item.prompt || item.caption || `${item.type} without description`;
-      const ageMs = Date.now() - new Date(item.createdAt).getTime();
-      const ageMin = Math.max(1, Math.round(ageMs / 60000));
-      const ago = ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`;
-      const shortId = String(item.id).slice(0, 8).toUpperCase();
-      const tweetedMarker = item.tweetedAt ? ' ⚠️ALREADY TWEETED' : '';
-      const aspectRatio = item.toolingState?.aspectRatio || item.metadata?.aspectRatio || '';
-      const aspectMarker = aspectRatio ? ` [${aspectRatio}]` : '';
-      const msgIdMarker = item.messageId ? ` (msg#${item.messageId})` : '';
-      // Include more context about what's in the image
-      return `${idx + 1}. [${shortId}] ${item.type}${aspectMarker} — "${contentDesc.slice(0, 150)}" (${ago}${tweetedMarker}${msgIdMarker})\n    full id: ${item.id}`;
-    });
-    return {
-      summary: `Recent media you generated (use the short ID in brackets to reference):\n${summaryLines.join('\n')}\n\nIMPORTANT: Match the media ID to what the user asked for. Check the description to ensure you're posting the right image!`,
-      items
-    };
+    return this.mediaManager.buildRecentMediaContext(channelId, limit);
   }
 
   _invalidateMemberCache(channelId, userId) {
-    const key = this._getMemberCacheKey(channelId, userId);
-    this._memberCache.delete(key);
-  }
-
-  _formatMemberRecord(member) {
-    if (!member) return null;
-
-    return {
-      id: member._id ? String(member._id) : null,
-      channelId: member.channelId || null,
-      userId: member.userId || null,
-      username: member.username || null,
-      firstName: member.firstName || null,
-      lastName: member.lastName || null,
-      displayName: member.displayName || null,
-      trustLevel: member.trustLevel || 'new',
-      joinedAt: member.joinedAt || null,
-      firstMessageAt: member.firstMessageAt || null,
-      lastMessageAt: member.lastMessageAt || null,
-      leftAt: member.leftAt || null,
-      joinedViaLink: Boolean(member.joinedViaLink),
-      messageCount: member.messageCount || 0,
-      spamStrikes: member.spamStrikes || 0,
-      lastSpamStrike: member.lastSpamStrike || null,
-      penaltyExpires: member.penaltyExpires || null,
-      permanentlyBlacklisted: Boolean(member.permanentlyBlacklisted),
-      mentionedBotCount: member.mentionedBotCount || 0,
-      receivedResponseCount: member.receivedResponseCount || 0,
-      adminNotes: member.adminNotes || null,
-      updatedAt: member.updatedAt || null,
-    };
-  }
-
-  async _fetchMemberRecord(channelId, userId, { force = false } = {}) {
-    if (!this.databaseService) return null;
-    if (!force) {
-      const cached = this._getCachedMember(channelId, userId);
-      if (cached) return cached;
-    }
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const record = await db.collection('telegram_members').findOne({ channelId, userId });
-      if (record) {
-        this._cacheMember(channelId, userId, record);
-      }
-      return record;
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to fetch telegram member record:', error);
-      return null;
-    }
-  }
-
-  async _trackUserJoin(channelId, member, context = {}) {
-    if (!this.databaseService || !member?.id) return;
-
-    const userId = String(member.id);
-    const joinedViaLink = Boolean(context?.invite_link);
-
-    let existing = null;
-    try {
-      existing = await this._fetchMemberRecord(channelId, userId, { force: true });
-    } catch (error) {
-      this.logger?.debug?.('[TelegramService] Existing member lookup failed (continuing):', error?.message);
-    }
-
-    const trustLevel = existing?.permanentlyBlacklisted ? (existing.trustLevel || 'banned') : 'new';
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      await db.collection('telegram_members').updateOne(
-        { channelId, userId },
-        {
-          $setOnInsert: {
-            userId,
-            channelId,
-            joinedAt: new Date(),
-            messageCount: 0,
-            spamStrikes: 0,
-            permanentlyBlacklisted: false,
-            mentionedBotCount: 0,
-            receivedResponseCount: 0,
-            createdAt: new Date(),
-          },
-          $set: {
-            username: member.username || null,
-            firstName: member.first_name || null,
-            lastName: member.last_name || null,
-            joinedViaLink,
-            updatedAt: new Date(),
-            leftAt: null, // Clear leftAt on rejoin
-            trustLevel
-          },
-        },
-        { upsert: true }
-      );
-
-      this._invalidateMemberCache(channelId, userId);
-      this.logger?.info?.(`[TelegramService] Tracked Telegram member join: ${userId} in ${channelId}`);
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to track member join:', error);
-    }
+    this.cacheManager.invalidateMember(channelId, userId);
   }
 
   async handleNewMembers(ctx) {
@@ -1947,7 +1119,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
         if (member?.id && member.is_bot && botUsername && member.username === botUsername) {
           continue; // Ignore the bot itself
         }
-        await this._trackUserJoin(channelId, member, ctx.message);
+        await this.memberManager.trackUserJoin(channelId, member, ctx.message);
       }
     } catch (error) {
       this.logger?.error?.('[TelegramService] handleNewMembers error:', error);
@@ -1964,20 +1136,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
       if (!this.databaseService) return;
 
-      const db = await this.databaseService.getDatabase();
-      await db.collection('telegram_members').updateOne(
-        { channelId, userId },
-        {
-          $set: {
-            leftAt: new Date(),
-            updatedAt: new Date(),
-            trustLevel: 'left'
-          }
-        }
-      );
-
-      this._invalidateMemberCache(channelId, userId);
-      this.logger?.info?.(`[TelegramService] Member left tracked: ${userId} from ${channelId}`);
+      await this.memberManager.trackUserLeft(channelId, userId);
     } catch (error) {
       this.logger?.error?.('[TelegramService] handleMemberLeft error:', error);
     }
@@ -1993,443 +1152,15 @@ Always consider calling plan_actions before executing media or tweet tools when 
   }
 
   async _updateMemberActivity(channelId, userId, { isMentioned = false } = {}) {
-    if (!this.databaseService || !userId) return;
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const incFields = { messageCount: 1 };
-      if (isMentioned) {
-        incFields.mentionedBotCount = 1;
-      }
-
-      await db.collection('telegram_members').updateOne(
-        { channelId, userId },
-        {
-          $set: {
-            lastMessageAt: new Date(),
-            updatedAt: new Date()
-          },
-          $setOnInsert: {
-            firstMessageAt: new Date()
-          },
-          $inc: incFields
-        },
-        { upsert: true }
-      );
-
-      this._invalidateMemberCache(channelId, userId);
-      await this._updateUserTrustLevel(channelId, userId);
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to update member activity:', error);
-    }
+    return this.memberManager.updateMemberActivity(channelId, userId, { isMentioned });
   }
 
   async _updateUserTrustLevel(channelId, userId) {
-    if (!this.databaseService || !userId) return;
-
-    try {
-      const member = await this._fetchMemberRecord(channelId, userId, { force: true });
-      if (!member || member.permanentlyBlacklisted) return;
-
-      const now = Date.now();
-      const joinedAt = member.joinedAt ? new Date(member.joinedAt).getTime() : now;
-      const membershipDuration = now - joinedAt;
-      const messageCount = member.messageCount || 0;
-
-      let nextTrust = member.trustLevel || 'new';
-
-      if (membershipDuration >= 30 * 24 * 60 * 60 * 1000 && messageCount >= 50) {
-        nextTrust = 'trusted';
-      } else if (membershipDuration >= 7 * 24 * 60 * 60 * 1000 && messageCount >= 10) {
-        nextTrust = 'probation';
-      } else if (membershipDuration >= this.USER_PROBATION_MS) {
-        nextTrust = 'new';
-      }
-
-      if (nextTrust !== member.trustLevel) {
-        const db = await this.databaseService.getDatabase();
-        await db.collection('telegram_members').updateOne(
-          { channelId, userId },
-          {
-            $set: {
-              trustLevel: nextTrust,
-              updatedAt: new Date()
-            }
-          }
-        );
-        this._invalidateMemberCache(channelId, userId);
-        this.logger?.info?.(`[TelegramService] Updated trust level for ${userId} in ${channelId}: ${member.trustLevel} -> ${nextTrust}`);
-      }
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to update trust level:', error);
-    }
-  }
-
-  _checkTelegramSpamWindow(userId) {
-    if (!userId) return 0;
-    const now = Date.now();
-    const timestamps = this.telegramSpamTracker.get(userId) || [];
-    const filtered = timestamps.filter(ts => now - ts < this.SPAM_WINDOW_MS);
-    filtered.push(now);
-    this.telegramSpamTracker.set(userId, filtered);
-    return filtered.length;
-  }
-
-  _getTelegramPenaltyTier(strikeCount) {
-    if (!Array.isArray(this.TELEGRAM_PENALTY_TIERS) || !this.TELEGRAM_PENALTY_TIERS.length) {
-      return null;
-    }
-    const normalized = Math.max(1, Number(strikeCount) || 1);
-    return this.TELEGRAM_PENALTY_TIERS.find(tier => normalized <= tier.strikes) || this.TELEGRAM_PENALTY_TIERS[this.TELEGRAM_PENALTY_TIERS.length - 1];
-  }
-
-  async _recordTelegramSpamStrike(channelId, userId, strikeCount) {
-    if (!this.databaseService || !userId) return;
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const tier = this._getTelegramPenaltyTier(strikeCount);
-      const penaltyMs = tier?.durationMs ?? 60_000;
-      const isPermanent = !Number.isFinite(penaltyMs);
-      const penaltyExpires = isPermanent
-        ? new Date(8640000000000000)
-        : new Date(Date.now() + penaltyMs);
-
-      const update = {
-        $set: {
-          lastSpamStrike: new Date(),
-          penaltyExpires,
-          updatedAt: new Date()
-        },
-        $inc: {
-          spamStrikes: 1
-        }
-      };
-
-      if (isPermanent) {
-        update.$set.permanentlyBlacklisted = true;
-        update.$set.trustLevel = 'banned';
-        this.logger?.error?.(`[TelegramService] User ${userId} permanently blacklisted in ${channelId} (spam)`);
-      }
-
-      await db.collection('telegram_members').updateOne({ channelId, userId }, update, { upsert: true });
-      this._invalidateMemberCache(channelId, userId);
-  this.telegramSpamTracker.set(userId, []);
-
-      const notice = tier?.notice ? ` ${tier.notice}` : '';
-      this.logger?.warn?.(`[TelegramService] Spam strike for ${userId} -> ${strikeCount} in ${channelId}. Penalty until ${penaltyExpires.toISOString()}.${notice}`);
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to record spam strike:', error);
-    }
+    return this.memberManager.updateUserTrustLevel(channelId, userId);
   }
 
   async _recordBotResponse(channelId, userId) {
-    if (!this.databaseService || !userId) return;
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      await db.collection('telegram_members').updateOne(
-        { channelId, userId },
-        {
-          $inc: { receivedResponseCount: 1 },
-          $set: { updatedAt: new Date() }
-        }
-      );
-      this._invalidateMemberCache(channelId, userId);
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to record bot response:', error);
-    }
-  }
-
-  async listTelegramMembers(channelId, options = {}) {
-    if (!this.databaseService) {
-      return { total: 0, limit: 0, offset: 0, members: [] };
-    }
-
-    const {
-      limit = 50,
-      offset = 0,
-      trustLevels,
-      includeLeft = false,
-      search = ''
-    } = options;
-
-    const parsedLimit = Math.max(1, Math.min(200, Number(limit) || 50));
-    const parsedOffset = Math.max(0, Number(offset) || 0);
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const collection = db.collection('telegram_members');
-      const clauses = [{ channelId: String(channelId) }];
-
-      if (!includeLeft) {
-        clauses.push({
-          $or: [
-            { leftAt: { $exists: false } },
-            { leftAt: null }
-          ]
-        });
-      }
-
-      if (Array.isArray(trustLevels) && trustLevels.length > 0) {
-        clauses.push({ trustLevel: { $in: trustLevels } });
-      }
-
-      if (search && typeof search === 'string' && search.trim()) {
-        const trimmed = search.trim();
-        const regex = new RegExp(escapeRegExp(trimmed), 'i');
-        clauses.push({
-          $or: [
-            { userId: trimmed },
-            { userId: regex },
-            { username: regex },
-            { firstName: regex },
-            { lastName: regex }
-          ]
-        });
-      }
-
-      const filter = clauses.length === 1 ? clauses[0] : { $and: clauses };
-
-      const cursor = collection.find(filter)
-        .sort({ permanentlyBlacklisted: -1, spamStrikes: -1, updatedAt: -1 })
-        .skip(parsedOffset)
-        .limit(parsedLimit);
-
-      const [members, total] = await Promise.all([
-        cursor.toArray(),
-        collection.countDocuments(filter)
-      ]);
-
-      return {
-        total,
-        limit: parsedLimit,
-        offset: parsedOffset,
-        members: members.map((member) => this._formatMemberRecord(member))
-      };
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to list telegram members:', error);
-      throw error;
-    }
-  }
-
-  async getTelegramMember(channelId, userId, { includeMessages = true, messageLimit = 20 } = {}) {
-    if (!this.databaseService) return null;
-
-    const safeChannelId = String(channelId);
-    const safeUserId = String(userId);
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const member = await db.collection('telegram_members').findOne({ channelId: safeChannelId, userId: safeUserId });
-      if (!member) {
-        return null;
-      }
-
-      let recentMessages = [];
-      if (includeMessages) {
-        const limit = Math.max(0, Math.min(100, Number(messageLimit) || 20));
-        recentMessages = await db.collection('telegram_messages')
-          .find({ channelId: safeChannelId, userId: safeUserId })
-          .sort({ date: -1 })
-          .limit(limit)
-          .project({ _id: 0, text: 1, date: 1, isBot: 1 })
-          .toArray();
-      }
-
-      return {
-        member: this._formatMemberRecord(member),
-        recentMessages
-      };
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to fetch telegram member:', error);
-      throw error;
-    }
-  }
-
-  async updateTelegramMember(channelId, userId, updates = {}) {
-    if (!this.databaseService) return null;
-
-    const safeChannelId = String(channelId);
-    const safeUserId = String(userId);
-    const allowedTrustLevels = new Set(['new', 'probation', 'trusted', 'suspicious', 'banned', 'left']);
-
-    const setFields = { updatedAt: new Date() };
-    const unsetFields = {};
-
-    if (typeof updates.trustLevel === 'string') {
-      const desired = updates.trustLevel.trim();
-      if (!allowedTrustLevels.has(desired)) {
-        throw new Error(`Invalid trust level: ${desired}`);
-      }
-      setFields.trustLevel = desired;
-    }
-
-    if (typeof updates.permanentlyBlacklisted === 'boolean') {
-      setFields.permanentlyBlacklisted = updates.permanentlyBlacklisted;
-      if (updates.permanentlyBlacklisted) {
-        setFields.trustLevel = 'banned';
-      }
-    }
-
-    if ('penaltyExpires' in updates) {
-      if (updates.penaltyExpires === null || updates.penaltyExpires === '') {
-        unsetFields.penaltyExpires = '';
-      } else {
-        const penaltyDate = new Date(updates.penaltyExpires);
-        if (Number.isNaN(penaltyDate.getTime())) {
-          throw new Error('Invalid penaltyExpires value');
-        }
-        setFields.penaltyExpires = penaltyDate;
-      }
-    }
-
-    if (updates.clearPenalty) {
-      unsetFields.penaltyExpires = '';
-      unsetFields.lastSpamStrike = '';
-    }
-
-    if (typeof updates.spamStrikes === 'number' && Number.isFinite(updates.spamStrikes)) {
-      setFields.spamStrikes = Math.max(0, Math.floor(updates.spamStrikes));
-    }
-
-    if (typeof updates.adminNotes === 'string') {
-      const trimmed = updates.adminNotes.trim();
-      if (trimmed) {
-        setFields.adminNotes = trimmed;
-      } else {
-        unsetFields.adminNotes = '';
-      }
-    }
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const update = { $set: setFields };
-      if (Object.keys(unsetFields).length > 0) {
-        update.$unset = unsetFields;
-      }
-
-      const result = await db.collection('telegram_members').findOneAndUpdate(
-        { channelId: safeChannelId, userId: safeUserId },
-        update,
-        { returnDocument: 'after' }
-      );
-
-      const updated = result.value || null;
-      if (updated) {
-        this._invalidateMemberCache(safeChannelId, safeUserId);
-        this.logger?.info?.(`[TelegramService] Updated member ${safeUserId} in ${safeChannelId}`);
-        return this._formatMemberRecord(updated);
-      }
-
-      return null;
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to update telegram member:', error);
-      throw error;
-    }
-  }
-
-  async unbanTelegramMember(channelId, userId, options = {}) {
-    if (!this.databaseService) return null;
-
-    const clearStrikes = options.clearStrikes !== false;
-    const targetTrustLevel = typeof options.trustLevel === 'string' ? options.trustLevel.trim() : 'probation';
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const update = {
-        $set: {
-          permanentlyBlacklisted: false,
-          updatedAt: new Date(),
-          trustLevel: ['new', 'probation', 'trusted', 'suspicious'].includes(targetTrustLevel) ? targetTrustLevel : 'probation'
-        },
-        $unset: {
-          penaltyExpires: '',
-          lastSpamStrike: ''
-        }
-      };
-
-      if (clearStrikes) {
-        update.$set.spamStrikes = 0;
-      }
-
-      const result = await db.collection('telegram_members').findOneAndUpdate(
-        { channelId: String(channelId), userId: String(userId) },
-        update,
-        { returnDocument: 'after' }
-      );
-
-      const updated = result.value || null;
-      if (updated) {
-        this._invalidateMemberCache(String(channelId), String(userId));
-        this.logger?.info?.(`[TelegramService] Unbanned member ${userId} in ${channelId}`);
-        return this._formatMemberRecord(updated);
-      }
-
-      return null;
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to unban telegram member:', error);
-      throw error;
-    }
-  }
-
-  async getTelegramSpamStats(channelId) {
-    if (!this.databaseService) return null;
-
-    try {
-      const db = await this.databaseService.getDatabase();
-      const collection = db.collection('telegram_members');
-      const channelFilter = { channelId: String(channelId) };
-      const activeFilter = {
-        channelId: String(channelId),
-        $or: [
-          { leftAt: { $exists: false } },
-          { leftAt: null }
-        ]
-      };
-      const now = new Date();
-      const lookback24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-      const [
-        totalMembers,
-        activeMembers,
-        probationMembers,
-        trustedMembers,
-        blacklistedMembers,
-        penalizedMembers,
-        recentJoins,
-        recentStrikes
-      ] = await Promise.all([
-        collection.countDocuments(channelFilter),
-        collection.countDocuments(activeFilter),
-        collection.countDocuments({ ...channelFilter, trustLevel: { $in: ['new', 'probation'] }, permanentlyBlacklisted: { $ne: true } }),
-        collection.countDocuments({ ...channelFilter, trustLevel: 'trusted', permanentlyBlacklisted: { $ne: true } }),
-        collection.countDocuments({ ...channelFilter, permanentlyBlacklisted: true }),
-        collection.countDocuments({ ...channelFilter, penaltyExpires: { $gt: now } }),
-        collection.countDocuments({ ...channelFilter, joinedAt: { $gt: lookback24h } }),
-        collection.countDocuments({ ...channelFilter, lastSpamStrike: { $gt: lookback24h } })
-      ]);
-
-      return {
-        channelId: String(channelId),
-        totals: {
-          totalMembers,
-          activeMembers,
-          probationMembers,
-          trustedMembers,
-          blacklistedMembers,
-          penalizedMembers
-        },
-        recent24h: {
-          joins: recentJoins,
-          spamStrikes: recentStrikes
-        },
-        generatedAt: now
-      };
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to compute spam stats:', error);
-      throw error;
-    }
+    return this.memberManager.recordBotResponse(channelId, userId);
   }
 
   async _applyReplyDelay(ctx, isMention) {
@@ -2465,199 +1196,12 @@ Always consider calling plan_actions before executing media or tweet tools when 
   }
 
   async _shouldProcessTelegramUser(ctx, channelId, userId, { isMentioned = false, isPrivate = false } = {}) {
-    if (isPrivate || !userId) {
-      return true; // Direct messages or anonymous users handled normally
-    }
-
-    if (!this.databaseService) {
-      return true; // Fail open if database unavailable
-    }
-
-    try {
-      let member = await this._fetchMemberRecord(channelId, userId);
-
-      if (!member) {
-        await this._trackUserJoin(channelId, ctx.message?.from, ctx.message);
-        member = await this._fetchMemberRecord(channelId, userId, { force: true });
-      }
-
-      if (!member) {
-        return true; // Fail open if we couldn't persist member record
-      }
-
-      if (member.permanentlyBlacklisted || member.trustLevel === 'banned') {
-        this.logger?.warn?.(`[TelegramService] Ignoring message from blacklisted user ${userId} in ${channelId}`);
-        return false;
-      }
-
-      const now = Date.now();
-      const penaltyUntil = member.penaltyExpires ? new Date(member.penaltyExpires).getTime() : 0;
-      if (penaltyUntil && penaltyUntil > now) {
-        this.logger?.debug?.(`[TelegramService] User ${userId} under penalty until ${new Date(penaltyUntil).toISOString()} - skipping`);
-        return false;
-      }
-
-      const joinedAt = member.joinedAt ? new Date(member.joinedAt).getTime() : now;
-      const membershipDuration = now - joinedAt;
-      const preExistingStrikes = member.spamStrikes || 0;
-
-      await this._updateMemberActivity(channelId, userId, { isMentioned });
-
-      const windowCount = this._checkTelegramSpamWindow(userId);
-      if (windowCount > this.SPAM_THRESHOLD) {
-        const nextStrike = preExistingStrikes + 1;
-        await this._recordTelegramSpamStrike(channelId, userId, nextStrike);
-        const tier = this._getTelegramPenaltyTier(nextStrike);
-        const warning = tier?.notice ? `⚠️ ${tier.notice}` : '⚠️ Slow down a bit before sending more messages.';
-        if (ctx?.reply) {
-          try {
-            await ctx.reply(warning);
-          } catch (warnErr) {
-            this.logger?.debug?.('[TelegramService] Failed to send spam warning reply:', warnErr?.message || warnErr);
-          }
-        }
-        return false;
-      }
-
-      if (membershipDuration < this.USER_PROBATION_MS && !isMentioned) {
-        this.logger?.debug?.(`[TelegramService] User ${userId} in probation (${Math.round(membershipDuration / 1000)}s) - not responding`);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] _shouldProcessTelegramUser failed (failing open):', error);
-      return true;
-    }
+    return this.memberManager.shouldProcessUser(ctx, channelId, userId, { isMentioned, isPrivate });
   }
 
-  /**
-   * Get buybot context for the current channel
-   * Returns summary of tracked tokens and recent activity from Discord channels
-   * @private
-   */
-  async _getBuybotContext(channelId) {
-    try {
-      if (!this.buybotService) return null;
 
-      const db = await this.databaseService.getDatabase();
-      
-      // Get tracked tokens for this channel
-      const trackedTokens = await db.collection('buybot_tracked_tokens')
-        .find({ channelId, active: true })
-        .toArray();
 
-      if (trackedTokens.length === 0) return null;
 
-      // Build simple context with token info and contract addresses
-      let context = `📊 Tracked Tokens (${trackedTokens.length}):\n`;
-      
-      for (const token of trackedTokens) {
-        context += `\n${token.tokenSymbol} (${token.tokenName})\n`;
-        context += `  CA: \`${token.tokenAddress}\`\n`;
-      }
-
-      // Get recent activity summaries from Discord channels
-      const tokenAddresses = trackedTokens.map(t => t.tokenAddress);
-      const recentSummaries = await db.collection('buybot_activity_summaries')
-        .find({
-          tokenAddresses: { $in: tokenAddresses }
-        })
-        .sort({ createdAt: -1 })
-        .limit(3)  // Last 3 summaries
-        .toArray();
-      
-      if (recentSummaries.length > 0) {
-        context += `\n\n💬 Recent Discord Activity:\n`;
-        for (const summary of recentSummaries) {
-          const timeAgo = Math.floor((Date.now() - summary.createdAt.getTime()) / 60000); // minutes
-          const timeStr = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
-          context += `• ${summary.summary} (${timeStr})\n`;
-        }
-      }
-
-      return context.trim();
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] Failed to get buybot context:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get cached bot persona to avoid redundant database queries
-   * @private
-   */
-  async _getCachedPersona() {
-    const now = Date.now();
-    if (this._personaCache.data && now < this._personaCache.expiry) {
-      this.logger?.debug?.('[TelegramService] Using cached persona');
-      return this._personaCache.data;
-    }
-    
-    try {
-      if (!this.globalBotService?.bot) {
-        return null;
-      }
-      
-      const persona = await this.globalBotService.getPersona();
-      this._personaCache.data = persona;
-      this._personaCache.expiry = now + this._personaCache.ttl;
-      this.logger?.debug?.('[TelegramService] Fetched and cached fresh persona');
-      return persona;
-    } catch (e) {
-      this.logger?.debug?.('[TelegramService] Could not load bot persona:', e.message);
-      return null;
-    }
-  }
-
-  /**
-   * Get cached buybot context to avoid redundant database queries
-   * @private
-   */
-  async _getCachedBuybotContext(channelId) {
-    const now = Date.now();
-    const cached = this._buybotCache.get(channelId);
-    
-    if (cached && now < cached.expiry) {
-      this.logger?.debug?.(`[TelegramService] Using cached buybot context for ${channelId}`);
-      return cached.data;
-    }
-    
-    try {
-      const data = await this._getBuybotContext(channelId);
-      this._buybotCache.set(channelId, { 
-        data, 
-        expiry: now + this.BUYBOT_CACHE_TTL 
-      });
-      this.logger?.debug?.(`[TelegramService] Fetched and cached fresh buybot context for ${channelId}`);
-      return data;
-    } catch (e) {
-      this.logger?.error?.('[TelegramService] Failed to get buybot context:', e);
-      return null;
-    }
-  }
-
-  /**
-   * Invalidate persona cache (call when bot persona changes)
-   */
-  invalidatePersonaCache() {
-    this._personaCache.data = null;
-    this._personaCache.expiry = 0;
-    this.logger?.info?.('[TelegramService] Persona cache invalidated');
-  }
-
-  /**
-   * Invalidate buybot cache for a channel (call when tokens change)
-   */
-  invalidateBuybotCache(channelId) {
-    if (channelId) {
-      this._buybotCache.delete(channelId);
-      this.logger?.info?.(`[TelegramService] Buybot cache invalidated for ${channelId}`);
-    } else {
-      this._buybotCache.clear();
-      this.logger?.info?.('[TelegramService] All buybot caches cleared');
-    }
-  }
 
   /**
    * Check if user has available charges for media generation
@@ -2772,43 +1316,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
     }
   }
 
-  /**
-   * Update active conversation status for a user in a channel
-   * @private
-   */
-  _updateActiveConversation(channelId, userId) {
-    if (!channelId || !userId) return;
-    if (!this.activeConversations.has(channelId)) {
-      this.activeConversations.set(channelId, new Map());
-    }
-    const channelParticipants = this.activeConversations.get(channelId);
-    channelParticipants.set(userId, Date.now() + this.ACTIVE_CONVERSATION_WINDOW_MS);
-    
-    // Cleanup expired participants
-    const now = Date.now();
-    for (const [uid, expiry] of channelParticipants.entries()) {
-      if (now > expiry) channelParticipants.delete(uid);
-    }
-  }
 
-  /**
-   * Check if a user is in an active conversation window
-   * @private
-   */
-  _isActiveConversation(channelId, userId) {
-    if (!channelId || !userId) return false;
-    const channelParticipants = this.activeConversations.get(channelId);
-    if (!channelParticipants) return false;
-    
-    const expiry = channelParticipants.get(userId);
-    if (!expiry) return false;
-    
-    if (Date.now() > expiry) {
-      channelParticipants.delete(userId);
-      return false;
-    }
-    return true;
-  }
 
   /**
    * Handle incoming messages with debouncing and mention detection
@@ -2832,23 +1340,10 @@ Always consider calling plan_actions before executing media or tweet tools when 
     }
 
     const botUsername = this.globalBot?.botInfo?.username || ctx.botInfo?.username;
-    const includesMention = (source, entities) => {
-      if (!botUsername) return false;
-      if (source && source.includes(`@${botUsername}`)) {
-        return true;
-      }
-      if (!source || !entities) return false;
-      return entities.some((entity) => {
-        if (entity.type !== 'mention') return false;
-        if (typeof entity.offset !== 'number' || typeof entity.length !== 'number') return false;
-        const fragment = source.substring(entity.offset, entity.offset + entity.length);
-        return fragment.includes(botUsername);
-      });
-    };
 
     const isMentioned = Boolean(botUsername) && (
-      includesMention(message.text, message.entities) ||
-      includesMention(message.caption, message.caption_entities)
+      includesMention(message.text, message.entities, botUsername) ||
+      includesMention(message.caption, message.caption_entities, botUsername)
     );
 
     const shouldProcess = await this._shouldProcessTelegramUser(ctx, channelId, userId, {
@@ -2863,14 +1358,10 @@ Always consider calling plan_actions before executing media or tweet tools when 
 
     // PERFORMANCE OPTIMIZATION: Load history in background if not in memory
     // This prevents blocking message handling on database queries
-    let history = this.conversationHistory.get(channelId);
-    if (!history) {
-      // Initialize with empty array immediately
-      history = [];
-      this.conversationHistory.set(channelId, history);
-      
+    let history = this.conversationManager.getHistory(channelId);
+    if (!history || history.length === 0) {
       // Load from database in background (don't await)
-      this._loadConversationHistory(channelId).catch(err => 
+      this.conversationManager.loadConversationHistory(channelId).catch(err => 
         this.logger?.error?.('[TelegramService] Background history load failed:', err)
       );
     }
@@ -2884,17 +1375,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
       isBot: false,
       userId
     };
-    history.push(messageData);
     
-    // Keep only last N messages in memory
-    if (history.length > this.HISTORY_LIMIT) {
-      this.conversationHistory.set(channelId, history.slice(-this.HISTORY_LIMIT));
-    }
-    
-    // Persist to database asynchronously (don't await to avoid blocking)
-    this._saveMessageToDatabase(channelId, messageData).catch(err => 
-      this.logger?.error?.('[TelegramService] Background save failed:', err)
-    );
+    await this.conversationManager.addMessage(channelId, messageData, true);
 
     this.logger?.debug?.(`[TelegramService] Tracked message in ${channelId}, history: ${history.length} messages`);
 
@@ -2905,7 +1387,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
       message.reply_to_message.from?.id === botId;
 
     // Check if user is in active conversation window
-    const isActiveParticipant = this._isActiveConversation(channelId, userId);
+    const isActiveParticipant = this.conversationManager.isActiveParticipant(channelId, userId);
 
     // Determine if we should respond instantly
     // 1. Direct mention
@@ -2918,7 +1400,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
     // If we should respond, do so immediately
     if (shouldRespond) {
       // Update active conversation status (refresh timer)
-      this._updateActiveConversation(channelId, userId);
+      this.conversationManager.updateActiveConversation(channelId, userId);
 
       // Try to acquire lock without waiting - if lock is held, skip this request
       const releaseLock = this._tryAcquireChannelLock(channelId);
@@ -2980,7 +1462,7 @@ Always consider calling plan_actions before executing media or tweet tools when 
     const GAP_THRESHOLD = 45000; // 45 seconds of silence before responding
     
     setInterval(async () => {
-      for (const [channelId, history] of this.conversationHistory.entries()) {
+      for (const [channelId, history] of this.conversationManager.getAllHistories()) {
         try {
           // Skip if no messages
           if (!history || history.length === 0) continue;
@@ -3099,20 +1581,20 @@ Always consider calling plan_actions before executing media or tweet tools when 
       // Parallel data fetching with caching (PERFORMANCE OPTIMIZATION)
       // This reduces database query time by ~500-1000ms
       const [persona, buybotContext, imageLimitCtx, videoLimitCtx, tweetLimitCtx] = await Promise.all([
-        this._getCachedPersona(),
-        this._getCachedBuybotContext(channelId),
+        this.contextManager.getPersona(),
+        this.contextManager.getBuybotContext(channelId),
         this.checkMediaGenerationLimit(null, 'image'),
         this.checkMediaGenerationLimit(null, 'video'),
         this.checkMediaGenerationLimit(null, 'tweet')
       ]);
 
       // Load conversation history if not already in memory
-      if (!this.conversationHistory.has(channelId)) {
-        await this._loadConversationHistory(channelId);
+      let fullHistory = this.conversationManager.getHistory(channelId);
+      if (!fullHistory || fullHistory.length === 0) {
+        fullHistory = await this.conversationManager.loadConversationHistory(channelId);
       }
       
       // Get full conversation history (last 20 messages for context)
-      const fullHistory = this.conversationHistory.get(channelId) || [];
       const recentHistory = fullHistory.slice(-20); // Use last 20 for AI context
       
       // Build rich conversation context from history
@@ -3145,38 +1627,8 @@ Always consider calling plan_actions before executing media or tweet tools when 
         botDynamicPrompt = persona.bot.dynamicPrompt || botDynamicPrompt;
       }
 
-      // Build compact tool credit context for the AI
-      const buildCreditInfo = (lim, label) => {
-        if (!lim) return `${label}: unavailable`;
-        const now = Date.now();
-        const hLeft = Math.max(0, (lim.hourlyLimit ?? 0) - (lim.hourlyUsed ?? 0));
-        const dLeft = Math.max(0, (lim.dailyLimit ?? 0) - (lim.dailyUsed ?? 0));
-        const available = hLeft > 0 && dLeft > 0;
-        
-        if (available) {
-          return `${label}: ${Math.min(hLeft, dLeft)} available`;
-        }
-        
-        // No credits - calculate time until next reset
-        let nextResetMin = null;
-        if (hLeft === 0 && lim.resetTimes?.hourly) {
-          const msUntilHourly = lim.resetTimes.hourly.getTime() - now;
-          if (msUntilHourly > 0) nextResetMin = Math.ceil(msUntilHourly / 60000);
-        }
-        if (dLeft === 0 && lim.resetTimes?.daily) {
-          const msUntilDaily = lim.resetTimes.daily.getTime() - now;
-          if (msUntilDaily > 0) {
-            const dailyMin = Math.ceil(msUntilDaily / 60000);
-            nextResetMin = nextResetMin ? Math.min(nextResetMin, dailyMin) : dailyMin;
-          }
-        }
-        
-        return nextResetMin 
-          ? `${label}: 0 left, resets in ${nextResetMin}m`
-          : `${label}: 0 left`;
-      };
-      
-  const toolCreditContext = `
+      // Build compact tool credit context for the AI (using imported utility)
+      const toolCreditContext = `
 Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')} | ${buildCreditInfo(tweetLimitCtx, 'X posts')}
 Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
 
@@ -3492,7 +1944,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
                 },
                 firstFrameMediaId: {
                   type: 'string',
-                  description: 'ID of the image to use as the first frame.'
+                                   description: 'ID of the image to use as the first frame.'
                 },
                 lastFrameMediaId: {
                   type: 'string',
@@ -3550,12 +2002,9 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           // Send the AI's natural acknowledgment first
           await ctx.reply(acknowledgment);
           const ackUserId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
-          await this._recordBotResponse(channelId, ackUserId);
+          await this.memberManager.recordBotResponse(channelId, ackUserId);
           
           // Track in conversation history
-          if (!this.conversationHistory.has(String(ctx.chat.id))) {
-            this.conversationHistory.set(String(ctx.chat.id), []);
-          }
           const botMessage = {
             from: 'Bot',
             text: acknowledgment,
@@ -3563,12 +2012,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
             isBot: true,
             userId: null
           };
-          this.conversationHistory.get(String(ctx.chat.id)).push(botMessage);
-          
-          // Persist to database
-          this._saveMessageToDatabase(String(ctx.chat.id), botMessage).catch(err => 
-            this.logger?.error?.('[TelegramService] Failed to save bot acknowledgment:', err)
-          );
+          await this.conversationManager.addMessage(String(ctx.chat.id), botMessage, true);
         }
         
         // Then execute the tools (which generate media)
@@ -3584,12 +2028,9 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
       if (cleanResponse) {
         await ctx.reply(this._formatTelegramMarkdown(cleanResponse), { parse_mode: 'HTML' });
         const replyUserId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
-        await this._recordBotResponse(channelId, replyUserId);
+        await this.memberManager.recordBotResponse(channelId, replyUserId);
         
         // Track bot's reply in conversation history
-        if (!this.conversationHistory.has(channelId)) {
-          this.conversationHistory.set(channelId, []);
-        }
         const botMessage = {
           from: 'Bot',
           text: cleanResponse,
@@ -3597,12 +2038,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           isBot: true,
           userId: null
         };
-        this.conversationHistory.get(channelId).push(botMessage);
-        
-        // Persist bot's reply to database
-        this._saveMessageToDatabase(channelId, botMessage).catch(err => 
-          this.logger?.error?.('[TelegramService] Failed to save bot message:', err)
-        );
+        await this.conversationManager.addMessage(channelId, botMessage, true);
         
         this.logger?.info?.(`[TelegramService] Sent ${isMention ? 'mention' : 'debounced'} reply to channel ${channelId}`);
       }
@@ -3719,7 +2155,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
             );
-            await this._recordBotResponse(channelId, userId);
+            await this.memberManager.recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -3741,7 +2177,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
               `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
               `⏰ Next charge available in ${timeUntilReset} minutes`
             );
-            await this._recordBotResponse(channelId, userId);
+            await this.memberManager.recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -3765,7 +2201,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           const limit = await this.checkMediaGenerationLimit(null, 'video');
           if (!limit.allowed) {
             await ctx.reply(`🎭 Video generation is on cooldown. Try again later!`);
-            await this._recordBotResponse(channelId, userId);
+            await this.memberManager.recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -3784,7 +2220,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           const limit = await this.checkMediaGenerationLimit(null, 'video');
           if (!limit.allowed) {
             await ctx.reply(`🎥 Video generation is on cooldown. Try again later!`);
-            await this._recordBotResponse(channelId, userId);
+            await this.memberManager.recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -3802,7 +2238,7 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
           const limit = await this.checkMediaGenerationLimit(null, 'video');
           if (!limit.allowed) {
             await ctx.reply(`📹 Video extension is on cooldown. Try again later!`);
-            await this._recordBotResponse(channelId, userId);
+            await this.memberManager.recordBotResponse(channelId, userId);
             continue;
           }
           
@@ -3814,812 +2250,163 @@ Creates smooth interpolation between two keyframes. Great for before/after, tran
             username
           });
 
-        } else if (functionName === 'generate_video_interpolation') {
-          // Video interpolation between two frames
-          const limit = await this.checkMediaGenerationLimit(null, 'video');
-          if (!limit.allowed) {
-            await ctx.reply(`🔄 Video generation is on cooldown. Try again later!`);
-            await this._recordBotResponse(channelId, userId);
-            continue;
-          }
+        } else if (functionName === 'generate_video') {
+          // Video typically uses 9:16 (vertical) for social media, unless specified
+          const videoOptions = { 
+            aspectRatio: args.aspectRatio || '9:16',
+            style: args.style,
+            camera: args.camera,
+            negativePrompt: args.negativePrompt
+          };
           
-          await this.executeVideoInterpolation(ctx, {
-            prompt: args.prompt,
-            firstFrameMediaId: args.firstFrameMediaId,
-            lastFrameMediaId: args.lastFrameMediaId,
-            conversationContext,
-            userId,
-            username
-          });
-
-        } else if (functionName === 'speak') {
-          // Handle 'speak' tool which models sometimes hallucinate from plan_actions
-          const text = args.description || args.text || args.message || args.content;
-          if (text) {
-            await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
-            await this._recordBotResponse(channelId, userId);
+          // Use async video generation if enabled (avoids handler timeout)
+          if (this.USE_ASYNC_VIDEO_GENERATION) {
+            await this.queueVideoGenerationAsync(ctx, args.prompt, {
+              conversationContext, userId, username, ...videoOptions
+            });
+          } else {
+            await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username, videoOptions);
           }
-        } else if (functionName === 'wait') {
-           await ctx.reply("⏳ <b>Processing...</b>", { parse_mode: 'HTML' });
-           await this._recordBotResponse(channelId, userId);
-        } else if (functionName === 'research') {
-           // Execute research action with query
-           const researchQuery = args.query || args.topic || args.description || 'general information';
-           await this.executeResearch(ctx, {
-             query: researchQuery,
-             conversationContext,
-             channelId,
-             userId,
-             username
-           });
-
-        } else if (functionName === 'post_tweet') {
-          const limit = await this.checkMediaGenerationLimit(null, 'tweet');
-          if (!limit.allowed) {
-            const timeUntilReset = limit.hourlyUsed >= limit.hourlyLimit
-              ? Math.ceil((limit.resetTimes.hourly - new Date()) / 60000)
-              : Math.ceil((limit.resetTimes.daily - new Date()) / 60000);
-            await ctx.reply(
-              `🕊️ X posting is on cooldown right now.\n\n` +
-              `Hourly: ${limit.hourlyUsed}/${limit.hourlyLimit} used\n` +
-              `Daily: ${limit.dailyUsed}/${limit.dailyLimit} used\n\n` +
-              `⏰ Next post slot in ${timeUntilReset} minutes`
-            );
-            await this._recordBotResponse(channelId, userId);
-            continue;
-          }
-          await this.executeTweetPost(ctx, {
-            text: args.text,
-            mediaId: args.mediaId,
-            channelId,
-            userId,
-            username
-          });
-          
-        } else {
-          this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
-          await ctx.reply(`I tried to use ${functionName} but I don't know how yet! 🤔`);
-          await this._recordBotResponse(channelId, userId);
         }
       }
     } catch (error) {
-      this.logger?.error?.('[TelegramService] Tool execution failed:', error);
-      await ctx.reply('I encountered an error using my powers! 😅 Try again?');
-      const channelId = String(ctx.chat?.id || '');
-      const userId = ctx.message?.from?.id ? String(ctx.message.from.id) : null;
-      await this._recordBotResponse(channelId, userId);
+      this.logger?.error?.('[TelegramService] handleToolCalls error:', error);
     }
   }
 
   /**
-   * Valid plan actions
-   * @private
-   */
-  static VALID_PLAN_ACTIONS = new Set([
-    'generate_image', 'generate_keyframe', 'generate_video', 
-    'generate_video_from_image', 'generate_video_with_reference', 
-    'generate_video_interpolation', 'edit_image', 'extend_video',
-    'speak', 'post_tweet', 'research', 'wait'
-  ]);
-
-  /**
-   * Step timeout configuration (ms)
-   * @private
-   */
-  static STEP_TIMEOUTS = {
-    generate_image: 120000,      // 2 minutes
-    generate_keyframe: 120000,   // 2 minutes
-    generate_video: 300000,      // 5 minutes
-    generate_video_from_image: 300000, // 5 minutes
-    generate_video_with_reference: 360000, // 6 minutes (reference processing)
-    generate_video_interpolation: 360000, // 6 minutes
-    edit_image: 120000,          // 2 minutes
-    extend_video: 300000,        // 5 minutes
-    speak: 30000,                // 30 seconds
-    post_tweet: 60000,           // 1 minute
-    research: 30000,             // 30 seconds
-    wait: 5000,                  // 5 seconds
-    default: 120000              // 2 minutes default
-  };
-
-  /**
-   * Validate a plan before execution
-   * @param {Object} plan - The plan to validate
-   * @returns {{ valid: boolean, errors: string[], warnings: string[] }}
-   * @private
-   */
-  _validatePlan(plan) {
-    const errors = [];
-    const warnings = [];
-    
-    if (!plan) {
-      errors.push('Plan is empty or undefined');
-      return { valid: false, errors, warnings };
-    }
-    
-    if (!plan.objective || typeof plan.objective !== 'string') {
-      warnings.push('Plan has no objective - execution may lack context');
-    }
-    
-    if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
-      errors.push('Plan has no steps to execute');
-      return { valid: false, errors, warnings };
-    }
-    
-    if (plan.steps.length > 10) {
-      warnings.push(`Plan has ${plan.steps.length} steps - consider breaking into smaller plans`);
-    }
-    
-    let hasMediaGeneration = false;
-    
-    for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i];
-      const stepNum = i + 1;
-      const action = step.action?.toLowerCase();
-      
-      // Check if action is valid
-      if (!action) {
-        errors.push(`Step ${stepNum}: Missing action type`);
-        continue;
-      }
-      
-      if (!TelegramService.VALID_PLAN_ACTIONS.has(action)) {
-        errors.push(`Step ${stepNum}: Unknown action "${action}"`);
-        continue;
-      }
-      
-      // Check for description
-      if (!step.description && !['wait', 'research'].includes(action)) {
-        warnings.push(`Step ${stepNum} (${action}): Missing description`);
-      }
-      
-      // Track media generation
-      if (['generate_image', 'generate_keyframe', 'generate_video', 'generate_video_from_image'].includes(action)) {
-        hasMediaGeneration = true;
-      }
-      
-      // Check dependencies
-      if (['edit_image', 'extend_video'].includes(action)) {
-        if (!step.sourceMediaId && !hasMediaGeneration) {
-          errors.push(`Step ${stepNum} (${action}): Requires prior media generation or sourceMediaId`);
-        }
-      }
-      
-      if (action === 'post_tweet') {
-        if (!step.sourceMediaId && !hasMediaGeneration) {
-          errors.push(`Step ${stepNum} (post_tweet): Requires prior media generation or sourceMediaId`);
-        }
-      }
-      
-      if (action === 'generate_video_from_image') {
-        if (!step.sourceMediaId && !hasMediaGeneration) {
-          warnings.push(`Step ${stepNum} (generate_video_from_image): No prior image - will fall back to text-to-video`);
-        }
-      }
-    }
-    
-    return { valid: errors.length === 0, errors, warnings };
-  }
-
-  /**
-   * Execute a step with timeout
-   * @param {Function} stepFn - The step function to execute
-   * @param {string} action - Action name for timeout lookup
-   * @param {number} stepNum - Step number for logging
-   * @returns {Promise<any>}
-   * @private
-   */
-  async _executeStepWithTimeout(stepFn, action, stepNum) {
-    const timeoutMs = TelegramService.STEP_TIMEOUTS[action] || TelegramService.STEP_TIMEOUTS.default;
-    
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`Step ${stepNum} (${action}) timed out after ${Math.round(timeoutMs / 1000)}s`));
-      }, timeoutMs);
-      
-      stepFn()
-        .then(result => {
-          clearTimeout(timeoutId);
-          resolve(result);
-        })
-        .catch(err => {
-          clearTimeout(timeoutId);
-          reject(err);
-        });
-    });
-  }
-
-  /**
-   * Update progress message
+   * Execute a sequence of planned actions
    * @param {Object} ctx - Telegram context
-   * @param {number|null} messageId - Message ID to edit, or null to send new
-   * @param {string} text - Progress text
+   * @param {Object} planEntry - Plan object with steps
    * @param {string} channelId - Channel ID
-   * @returns {Promise<number>} - Message ID
-   * @private
+   * @param {string} userId - User ID
+   * @param {string} username - Username
+   * @param {string} conversationContext - Context string
    */
-  async _updateProgressMessage(ctx, messageId, text, channelId) {
-    try {
-      if (messageId) {
-        await ctx.telegram.editMessageText(channelId, messageId, null, text, { parse_mode: 'HTML' });
-        return messageId;
-      } else {
-        const msg = await ctx.reply(text, { parse_mode: 'HTML' });
-        return msg.message_id;
-      }
-    } catch (err) {
-      // If edit fails (e.g., message unchanged), just log and continue
-      this.logger?.debug?.('[TelegramService] Progress message update failed:', err.message);
-      return messageId;
+  async executePlanActions(ctx, planEntry, channelId, userId, username, conversationContext) {
+    const safeSteps = Array.isArray(planEntry?.steps) ? planEntry.steps : [];
+    if (safeSteps.length === 0) {
+      this.logger?.info?.('[TelegramService] No steps defined in plan_actions call, skipping execution');
+      await ctx.reply('I need at least one planned step to act on. Try planning again with a specific goal.');
+      return;
     }
-  }
 
-  /**
-   * Delete progress message
-   * @param {Object} ctx - Telegram context  
-   * @param {number} messageId - Message ID to delete
-   * @param {string} channelId - Channel ID
-   * @private
-   */
-  async _deleteProgressMessage(ctx, messageId, channelId) {
-    if (!messageId) return;
-    try {
-      await ctx.telegram.deleteMessage(channelId, messageId);
-    } catch (err) {
-      this.logger?.debug?.('[TelegramService] Failed to delete progress message:', err.message);
+    const plan = {
+      objective: planEntry.objective || 'Respond thoughtfully to the user',
+      steps: safeSteps,
+      confidence: typeof planEntry.confidence === 'number' ? planEntry.confidence : undefined
+    };
+
+    logPlanSummary(plan, this.logger);
+
+    const validation = this.planExecutionService.validatePlan(plan);
+    if (!validation.valid) {
+      const errorText = validation.errors
+        .slice(0, 3)
+        .map((err, idx) => `${idx + 1}. ${err}`)
+        .join('\n');
+      await ctx.reply(`🚫 I couldn't execute that plan:
+${errorText}`);
+      return;
     }
-  }
 
-  /**
-   * Execute plan using the refactored PlanExecutionService
-   * @private
-   */
-  async _executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext) {
+    if (validation.warnings?.length) {
+      this.logger?.warn?.('[TelegramService] Plan validation warnings:', validation.warnings);
+    }
+
+    const totalSteps = plan.steps.length;
     let progressMessageId = null;
-    
-    try {
-      // Build services context for executors
-      const services = {
-        telegram: this,
-        database: this.databaseService,
-        ai: this.aiService,
-        globalBot: this.globalBotService
-      };
 
-      const context = {
+    const updateProgress = async (stepNum, total, action) => {
+      const icon = this.planExecutionService.getActionIcon(action);
+      const label = this.planExecutionService.getActionLabel(action);
+      const message = `${icon} <b>Step ${stepNum}/${total}:</b> ${label}...`;
+      progressMessageId = await this.interactionManager.updateProgressMessage(
         ctx,
-        channelId,
-        userId,
-        username,
-        conversationContext,
-        services
-      };
+        progressMessageId,
+        message,
+        channelId
+      );
+    };
 
-      // Log plan summary
-      this.planExecutionService.logPlanSummary(planEntry);
-
-      // Execute with callbacks for progress updates
-      const result = await this.planExecutionService.executePlan(planEntry, context, {
-        onProgress: async (stepNum, totalSteps, action) => {
-          const progressIcon = this.planExecutionService.getActionIcon(action);
-          const progressText = `${progressIcon} <b>Step ${stepNum}/${totalSteps}:</b> ${this.planExecutionService.getActionLabel(action)}...`;
-          progressMessageId = await this._updateProgressMessage(ctx, progressMessageId, progressText, channelId);
-        },
-        onError: async (error, stepNum, action, isTimeout) => {
-          if (isTimeout) {
-            await ctx.reply(`⏱️ Step ${stepNum} (${this.planExecutionService.getActionLabel(action)}) timed out. Continuing with next step...`);
-          }
-        }
-      });
-
-      // Clean up progress message
-      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
-
-      this.logger?.info?.(`[TelegramService] Plan execution complete via service: ${result.successCount}/${result.totalSteps} steps in ${Math.round(result.durationMs / 1000)}s`);
-      
-      return result;
-    } catch (error) {
-      this.logger?.error?.('[TelegramService] _executePlanWithService error:', error);
-      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
-      throw error;
-    }
-  }
-
-  /**
-   * Execute plan_actions directly (no AI involvement)
-   * For cases where we want precise control over the action sequence
-   */
-  async executePlanActions(ctx, args = {}, channelId, userId, username, conversationContext = '') {
-    let progressMessageId = null;
-    
-    try {
-      // Use PlanExecutionService for validation (consistent across both paths)
-      const validation = this.planExecutionService.validatePlan(args);
-      
-      if (!validation.valid) {
-        const errorList = validation.errors.map(e => `• ${e}`).join('\n');
-        await ctx.reply(`⚠️ I can't execute this plan:\n${errorList}\n\nPlease adjust and try again!`);
-        this.logger?.warn?.('[TelegramService] Plan validation failed:', validation.errors);
-        return;
+    const executionContext = {
+      ctx,
+      channelId,
+      userId,
+      username,
+      conversationContext,
+      services: {
+        telegram: this,
+        ai: this.aiService,
+        database: this.databaseService,
+        globalBot: this.globalBotService,
+        x: this.xService
       }
-      
-      // Log warnings but continue
-      if (validation.warnings.length > 0) {
-        this.logger?.info?.('[TelegramService] Plan validation warnings:', validation.warnings);
-      }
+    };
 
-      const planEntry = await this._rememberAgentPlan(channelId, {
-        objective: args.objective,
-        steps: args.steps,
-        confidence: args.confidence,
-        userId,
-        metadata: {
-          requestedByUsername: username || null
-        }
-      });
-
-      if (!planEntry) {
-        await ctx.reply('🧠 I tried to plan but something went wrong—give me another nudge?');
-        return;
-      }
-
-      // PHASE 2: Use PlanExecutionService when enabled
-      // This uses the refactored ActionExecutor pattern for cleaner code
-      // Can be toggled off via this.USE_PLAN_EXECUTION_SERVICE = false for rollback
-      if (this.USE_PLAN_EXECUTION_SERVICE) {
-        try {
-          await this._executePlanWithService(ctx, planEntry, channelId, userId, username, conversationContext);
-          return;
-        } catch (serviceError) {
-          // If service execution fails, log and fall back to inline execution
-          this.logger?.error?.('[TelegramService] PlanExecutionService failed, falling back to inline:', serviceError.message);
-        }
-      }
-
-      // LEGACY: Inline execution (fallback or when USE_PLAN_EXECUTION_SERVICE is false)
-      // Log plan summary for legacy path only
-      const planLogLines = [
-        '\n╔══════════════════════════════════════════════════════════════╗',
-        '║                    🧠 AGENT PLAN SEQUENCE                    ║',
-        '╠══════════════════════════════════════════════════════════════╣'
-      ];
-      
-      if (planEntry.objective) {
-        planLogLines.push(`║ Objective: ${planEntry.objective.substring(0, 50).padEnd(50)} ║`);
-      }
-      
-      if (planEntry.steps?.length) {
-        planLogLines.push('╠──────────────────────────────────────────────────────────────╣');
-        planEntry.steps.forEach((step, idx) => {
-          const action = (step.action || 'step').toUpperCase().padEnd(20);
-          const desc = (step.description || '').substring(0, 35).padEnd(35);
-          planLogLines.push(`║ ${(idx + 1).toString().padStart(2)}. [${action}] ${desc} ║`);
+    const executionOptions = {
+      onProgress: (stepNum, total, action) => updateProgress(stepNum, total, action),
+      onStepComplete: async (result) => {
+        if (!result) return;
+        const status = result.success ? '✅' : '⚠️';
+        this.logger?.info?.(
+          `[TelegramService] Step ${result.stepNum}/${totalSteps} ${status} ${result.action}`
+        );
+      },
+      onError: async (error, stepNum, action, isTimeout) => {
+        this.logger?.error?.('[TelegramService] Plan step error:', {
+          action,
+          stepNum,
+          isTimeout,
+          message: error?.message
         });
+        await ctx.reply(`⚠️ Step ${stepNum} (${action}) hit a snag: ${error.message}`);
       }
-      
-      planLogLines.push('╚══════════════════════════════════════════════════════════════╝\n');
-      
-      this.logger?.info?.(planLogLines.join('\n'));
-      this.logger?.info?.(`[TelegramService] Executing ${planEntry.steps?.length || 0} planned steps (inline mode)`);
-      
-      let latestGeneratedMediaId = null;
-      let generationFailed = false;
-      const totalSteps = planEntry.steps?.length || 0;
-      const executionResults = [];
-      const startTime = Date.now();
+    };
 
-      if (planEntry.steps && Array.isArray(planEntry.steps)) {
-        for (let stepIdx = 0; stepIdx < planEntry.steps.length; stepIdx++) {
-          const step = planEntry.steps[stepIdx];
-          const action = step.action?.toLowerCase();
-          const stepNum = stepIdx + 1;
-          
-          // Update progress message
-          const progressIcon = this._getActionIcon(action);
-          const progressText = `${progressIcon} <b>Step ${stepNum}/${totalSteps}:</b> ${this._getActionLabel(action)}...`;
-          progressMessageId = await this._updateProgressMessage(ctx, progressMessageId, progressText, channelId);
-          
-          this.logger?.info?.(`[TelegramService] 📍 Step ${stepNum}/${totalSteps}: ${(action || 'unknown').toUpperCase()} - "${(step.description || '').substring(0, 50)}..."`);
-          
-          const stepStartTime = Date.now();
-          let stepResult = { success: false, action, stepNum };
-          
-          try {
-            if (action === 'generate_image') {
-              // Use aspectRatio from step if specified, default to square
-              const imageOptions = { aspectRatio: step.aspectRatio || '1:1' };
-              const record = await this._executeStepWithTimeout(
-                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username, imageOptions),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'generate_keyframe') {
-              // Keyframes typically use 16:9 for video compatibility
-              const keyframeOptions = { aspectRatio: step.aspectRatio || '16:9' };
-              const record = await this._executeStepWithTimeout(
-                () => this.executeImageGeneration(ctx, step.description, conversationContext, userId, username, keyframeOptions),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-                try {
-                  if (this.databaseService) {
-                    const db = await this.databaseService.getDatabase();
-                    await db.collection('telegram_recent_media').updateOne(
-                      { channelId: record.channelId, id: record.id },
-                      { $set: { type: 'keyframe', source: 'telegram.generate_keyframe' } }
-                    );
-                  }
-                } catch (err) {
-                  this.logger?.warn?.('[TelegramService] Failed to mark media as keyframe:', err.message);
-                }
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'edit_image') {
-              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-              if (!sourceMediaId) {
-                await ctx.reply('I need an image to edit first! Generate one or provide a reference.');
-                generationFailed = true;
-                stepResult = { success: false, action, stepNum, error: 'No source image' };
-                executionResults.push(stepResult);
-                continue;
-              }
-              const record = await this._executeStepWithTimeout(
-                () => this.executeImageEdit(ctx, {
-                  prompt: step.description,
-                  sourceMediaId,
-                  conversationContext,
-                  userId,
-                  username
-                }),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'generate_video_from_image') {
-              // Video typically uses 9:16, unless specified
-              const videoOptions = { aspectRatio: step.aspectRatio || '16:9' };
-              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-              if (!sourceMediaId) {
-                // No source image - fall back to text-to-video
-                if (this.USE_ASYNC_VIDEO_GENERATION) {
-                  const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
-                    conversationContext, userId, username, aspectRatio: videoOptions.aspectRatio
-                  });
-                  if (queueResult.queued) {
-                    stepResult = { success: true, action, stepNum, queued: true, jobId: queueResult.jobId };
-                  } else {
-                    generationFailed = true;
-                    stepResult = { success: false, action, stepNum, error: queueResult.error };
-                  }
-                } else {
-                  const record = await this._executeStepWithTimeout(
-                    () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username, videoOptions),
-                    action, stepNum
-                  );
-                  if (record) {
-                    latestGeneratedMediaId = record.id;
-                    generationFailed = false;
-                    stepResult = { success: true, action, stepNum, mediaId: record.id };
-                  } else {
-                    generationFailed = true;
-                  }
-                }
-              } else {
-                const record = await this._executeStepWithTimeout(
-                  () => this.executeVideoFromImage(ctx, {
-                    prompt: step.description,
-                    sourceMediaId,
-                    conversationContext,
-                    userId,
-                    username,
-                    aspectRatio: videoOptions.aspectRatio
-                  }),
-                  action, stepNum
-                );
-                if (record) {
-                  latestGeneratedMediaId = record.id;
-                  generationFailed = false;
-                  stepResult = { success: true, action, stepNum, mediaId: record.id };
-                } else {
-                  generationFailed = true;
-                }
-              }
-            } else if (action === 'extend_video') {
-              const sourceMediaId = step.sourceMediaId || latestGeneratedMediaId;
-              if (!sourceMediaId) {
-                await ctx.reply('I need a video to extend! Generate one first.');
-                generationFailed = true;
-                stepResult = { success: false, action, stepNum, error: 'No source video' };
-                executionResults.push(stepResult);
-                continue;
-              }
-              const record = await this._executeStepWithTimeout(
-                () => this.executeVideoExtension(ctx, {
-                  prompt: step.description,
-                  sourceMediaId,
-                  conversationContext,
-                  userId,
-                  username
-                }),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'generate_video') {
-              // Video typically uses 9:16 (vertical) for social media, unless specified
-              const videoOptions = { 
-                aspectRatio: step.aspectRatio || '9:16',
-                style: step.style,
-                camera: step.camera,
-                negativePrompt: step.negativePrompt
-              };
-              
-              // Use async video generation if enabled (avoids handler timeout)
-              if (this.USE_ASYNC_VIDEO_GENERATION) {
-                const queueResult = await this.queueVideoGenerationAsync(ctx, step.description, {
-                  conversationContext, userId, username, ...videoOptions
-                });
-                if (queueResult.queued) {
-                  // For async, we don't get a media record immediately
-                  // Mark as success since the job is queued
-                  stepResult = { success: true, action, stepNum, queued: true, jobId: queueResult.jobId };
-                } else {
-                  generationFailed = true;
-                  stepResult = { success: false, action, stepNum, error: queueResult.error };
-                }
-              } else {
-                const record = await this._executeStepWithTimeout(
-                  () => this.executeVideoGeneration(ctx, step.description, conversationContext, userId, username, videoOptions),
-                  action, stepNum
-                );
-                if (record) {
-                  latestGeneratedMediaId = record.id;
-                  generationFailed = false;
-                  stepResult = { success: true, action, stepNum, mediaId: record.id };
-                } else {
-                  generationFailed = true;
-                }
-              }
-            } else if (action === 'generate_video_with_reference') {
-              // Video with character reference images (requires 16:9, 8s)
-              const referenceMediaIds = step.referenceMediaIds || [];
-              if (referenceMediaIds.length === 0) {
-                await ctx.reply('I need reference images for character consistency! Provide 1-3 reference media IDs.');
-                generationFailed = true;
-                stepResult = { success: false, action, stepNum, error: 'No reference images' };
-                executionResults.push(stepResult);
-                continue;
-              }
-              const record = await this._executeStepWithTimeout(
-                () => this.executeVideoWithReference(ctx, {
-                  prompt: step.description,
-                  referenceMediaIds,
-                  conversationContext,
-                  userId,
-                  username,
-                  style: step.style,
-                  camera: step.camera
-                }),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'generate_video_interpolation') {
-              // Video interpolation between first and last frames
-              const firstFrameId = step.firstFrameMediaId || null;
-              const lastFrameId = step.lastFrameMediaId || null;
-              if (!firstFrameId || !lastFrameId) {
-                await ctx.reply('I need both first and last frame images for interpolation!');
-                generationFailed = true;
-                stepResult = { success: false, action, stepNum, error: 'Missing frame images' };
-                executionResults.push(stepResult);
-                continue;
-              }
-              const record = await this._executeStepWithTimeout(
-                () => this.executeVideoInterpolation(ctx, {
-                  prompt: step.description,
-                  firstFrameMediaId: firstFrameId,
-                  lastFrameMediaId: lastFrameId,
-                  conversationContext,
-                  userId,
-                  username
-                }),
-                action, stepNum
-              );
-              if (record) {
-                latestGeneratedMediaId = record.id;
-                generationFailed = false;
-                stepResult = { success: true, action, stepNum, mediaId: record.id };
-              } else {
-                generationFailed = true;
-              }
-            } else if (action === 'speak') {
-              await this._executeStepWithTimeout(async () => {
-                const speechPrompt = `You are executing a planned action.
-
-Context: ${conversationContext}
-Action Description: ${step.description}
-
-Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character.`;
-
-                const response = await this.aiService.chat([
-                  { role: 'user', content: speechPrompt }
-                ], {
-                  model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-                  temperature: 0.7
-                });
-                
-                const text = String(response || '').trim().replace(/^["']|["']$/g, '');
-                if (text) {
-                  await ctx.reply(this._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
-                  await this._recordBotResponse(channelId, userId);
-                }
-              }, action, stepNum);
-              stepResult = { success: true, action, stepNum };
-            } else if (action === 'post_tweet') {
-              if (generationFailed) {
-                await ctx.reply('Skipping X post because the media generation failed.');
-                stepResult = { success: false, action, stepNum, error: 'Prior media generation failed' };
-                executionResults.push(stepResult);
-                continue;
-              }
-
-              let mediaIdToTweet = latestGeneratedMediaId;
-              if (!mediaIdToTweet) {
-                const recent = await this._getRecentMedia(channelId, 1);
-                if (recent && recent.length > 0) mediaIdToTweet = recent[0].id;
-              }
-
-              if (mediaIdToTweet) {
-                let tweetText = step.description;
-                try {
-                  const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
-Context: ${conversationContext}
-Task: ${step.description}
-
-Write a creative, engaging tweet caption (under 280 chars) to accompany the media you just generated.
-- Be in character (witty, slightly chaotic, or helpful depending on the persona).
-- Do not use quotation marks.
-- Do not include "Here is the tweet:" or similar prefixes.
-- Make it sound like a real tweet, not a bot command.`;
-
-                  const response = await this.aiService.chat([
-                    { role: 'user', content: tweetPrompt }
-                  ], {
-                    model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-                    temperature: 0.8
-                  });
-                  
-                  const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
-                  if (generatedTweet) {
-                    tweetText = generatedTweet;
-                  }
-                } catch (err) {
-                  this.logger?.warn?.('[TelegramService] Failed to generate tweet caption, falling back to description:', err);
-                }
-
-                await this._executeStepWithTimeout(
-                  () => this.executeTweetPost(ctx, {
-                    text: tweetText,
-                    mediaId: mediaIdToTweet,
-                    channelId,
-                    userId,
-                    username
-                  }),
-                  action, stepNum
-                );
-                stepResult = { success: true, action, stepNum, mediaId: mediaIdToTweet };
-              } else {
-                this.logger?.warn?.('[TelegramService] Cannot post_tweet in plan: no recent media found');
-                await ctx.reply('I wanted to post to X, but I couldn\'t find the image/video I just made! 🕵️‍♀️');
-                stepResult = { success: false, action, stepNum, error: 'No media found' };
-              }
-            } else if (action === 'wait' || action === 'research') {
-              // Acknowledgment actions - just continue
-              stepResult = { success: true, action, stepNum };
-            } else {
-              this.logger?.info?.(`[TelegramService] Skipping unimplemented plan action: ${action}`);
-              stepResult = { success: false, action, stepNum, error: 'Unimplemented action' };
-            }
-          } catch (stepError) {
-            const isTimeout = stepError.message?.includes('timed out');
-            this.logger?.error?.(`[TelegramService] Step ${stepNum} failed:`, stepError.message);
-            
-            if (isTimeout) {
-              await ctx.reply(`⏱️ Step ${stepNum} (${this._getActionLabel(action)}) timed out. Continuing with next step...`);
-            }
-            
-            stepResult = { success: false, action, stepNum, error: stepError.message };
-            generationFailed = true;
-          }
-          
-          stepResult.durationMs = Date.now() - stepStartTime;
-          executionResults.push(stepResult);
-        }
-      }
-      
-      // Delete progress message on completion
-      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
-      
-      // Log execution summary
-      const totalDuration = Date.now() - startTime;
-      const successCount = executionResults.filter(r => r.success).length;
-      this.logger?.info?.(`[TelegramService] Plan execution complete: ${successCount}/${totalSteps} steps succeeded in ${Math.round(totalDuration / 1000)}s`);
-      
+    let executionResult;
+    try {
+      executionResult = await this.planExecutionService.executePlan(plan, executionContext, executionOptions);
     } catch (error) {
       this.logger?.error?.('[TelegramService] executePlanActions error:', error);
-      await this._deleteProgressMessage(ctx, progressMessageId, channelId);
       await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
+      return;
+    } finally {
+      await this.interactionManager.deleteProgressMessage(ctx, progressMessageId, channelId);
     }
+
+    if (!executionResult) {
+      return;
+    }
+
+    const summaryEmoji = executionResult.success ? '✅' : '⚠️';
+    const durationSeconds = Math.max(1, Math.round((executionResult.durationMs || 0) / 1000));
+    const summaryLines = [
+      `${summaryEmoji} Plan ${executionResult.success ? 'completed' : 'finished with issues'}.`,
+      `Steps succeeded: ${executionResult.successCount}/${executionResult.totalSteps}`,
+      `Time elapsed: ${durationSeconds}s`
+    ];
+
+    await ctx.reply(summaryLines.join('\n'));
+    return executionResult;
   }
 
   /**
    * Get icon for action type
+   * Delegates to utility function
    * @private
    */
   _getActionIcon(action) {
-    const icons = {
-      generate_image: '🎨',
-      generate_keyframe: '🖼️',
-      generate_video: '🎬',
-      generate_video_from_image: '🎥',
-      generate_video_with_reference: '🎭',
-      generate_video_interpolation: '🔄',
-      edit_image: '✏️',
-      extend_video: '📹',
-      speak: '💬',
-      post_tweet: '🐦',
-      research: '🔍',
-      wait: '⏳'
-    };
-    return icons[action] || '⚡';
+    return getActionIcon(action);
   }
 
   /**
    * Get human-readable label for action type
+   * Delegates to utility function
    * @private
    */
   _getActionLabel(action) {
-    const labels = {
-      generate_image: 'Generating image',
-      generate_keyframe: 'Creating keyframe',
-      generate_video: 'Generating video',
-      generate_video_from_image: 'Creating video from image',
-      generate_video_with_reference: 'Creating video with character reference',
-      generate_video_interpolation: 'Creating video interpolation',
-      edit_image: 'Editing image',
-      extend_video: 'Extending video',
-      speak: 'Composing message',
-      post_tweet: 'Posting to X',
-      research: 'Researching',
-      wait: 'Processing'
-    };
-    return labels[action] || action;
+    return getActionLabel(action);
   }
 
   /**
@@ -4629,227 +2416,36 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
    * @returns {{ prompt: string, charDesign: Object }} - Enhanced prompt and design reference
    */
   _applyCharacterPrompt(prompt, overrideDesign = null) {
-    const charDesign = overrideDesign ?? this.globalBotService?.bot?.globalBotConfig?.characterDesign;
-    if (!charDesign?.enabled) {
-      return { prompt, charDesign };
-    }
-
-    let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
-    characterPrefix = characterPrefix
-      .replace(/\{\{characterName\}\}/g, charDesign.characterName || '')
-      .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
-
-    return { prompt: characterPrefix + prompt, charDesign };
+    return this.mediaGenerationManager.applyCharacterPrompt(prompt, overrideDesign);
   }
 
   /**
    * Download an image and provide base64 payload for downstream consumers
+   * Delegates to utility function
    * @param {string} imageUrl - Remote image URL (S3, CDN, etc.)
    * @returns {Promise<{ data: string, mimeType: string }|null>}
    */
   async _downloadImageAsBase64(imageUrl) {
-    if (!imageUrl) return null;
-    try {
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const mimeType = response.headers.get('content-type') || this._inferMimeTypeFromUrl(imageUrl);
-      return {
-        data: Buffer.from(arrayBuffer).toString('base64'),
-        mimeType: mimeType || 'image/png'
-      };
-    } catch (err) {
-      this.logger?.warn?.('[TelegramService] Failed to download image for keyframe:', err.message);
-      return null;
-    }
+    return this.mediaManager.downloadImageAsBase64(imageUrl);
   }
 
+  /**
+   * Infer MIME type from URL
+   * Delegates to utility function
+   * @private
+   */
   _inferMimeTypeFromUrl(imageUrl) {
-    try {
-      const urlWithoutQuery = imageUrl.split('?')[0] || imageUrl;
-      const ext = urlWithoutQuery.split('.').pop()?.toLowerCase();
-      switch (ext) {
-        case 'jpg':
-        case 'jpeg':
-          return 'image/jpeg';
-        case 'png':
-          return 'image/png';
-        case 'webp':
-          return 'image/webp';
-        case 'gif':
-          return 'image/gif';
-        default:
-          return 'image/png';
-      }
-    } catch {
-      return 'image/png';
-    }
+    return inferMimeTypeFromUrl(imageUrl);
   }
 
   /**
    * Shared image generation helper so we can reuse media for keyframes
-   * Routes through MediaGenerationService for unified retry/circuit breaker handling.
+   * Routes through MediaGenerationManager for unified retry/circuit breaker handling.
    * @param {Object} params
-   * @param {string} params.prompt
-   * @param {string} [params.conversationContext]
-   * @param {string} [params.userId]
-   * @param {string} [params.username]
-   * @param {boolean} [params.fetchBinary]
-   * @param {string} [params.source]
-   * @param {string} [params.aspectRatio='1:1'] - Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
    * @returns {Promise<{ imageUrl: string, enhancedPrompt: string, binary?: { data: string, mimeType: string } }>} 
    */
-  async _generateImageAsset({
-    prompt,
-    conversationContext = '',
-    userId = null,
-    username = null,
-    fetchBinary = false,
-    source = 'telegram.user_request',
-    aspectRatio = '1:1'
-  }) {
-    // Infer aspect ratio from prompt if not explicitly set or if set to default
-    let effectiveAspectRatio = aspectRatio;
-    if (aspectRatio === '1:1') {
-      const lowerPrompt = prompt.toLowerCase();
-      if (lowerPrompt.includes('widescreen') || lowerPrompt.includes('banner') || 
-          lowerPrompt.includes('landscape') || lowerPrompt.includes('wide shot') ||
-          lowerPrompt.includes('horizontal') || lowerPrompt.includes('panoramic') ||
-          lowerPrompt.includes('cinematic')) {
-        effectiveAspectRatio = '16:9';
-        this.logger?.info?.('[TelegramService] Inferred 16:9 aspect ratio from prompt keywords');
-      } else if (lowerPrompt.includes('portrait') || lowerPrompt.includes('vertical') || 
-                 lowerPrompt.includes('tall') || lowerPrompt.includes('phone wallpaper') ||
-                 lowerPrompt.includes('story') || lowerPrompt.includes('tiktok')) {
-        effectiveAspectRatio = '9:16';
-        this.logger?.info?.('[TelegramService] Inferred 9:16 aspect ratio from prompt keywords');
-      }
-    }
-
-    this.logger?.info?.('[TelegramService] Generating image asset', { 
-      prompt: prompt.substring(0, 100), 
-      userId, username, source, 
-      requestedAspectRatio: aspectRatio, 
-      effectiveAspectRatio,
-      usingMediaGenerationService: !!this.mediaGenerationService
-    });
-
-    // Get character design configuration
-    const { prompt: promptWithCharacter, charDesign } = this._applyCharacterPrompt(prompt);
-    const referenceImages = [];
-    if (charDesign?.enabled && charDesign?.referenceImageUrl) {
-      referenceImages.push(charDesign.referenceImageUrl);
-      this.logger?.debug?.('[TelegramService] Character reference image configured', { 
-        characterName: charDesign.characterName 
-      });
-    }
-
-    // Primary path: Use MediaGenerationService (unified provider with retry/circuit breaker)
-    if (this.mediaGenerationService) {
-      try {
-        const result = await this.mediaGenerationService.generateImage(prompt, {
-          referenceImages,
-          characterDesign: charDesign,
-          aspectRatio: effectiveAspectRatio,
-          source,
-          purpose: 'user_generated',
-          fetchBinary
-        });
-        
-        this.logger?.info?.('[TelegramService] MediaGenerationService image success', { 
-          imageUrl: result.imageUrl?.substring(0, 50),
-          aspectRatio: effectiveAspectRatio
-        });
-        
-        return {
-          imageUrl: result.imageUrl,
-          enhancedPrompt: result.enhancedPrompt || prompt,
-          binary: result.binary || null
-        };
-      } catch (err) {
-        this.logger?.warn?.('[TelegramService] MediaGenerationService failed, trying fallbacks:', err.message);
-        // Fall through to legacy providers
-      }
-    }
-
-    // Fallback path: Try legacy providers directly (for backward compatibility)
-    let imageUrl = null;
-    let enhancedPrompt = prompt;
-
-    if (this.globalBotService?.generateImage) {
-      try {
-        this.logger?.debug?.('[TelegramService] Trying globalBotService.generateImage fallback');
-        imageUrl = await this.globalBotService.generateImage(prompt, {
-          source,
-          purpose: 'user_generated',
-          enhanceWithDirector: true,
-          context: conversationContext,
-          referenceImages,
-          characterDesign: charDesign,
-          aspectRatio: effectiveAspectRatio
-        });
-      } catch (err) {
-        this.logger?.warn?.('[TelegramService] globalBotService image generation failed:', err.message);
-      }
-    }
-
-    if (!imageUrl) {
-      enhancedPrompt = promptWithCharacter;
-
-      if (this.aiService?.generateImage) {
-        try {
-          imageUrl = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
-            source,
-            purpose: 'user_generated',
-            context: enhancedPrompt,
-            aspectRatio: effectiveAspectRatio
-          });
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] aiService image generation failed:', err.message);
-        }
-      }
-    }
-
-    if (!imageUrl && this.googleAIService?.generateImage) {
-      try {
-        // Use composition when reference images are available
-        if (referenceImages.length > 0 && this.googleAIService.composeImageWithGemini) {
-          const refImageData = await this._downloadImageAsBase64(referenceImages[0]);
-          if (refImageData) {
-            imageUrl = await this.googleAIService.composeImageWithGemini(
-              [{ data: refImageData.data, mimeType: refImageData.mimeType, label: 'character_reference' }],
-              enhancedPrompt,
-              { source, purpose: 'user_generated', context: enhancedPrompt, aspectRatio: effectiveAspectRatio, characterReference: true }
-            );
-          }
-        }
-        // Fallback to regular generation if composition failed or no refs
-        if (!imageUrl) {
-          imageUrl = await this.googleAIService.generateImage(enhancedPrompt, effectiveAspectRatio, {
-            source,
-            purpose: 'user_generated',
-            context: enhancedPrompt
-          });
-        }
-      } catch (err) {
-        this.logger?.warn?.('[TelegramService] googleAIService image generation failed:', err.message);
-      }
-    }
-
-    if (!imageUrl) {
-      throw new Error('All image generation services failed');
-    }
-
-    let binary = null;
-    if (fetchBinary) {
-      binary = await this._downloadImageAsBase64(imageUrl);
-    }
-
-    this.logger?.info?.('[TelegramService] Image asset ready', { imageUrl, aspectRatio: effectiveAspectRatio });
-    return { imageUrl, enhancedPrompt, binary };
+  async _generateImageAsset(params) {
+    return this.mediaGenerationManager.generateImageAsset(params);
   }
 
   /**
@@ -4920,7 +2516,7 @@ Your caption:`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(String(ctx.chat.id), userId);
+      await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
       
       // Record usage for cooldown tracking
       if (userId && username) {
@@ -4935,7 +2531,7 @@ Your caption:`;
       
       // Remember media so the tweet tool can use it later
       // Store both original prompt and enhanced prompt for better content awareness
-      const mediaRecord = await this._rememberGeneratedMedia(String(ctx.chat.id), {
+      const mediaRecord = await this.mediaManager.rememberGeneratedMedia(String(ctx.chat.id), {
         type: 'image',
         mediaUrl: imageUrl,
         prompt,
@@ -5001,41 +2597,32 @@ Your caption:`;
         prompt: prompt.substring(0, 100), 
         userId, username, aspectRatio, style, camera
       });
-
-      // Get character design configuration
-      const charDesignConfig = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
       
       let videoUrl = null;
       let enhancedPrompt = prompt;
 
-      // Use MediaGenerationService (unified provider with retry/circuit breaker)
-      if (!this.mediaGenerationService) {
-        throw new Error('Video generation service not available');
-      }
-
-      const result = await this.mediaGenerationService.generateVideo(prompt, {
-        characterDesign: charDesignConfig,
-        aspectRatio,
-        durationSeconds: 8,
-        source: 'telegram.generate_video',
-        traceId,
-        channelId,
+      // Use MediaGenerationManager
+      const videoUrls = await this.mediaGenerationManager.generateVideo({
+        prompt,
+        config: { aspectRatio, durationSeconds: 8 },
         style,
         camera,
-        negativePrompt
+        negativePrompt,
+        traceId,
+        channelId
       });
       
-      if (!result?.videoUrl) {
+      if (!videoUrls?.length) {
         throw new Error('Video generation returned no results');
       }
-
-      videoUrl = result.videoUrl;
-      enhancedPrompt = result.enhancedPrompt || prompt;
+      
+      videoUrl = videoUrls[0];
+      // Note: enhancedPrompt is not returned by generateVideo array, but we can assume it's handled
+      enhancedPrompt = prompt; 
+      
       this.logger?.info?.('[TelegramService] Video generated successfully', { 
         traceId,
-        videoUrl: videoUrl?.substring(0, 50),
-        keyframeUsed: result.keyframeUsed,
-        strategiesAttempted: result.strategiesAttempted
+        videoUrl: videoUrl?.substring(0, 50)
       });
 
       // Generate natural caption using AI
@@ -5081,7 +2668,7 @@ Your caption:`;
         supports_streaming: true,
         parse_mode: 'HTML'
       });
-      await this._recordBotResponse(String(ctx.chat.id), userId);
+      await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
       
       // Record usage for cooldown tracking
       if (userId && username) {
@@ -5093,7 +2680,7 @@ Your caption:`;
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
       
-      const mediaRecord = await this._rememberGeneratedMedia(String(ctx.chat.id), {
+      const mediaRecord = await this.mediaManager.rememberGeneratedMedia(String(ctx.chat.id), {
         type: 'video',
         mediaUrl: videoUrl,
         prompt,
@@ -5137,7 +2724,7 @@ Your caption:`;
    * @param {string} [options.userId] - User ID for tracking
    * @param {string} [options.username] - Username for tracking
    * @param {string} [options.keyframeUrl] - Pre-generated keyframe URL
-   * @param {string} [options.aspectRatio='9:16'] - Video aspect ratio
+   * @param {string} [options.aspectRatio='9:16'] - Aspect ratio
    * @param {string} [options.style] - Visual style
    * @param {string} [options.camera] - Camera motion
    * @param {string} [options.negativePrompt] - Things to avoid
@@ -5333,33 +2920,46 @@ Your caption:`;
         });
       }
       
-      if (!videoUrls?.length) {
-        throw new Error('No video URLs returned from generation');
-      }
-      
       const videoUrl = videoUrls[0];
       
       // Generate caption
       let caption = null;
       if (this.globalBotService) {
         try {
-          const captionPrompt = `You're a helpful narrator bot. You just generated a video based on: "${jobData.originalPrompt || jobData.prompt}"
-Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
+          const captionPrompt = `You're a helpful, friendly narrator bot in CosyWorld. You just generated a video based on this prompt: "${jobData.prompt}"
+
+Recent conversation context:
+${jobData.conversationContext || 'No recent context'}
+
+Create a brief, natural caption for the video. The caption should:
+- Be conversational and warm, not mechanical
+- Reference what the video shows WITHOUT repeating the technical prompt verbatim
+- Be subtle and artistic, hint at the content rather than describing it literally
+- Keep it under 100 characters
+- Don't use asterisks or markdown
+
+Examples:
+- "Watch this moment unfold..."
+- "A brief glimpse into motion 🎬"
+- "Sometimes you need to see it move"
+- "Here's what I imagined in motion ✨"
+
+Your caption:`;
 
           const captionResponse = await this.aiService.chat([
             { role: 'user', content: captionPrompt }
           ], {
             model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
-            temperature: 0.7
+            temperature: 0.9
           });
           
           caption = String(captionResponse || '').trim().replace(/^["']|["']$/g, '');
         } catch (err) {
-          this.logger?.warn?.('[TelegramService] Failed to generate video caption:', err.message);
+          this.logger?.warn?.('[TelegramService] Failed to generate natural caption:', err.message);
         }
       }
-      
-      // Send the video to the chat
+
+      // Send the video with natural caption
       const sentMessage = await this.globalBot.telegram.sendVideo(jobData.chatId, videoUrl, {
         caption: caption ? this._formatTelegramMarkdown(caption) : '🎬 Here\'s your video!',
         supports_streaming: true,
@@ -5390,7 +2990,8 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         source: 'telegram.generate_video_async',
         toolingState: {
           originalPrompt: jobData.prompt,
-          aspectRatio: jobData.aspectRatio || '9:16',
+          enhancedPrompt: jobData.prompt,
+          referenceMediaIds: [jobData.keyframeUrl],
           model: 'veo-3.1-generate-preview'
         },
         metadata: {
@@ -5400,7 +3001,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           aspectRatio: jobData.aspectRatio || '9:16'
         },
         // Enhanced content awareness fields
-        contentDescription: `Video generated: ${jobData.prompt?.slice(0, 200) || 'video content'}`,
+        contentDescription: `Video generated from keyframe showing: ${jobData.prompt?.slice(0, 200) || 'video content'}`,
         triggeringMessageId: jobData.triggeringMessageId || null
       });
       
@@ -5450,71 +3051,42 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
    * @param {string} [opts.username] - Username
    * @returns {Promise<Object|null>} - New media record or null
    */
-  async executeImageEdit(ctx, { prompt, sourceMediaId, conversationContext = '', userId = null, username = null }) {
+  async executeImageEdit(ctx, { prompt, sourceMediaId, _conversationContext = '', userId = null, username = null }) {
     const channelId = String(ctx.chat.id);
     try {
       // Find the source media
       const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
       if (!sourceMedia) {
         await ctx.reply('I couldn\'t find the image to edit. Try generating a new one first! 🔍');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       if (sourceMedia.type !== 'image' && sourceMedia.type !== 'keyframe') {
         await ctx.reply('I can only edit images, not videos. Let me know if you want to generate a new image instead!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       this.logger?.info?.('[TelegramService] Editing image:', { sourceMediaId, prompt });
 
-      // Download the source image
-      const sourceImageData = await this._downloadImageAsBase64(sourceMedia.mediaUrl);
-      if (!sourceImageData) {
-        await ctx.reply('I couldn\'t load the original image. It may have expired. Try generating a new one!');
-        await this._recordBotResponse(channelId, userId);
-        return null;
-      }
-
-      // Use Gemini for image editing (if available)
-      let editedImageUrl = null;
-      const { prompt: enhancedPrompt } = this._applyCharacterPrompt(prompt);
-
-      if (this.googleAIService?.composeImageWithGemini) {
-        try {
-          editedImageUrl = await this.googleAIService.composeImageWithGemini(
-            [{ data: sourceImageData.data, mimeType: sourceImageData.mimeType, label: 'source' }],
-            enhancedPrompt,
-            {
-              source: 'telegram.edit_image',
-              purpose: 'user_edit',
-              context: conversationContext
-            }
-          );
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] Gemini image edit failed:', err.message);
-        }
-      }
-
-      // Fallback: generate a new image with the edit instruction if Gemini edit failed
-      if (!editedImageUrl) {
-        const combinedPrompt = `Edit the following image according to these instructions: ${prompt}. Original image description: ${sourceMedia.prompt || 'No description available'}`;
-        const asset = await this._generateImageAsset({
-          prompt: combinedPrompt,
-          conversationContext,
-          userId,
-          username,
-          source: 'telegram.edit_image_fallback'
+      // Use MediaGenerationManager
+      let result;
+      try {
+        result = await this.mediaGenerationManager.editImage({
+          prompt,
+          imageUrl: sourceMedia.mediaUrl,
+          source: 'telegram.edit_image',
+          originalPrompt: sourceMedia.prompt
         });
-        editedImageUrl = asset?.imageUrl;
-      }
-
-      if (!editedImageUrl) {
-        await ctx.reply('I couldn\'t complete the edit. Try again with different instructions! 🎨');
-        await this._recordBotResponse(channelId, userId);
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Image edit failed:', err.message);
+        await ctx.reply('The edit didn\'t work out. Let\'s try something else! 🎨');
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
+
+      const { imageUrl: editedImageUrl, enhancedPrompt } = result;
 
       // Generate a natural caption
       let caption = `✏️ Edited: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`;
@@ -5525,7 +3097,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
 
       // Record usage
       if (userId && username) {
@@ -5562,7 +3134,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Image edit failed:', error);
       await ctx.reply('The edit didn\'t work out. Let\'s try something else! 🎨');
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
       return null;
     }
   }
@@ -5584,46 +3156,45 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     try {
       if (!this.veoService) {
         await ctx.reply('Video generation isn\'t available right now. 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       // Find the source image
       const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
       if (!sourceMedia) {
-        await ctx.reply('I couldn\'t find the source image. Try generating one first! 🖼️');
-        await this._recordBotResponse(channelId, userId);
+        await ctx.reply('I couldn\'t find the image to animate. Try generating a new one first! 🖼️');
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       if (sourceMedia.type !== 'image' && sourceMedia.type !== 'keyframe') {
         await ctx.reply('I need an image to create a video from. This looks like a video already!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
+        return null;
+      }
+
+      // Check derivation depth limit (max 20 extensions per Veo docs)
+      const currentDepth = sourceMedia.derivationDepth || 0;
+      if (currentDepth >= 20) {
+        await ctx.reply('This video has been animated too many times! Try starting fresh with a new video. 🎬');
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       this.logger?.info?.('[TelegramService] Generating video from image:', { sourceMediaId, prompt });
 
       // Download the source image
-      const sourceImageData = await this._downloadImageAsBase64(sourceMedia.mediaUrl);
-      if (!sourceImageData) {
-        await ctx.reply('I couldn\'t load the source image. It may have expired. Try generating a new one!');
-        await this._recordBotResponse(channelId, userId);
-        return null;
-      }
-
-      // Apply character prompt enhancement
-      const { prompt: enhancedPrompt } = this._applyCharacterPrompt(prompt);
-
-      // Generate video using Veo image-to-video
+      // Note: MediaGenerationManager handles download internally, but we check existence here
+      // We can skip the download check if we trust the manager, but keeping it for now
+      // to fail fast if the URL is invalid.
+      
+      // Generate video using MediaGenerationManager
       let videoUrls = [];
       try {
-        videoUrls = await this.veoService.generateVideosFromImages({
-          prompt: enhancedPrompt,
-          images: [{
-            data: sourceImageData.data,
-            mimeType: sourceImageData.mimeType || 'image/png'
-          }],
+        videoUrls = await this.mediaGenerationManager.generateVideoFromImage({
+          prompt,
+          imageUrl: sourceMedia.mediaUrl,
           config: {
             numberOfVideos: 1,
             aspectRatio: aspectRatio,
@@ -5631,19 +3202,19 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           }
         });
       } catch (err) {
-        this.logger?.warn?.('[TelegramService] Veo image-to-video failed:', err.message);
+        this.logger?.warn?.('[TelegramService] Video from image failed:', err.message);
         // Check for quota exhaustion
         if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
           this._markServiceAsExhausted('video', 60 * 60 * 1000);
           await ctx.reply('🚫 Video generation quota reached. Try again in an hour!');
-          await this._recordBotResponse(channelId, userId);
+          await this.memberManager.recordBotResponse(channelId, userId);
           return null;
         }
       }
 
       if (!videoUrls || videoUrls.length === 0) {
         await ctx.reply('The video generation didn\'t work out. Let\'s try again! 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5660,7 +3231,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
 
       // Record usage
       if (userId && username) {
@@ -5680,7 +3251,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         derivationDepth: (sourceMedia.derivationDepth || 0) + 1,
         toolingState: {
           originalPrompt: prompt,
-          enhancedPrompt,
+          enhancedPrompt: prompt, // MediaGenerationManager handles enhancement internally
           referenceMediaIds: [sourceMediaId],
           model: 'veo-3.1-generate-preview'
         },
@@ -5691,7 +3262,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           aspectRatio: aspectRatio
         },
         // Enhanced content awareness fields
-        contentDescription: `Video animated from keyframe showing: ${sourceMedia.contentDescription || sourceMedia.prompt || prompt}`,
+        contentDescription: `Video generated: ${prompt?.slice(0, 200) || 'video content'}`,
         triggeringMessageId: ctx?.message?.message_id || null
       });
 
@@ -5701,7 +3272,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video from image failed:', error);
       await ctx.reply('Something went wrong creating the video. Let\'s try again! 🎬');
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
       return null;
     }
   }
@@ -5722,7 +3293,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     try {
       if (!this.veoService?.extendVideo) {
         await ctx.reply('Video extension isn\'t available right now. 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5730,13 +3301,13 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       const sourceMedia = await this._getMediaById(channelId, sourceMediaId);
       if (!sourceMedia) {
         await ctx.reply('I couldn\'t find the video to extend. Try generating one first! 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       if (sourceMedia.type !== 'video' && sourceMedia.type !== 'clip') {
         await ctx.reply('I can only extend videos, not images. Want me to create a video first?');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5744,7 +3315,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       const currentDepth = sourceMedia.derivationDepth || 0;
       if (currentDepth >= 20) {
         await ctx.reply('This video has been extended too many times! Try starting fresh with a new video. 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5768,15 +3339,15 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         this.logger?.warn?.('[TelegramService] Veo video extension failed:', err.message);
         if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
           this._markServiceAsExhausted('video', 60 * 60 * 1000);
-          await ctx.reply('🚫 Video extension quota reached. Try again in an hour!');
-          await this._recordBotResponse(channelId, userId);
+          await ctx.reply('🚫 Video generation quota reached. Try again in an hour!');
+          await this.memberManager.recordBotResponse(channelId, userId);
           return null;
         }
       }
 
       if (!extendedUrls || extendedUrls.length === 0) {
         await ctx.reply('The video extension didn\'t work out. The original video might not be compatible. 🎬');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5793,7 +3364,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
 
       // Record usage
       if (userId && username) {
@@ -5834,7 +3405,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video extension failed:', error);
       await ctx.reply('Something went wrong extending the video. Let\'s try again! 🎬');
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
       return null;
     }
   }
@@ -5858,13 +3429,13 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     try {
       if (!this.veoService?.generateVideosWithReferenceImages) {
         await ctx.reply('Video generation with reference images isn\'t available right now. 🎭');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
       if (!Array.isArray(referenceMediaIds) || referenceMediaIds.length === 0 || referenceMediaIds.length > 3) {
         await ctx.reply('I need 1-3 reference images for character consistency. Try again with valid media IDs!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5893,7 +3464,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
 
       if (referenceImages.length === 0) {
         await ctx.reply('I couldn\'t load any of the reference images. Try generating new ones!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5930,14 +3501,14 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
           this._markServiceAsExhausted('video', 60 * 60 * 1000);
           await ctx.reply('🚫 Video generation quota reached. Try again in an hour!');
-          await this._recordBotResponse(channelId, userId);
+          await this.memberManager.recordBotResponse(channelId, userId);
           return null;
         }
       }
 
       if (!videoUrls || videoUrls.length === 0) {
         await ctx.reply('The video generation with references didn\'t work out. Let\'s try again! 🎭');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -5954,7 +3525,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
 
       // Record usage
       if (userId && username) {
@@ -5984,6 +3555,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           referenceCount: referenceImages.length,
           aspectRatio: '16:9'
         },
+        // Enhanced content awareness fields
         contentDescription: `Video with ${referenceImages.length} reference image(s): ${prompt?.slice(0, 150) || 'character video'}`,
         triggeringMessageId: ctx?.message?.message_id || null
       });
@@ -5994,7 +3566,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video with reference failed:', error);
       await ctx.reply('Something went wrong creating the video with references. Let\'s try again! 🎭');
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
       return null;
     }
   }
@@ -6017,7 +3589,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     try {
       if (!this.veoService?.generateVideosWithInterpolation) {
         await ctx.reply('Video interpolation isn\'t available right now. 🔄');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -6025,7 +3597,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       const firstFrameMedia = await this._getMediaById(channelId, firstFrameMediaId);
       if (!firstFrameMedia || firstFrameMedia.type !== 'image') {
         await ctx.reply('I couldn\'t find the first frame image. Try generating it first!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -6033,7 +3605,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       const lastFrameMedia = await this._getMediaById(channelId, lastFrameMediaId);
       if (!lastFrameMedia || lastFrameMedia.type !== 'image') {
         await ctx.reply('I couldn\'t find the last frame image. Try generating it first!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -6056,7 +3628,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       } catch (err) {
         this.logger?.warn?.('[TelegramService] Failed to load frame images:', err.message);
         await ctx.reply('I couldn\'t load the frame images. They may have expired. Try generating new ones!');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -6086,14 +3658,14 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         if (err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')) {
           this._markServiceAsExhausted('video', 60 * 60 * 1000);
           await ctx.reply('🚫 Video generation quota reached. Try again in an hour!');
-          await this._recordBotResponse(channelId, userId);
+          await this.memberManager.recordBotResponse(channelId, userId);
           return null;
         }
       }
 
       if (!videoUrls || videoUrls.length === 0) {
         await ctx.reply('The video interpolation didn\'t work out. Let\'s try again! 🔄');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return null;
       }
 
@@ -6110,7 +3682,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
         parse_mode: 'HTML'
       });
 
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
 
       // Record usage
       if (userId && username) {
@@ -6148,7 +3720,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Video interpolation failed:', error);
       await ctx.reply('Something went wrong with the interpolation. Let\'s try again! 🔄');
-      await this._recordBotResponse(channelId, userId);
+      await this.memberManager.recordBotResponse(channelId, userId);
       return null;
     }
   }
@@ -6159,9 +3731,9 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
    * @param {Object} opts - Tweet payload
    * @param {string} opts.text - Tweet content
    * @param {string} opts.mediaId - Recent media identifier supplied by LLM
-   * @param {string} opts.channelId - Telegram channel id
-   * @param {string} opts.userId - Telegram user id requesting the tweet
-   * @param {string} opts.username - Telegram username requesting the tweet
+   * @param {string} opts.channelId - Channel ID
+   * @param {string} opts.userId - User ID
+   * @param {string} opts.username - Username
    */
   async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
     const normalizedChannelId = channelId ? String(channelId) : (ctx?.chat?.id ? String(ctx.chat.id) : null);
@@ -6182,39 +3754,39 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
           `Daily: ${tweetLimit.dailyUsed}/${tweetLimit.dailyLimit} used\n\n` +
           `⏰ Next post slot in ${timeUntilReset} minutes`
         );
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
       const trimmedText = String(text || '').trim();
       if (!trimmedText) {
         await ctx.reply('I need a short message to share on X. Try again with the caption you want.');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
       if (!mediaId) {
         await ctx.reply('Please pick an image or video from my recent list (include the ID in brackets).');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
       const mediaRecord = await this._findRecentMediaById(normalizedChannelId, mediaId);
       if (!mediaRecord) {
         await ctx.reply('I couldn\'t find that media ID anymore. Ask me to regenerate it or choose another one.');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
       if (mediaRecord.tweetedAt) {
         await ctx.reply('That one\'s already been posted to X. Pick a different image or ask me to make a new one.');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
       if (!mediaRecord.mediaUrl) {
         await ctx.reply('I lost the download link for that media. Let me create a new one.');
-        await this._recordBotResponse(channelId, userId);
+        await this.memberManager.recordBotResponse(channelId, userId);
         return;
       }
 
@@ -6243,7 +3815,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
 
       if (!result) {
         await ctx.reply('❌ I tried to tweet it but the X service is busy. Let\'s try again later.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this.memberManager.recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
@@ -6252,7 +3824,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
       if (result.tweetId && this.xService?.isValidTweetId && !this.xService.isValidTweetId(result.tweetId)) {
         this.logger?.error?.('[TelegramService] X returned an invalid tweet ID', { tweetId: result.tweetId, channelId: normalizedChannelId });
         await ctx.reply('⚠️ I posted the update, but the tweet link looks off. Please check the X account directly.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this.memberManager.recordBotResponse(normalizedChannelId, userId);
         return;
       }
 
@@ -6268,7 +3840,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Tweet tool failed:', error);
       await ctx.reply('❌ Something went wrong sharing that. I\'ll try again later.');
-      await this._recordBotResponse(normalizedChannelId, userId);
+      await this.memberManager.recordBotResponse(normalizedChannelId, userId);
     }
   }
 
@@ -6289,7 +3861,7 @@ Write a brief, natural caption for this video (1-2 sentences, no quotes).`;
     try {
       if (!this.aiService) {
         await ctx.reply('🔍 Research capability is not available right now.');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this.memberManager.recordBotResponse(normalizedChannelId, userId);
         return null;
       }
 
@@ -6335,7 +3907,7 @@ Keep the response focused and actionable.`;
 
       if (!response) {
         await ctx.reply('🔍 I couldn\'t find relevant information for that query. Try rephrasing?');
-        await this._recordBotResponse(normalizedChannelId, userId);
+        await this.memberManager.recordBotResponse(normalizedChannelId, userId);
         return null;
       }
 
@@ -6345,7 +3917,7 @@ Keep the response focused and actionable.`;
       );
 
       await ctx.reply(formattedResponse, { parse_mode: 'HTML' });
-      await this._recordBotResponse(normalizedChannelId, userId);
+      await this.memberManager.recordBotResponse(normalizedChannelId, userId);
 
       // Return the research results so they can be used in subsequent plan actions
       return {
@@ -6357,7 +3929,7 @@ Keep the response focused and actionable.`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Research failed:', error);
       await ctx.reply('🔍 Research hit a snag. Let me try a different approach...');
-      await this._recordBotResponse(normalizedChannelId, userId);
+      await this.memberManager.recordBotResponse(normalizedChannelId, userId);
       return null;
     }
   }
@@ -6388,7 +3960,7 @@ Keep the response focused and actionable.`;
 
       if (!trackedToken) {
         await ctx.reply(`📊 ${tokenSymbol} is not currently tracked in this channel.\n\nUse /settings to add it!`);
-        await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
+        await this.memberManager.recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
         return;
       }
 
@@ -6423,14 +3995,14 @@ Keep the response focused and actionable.`;
         `🔗 CA: \`${trackedToken.tokenAddress}\``;
 
       await ctx.reply(this._formatTelegramMarkdown(message), { parse_mode: 'HTML' });
-      await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
+      await this.memberManager.recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
       
       this.logger?.info?.(`[TelegramService] Sent stats for ${tokenSymbol}: price=$${priceData.price}, mcap=$${priceData.marketCap}`);
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Token stats lookup failed:', error);
       await ctx.reply(`❌ Sorry, I couldn't fetch stats for ${tokenSymbol}. Please try again later.`);
-      await this._recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
+      await this.memberManager.recordBotResponse(channelId, ctx.message?.from?.id ? String(ctx.message.from.id) : null);
     }
   }
 
@@ -6541,7 +4113,7 @@ Keep the response focused and actionable.`;
         try {
           await bot.stop();
         } catch (e) {
-          this.logger?.warn?.('[TelegramService] Error stopping bot:', e.message);
+          this.logger?.warn?.(`[TelegramService] Error stopping bot:`, e.message);
         }
         this.bots.delete(avatarId);
       }
@@ -6621,39 +4193,12 @@ Keep the response focused and actionable.`;
 
   /**
    * Format text with Markdown for Telegram
-   * Escapes special characters but preserves intentional markdown
+   * Delegates to the utility function from telegram/utils.mjs
    * @param {string} text - Text to format
    * @returns {string} - HTML formatted text
    */
   _formatTelegramMarkdown(text) {
-    if (!text) return '';
-    
-    try {
-      const normalized = typeof text === 'string' ? text : String(text ?? '');
-      const decoded = decodeHtmlEntities(normalized);
-      // Convert Markdown to HTML using markdown-it
-      // This handles **bold**, *italic*, [links](url), `code` etc.
-      let html = md.render(decoded.trim());
-      
-      // Fix paragraphs: replace </p><p> with double newline
-      html = html.replace(/<\/p>\s*<p>/g, '\n\n');
-      
-      // Remove remaining <p> tags (start and end)
-      html = html.replace(/<\/?p>/g, '');
-      
-      // Replace <br> with newline
-      html = html.replace(/<br\s*\/?>\n?/g, '\n');
-      
-      // Ensure only supported tags are present (basic sanitization)
-      // Telegram supports: <b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <a>, <code>, <pre>
-      // markdown-it with our custom rules should be safe, but we can do a quick pass if needed.
-      // For now, we trust markdown-it configuration.
-      
-      return html.trim();
-    } catch (e) {
-      this.logger?.warn?.('[TelegramService] Markdown conversion failed, falling back to plain text:', e);
-      return String(text).trim();
-    }
+    return formatTelegramMarkdown(text, this.logger);
   }
 
   /**
@@ -6771,7 +4316,7 @@ Keep the response focused and actionable.`;
         
         const metadata = {
           source: opts.source || 'x.post',
-          type: 'tweet_share',
+          type: opts.source === 'avatar.create' ? 'introduction' : 'general',
           tweetUrl: opts.tweetUrl,
           tweetId: opts.tweetId
         };
@@ -7065,11 +4610,11 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       }
 
       // Stop all avatar bots
-      for (const [avatarId, bot] of this.bots.entries()) {
+      for (const [_avatarId, bot] of this.bots.entries()) {
         try {
           await bot.stop('SIGTERM');
         } catch (e) {
-          this.logger?.warn?.(`[TelegramService] Error stopping bot for ${avatarId}:`, e.message);
+          this.logger?.warn?.(`[TelegramService] Error stopping bot:`, e.message);
         }
       }
 

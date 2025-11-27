@@ -336,7 +336,6 @@ export class MediaManager {
     if (!channelId || !mediaId) return null;
     const normalizedChannelId = String(channelId);
     const lookupRaw = String(mediaId).trim();
-    const lookupLower = lookupRaw.toLowerCase();
 
     // Check cache first
     const cached = this.cache.findRecentMediaById(normalizedChannelId, mediaId);
@@ -565,6 +564,48 @@ export class MediaManager {
       }
     } catch (error) {
       this.logger?.warn?.('[MediaManager] Failed to mark as tweeted:', error?.message);
+    }
+  }
+
+  /**
+   * Apply arbitrary metadata updates to a media record
+   * @param {string} channelId - Channel ID
+   * @param {string} mediaId - Media ID
+   * @param {Object} updates - Fields to set on the record
+   */
+  async updateMediaMetadata(channelId, mediaId, updates = {}) {
+    if (!channelId || !mediaId || !this.databaseService) return false;
+    const normalizedChannelId = String(channelId);
+    const sanitizedUpdates = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (typeof value !== 'undefined') {
+        sanitizedUpdates[key] = value;
+      }
+    }
+
+    if (!Object.keys(sanitizedUpdates).length) {
+      return false;
+    }
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      await db.collection('telegram_recent_media').updateOne(
+        { channelId: normalizedChannelId, id: mediaId },
+        { $set: sanitizedUpdates }
+      );
+
+      const cached = this.cache.getRecentMedia(normalizedChannelId);
+      const existing = cached?.find((item) => item.id === mediaId);
+      if (existing) {
+        this.cache.addRecentMedia(normalizedChannelId, {
+          ...existing,
+          ...sanitizedUpdates,
+        });
+      }
+      return true;
+    } catch (error) {
+      this.logger?.warn?.('[MediaManager] Failed to update media metadata:', error?.message);
+      return false;
     }
   }
 
