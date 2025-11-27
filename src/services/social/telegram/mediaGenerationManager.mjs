@@ -242,7 +242,17 @@ export class MediaGenerationManager {
    * @param {Object} [options.config]
    * @returns {Promise<string[]>} List of video URLs
    */
-  async generateVideo({ prompt, config, style, camera, negativePrompt, traceId, channelId }) {
+  async generateVideo({
+    prompt,
+    config,
+    style,
+    camera,
+    negativePrompt,
+    traceId,
+    channelId,
+    keyframeImage = null,
+    referenceImages = []
+  }) {
     if (this.mediaGenerationService) {
       const result = await this.mediaGenerationService.generateVideo(prompt, {
         aspectRatio: config?.aspectRatio,
@@ -252,7 +262,9 @@ export class MediaGenerationManager {
         negativePrompt,
         traceId,
         channelId,
-        characterDesign: this._getCharacterDesign()
+        characterDesign: this._getCharacterDesign(),
+        ...(keyframeImage ? { keyframeImage } : {}),
+        referenceImages
       });
       return [result.videoUrl];
     }
@@ -260,6 +272,17 @@ export class MediaGenerationManager {
     // Fallback to direct Veo service
     if (!this.veoService) {
       throw new Error('Veo service not available');
+    }
+    
+    if (keyframeImage?.url) {
+      const keyframeData = await downloadImageAsBase64(keyframeImage.url, this.logger);
+      if (keyframeData) {
+        return await this.veoService.generateVideosFromImages({
+          prompt,
+          images: [{ data: keyframeData.data, mimeType: keyframeData.mimeType }],
+          config: config || { aspectRatio: '9:16', numberOfVideos: 1 }
+        });
+      }
     }
     
     return await this.veoService.generateVideos({

@@ -906,6 +906,58 @@ class TelegramService {
     return this.mediaManager.getDerivedMedia(originMediaId);
   }
 
+  /**
+   * Resolve media IDs into usable reference images for follow-up generations
+   * Filters out stale or non-image media and limits the total returned records
+   * @param {string} channelId - Channel identifier
+   * @param {Object} options
+   * @param {string[]} [options.explicitIds=[]] - Media IDs explicitly requested
+   * @param {string|null} [options.fallbackId=null] - Optional fallback media ID
+   * @param {number} [options.max=3] - Maximum number of references to return
+   * @returns {Promise<Array>} Array of media records suitable for references
+   */
+  async _resolveReferenceMedia(channelId, { explicitIds = [], fallbackId = null, max = 3 } = {}) {
+    if (!channelId) return [];
+
+    const idQueue = [];
+    const seen = new Set();
+    const pushId = (id) => {
+      if (!id) return;
+      const cleanId = String(id).trim();
+      if (!cleanId || seen.has(cleanId)) return;
+      seen.add(cleanId);
+      idQueue.push(cleanId);
+    };
+
+    explicitIds.forEach(pushId);
+    pushId(fallbackId);
+
+    if (!idQueue.length) {
+      return [];
+    }
+
+    const references = [];
+    for (const mediaId of idQueue) {
+      if (references.length >= max) break;
+      try {
+        const mediaRecord = await this._getMediaById(channelId, mediaId);
+        if (!mediaRecord) continue;
+        if (!['image', 'keyframe'].includes(mediaRecord.type)) continue;
+
+        const createdAt = new Date(mediaRecord.createdAt || 0).getTime();
+        if (!Number.isFinite(createdAt)) continue;
+        const ageMs = Date.now() - createdAt;
+        if (this.RECENT_MEDIA_MAX_AGE_MS && ageMs > this.RECENT_MEDIA_MAX_AGE_MS) continue;
+
+        references.push(mediaRecord);
+      } catch (err) {
+        this.logger?.debug?.('[TelegramService] Failed to resolve media reference:', err?.message);
+      }
+    }
+
+    return references;
+  }
+
   _pruneAgentPlans(channelId) {
     const cache = this.agentPlansByChannel.get(channelId);
     if (!cache || cache.length === 0) return;
@@ -2577,7 +2629,14 @@ Your caption:`;
    * @param {string} [options.negativePrompt] - Things to avoid
    */
   async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
-    const { aspectRatio = '16:9', style, camera, negativePrompt } = options;
+    const {
+      aspectRatio = '16:9',
+      style,
+      camera,
+      negativePrompt,
+      referenceMediaIds = [],
+      fallbackReferenceMediaId = null
+    } = options;
     const traceId = generateTraceId();
     const channelId = ctx?.chat?.id ? String(ctx.chat.id) : null;
     
@@ -2592,10 +2651,28 @@ Your caption:`;
         this.logger?.debug?.('[TelegramService] Could not send progress message:', err?.message);
       }
 
+      let referenceMediaRecords = [];
+      if (channelId && (referenceMediaIds?.length || fallbackReferenceMediaId)) {
+        referenceMediaRecords = await this._resolveReferenceMedia(channelId, {
+          explicitIds: referenceMediaIds,
+          fallbackId: fallbackReferenceMediaId,
+          max: 3
+        });
+      }
+
+      const referenceImageUrls = referenceMediaRecords.map((record) => record.mediaUrl).filter(Boolean);
+      const keyframeImage = referenceImageUrls.length ? { url: referenceImageUrls[0] } : null;
+
       this.logger?.info?.('[TelegramService] Generating video:', { 
         traceId,
         prompt: prompt.substring(0, 100), 
-        userId, username, aspectRatio, style, camera
+        userId,
+        username,
+        aspectRatio,
+        style,
+        camera,
+        referenceCount: referenceImageUrls.length,
+        keyframeMediaId: keyframeImage ? referenceMediaRecords[0]?.id : null
       });
       
       let videoUrl = null;
@@ -2609,7 +2686,9 @@ Your caption:`;
         camera,
         negativePrompt,
         traceId,
-        channelId
+        channelId,
+        keyframeImage,
+        referenceImages: referenceImageUrls
       });
       
       if (!videoUrls?.length) {
@@ -2692,7 +2771,8 @@ Your caption:`;
           originalPrompt: prompt,
           enhancedPrompt: enhancedPrompt || prompt,
           aspectRatio,
-          model: 'veo-3.1-generate-preview'
+          model: 'veo-3.1-generate-preview',
+          referenceMediaIds: referenceMediaRecords.map((record) => record.id)
         },
         metadata: {
           requestedBy: userId,

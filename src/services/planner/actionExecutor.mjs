@@ -192,11 +192,20 @@ export class GenerateVideoExecutor extends ActionExecutor {
   }
 
   async execute(step, context) {
-    const { ctx, conversationContext, userId, username, services, stepNum } = context;
+    const { ctx, conversationContext, userId, username, services, stepNum, latestMediaId } = context;
     
+    const referenceMediaIds = Array.isArray(step.referenceMediaIds)
+      ? step.referenceMediaIds.filter(Boolean)
+      : [];
+
     // Video typically uses 9:16 (vertical) for social media, unless specified
     const options = {
-      aspectRatio: step.aspectRatio || '9:16'
+      aspectRatio: step.aspectRatio || '9:16',
+      style: step.style,
+      camera: step.camera,
+      negativePrompt: step.negativePrompt,
+      referenceMediaIds,
+      fallbackReferenceMediaId: referenceMediaIds.length ? null : latestMediaId
     };
     
     const record = await services.telegram.executeVideoGeneration(
