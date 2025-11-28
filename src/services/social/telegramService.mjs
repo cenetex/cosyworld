@@ -58,6 +58,7 @@ import {
   getActionIcon,
   getActionLabel,
   logPlanSummary,
+  validatePlan,
 } from './telegram/index.mjs';
 
 const VIDEO_DEFAULTS = Object.freeze({
@@ -100,6 +101,8 @@ class TelegramService {
     
     // Initialize Managers
     this.cacheManager = new CacheManager({ logger: this.logger });
+    this.recentMediaByChannel = this.cacheManager.recentMediaByChannel;
+    this.agentPlansByChannel = this.cacheManager.agentPlansByChannel;
     
     this.memberManager = new MemberManager({
       logger: this.logger,
@@ -119,6 +122,17 @@ class TelegramService {
       cacheManager: this.cacheManager,
       mediaIndexService: this.mediaIndexService,
     });
+
+    Object.defineProperty(this, '_indexesReady', {
+      get: () => this.mediaManager?._indexesReady ?? false,
+      set: (value) => {
+        if (this.mediaManager) {
+          this.mediaManager._indexesReady = value;
+        }
+      }
+    });
+
+    this.RECENT_MEDIA_LIMIT = MEDIA_CONFIG.RECENT_LIMIT;
 
     this.planManager = new PlanManager({
       logger: this.logger,
@@ -700,7 +714,6 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
   }
 
   async executePlanActions(ctx, planEntry, channelId, userId, username, conversationContext) {
-    const { validatePlan } = await import('./telegram/toolDefinitions.mjs');
     const plan = {
       objective: planEntry.objective || 'Respond thoughtfully',
       steps: Array.isArray(planEntry?.steps) ? planEntry.steps : [],
@@ -708,14 +721,22 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     };
 
     if (plan.steps.length === 0) {
-      await ctx.reply('I need at least one planned step to act on.');
+      await ctx.reply('I need at least one planned step to act on. Try planning again with a specific goal.');
       return;
     }
 
-    const validation = validatePlan(plan);
+    const validationFn = typeof this.planExecutionService?.validatePlan === 'function'
+      ? this.planExecutionService.validatePlan.bind(this.planExecutionService)
+      : validatePlan;
+    const validation = validationFn(plan);
     if (!validation.valid) {
-      await ctx.reply(`🚫 Invalid plan: ${validation.errors.join(', ')}`);
+      const errors = Array.isArray(validation.errors) ? validation.errors : [];
+      const bullets = errors.map((err, idx) => `${idx + 1}. ${err}`).slice(0, 5).join('\n');
+      await ctx.reply(`🚫 I couldn't execute that plan:\n${bullets}`.trim());
       return;
+    }
+    if (Array.isArray(validation.warnings) && validation.warnings.length) {
+      this.logger?.warn?.('[TelegramService] Plan validation warnings:', validation.warnings);
     }
 
     logPlanSummary(plan, this.logger);
@@ -742,19 +763,23 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       }
     };
 
+    let executionResult = null;
     try {
-      const result = await this.planExecutionService.executePlan(plan, executionContext, {
+      executionResult = await this.planExecutionService.executePlan(plan, executionContext, {
         onProgress: updateProgress,
+        onStepComplete: async () => {},
         onError: async (err, num, act) => { await ctx.reply(`⚠️ Step ${num} (${act}) failed: ${err.message}`); }
       });
       
       // Intentionally no success/failure notification to avoid extra spam in chats
     } catch (error) {
-      this.logger?.error?.('[TelegramService] Plan execution failed:', error);
-      await ctx.reply('Planning fizzled out for a moment—try again.');
+      this.logger?.error?.('[TelegramService] executePlanActions error:', error);
+      await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
     } finally {
       await this.interactionManager.deleteProgressMessage(ctx, progressMessageId, channelId);
     }
+
+    return executionResult;
   }
 
   // ===========================================================================
@@ -803,7 +828,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     }
   }
 
-  async executeVideoGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
+  async executeVideoGeneration(ctx, prompt, _conversationContext = '', userId = null, username = null, options = {}) {
     const { aspectRatio = '16:9', style, camera, negativePrompt } = options;
     const traceId = generateTraceId();
     const channelId = String(ctx.chat.id);
@@ -847,24 +872,53 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
 
   async queueVideoGenerationAsync(ctx, prompt, options = {}) {
     const channelId = String(ctx.chat.id);
+    const limits = await this.checkMediaGenerationLimit(null, 'video');
+    if (!limits.allowed) {
+      await ctx.reply('🎬 Video generation charges are fully used up right now.');
+      return { queued: false, error: 'rate_limit' };
+    }
+
     const traceId = generateTraceId();
-    
     if (!this._acquireVideoGenerationLock(channelId, traceId)) {
       await ctx.reply('🎬 Still processing previous video.');
       return { queued: false, error: 'in_progress' };
+    }
+
+    let keyframeUrl = options.keyframeUrl || null;
+    let enhancedPrompt = prompt;
+    if (!keyframeUrl) {
+      try {
+        const keyframe = await this._generateImageAsset({
+          prompt,
+          conversationContext: options.conversationContext,
+          userId: options.userId,
+          username: options.username,
+          source: 'telegram.video_keyframe_async'
+        });
+        keyframeUrl = keyframe?.imageUrl || null;
+        if (keyframe?.enhancedPrompt) {
+          enhancedPrompt = keyframe.enhancedPrompt;
+        }
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Async keyframe generation failed:', err?.message || err);
+      }
     }
 
     try {
       const db = await this.databaseService.getDatabase();
       const jobDoc = {
         type: 'telegram-video',
+        platform: 'telegram',
         status: 'queued',
         createdAt: new Date(),
-        prompt,
+        prompt: enhancedPrompt,
+        originalPrompt: prompt,
         channelId,
         chatId: ctx.chat.id,
         userId: options.userId,
         username: options.username,
+        conversationContext: options.conversationContext || null,
+        keyframeUrl,
         config: {
           aspectRatio: options.aspectRatio || '9:16',
           style: options.style,
@@ -886,7 +940,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Queue failed:', error);
       this._releaseVideoGenerationLock(channelId, traceId);
-      await ctx.reply('Error queueing video.');
+      await ctx.reply('Error queueing video. Please try again soon.');
       return { queued: false, error: error.message };
     }
   }
@@ -1045,6 +1099,47 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
   }
 
+  async _generateImageAsset(params) {
+    if (!this.mediaGenerationManager?.generateImageAsset) {
+      throw new Error('Image generation unavailable');
+    }
+    return this.mediaGenerationManager.generateImageAsset(params);
+  }
+
+  async _rememberGeneratedMedia(channelId, entry) {
+    const record = await this.mediaManager.rememberGeneratedMedia(channelId, entry);
+    if (record) {
+      const limit = Number.isFinite(this.RECENT_MEDIA_LIMIT)
+        ? Math.max(1, Number(this.RECENT_MEDIA_LIMIT))
+        : MEDIA_CONFIG.RECENT_LIMIT;
+      const cached = (this.recentMediaByChannel.get(record.channelId) || []).slice(0, limit);
+      this.recentMediaByChannel.set(record.channelId, cached);
+    }
+    return record;
+  }
+
+  async _getRecentMedia(channelId, limit = MEDIA_CONFIG.RECENT_LIMIT) {
+    return this.mediaManager.getRecentMedia(channelId, limit);
+  }
+
+  async _markMediaAsTweeted(channelId, mediaId, meta = {}) {
+    return this.mediaManager.markMediaAsTweeted(channelId, mediaId, meta);
+  }
+
+  async _ensureTelegramIndexes() {
+    if (!this.mediaManager) return false;
+    await this.mediaManager.ensureIndexes();
+    return this._indexesReady;
+  }
+
+  _formatTelegramMarkdown(text) {
+    return formatTelegramMarkdown(text, this.logger);
+  }
+
+  async _buildPlanContext(channelId, limit = 3) {
+    return this.planManager.buildPlanContext(channelId, limit);
+  }
+
   // Refactored helper for resolving media references (uses MediaManager directly)
   async _collectReferenceImages(channelId, { explicitIds = [], fallbackId = null } = {}) {
     const urls = [];
@@ -1108,6 +1203,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         `📊 *${token.tokenSymbol}*\n💰 Price: $${priceData?.price || '?'}\n🔗 \`${token.tokenAddress}\``
       ), { parse_mode: 'HTML' });
     } catch (err) {
+      this.logger?.error?.('[TelegramService] Token stats lookup failed:', err);
       await ctx.reply('❌ Failed to fetch stats.');
     }
   }
@@ -1115,6 +1211,12 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
   async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
     if (!this.xService) {
       await ctx.reply('🚫 X service unavailable.');
+      return;
+    }
+
+    const tweetLimits = await this.checkMediaGenerationLimit(null, 'tweet');
+    if (!tweetLimits.allowed) {
+      await ctx.reply('🐦 X posting is cooling down. Try again later.');
       return;
     }
     
@@ -1138,8 +1240,15 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     }, { aiService: this.aiService });
     
     if (result?.tweetId) {
-      await this.mediaManager.markMediaAsTweeted(channelId, media.id, { tweetId: result.tweetId });
-      await ctx.reply(`🕊️ Tweeted! ${result.tweetUrl}`);
+      await this._markMediaAsTweeted(channelId, media.id, { tweetId: result.tweetId });
+      if (ctx.telegram?.sendPhoto) {
+        await ctx.telegram.sendPhoto(channelId, media.mediaUrl, {
+          caption: `🕊️ Posted to X: ${result.tweetUrl || ''}`.trim(),
+          parse_mode: 'HTML'
+        });
+      } else {
+        await ctx.reply(`🕊️ Posted to X: ${result.tweetUrl || ''}`.trim());
+      }
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
     } else {
       await ctx.reply('❌ Failed to tweet.');

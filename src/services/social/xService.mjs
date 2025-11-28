@@ -1113,6 +1113,13 @@ class XService {
             mediaId = await oauth1Client.v1.uploadMedia(buffer, { mimeType });
             this.logger?.debug?.('[XService][globalPost] OAuth 1.0a upload success', { mediaId });
           } catch (oauth1Err) {
+            const authCode = oauth1Err?.code ?? oauth1Err?.status;
+            if (isVideo && authCode === 401) {
+              this.logger?.error?.('[XService][globalPost] VIDEO AUTH ALERT: OAuth 1.0a credentials rejected (401). Regenerate access token + secret before posting again.', {
+                guildId: guildId || null,
+                avatarId: authRecord?.avatarId || null
+              });
+            }
             this.logger?.error?.('[XService][globalPost] OAuth 1.0a upload failed', {
               message: oauth1Err?.message,
               code: oauth1Err?.code

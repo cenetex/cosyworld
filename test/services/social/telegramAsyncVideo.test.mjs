@@ -380,7 +380,7 @@ describe('TelegramService Async Video Generation', () => {
       
       expect(result.queued).toBe(false);
       expect(result.error).toBe('DB error');
-      expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('error queueing'));
+      expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Error queueing'));
     });
   });
 });

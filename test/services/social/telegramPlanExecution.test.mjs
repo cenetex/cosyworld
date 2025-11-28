@@ -210,9 +210,7 @@ describe('TelegramService.executePlanActions', () => {
       'progress-1',
       'channel-123'
     );
-    expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Plan completed')
-    );
+    expect(ctx.reply).not.toHaveBeenCalled();
     expect(result).toMatchObject({ success: true, successCount: 2 });
   });
 

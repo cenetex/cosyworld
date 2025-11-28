@@ -14,6 +14,7 @@
 import {
   DEFAULT_ORB_COLLECTION_ADDRESS,
   POLLING_INTERVAL_MS,
+  POLLING_JITTER_MS,
   MAX_TRACKED_TOKENS_PER_CHANNEL,
   MAX_TRACKED_COLLECTIONS_PER_CHANNEL,
   MAX_TOTAL_ACTIVE_WEBHOOKS,
@@ -128,6 +129,24 @@ export class BuybotService {
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
     this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
     this.ACTIVITY_SUMMARIES_COLLECTION = 'buybot_activity_summaries'; // New collection for Discord summaries
+  }
+
+  /**
+   * Compute jittered delay for buybot polling to prevent synchronized requests
+   * @param {Object} options
+   * @param {boolean} options.includeStartupJitter - Adds extra one-time delay for first poll
+   * @returns {number}
+   */
+  _getPollingDelayMs({ includeStartupJitter = false } = {}) {
+    const jitterWindow = Number(POLLING_JITTER_MS) || 0;
+    const randomJitter = jitterWindow > 0
+      ? Math.floor(Math.random() * (2 * jitterWindow + 1)) - jitterWindow
+      : 0;
+    const startupSpread = includeStartupJitter
+      ? Math.floor(Math.random() * Math.min(60000, Math.max(5000, jitterWindow || 60000)))
+      : 0;
+    const delay = POLLING_INTERVAL_MS + randomJitter + startupSpread;
+    return Math.max(1000, delay);
   }
 
   /**
@@ -1351,15 +1370,15 @@ export class BuybotService {
       // Schedule next poll
       const webhookData = this.activeWebhooks.get(key);
       if (webhookData) {
-        webhookData.pollTimeout = setTimeout(doPoll, POLLING_INTERVAL_MS);
+        const nextDelay = this._getPollingDelayMs();
+        webhookData.pollTimeout = setTimeout(doPoll, nextDelay);
         webhookData.lastChecked = Date.now();
+        this.logger?.debug?.(`[BuybotService] Scheduled next poll for ${tokenAddress} in ${channelId} after ${Math.round(nextDelay / 1000)}s`);
       }
     };
 
-    // Add random jitter to initial poll to spread load (0-60 seconds)
-    // This prevents all tokens from polling simultaneously on startup
-    const initialJitter = Math.floor(Math.random() * 60000);
-    const initialDelay = POLLING_INTERVAL_MS + initialJitter;
+    // Add jitter to the initial poll so restored tokens do not hammer the API at once
+    const initialDelay = this._getPollingDelayMs({ includeStartupJitter: true });
 
     // Store webhook data
     const webhookData = {
