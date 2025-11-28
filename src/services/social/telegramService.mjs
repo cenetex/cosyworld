@@ -60,6 +60,14 @@ import {
   logPlanSummary,
 } from './telegram/index.mjs';
 
+const VIDEO_DEFAULTS = Object.freeze({
+  STYLE: 'cinematic',
+  CAMERA: 'wide tracking shot'
+});
+
+const MAX_REFERENCE_IMAGES = 3;
+const VIDEO_LOCK_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes to cover Veo's SLA
+
 class TelegramService {
   constructor({
     logger,
@@ -202,6 +210,9 @@ class TelegramService {
     this.interactionManager = new InteractionManager({
       logger: this.logger,
     });
+
+    this._videoGenerationLocks = new Map(); // channelId -> { traceId, expiresAt }
+    this.VIDEO_GENERATION_LOCK_MS = VIDEO_LOCK_TIMEOUT_MS;
   }
 
   /**
@@ -261,6 +272,10 @@ class TelegramService {
         );
       }
       
+      if (channelId) {
+        this._refreshVideoGenerationLock(String(channelId), traceId);
+      }
+
       // Update last update time
       handler.lastUpdate = Date.now();
       
@@ -956,6 +971,88 @@ class TelegramService {
     }
 
     return references;
+  }
+
+  _getCharacterDesignConfig() {
+    return this.globalBotService?.bot?.globalBotConfig?.characterDesign || null;
+  }
+
+  _getPersonaReferenceUrl() {
+    const design = this._getCharacterDesignConfig();
+    if (!design?.enabled) return null;
+    return design.referenceImageUrl || null;
+  }
+
+  async _collectReferenceImages(channelId, { explicitIds = [], fallbackId = null } = {}) {
+    const referencesFromHistory = channelId
+      ? await this._resolveReferenceMedia(channelId, { explicitIds, fallbackId, max: MAX_REFERENCE_IMAGES })
+      : [];
+
+    const personaUrl = this._getPersonaReferenceUrl();
+    const urls = [];
+    const recordIds = [];
+    const sources = [];
+    const seen = new Set();
+
+    const pushUrl = (url, sourceLabel, recordId = null) => {
+      if (!url || urls.length >= MAX_REFERENCE_IMAGES) return false;
+      const trimmed = String(url).trim();
+      if (!trimmed || seen.has(trimmed)) return false;
+      seen.add(trimmed);
+      urls.push(trimmed);
+      sources.push(sourceLabel);
+      if (recordId) {
+        recordIds.push(recordId);
+      }
+      return true;
+    };
+
+    if (personaUrl) {
+      pushUrl(personaUrl, 'persona');
+    }
+
+    for (const record of referencesFromHistory) {
+      pushUrl(record.mediaUrl, 'recent_media', record.id);
+    }
+
+    return {
+      urls,
+      recordIds,
+      personaReferenceUsed: Boolean(personaUrl && seen.has(personaUrl)),
+      sources
+    };
+  }
+
+  _acquireVideoGenerationLock(channelId, traceId) {
+    if (!channelId) return true;
+    const now = Date.now();
+    const current = this._videoGenerationLocks.get(channelId);
+    if (current && current.expiresAt > now && current.traceId !== traceId) {
+      return false;
+    }
+    this._videoGenerationLocks.set(channelId, {
+      traceId,
+      expiresAt: now + this.VIDEO_GENERATION_LOCK_MS
+    });
+    return true;
+  }
+
+  _refreshVideoGenerationLock(channelId, traceId) {
+    if (!channelId) return;
+    const current = this._videoGenerationLocks.get(channelId);
+    if (current && current.traceId === traceId) {
+      current.expiresAt = Date.now() + this.VIDEO_GENERATION_LOCK_MS;
+      this._videoGenerationLocks.set(channelId, current);
+    }
+  }
+
+  _releaseVideoGenerationLock(channelId, traceId) {
+    if (!channelId) return;
+    const current = this._videoGenerationLocks.get(channelId);
+    if (!current) return;
+    if (!traceId || current.traceId === traceId) {
+      this._videoGenerationLocks.delete(channelId);
+    }
   }
 
   _pruneAgentPlans(channelId) {
@@ -2639,6 +2736,12 @@ Your caption:`;
     } = options;
     const traceId = generateTraceId();
     const channelId = ctx?.chat?.id ? String(ctx.chat.id) : null;
+    const lockAcquired = this._acquireVideoGenerationLock(channelId, traceId);
+
+    if (!lockAcquired) {
+      await ctx.reply('🎬 I\'m still rendering the last video—give me another minute and I\'ll post it!');
+      return null;
+    }
     
     try {
       // Send initial progress message and register for updates
@@ -2651,28 +2754,24 @@ Your caption:`;
         this.logger?.debug?.('[TelegramService] Could not send progress message:', err?.message);
       }
 
-      let referenceMediaRecords = [];
-      if (channelId && (referenceMediaIds?.length || fallbackReferenceMediaId)) {
-        referenceMediaRecords = await this._resolveReferenceMedia(channelId, {
-          explicitIds: referenceMediaIds,
-          fallbackId: fallbackReferenceMediaId,
-          max: 3
-        });
-      }
-
-      const referenceImageUrls = referenceMediaRecords.map((record) => record.mediaUrl).filter(Boolean);
-      const keyframeImage = referenceImageUrls.length ? { url: referenceImageUrls[0] } : null;
+      const referenceContext = await this._collectReferenceImages(channelId, {
+        explicitIds: referenceMediaIds,
+        fallbackId: fallbackReferenceMediaId
+      });
+      const effectiveAspectRatio = referenceContext.urls.length ? '16:9' : aspectRatio;
+      const resolvedStyle = style || VIDEO_DEFAULTS.STYLE;
+      const resolvedCamera = camera || VIDEO_DEFAULTS.CAMERA;
 
       this.logger?.info?.('[TelegramService] Generating video:', { 
         traceId,
         prompt: prompt.substring(0, 100), 
         userId,
         username,
-        aspectRatio,
-        style,
-        camera,
-        referenceCount: referenceImageUrls.length,
-        keyframeMediaId: keyframeImage ? referenceMediaRecords[0]?.id : null
+        aspectRatio: effectiveAspectRatio,
+        style: resolvedStyle,
+        camera: resolvedCamera,
+        referenceCount: referenceContext.urls.length,
+        referenceSources: referenceContext.sources
       });
       
       let videoUrl = null;
@@ -2681,14 +2780,13 @@ Your caption:`;
       // Use MediaGenerationManager
       const videoUrls = await this.mediaGenerationManager.generateVideo({
         prompt,
-        config: { aspectRatio, durationSeconds: 8 },
-        style,
-        camera,
+        config: { aspectRatio: effectiveAspectRatio, durationSeconds: 8 },
+        style: resolvedStyle,
+        camera: resolvedCamera,
         negativePrompt,
         traceId,
         channelId,
-        keyframeImage,
-        referenceImages: referenceImageUrls
+        referenceImages: referenceContext.urls
       });
       
       if (!videoUrls?.length) {
@@ -2770,23 +2868,30 @@ Your caption:`;
         toolingState: {
           originalPrompt: prompt,
           enhancedPrompt: enhancedPrompt || prompt,
-          aspectRatio,
+          aspectRatio: effectiveAspectRatio,
           model: 'veo-3.1-generate-preview',
-          referenceMediaIds: referenceMediaRecords.map((record) => record.id)
+          referenceMediaIds: referenceContext.recordIds,
+          personaReference: referenceContext.personaReferenceUsed
         },
         metadata: {
           requestedBy: userId,
           requestedByUsername: username || null,
-          aspectRatio,
+          aspectRatio: effectiveAspectRatio,
           contentDescription: prompt.slice(0, 200),
-          triggeringMessageId: ctx.message?.message_id || null
+          triggeringMessageId: ctx.message?.message_id || null,
+          referenceSources: referenceContext.sources
         }
       });
-      this.logger?.info?.('[TelegramService] Video posted, marked as bot activity', { mediaId: mediaRecord?.id, aspectRatio });
+      this.logger?.info?.('[TelegramService] Video posted, marked as bot activity', {
+        mediaId: mediaRecord?.id,
+        aspectRatio: effectiveAspectRatio
+      });
       return mediaRecord;
 
     } catch (error) {
       return await this._handleMediaError(ctx, error, 'video', userId);
+    } finally {
+      this._releaseVideoGenerationLock(channelId, traceId);
     }
   }
 
@@ -2819,8 +2924,16 @@ Your caption:`;
       aspectRatio = '9:16',
       style = null,
       camera = null,
-      negativePrompt = null
+      negativePrompt = null,
+      referenceMediaIds = [],
+      fallbackReferenceMediaId = null
     } = options;
+    const traceId = generateTraceId();
+    const lockAcquired = this._acquireVideoGenerationLock(channelId, traceId);
+    if (!lockAcquired) {
+      await ctx.reply('🎬 I\'m still finishing your last video—hang tight and I\'ll deliver it soon.');
+      return { queued: false, error: 'in_progress' };
+    }
     
     try {
       // Check rate limits before queuing
@@ -2849,32 +2962,13 @@ Your caption:`;
           characterDescription: charDesignConfig?.enabled ? charDesignConfig.characterDescription : null
         });
       }
-
-      // Generate keyframe image first (this is relatively quick ~30s)
-      let keyframeUrl = options.keyframeUrl;
-      
-      if (!keyframeUrl) {
-        try {
-          const keyframeAsset = await this._generateImageAsset({
-            prompt,
-            conversationContext,
-            userId,
-            username,
-            fetchBinary: false, // Just need the URL for the job
-            source: 'telegram.video_keyframe_async'
-          });
-          
-          if (keyframeAsset?.imageUrl) {
-            keyframeUrl = keyframeAsset.imageUrl;
-            if (keyframeAsset.enhancedPrompt) {
-              enhancedPrompt = keyframeAsset.enhancedPrompt;
-            }
-            this.logger?.info?.('[TelegramService] Generated keyframe for async video job', { keyframeUrl });
-          }
-        } catch (err) {
-          this.logger?.warn?.('[TelegramService] Keyframe generation failed for async job:', err.message);
-        }
-      }
+      const referenceContext = await this._collectReferenceImages(channelId, {
+        explicitIds: referenceMediaIds,
+        fallbackId: fallbackReferenceMediaId
+      });
+      const effectiveAspectRatio = referenceContext.urls.length ? '16:9' : aspectRatio;
+      const resolvedStyle = style || VIDEO_DEFAULTS.STYLE;
+      const resolvedCamera = camera || VIDEO_DEFAULTS.CAMERA;
 
       // Store the video job in the database for async processing
       const db = await this.databaseService.getDatabase();
@@ -2893,23 +2987,26 @@ Your caption:`;
         attempts: 0,
         prompt: enhancedPrompt,
         originalPrompt: prompt,
-        keyframeUrl: keyframeUrl || null,
+        referenceImageUrls: referenceContext.urls,
         channelId,
         chatId: ctx.chat.id,
         userId,
         username,
         conversationContext: conversationContext.slice(0, 2000), // Limit context size
-        aspectRatio,
-        style,
-        camera,
+        aspectRatio: effectiveAspectRatio,
+        style: resolvedStyle,
+        camera: resolvedCamera,
         negativePrompt: negativePromptStr,
         triggeringMessageId: ctx?.message?.message_id || null,
         config: {
-          aspectRatio,
+          aspectRatio: effectiveAspectRatio,
           numberOfVideos: 1,
           durationSeconds: 8,
           negativePrompt: negativePromptStr
         },
+        referenceSources: referenceContext.sources,
+        personaReferenceUsed: referenceContext.personaReferenceUsed,
+        lockTraceId: traceId,
         result: null,
         lastError: null,
       };
@@ -2918,7 +3015,10 @@ Your caption:`;
       const jobId = result.insertedId?.toString() || 'unknown';
       
       this.logger?.info?.(`[TelegramService] Queued async video job: ${jobId}`, { 
-        channelId, userId, hasKeyframe: !!keyframeUrl 
+        channelId,
+        userId,
+        referenceCount: referenceContext.urls.length,
+        referenceSources: referenceContext.sources
       });
 
       // Acknowledge immediately
@@ -2939,6 +3039,7 @@ Your caption:`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] Failed to queue video job:', error.message);
       await ctx.reply('Sorry, there was an error queueing your video. Please try again.');
+      this._releaseVideoGenerationLock(channelId, traceId);
       return { queued: false, error: error.message };
     }
   }
@@ -2972,23 +3073,32 @@ Your caption:`;
       
       // Generate the video
       let videoUrls;
+      const referenceUrls = Array.isArray(jobData.referenceImageUrls) ? jobData.referenceImageUrls.filter(Boolean) : [];
       
-      if (jobData.keyframeUrl && this.veoService) {
-        // Try image-to-video first
+      if (referenceUrls.length && this.veoService?.generateVideosWithReferenceImages) {
         try {
-          // Download keyframe as base64
-          const response = await fetch(jobData.keyframeUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          const base64Image = Buffer.from(arrayBuffer).toString('base64');
-          const mimeType = response.headers.get('content-type') || 'image/png';
-          
-          videoUrls = await this.veoService.generateVideosFromImages({
-            prompt: jobData.prompt,
-            images: [{ data: base64Image, mimeType }],
-            config: jobData.config || { aspectRatio: '9:16', numberOfVideos: 1 }
-          });
+          const referenceImages = [];
+          for (const url of referenceUrls) {
+            if (referenceImages.length >= MAX_REFERENCE_IMAGES) break;
+            const data = await this._downloadImageAsBase64(url);
+            if (data?.data) {
+              referenceImages.push({ data: data.data, mimeType: data.mimeType || 'image/png' });
+            }
+          }
+          if (referenceImages.length) {
+            const referenceConfig = {
+              ...(jobData.config || {}),
+              aspectRatio: '16:9',
+              durationSeconds: 8
+            };
+            videoUrls = await this.veoService.generateVideosWithReferenceImages({
+              prompt: jobData.prompt,
+              referenceImages,
+              config: referenceConfig
+            });
+          }
         } catch (err) {
-          this.logger?.warn?.('[TelegramService] Keyframe-to-video failed, trying text-to-video:', err.message);
+          this.logger?.warn?.('[TelegramService] Reference video generation failed, falling back:', err.message);
         }
       }
       
@@ -2996,7 +3106,7 @@ Your caption:`;
       if (!videoUrls?.length && this.veoService) {
         videoUrls = await this.veoService.generateVideos({
           prompt: jobData.prompt,
-          config: jobData.config || { aspectRatio: '9:16', numberOfVideos: 1 }
+          config: jobData.config || { aspectRatio: '16:9', numberOfVideos: 1 }
         });
       }
       
@@ -3071,21 +3181,24 @@ Your caption:`;
         toolingState: {
           originalPrompt: jobData.prompt,
           enhancedPrompt: jobData.prompt,
-          referenceMediaIds: [jobData.keyframeUrl],
+          referenceMediaIds: [],
+          personaReference: jobData.personaReferenceUsed,
           model: 'veo-3.1-generate-preview'
         },
         metadata: {
           jobId,
           requestedBy: jobData.userId,
           requestedByUsername: jobData.username,
-          aspectRatio: jobData.aspectRatio || '9:16'
+          aspectRatio: jobData.aspectRatio || '16:9',
+          referenceSources: jobData.referenceSources || []
         },
         // Enhanced content awareness fields
-        contentDescription: `Video generated from keyframe showing: ${jobData.prompt?.slice(0, 200) || 'video content'}`,
+        contentDescription: `Video generated with character references: ${jobData.prompt?.slice(0, 200) || 'video content'}`,
         triggeringMessageId: jobData.triggeringMessageId || null
       });
       
       this.logger?.info?.(`[TelegramService] Video job ${jobId} completed successfully`);
+      this._releaseVideoGenerationLock(jobData.channelId, jobData.lockTraceId);
       
     } catch (error) {
       this.logger?.error?.(`[TelegramService] Video job ${jobId} failed:`, error.message);
@@ -3116,6 +3229,9 @@ Your caption:`;
             '❌ Sorry, video generation failed after multiple attempts. Please try again later.'
           );
         } catch {}
+        this._releaseVideoGenerationLock(jobData.channelId, jobData.lockTraceId);
+      } else {
+        this._refreshVideoGenerationLock(jobData.channelId, jobData.lockTraceId);
       }
     }
   }
