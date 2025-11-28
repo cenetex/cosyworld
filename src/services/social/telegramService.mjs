@@ -1147,6 +1147,10 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     return this.memberManager.recordBotResponse(channelId, userId);
   }
 
+  _getGlobalChannelId() {
+    return this.configService?.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
+  }
+
   async _buildPlanContext(channelId, limit = 3) {
     return this.planManager.buildPlanContext(channelId, limit);
   }
@@ -1252,18 +1256,106 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     
     if (result?.tweetId) {
       await this._markMediaAsTweeted(channelId, media.id, { tweetId: result.tweetId });
-      if (ctx.telegram?.sendPhoto) {
-        await ctx.telegram.sendPhoto(channelId, media.mediaUrl, {
-          caption: `🕊️ Posted to X: ${result.tweetUrl || ''}`.trim(),
-          parse_mode: 'HTML'
-        });
+      const linkText = (result.tweetUrl || '').trim();
+      if (linkText) {
+        try {
+          await ctx.reply(linkText, { disable_web_page_preview: false });
+        } catch {
+          await ctx.reply('🕊️ Posted to X (link unavailable).');
+        }
       } else {
-        await ctx.reply(`🕊️ Posted to X: ${result.tweetUrl || ''}`.trim());
+        await ctx.reply('🕊️ Posted to X.');
       }
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
     } else {
       await ctx.reply('❌ Failed to tweet.');
     }
+  }
+
+  async postGlobalMediaUpdate(payload = {}, { aiService } = {}) {
+    const channelId = this._getGlobalChannelId();
+    if (!this.globalBot || !channelId) {
+      this.logger?.warn?.('[TelegramService] postGlobalMediaUpdate skipped: global bot missing or TELEGRAM_GLOBAL_CHANNEL_ID not set');
+      return null;
+    }
+
+    const type = (payload.type || '').toLowerCase();
+    const isTweetLink = type === 'tweet';
+    const videoUrl = payload.videoUrl || (type === 'video' ? payload.mediaUrl : null);
+    const imageUrl = !videoUrl ? (payload.mediaUrl || payload.imageUrl || null) : null;
+    let text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    if (!text) {
+      text = (payload.caption || payload.prompt || payload.context || '').toString().trim();
+    }
+
+    // Optionally let AI polish captions when available and not a raw tweet link
+    if (!isTweetLink && !text && typeof aiService?.chat === 'function' && payload.prompt) {
+      try {
+        const response = await aiService.chat([{ role: 'user', content: `Write a short caption for Telegram about: ${payload.prompt}` }]);
+        text = String(response || '').trim();
+      } catch (err) {
+        this.logger?.debug?.('[TelegramService] postGlobalMediaUpdate caption fallback failed:', err?.message);
+      }
+    }
+
+    const formattedText = text && !isTweetLink ? formatTelegramMarkdown(text, this.logger) : text;
+    const parseMode = formattedText && !isTweetLink ? 'HTML' : undefined;
+
+    let sentMessage = null;
+    const telegram = this.globalBot.telegram;
+    if (isTweetLink && formattedText) {
+      sentMessage = await telegram.sendMessage(channelId, formattedText, { disable_web_page_preview: false });
+    } else if (videoUrl) {
+      sentMessage = await telegram.sendVideo(channelId, videoUrl, {
+        caption: formattedText || undefined,
+        parse_mode: parseMode,
+        supports_streaming: true
+      });
+    } else if (imageUrl) {
+      sentMessage = await telegram.sendPhoto(channelId, imageUrl, {
+        caption: formattedText || undefined,
+        parse_mode: parseMode
+      });
+    } else if (formattedText) {
+      sentMessage = await telegram.sendMessage(channelId, formattedText, parseMode ? { parse_mode: parseMode } : undefined);
+    } else {
+      throw new Error('postGlobalMediaUpdate requires media or text content');
+    }
+
+    try {
+      const db = await this.databaseService.getDatabase();
+      const metadata = {
+        source: payload.source || 'telegram.global_post',
+        ...(payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {})
+      };
+      if (payload.avatarId) {
+        metadata.avatarId = String(payload.avatarId);
+        metadata.avatarName = payload.avatarName || null;
+        metadata.avatarEmoji = payload.avatarEmoji || null;
+      }
+      if (payload.tweetUrl) metadata.tweetUrl = payload.tweetUrl;
+      if (payload.tweetId) metadata.tweetId = payload.tweetId;
+
+      await db.collection('social_posts').insertOne({
+        global: true,
+        platform: 'telegram',
+        mediaType: isTweetLink ? 'tweet' : (videoUrl ? 'video' : (imageUrl ? 'image' : 'text')),
+        mediaUrl: videoUrl || imageUrl || null,
+        content: text || null,
+        channelId: String(channelId),
+        messageId: sentMessage?.message_id || null,
+        metadata,
+        createdAt: new Date()
+      });
+    } catch (err) {
+      this.logger?.warn?.('[TelegramService] Failed to record global Telegram post:', err?.message);
+    }
+
+    return {
+      messageId: sentMessage?.message_id,
+      chatId: sentMessage?.chat?.id,
+      message: sentMessage
+    };
   }
 
   async shutdown() {
