@@ -816,15 +816,18 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
 
-      await this.mediaManager.rememberGeneratedMedia(channelId, {
+      const record = await this._rememberGeneratedMedia(channelId, {
         type: 'image', mediaUrl: imageUrl, prompt, caption,
         messageId: sentMessage?.message_id, userId,
         source: 'telegram.generate_image',
         toolingState: { originalPrompt: prompt, enhancedPrompt, aspectRatio: options.aspectRatio },
         metadata: { requestedBy: userId, requestedByUsername: username }
       });
+
+      return record;
     } catch (error) {
       await this._handleMediaError(ctx, error, 'image', userId);
+      return null;
     }
   }
 
@@ -856,15 +859,18 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       await this.memberManager.recordBotResponse(channelId, userId);
       if (userId && username) await this._recordMediaUsage(userId, username, 'video');
 
-      await this.mediaManager.rememberGeneratedMedia(channelId, {
+      const record = await this._rememberGeneratedMedia(channelId, {
         type: 'video', mediaUrl: videoUrl, prompt,
         messageId: sentMessage?.message_id, userId,
         source: 'telegram.generate_video',
         toolingState: { originalPrompt: prompt, aspectRatio },
         metadata: { requestedBy: userId }
       });
+
+      return record;
     } catch (error) {
       await this._handleMediaError(ctx, error, 'video', userId);
+      return null;
     } finally {
       this._releaseVideoGenerationLock(channelId, traceId);
     }
@@ -1134,6 +1140,11 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
 
   _formatTelegramMarkdown(text) {
     return formatTelegramMarkdown(text, this.logger);
+  }
+
+  async _recordBotResponse(channelId, userId) {
+    if (!channelId) return false;
+    return this.memberManager.recordBotResponse(channelId, userId);
   }
 
   async _buildPlanContext(channelId, limit = 3) {
