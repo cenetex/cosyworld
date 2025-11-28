@@ -136,8 +136,8 @@ describe('TelegramService tweet tool helpers', () => {
       mediaUrl: 'https://example.com/1.png',
       source: 'telegram.tweet_tool'
     }), expect.any(Object));
-  expect(ctx.telegram.sendPhoto).toHaveBeenCalledWith('channel-1', 'https://example.com/1.png', expect.objectContaining({ caption: expect.stringContaining('Posted to X') }));
-  expect(ctx.reply).not.toHaveBeenCalled();
+    expect(ctx.reply).toHaveBeenCalledWith('https://x.com/web/status/123', { disable_web_page_preview: false });
+    expect(ctx.telegram.sendPhoto).not.toHaveBeenCalled();
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-1', 'media-1', expect.any(Object));
     expect(service._recordMediaUsage).toHaveBeenCalledWith('user-1', 'tester', 'tweet');
   });
@@ -192,7 +192,8 @@ describe('TelegramService tweet tool helpers', () => {
     expect(service.__collectionMock.findOne).toHaveBeenCalledTimes(2);
     expect(postGlobalMediaUpdate).toHaveBeenCalled();
     expect(service._markMediaAsTweeted).toHaveBeenCalledWith('channel-2', dbMediaRecord.id, expect.any(Object));
-    expect(ctx.telegram.sendPhoto).toHaveBeenCalled();
+    expect(ctx.reply).toHaveBeenCalledWith('https://x.com/web/status/tweet-9', { disable_web_page_preview: false });
+    expect(ctx.telegram.sendPhoto).not.toHaveBeenCalled();
   });
 
   it('prevents tweeting when quota exhausted', async () => {
