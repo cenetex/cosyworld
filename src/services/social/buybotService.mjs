@@ -129,6 +129,13 @@ export class BuybotService {
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
     this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
     this.ACTIVITY_SUMMARIES_COLLECTION = 'buybot_activity_summaries'; // New collection for Discord summaries
+
+    // Global failure/backoff tracking to avoid hammering upstream providers
+    this.globalFailureCount = 0;
+    this.globalBackoffActive = false;
+    this.globalBackoffUntil = null;
+    this.GLOBAL_FAILURE_THRESHOLD = Number(process.env.BUYBOT_GLOBAL_FAILURE_THRESHOLD || 3);
+    this.GLOBAL_BACKOFF_MS = Number(process.env.BUYBOT_GLOBAL_BACKOFF_MS || (24 * 60 * 60 * 1000));
   }
 
   /**
@@ -147,6 +154,58 @@ export class BuybotService {
       : 0;
     const delay = POLLING_INTERVAL_MS + randomJitter + startupSpread;
     return Math.max(1000, delay);
+  }
+
+  _getBackoffRemainingMs() {
+    if (!this.globalBackoffActive || !this.globalBackoffUntil) {
+      return 0;
+    }
+    return Math.max(0, this.globalBackoffUntil - Date.now());
+  }
+
+  _shouldTriggerGlobalBackoff(error) {
+    const message = (error?.message || error || '').toString().toLowerCase();
+    return message.includes('429') || message.includes('rate limited') || message.includes('max usage reached');
+  }
+
+  _registerGlobalSuccess() {
+    const hadIssues = this.globalFailureCount !== 0 || this.globalBackoffActive;
+    this.globalFailureCount = 0;
+    if (this.globalBackoffActive) {
+      this.globalBackoffActive = false;
+      this.globalBackoffUntil = null;
+    }
+    if (hadIssues) {
+      this.logger?.info?.('[BuybotService] Buybot polling recovered; clearing backoff state');
+    }
+  }
+
+  _registerGlobalFailure(error) {
+    if (!this._shouldTriggerGlobalBackoff(error)) {
+      return;
+    }
+
+    if (this.globalBackoffActive) {
+      this.globalBackoffUntil = Date.now() + this.GLOBAL_BACKOFF_MS;
+      const hours = Math.max(1, Math.round(this.GLOBAL_BACKOFF_MS / 36e5));
+      this.logger?.warn?.(`[BuybotService] Rate limit persists, next probe in ${hours}h`);
+      return;
+    }
+
+    this.globalFailureCount += 1;
+    this.logger?.warn?.(`[BuybotService] Upstream polling failure ${this.globalFailureCount}/${this.GLOBAL_FAILURE_THRESHOLD}: ${error?.message || error}`);
+
+    if (this.globalFailureCount >= this.GLOBAL_FAILURE_THRESHOLD) {
+      this._activateGlobalBackoff(error);
+    }
+  }
+
+  _activateGlobalBackoff(error) {
+    this.globalBackoffActive = true;
+    this.globalBackoffUntil = Date.now() + this.GLOBAL_BACKOFF_MS;
+    this.globalFailureCount = 0;
+    const hours = Math.max(1, Math.round(this.GLOBAL_BACKOFF_MS / 36e5));
+    this.logger?.error?.(`[BuybotService] Entering global backoff for ${hours}h due to repeated failures: ${error?.message || error}`);
   }
 
   /**
