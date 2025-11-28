@@ -304,6 +304,8 @@ export class MediaGenerationService {
       prompt: prompt.substring(0, 100),
       hasKeyframe: !!keyframeImage,
       hasReferenceImages: referenceImages.length > 0,
+      hasCharacterDesign: !!characterDesign?.enabled,
+      characterReferenceUrl: characterDesign?.referenceImageUrl ? 'present' : 'none',
       aspectRatio,
       durationSeconds,
       source,

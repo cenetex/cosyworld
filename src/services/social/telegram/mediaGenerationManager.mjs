@@ -253,6 +253,17 @@ export class MediaGenerationManager {
     keyframeImage = null,
     referenceImages = []
   }) {
+    const charDesign = this._getCharacterDesign();
+    
+    // Log character design status for debugging
+    this.logger?.info?.('[MediaGenerationManager] generateVideo called', {
+      hasCharacterDesign: !!charDesign?.enabled,
+      characterRefUrl: charDesign?.referenceImageUrl ? 'present' : 'none',
+      passedReferenceImages: referenceImages.length,
+      hasKeyframe: !!keyframeImage,
+      prompt: prompt?.substring(0, 80)
+    });
+    
     if (this.mediaGenerationService) {
       const result = await this.mediaGenerationService.generateVideo(prompt, {
         aspectRatio: config?.aspectRatio,
@@ -262,7 +273,7 @@ export class MediaGenerationManager {
         negativePrompt,
         traceId,
         channelId,
-        characterDesign: this._getCharacterDesign(),
+        characterDesign: charDesign,
         ...(keyframeImage ? { keyframeImage } : {}),
         referenceImages
       });

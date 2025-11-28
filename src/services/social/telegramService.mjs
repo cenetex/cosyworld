@@ -844,10 +844,14 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     try {
       this._registerVideoProgress(traceId, ctx, (await ctx.reply('🎬 Starting video generation...'))?.message_id);
       
+      // Get character design for reference
+      const charDesign = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
+      
       const videoUrls = await this.mediaGenerationManager.generateVideo({
         prompt,
         config: { aspectRatio, durationSeconds: 8 },
-        style, camera, negativePrompt, traceId, channelId
+        style, camera, negativePrompt, traceId, channelId,
+        referenceImages: charDesign?.referenceImageUrl ? [charDesign.referenceImageUrl] : []
       });
 
       const videoUrl = videoUrls[0];
@@ -965,9 +969,18 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     const jobData = job; // job is actually the doc before update if returnDocument not set, or verify result
 
     try {
+      // Get character design for reference
+      const charDesign = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
+      
       const videoUrls = await this.mediaGenerationManager.generateVideo({
         prompt: jobData.prompt,
-        config: { ...jobData.config, durationSeconds: 8 }
+        config: { ...jobData.config, durationSeconds: 8 },
+        style: jobData.config?.style,
+        camera: jobData.config?.camera,
+        channelId: jobData.channelId,
+        traceId: jobData.lockTraceId,
+        keyframeImage: jobData.keyframeUrl ? { url: jobData.keyframeUrl } : null,
+        referenceImages: charDesign?.referenceImageUrl ? [charDesign.referenceImageUrl] : []
       });
       
       const videoUrl = videoUrls[0];
