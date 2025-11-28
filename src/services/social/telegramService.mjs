@@ -748,10 +748,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         onError: async (err, num, act) => { await ctx.reply(`⚠️ Step ${num} (${act}) failed: ${err.message}`); }
       });
       
-      if (result) {
-        const emoji = result.success ? '✅' : '⚠️';
-        await ctx.reply(`${emoji} Plan ${result.success ? 'completed' : 'finished with issues'}.`);
-      }
+      // Intentionally no success/failure notification to avoid extra spam in chats
     } catch (error) {
       this.logger?.error?.('[TelegramService] Plan execution failed:', error);
       await ctx.reply('Planning fizzled out for a moment—try again.');
