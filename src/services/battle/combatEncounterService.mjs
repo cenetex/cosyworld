@@ -2597,19 +2597,16 @@ Message: ${messageContent}`;
       const channel = this._getChannel(encounter);
       if (!channel?.send) return;
       
-      // Sync combatant HP from actual avatar refs to get current state
+      // Sync maxHp from avatar stats but preserve combat currentHp
+      // The combatant's currentHp is already tracked correctly during combat via applyDamage
       for (const c of encounter.combatants) {
         if (c.ref) {
           try {
             const freshStats = await this.avatarService?.getOrCreateStats?.(c.ref);
             if (freshStats?.hp) {
               c.maxHp = freshStats.hp;
-              // Only update currentHp if ref has a valid value
-              if (typeof c.ref.currentHp === 'number') {
-                c.currentHp = c.ref.currentHp;
-              } else if (typeof c.ref.hp === 'number') {
-                c.currentHp = c.ref.hp;
-              }
+              // DO NOT overwrite currentHp - it's already correctly tracked during combat
+              // c.currentHp is reduced by applyDamage() and should not be reset from ref
             }
           } catch (e) {
             this.logger.debug?.(`[CombatEncounter] HP sync failed for ${c.name}: ${e.message}`);
