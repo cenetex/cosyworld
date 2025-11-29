@@ -617,7 +617,8 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         tool_choice: 'auto'
       });
 
-      const responseObj = typeof response === 'object' ? response : { text: response };
+      // Handle null/undefined response - typeof null === 'object' in JS, so check explicitly
+      const responseObj = (response && typeof response === 'object') ? response : { text: response || '' };
       
       if (responseObj.tool_calls && responseObj.tool_calls.length > 0) {
         const acknowledgment = (typeof responseObj.text === 'string' && responseObj.text.trim()) 
@@ -1166,6 +1167,22 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
 
   _getGlobalChannelId() {
     return this.configService?.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
+  }
+
+  /**
+   * Update global Telegram posting configuration
+   * @param {Object} patch - Configuration updates (enabled, channelId, rate)
+   * @returns {Object} Updated configuration
+   */
+  async updateGlobalPostingConfig(patch) {
+    if (!patch || typeof patch !== 'object') throw new Error('patch object required');
+    const db = await this.databaseService.getDatabase();
+    await db.collection('telegram_post_config').updateOne(
+      { _id: 'global' },
+      { $set: { ...patch, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return db.collection('telegram_post_config').findOne({ _id: 'global' });
   }
 
   async _buildPlanContext(channelId, limit = 3) {
