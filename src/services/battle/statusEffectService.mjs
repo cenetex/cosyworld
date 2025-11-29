@@ -472,7 +472,7 @@ export class StatusEffectService {
    */
   processTurnStart(combatant, currentRound) {
     if (!combatant.statusEffects || combatant.statusEffects.length === 0) {
-      return { damage: 0, healing: 0, expired: [], skipTurn: false };
+      return { damage: 0, healing: 0, expired: [], skipTurn: false, messages: [] };
     }
     
     const result = {
