@@ -252,13 +252,47 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum };
     }
     
-    const record = await services.telegram.executeVideoFromImage(ctx, {
+    // Generate video from source image using mediaManager and mediaGenerationManager
+    const channelId = context.channelId || String(ctx.chat.id);
+    const telegram = services.telegram;
+    
+    // Get the source image
+    const sourceMedia = await telegram.mediaManager.getMediaById(channelId, sourceMediaId);
+    if (!sourceMedia?.mediaUrl) {
+      await ctx.reply('❌ Could not find the source image for video generation.');
+      return { success: false, action: this.actionType, stepNum, error: 'source_image_not_found' };
+    }
+    
+    // Generate video from image
+    const videoUrls = await telegram.mediaGenerationManager.generateVideoFromImage({
       prompt: step.description,
-      sourceMediaId,
-      conversationContext,
+      imageUrl: sourceMedia.mediaUrl,
+      config: { aspectRatio: options.aspectRatio, durationSeconds: 8 }
+    });
+    
+    const videoUrl = videoUrls[0];
+    const sentMessage = await ctx.telegram.sendVideo(ctx.chat.id, videoUrl, {
+      caption: '🎬 Here is your video!',
+      supports_streaming: true
+    });
+    
+    await telegram.memberManager.recordBotResponse(channelId, userId);
+    if (userId && username) await telegram._recordMediaUsage(userId, username, 'video');
+    
+    const record = await telegram._rememberGeneratedMedia(channelId, {
+      type: 'video',
+      mediaUrl: videoUrl,
+      prompt: step.description,
+      messageId: sentMessage?.message_id,
       userId,
-      username,
-      aspectRatio: options.aspectRatio
+      source: 'telegram.generate_video_from_image',
+      toolingState: { 
+        originalPrompt: step.description, 
+        aspectRatio: options.aspectRatio,
+        sourceMediaId,
+        sourceImageUrl: sourceMedia.mediaUrl
+      },
+      metadata: { requestedBy: userId }
     });
     
     if (record) {
