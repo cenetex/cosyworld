@@ -868,7 +868,7 @@ class XService {
         this.logger?.debug?.('[XService][globalPost] skip: disabled', { mediaUrl: opts.mediaUrl });
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'disabled', mediaUrl: opts.mediaUrl };
         _bump('disabled', { mediaUrl: opts.mediaUrl });
-        return null;
+        return { error: true, reason: 'X posting is disabled' };
       }
 
       // Account selection order (if guildId provided):
@@ -931,7 +931,7 @@ class XService {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'no_access_token', mediaUrl: opts.mediaUrl };
         this.logger?.warn?.('[XService][globalPost] No X access token available. Authorize at least one X account.');
         _bump('no_access_token', { mediaUrl: opts.mediaUrl });
-        return null;
+        return { error: true, reason: 'X account not authorized - credits may be 0' };
       }
       const { mediaUrl, text, altText: rawAlt, type = 'image' } = opts;
       
@@ -942,7 +942,7 @@ class XService {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'invalid_content', mediaUrl };
         this.logger?.warn?.('[XService][globalPost] No mediaUrl and no text provided');
         _bump('invalid_content', { mediaUrl });
-        return null;
+        return { error: true, reason: 'No media or text content to post' };
       }
 
       // Simple hour bucket limiter (in-memory). Good enough for MVP; restart resets window.
@@ -962,7 +962,7 @@ class XService {
             mediaUrl 
           };
           _bump('rate_limited', { mediaUrl, waitSec });
-          return null;
+          return { error: true, reason: `X rate limited - wait ${Math.ceil(waitSec / 60)} minutes` };
         } else {
           // Rate limit has expired, clear it
           this._globalRate.rateLimited = false;
@@ -999,13 +999,13 @@ class XService {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'min_interval', mediaUrl, waitMs: nextInMs };
         this.logger?.debug?.(`[XService][globalPost] Min-interval gating: wait ${Math.ceil(nextInMs/1000)}s before next post`);
         _bump('min_interval', { mediaUrl, minIntervalSec });
-        return null;
+        return { error: true, reason: `X cooldown - wait ${Math.ceil(nextInMs/1000)}s` };
       }
       if (this._globalRate.count >= hourlyCap) {
         this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'hourly_cap', mediaUrl };
         this.logger?.debug?.(`[XService][globalPost] Hourly cap reached (${hourlyCap}) – skipping.`);
         _bump('hourly_cap', { mediaUrl, hourlyCap });
-        return null;
+        return { error: true, reason: 'X hourly post limit reached' };
       }
       if (process.env.DEBUG_GLOBAL_X === '1') {
         this.logger?.debug?.('[XService][globalPost][diag] proceeding', { mediaUrl, isVideo: type === 'video', hourlyCount: this._globalRate.count });
@@ -1076,7 +1076,7 @@ class XService {
           }
           this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'unsupported_video', mediaUrl, guildId: guildId || null };
           try { this._globalPostMetrics.reasons.unsupported_video++; } catch {}
-          return null;
+          return { error: true, reason: 'Video posting requires OAuth1 credentials' };
         }
 
         // Fetch media
@@ -1591,7 +1591,7 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       }
       this._lastGlobalPostAttempt = { at: Date.now(), skipped: true, reason: 'error', error: err?.message || String(err), mediaUrl: opts.mediaUrl };
       try { this._globalPostMetrics && this._globalPostMetrics.reasons && this._globalPostMetrics.reasons.error !== undefined && (this._globalPostMetrics.reasons.error++); } catch {}
-      return null;
+      return { error: true, reason: err?.message || 'Unknown X posting error' };
     }
   }
 
