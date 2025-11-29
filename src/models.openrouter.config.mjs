@@ -148,11 +148,11 @@ export default [
     "rarity": "rare"
   },
   {
-    "model": "inflection/inflection-3-pi",
+    "model": "inflection/inflection-3-productivity",
     "rarity": "rare"
   },
   {
-    "model": "inflection/inflection-3-productivity",
+    "model": "inflection/inflection-3-pi",
     "rarity": "rare"
   },
   {
@@ -324,11 +324,11 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "anthropic/claude-3.5-haiku",
+    "model": "anthropic/claude-3.5-haiku-20241022",
     "rarity": "uncommon"
   },
   {
-    "model": "anthropic/claude-3.5-haiku-20241022",
+    "model": "anthropic/claude-3.5-haiku",
     "rarity": "uncommon"
   },
   {
@@ -432,10 +432,6 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "z-ai/glm-4.6:exacto",
-    "rarity": "uncommon"
-  },
-  {
     "model": "moonshotai/kimi-k2",
     "rarity": "uncommon"
   },
@@ -457,6 +453,10 @@ export default [
   },
   {
     "model": "mancer/weaver",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "z-ai/glm-4.6:exacto",
     "rarity": "uncommon"
   },
   {
@@ -540,11 +540,11 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "x-ai/grok-code-fast-1",
+    "model": "thedrummer/anubis-70b-v1.1",
     "rarity": "uncommon"
   },
   {
-    "model": "thedrummer/anubis-70b-v1.1",
+    "model": "x-ai/grok-code-fast-1",
     "rarity": "uncommon"
   },
   {
@@ -553,6 +553,10 @@ export default [
   },
   {
     "model": "qwen/qwen-plus",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "tngtech/tng-r1t-chimera",
     "rarity": "uncommon"
   },
   {
@@ -604,6 +608,10 @@ export default [
     "rarity": "uncommon"
   },
   {
+    "model": "prime-intellect/intellect-3",
+    "rarity": "uncommon"
+  },
+  {
     "model": "arcee-ai/coder-large",
     "rarity": "uncommon"
   },
@@ -624,15 +632,15 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "deepseek/deepseek-chat-v3-0324",
-    "rarity": "uncommon"
-  },
-  {
     "model": "baidu/ernie-4.5-300b-a47b",
     "rarity": "uncommon"
   },
   {
     "model": "undi95/remm-slerp-l2-13b",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "deepseek/deepseek-chat-v3-0324",
     "rarity": "uncommon"
   },
   {
@@ -680,15 +688,15 @@ export default [
     "rarity": "uncommon"
   },
   {
-    "model": "allenai/olmo-2-0325-32b-instruct",
-    "rarity": "uncommon"
-  },
-  {
     "model": "qwen/qwen3-30b-a3b-instruct-2507",
     "rarity": "uncommon"
   },
   {
     "model": "qwen/qwen2.5-vl-32b-instruct",
+    "rarity": "uncommon"
+  },
+  {
+    "model": "allenai/olmo-2-0325-32b-instruct",
     "rarity": "uncommon"
   },
   {
@@ -744,6 +752,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "allenai/olmo-3-32b-think",
+    "rarity": "common"
+  },
+  {
     "model": "qwen/qwen-vl-plus",
     "rarity": "common"
   },
@@ -773,10 +785,6 @@ export default [
   },
   {
     "model": "mistralai/mistral-small",
-    "rarity": "common"
-  },
-  {
-    "model": "allenai/olmo-3-32b-think",
     "rarity": "common"
   },
   {
@@ -901,10 +909,6 @@ export default [
   },
   {
     "model": "meta-llama/llama-3.3-70b-instruct",
-    "rarity": "common"
-  },
-  {
-    "model": "qwen/qwen2.5-vl-72b-instruct",
     "rarity": "common"
   },
   {
@@ -1072,6 +1076,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "qwen/qwen2.5-vl-72b-instruct",
+    "rarity": "common"
+  },
+  {
     "model": "deepseek/deepseek-r1-distill-llama-70b",
     "rarity": "common"
   },
@@ -1184,6 +1192,10 @@ export default [
     "rarity": "common"
   },
   {
+    "model": "tngtech/tng-r1t-chimera:free",
+    "rarity": "common"
+  },
+  {
     "model": "openrouter/bert-nebulon-alpha",
     "rarity": "common"
   },
@@ -1240,18 +1252,6 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "mistralai/mistral-small-3.2-24b-instruct:free",
-    "rarity": "common"
-  },
-  {
-    "model": "deepseek/deepseek-r1-0528-qwen3-8b:free",
-    "rarity": "common"
-  },
-  {
-    "model": "deepseek/deepseek-r1-0528:free",
-    "rarity": "common"
-  },
-  {
     "model": "google/gemma-3n-e4b-it:free",
     "rarity": "common"
   },
@@ -1260,35 +1260,11 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "qwen/qwen3-30b-a3b:free",
-    "rarity": "common"
-  },
-  {
-    "model": "qwen/qwen3-14b:free",
-    "rarity": "common"
-  },
-  {
     "model": "qwen/qwen3-235b-a22b:free",
     "rarity": "common"
   },
   {
     "model": "tngtech/deepseek-r1t-chimera:free",
-    "rarity": "common"
-  },
-  {
-    "model": "microsoft/mai-ds-r1:free",
-    "rarity": "common"
-  },
-  {
-    "model": "arliai/qwq-32b-arliai-rpr-v1:free",
-    "rarity": "common"
-  },
-  {
-    "model": "qwen/qwen2.5-vl-32b-instruct:free",
-    "rarity": "common"
-  },
-  {
-    "model": "deepseek/deepseek-chat-v3-0324:free",
     "rarity": "common"
   },
   {
@@ -1308,18 +1284,6 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "mistralai/mistral-small-24b-instruct-2501:free",
-    "rarity": "common"
-  },
-  {
-    "model": "deepseek/deepseek-r1-distill-llama-70b:free",
-    "rarity": "common"
-  },
-  {
-    "model": "deepseek/deepseek-r1:free",
-    "rarity": "common"
-  },
-  {
     "model": "google/gemini-2.0-flash-exp:free",
     "rarity": "common"
   },
@@ -1328,23 +1292,11 @@ export default [
     "rarity": "common"
   },
   {
-    "model": "qwen/qwen-2.5-coder-32b-instruct:free",
-    "rarity": "common"
-  },
-  {
     "model": "meta-llama/llama-3.2-3b-instruct:free",
     "rarity": "common"
   },
   {
-    "model": "qwen/qwen-2.5-72b-instruct:free",
-    "rarity": "common"
-  },
-  {
     "model": "nousresearch/hermes-3-llama-3.1-405b:free",
-    "rarity": "common"
-  },
-  {
-    "model": "mistralai/mistral-nemo:free",
     "rarity": "common"
   },
   {

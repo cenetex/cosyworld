@@ -706,11 +706,24 @@ export class CombatEncounterService {
     try {
       // Use the avatar's actual model and persona for authentic dialogue
       const avatar = combatant.ref;
-      const model = avatar?.model || 'openai/gpt-4o'; // Default to high-quality model
+      // Use avatar's assigned model, fall back to a fast model for combat banter
+      const model = avatar?.model || 'google/gemini-2.0-flash-001';
       const personality = avatar?.personality || 'bold warrior';
       const description = avatar?.description || '';
+      const emoji = avatar?.emoji || '';
+      const name = combatant.name;
       
-      const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${combatant.name}.
+      // Build a compact but character-rich system prompt
+      // Use avatar.prompt if available (full persona), otherwise build a minimal one
+      let systemContent;
+      if (avatar?.prompt) {
+        // Use the avatar's full system prompt but add combat-specific instructions
+        systemContent = `${avatar.prompt}\n\nCOMBAT MODE: Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.`;
+      } else {
+        systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.`;
+      }
+      
+      const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${name}.
 Action: ${action.type}${action.target ? ` against ${action.target.name}` : ''}
 Result: ${result?.result || 'defending'}
 ${result?.damage ? `Damage: ${result.damage}` : ''}
@@ -719,10 +732,7 @@ ${result?.critical ? 'CRITICAL HIT!' : ''}
 One-liner (no quotes):`;
       
       const messages = [
-        { 
-          role: 'system', 
-          content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.` 
-        },
+        { role: 'system', content: systemContent },
         { role: 'user', content: prompt }
       ];
       
@@ -839,9 +849,12 @@ One-liner (no quotes):`;
         try {
           // Use the avatar's actual model and persona for authentic dialogue
           const avatar = combatant.ref;
-          const model = avatar?.model || 'openai/gpt-4o';
+          // Use avatar's assigned model, fall back to a fast model for combat banter
+          const model = avatar?.model || 'google/gemini-2.0-flash-001';
           const personality = avatar?.personality || 'bold warrior';
           const description = avatar?.description || '';
+          const emoji = avatar?.emoji || '';
+          const name = combatant.name;
           
           // Generate pre-combat taunt/challenge
           const opponents = encounter.combatants
@@ -849,10 +862,18 @@ One-liner (no quotes):`;
             .map(c => c.name)
             .join(', ');
 
+          // Build system prompt - use full avatar.prompt if available
+          let systemContent;
+          if (avatar?.prompt) {
+            systemContent = `${avatar.prompt}\n\nCOMBAT MODE: Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.`;
+          } else {
+            systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.`;
+          }
+
           const messages = [
             { 
               role: 'system', 
-              content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.` 
+              content: systemContent
             },
             { 
               role: 'user', 
@@ -904,9 +925,12 @@ One-liner (no quotes):`;
 
       // Use the avatar's actual model and persona for authentic dialogue
       const avatar = winner;
-      const model = avatar?.model || 'openai/gpt-4o';
+      // Use avatar's assigned model, fall back to a fast model for combat banter
+      const model = avatar?.model || 'google/gemini-2.0-flash-001';
       const personality = avatar?.personality || 'bold warrior';
       const description = avatar?.description || '';
+      const emoji = avatar?.emoji || '';
+      const name = winner.name;
 
       // Get opponents' names
       const opponents = encounter.combatants
@@ -914,10 +938,18 @@ One-liner (no quotes):`;
         .map(c => c.name)
         .join(', ');
 
+      // Build system prompt - use full avatar.prompt if available
+      let systemContent;
+      if (avatar?.prompt) {
+        systemContent = `${avatar.prompt}\n\nCOMBAT MODE: You are the victor of this battle. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.`;
+      } else {
+        systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}, the victor of this battle. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.`;
+      }
+
       const messages = [
         { 
           role: 'system', 
-          content: `You are ${winner.name}, the victor of this battle. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.` 
+          content: systemContent
         },
         { 
           role: 'user', 
