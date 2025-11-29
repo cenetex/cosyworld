@@ -2,6 +2,9 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { publishEvent } from '../../events/envelope.mjs';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import eventBus from '../../utils/eventBus.mjs';
+import { CombatAIService } from './combatAIService.mjs';
+import { CombatMessagingService } from './combatMessagingService.mjs';
+import { StatusEffectService, STATUS_EFFECTS } from './statusEffectService.mjs';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability
@@ -165,6 +168,24 @@ export class CombatEncounterService {
   this.promptAssembler = promptAssembler || null;
   this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
     this.veoService = veoService || null; // For battle recap videos
+
+    // Initialize modular combat services
+    this.combatAIService = new CombatAIService({
+      logger: this.logger,
+      unifiedAIService: this.unifiedAIService,
+      avatarService: this.avatarService,
+      diceService: this.diceService
+    });
+    
+    this.combatMessagingService = new CombatMessagingService({
+      logger: this.logger,
+      discordService: this.discordService
+    });
+    
+    this.statusEffectService = new StatusEffectService({
+      logger: this.logger,
+      diceService: this.diceService
+    });
 
     // channelId -> encounter object (active encounters)
     this.encounters = new Map();
@@ -588,7 +609,7 @@ export class CombatEncounterService {
   /** If it's still the same combatant's turn, pick and execute an AI action */
   /**
    * Execute one combatant's turn in combat
-   * Orchestrates: action selection → execution → dialogue → post → capture
+   * Orchestrates: status effects → action selection → execution → dialogue → post → capture
    */
   async _executeTurn(encounter, combatant) {
     try {
@@ -598,8 +619,32 @@ export class CombatEncounterService {
         return;
       }
       
-      // 1. Select action (AI decision)
-      const action = await this._selectCombatAction(encounter, combatant);
+      // 0. Process status effects at turn start (DoT, HoT, expired effects)
+      const statusResult = this.statusEffectService.processTurnStart(combatant, encounter.round);
+      if (statusResult.messages.length > 0) {
+        const channel = this._getChannel(encounter);
+        if (channel) {
+          await channel.send({ content: `-# ${statusResult.messages.join(' | ')}` });
+        }
+      }
+      
+      // Check if turn is skipped due to status effect (stunned, etc.)
+      if (statusResult.skipTurn) {
+        this.logger?.info?.(`[CombatEncounter] ${combatant.name}'s turn skipped due to status effect`);
+        await this.nextTurn(encounter);
+        return;
+      }
+      
+      // Check if knocked out from DoT
+      if (combatant.currentHp <= 0) {
+        this.logger?.info?.(`[CombatEncounter] ${combatant.name} knocked out from status effects`);
+        if (this.evaluateEnd(encounter)) return;
+        await this.nextTurn(encounter);
+        return;
+      }
+      
+      // 1. Select action (AI decision via CombatAIService)
+      const action = await this.combatAIService.selectCombatAction(encounter, combatant);
       if (!action) {
         this.logger?.warn?.(`[CombatEncounter] No valid action for ${combatant.name}`);
         await this.nextTurn(encounter);
@@ -609,13 +654,13 @@ export class CombatEncounterService {
       // 2. Execute action via BattleService
       const result = await this._executeCombatAction(action, combatant, encounter);
       
-      // 3. Generate combat dialogue (AI one-liner)
+      // 3. Generate combat dialogue (AI one-liner via CombatAIService)
       this.logger?.info?.(`[CombatEncounter] Generating dialogue for ${combatant.name} (action: ${action.type})`);
-      const dialogue = await this._generateCombatDialogue(combatant, action, result);
+      const dialogue = await this.combatAIService.generateCombatDialogue(combatant, action, result);
       this.logger?.info?.(`[CombatEncounter] Dialogue generated: "${dialogue}"`);
       
-      // 4. Post to Discord
-      await this._postCombatAction(encounter, combatant, action, result, dialogue);
+      // 4. Post to Discord via CombatMessagingService
+      await this.combatMessagingService.postCombatAction(encounter, combatant, action, result, dialogue);
       
       // 5. Capture for video
       if (action.type === 'attack' && action.target && result) {
@@ -641,27 +686,11 @@ export class CombatEncounterService {
 
   /**
    * AI selects combat action based on current state
-   * Simple logic: low HP → defend, otherwise → attack random target
+   * @deprecated Use combatAIService.selectCombatAction instead
    */
   async _selectCombatAction(encounter, combatant) {
-    // Get all alive opponents
-    const opponents = encounter.combatants.filter(c => 
-      c.avatarId !== combatant.avatarId && !this._isKnockedOut(c)
-    );
-    
-    if (opponents.length === 0) return null;
-    
-    // Simple AI logic
-    const myHpPercent = combatant.currentHp / combatant.maxHp;
-    
-    if (myHpPercent < 0.3) {
-      // Low HP → defend
-      return { type: 'defend', target: null };
-    } else {
-      // Attack random opponent
-      const target = opponents[Math.floor(Math.random() * opponents.length)];
-      return { type: 'attack', target };
-    }
+    // Delegate to CombatAIService for smarter decision making
+    return this.combatAIService.selectCombatAction(encounter, combatant);
   }
 
   /**
@@ -3108,7 +3137,113 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       this.logger?.warn?.(`[CombatEncounter] onTurnTimeout error: ${e.message}`);
     }
   }
+
+  // ============ Status Effect Public API ============
+
+  /**
+   * Apply a status effect to a combatant in the current encounter
+   * @param {string} channelId - Channel ID of the encounter
+   * @param {string} avatarId - Avatar ID of the target
+   * @param {string} effectId - Status effect ID (see StatusEffectService)
+   * @param {string} sourceId - Avatar ID of the source
+   * @param {Object} options - Additional options (duration, stacks)
+   * @returns {Object} Result of application
+   */
+  applyStatusEffect(channelId, avatarId, effectId, sourceId, options = {}) {
+    const encounter = this.getEncounter(channelId);
+    if (!encounter || encounter.state !== 'active') {
+      return { success: false, reason: 'no_active_encounter' };
+    }
+    
+    const combatant = this.getCombatant(encounter, avatarId);
+    if (!combatant) {
+      return { success: false, reason: 'combatant_not_found' };
+    }
+    
+    return this.statusEffectService.applyEffect(combatant, effectId, sourceId, {
+      ...options,
+      round: encounter.round
+    });
+  }
+
+  /**
+   * Remove a status effect from a combatant
+   * @param {string} channelId - Channel ID of the encounter
+   * @param {string} avatarId - Avatar ID of the target
+   * @param {string} effectId - Status effect ID to remove
+   * @returns {boolean} Whether effect was removed
+   */
+  removeStatusEffect(channelId, avatarId, effectId) {
+    const encounter = this.getEncounter(channelId);
+    if (!encounter) return false;
+    
+    const combatant = this.getCombatant(encounter, avatarId);
+    if (!combatant) return false;
+    
+    return this.statusEffectService.removeEffect(combatant, effectId);
+  }
+
+  /**
+   * Get status summary for a combatant (emoji icons)
+   * @param {string} channelId - Channel ID of the encounter
+   * @param {string} avatarId - Avatar ID of the target
+   * @returns {string} Status effect emoji summary
+   */
+  getStatusSummary(channelId, avatarId) {
+    const encounter = this.getEncounter(channelId);
+    if (!encounter) return '';
+    
+    const combatant = this.getCombatant(encounter, avatarId);
+    if (!combatant) return '';
+    
+    return this.statusEffectService.getStatusSummary(combatant);
+  }
+
+  /**
+   * Check if combatant has a specific status effect
+   * @param {string} channelId - Channel ID of the encounter
+   * @param {string} avatarId - Avatar ID of the target
+   * @param {string} effectId - Status effect ID to check
+   * @returns {boolean}
+   */
+  hasStatusEffect(channelId, avatarId, effectId) {
+    const encounter = this.getEncounter(channelId);
+    if (!encounter) return false;
+    
+    const combatant = this.getCombatant(encounter, avatarId);
+    if (!combatant) return false;
+    
+    return this.statusEffectService.hasEffect(combatant, effectId);
+  }
+
+  /**
+   * Get the CombatAIService instance for external use
+   * @returns {CombatAIService}
+   */
+  getCombatAIService() {
+    return this.combatAIService;
+  }
+
+  /**
+   * Get the StatusEffectService instance for external use
+   * @returns {StatusEffectService}
+   */
+  getStatusEffectService() {
+    return this.statusEffectService;
+  }
+
+  /**
+   * Get the CombatMessagingService instance for external use
+   * @returns {CombatMessagingService}
+   */
+  getCombatMessagingService() {
+    return this.combatMessagingService;
+  }
 }
 
+// Re-export sub-services for external use
+export { CombatAIService } from './combatAIService.mjs';
+export { CombatMessagingService } from './combatMessagingService.mjs';
+export { StatusEffectService, STATUS_EFFECTS } from './statusEffectService.mjs';
 
 export default CombatEncounterService;
