@@ -327,24 +327,52 @@ export class MessageHandler  {
 
   /**
    * Checks if the guild is authorized to use the bot.
+   * Uses the AuthorizationCache from DiscordService for TTL-based caching.
    * @param {Object} message - The Discord message object.
    * @returns {Promise<boolean>} True if authorized, false otherwise.
    */
   async isGuildAuthorized(message) {
     if (!message.guild) return false;
+    
     try {
       const guildId = message.guild.id;
-      if (!this.client.authorizedGuilds?.get(guildId)) {
-        const db = await this.databaseService.getDatabase();
-        if (!db) return false;
-        const guildConfig = await this.configService.getGuildConfig(guildId);
-        const isAuthorized =
-          guildConfig?.authorized === true ||
-          (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-        this.client.authorizedGuilds = this.client.authorizedGuilds || new Map();
-        this.client.authorizedGuilds.set(guildId, isAuthorized);
+      
+      // Use the authorization cache from discord service if available
+      if (this.discordService?.authorizationCache) {
+        return this.discordService.authorizationCache.check(guildId, async () => {
+          const db = await this.databaseService.getDatabase();
+          if (!db) return false;
+          const guildConfig = await this.configService.getGuildConfig(guildId);
+          return guildConfig?.authorized === true ||
+            (await this.configService.get("authorizedGuilds") || []).includes(guildId);
+        });
       }
-      return this.client.authorizedGuilds.get(guildId);
+      
+      // Fallback to legacy caching (with expiration tracking)
+      const cacheEntry = this.client.authorizedGuilds?.get(guildId);
+      const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+      
+      if (cacheEntry && cacheEntry.timestamp && 
+          Date.now() - cacheEntry.timestamp < CACHE_TTL_MS) {
+        return cacheEntry.authorized;
+      }
+      
+      // Cache miss or expired - fetch fresh
+      const db = await this.databaseService.getDatabase();
+      if (!db) return false;
+      
+      const guildConfig = await this.configService.getGuildConfig(guildId);
+      const isAuthorized =
+        guildConfig?.authorized === true ||
+        (await this.configService.get("authorizedGuilds") || []).includes(guildId);
+      
+      this.client.authorizedGuilds = this.client.authorizedGuilds || new Map();
+      this.client.authorizedGuilds.set(guildId, {
+        authorized: isAuthorized,
+        timestamp: Date.now(),
+      });
+      
+      return isAuthorized;
     } catch (error) {
       this.logger.error(`Error checking guild authorization: ${error.message}`);
       return false;
