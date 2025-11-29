@@ -22,12 +22,14 @@ const md = new MarkdownIt({
   linkify: true,
 });
 
-// Helper for escaping HTML in code blocks
-const escapeHtml = (str) => 
-  str.replace(/&/g, '&amp;')
-     .replace(/</g, '&lt;')
-     .replace(/>/g, '&gt;')
-     .replace(/"/g, '&quot;');
+// Helper for escaping HTML in code blocks and user-facing error messages
+export const escapeHtml = (str) => {
+  if (typeof str !== 'string') str = String(str ?? '');
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+};
 
 // Custom renderer for Telegram-compatible HTML
 // Telegram supports: <b>, <i>, <u>, <s>, <a>, <code>, <pre>
@@ -352,6 +354,7 @@ export function buildCreditInfo(limit, label) {
 export default {
   safeDecrypt,
   escapeRegExp,
+  escapeHtml,
   decodeHtmlEntities,
   formatTelegramMarkdown,
   inferMimeTypeFromUrl,

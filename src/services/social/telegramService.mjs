@@ -40,6 +40,7 @@ import {
   PLAN_CONFIG,
   // Utilities
   safeDecrypt,
+  escapeHtml,
   formatTelegramMarkdown,
   inferMimeTypeFromUrl,
   generateRequestId,
@@ -768,7 +769,10 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       executionResult = await this.planExecutionService.executePlan(plan, executionContext, {
         onProgress: updateProgress,
         onStepComplete: async () => {},
-        onError: async (err, num, act) => { await ctx.reply(`⚠️ Step ${num} (${act}) failed: ${err.message}`); }
+        onError: async (err, num, act) => {
+          this.logger?.warn?.(`[TelegramService] Step ${num} (${act}) failed:`, err.message);
+          await ctx.reply(`⚠️ Step ${num} (${escapeHtml(act)}) failed: ${escapeHtml(err.message)}`);
+        }
       });
       
       // Intentionally no success/failure notification to avoid extra spam in chats
@@ -1281,7 +1285,9 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       }
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
     } else {
-      await ctx.reply('❌ Failed to tweet.');
+      const reason = result?.error || result?.reason || 'unknown error';
+      this.logger?.warn?.('[TelegramService] Tweet post failed:', { channelId, mediaId, reason, result });
+      await ctx.reply(`❌ Failed to tweet: ${escapeHtml(reason)}`);
     }
   }
 
