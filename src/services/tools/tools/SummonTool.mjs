@@ -822,16 +822,10 @@ export class SummonTool extends BasicTool {
       const allowModelSummons = guildAvatarModes.pureModel !== false;
       const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && onChainDisabled && collectionDisabled;
 
-      if (this._shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons })) {
-        const catalogLookup = resolveCatalogModelId(avatarName);
-        if (catalogLookup) {
-          requestedModelId = catalogLookup;
-        }
-      }
-
+      // Always check for existing avatar by name FIRST, before trying to resolve to a catalog model
       let existingAvatar = null;
-      if (!requestedModelId && avatarName) {
-  existingAvatar = await this.avatarService.getAvatarByName(avatarName, { guildId });
+      if (avatarName) {
+        existingAvatar = await this.avatarService.getAvatarByName(avatarName, { guildId });
         
         // If avatar not found in DB and collection mode is enabled, try to sync from collections
         if (!existingAvatar && !collectionDisabled) {
@@ -847,13 +841,17 @@ export class SummonTool extends BasicTool {
           }
         }
         
-        if (existingAvatar) {
-          if ((freeSummonsDisabled || pureModelOnly) && !isModelRosterAvatar(existingAvatar)) {
-            // Only discard if it's a truly "free" avatar (not NFT/wallet/collection)
-            // Allow collection and on-chain avatars even when free mode is disabled
-            if (!isCollectionAvatar(existingAvatar) && !isOnChainAvatar(existingAvatar)) {
-              existingAvatar = null;
-            }
+        // Note: We no longer discard existing avatars based on type restrictions.
+        // If an avatar exists by name, we should find and use it regardless of its type.
+        // Type restrictions (freeSummonsDisabled, pureModelOnly, etc.) only apply to CREATING new avatars.
+      }
+
+      // Only try to resolve to a catalog model if we didn't find an existing avatar
+      if (!existingAvatar && !requestedModelId && avatarName) {
+        if (this._shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons })) {
+          const catalogLookup = resolveCatalogModelId(avatarName);
+          if (catalogLookup) {
+            requestedModelId = catalogLookup;
           }
         }
       }
