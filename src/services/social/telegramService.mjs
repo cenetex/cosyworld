@@ -771,8 +771,8 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         onProgress: updateProgress,
         onStepComplete: async () => {},
         onError: async (err, num, act) => {
+          // Log errors but don't spam users with technical details
           this.logger?.warn?.(`[TelegramService] Step ${num} (${act}) failed:`, err.message);
-          await ctx.reply(`⚠️ Step ${num} (${escapeHtml(act)}) failed: ${escapeHtml(err.message)}`);
         }
       });
       

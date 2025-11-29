@@ -313,7 +313,7 @@ export class SpeakExecutor extends ActionExecutor {
   }
 
   getTimeout() {
-    return 30000; // 30 seconds
+    return 60000; // 60 seconds - AI responses can be slow under load
   }
 
   async execute(step, context) {

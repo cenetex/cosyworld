@@ -473,14 +473,14 @@ export class CacheManager {
         this.debounceLocks.delete(channelId);
         resolve();
       };
-      // Auto-release after 60 seconds
+      // Auto-release after 120 seconds (longer than AI request timeouts)
       timeoutId = setTimeout(() => {
         if (this.debounceLocks.get(channelId) === lockPromise) {
           this.debounceLocks.delete(channelId);
           this.logger?.warn?.(`[CacheManager] Lock timeout for channel ${channelId}`);
           resolve();
         }
-      }, 60000);
+      }, 120000);
     });
 
     this.debounceLocks.set(channelId, lockPromise);
