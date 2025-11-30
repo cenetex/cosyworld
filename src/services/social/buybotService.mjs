@@ -22,7 +22,8 @@ import {
   API_RETRY_BASE_DELAY_MS,
   PRICE_CACHE_TTL_MS,
   RECENT_TRANSACTIONS_LIMIT,
-  RECENT_TRANSACTIONS_MAX_PAGES
+  RECENT_TRANSACTIONS_MAX_PAGES,
+  TELEGRAM_AI_RESPONSE_INTERVAL_MS
 } from '../../config/buybotConstants.mjs';
 import {
   formatTokenAmount,
@@ -123,6 +124,11 @@ export class BuybotService {
     // channelId -> { avatars: Map(avatarId -> {avatar, roles, events, tradeContexts}), flushTimer }
     this.avatarResponseBatches = new Map();
     this.AVATAR_RESPONSE_BATCH_WINDOW_MS = Number(process.env.BUYBOT_AVATAR_BATCH_WINDOW_MS || 5000); // 5 second batch window
+
+    // Telegram AI response batching - batch events and send hourly conversation instead of immediate responses
+    // channelId -> { events: [], lastFlushAt: timestamp, flushTimer }
+    this.telegramAIResponseBatches = new Map();
+    this.TELEGRAM_AI_RESPONSE_INTERVAL_MS = TELEGRAM_AI_RESPONSE_INTERVAL_MS;
     
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
@@ -1278,7 +1284,7 @@ export class BuybotService {
 
       this.tokenNotFoundCache.delete(tokenAddress);
 
-      this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
+      this.logger.debug(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
       
   return result;
     } catch (error) {
@@ -1317,7 +1323,7 @@ export class BuybotService {
       const fetchPromise = (async () => {
         try {
           // Use DexScreener as primary source for token info
-          this.logger.info(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
+          this.logger.debug(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
           const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
           
           if (dexScreenerData) {
@@ -1339,7 +1345,7 @@ export class BuybotService {
               timestamp: Date.now()
             });
             
-            this.logger.info(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
+            this.logger.debug(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
             return tokenInfo;
           }
 
@@ -3465,7 +3471,7 @@ export class BuybotService {
       // Skip individual transfer and swap notifications on Telegram
       // These are now summarized from Discord and posted periodically
       if (event.type === 'swap' || event.type === 'transfer') {
-        this.logger.info(`[BuybotService] Skipping individual ${event.type} notification to Telegram ${channelId} (will be included in summary)`);
+        this.logger.debug(`[BuybotService] Skipping individual ${event.type} notification to Telegram ${channelId} (will be included in summary)`);
         return;
       }
 
