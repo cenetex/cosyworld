@@ -746,14 +746,6 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     // Save plan
     await this.planManager.rememberAgentPlan(channelId, plan);
 
-    let progressMessageId = null;
-    const updateProgress = async (stepNum, total, action) => {
-      const icon = getActionIcon(action);
-      const label = getActionLabel(action);
-      const message = `${icon} <b>Step ${stepNum}/${total}:</b> ${label}...`;
-      progressMessageId = await this.interactionManager.updateProgressMessage(ctx, progressMessageId, message, channelId);
-    };
-
     const executionContext = {
       ctx, channelId, userId, username, conversationContext,
       services: {
@@ -768,7 +760,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     let executionResult = null;
     try {
       executionResult = await this.planExecutionService.executePlan(plan, executionContext, {
-        onProgress: updateProgress,
+        onProgress: async () => {}, // Silently execute steps without posting to channel
         onStepComplete: async () => {},
         onError: async (err, num, act) => {
           // Log errors but don't spam users with technical details
@@ -780,8 +772,6 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     } catch (error) {
       this.logger?.error?.('[TelegramService] executePlanActions error:', error);
       await ctx.reply('Planning fizzled out for a moment—try again and I will map it out.');
-    } finally {
-      await this.interactionManager.deleteProgressMessage(ctx, progressMessageId, channelId);
     }
 
     return executionResult;
