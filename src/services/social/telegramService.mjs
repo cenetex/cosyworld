@@ -22,7 +22,7 @@
 import { Telegraf } from 'telegraf';
 import { randomUUID } from 'crypto';
 import { encrypt } from '../../utils/encryption.mjs';
-import { filterCryptoAddresses } from '../../utils/contentFilter.mjs';
+import { filterContent } from '../../utils/contentFilter.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
 import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
 import { PlanExecutionService } from '../planner/planExecutionService.mjs';
@@ -384,12 +384,24 @@ class TelegramService {
     if (message.from.is_bot) return;
     if (message.text && message.text.startsWith('/')) return;
     
-    // Filter messages containing cryptocurrency addresses
-    const messageText = message.text || message.caption || '';
-    const cryptoFilter = filterCryptoAddresses(messageText, { logger: this.logger });
-    if (cryptoFilter.blocked) {
-      this.logger?.info?.(`[TelegramService] Blocked message with crypto address from ${userId} in ${channelId}`);
-      return;
+    // Get content filter settings from global bot config
+    const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+    const filterEnabled = contentFilters.enabled !== false;
+    
+    if (filterEnabled) {
+      const messageText = message.text || message.caption || '';
+      const contentFilter = filterContent(messageText, {
+        logger: this.logger,
+        blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+        blockCashtags: contentFilters.blockCashtags !== false,
+        allowedCashtags: contentFilters.allowedCashtags || [],
+        allowedAddresses: contentFilters.allowedAddresses || []
+      });
+      
+      if (contentFilter.blocked) {
+        this.logger?.info?.(`[TelegramService] Blocked message (${contentFilter.type}) from ${userId} in ${channelId}: ${contentFilter.reason}`);
+        return;
+      }
     }
 
     const botUsername = this.globalBot?.botInfo?.username || ctx.botInfo?.username;
@@ -1262,12 +1274,24 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       return;
     }
     
-    // Filter tweets containing cryptocurrency addresses
-    const cryptoFilter = filterCryptoAddresses(text || '', { logger: this.logger });
-    if (cryptoFilter.blocked) {
-      this.logger?.info?.(`[TelegramService] Blocked tweet with crypto address from ${userId}`);
-      await ctx.reply('🚫 Cannot post tweets containing cryptocurrency addresses.');
-      return;
+    // Get content filter settings from global bot config
+    const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+    const filterEnabled = contentFilters.enabled !== false;
+    
+    if (filterEnabled) {
+      const contentFilter = filterContent(text || '', {
+        logger: this.logger,
+        blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+        blockCashtags: contentFilters.blockCashtags !== false,
+        allowedCashtags: contentFilters.allowedCashtags || [],
+        allowedAddresses: contentFilters.allowedAddresses || []
+      });
+      
+      if (contentFilter.blocked) {
+        this.logger?.info?.(`[TelegramService] Blocked tweet (${contentFilter.type}) from ${userId}: ${contentFilter.reason}`);
+        await ctx.reply(`🚫 Cannot post: ${contentFilter.reason}`);
+        return;
+      }
     }
 
     const tweetLimits = await this.checkMediaGenerationLimit(null, 'tweet');

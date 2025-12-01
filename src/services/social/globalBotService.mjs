@@ -70,6 +70,15 @@ export class GlobalBotService {
         characterDescription: '', // Detailed description of the character (appearance, clothing, style)
         imagePromptPrefix: 'Show {{characterName}} ({{characterDescription}}) in this situation: ', // Prefix added to all image prompts
         characterName: universeName // Name to use when referring to the character in prompts
+      },
+      // Content filtering settings for messages and tweets
+      contentFilters: {
+        enabled: true, // Master switch for content filtering
+        blockCryptoAddresses: true, // Block messages containing ETH/SOL addresses
+        blockCashtags: true, // Block messages containing cashtags like $BTC
+        blockUrls: true, // Block AI-generated messages containing URLs
+        allowedCashtags: [], // List of allowed cashtags (e.g., ['$COSY', '$WORLD'])
+        allowedAddresses: [] // List of allowed crypto addresses
       }
     };
   }

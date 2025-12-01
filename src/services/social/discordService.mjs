@@ -15,6 +15,7 @@ import { AuthorizationCache } from '../../utils/AuthorizationCache.mjs';
 import { ObjectId } from 'mongodb';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
+import { filterContent, stripUrls } from '../../utils/contentFilter.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
 import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
 
@@ -27,6 +28,7 @@ export class DiscordService {
     this.getMapService = services.getMapService || null;
     this.getCombatEncounterService = services.getCombatEncounterService || null;
     this.avatarService = services.avatarService || null;
+    this.globalBotService = services.globalBotService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
@@ -461,6 +463,34 @@ export class DiscordService {
       if (!channelId || typeof channelId !== 'string') throw new Error('Invalid channel ID');
       if (!content || typeof content !== 'string') throw new Error('Content is required and must be a string');
       
+      // Get content filter settings from global bot config
+      const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+      const filterEnabled = contentFilters.enabled !== false;
+      
+      // Filter content for AI-generated messages (strip URLs, check for blocked content)
+      let filteredContent = content;
+      if (filterEnabled) {
+        // Strip URLs from AI-generated content if blockUrls is enabled
+        if (contentFilters.blockUrls !== false) {
+          filteredContent = stripUrls(filteredContent);
+        }
+        
+        // Check for other blocked content (crypto addresses, cashtags)
+        const contentFilter = filterContent(filteredContent, {
+          logger: this.logger,
+          blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+          blockCashtags: contentFilters.blockCashtags !== false,
+          blockUrls: false, // Already stripped URLs above
+          allowedCashtags: contentFilters.allowedCashtags || [],
+          allowedAddresses: contentFilters.allowedAddresses || []
+        });
+        
+        if (contentFilter.blocked) {
+          this.logger?.warn?.(`[DiscordService] Blocked AI message (${contentFilter.type}): ${contentFilter.reason}`);
+          return null; // Don't send blocked messages
+        }
+      }
+      
       const channel = await this.rateLimitHandler.execute(
         () => this.client.channels.fetch(channelId),
         `Fetch channel ${channelId}`
@@ -472,7 +502,7 @@ export class DiscordService {
       
       const username = `${avatar.name.slice(0, 78)}${avatar.emoji || ''}`.slice(0, 80);
       const prefix = `${username}: `;
-      const trimmed = content.startsWith(prefix) ? content.slice(prefix.length) : content;
+      const trimmed = filteredContent.startsWith(prefix) ? filteredContent.slice(prefix.length) : filteredContent;
       const preparedContent = processMessageLinks(trimmed, this.client);
       const chunks = chunkMessage(preparedContent);
 

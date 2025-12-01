@@ -1571,6 +1571,74 @@ Please ensure the server is fully initialized.
     }
   }));
 
+  // Get content filter settings
+  router.get('/global-bot/content-filters', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const persona = await services.globalBotService.getPersona();
+      const contentFilters = persona?.bot?.globalBotConfig?.contentFilters || {
+        enabled: true,
+        blockCryptoAddresses: true,
+        blockCashtags: true,
+        blockUrls: true,
+        allowedCashtags: [],
+        allowedAddresses: []
+      };
+      
+      res.json({ success: true, contentFilters });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to load content filters' });
+    }
+  }));
+
+  // Update content filter settings
+  router.put('/global-bot/content-filters', asyncHandler(async (req, res) => {
+    try {
+      if (!services.globalBotService) {
+        return res.status(503).json({ error: 'GlobalBotService not available' });
+      }
+      
+      const { enabled, blockCryptoAddresses, blockCashtags, blockUrls, allowedCashtags, allowedAddresses } = req.body;
+      
+      // Normalize cashtags to uppercase with $ prefix
+      const normalizedCashtags = Array.isArray(allowedCashtags)
+        ? allowedCashtags.map(tag => {
+            const normalized = String(tag).trim().toUpperCase();
+            return normalized.startsWith('$') ? normalized : `$${normalized}`;
+          }).filter(Boolean)
+        : [];
+      
+      // Normalize addresses (lowercase for consistency)
+      const normalizedAddresses = Array.isArray(allowedAddresses)
+        ? allowedAddresses.map(addr => String(addr).trim().toLowerCase()).filter(Boolean)
+        : [];
+      
+      const contentFilters = {
+        enabled: enabled !== false,
+        blockCryptoAddresses: blockCryptoAddresses !== false,
+        blockCashtags: blockCashtags !== false,
+        blockUrls: blockUrls !== false,
+        allowedCashtags: normalizedCashtags,
+        allowedAddresses: normalizedAddresses
+      };
+      
+      // Update via globalBotService
+      const updatedBot = await services.globalBotService.updatePersona({
+        globalBotConfig: { contentFilters }
+      });
+      
+      res.json({ 
+        success: true, 
+        contentFilters: updatedBot.globalBotConfig?.contentFilters || contentFilters 
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Failed to update content filters' });
+    }
+  }));
+
   router.delete('/global-bot/memories/:memoryId', asyncHandler(async (req, res) => {
     try {
       if (!services.memoryService) {

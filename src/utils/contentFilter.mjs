@@ -6,7 +6,7 @@
 /**
  * Content Filter Utility
  * Provides utilities for filtering and validating message content
- * to detect and reject messages containing cryptocurrency addresses.
+ * to detect and reject messages containing cryptocurrency addresses and cashtags.
  */
 
 // Solana address pattern: Base58 encoded, 32-44 characters
@@ -15,6 +15,12 @@
 
 // Ethereum address pattern: 0x followed by 40 hex characters
 const ETH_ADDRESS_REGEX = /\b0x[a-fA-F0-9]{40}\b/gi;
+
+// Cashtag pattern: $ followed by 1-15 alphanumeric characters (typical ticker format)
+const CASHTAG_REGEX = /\$[A-Za-z][A-Za-z0-9]{0,14}\b/g;
+
+// URL pattern: matches http(s) URLs and www. prefixed URLs
+const URL_REGEX = /(https?:\/\/[^\s<>\"']+|www\.[^\s<>\"']+)/gi;
 
 /**
  * Check if a string looks like a Solana address
@@ -38,6 +44,108 @@ export function isEthAddress(text) {
   if (!text || typeof text !== 'string') return false;
   const trimmed = text.trim();
   return /^0x[a-fA-F0-9]{40}$/i.test(trimmed);
+}
+
+/**
+ * Check if a string is a cashtag (e.g., $BTC, $ETH, $SOL)
+ * @param {string} text - The text to check
+ * @returns {boolean} True if the text is a cashtag
+ */
+export function isCashtag(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  return /^\$[A-Za-z][A-Za-z0-9]{0,14}$/.test(trimmed);
+}
+
+/**
+ * Check if text contains any URLs
+ * @param {string} text - The text to check
+ * @returns {boolean} True if the text contains URLs
+ */
+export function containsUrl(text) {
+  if (!text || typeof text !== 'string') return false;
+  return URL_REGEX.test(text);
+}
+
+/**
+ * Extract all URLs from text
+ * @param {string} text - The text to search
+ * @returns {string[]} Array of URLs found
+ */
+export function extractUrls(text) {
+  if (!text || typeof text !== 'string') return [];
+  const matches = text.match(URL_REGEX);
+  if (!matches) return [];
+  return [...new Set(matches)];
+}
+
+/**
+ * Remove all URLs from text
+ * @param {string} text - The text to sanitize
+ * @param {Object} [options] - Options
+ * @param {string} [options.replacement=''] - What to replace URLs with
+ * @returns {string} Text with URLs removed
+ */
+export function stripUrls(text, options = {}) {
+  const { replacement = '' } = options;
+  if (!text || typeof text !== 'string') return text;
+  return text.replace(URL_REGEX, replacement).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Extract all cashtags from text
+ * @param {string} text - The text to search
+ * @returns {string[]} Array of cashtags found (including the $ symbol)
+ */
+export function extractCashtags(text) {
+  if (!text || typeof text !== 'string') return [];
+  const matches = text.match(CASHTAG_REGEX);
+  if (!matches) return [];
+  // Normalize to uppercase and deduplicate
+  return [...new Set(matches.map(tag => tag.toUpperCase()))];
+}
+
+/**
+ * Check if text contains any cashtags not in the allowlist
+ * @param {string} text - The text to check
+ * @param {string[]} [allowedCashtags=[]] - List of allowed cashtags (with or without $)
+ * @returns {Object} Object with found cashtags and whether any are blocked
+ */
+export function checkCashtags(text, allowedCashtags = []) {
+  if (!text || typeof text !== 'string') {
+    return { found: [], blocked: [], allowed: [], hasBlocked: false };
+  }
+  
+  const found = extractCashtags(text);
+  if (found.length === 0) {
+    return { found: [], blocked: [], allowed: [], hasBlocked: false };
+  }
+  
+  // Normalize allowlist to uppercase with $ prefix
+  const normalizedAllowlist = new Set(
+    allowedCashtags.map(tag => {
+      const normalized = String(tag).trim().toUpperCase();
+      return normalized.startsWith('$') ? normalized : `$${normalized}`;
+    })
+  );
+  
+  const allowed = [];
+  const blocked = [];
+  
+  for (const tag of found) {
+    if (normalizedAllowlist.has(tag)) {
+      allowed.push(tag);
+    } else {
+      blocked.push(tag);
+    }
+  }
+  
+  return {
+    found,
+    blocked,
+    allowed,
+    hasBlocked: blocked.length > 0
+  };
 }
 
 /**
@@ -185,11 +293,130 @@ export function sanitizeCryptoAddresses(text, options = {}) {
   return sanitized;
 }
 
+/**
+ * Comprehensive content filter that checks for crypto addresses, cashtags, and URLs
+ * @param {string} text - The message text to check
+ * @param {Object} [options] - Options
+ * @param {Object} [options.logger] - Logger instance for debugging
+ * @param {boolean} [options.enabled=true] - Master switch to enable/disable filtering
+ * @param {string[]} [options.allowedCashtags=[]] - List of allowed cashtags
+ * @param {string[]} [options.allowedAddresses=[]] - List of allowed crypto addresses
+ * @param {boolean} [options.blockCryptoAddresses=true] - Whether to block crypto addresses
+ * @param {boolean} [options.blockCashtags=true] - Whether to block cashtags
+ * @param {boolean} [options.blockUrls=false] - Whether to block URLs
+ * @returns {ContentFilterResult} Result object indicating if content is allowed
+ */
+export function filterContent(text, options = {}) {
+  const {
+    logger,
+    enabled = true,
+    allowedCashtags = [],
+    allowedAddresses = [],
+    blockCryptoAddresses = true,
+    blockCashtags = true,
+    blockUrls = false
+  } = options;
+  
+  // If filtering is disabled, allow everything
+  if (!enabled) {
+    return { allowed: true, blocked: false };
+  }
+  
+  if (!text || typeof text !== 'string') {
+    return { allowed: true, blocked: false };
+  }
+  
+  const details = {
+    cryptoAddresses: null,
+    cashtags: null,
+    urls: null
+  };
+  
+  // Check for URLs first (if enabled)
+  if (blockUrls) {
+    const urls = extractUrls(text);
+    if (urls.length > 0) {
+      details.urls = urls;
+      
+      logger?.debug?.('[ContentFilter] Blocked URL detected', { urls });
+      
+      return {
+        allowed: false,
+        blocked: true,
+        reason: 'Message contains URL(s)',
+        type: 'url',
+        details
+      };
+    }
+  }
+  
+  // Check for crypto addresses
+  if (blockCryptoAddresses) {
+    const addresses = extractCryptoAddresses(text);
+    
+    // Filter out allowed addresses
+    const normalizedAllowedAddresses = new Set(
+      allowedAddresses.map(addr => String(addr).toLowerCase())
+    );
+    
+    const blockedEth = addresses.ethereum.filter(addr => !normalizedAllowedAddresses.has(addr));
+    const blockedSol = addresses.solana.filter(addr => !normalizedAllowedAddresses.has(addr.toLowerCase()));
+    
+    if (blockedEth.length > 0 || blockedSol.length > 0) {
+      details.cryptoAddresses = {
+        blocked: { ethereum: blockedEth, solana: blockedSol },
+        allowed: {
+          ethereum: addresses.ethereum.filter(addr => normalizedAllowedAddresses.has(addr)),
+          solana: addresses.solana.filter(addr => normalizedAllowedAddresses.has(addr.toLowerCase()))
+        }
+      };
+      
+      logger?.debug?.('[ContentFilter] Blocked crypto address detected', details.cryptoAddresses);
+      
+      return {
+        allowed: false,
+        blocked: true,
+        reason: 'Message contains blocked cryptocurrency address(es)',
+        type: 'crypto_address',
+        details
+      };
+    }
+  }
+  
+  // Check for cashtags
+  if (blockCashtags) {
+    const cashtagResult = checkCashtags(text, allowedCashtags);
+    
+    if (cashtagResult.hasBlocked) {
+      details.cashtags = cashtagResult;
+      
+      logger?.debug?.('[ContentFilter] Blocked cashtag detected', details.cashtags);
+      
+      return {
+        allowed: false,
+        blocked: true,
+        reason: `Message contains blocked cashtag(s): ${cashtagResult.blocked.join(', ')}`,
+        type: 'cashtag',
+        details
+      };
+    }
+  }
+  
+  return { allowed: true, blocked: false };
+}
+
 export default {
   isSolanaAddress,
   isEthAddress,
+  isCashtag,
   containsCryptoAddress,
+  containsUrl,
   extractCryptoAddresses,
+  extractCashtags,
+  extractUrls,
+  checkCashtags,
   filterCryptoAddresses,
-  sanitizeCryptoAddresses
+  filterContent,
+  sanitizeCryptoAddresses,
+  stripUrls
 };
