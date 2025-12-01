@@ -13,6 +13,7 @@ import { ObjectId } from 'mongodb';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';
+import { filterCryptoAddresses, containsCryptoAddress } from '../../utils/contentFilter.mjs';
 import eventBus from '../../utils/eventBus.mjs';
 import fs from 'fs';
 import path from 'path';
@@ -183,10 +184,22 @@ class XService {
   _sanitizeTweetText(rawText, { fallback = '', maxLength = 280 } = {}) {
     const urlRegex = /(https?:\/\/|www\.)[^\s]+/gi;
     const normalized = typeof rawText === 'string' ? rawText : String(rawText ?? '');
+    
+    // Check for cryptocurrency addresses and reject if found
+    if (containsCryptoAddress(normalized)) {
+      this.logger?.warn?.('[XService] Rejecting tweet containing crypto address');
+      return null;
+    }
+    
     let cleaned = normalized.replace(urlRegex, ' ').replace(/\s+/g, ' ').trim();
 
     if (!cleaned && fallback) {
       const fallbackText = typeof fallback === 'string' ? fallback : String(fallback ?? '');
+      // Also check fallback for crypto addresses
+      if (containsCryptoAddress(fallbackText)) {
+        this.logger?.warn?.('[XService] Rejecting fallback tweet containing crypto address');
+        return null;
+      }
       cleaned = fallbackText.replace(urlRegex, ' ').replace(/\s+/g, ' ').trim();
     }
 
@@ -796,6 +809,13 @@ class XService {
    */
   async postGlobalMediaUpdate(opts = {}, services = {}) {
     try {
+      // Check for cryptocurrency addresses in text before processing
+      const cryptoFilter = filterCryptoAddresses(opts.text || '', { logger: this.logger });
+      if (cryptoFilter.blocked) {
+        this.logger?.warn?.('[XService][globalPost] Rejected post containing crypto address');
+        return { error: true, reason: 'Content contains cryptocurrency address' };
+      }
+      
       // Debug-level invocation trace for operator diagnostics
       this.logger?.debug?.('[XService][globalPost] attempt', {
         mediaUrl: opts.mediaUrl,
