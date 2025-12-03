@@ -97,10 +97,8 @@ async function main() {
       logger.error(`[startup] Failed to attach SecretsService to Mongo: ${e.message}`);
     }
 
-
-    await db.createIndexes();
-    logTiming('Database indexes created');
-    logger.log('[startup] Database indexes created');
+    // Note: Database indexes are created automatically during databaseService.connect()
+    // No need to call db.createIndexes() again here
 
     // Step 4: Initialize core services
     const toolService = container.resolve('toolService');
@@ -146,16 +144,7 @@ async function main() {
     logTiming('Discord bot logged in');
     logger.log('[startup] Discord bot logged in');
 
-    // Initialize Buybot Service
-    try {
-      const buybotService = container.resolve('buybotService');
-      await buybotService.initialize();
-      logger.log('[startup] BuybotService initialized');
-    } catch (e) {
-      logger.warn(`[startup] BuybotService not initialized: ${e.message}`);
-    }
-
-    // Start the MessageHandler
+    // Start the MessageHandler (needed for Discord to function)
     const messageHandler = container.resolve('messageHandler');
     await messageHandler.start();
     logger.log('[startup] MessageHandler started');
@@ -169,9 +158,31 @@ async function main() {
       logger.warn(`[startup] DMPlannerService not started: ${e.message}`);
     }
 
+    // Start the Web Service early so the app is reachable
+    try {
+      logger.info('[startup] Starting web service...');
+      const web = container.resolve('webService');
+      await web.start?.();
+      logTiming('Web service started');
+      logger.log('[startup] Web service started');
+    } catch (e) {
+      logger.error(`[startup] Web service failed to start: ${e.message}`);
+      logger.error(e.stack);
+      logTiming('Web service failed');
+    }
 
-    // Initialize Telegram global bot in background (don't block startup)
+    // Defer non-critical initializations to run in background after core services are ready
     setImmediate(async () => {
+      // Initialize Buybot Service (non-blocking)
+      try {
+        const buybotService = container.resolve('buybotService');
+        await buybotService.initialize();
+        logger.log('[startup] BuybotService initialized');
+      } catch (e) {
+        logger.warn(`[startup] BuybotService not initialized: ${e.message}`);
+      }
+
+      // Initialize Telegram global bot
       try {
         logger.info('[startup] Initializing Telegram bot in background...');
         const telegramService = container.resolve('telegramService');
@@ -187,19 +198,6 @@ async function main() {
         logTiming('Telegram bot failed');
       }
     });
-
-    // Start the Web Service
-    try {
-      logger.info('[startup] Starting web service...');
-      const web = container.resolve('webService');
-      await web.start?.();
-      logTiming('Web service started');
-      logger.log('[startup] Web service started');
-    } catch (e) {
-      logger.error(`[startup] Web service failed to start: ${e.message}`);
-      logger.error(e.stack);
-      logTiming('Web service failed');
-    }
 
     // Check for reset-quotas flag
     if (process.argv.includes('--reset-quotas')) {

@@ -667,63 +667,99 @@ async function initializeContainer() {
     console.warn('[container] Failed to initialize BackgroundImageAnalyzer:', e.message);
   }
 
+  // Parallelize independent service initializations for faster startup
+  const parallelInits = [];
+
   // Initialize avatar location memory
-  try {
-    if (container.registrations.avatarLocationMemory) {
-      const memService = container.resolve('avatarLocationMemory');
-      await memService.init(); // Initialize DB and indexes
-      console.log('[container] AvatarLocationMemory initialized.');
-    }
-  } catch (e) {
-    console.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
+  if (container.registrations.avatarLocationMemory) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const memService = container.resolve('avatarLocationMemory');
+          await memService.init();
+          console.log('[container] AvatarLocationMemory initialized.');
+        } catch (e) {
+          console.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
+        }
+      })()
+    );
   }
 
-  // Initialize LocationService indexes to prevent duplicate locations
-  try {
-    if (container.registrations.locationService) {
-      const locService = container.resolve('locationService');
-      await locService.initializeDatabase(); // Create unique index on channelId
-      console.log('[container] LocationService indexes initialized.');
-    }
-  } catch (e) {
-    console.warn('[container] Failed to initialize LocationService:', e.message);
+  // Initialize LocationService indexes
+  if (container.registrations.locationService) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const locService = container.resolve('locationService');
+          await locService.initializeDatabase();
+          console.log('[container] LocationService indexes initialized.');
+        } catch (e) {
+          console.warn('[container] Failed to initialize LocationService:', e.message);
+        }
+      })()
+    );
   }
 
-  // Initialize GlobalBotService for intelligent X posting
-  try {
-    if (container.registrations.globalBotService) {
-      const globalBot = container.resolve('globalBotService');
-      await globalBot.initialize();
-      console.log('[container] GlobalBotService initialized.');
-    }
-  } catch (e) {
-    console.warn('[container] Failed to initialize GlobalBotService:', e.message);
+  // Initialize GlobalBotService
+  if (container.registrations.globalBotService) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const globalBot = container.resolve('globalBotService');
+          await globalBot.initialize();
+          console.log('[container] GlobalBotService initialized.');
+        } catch (e) {
+          console.warn('[container] Failed to initialize GlobalBotService:', e.message);
+        }
+      })()
+    );
   }
 
-  // Initialize Story System
-  try {
-    // Create database indexes first
-    if (container.registrations.storyStateService) {
-      const storyState = container.resolve('storyStateService');
-      await storyState.createIndexes();
-      console.log('[container] StoryStateService indexes created.');
-    }
-
-    if (container.registrations.storyPlannerService) {
-      const storyPlanner = container.resolve('storyPlannerService');
-      await storyPlanner.initialize();
-      console.log('[container] StoryPlannerService initialized.');
-    }
-
-    if (container.registrations.storySchedulerService) {
-      const storyScheduler = container.resolve('storySchedulerService');
-      await storyScheduler.initialize();
-      console.log('[container] StorySchedulerService initialized.');
-      // Note: Scheduler will be started explicitly via index.mjs or admin API
-    }
-  } catch (e) {
-    console.warn('[container] Failed to initialize Story System:', e.message);
+  // Initialize Story System (all parts can run in parallel)
+  if (container.registrations.storyStateService) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const storyState = container.resolve('storyStateService');
+          await storyState.createIndexes();
+          console.log('[container] StoryStateService indexes created.');
+        } catch (e) {
+          console.warn('[container] Failed to create StoryStateService indexes:', e.message);
+        }
+      })()
+    );
   }
+
+  if (container.registrations.storyPlannerService) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const storyPlanner = container.resolve('storyPlannerService');
+          await storyPlanner.initialize();
+          console.log('[container] StoryPlannerService initialized.');
+        } catch (e) {
+          console.warn('[container] Failed to initialize StoryPlannerService:', e.message);
+        }
+      })()
+    );
+  }
+
+  if (container.registrations.storySchedulerService) {
+    parallelInits.push(
+      (async () => {
+        try {
+          const storyScheduler = container.resolve('storySchedulerService');
+          await storyScheduler.initialize();
+          console.log('[container] StorySchedulerService initialized.');
+        } catch (e) {
+          console.warn('[container] Failed to initialize StorySchedulerService:', e.message);
+        }
+      })()
+    );
+  }
+
+  // Wait for all parallel initializations to complete
+  await Promise.all(parallelInits);
 
   // Late bind s3Service into optional googleAIService
   try {

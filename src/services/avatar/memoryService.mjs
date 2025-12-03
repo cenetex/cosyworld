@@ -11,13 +11,11 @@ export class MemoryService {
     logger,
     schemaService,
     databaseService,
-    discordService,
     embeddingService
   }) {
     this.logger = logger || console;
     this.schemaService = schemaService;
     this.databaseService = databaseService;
-    this.discordService = discordService;
     this.embeddingService = embeddingService || null;
     this.db = null;
     this.lastEntitySync = new Map();
