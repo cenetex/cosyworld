@@ -47,6 +47,7 @@ import {
   generateRequestId,
   includesMention,
   buildCreditInfo,
+  sendImagePreservingFormat,
   // Managers
   CacheManager,
   MemberManager,
@@ -819,10 +820,17 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         } catch {}
       }
 
-      const sentMessage = await ctx.telegram.sendPhoto(ctx.chat.id, imageUrl, {
-        caption: caption ? formatTelegramMarkdown(caption) : undefined,
-        parse_mode: 'HTML'
-      });
+      const sentMessage = await sendImagePreservingFormat(
+        ctx.telegram,
+        ctx.chat.id,
+        imageUrl,
+        {
+          caption: caption ? formatTelegramMarkdown(caption) : undefined,
+          parseMode: 'HTML',
+          includeDownloadLink: true
+        },
+        this.logger
+      );
 
       await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
       if (userId && username) await this._recordMediaUsage(userId, username, 'image');
@@ -1271,7 +1279,7 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
   async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
     if (!this.xService) {
       await ctx.reply('🚫 X service unavailable.');
-      return;
+      return { success: false, error: 'X service unavailable' };
     }
     
     // Get content filter settings from global bot config
@@ -1290,25 +1298,25 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       if (contentFilter.blocked) {
         this.logger?.info?.(`[TelegramService] Blocked tweet (${contentFilter.type}) from ${userId}: ${contentFilter.reason}`);
         await ctx.reply(`🚫 Cannot post: ${contentFilter.reason}`);
-        return;
+        return { success: false, error: `Content blocked: ${contentFilter.reason}` };
       }
     }
 
     const tweetLimits = await this.checkMediaGenerationLimit(null, 'tweet');
     if (!tweetLimits.allowed) {
       await ctx.reply('🐦 X posting is cooling down. Try again later.');
-      return;
+      return { success: false, error: 'Rate limited' };
     }
     
     const media = await this.mediaManager.findRecentMediaById(channelId, mediaId);
     if (!media || !media.mediaUrl) {
       await ctx.reply('❌ Media not found or expired.');
-      return;
+      return { success: false, error: 'Media not found or expired' };
     }
     
     if (media.tweetedAt) {
       await ctx.reply('⚠️ Already tweeted.');
-      return;
+      return { success: false, error: 'Already tweeted', alreadyTweeted: true };
     }
     
     const result = await this.xService.postGlobalMediaUpdate({
@@ -1332,10 +1340,12 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         await ctx.reply('🕊️ Posted to X.');
       }
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
+      return { success: true, tweetId: result.tweetId, tweetUrl: result.tweetUrl };
     } else {
       const reason = result?.error || result?.reason || 'unknown error';
       this.logger?.warn?.('[TelegramService] Tweet post failed:', { channelId, mediaId, reason, result });
       await ctx.reply(`❌ Failed to tweet: ${escapeHtml(reason)}`);
+      return { success: false, error: reason };
     }
   }
 
@@ -1379,10 +1389,17 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         supports_streaming: true
       });
     } else if (imageUrl) {
-      sentMessage = await telegram.sendPhoto(channelId, imageUrl, {
-        caption: formattedText || undefined,
-        parse_mode: parseMode
-      });
+      sentMessage = await sendImagePreservingFormat(
+        telegram,
+        channelId,
+        imageUrl,
+        {
+          caption: formattedText || undefined,
+          parseMode: parseMode,
+          includeDownloadLink: true
+        },
+        this.logger
+      );
     } else if (formattedText) {
       sentMessage = await telegram.sendMessage(channelId, formattedText, parseMode ? { parse_mode: parseMode } : undefined);
     } else {

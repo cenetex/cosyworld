@@ -248,13 +248,24 @@ describe('PostTweetExecutor', () => {
 
   it('uses latestMediaId for tweet', async () => {
     mockContext.latestMediaId = 'media123';
-    mockContext.services.telegram.executeTweetPost.mockResolvedValue({});
+    mockContext.services.telegram.executeTweetPost.mockResolvedValue({ success: true, tweetId: 'tweet456' });
     
     const result = await executor.execute({ description: 'share this' }, mockContext);
     
     expect(result.success).toBe(true);
     expect(result.mediaId).toBe('media123');
     expect(mockContext.services.telegram.executeTweetPost).toHaveBeenCalled();
+  });
+
+  it('returns failure when executeTweetPost fails', async () => {
+    mockContext.latestMediaId = 'media123';
+    mockContext.services.telegram.executeTweetPost.mockResolvedValue({ success: false, error: 'Already tweeted', alreadyTweeted: true });
+    
+    const result = await executor.execute({ description: 'share this' }, mockContext);
+    
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Already tweeted');
+    expect(result.alreadyTweeted).toBe(true);
   });
 });
 

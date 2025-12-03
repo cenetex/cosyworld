@@ -584,13 +584,16 @@ export class GoogleAIService {
         // Find the first image part
         for (const part of response.response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
-            // Save base64 image to temp file
+            // Save base64 image to temp file with correct extension based on mime type
             const buffer = Buffer.from(part.inlineData.data, 'base64');
+            const mimeType = part.inlineData.mimeType || 'image/png';
+            const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
             await fs.mkdir('./images', { recursive: true });
-            const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.${ext}`;
             await fs.writeFile(tempFile, buffer);
             const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
+            this.logger?.debug?.(`[GoogleAIService] Image saved as ${ext}, mimeType from API: ${mimeType}`);
             return s3url;
           }
         }
@@ -766,10 +769,6 @@ export class GoogleAIService {
             generationConfig.imageConfig = generationConfig.imageConfig || {};
             generationConfig.imageConfig.outputImageSize = dimension;
         }
-        
-        // Always output PNG for higher quality and transparency support
-        generationConfig.imageConfig = generationConfig.imageConfig || {};
-        generationConfig.imageConfig.outputMimeType = 'image/png';
 
         const response = await generativeModel.generateContent({
           contents: contents,
@@ -777,12 +776,16 @@ export class GoogleAIService {
         });
         for (const part of response.response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
+            // Use actual mime type from response to determine file extension
             const buffer = Buffer.from(part.inlineData.data, 'base64');
+            const mimeType = part.inlineData.mimeType || 'image/png';
+            const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
             await fs.mkdir('./images', { recursive: true });
-            const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.${ext}`;
             await fs.writeFile(tempFile, buffer);
             const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
+            this.logger?.debug?.(`[GoogleAIService] Composed image saved as ${ext}, mimeType from API: ${mimeType}`);
             return s3url;
           }
         }

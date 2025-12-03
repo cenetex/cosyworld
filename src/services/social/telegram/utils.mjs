@@ -207,6 +207,74 @@ export async function downloadImageAsBase64(imageUrl, logger = null) {
 }
 
 /**
+ * Download an image and return as Buffer
+ * @param {string} imageUrl - URL to download
+ * @param {Object} [logger] - Optional logger
+ * @returns {Promise<{buffer: Buffer, mimeType: string, filename: string}|null>}
+ */
+export async function downloadImageAsBuffer(imageUrl, logger = null) {
+  if (!imageUrl) return null;
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = response.headers.get('content-type') || inferMimeTypeFromUrl(imageUrl);
+    
+    // Determine filename from URL or generate one
+    const urlPath = new URL(imageUrl).pathname;
+    let filename = urlPath.split('/').pop() || `image_${Date.now()}`;
+    
+    // Ensure correct extension based on mime type
+    if (mimeType === 'image/png' && !filename.endsWith('.png')) {
+      filename = filename.replace(/\.[^.]+$/, '') + '.png';
+    } else if ((mimeType === 'image/jpeg' || mimeType === 'image/jpg') && !filename.match(/\.jpe?g$/)) {
+      filename = filename.replace(/\.[^.]+$/, '') + '.jpg';
+    }
+    
+    return { buffer, mimeType: mimeType || 'image/png', filename };
+  } catch (err) {
+    logger?.warn?.('[TelegramUtils] Failed to download image as buffer:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Send image to Telegram with optional high-res PNG download link
+ * @param {Object} telegram - Telegram API instance (ctx.telegram)
+ * @param {string|number} chatId - Chat ID to send to
+ * @param {string} imageUrl - Image URL
+ * @param {Object} [options] - Send options
+ * @param {string} [options.caption] - Image caption
+ * @param {string} [options.parseMode='HTML'] - Parse mode for caption
+ * @param {boolean} [options.includeDownloadLink=true] - If true, add PNG download link
+ * @param {Object} [logger] - Optional logger
+ * @returns {Promise<Object|null>} - Sent message object
+ */
+export async function sendImagePreservingFormat(telegram, chatId, imageUrl, options = {}, logger = null) {
+  const { caption, parseMode = 'HTML', includeDownloadLink = true } = options;
+  
+  // Check if it's a PNG
+  const isPng = imageUrl.toLowerCase().includes('.png') || 
+                imageUrl.toLowerCase().includes('image/png');
+  
+  // Build caption with optional download link
+  let finalCaption = caption || '';
+  if (includeDownloadLink && isPng && imageUrl) {
+    const downloadLink = `\n\n<a href="${imageUrl}">📥 Download High-Res PNG</a>`;
+    finalCaption = finalCaption ? `${finalCaption}${downloadLink}` : downloadLink.trim();
+  }
+  
+  return await telegram.sendPhoto(chatId, imageUrl, {
+    caption: finalCaption || undefined,
+    parse_mode: parseMode
+  });
+}
+
+/**
  * Extract user's profile photo from Telegram
  * @param {Object} telegram - Telegram API instance (ctx.telegram)
  * @param {number|string} userId - User ID
@@ -426,24 +494,30 @@ export function includesMention(source, entities, botUsername) {
 export function inferAspectRatioFromPrompt(prompt, defaultRatio = '1:1') {
   const lowerPrompt = prompt.toLowerCase();
   
-  // Check for explicit aspect ratio mentions first (e.g., "3:1", "21:9")
+  // Gemini supported ratios: '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'
+  const SUPPORTED_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  
+  // Check for explicit aspect ratio mentions first (e.g., "16:9", "21:9")
   const explicitRatioMatch = lowerPrompt.match(/\b(\d+:\d+)\b/);
   if (explicitRatioMatch) {
     const ratio = explicitRatioMatch[1];
-    // Validate it's a supported ratio
-    const supportedRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '3:1'];
-    if (supportedRatios.includes(ratio)) {
+    // If it's a supported ratio, use it directly
+    if (SUPPORTED_RATIOS.includes(ratio)) {
       return ratio;
+    }
+    // Map unsupported ratios to closest supported ones
+    if (ratio === '3:1' || ratio === '2:1') {
+      return '21:9'; // Closest ultra-wide
     }
   }
   
-  // Banner/Header (3:1) - very wide, good for social media banners
+  // Banner/Header - use 21:9 (closest ultra-wide supported ratio)
   if (lowerPrompt.includes('banner') || 
       lowerPrompt.includes('header') ||
       lowerPrompt.includes('cover photo') ||
       lowerPrompt.includes('twitter header') ||
       lowerPrompt.includes('youtube banner')) {
-    return '3:1';
+    return '21:9';
   }
   
   // Ultra-wide/Cinematic (21:9)
@@ -539,6 +613,8 @@ export default {
   formatTelegramMarkdown,
   inferMimeTypeFromUrl,
   downloadImageAsBase64,
+  downloadImageAsBuffer,
+  sendImagePreservingFormat,
   getUserProfilePhoto,
   getMessageImage,
   getReplyChainImages,

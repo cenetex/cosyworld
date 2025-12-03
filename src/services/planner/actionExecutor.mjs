@@ -453,7 +453,7 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
       logger?.warn?.('[PostTweetExecutor] Failed to generate tweet caption, falling back to description:', err);
     }
 
-    await services.telegram.executeTweetPost(ctx, {
+    const tweetResult = await services.telegram.executeTweetPost(ctx, {
       text: tweetText,
       mediaId: mediaIdToTweet,
       channelId,
@@ -461,7 +461,27 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
       username
     });
     
-    return { success: true, action: this.actionType, stepNum, mediaId: mediaIdToTweet };
+    // Check the result from executeTweetPost
+    if (!tweetResult?.success) {
+      const error = tweetResult?.error || 'Tweet post failed';
+      logger?.warn?.('[PostTweetExecutor] Tweet failed:', { error, alreadyTweeted: tweetResult?.alreadyTweeted });
+      return { 
+        success: false, 
+        action: this.actionType, 
+        stepNum, 
+        error,
+        alreadyTweeted: tweetResult?.alreadyTweeted 
+      };
+    }
+    
+    return { 
+      success: true, 
+      action: this.actionType, 
+      stepNum, 
+      mediaId: mediaIdToTweet,
+      tweetId: tweetResult.tweetId,
+      tweetUrl: tweetResult.tweetUrl
+    };
   }
 }
 
