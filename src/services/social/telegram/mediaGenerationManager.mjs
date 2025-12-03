@@ -9,7 +9,13 @@
  * (Veo, Gemini, etc.) with fallbacks and optimizations.
  */
 
-import { downloadImageAsBase64, inferAspectRatioFromPrompt } from './utils.mjs';
+import { 
+  downloadImageAsBase64, 
+  inferAspectRatioFromPrompt,
+  getUserProfilePhoto,
+  getMessageImage,
+  getReplyChainImages
+} from './utils.mjs';
 
 export class MediaGenerationManager {
   constructor({ logger, aiService, googleAIService, veoService, mediaGenerationService, globalBotService }) {
@@ -195,23 +201,127 @@ export class MediaGenerationManager {
   /**
    * Edit an existing image using AI
    * @param {Object} options
+   * @param {string} options.prompt - Edit instructions
+   * @param {string} [options.imageUrl] - URL of image to edit (optional if using Telegram context)
+   * @param {string} [options.source='telegram'] - Source identifier
+   * @param {string} [options.originalPrompt=''] - Original image description
+   * @param {Array<{data: string, mimeType: string, label?: string}>} [options.referenceImages=[]] - Additional reference images
+   * @param {Object} [options.telegramContext] - Telegram context for extracting images
+   * @param {string} [options.aspectRatio] - Desired output aspect ratio
+   * @param {string} [options.imageSize] - Output size: '1k', '2k', or '4k' (default: '1k')
    * @returns {Promise<{imageUrl: string, enhancedPrompt: string}>}
    */
-  async editImage({ prompt, imageUrl, source = 'telegram', originalPrompt = '' }) {
-    const imageData = await downloadImageAsBase64(imageUrl, this.logger);
-    if (!imageData) {
-      throw new Error('Failed to download source image');
+  async editImage({ 
+    prompt, 
+    imageUrl, 
+    source = 'telegram', 
+    originalPrompt = '',
+    referenceImages = [],
+    telegramContext = null,
+    aspectRatio = null,
+    imageSize = '1k'
+  }) {
+    // Note: Output is always PNG for quality and transparency support
+    const allReferenceImages = [...referenceImages];
+    
+    // If we have Telegram context, try to extract images from it
+    if (telegramContext?.telegram) {
+      // Extract image from replied message if no main image URL provided
+      if (!imageUrl && telegramContext.message?.reply_to_message) {
+        const replyImage = await getMessageImage(
+          telegramContext.telegram, 
+          telegramContext.message.reply_to_message, 
+          this.logger
+        );
+        if (replyImage) {
+          allReferenceImages.unshift({
+            data: replyImage.data,
+            mimeType: replyImage.mimeType,
+            label: 'image_to_edit'
+          });
+        }
+      }
+      
+      // Try to get profile photos of mentioned users
+      const entities = telegramContext.message?.entities || [];
+      for (const entity of entities) {
+        if (entity.type === 'mention' && entity.user?.id) {
+          const profilePhoto = await getUserProfilePhoto(
+            telegramContext.telegram,
+            entity.user.id,
+            this.logger
+          );
+          if (profilePhoto) {
+            allReferenceImages.push({
+              data: profilePhoto.data,
+              mimeType: profilePhoto.mimeType,
+              label: `profile_${entity.user.username || entity.user.id}`
+            });
+          }
+        }
+      }
+      
+      // Get sender's profile photo if prompt mentions "my" or "me"
+      if (prompt.toLowerCase().match(/\b(my|me|myself|i)\b/) && telegramContext.from?.id) {
+        const senderPhoto = await getUserProfilePhoto(
+          telegramContext.telegram,
+          telegramContext.from.id,
+          this.logger
+        );
+        if (senderPhoto) {
+          allReferenceImages.push({
+            data: senderPhoto.data,
+            mimeType: senderPhoto.mimeType,
+            label: 'sender_profile'
+          });
+        }
+      }
+    }
+    
+    // If imageUrl is provided, download it as the primary image
+    if (imageUrl) {
+      const imageData = await downloadImageAsBase64(imageUrl, this.logger);
+      if (!imageData) {
+        throw new Error('Failed to download source image');
+      }
+      // Add as first image (to be edited)
+      allReferenceImages.unshift({
+        data: imageData.data,
+        mimeType: imageData.mimeType,
+        label: 'image_to_edit'
+      });
+    }
+    
+    // Must have at least one image to edit
+    if (allReferenceImages.length === 0) {
+      throw new Error('No source image provided for editing. Reply to an image or provide an image URL.');
     }
 
     const { prompt: enhancedPrompt } = this.applyCharacterPrompt(prompt);
     let editedImageUrl = null;
+    
+    // Infer aspect ratio from prompt if not specified
+    const effectiveAspectRatio = aspectRatio || inferAspectRatioFromPrompt(prompt, '1:1');
 
     if (this.googleAIService?.composeImageWithGemini) {
       try {
+        this.logger?.info?.('[MediaGenerationManager] Editing image with Gemini', {
+          referenceCount: allReferenceImages.length,
+          aspectRatio: effectiveAspectRatio,
+          imageSize,
+          labels: allReferenceImages.map(img => img.label)
+        });
+        
         editedImageUrl = await this.googleAIService.composeImageWithGemini(
-          [{ data: imageData.data, mimeType: imageData.mimeType, label: 'image_to_edit' }],
+          allReferenceImages,
           enhancedPrompt,
-          { source, purpose: 'user_edit', context: enhancedPrompt }
+          { 
+            source, 
+            purpose: 'user_edit', 
+            context: enhancedPrompt,
+            aspectRatio: effectiveAspectRatio,
+            imageSize // '1k', '2k', or '4k'
+          }
         );
       } catch (err) {
         this.logger?.warn?.('[MediaGenerationManager] Gemini image edit failed:', err.message);

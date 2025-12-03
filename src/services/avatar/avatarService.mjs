@@ -161,6 +161,11 @@ export class AvatarService {
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
     this.avatarActivityCount = new Map(); // avatarId  → integer
+    
+    // Rate limiting for activity count increments to prevent inflation from
+    // multiple channels processing the same transaction
+    this.activityIncrementCache = new Map(); // walletAddress → lastIncrementTimestamp
+    this.ACTIVITY_INCREMENT_COOLDOWN_MS = 60_000; // 60 seconds between increments for same wallet
 
     // collection aliases
     this.IMAGE_URL_COLLECTION = 'image_urls';
@@ -2441,8 +2446,8 @@ export class AvatarService {
       const upgradeReason = needsUpgrade ? 'balance-threshold' : (engagementEligible ? 'high-activity' : null);
       const shouldAttemptUpgrade = Boolean(upgradeReason) && canRetryUpgrade;
       
-      // Debug logging for upgrade decision
-      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, activityCount: ${activityCount}, highActivityEligible: ${engagementEligible}, lastUpgradeAttemptAt: ${lastUpgradeAttemptAt || 'never'}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
+      // Debug logging for upgrade decision (reduced to debug level to avoid log spam)
+      this.logger?.debug?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, activityCount: ${activityCount}, highActivityEligible: ${engagementEligible}, lastUpgradeAttemptAt: ${lastUpgradeAttemptAt || 'never'}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
       
       if (shouldAttemptUpgrade) {
         const balanceDescription = context.tokenSymbol
@@ -2630,18 +2635,39 @@ export class AvatarService {
         updateData.summoner = `wallet:${walletAddress}`;
       }
 
+      // Rate limit activity count increments to prevent inflation from
+      // multiple channels processing the same transaction
+      const now = Date.now();
+      const lastIncrement = this.activityIncrementCache.get(walletAddress);
+      const shouldIncrementActivity = !lastIncrement || (now - lastIncrement) >= this.ACTIVITY_INCREMENT_COOLDOWN_MS;
+      
+      if (shouldIncrementActivity) {
+        this.activityIncrementCache.set(walletAddress, now);
+        
+        // Cleanup old entries periodically (every 100 new entries)
+        if (this.activityIncrementCache.size > 1000 && this.activityIncrementCache.size % 100 === 0) {
+          const cutoff = now - this.ACTIVITY_INCREMENT_COOLDOWN_MS * 2;
+          for (const [addr, ts] of this.activityIncrementCache) {
+            if (ts < cutoff) this.activityIncrementCache.delete(addr);
+          }
+        }
+      }
+
+      const updateOp = { $set: updateData };
+      if (shouldIncrementActivity) {
+        updateOp.$inc = { activityCount: 1 };
+      }
+
       await db.collection(this.AVATARS_COLLECTION).updateOne(
         { _id: avatar._id },
-        {
-          $set: updateData,
-          $inc: { activityCount: 1 }
-        }
+        updateOp
       );
       
       // Reload to get updated data
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
-  this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${upgradeAppliedThisCall ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
+      // Reduced to debug level to avoid log spam from high-frequency polling
+      this.logger?.debug?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${upgradeAppliedThisCall ? ' (upgraded to full)' : ''}${shouldIncrementActivity ? '' : ' (activity increment skipped - rate limited)'} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
 
   const claimedActivationTarget = context.discordChannelId || context.channelId || avatar.channelId;
       if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && claimedActivationTarget) {

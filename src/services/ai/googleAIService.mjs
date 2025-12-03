@@ -681,6 +681,7 @@ export class GoogleAIService {
       source: _source,
       prompt: _prompt, // Remove prompt from options if present
       aspectRatio,
+      imageSize,           // '1k', '2k', or '4k'
       characterReference, // Flag to indicate character reference mode
       ...genOptions 
     } = options;
@@ -750,6 +751,25 @@ export class GoogleAIService {
         if (aspectRatio) {
             generationConfig.imageConfig = { aspectRatio };
         }
+        
+        // Support image size options for Gemini 3 Pro: '1k' (1024), '2k' (2048), '4k' (4096)
+        if (imageSize) {
+            const sizeMap = {
+              '1k': 1024,
+              '2k': 2048,
+              '4k': 4096,
+              '1024': 1024,
+              '2048': 2048,
+              '4096': 4096
+            };
+            const dimension = sizeMap[String(imageSize).toLowerCase()] || sizeMap['1k'];
+            generationConfig.imageConfig = generationConfig.imageConfig || {};
+            generationConfig.imageConfig.outputImageSize = dimension;
+        }
+        
+        // Always output PNG for higher quality and transparency support
+        generationConfig.imageConfig = generationConfig.imageConfig || {};
+        generationConfig.imageConfig.outputMimeType = 'image/png';
 
         const response = await generativeModel.generateContent({
           contents: contents,

@@ -2432,7 +2432,7 @@ export class BuybotService {
           }
         } else if (effectiveType === 'transfer') {
           if (event.from) {
-            this.logger.info(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
+            this.logger.debug?.(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             try {
@@ -2454,10 +2454,10 @@ export class BuybotService {
               const senderTokenBalance = senderAvatar?.tokenBalances?.[token.tokenSymbol];
               const senderBalance = Number.isFinite(senderTokenBalance?.balance) ? senderTokenBalance.balance : null;
 
-              this.logger.info(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance ?? 0} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
+              this.logger.debug?.(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance ?? 0} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
 
               if (senderAvatar) {
-                this.logger.info(`[BuybotService] Created/retrieved sender avatar:`, {
+                this.logger.debug?.(`[BuybotService] Created/retrieved sender avatar:`, {
                   emoji: senderAvatar.emoji,
                   name: senderAvatar.name,
                   hasImage: !!senderAvatar.imageUrl,
@@ -2479,7 +2479,7 @@ export class BuybotService {
             }
           }
           if (event.to) {
-            this.logger.info(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
+            this.logger.debug?.(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             try {
@@ -2501,10 +2501,10 @@ export class BuybotService {
               const recipientTokenBalance = recipientAvatar?.tokenBalances?.[token.tokenSymbol];
               const recipientBalance = Number.isFinite(recipientTokenBalance?.balance) ? recipientTokenBalance.balance : null;
 
-              this.logger.info(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance ?? 0} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
+              this.logger.debug?.(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance ?? 0} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
 
               if (recipientAvatar) {
-                this.logger.info(`[BuybotService] Created/retrieved recipient avatar:`, {
+                this.logger.debug?.(`[BuybotService] Created/retrieved recipient avatar:`, {
                   emoji: recipientAvatar.emoji,
                   name: recipientAvatar.name,
                   hasImage: !!recipientAvatar.imageUrl,

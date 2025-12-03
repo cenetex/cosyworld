@@ -206,6 +206,143 @@ export async function downloadImageAsBase64(imageUrl, logger = null) {
   }
 }
 
+/**
+ * Extract user's profile photo from Telegram
+ * @param {Object} telegram - Telegram API instance (ctx.telegram)
+ * @param {number|string} userId - User ID
+ * @param {Object} [logger] - Optional logger
+ * @returns {Promise<{data: string, mimeType: string}|null>}
+ */
+export async function getUserProfilePhoto(telegram, userId, logger = null) {
+  if (!telegram || !userId) return null;
+  
+  try {
+    // Get user profile photos (limit to 1)
+    const photos = await telegram.getUserProfilePhotos(userId, 0, 1);
+    
+    if (!photos?.photos?.length || !photos.photos[0]?.length) {
+      logger?.debug?.('[TelegramUtils] No profile photos found for user', { userId });
+      return null;
+    }
+    
+    // Get the largest photo (last in the array)
+    const photoSizes = photos.photos[0];
+    const largestPhoto = photoSizes[photoSizes.length - 1];
+    
+    // Get file info and download
+    const file = await telegram.getFile(largestPhoto.file_id);
+    if (!file?.file_path) {
+      logger?.warn?.('[TelegramUtils] Could not get file path for profile photo');
+      return null;
+    }
+    
+    // Construct download URL (requires bot token in the URL)
+    const fileUrl = `https://api.telegram.org/file/bot${telegram.token}/${file.file_path}`;
+    
+    return await downloadImageAsBase64(fileUrl, logger);
+  } catch (err) {
+    logger?.warn?.('[TelegramUtils] Failed to get user profile photo:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Extract image from a Telegram message (photo or document)
+ * @param {Object} telegram - Telegram API instance (ctx.telegram)
+ * @param {Object} message - Telegram message object
+ * @param {Object} [logger] - Optional logger
+ * @returns {Promise<{data: string, mimeType: string, width?: number, height?: number}|null>}
+ */
+export async function getMessageImage(telegram, message, logger = null) {
+  if (!telegram || !message) return null;
+  
+  try {
+    let fileId = null;
+    let mimeType = 'image/jpeg';
+    let width = null;
+    let height = null;
+    
+    // Check for photo array
+    if (message.photo?.length) {
+      // Get the largest photo (last in array)
+      const largestPhoto = message.photo[message.photo.length - 1];
+      fileId = largestPhoto.file_id;
+      width = largestPhoto.width;
+      height = largestPhoto.height;
+    }
+    // Check for document (could be PNG, GIF, etc.)
+    else if (message.document?.mime_type?.startsWith('image/')) {
+      fileId = message.document.file_id;
+      mimeType = message.document.mime_type;
+    }
+    // Check for sticker
+    else if (message.sticker) {
+      fileId = message.sticker.file_id;
+      mimeType = message.sticker.is_animated ? 'application/x-tgsticker' : 'image/webp';
+      width = message.sticker.width;
+      height = message.sticker.height;
+    }
+    
+    if (!fileId) {
+      logger?.debug?.('[TelegramUtils] No image found in message');
+      return null;
+    }
+    
+    // Get file info and download
+    const file = await telegram.getFile(fileId);
+    if (!file?.file_path) {
+      logger?.warn?.('[TelegramUtils] Could not get file path for message image');
+      return null;
+    }
+    
+    // Construct download URL
+    const fileUrl = `https://api.telegram.org/file/bot${telegram.token}/${file.file_path}`;
+    
+    const imageData = await downloadImageAsBase64(fileUrl, logger);
+    if (!imageData) return null;
+    
+    return {
+      ...imageData,
+      mimeType: imageData.mimeType || mimeType,
+      width,
+      height
+    };
+  } catch (err) {
+    logger?.warn?.('[TelegramUtils] Failed to get message image:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Extract images from a reply chain
+ * @param {Object} ctx - Telegram context
+ * @param {number} maxImages - Maximum number of images to extract (default: 5)
+ * @param {Object} [logger] - Optional logger
+ * @returns {Promise<Array<{data: string, mimeType: string, label: string}>>}
+ */
+export async function getReplyChainImages(ctx, maxImages = 5, logger = null) {
+  const images = [];
+  let message = ctx.message?.reply_to_message;
+  
+  while (message && images.length < maxImages) {
+    const imageData = await getMessageImage(ctx.telegram, message, logger);
+    if (imageData) {
+      images.push({
+        data: imageData.data,
+        mimeType: imageData.mimeType,
+        label: `reference_${images.length + 1}`,
+        width: imageData.width,
+        height: imageData.height
+      });
+    }
+    
+    // Move to next message in reply chain
+    message = message.reply_to_message;
+  }
+  
+  return images;
+}
+
 // ============================================================================
 // Number Formatting Utilities
 // ============================================================================
@@ -281,6 +418,7 @@ export function includesMention(source, entities, botUsername) {
 
 /**
  * Infer aspect ratio from prompt keywords
+ * Supports: 1:1 (square), 16:9 (widescreen), 9:16 (portrait), 3:1 (banner), 21:9 (ultra-wide)
  * @param {string} prompt - User's prompt
  * @param {string} defaultRatio - Default aspect ratio
  * @returns {string} - Inferred aspect ratio
@@ -288,23 +426,65 @@ export function includesMention(source, entities, botUsername) {
 export function inferAspectRatioFromPrompt(prompt, defaultRatio = '1:1') {
   const lowerPrompt = prompt.toLowerCase();
   
+  // Check for explicit aspect ratio mentions first (e.g., "3:1", "21:9")
+  const explicitRatioMatch = lowerPrompt.match(/\b(\d+:\d+)\b/);
+  if (explicitRatioMatch) {
+    const ratio = explicitRatioMatch[1];
+    // Validate it's a supported ratio
+    const supportedRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '3:1'];
+    if (supportedRatios.includes(ratio)) {
+      return ratio;
+    }
+  }
+  
+  // Banner/Header (3:1) - very wide, good for social media banners
+  if (lowerPrompt.includes('banner') || 
+      lowerPrompt.includes('header') ||
+      lowerPrompt.includes('cover photo') ||
+      lowerPrompt.includes('twitter header') ||
+      lowerPrompt.includes('youtube banner')) {
+    return '3:1';
+  }
+  
+  // Ultra-wide/Cinematic (21:9)
+  if (lowerPrompt.includes('ultra wide') ||
+      lowerPrompt.includes('ultrawide') ||
+      lowerPrompt.includes('anamorphic') ||
+      lowerPrompt.includes('cinematic') ||
+      lowerPrompt.includes('movie') ||
+      lowerPrompt.includes('film')) {
+    return '21:9';
+  }
+  
+  // Widescreen (16:9)
   if (lowerPrompt.includes('widescreen') || 
-      lowerPrompt.includes('banner') || 
       lowerPrompt.includes('landscape') || 
       lowerPrompt.includes('wide shot') ||
       lowerPrompt.includes('horizontal') || 
       lowerPrompt.includes('panoramic') ||
-      lowerPrompt.includes('cinematic')) {
+      lowerPrompt.includes('desktop wallpaper') ||
+      lowerPrompt.includes('thumbnail')) {
     return '16:9';
   }
   
+  // Portrait/Vertical (9:16)
   if (lowerPrompt.includes('portrait') || 
       lowerPrompt.includes('vertical') || 
       lowerPrompt.includes('tall') || 
       lowerPrompt.includes('phone wallpaper') ||
       lowerPrompt.includes('story') || 
-      lowerPrompt.includes('tiktok')) {
+      lowerPrompt.includes('tiktok') ||
+      lowerPrompt.includes('reels') ||
+      lowerPrompt.includes('shorts')) {
     return '9:16';
+  }
+  
+  // Square (1:1) for profile pictures
+  if (lowerPrompt.includes('profile') ||
+      lowerPrompt.includes('avatar') ||
+      lowerPrompt.includes('pfp') ||
+      lowerPrompt.includes('icon')) {
+    return '1:1';
   }
   
   return defaultRatio;
@@ -359,6 +539,9 @@ export default {
   formatTelegramMarkdown,
   inferMimeTypeFromUrl,
   downloadImageAsBase64,
+  getUserProfilePhoto,
+  getMessageImage,
+  getReplyChainImages,
   formatNumber,
   formatPrice,
   generateRequestId,
