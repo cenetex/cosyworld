@@ -786,6 +786,43 @@ export class BuybotService {
   }
 
   /**
+   * Get all unique tracked tokens across all channels
+   * Returns unique addresses and symbols for content filter allowlists
+   * @returns {Promise<{addresses: string[], symbols: string[]}>}
+   */
+  async getAllTrackedTokensForAllowlist() {
+    try {
+      const tokens = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .find({ active: true })
+        .toArray();
+      
+      const addresses = new Set();
+      const symbols = new Set();
+      
+      for (const token of tokens) {
+        if (token.tokenAddress) {
+          addresses.add(token.tokenAddress.toLowerCase());
+        }
+        if (token.tokenSymbol) {
+          // Add both with and without $ prefix
+          const symbol = token.tokenSymbol.toUpperCase();
+          symbols.add(symbol);
+          symbols.add(`$${symbol}`);
+        }
+      }
+      
+      return {
+        addresses: [...addresses],
+        symbols: [...symbols]
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get all tracked tokens for allowlist:', error);
+      return { addresses: [], symbols: [] };
+    }
+  }
+
+  /**
    * Get service status
    * @returns {Object} Status object
    */

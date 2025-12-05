@@ -29,6 +29,7 @@ export class DiscordService {
     this.getCombatEncounterService = services.getCombatEncounterService || null;
     this.avatarService = services.avatarService || null;
     this.globalBotService = services.globalBotService || null;
+    this.buybotService = services.buybotService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
@@ -475,14 +476,34 @@ export class DiscordService {
           filteredContent = stripUrls(filteredContent);
         }
         
+        // Get dynamically allowed tokens from buybot tracked tokens
+        let dynamicAllowlist = { addresses: [], symbols: [] };
+        if (this.buybotService?.getAllTrackedTokensForAllowlist) {
+          try {
+            dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
+          } catch (err) {
+            this.logger?.debug?.('[DiscordService] Failed to get dynamic token allowlist:', err.message);
+          }
+        }
+        
+        // Merge static config with dynamic allowlists
+        const allowedCashtags = [
+          ...(contentFilters.allowedCashtags || []),
+          ...dynamicAllowlist.symbols
+        ];
+        const allowedAddresses = [
+          ...(contentFilters.allowedAddresses || []),
+          ...dynamicAllowlist.addresses
+        ];
+        
         // Check for other blocked content (crypto addresses, cashtags)
         const contentFilter = filterContent(filteredContent, {
           logger: this.logger,
           blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
           blockCashtags: contentFilters.blockCashtags !== false,
           blockUrls: false, // Already stripped URLs above
-          allowedCashtags: contentFilters.allowedCashtags || [],
-          allowedAddresses: contentFilters.allowedAddresses || []
+          allowedCashtags,
+          allowedAddresses
         });
         
         if (contentFilter.blocked) {

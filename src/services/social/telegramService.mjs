@@ -391,12 +391,33 @@ class TelegramService {
     
     if (filterEnabled) {
       const messageText = message.text || message.caption || '';
+      
+      // Get dynamically allowed tokens from buybot tracked tokens
+      let dynamicAllowlist = { addresses: [], symbols: [] };
+      if (this.buybotService?.getAllTrackedTokensForAllowlist) {
+        try {
+          dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
+        } catch (err) {
+          this.logger?.debug?.('[TelegramService] Failed to get dynamic token allowlist:', err.message);
+        }
+      }
+      
+      // Merge static config with dynamic allowlists
+      const allowedCashtags = [
+        ...(contentFilters.allowedCashtags || []),
+        ...dynamicAllowlist.symbols
+      ];
+      const allowedAddresses = [
+        ...(contentFilters.allowedAddresses || []),
+        ...dynamicAllowlist.addresses
+      ];
+      
       const contentFilter = filterContent(messageText, {
         logger: this.logger,
         blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
         blockCashtags: contentFilters.blockCashtags !== false,
-        allowedCashtags: contentFilters.allowedCashtags || [],
-        allowedAddresses: contentFilters.allowedAddresses || []
+        allowedCashtags,
+        allowedAddresses
       });
       
       if (contentFilter.blocked) {
@@ -1287,12 +1308,32 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     const filterEnabled = contentFilters.enabled !== false;
     
     if (filterEnabled) {
+      // Get dynamically allowed tokens from buybot tracked tokens
+      let dynamicAllowlist = { addresses: [], symbols: [] };
+      if (this.buybotService?.getAllTrackedTokensForAllowlist) {
+        try {
+          dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
+        } catch (err) {
+          this.logger?.debug?.('[TelegramService] Failed to get dynamic token allowlist:', err.message);
+        }
+      }
+      
+      // Merge static config with dynamic allowlists
+      const allowedCashtags = [
+        ...(contentFilters.allowedCashtags || []),
+        ...dynamicAllowlist.symbols
+      ];
+      const allowedAddresses = [
+        ...(contentFilters.allowedAddresses || []),
+        ...dynamicAllowlist.addresses
+      ];
+      
       const contentFilter = filterContent(text || '', {
         logger: this.logger,
         blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
         blockCashtags: contentFilters.blockCashtags !== false,
-        allowedCashtags: contentFilters.allowedCashtags || [],
-        allowedAddresses: contentFilters.allowedAddresses || []
+        allowedCashtags,
+        allowedAddresses
       });
       
       if (contentFilter.blocked) {
