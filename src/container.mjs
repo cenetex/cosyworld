@@ -125,6 +125,7 @@ import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceSe
 import { MetricsService } from './services/monitoring/metricsService.mjs';
 import { MediaGenerationService } from './services/media/mediaGenerationService.mjs';
 import { MediaIndexService } from './services/media/mediaIndexService.mjs';
+import { WikiService } from './services/wiki/wikiService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
@@ -458,6 +459,7 @@ async function initializeContainer() {
     discordService: asClass(DiscordService).singleton(),
     buybotService: asClass(BuybotService).singleton().inject(() => ({
       getTelegramService: () => container.resolve('telegramService'),
+      getDiscordService: () => container.resolve('discordService'),
       services: container,
     })),
     responseCoordinator: asClass(ResponseCoordinator).singleton(),
@@ -465,6 +467,8 @@ async function initializeContainer() {
     webService: asClass(WebService).singleton(),
     embeddingService: asClass(EmbeddingService).singleton(),
     memoryScheduler: asClass(MemoryScheduler).singleton(),
+    // Wiki service for bot knowledge sharing
+    wikiService: asClass(WikiService).singleton(),
     // Story system services
     storyStateService: asClass(StoryStateService).singleton(),
     worldContextService: asClass(WorldContextService).singleton(),

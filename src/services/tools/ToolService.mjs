@@ -24,6 +24,7 @@ import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
 import { PotionTool } from './tools/PotionTool.mjs';
+import { WikiTool } from './tools/WikiTool.mjs';
 
 function normalizeToolResult(rawResult) {
   const base = { message: null, notify: true };
@@ -49,6 +50,7 @@ export class ToolService {
   constructor({
     logger,
     aiService,
+    unifiedAIService,
   googleAIService,
     imageProcessingService,
     configService,
@@ -76,11 +78,13 @@ export class ToolService {
     veoService,
     videoJobService,
     presenceService,
-    conversationThreadService
+    conversationThreadService,
+    wikiService
   }) {
     this.toolServices = {
       logger,
       aiService,
+      unifiedAIService,
   googleAIService,
       imageProcessingService,
       battleService,
@@ -108,7 +112,8 @@ export class ToolService {
       veoService,
       videoJobService,
       presenceService,
-      conversationThreadService
+      conversationThreadService,
+      wikiService
     }
 
     this.logger = logger || console;
@@ -156,7 +161,8 @@ export class ToolService {
       selfie: SelfieTool,
       camera: SceneCameraTool,
       'video camera': VideoCameraTool,
-      devil: DevilTool
+      devil: DevilTool,
+      wiki: WikiTool
     };
 
   Object.entries(toolClasses).forEach(([name, ToolClass]) => {
@@ -181,6 +187,8 @@ export class ToolService {
   this.toolEmojis.set('🎥', 'video camera');
   // Legacy spiderweb emoji now maps to web search tool
   this.toolEmojis.set('🕸️', 'search');
+  // Wiki tool emoji
+  this.toolEmojis.set('📖', 'wiki');
   }
 
   registerTool(tool) {

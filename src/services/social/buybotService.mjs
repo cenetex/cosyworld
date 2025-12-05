@@ -67,11 +67,11 @@ const cloneDefaultTokenPreferences = () => JSON.parse(JSON.stringify(DEFAULT_TOK
 
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
+  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
-    this.discordService = discordService;
+    this.getDiscordService = getDiscordService || (() => null); // Late-bound to avoid circular dependency
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
     this.avatarService = avatarService;
     this.avatarRelationshipService = avatarRelationshipService;
@@ -106,6 +106,9 @@ export class BuybotService {
       retryWithBackoff: (fn, maxAttempts = API_RETRY_MAX_ATTEMPTS, baseDelay = API_RETRY_BASE_DELAY_MS) => this.retryWithBackoff(fn, maxAttempts, baseDelay),
       getTokenInfo: (tokenAddress) => this.getTokenInfo(tokenAddress),
     });
+
+    // Late-bound discordService getter (avoids circular dependency)
+    this._discordService = null;
 
     // Cache for Discord channel context lookups (threads, parents, guild IDs)
     this.channelContextCache = new Map();
@@ -142,6 +145,17 @@ export class BuybotService {
     this.globalBackoffUntil = null;
     this.GLOBAL_FAILURE_THRESHOLD = Number(process.env.BUYBOT_GLOBAL_FAILURE_THRESHOLD || 3);
     this.GLOBAL_BACKOFF_MS = Number(process.env.BUYBOT_GLOBAL_BACKOFF_MS || (24 * 60 * 60 * 1000));
+  }
+
+  /**
+   * Late-bound getter for discordService to avoid circular dependency
+   * @returns {Object|null} The Discord service instance
+   */
+  get discordService() {
+    if (!this._discordService && this.getDiscordService) {
+      this._discordService = this.getDiscordService();
+    }
+    return this._discordService;
   }
 
   /**

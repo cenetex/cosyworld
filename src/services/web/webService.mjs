@@ -42,6 +42,8 @@ export class WebService {
     pricingService,
     marketplaceService,
     marketplaceServiceRegistry,
+    // Wiki service
+    wikiService,
   }) {
     this.logger = logger || console;
     this.configService = configService;
@@ -77,6 +79,8 @@ export class WebService {
     this.pricingService = pricingService;
     this.marketplaceService = marketplaceService;
     this.marketplaceServiceRegistry = marketplaceServiceRegistry;
+    // Wiki service
+    this.wikiService = wikiService;
 
     this.started = false;
 
@@ -119,6 +123,8 @@ export class WebService {
       pricingService: this.pricingService,
       marketplaceService: this.marketplaceService,
       marketplaceServiceRegistry: this.marketplaceServiceRegistry,
+      // Wiki service
+      wikiService: this.wikiService,
     };
   }
 
