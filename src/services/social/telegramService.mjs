@@ -375,6 +375,51 @@ class TelegramService {
   }
 
   /**
+   * Resolve content filters merging static config and dynamic allowlists
+   */
+  async _resolveContentFilters() {
+    const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+    const filterEnabled = contentFilters.enabled !== false;
+    
+    if (!filterEnabled) {
+      return { enabled: false, allowedCashtags: [], allowedAddresses: [] };
+    }
+
+    let dynamicAllowlist = { addresses: [], symbols: [] };
+    if (this.buybotService?.getAllTrackedTokensForAllowlist) {
+      try {
+        dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
+      } catch (err) {
+        this.logger?.debug?.('[TelegramService] Failed to get dynamic token allowlist:', err.message);
+      }
+    }
+    
+    // Ensure symbols have $ prefix for consistent comparison
+    const dynamicSymbols = (dynamicAllowlist.symbols || []).map(s => 
+      s.startsWith('$') ? s : `$${s}`
+    );
+    
+    // Merge static config with dynamic allowlists
+    const allowedCashtags = [
+      ...(contentFilters.allowedCashtags || []),
+      ...dynamicSymbols,
+      '$RATI', '$HISS' // Explicitly allow core tokens
+    ];
+    
+    const allowedAddresses = [
+      ...(contentFilters.allowedAddresses || []),
+      ...(dynamicAllowlist.addresses || [])
+    ];
+
+    return {
+      ...contentFilters,
+      enabled: true,
+      allowedCashtags,
+      allowedAddresses
+    };
+  }
+
+  /**
    * Handle incoming messages with debouncing and mention detection
    */
   async handleIncomingMessage(ctx) {
@@ -386,40 +431,18 @@ class TelegramService {
     if (message.from.is_bot) return;
     if (message.text && message.text.startsWith('/')) return;
     
-    // Get content filter settings from global bot config
-    const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
-    const filterEnabled = contentFilters.enabled !== false;
+    // Resolve content filters
+    const effectiveFilters = await this._resolveContentFilters();
     
-    if (filterEnabled) {
+    if (effectiveFilters.enabled) {
       const messageText = message.text || message.caption || '';
-      
-      // Get dynamically allowed tokens from buybot tracked tokens
-      let dynamicAllowlist = { addresses: [], symbols: [] };
-      if (this.buybotService?.getAllTrackedTokensForAllowlist) {
-        try {
-          dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
-        } catch (err) {
-          this.logger?.debug?.('[TelegramService] Failed to get dynamic token allowlist:', err.message);
-        }
-      }
-      
-      // Merge static config with dynamic allowlists
-      const allowedCashtags = [
-        ...(contentFilters.allowedCashtags || []),
-        ...dynamicAllowlist.symbols,
-        '$RATI', '$HISS' // Explicitly allow core tokens
-      ];
-      const allowedAddresses = [
-        ...(contentFilters.allowedAddresses || []),
-        ...dynamicAllowlist.addresses
-      ];
       
       const contentFilter = filterContent(messageText, {
         logger: this.logger,
-        blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
-        blockCashtags: contentFilters.blockCashtags !== false,
-        allowedCashtags,
-        allowedAddresses
+        blockCryptoAddresses: effectiveFilters.blockCryptoAddresses !== false,
+        blockCashtags: effectiveFilters.blockCashtags !== false,
+        allowedCashtags: effectiveFilters.allowedCashtags,
+        allowedAddresses: effectiveFilters.allowedAddresses
       });
       
       if (contentFilter.blocked) {
@@ -1297,50 +1320,21 @@ class TelegramService {
       return { success: false, error: 'X service unavailable' };
     }
     
-    // Get content filter settings from global bot config
-    const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
-    const filterEnabled = contentFilters.enabled !== false;
-    
-    // Prepare effective content filters to pass to XService
-    let effectiveContentFilters = { ...contentFilters };
+    // Resolve content filters
+    const effectiveContentFilters = await this._resolveContentFilters();
 
-    if (filterEnabled) {
-      // Get dynamically allowed tokens from buybot tracked tokens
-      let dynamicAllowlist = { addresses: [], symbols: [] };
-      if (this.buybotService?.getAllTrackedTokensForAllowlist) {
-        try {
-          dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
-        } catch (err) {
-          this.logger?.debug?.('[TelegramService] Failed to get dynamic token allowlist:', err.message);
-        }
-      }
-      
-      // Merge static config with dynamic allowlists
-      const allowedCashtags = [
-        ...(contentFilters.allowedCashtags || []),
-        ...dynamicAllowlist.symbols,
-        '$RATI', '$HISS' // Explicitly allow core tokens
-      ];
-      const allowedAddresses = [
-        ...(contentFilters.allowedAddresses || []),
-        ...dynamicAllowlist.addresses
-      ];
-      
-      // Update effective filters with merged lists
-      effectiveContentFilters.allowedCashtags = allowedCashtags;
-      effectiveContentFilters.allowedAddresses = allowedAddresses;
-
+    if (effectiveContentFilters.enabled) {
       this.logger?.debug?.('[TelegramService] Effective content filters for X:', { 
-        allowedCashtags, 
+        allowedCashtags: effectiveContentFilters.allowedCashtags, 
         text: text?.slice(0, 50) 
       });
 
       const contentFilter = filterContent(text || '', {
         logger: this.logger,
-        blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
-        blockCashtags: contentFilters.blockCashtags !== false,
-        allowedCashtags,
-        allowedAddresses
+        blockCryptoAddresses: effectiveContentFilters.blockCryptoAddresses !== false,
+        blockCashtags: effectiveContentFilters.blockCashtags !== false,
+        allowedCashtags: effectiveContentFilters.allowedCashtags,
+        allowedAddresses: effectiveContentFilters.allowedAddresses
       });
       
       if (contentFilter.blocked) {
