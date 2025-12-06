@@ -151,5 +151,45 @@ export default function socialRoutes(db, services = {}) {
     }
   });
 
+  router.post('/connect/:avatarId', async (req, res) => {
+    try {
+      assertSocialService();
+      const { avatarId } = req.params;
+      if (!canManageAvatar(req, avatarId)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { platform, credentials } = req.body;
+      if (!platform || !credentials) {
+        return res.status(400).json({ error: 'Platform and credentials required' });
+      }
+
+      await socialPlatformService.connectPlatform(avatarId, platform, credentials);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to connect platform' });
+    }
+  });
+
+  router.post('/disconnect/:avatarId', async (req, res) => {
+    try {
+      assertSocialService();
+      const { avatarId } = req.params;
+      if (!canManageAvatar(req, avatarId)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { platform } = req.body;
+      if (!platform) {
+        return res.status(400).json({ error: 'Platform required' });
+      }
+
+      await socialPlatformService.disconnectPlatform(avatarId, platform);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to disconnect platform' });
+    }
+  });
+
   return router;
 }

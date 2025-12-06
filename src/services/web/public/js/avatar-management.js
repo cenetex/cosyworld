@@ -1025,8 +1025,8 @@ if (emojiInput) {
     }
 
     try {
-      const connections = await apiFetch(`/api/social/connections/${avatarId}`);
-      renderSocialConnections(avatarId, connections);
+      const response = await apiFetch(`/api/social/connections/${avatarId}`);
+      renderSocialConnections(avatarId, response.connections || []);
     } catch (error) {
       console.error("Error loading social connections:", error);
       elements.socialList.innerHTML = `<div class="text-red-500">Failed to load connections: ${error.message}</div>`;
