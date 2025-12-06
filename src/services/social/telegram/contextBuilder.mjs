@@ -1,0 +1,71 @@
+/**
+ * Copyright (c) 2019-2025 Cenetex Inc.
+ * Licensed under the MIT License.
+ */
+
+import { buildCreditInfo } from './utils.mjs';
+
+/**
+ * Builds the conversation context for the AI model
+ * @param {Object} params
+ * @param {Array} params.history - Conversation history
+ * @param {Object} params.currentMessage - The current incoming message
+ * @param {Object} params.persona - Bot persona configuration
+ * @param {Object} params.credits - User credit limits
+ * @param {Object} params.plan - Current plan context
+ * @param {Object} params.media - Recent media context
+ * @param {Object} params.buybot - Buybot context
+ * @param {boolean} params.isMention - Whether the bot was mentioned
+ * @returns {Object} { systemPrompt, userPrompt }
+ */
+export function buildConversationContext({
+  history,
+  currentMessage,
+  persona,
+  credits,
+  plan,
+  media,
+  buybot,
+  isMention
+}) {
+  // 1. Build Conversation History
+  // Take last 20 messages, but could be smarter about token limits here
+  const recentHistory = history.slice(-20);
+  
+  let conversationContext = recentHistory.length > 0
+    ? recentHistory.map(m => `${m.from}: ${m.text}`).join('\n')
+    : `${currentMessage.from.first_name || currentMessage.from.username || 'User'}: ${currentMessage.text}`;
+
+  if (currentMessage.reply_to_message) {
+    const reply = currentMessage.reply_to_message;
+    const replyFrom = reply.from?.first_name || reply.from?.username || 'User';
+    let replyContent = reply.text || (reply.caption ? `[Media] ${reply.caption}` : '[Media]');
+    conversationContext += `\n(User is replying to ${replyFrom}: "${replyContent}")`;
+  }
+
+  // 2. Build System Prompt
+  let botPersonality = 'You are the CosyWorld narrator bot.';
+  let botDynamicPrompt = '';
+  if (persona?.bot) {
+    botPersonality = persona.bot.personality || botPersonality;
+    botDynamicPrompt = persona.bot.dynamicPrompt || '';
+  }
+
+  const toolCreditContext = `
+Tool Credits (global): ${buildCreditInfo(credits.image, 'Images')} | ${buildCreditInfo(credits.video, 'Videos')} | ${buildCreditInfo(credits.tweet, 'X posts')}
+Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
+
+  const buybotContextStr = buybot ? `\nToken Tracking (Buybot):\n${buybot}\n` : '';
+
+  const systemPrompt = `${botPersonality}
+${botDynamicPrompt}
+Conversation mode: ${isMention ? 'Direct mention' : 'General chat'}
+${toolCreditContext}${buybotContextStr}
+${plan.summary}
+${media.summary}
+CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
+
+  const userPrompt = `Recent conversation:\n${conversationContext}\nRespond naturally.`;
+
+  return { systemPrompt, userPrompt, conversationContext };
+}

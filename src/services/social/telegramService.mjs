@@ -62,6 +62,7 @@ import {
   getActionLabel,
   logPlanSummary,
   validatePlan,
+  buildConversationContext,
 } from './telegram/index.mjs';
 
 const VIDEO_DEFAULTS = Object.freeze({
@@ -605,43 +606,21 @@ class TelegramService {
       if (!fullHistory || fullHistory.length === 0) {
         fullHistory = await this.conversationManager.loadConversationHistory(channelId);
       }
-      const recentHistory = fullHistory.slice(-20);
-      
-      let conversationContext = recentHistory.length > 0
-        ? recentHistory.map(m => `${m.from}: ${m.text}`).join('\n')
-        : `${ctx.message.from.first_name || ctx.message.from.username || 'User'}: ${ctx.message.text}`;
 
-      if (ctx.message?.reply_to_message) {
-        const reply = ctx.message.reply_to_message;
-        const replyFrom = reply.from?.first_name || reply.from?.username || 'User';
-        let replyContent = reply.text || (reply.caption ? `[Media] ${reply.caption}` : '[Media]');
-        conversationContext += `\n(User is replying to ${replyFrom}: "${replyContent}")`;
-      }
-
-      let botPersonality = 'You are the CosyWorld narrator bot.';
-      let botDynamicPrompt = '';
-      if (persona?.bot) {
-        botPersonality = persona.bot.personality || botPersonality;
-        botDynamicPrompt = persona.bot.dynamicPrompt || '';
-      }
-
-      const toolCreditContext = `
-Tool Credits (global): ${buildCreditInfo(imageLimitCtx, 'Images')} | ${buildCreditInfo(videoLimitCtx, 'Videos')} | ${buildCreditInfo(tweetLimitCtx, 'X posts')}
-Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
-
-      const planContext = await this.planManager.buildPlanContext(channelId, 3);
-      const recentMediaContext = await this.mediaManager.buildRecentMediaContext(channelId, 5);
-      const buybotContextStr = buybotContext ? `\nToken Tracking (Buybot):\n${buybotContext}\n` : '';
-
-      const systemPrompt = `${botPersonality}
-${botDynamicPrompt}
-Conversation mode: ${isMention ? 'Direct mention' : 'General chat'}
-${toolCreditContext}${buybotContextStr}
-${planContext.summary}
-${recentMediaContext.summary}
-CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
-
-      const userPrompt = `Recent conversation:\n${conversationContext}\nRespond naturally.`;
+      const { systemPrompt, userPrompt, conversationContext } = buildConversationContext({
+        history: fullHistory,
+        currentMessage: ctx.message,
+        persona,
+        credits: {
+          image: imageLimitCtx,
+          video: videoLimitCtx,
+          tweet: tweetLimitCtx
+        },
+        plan: await this.planManager.buildPlanContext(channelId, 3),
+        media: await this.mediaManager.buildRecentMediaContext(channelId, 5),
+        buybot: buybotContext,
+        isMention
+      });
 
       if (!this.aiService) {
         await ctx.reply('I\'m here and listening! 👂 (AI service not configured)');
@@ -651,11 +630,15 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       // Use tool definitions from module
       const tools = (await import('./telegram/toolDefinitions.mjs')).buildToolDefinitions();
 
+      const model = this.configService.get('TELEGRAM_BOT_MODEL') || 
+                   this.globalBotService?.bot?.model || 
+                   'anthropic/claude-sonnet-4.5';
+
       const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ], {
-        model: this.globalBotService?.bot?.model || 'anthropic/claude-sonnet-4.5',
+        model,
         temperature: 0.8,
         tools: tools,
         tool_choice: 'auto'
@@ -720,42 +703,52 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
 
       this.logger?.info?.(`[TelegramService] ⚡ Tool: ${functionName}`, { args, user: username });
 
-      if (functionName === 'plan_actions') {
-        await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext);
-      } else if (functionName === 'get_token_stats') {
-        await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
-      } else if (functionName === 'generate_image') {
-        const limit = await this.checkMediaGenerationLimit(null, 'image');
-        if (!limit.allowed) {
-          await ctx.reply('🎨 Image generation charges are fully used up right now.');
-          continue;
+      try {
+        if (functionName === 'plan_actions') {
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+          await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext);
+        } else if (functionName === 'get_token_stats') {
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+          await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
+        } else if (functionName === 'generate_image') {
+          const limit = await this.checkMediaGenerationLimit(null, 'image');
+          if (!limit.allowed) {
+            await ctx.reply('🎨 Image generation charges are fully used up right now.');
+            continue;
+          }
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_photo').catch(() => {});
+          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio: args.aspectRatio || '1:1' });
+        } else if (functionName === 'generate_video') {
+          const limit = await this.checkMediaGenerationLimit(null, 'video');
+          if (!limit.allowed) {
+            await ctx.reply('🎬 Video generation charges are fully used up right now.');
+            continue;
+          }
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_video').catch(() => {});
+          const videoOptions = {
+            aspectRatio: args.aspectRatio || '16:9',
+            style: args.style,
+            camera: args.camera,
+            negativePrompt: args.negativePrompt
+          };
+          if (this.USE_ASYNC_VIDEO_GENERATION) {
+            await this.queueVideoGenerationAsync(ctx, args.prompt, { conversationContext, userId, username, ...videoOptions });
+          } else {
+            await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username, videoOptions);
+          }
+        } else if (functionName === 'post_tweet') {
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+          await this.executeTweetPost(ctx, { 
+            text: args.text, 
+            mediaId: args.mediaId, 
+            channelId, userId, username 
+          });
         }
-        await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio: args.aspectRatio || '1:1' });
-      } else if (functionName === 'generate_video') {
-        const limit = await this.checkMediaGenerationLimit(null, 'video');
-        if (!limit.allowed) {
-          await ctx.reply('🎬 Video generation charges are fully used up right now.');
-          continue;
-        }
-        const videoOptions = {
-          aspectRatio: args.aspectRatio || '16:9',
-          style: args.style,
-          camera: args.camera,
-          negativePrompt: args.negativePrompt
-        };
-        if (this.USE_ASYNC_VIDEO_GENERATION) {
-          await this.queueVideoGenerationAsync(ctx, args.prompt, { conversationContext, userId, username, ...videoOptions });
-        } else {
-          await this.executeVideoGeneration(ctx, args.prompt, conversationContext, userId, username, videoOptions);
-        }
-      } else if (functionName === 'post_tweet') {
-        await this.executeTweetPost(ctx, { 
-          text: args.text, 
-          mediaId: args.mediaId, 
-          channelId, userId, username 
-        });
+        // Additional tools (video_from_image, extend_video, etc) follow same pattern...
+      } catch (toolError) {
+        this.logger?.error?.(`[TelegramService] Tool execution failed (${functionName}):`, toolError);
+        await ctx.reply(`⚠️ I had a hiccup trying to ${functionName.replace(/_/g, ' ')}. Continuing...`);
       }
-      // Additional tools (video_from_image, extend_video, etc) follow same pattern...
     }
   }
 

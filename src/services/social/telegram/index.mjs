@@ -34,3 +34,6 @@ export { ContextManager } from './contextManager.mjs';
 
 // Interaction manager
 export { InteractionManager } from './interactionManager.mjs';
+
+// Context builder
+export * from './contextBuilder.mjs';
