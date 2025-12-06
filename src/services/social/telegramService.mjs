@@ -405,7 +405,8 @@ class TelegramService {
       // Merge static config with dynamic allowlists
       const allowedCashtags = [
         ...(contentFilters.allowedCashtags || []),
-        ...dynamicAllowlist.symbols
+        ...dynamicAllowlist.symbols,
+        '$RATI', '$HISS' // Explicitly allow core tokens
       ];
       const allowedAddresses = [
         ...(contentFilters.allowedAddresses || []),
@@ -1324,7 +1325,8 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       // Merge static config with dynamic allowlists
       const allowedCashtags = [
         ...(contentFilters.allowedCashtags || []),
-        ...dynamicAllowlist.symbols
+        ...dynamicAllowlist.symbols,
+        '$RATI', '$HISS' // Explicitly allow core tokens
       ];
       const allowedAddresses = [
         ...(contentFilters.allowedAddresses || []),

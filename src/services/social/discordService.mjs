@@ -490,7 +490,7 @@ export class DiscordService {
         const allowedCashtags = [
           ...(contentFilters.allowedCashtags || []),
           ...dynamicAllowlist.symbols
-        ];
+              ];
         const allowedAddresses = [
           ...(contentFilters.allowedAddresses || []),
           ...dynamicAllowlist.addresses
