@@ -170,7 +170,7 @@ async function initializeApp(services) {
     app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));
     app.use('/api/telegramauth', (await import('./routes/telegramauth.js')).default(services));
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db, services.wikiService));
-    app.use('/api/social', (await import('./routes/social.js')).default(db));
+    app.use('/api/social', (await import('./routes/social.js')).default(db, services));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
   app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));

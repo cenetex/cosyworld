@@ -126,11 +126,24 @@ export class SocialPlatformService extends EventEmitter {
       throw error;
     }
 
+    const metadataFromOptions = options.metadata || null;
     const metadata = {
-      username: providerResult.username || existing?.metadata?.username || null,
-      externalId: providerResult.id || providerResult.externalId || existing?.metadata?.externalId || null,
-      ...providerResult.metadata
+      ...(existing?.metadata || {}),
+      ...(metadataFromOptions || {}),
+      ...(providerResult.metadata || {})
     };
+
+    metadata.username = providerResult.username
+      ?? metadataFromOptions?.username
+      ?? existing?.metadata?.username
+      ?? metadata.username
+      ?? null;
+    metadata.externalId = providerResult.id
+      ?? providerResult.externalId
+      ?? metadataFromOptions?.externalId
+      ?? existing?.metadata?.externalId
+      ?? metadata.externalId
+      ?? null;
 
     const update = {
       status: 'connected',
@@ -218,6 +231,27 @@ export class SocialPlatformService extends EventEmitter {
     const normalizedPlatform = this._normalizePlatform(platform);
     const provider = this._ensureProvider(normalizedPlatform);
     return provider.post(avatarId, content, options);
+  }
+
+  async updateStoredCredentials(platform, avatarId, credentials = null) {
+    const normalizedPlatform = this._normalizePlatform(platform);
+    const collection = await this._getConnectionsCollection();
+    const serialized = this._serializeCredentials(credentials);
+    const update = {
+      $set: {
+        updatedAt: new Date()
+      }
+    };
+
+    if (serialized) {
+      update.$set.credentials = serialized;
+      update.$set.lastCredentialsRefreshedAt = new Date();
+    } else {
+      update.$unset = { credentials: '', lastCredentialsRefreshedAt: '' };
+    }
+
+    const options = serialized ? { upsert: true } : {};
+    await collection.updateOne({ platform: normalizedPlatform, avatarId }, update, options);
   }
 
   async _rehydrateConnections() {

@@ -4,10 +4,22 @@
  */
 
 import { Router } from 'express';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-export default function socialRoutes(db) {
+export default function socialRoutes(db, services = {}) {
   const router = Router();
+  const socialPlatformService = services.socialPlatformService;
+
+  const assertSocialService = () => {
+    if (!socialPlatformService) {
+      throw new Error('socialPlatformService is required for social routes');
+    }
+  };
+
+  const canManageAvatar = (req, avatarId) => {
+    if (req?.user?.isAdmin) return true;
+    return req?.user?.avatarId === avatarId;
+  };
 
   router.get('/posts', async (req, res) => {
     try {
@@ -101,6 +113,41 @@ export default function socialRoutes(db) {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  router.get('/connections/:avatarId', async (req, res) => {
+    try {
+      assertSocialService();
+      const { avatarId } = req.params;
+      if (!canManageAvatar(req, avatarId)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const connections = await socialPlatformService.listConnectionsForAvatar(avatarId);
+      res.json({ connections });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to load connections' });
+    }
+  });
+
+  router.post('/connections/:avatarId/:platform/post', async (req, res) => {
+    try {
+      assertSocialService();
+      const { avatarId, platform } = req.params;
+      if (!canManageAvatar(req, avatarId)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const { content, options = {} } = req.body || {};
+      if (!content) {
+        return res.status(400).json({ error: 'content is required' });
+      }
+
+      const result = await socialPlatformService.post(platform, avatarId, content, options);
+      res.json({ success: true, result });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to post to platform' });
     }
   });
 

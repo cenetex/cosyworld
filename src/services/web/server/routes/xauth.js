@@ -18,6 +18,12 @@ const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 export default function xauthRoutes(services) {
     const router = express.Router();
     const xService = services.xService;
+    const logger = services.logger || console;
+    const socialPlatformService = services.socialPlatformService;
+
+    if (!socialPlatformService) {
+        throw new Error('socialPlatformService is required for xauth routes');
+    }
     // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
     // Fallback uses the default AI chat model name to generate a deterministic id.
     const getAdminAvatarId = () => {
@@ -43,6 +49,26 @@ export default function xauthRoutes(services) {
         } catch {
             return 'http://localhost:3000/api/xauth/callback';
         }
+    };
+
+    const formatConnectionStatus = (connection) => {
+        if (!connection) {
+            return null;
+        }
+        const metadata = connection.metadata || {};
+        return {
+            authorized: connection.status === 'connected',
+            platform: connection.platform || 'x',
+            profile: metadata.username || metadata.displayName || metadata.name ? {
+                username: metadata.username || null,
+                name: metadata.displayName || metadata.name || null,
+                profile_image_url: metadata.profileImageUrl || metadata.profile_image_url || null,
+                id: metadata.id || metadata.externalId || metadata.userId || null,
+            } : metadata.profile || null,
+            expiresAt: metadata.tokenExpiresAt || null,
+            connectedAt: connection.lastConnectedAt || null,
+            channelId: connection.channelId || null,
+        };
     };
 
     // Issue nonce for client to sign (separate endpoint)
@@ -368,7 +394,7 @@ export default function xauthRoutes(services) {
                 avatarId: storedAuth.avatarId,
             });
 
-            const { accessToken, refreshToken, expiresIn } = await client.loginWithOAuth2({
+            const { accessToken, refreshToken, expiresIn, scope } = await client.loginWithOAuth2({
                 code,
                 codeVerifier: storedAuth.codeVerifier,
                 redirectUri: getCallbackUrl(),
@@ -399,6 +425,7 @@ export default function xauthRoutes(services) {
                         ...(profile ? { profile } : {}),
                         // Mark admin account as global so globalPost can find it
                         ...(isAdminAvatar ? { global: true } : {}),
+                        scope: scope || null,
                     },
                 },
                 { upsert: true }
@@ -406,6 +433,20 @@ export default function xauthRoutes(services) {
 
             await db.collection('x_auth_temp').deleteOne({ state: sanitizedState });
             console.log('Authentication successful:', { avatarId: storedAuth.avatarId });
+
+            const metadataPayload = { ...(profile || {}), tokenExpiresAt: expiresAt.toISOString() };
+            try {
+                await socialPlatformService.connectAvatar('x', storedAuth.avatarId, {
+                    accessToken,
+                    refreshToken,
+                    clientId: process.env.X_CLIENT_ID,
+                    clientSecret: process.env.X_CLIENT_SECRET,
+                    expiresAt: expiresAt.toISOString(),
+                    scope: scope || undefined,
+                }, { metadata: metadataPayload });
+            } catch (svcError) {
+                logger?.warn?.(`[xauth] Failed to sync social platform connection for avatar ${storedAuth.avatarId}: ${svcError.message}`);
+            }
 
             res.send(`
                 <script>
@@ -440,6 +481,17 @@ export default function xauthRoutes(services) {
             const cacheTtlMs = 60_000; // 1 minute cache for profile
             const key = avatarId;
             const nowMs = Date.now();
+
+            const connection = await socialPlatformService.getConnection('x', avatarId);
+            if (connection && connection.status === 'connected') {
+                const data = {
+                    ...formatConnectionStatus(connection),
+                    source: 'social-platform'
+                };
+                services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
+                return res.json(data);
+            }
+
             const backoffUntil = services._xStatusBackoff.get(key) || 0;
             if (nowMs < backoffUntil) {
                 const c = services._xStatusCache.get(key);
@@ -601,6 +653,11 @@ export default function xauthRoutes(services) {
 
         try {
             const db = await services.databaseService.getDatabase();
+            try {
+                await socialPlatformService.disconnectAvatar('x', avatarId);
+            } catch (svcErr) {
+                logger?.warn?.(`[xauth] socialPlatformService disconnect failed for ${avatarId}: ${svcErr.message}`);
+            }
             const result = await db.collection('x_auth').deleteOne({ avatarId });
             console.log('Disconnect result:', { avatarId, deleted: result.deletedCount > 0 });
             res.json({ success: true, disconnected: result.deletedCount > 0 });
@@ -667,6 +724,11 @@ export default function xauthRoutes(services) {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
             const db = await services.databaseService.getDatabase();
+            try {
+                await socialPlatformService.disconnectAvatar('x', avatarId);
+            } catch (svcErr) {
+                logger?.warn?.(`[xauth] socialPlatformService admin disconnect failed for ${avatarId}: ${svcErr.message}`);
+            }
             const result = await db.collection('x_auth').deleteOne({ avatarId });
             return res.json({ success: true, disconnected: result.deletedCount > 0 });
         } catch (e) {
