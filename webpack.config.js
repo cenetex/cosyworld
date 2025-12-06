@@ -104,6 +104,7 @@ export default (env, argv) => {
           { from: path.resolve(__dirname, 'src/services/web/public/checkout.html'), to: path.resolve(__dirname, 'dist/checkout.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/api-docs.html'), to: path.resolve(__dirname, 'dist/api-docs.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/link.html'), to: path.resolve(__dirname, 'dist/link.html'), transform: transformHtml },
+          { from: path.resolve(__dirname, 'src/services/web/public/wiki.html'), to: path.resolve(__dirname, 'dist/wiki.html'), transform: transformHtml },
           // Admin HTML
           { from: path.resolve(__dirname, 'src/services/web/public/admin/*.html'), to: path.resolve(__dirname, 'dist/admin/[name][ext]'), transform: transformHtml },
           // Other static files
