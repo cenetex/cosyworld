@@ -16,7 +16,7 @@ export class XProvider extends BaseSocialProvider {
     this.logger.info('Initializing XProvider...');
   }
 
-  async connectAvatar(avatarId, credentials) {
+  async connectAvatar(avatarId, credentials, options = {}) {
     const { appKey, appSecret, accessToken, accessSecret } = credentials;
     
     if (!appKey || !appSecret || !accessToken || !accessSecret) {
@@ -47,14 +47,14 @@ export class XProvider extends BaseSocialProvider {
     }
   }
 
-  async disconnectAvatar(avatarId) {
+  async disconnectAvatar(avatarId, options = {}) {
     if (this.clients.has(avatarId)) {
       this.clients.delete(avatarId);
       this.logger.info(`Disconnected X account for avatar ${avatarId}`);
     }
   }
 
-  async post(avatarId, content) {
+  async post(avatarId, content, options = {}) {
     const client = this.clients.get(avatarId);
     if (!client) throw new Error(`Avatar ${avatarId} not connected to X`);
 

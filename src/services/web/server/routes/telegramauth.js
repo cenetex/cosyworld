@@ -15,6 +15,11 @@ export default function telegramAuthRoutes(services) {
   const telegramService = services.telegramService;
   const databaseService = services.databaseService;
   const logger = services.logger;
+  const socialPlatformService = services.socialPlatformService;
+
+  if (!socialPlatformService) {
+    throw new Error('socialPlatformService is required but not provided to telegramAuthRoutes');
+  }
 
   const isAdmin = (req) => !!req?.user?.isAdmin;
 
@@ -215,20 +220,17 @@ export default function telegramAuthRoutes(services) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      const isAuthorized = await telegramService.isTelegramAuthorized(avatarId);
+      const connection = await socialPlatformService?.getConnection('telegram', avatarId);
       
-      if (!isAuthorized) {
+      if (!connection || connection.status !== 'connected') {
         return res.json({ authorized: false });
       }
-
-      const db = await databaseService.getDatabase();
-      const auth = await db.collection('telegram_auth').findOne({ avatarId });
       
       res.json({
         authorized: true,
-        botUsername: auth?.botUsername || null,
-        channelId: auth?.channelId || null,
-        hasChannel: !!auth?.channelId
+        botUsername: connection?.metadata?.username || null,
+        channelId: connection?.channelId || null,
+        hasChannel: Boolean(connection?.channelId)
       });
     } catch (error) {
       logger?.error?.('[TelegramAuth] Status check failed:', error);
@@ -253,16 +255,21 @@ export default function telegramAuthRoutes(services) {
         return res.status(400).json({ error: 'Bot token is required' });
       }
 
-      const result = await telegramService.registerAvatarBot(avatarId, botToken, channelId);
-      
-      if (!result.success) {
-        return res.status(400).json({ error: result.error });
-      }
+      const trimmedChannelId = typeof channelId === 'string' && channelId.trim().length ? channelId.trim() : null;
+
+      const result = await socialPlatformService.connectAvatar(
+        'telegram',
+        avatarId,
+        { token: botToken },
+        { channelId: trimmedChannelId }
+      );
+
+      const botUsername = result.metadata?.username;
 
       res.json({
         success: true,
-        botUsername: result.botUsername,
-        message: `Bot @${result.botUsername} registered successfully`
+        botUsername,
+        message: botUsername ? `Bot @${botUsername} registered successfully` : 'Bot registered successfully'
       });
     } catch (error) {
       logger?.error?.('[TelegramAuth] Bot registration failed:', error);
@@ -282,11 +289,7 @@ export default function telegramAuthRoutes(services) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      const result = await telegramService.disconnectAvatarBot(avatarId);
-      
-      if (!result.success) {
-        return res.status(400).json({ error: result.error });
-      }
+      await socialPlatformService.disconnectAvatar('telegram', avatarId);
 
       res.json({ success: true, message: 'Bot disconnected successfully' });
     } catch (error) {

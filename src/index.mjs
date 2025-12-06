@@ -149,6 +149,15 @@ async function main() {
     await messageHandler.start();
     logger.log('[startup] MessageHandler started');
 
+    // Initialize unified social platform service
+    try {
+      const socialPlatformService = container.resolve('socialPlatformService');
+      await socialPlatformService.initialize();
+      logger.log('[startup] SocialPlatformService initialized');
+    } catch (e) {
+      logger.warn(`[startup] SocialPlatformService not initialized: ${e.message}`);
+    }
+
     // Start DM Planner (lightweight periodic planner)
     try {
       const dmPlannerService = container.resolve('dmPlannerService');

@@ -19,6 +19,7 @@ export class WebService {
     veoService,
     xService,
     telegramService,
+    socialPlatformService,
     secretsService,
     setupStatusService,
     promptService,
@@ -56,6 +57,7 @@ export class WebService {
     this.veoService = veoService;
     this.xService = xService;
     this.telegramService = telegramService;
+    this.socialPlatformService = socialPlatformService;
     this.secretsService = secretsService;
     this.setupStatusService = setupStatusService;
     this.promptService = promptService;
@@ -100,6 +102,7 @@ export class WebService {
       veoService: this.veoService,
       xService: this.xService,
       telegramService: this.telegramService,
+      socialPlatformService: this.socialPlatformService,
       secretsService: this.secretsService,
       setupStatusService: this.setupStatusService,
       promptService: this.promptService,
