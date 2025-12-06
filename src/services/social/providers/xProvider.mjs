@@ -187,5 +187,4 @@ export class XProvider extends BaseSocialProvider {
 
     return session;
   }
-  }
 }

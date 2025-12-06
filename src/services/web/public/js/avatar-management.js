@@ -24,6 +24,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentSearch: "",
   };
 
+  const SOCIAL_PLATFORM_CONFIG = [
+    {
+      id: 'telegram',
+      label: 'Telegram',
+      description: 'Connect a BotFather token to enable DM + channel routing.',
+      manageHref: (avatarId) => `/admin/telegram-global-posting.html?avatar=${avatarId}`,
+      manageLabel: 'Open Telegram Config',
+      postingEnabled: false
+    },
+    {
+      id: 'x',
+      label: 'X / Twitter',
+      description: 'Authenticate via wallet signature + OAuth to post as this avatar.',
+      manageHref: (avatarId) => `/admin/x-accounts.html?avatar=${avatarId}`,
+      manageLabel: 'Open X Auth',
+      postingEnabled: true,
+      postButtonLabel: 'Post to X'
+    }
+  ];
+
   // Store models data globally for modal use
   let modelsData = [];
   let modelsByProvider = new Map();
@@ -240,6 +260,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     modalTitle: document.getElementById("modal-title"),
     imageUrlInput: document.getElementById("avatar-image-url"),
     saveBtn: document.getElementById("save-avatar"),
+    socialSection: document.getElementById('social-connections-section'),
+    socialList: document.getElementById('social-connections-content'),
+    socialRefreshBtn: document.getElementById('refresh-social-connections'),
   };
 
   // Initialization
@@ -320,6 +343,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.avatarForm.addEventListener("submit", handleFormSubmit);
 
     elements.deleteAvatarBtn.addEventListener("click", handleDeleteAvatar);
+
+    if (elements.socialRefreshBtn) {
+      elements.socialRefreshBtn.addEventListener('click', withButtonLoading(elements.socialRefreshBtn, async () => {
+        const avatarId = elements.avatarForm.dataset.avatarId;
+        if (!avatarId) {
+          toastError('Select an avatar before refreshing connections');
+          return;
+        }
+        await loadSocialConnections(avatarId, { silent: true });
+      }));
+    }
 
     // Add file input element for direct uploads
 const fileInput = document.createElement('input');

@@ -1307,6 +1307,9 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
     const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
     const filterEnabled = contentFilters.enabled !== false;
     
+    // Prepare effective content filters to pass to XService
+    let effectiveContentFilters = { ...contentFilters };
+
     if (filterEnabled) {
       // Get dynamically allowed tokens from buybot tracked tokens
       let dynamicAllowlist = { addresses: [], symbols: [] };
@@ -1328,6 +1331,10 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
         ...dynamicAllowlist.addresses
       ];
       
+      // Update effective filters with merged lists
+      effectiveContentFilters.allowedCashtags = allowedCashtags;
+      effectiveContentFilters.allowedAddresses = allowedAddresses;
+
       const contentFilter = filterContent(text || '', {
         logger: this.logger,
         blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
@@ -1365,7 +1372,8 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       text: text.slice(0, 270),
       type: media.type === 'video' ? 'video' : 'image',
       source: 'telegram.tweet_tool',
-      metadata: { telegramChannelId: channelId, telegramMediaId: media.id, requestedBy: userId }
+      metadata: { telegramChannelId: channelId, telegramMediaId: media.id, requestedBy: userId },
+      contentFilters: effectiveContentFilters
     }, { aiService: this.aiService });
     
     if (result?.tweetId) {
