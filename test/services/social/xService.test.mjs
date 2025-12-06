@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 // Mock TwitterApi
 const { mockTweet, mockUploadMedia, mockV2Client, mockV1Client } = vi.hoisted(() => {
   const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
-  const mockUploadMedia = vi.fn().mockResolvedValue('media_id_123');
+  const mockUploadMedia = vi.fn().mockImplementation(() => {
+    console.error('mockUploadMedia implementation called');
+    return Promise.resolve('media_id_123');
+  });
   const mockV2Client = {
     tweet: mockTweet,
     uploadMedia: mockUploadMedia,
@@ -31,7 +34,9 @@ beforeAll(async () => {
     const MockClient = {
       v2: {
         tweet: mockTweet,
-        uploadMedia: mockUploadMedia,
+        uploadMedia: (...args) => {
+          return mockUploadMedia(...args);
+        },
         me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
       },
       v1: {
@@ -70,6 +75,8 @@ describe('XService Content Filtering', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUploadMedia.mockResolvedValue('media_id_123');
+    mockTweet.mockResolvedValue({ data: { id: '123456789012345' } });
 
     // Mock global fetch for image downloads
     global.fetch = vi.fn().mockResolvedValue({
@@ -164,8 +171,8 @@ describe('XService Content Filtering', () => {
 
     // Should succeed and return tweet info
     expect(result).toEqual({
-      tweetId: '1234567890',
-      tweetUrl: expect.stringContaining('1234567890')
+      tweetId: '123456789012345',
+      tweetUrl: expect.stringContaining('123456789012345')
     });
     expect(mockTweet).toHaveBeenCalled();
   });
@@ -189,8 +196,8 @@ describe('XService Content Filtering', () => {
 
     // Should succeed
     expect(result).toEqual({
-      tweetId: '1234567890',
-      tweetUrl: expect.stringContaining('1234567890')
+      tweetId: '123456789012345',
+      tweetUrl: expect.stringContaining('123456789012345')
     });
     expect(mockTweet).toHaveBeenCalled();
   });
