@@ -61,6 +61,7 @@ export default function adminUsersRoutes(db, services) {
   // Generate an invite link
   router.post('/invite', async (req, res) => {
     try {
+      console.log('[AdminUsers] Generating invite token...');
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -74,39 +75,41 @@ export default function adminUsersRoutes(db, services) {
 
       let baseUrl = services.configService?.get('server.publicUrl') || process.env.PUBLIC_URL;
       
-      // Auto-detect Replit URL if not explicitly set OR if it looks like a default localhost
-      // OR if it looks like a malformed replit url (common typo fix)
-      const isReplit = process.env.REPL_SLUG && process.env.REPL_OWNER;
-      
-      if (isReplit) {
-        // If baseUrl is missing, localhost, or has the common 'replit.ap' typo, regenerate it correctly
-        if (!baseUrl || baseUrl.includes('localhost') || baseUrl.includes('replit.ap')) {
-           baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+      // 1. Fix common Replit typos in env var
+      if (baseUrl) {
+        baseUrl = baseUrl.replace('replit.ap/', 'replit.app/');
+        baseUrl = baseUrl.replace('replit.ap:', 'replit.app:');
+        if (baseUrl.includes('replit.app') && baseUrl.includes(':3000')) {
+           baseUrl = baseUrl.replace(':3000', '');
         }
       }
-      
+
+      // 2. If we are on localhost, prefer the request host to ensure the link works for the developer
+      const requestHost = req.get('host');
+      if (requestHost && requestHost.includes('localhost')) {
+        baseUrl = `${req.protocol}://${requestHost}`;
+      }
+
+      // 3. Fallback if still empty
       if (!baseUrl) {
-        baseUrl = 'http://localhost:3000';
+        if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+           baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+        } else {
+           baseUrl = 'http://localhost:3000';
+        }
       }
 
       // Remove trailing slash if present
       if (baseUrl.endsWith('/')) {
         baseUrl = baseUrl.slice(0, -1);
       }
-      
-      // Fix common typos/issues in baseUrl if it comes from env
-      baseUrl = baseUrl.replace('replit.ap/', 'replit.app/'); // Fix missing 'p'
-      baseUrl = baseUrl.replace('replit.ap:', 'replit.app:'); // Fix missing 'p' before port
-      
-      // Replit public URLs should not have ports usually
-      if (baseUrl.includes('replit.app') && baseUrl.includes(':3000')) {
-         baseUrl = baseUrl.replace(':3000', '');
-      }
 
       const inviteUrl = `${baseUrl}/admin/invite.html?token=${token}`;
+      console.log('[AdminUsers] Generated invite URL:', inviteUrl);
 
       res.json({ token, inviteUrl, expiresAt });
     } catch (error) {
+      console.error('[AdminUsers] Error generating invite:', error);
       res.status(500).json({ error: error.message });
     }
   });
