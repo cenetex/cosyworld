@@ -186,7 +186,25 @@
               </svg>
             </button>
           </div>
+          
+          <!-- Tabs Header -->
+          <div class="px-6 border-b border-gray-200 bg-gray-50">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+              <button type="button" id="tab-btn-general" class="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                General
+              </button>
+              <button type="button" id="tab-btn-social" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                Social Connections
+              </button>
+              <button type="button" id="tab-btn-nft" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                NFT & Deployment
+              </button>
+            </nav>
+          </div>
+
           <form id="avatar-form" class="px-6 py-4">
+            <!-- Tab Content: General -->
+            <div id="tab-content-general">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="space-y-4">
                 <div>
@@ -221,17 +239,36 @@
                 </div>
                 <div>
                   <label
-                    for="avatar-model"
+                    for="avatar-model-provider"
                     class="block text-sm font-medium text-gray-700"
-                    >AI Model</label
+                    >AI Provider</label
                   >
                   <select
-                    id="avatar-model"
-                    name="model"
+                    id="avatar-model-provider"
+                    name="modelProvider"
                     class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   >
-                    <!-- Models will be populated dynamically -->
+                    <option value="">Select Provider</option>
+                    <!-- Providers will be populated dynamically -->
                   </select>
+                </div>
+                <div>
+                  <label
+                    for="avatar-model-name"
+                    class="block text-sm font-medium text-gray-700"
+                    >Model</label
+                  >
+                  <select
+                    id="avatar-model-name"
+                    name="modelName"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    disabled
+                  >
+                    <option value="">Select provider first</option>
+                  </select>
+                  <div id="model-rarity-badge" class="mt-1 hidden">
+                    <!-- Rarity badge injected here -->
+                  </div>
                 </div>
                 <div>
                   <label
@@ -239,12 +276,15 @@
                     class="block text-sm font-medium text-gray-700"
                     >Emoji</label
                   >
-                  <input
-                    type="text"
-                    id="avatar-emoji"
-                    name="emoji"
-                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  />
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="text"
+                      id="avatar-emoji"
+                      name="emoji"
+                      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                    <div id="avatar-preview-emoji" class="text-2xl hidden"></div>
+                  </div>
                 </div>
               </div>
               <div class="space-y-4">
@@ -308,9 +348,12 @@
                 <div id="prompt-preview-content" class="text-sm text-gray-600 whitespace-pre-wrap"></div>
               </div>
             </div>
+            </div>
 
+            <!-- Tab Content: Social -->
+            <div id="tab-content-social" class="hidden">
             <!-- Social Connections Section -->
-            <div id="social-connections-section" class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
+            <div id="social-connections-section" class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <h4 class="text-lg font-medium text-blue-900">Social Connections</h4>
@@ -328,9 +371,12 @@
                 <div class="text-blue-800">Select an avatar to load connection status.</div>
               </div>
             </div>
+            </div>
 
+            <!-- Tab Content: NFT -->
+            <div id="tab-content-nft" class="hidden">
             <!-- NFT Deployment Section -->
-            <div id="nft-section" class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200 hidden">
+            <div id="nft-section" class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
               <h4 class="text-lg font-medium text-purple-900 mb-4">🎨 NFT Deployment</h4>
               
               <div id="nft-status" class="mb-4">
@@ -394,6 +440,7 @@
                   Open Mobile View
                 </button>
               </div>
+            </div>
             </div>
 
             <div class="mt-6 flex justify-end space-x-3">
