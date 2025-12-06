@@ -72,8 +72,23 @@ export default function adminUsersRoutes(db, services) {
         used: false
       });
 
-      const baseUrl = services.configService?.get('server.publicUrl') || process.env.PUBLIC_URL || 'http://localhost:3000';
-      const inviteUrl = `${baseUrl}/invite.html?token=${token}`;
+      let baseUrl = services.configService?.get('server.publicUrl') || process.env.PUBLIC_URL;
+      
+      // Auto-detect Replit URL if not explicitly set
+      if (!baseUrl && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+      }
+      
+      if (!baseUrl) {
+        baseUrl = 'http://localhost:3000';
+      }
+
+      // Remove trailing slash if present
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+
+      const inviteUrl = `${baseUrl}/admin/invite.html?token=${token}`;
 
       res.json({ token, inviteUrl, expiresAt });
     } catch (error) {
