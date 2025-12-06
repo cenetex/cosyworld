@@ -118,13 +118,22 @@ export class WikiService {
         }
       }
       
+      // Authors is a growing list - start with the creator
+      const authors = [{
+        id: authorId,
+        name: authorName,
+        contributedAt: now,
+        role: 'creator'
+      }];
+      
       const article = {
         slug,
         title,
         content,
         category,
-        authorId,
+        authorId, // Original author for backwards compat
         authorName,
+        authors, // Growing list of contributors
         tags: [...new Set(tags)], // Deduplicate
         metadata,
         embedding,
@@ -197,10 +206,11 @@ export class WikiService {
    * @param {string} slug - Article slug
    * @param {Object} updates - Fields to update
    * @param {string} [editorId] - Editor's ID
+   * @param {string} [editorName] - Editor's name
    * @param {string} [editSummary] - Summary of changes
    * @returns {Promise<Object|null>} Updated article or null
    */
-  async updateArticle(slug, updates, editorId = null, editSummary = '') {
+  async updateArticle(slug, updates, editorId = null, editorName = null, editSummary = '') {
     try {
       this.db = this.db || await this.databaseService.getDatabase();
       
@@ -216,7 +226,8 @@ export class WikiService {
         title: existing.title,
         content: existing.content,
         version: existing.version,
-        editorId: existing.authorId,
+        editorId: existing.lastEditorId || existing.authorId,
+        authors: existing.authors,
         editedAt: existing.updatedAt
       });
       
@@ -229,6 +240,21 @@ export class WikiService {
         lastEditorId: editorId,
         editSummary
       };
+      
+      // Add editor to authors list if not already present
+      const existingAuthors = existing.authors || [];
+      const authorExists = existingAuthors.some(a => a.id === editorId || a.name === editorName);
+      if (editorId && !authorExists) {
+        updateData.authors = [
+          ...existingAuthors,
+          {
+            id: editorId,
+            name: editorName || editorId,
+            contributedAt: now,
+            role: 'contributor'
+          }
+        ];
+      }
       
       // Regenerate embedding if content changed
       if (updates.content && this.embeddingService) {

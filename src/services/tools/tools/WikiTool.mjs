@@ -418,10 +418,14 @@ Write an updated version of the article that:
       newContent = newContent.text;
     }
 
-    // Update the article
-    const article = await this.wikiService.updateArticle(slug, { content: newContent }, authorId, 'Updated with new context');
+    // Update the article - pass both editorId and editorName
+    const article = await this.wikiService.updateArticle(slug, { content: newContent }, authorId, authorName, 'Updated with new context');
+
+    // Show the updated authors list
+    const authorsList = article.authors?.map(a => a.name).join(', ') || authorName;
 
     return `📖 ✨ Wiki agent updated: **${article.title}** (v${article.version})
+*Authors: ${authorsList}*
 🔗 ${article.url}`;
   }
 
@@ -585,7 +589,7 @@ vocabulary: ${vocabulary.join(', ')}`,
     return 'general';
   }
 
-  // === READ-ONLY METHODS (unchanged) ===
+  // === READ-ONLY METHODS - Returns article content for chat context ===
 
   async readArticle(slug) {
     if (!slug) {
@@ -597,17 +601,29 @@ vocabulary: ${vocabulary.join(', ')}`,
       return `📖 Article not found: "${slug}"`;
     }
     
-    const preview = article.content.length > 800 
-      ? article.content.substring(0, 800) + '...\n\n*[Read more at ' + article.url + ']*'
+    // Format authors list
+    const authorsList = article.authors?.map(a => a.name).join(', ') || article.authorName;
+    
+    // Return full article for context (truncate only for display if very long)
+    const displayContent = article.content.length > 1500 
+      ? article.content.substring(0, 1500) + '\n\n*[Article truncated - full content available at ' + article.url + ']*'
       : article.content;
     
+    // This rich response stays in chat context for follow-up discussion
     return `📖 **${article.title}**
-*Category: ${article.category} | Views: ${article.viewCount} | v${article.version}*
-*By ${article.authorName} | ${new Date(article.updatedAt).toLocaleDateString()}*
+*Category: ${article.category} | v${article.version} | Views: ${article.viewCount}*
+*Authors: ${authorsList}*
+*Last updated: ${new Date(article.updatedAt).toLocaleDateString()}*
+*Tags: ${article.tags?.join(', ') || 'none'}*
 
-${preview}
+---
 
-🔗 ${article.url}`;
+${displayContent}
+
+---
+🔗 ${article.url}
+
+*This article is now in context. You can discuss it, ask questions, or use "wiki update ${slug}" to add to it.*`;
   }
 
   async searchArticles(query) {
@@ -615,17 +631,36 @@ ${preview}
       return '📖 Please specify a search query: `wiki search <query>`';
     }
     
-    const results = await this.wikiService.search(query, { limit: 5 });
+    const results = await this.wikiService.search(query, { limit: 5, semantic: true });
     
     if (results.length === 0) {
-      return `📖 No articles found for: "${query}"`;
+      return `📖 No articles found for: "${query}"
+
+*Try "wiki create ${query}" to create a new article about this topic!*`;
     }
     
-    const list = results.map((a, i) => 
-      `${i + 1}. **${a.title}** (${a.category}) - ${a.url}`
-    ).join('\n');
+    // If only one result, show it in full context
+    if (results.length === 1) {
+      return this.readArticle(results[0].slug);
+    }
     
-    return `📖 Search results for "${query}":\n${list}`;
+    // Multiple results - show list with previews
+    const list = await Promise.all(results.map(async (a, i) => {
+      // Get a brief preview of each article
+      const full = await this.wikiService.getArticle(a.slug, false);
+      const preview = full?.content?.substring(0, 150)?.replace(/\n/g, ' ') || '';
+      const authorsList = full?.authors?.map(auth => auth.name).slice(0, 3).join(', ') || a.authorName;
+      return `**${i + 1}. ${a.title}** (${a.category})
+   *Authors: ${authorsList}*
+   ${preview}...
+   🔗 \`wiki read ${a.slug}\``;
+    }));
+    
+    return `📖 Search results for "${query}":
+
+${list.join('\n\n')}
+
+*Use "wiki read <slug>" to view an article in full context.*`;
   }
 
   async listArticles(category = null) {
