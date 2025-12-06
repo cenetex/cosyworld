@@ -1433,7 +1433,10 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       if (tweetText.length > 280) {
         tweetText = tweetText.slice(0, 280);
       }
-      tweetText = this._sanitizeTweetText(tweetText, { fallback: opts.context || opts.prompt || 'CosyWorld update' });
+      tweetText = this._sanitizeTweetText(tweetText, { 
+        fallback: opts.context || opts.prompt || 'CosyWorld update',
+        contentFilters
+      });
       if (!tweetText) {
         throw new Error('Tweet content unavailable after sanitizing links.');
       }

@@ -28,19 +28,10 @@ beforeAll(async () => {
   process.env.X_GLOBAL_POST_ENABLED = 'true';
   
   vi.doMock('twitter-api-v2', () => {
-    const mockUploadMedia = vi.fn().mockImplementation((...args) => {
-      console.log('mockUploadMedia called with:', args);
-      return Promise.resolve('media_id_123');
-    });
-    const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
-    
     const MockClient = {
       v2: {
         tweet: mockTweet,
-        uploadMedia: (...args) => {
-          console.error('Plain uploadMedia called');
-          return Promise.resolve('media_id_123');
-        },
+        uploadMedia: mockUploadMedia,
         me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
       },
       v1: {
@@ -51,11 +42,9 @@ beforeAll(async () => {
         uploadMedia: mockUploadMedia
       }
     };
-    console.log('MockClient defined via doMock');
   
     class MockTwitterApi {
       constructor() {
-        console.error('Mock constructor called');
         return MockClient;
       }
     }
@@ -71,24 +60,13 @@ beforeAll(async () => {
 });
 
 describe('XService Content Filtering', () => {
-  it('debug mocks', async () => {
-    const { TwitterApi } = await import('twitter-api-v2');
-    console.error('TwitterApi is mock:', vi.isMockFunction(TwitterApi));
-    expect(vi.isMockFunction(TwitterApi)).toBe(true);
-    const client = new TwitterApi('token');
-    console.error('client keys:', Object.keys(client));
-    console.error('client.v2:', client.v2);
-    if (client.v2) {
-      console.error('client.v2.uploadMedia:', client.v2.uploadMedia);
-    }
-  });
-
   let xService;
   let logger;
   let databaseService;
   let collectionMock;
   let xPostConfigCollection;
   let xAuthCollection;
+  let secretsService;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -103,10 +81,10 @@ describe('XService Content Filtering', () => {
     });
 
     logger = {
-      info: vi.fn((...args) => console.error('logger.info:', args)),
-      warn: vi.fn((...args) => console.error('logger.warn:', args)),
-      error: vi.fn((...args) => console.error('logger.error:', args)),
-      debug: vi.fn((...args) => console.error('logger.debug:', args))
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn((...args) => console.error('logger.error:', ...args)),
+      debug: vi.fn()
     };
 
     collectionMock = {
@@ -143,11 +121,15 @@ describe('XService Content Filtering', () => {
       })
     };
 
+    secretsService = {
+      getAsync: vi.fn().mockResolvedValue('mock_secret')
+    };
+
     xService = new XService({
       logger,
       databaseService,
       configService: {},
-      secretsService: {},
+      secretsService,
       metricsService: {
         increment: vi.fn(),
         gauge: vi.fn(),
