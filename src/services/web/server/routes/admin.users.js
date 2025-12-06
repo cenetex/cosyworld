@@ -74,9 +74,15 @@ export default function adminUsersRoutes(db, services) {
 
       let baseUrl = services.configService?.get('server.publicUrl') || process.env.PUBLIC_URL;
       
-      // Auto-detect Replit URL if not explicitly set
-      if (!baseUrl && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+      // Auto-detect Replit URL if not explicitly set OR if it looks like a default localhost
+      // OR if it looks like a malformed replit url (common typo fix)
+      const isReplit = process.env.REPL_SLUG && process.env.REPL_OWNER;
+      
+      if (isReplit) {
+        // If baseUrl is missing, localhost, or has the common 'replit.ap' typo, regenerate it correctly
+        if (!baseUrl || baseUrl.includes('localhost') || baseUrl.includes('replit.ap')) {
+           baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+        }
       }
       
       if (!baseUrl) {
@@ -86,6 +92,15 @@ export default function adminUsersRoutes(db, services) {
       // Remove trailing slash if present
       if (baseUrl.endsWith('/')) {
         baseUrl = baseUrl.slice(0, -1);
+      }
+      
+      // Fix common typos/issues in baseUrl if it comes from env
+      baseUrl = baseUrl.replace('replit.ap/', 'replit.app/'); // Fix missing 'p'
+      baseUrl = baseUrl.replace('replit.ap:', 'replit.app:'); // Fix missing 'p' before port
+      
+      // Replit public URLs should not have ports usually
+      if (baseUrl.includes('replit.app') && baseUrl.includes(':3000')) {
+         baseUrl = baseUrl.replace(':3000', '');
       }
 
       const inviteUrl = `${baseUrl}/admin/invite.html?token=${token}`;
