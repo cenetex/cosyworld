@@ -396,6 +396,20 @@ async function initializeApp(services) {
       });
     });
 
+    // Wiki homepage - serves wiki.html for browsing and sharing articles
+    app.get('/wiki', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'wiki.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // Wiki article pages - SPA handles routing for /wiki/:slug
+    app.get(/^\/wiki\/(.+)$/, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'wiki.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
     // Keep /app as alias for backwards compatibility
     app.get('/app', (req, res, next) => {
       res.redirect('/console');

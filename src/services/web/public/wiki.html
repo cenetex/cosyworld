@@ -608,16 +608,51 @@
     // API base
     const API_BASE = '/api/wiki';
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      // Check for slug in URL hash
+    // Get slug from URL path or hash
+    function getSlugFromUrl() {
+      // Check clean URL path first: /wiki/article-slug
+      const pathMatch = window.location.pathname.match(/^\/wiki\/(.+)$/);
+      if (pathMatch) {
+        return decodeURIComponent(pathMatch[1]);
+      }
+      // Fall back to hash: /wiki#article-slug
       const hash = window.location.hash.slice(1);
       if (hash) {
-        loadArticle(hash);
+        return decodeURIComponent(hash);
+      }
+      return null;
+    }
+
+    // Update URL when viewing an article
+    function updateUrl(slug) {
+      if (slug) {
+        // Use clean URL
+        window.history.pushState({slug}, '', `/wiki/${encodeURIComponent(slug)}`);
+      } else {
+        window.history.pushState({}, '', '/wiki');
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check for slug in URL
+      const slug = getSlugFromUrl();
+      if (slug) {
+        loadArticle(slug);
       } else {
         loadArticles();
       }
       loadCategories();
+    });
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', (event) => {
+      const slug = getSlugFromUrl();
+      if (slug) {
+        loadArticle(slug, false); // false = don't update URL
+      } else {
+        loadArticles(currentCategory);
+      }
     });
 
     // Load categories
@@ -721,7 +756,7 @@
     }
 
     // Load single article
-    async function loadArticle(slug) {
+    async function loadArticle(slug, shouldUpdateUrl = true) {
       showLoading();
       
       try {
@@ -734,8 +769,10 @@
         renderArticle(data.article);
         showArticleView();
         
-        // Update URL hash
-        window.location.hash = slug;
+        // Update URL (clean path)
+        if (shouldUpdateUrl) {
+          updateUrl(slug);
+        }
       } catch (err) {
         console.error('Failed to load article:', err);
         showToast('Article not found');
@@ -876,7 +913,7 @@
     function shareArticle() {
       if (!currentArticle) return;
       
-      const url = `${window.location.origin}/wiki.html#${currentArticle.slug}`;
+      const url = `${window.location.origin}/wiki/${encodeURIComponent(currentArticle.slug)}`;
       navigator.clipboard.writeText(url).then(() => {
         showToast('Link copied to clipboard!');
       }).catch(() => {
@@ -897,7 +934,7 @@
       document.getElementById('listView').style.display = 'block';
       document.getElementById('articleView').classList.remove('active');
       document.getElementById('articleForm').classList.remove('active');
-      window.location.hash = '';
+      updateUrl(null); // Reset to /wiki
     }
 
     function showArticleView() {
@@ -938,15 +975,13 @@
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Handle hash changes
-    window.addEventListener('hashchange', () => {
+    // Handle legacy hash URLs - redirect to clean URLs
+    if (window.location.hash && !window.location.pathname.includes('/wiki/')) {
       const hash = window.location.hash.slice(1);
       if (hash) {
-        loadArticle(hash);
-      } else {
-        loadArticles(currentCategory);
+        window.location.replace(`/wiki/${encodeURIComponent(hash)}`);
       }
-    });
+    }
   </script>
 </body>
 </html>
