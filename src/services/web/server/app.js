@@ -183,8 +183,13 @@ async function initializeApp(services) {
 
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
+  app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, services));
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
   app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(services));
+  
+  // Public Invite Route
+  app.use('/api/invite', (await import('./routes/invite.js')).default(db, services));
+
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads (GET) with session; require signed message for writes (POST/PUT/PATCH/DELETE)
   app.use('/api/admin', ensureAdmin, validateCsrf, (req, res, next) => {
@@ -366,6 +371,11 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
+    app.get('/admin/users', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'users.html'), (err) => {
+        if (err) next(err);
+      });
+    });
     app.get('/admin/global-bot', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'global-bot.html'), (err) => {
         if (err) next(err);
@@ -392,6 +402,13 @@ async function initializeApp(services) {
     // Health dashboard page
     app.get('/health', (req, res, next) => {
       res.sendFile(path.join(process.cwd(), 'public', 'health.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // Invite page (public)
+    app.get('/invite.html', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'invite.html'), (err) => {
         if (err) next(err);
       });
     });

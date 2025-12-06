@@ -52,6 +52,8 @@ export default (env, argv) => {
       adminSettings: './src/services/web/public/js/admin-settings.js',
       adminServers: './src/services/web/public/js/admin-servers.js',
       adminSecrets: './src/services/web/public/js/admin-secrets.js',
+      adminUsers: './src/services/web/public/js/admin-users.js',
+      invite: './src/services/web/public/js/invite.js',
       guildSettings: './src/services/web/public/js/guild-settings.js',
       'admin/adminBootstrap': './src/services/web/public/js/admin/admin-bootstrap.js',
       tailwind: './src/tailwind.css'

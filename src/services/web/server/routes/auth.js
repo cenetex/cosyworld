@@ -99,25 +99,21 @@ export default function createAuthRouter(db) {
       : [];
     const isEnvAdmin = envAdmins.length > 0 && envAdmins.includes(address.toLowerCase());
 
-    if (envAdmins.length > 0) {
-      // Explicit allow-list: only listed wallets are admins
-      if (user.isAdmin !== isEnvAdmin) {
-        await users.updateOne({ _id: user._id }, { $set: { isAdmin: isEnvAdmin, updatedAt: new Date() } });
+    if (isEnvAdmin) {
+      // If in env list, ensure they are admin
+      if (!user.isAdmin) {
+        await users.updateOne({ _id: user._id }, { $set: { isAdmin: true, updatedAt: new Date() } });
         user = await users.findOne({ _id: user._id });
       }
-    } else {
-      // Fallback bootstrap: first user becomes admin
+    } else if (envAdmins.length === 0) {
+      // Fallback bootstrap: first user becomes admin ONLY if no env admins defined
       if (!existingAdmin && !user.isAdmin) {
         await users.updateOne({ _id: user._id }, { $set: { isAdmin: true, updatedAt: new Date() } });
         user = await users.findOne({ _id: user._id });
-      } else if (!user.isAdmin) {
-        // Ensure later users are not admins by default
-        if (user.isAdmin) {
-          await users.updateOne({ _id: user._id }, { $set: { isAdmin: false, updatedAt: new Date() } });
-          user = await users.findOne({ _id: user._id });
-        }
       }
     }
+    // If not in env list and env list exists, we DO NOT demote them. 
+    // They might have been added via the Invite System.
 
   // Issue httpOnly auth cookie
   issueAuthCookie(res, { addr: user.walletAddress, isAdmin: !!user.isAdmin });
