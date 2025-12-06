@@ -837,6 +837,13 @@ class XService {
       const contentFilters = services.globalBotService?.bot?.globalBotConfig?.contentFilters || opts.contentFilters || {};
       const filterEnabled = contentFilters.enabled !== false;
       
+      this.logger?.debug?.('[XService] Content filters check:', {
+        hasGlobalBotService: !!services.globalBotService,
+        hasOptsFilters: !!opts.contentFilters,
+        allowedCashtags: contentFilters.allowedCashtags,
+        filterEnabled
+      });
+
       // Check for blocked content in text before processing
       if (filterEnabled) {
         const contentFilter = filterContent(opts.text || '', {

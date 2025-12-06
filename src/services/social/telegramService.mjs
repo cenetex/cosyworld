@@ -1337,6 +1337,11 @@ CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
       effectiveContentFilters.allowedCashtags = allowedCashtags;
       effectiveContentFilters.allowedAddresses = allowedAddresses;
 
+      this.logger?.debug?.('[TelegramService] Effective content filters for X:', { 
+        allowedCashtags, 
+        text: text?.slice(0, 50) 
+      });
+
       const contentFilter = filterContent(text || '', {
         logger: this.logger,
         blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
