@@ -90,7 +90,7 @@ describe('XService Content Filtering', () => {
     logger = {
       info: vi.fn(),
       warn: vi.fn(),
-      error: vi.fn((...args) => console.error('logger.error:', ...args)),
+      error: vi.fn(),
       debug: vi.fn()
     };
 
