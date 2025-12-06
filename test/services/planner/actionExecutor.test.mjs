@@ -188,8 +188,8 @@ describe('SpeakExecutor', () => {
     expect(executor.actionType).toBe('speak');
   });
 
-  it('has 30 second timeout', () => {
-    expect(executor.getTimeout()).toBe(30000);
+  it('has 60 second timeout', () => {
+    expect(executor.getTimeout()).toBe(60000);
   });
 });
 

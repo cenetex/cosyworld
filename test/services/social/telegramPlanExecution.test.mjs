@@ -199,17 +199,8 @@ describe('TelegramService.executePlanActions', () => {
     );
 
     expect(planExecutionService.executePlan).toHaveBeenCalledTimes(1);
-    expect(interactionManager.updateProgressMessage).toHaveBeenCalledWith(
-      ctx,
-      null,
-      expect.stringContaining('Step 1/2'),
-      'channel-123'
-    );
-    expect(interactionManager.deleteProgressMessage).toHaveBeenCalledWith(
-      ctx,
-      'progress-1',
-      'channel-123'
-    );
+    expect(interactionManager.updateProgressMessage).not.toHaveBeenCalled();
+    expect(interactionManager.deleteProgressMessage).not.toHaveBeenCalled();
     expect(ctx.reply).not.toHaveBeenCalled();
     expect(result).toMatchObject({ success: true, successCount: 2 });
   });
@@ -250,10 +241,6 @@ describe('TelegramService.executePlanActions', () => {
       'Planning fizzled out for a moment—try again and I will map it out.'
     );
     expect(interactionManager.updateProgressMessage).not.toHaveBeenCalled();
-    expect(interactionManager.deleteProgressMessage).toHaveBeenCalledWith(
-      ctx,
-      null,
-      'channel-999'
-    );
+    expect(interactionManager.deleteProgressMessage).not.toHaveBeenCalled();
   });
 });

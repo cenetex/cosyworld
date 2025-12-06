@@ -57,6 +57,12 @@ describe('Telegram Auth Routes (Admin Tools)', () => {
       databaseService: { getDatabase: vi.fn() },
       configService: { get: vi.fn() },
       secretsService: { getAsync: vi.fn() },
+      socialPlatformService: {
+        getPlatformMember: vi.fn(),
+        updateMemberModeration: vi.fn(),
+        unbanMember: vi.fn(),
+        getSpamStats: vi.fn()
+      },
       logger: createLoggerMock(),
     };
 
