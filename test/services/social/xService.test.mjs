@@ -1,25 +1,18 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 // Mock TwitterApi
-const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
-const mockUploadMedia = vi.fn().mockResolvedValue('media_id_123');
-const mockV2Client = {
-  tweet: mockTweet,
-  uploadMedia: mockUploadMedia,
-  me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
-};
-const mockV1Client = {
-  uploadMedia: mockUploadMedia
-};
-
-vi.mock('twitter-api-v2', () => {
-  return {
-    TwitterApi: vi.fn().mockImplementation(() => ({
-      v2: mockV2Client,
-      v1: mockV1Client,
-      readWrite: mockV2Client
-    }))
+const { mockTweet, mockUploadMedia, mockV2Client, mockV1Client } = vi.hoisted(() => {
+  const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
+  const mockUploadMedia = vi.fn().mockResolvedValue('media_id_123');
+  const mockV2Client = {
+    tweet: mockTweet,
+    uploadMedia: mockUploadMedia,
+    me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
   };
+  const mockV1Client = {
+    uploadMedia: mockUploadMedia
+  };
+  return { mockTweet, mockUploadMedia, mockV2Client, mockV1Client };
 });
 
 // Mock encryption utils
@@ -31,11 +24,65 @@ vi.mock('../../../src/utils/encryption.mjs', () => ({
 let XService;
 
 beforeAll(async () => {
+  vi.resetModules();
   process.env.X_GLOBAL_POST_ENABLED = 'true';
+  
+  vi.doMock('twitter-api-v2', () => {
+    const mockUploadMedia = vi.fn().mockImplementation((...args) => {
+      console.log('mockUploadMedia called with:', args);
+      return Promise.resolve('media_id_123');
+    });
+    const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
+    
+    const MockClient = {
+      v2: {
+        tweet: mockTweet,
+        uploadMedia: (...args) => {
+          console.error('Plain uploadMedia called');
+          return Promise.resolve('media_id_123');
+        },
+        me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
+      },
+      v1: {
+        uploadMedia: mockUploadMedia
+      },
+      readWrite: {
+        tweet: mockTweet,
+        uploadMedia: mockUploadMedia
+      }
+    };
+    console.log('MockClient defined via doMock');
+  
+    class MockTwitterApi {
+      constructor() {
+        console.error('Mock constructor called');
+        return MockClient;
+      }
+    }
+
+    return {
+      __esModule: true,
+      TwitterApi: MockTwitterApi,
+      default: MockTwitterApi
+    };
+  });
+
   ({ default: XService } = await import('../../../src/services/social/xService.mjs'));
 });
 
 describe('XService Content Filtering', () => {
+  it('debug mocks', async () => {
+    const { TwitterApi } = await import('twitter-api-v2');
+    console.error('TwitterApi is mock:', vi.isMockFunction(TwitterApi));
+    expect(vi.isMockFunction(TwitterApi)).toBe(true);
+    const client = new TwitterApi('token');
+    console.error('client keys:', Object.keys(client));
+    console.error('client.v2:', client.v2);
+    if (client.v2) {
+      console.error('client.v2.uploadMedia:', client.v2.uploadMedia);
+    }
+  });
+
   let xService;
   let logger;
   let databaseService;
@@ -46,11 +93,20 @@ describe('XService Content Filtering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Mock global fetch for image downloads
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      arrayBuffer: async () => new ArrayBuffer(10),
+      headers: { get: () => 'image/jpeg' }
+    });
+
     logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
+      info: vi.fn((...args) => console.error('logger.info:', args)),
+      warn: vi.fn((...args) => console.error('logger.warn:', args)),
+      error: vi.fn((...args) => console.error('logger.error:', args)),
+      debug: vi.fn((...args) => console.error('logger.debug:', args))
     };
 
     collectionMock = {
