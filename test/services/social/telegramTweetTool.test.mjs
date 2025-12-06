@@ -237,10 +237,13 @@ describe('TelegramService planning tool helpers', () => {
     service = createService();
   });
 
-  it('records plan entries and executes steps with progress messages', async () => {
+  it('records plan entries and executes steps silently', async () => {
     service._recordBotResponse = vi.fn().mockResolvedValue();
     service._saveMessageToDatabase = vi.fn().mockResolvedValue();
     service._persistAgentPlanRecord = vi.fn().mockResolvedValue();
+    
+    // Mock image generation to succeed
+    service.executeImageGeneration = vi.fn().mockResolvedValue({ id: 'media-123' });
 
     const ctx = { reply: vi.fn(), chat: { id: 'channel-plan' } };
 
@@ -253,11 +256,14 @@ describe('TelegramService planning tool helpers', () => {
       confidence: 0.82
     }, 'channel-plan', 'user-42', 'tester');
 
-    // Now shows step progress messages instead of planning summary
-    expect(ctx.reply).toHaveBeenCalledWith(
+    // Should NOT show step progress messages
+    expect(ctx.reply).not.toHaveBeenCalledWith(
       expect.stringContaining('Step 1/2'),
       expect.any(Object)
     );
+    
+    // Should have executed image generation
+    expect(service.executeImageGeneration).toHaveBeenCalled();
     const plans = service.agentPlansByChannel.get('channel-plan');
     expect(plans).toBeDefined();
     expect(plans[0].steps).toHaveLength(2);
