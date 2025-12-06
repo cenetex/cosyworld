@@ -112,93 +112,205 @@
                           </svg>
                         </button>
                       </div>
+                      
+                      <!-- Tabs Header -->
+                      <div class="px-6 border-b border-gray-200 bg-gray-50">
+                        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                          <button type="button" id="tab-btn-general" class="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                            General
+                          </button>
+                          <button type="button" id="tab-btn-social" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                            Social Connections
+                          </button>
+                          <button type="button" id="tab-btn-nft" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none">
+                            NFT & Deployment
+                          </button>
+                        </nav>
+                      </div>
+
                       <form id="avatar-form" class="px-6 py-6">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                          <!-- Left Column - Avatar Preview & Basic Info -->
-                          <div class="space-y-6">
-                            <div>
-                              <label class="block text-sm font-medium text-gray-700 mb-2">Avatar Preview</label>
-                              <div class="relative">
-                                <img id="avatar-image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="Avatar Preview" class="w-full aspect-square rounded-lg object-cover border-2 border-gray-200 shadow-sm" />
-                                <div id="avatar-preview-emoji" class="absolute bottom-2 right-2 text-4xl bg-white rounded-full p-2 shadow-md hidden"></div>
-                              </div>
-                              <div class="mt-3">
-                                <label for="avatar-image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                                <input type="url" id="avatar-image-url" name="imageUrl" placeholder="https://..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <label for="avatar-emoji" class="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
-                              <input type="text" id="avatar-emoji" name="emoji" maxlength="4" placeholder="😀" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-2xl text-center" />
-                              <p class="mt-1 text-xs text-gray-500">Choose a representative emoji</p>
-                            </div>
-
-                            <div>
-                              <label for="avatar-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                              <select id="avatar-status" name="status" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                                <option value="alive">Alive</option>
-                                <option value="dead">Dead</option>
-                                <option value="inactive">Inactive</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <!-- Middle Column - Identity & AI Config -->
-                          <div class="space-y-6">
-                            <div>
-                              <label for="avatar-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
-                              <input type="text" id="avatar-name" name="name" placeholder="Avatar name" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
-                            </div>
-
-                            <div>
-                              <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
-                              <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label for="avatar-model-provider" class="block text-xs text-gray-600 mb-1">Provider</label>
-                                  <select id="avatar-model-provider" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                                    <option value="">Select...</option>
-                                  </select>
+                        <!-- Tab Content: General -->
+                        <div id="tab-content-general">
+                          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <!-- Left Column - Avatar Preview & Basic Info -->
+                            <div class="space-y-6">
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Avatar Preview</label>
+                                <div class="relative">
+                                  <img id="avatar-image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e5e7eb' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="Avatar Preview" class="w-full aspect-square rounded-lg object-cover border-2 border-gray-200 shadow-sm" />
+                                  <div id="avatar-preview-emoji" class="absolute bottom-2 right-2 text-4xl bg-white rounded-full p-2 shadow-md hidden"></div>
                                 </div>
-                                <div>
-                                  <label for="avatar-model-name" class="block text-xs text-gray-600 mb-1">Model</label>
-                                  <select id="avatar-model-name" name="model" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" disabled>
-                                    <option value="">Select provider first</option>
-                                  </select>
+                                <div class="mt-3">
+                                  <label for="avatar-image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                                  <input type="url" id="avatar-image-url" name="imageUrl" placeholder="https://..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
                                 </div>
                               </div>
-                              <div id="model-rarity-badge" class="mt-2 hidden">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"></span>
+                              
+                              <div>
+                                <label for="avatar-emoji" class="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
+                                <input type="text" id="avatar-emoji" name="emoji" maxlength="4" placeholder="😀" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-2xl text-center" />
+                                <p class="mt-1 text-xs text-gray-500">Choose a representative emoji</p>
+                              </div>
+
+                              <div>
+                                <label for="avatar-status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="avatar-status" name="status" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                  <option value="alive">Alive</option>
+                                  <option value="dead">Dead</option>
+                                  <option value="inactive">Inactive</option>
+                                </select>
                               </div>
                             </div>
 
-                            <div>
-                              <label for="avatar-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                              <textarea id="avatar-description" name="description" rows="4" placeholder="Brief description of this avatar..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
-                              <p class="mt-1 text-xs text-gray-500">Public-facing description</p>
+                            <!-- Middle Column - Identity & AI Config -->
+                            <div class="space-y-6">
+                              <div>
+                                <label for="avatar-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="avatar-name" name="name" placeholder="Avatar name" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required />
+                              </div>
+
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label for="avatar-model-provider" class="block text-xs text-gray-600 mb-1">Provider</label>
+                                    <select id="avatar-model-provider" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                      <option value="">Select...</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label for="avatar-model-name" class="block text-xs text-gray-600 mb-1">Model</label>
+                                    <select id="avatar-model-name" name="model" class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" disabled>
+                                      <option value="">Select provider first</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                <div id="model-rarity-badge" class="mt-2 hidden">
+                                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"></span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label for="avatar-description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea id="avatar-description" name="description" rows="4" placeholder="Brief description of this avatar..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                                <p class="mt-1 text-xs text-gray-500">Public-facing description</p>
+                              </div>
+                            </div>
+
+                            <!-- Right Column - Personality -->
+                            <div class="space-y-6">
+                              <div>
+                                <label for="avatar-personality" class="block text-sm font-medium text-gray-700 mb-1">Personality</label>
+                                <textarea id="avatar-personality" name="personality" rows="12" placeholder="Describe the avatar's personality traits, communication style, and behavioral patterns..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
+                                <p class="mt-1 text-xs text-gray-500">Used for AI prompt generation</p>
+                              </div>
+
+                              <div>
+                                <button type="button" id="preview-prompt" class="w-full inline-flex justify-center items-center py-2 px-4 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
+                                  <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                  Preview AI Prompt
+                                </button>
+                                <div id="prompt-preview-container" class="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 hidden">
+                                  <h4 class="font-medium text-gray-700 mb-2 text-sm">Sample Contextual Prompt</h4>
+                                  <div id="prompt-preview-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto"></div>
+                                </div>
+                              </div>
                             </div>
                           </div>
+                        </div>
 
-                          <!-- Right Column - Personality -->
-                          <div class="space-y-6">
-                            <div>
-                              <label for="avatar-personality" class="block text-sm font-medium text-gray-700 mb-1">Personality</label>
-                              <textarea id="avatar-personality" name="personality" rows="12" placeholder="Describe the avatar's personality traits, communication style, and behavioral patterns..." class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"></textarea>
-                              <p class="mt-1 text-xs text-gray-500">Used for AI prompt generation</p>
-                            </div>
-
-                            <div>
-                              <button type="button" id="preview-prompt" class="w-full inline-flex justify-center items-center py-2 px-4 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition">
-                                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                Preview AI Prompt
+                        <!-- Tab Content: Social -->
+                        <div id="tab-content-social" class="hidden">
+                          <!-- Social Connections Section -->
+                          <div id="social-connections-section" class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div>
+                                <h4 class="text-lg font-medium text-blue-900">Social Connections</h4>
+                                <p class="text-sm text-blue-800">Live status via SocialPlatformService.</p>
+                              </div>
+                              <button
+                                type="button"
+                                id="refresh-social-connections"
+                                class="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-blue-900 bg-white border border-blue-300 rounded-md hover:bg-blue-100"
+                              >
+                                Refresh
                               </button>
-                              <div id="prompt-preview-container" class="mt-3 p-4 bg-gray-50 rounded-md border border-gray-200 hidden">
-                                <h4 class="font-medium text-gray-700 mb-2 text-sm">Sample Contextual Prompt</h4>
-                                <div id="prompt-preview-content" class="text-xs text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto"></div>
+                            </div>
+                            <div id="social-connections-content" class="mt-4 space-y-4 text-sm text-blue-900">
+                              <div class="text-blue-800">Select an avatar to load connection status.</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Tab Content: NFT -->
+                        <div id="tab-content-nft" class="hidden">
+                          <!-- NFT Deployment Section -->
+                          <div id="nft-section" class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <h4 class="text-lg font-medium text-purple-900 mb-4">🎨 NFT Deployment</h4>
+                            
+                            <div id="nft-status" class="mb-4">
+                              <!-- NFT status will be displayed here -->
+                            </div>
+
+                            <div id="nft-manifests" class="hidden mb-4">
+                              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white p-3 rounded border border-gray-200">
+                                  <h5 class="text-sm font-semibold text-gray-700 mb-2">Base (ERC-721)</h5>
+                                  <pre id="base-manifest" class="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-48"></pre>
+                                </div>
+                                <div class="bg-white p-3 rounded border border-gray-200">
+                                  <h5 class="text-sm font-semibold text-gray-700 mb-2">Solana (Metaplex)</h5>
+                                  <pre id="solana-manifest" class="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-48"></pre>
+                                </div>
                               </div>
+                            </div>
+
+                            <div id="nft-deployment-links" class="hidden mb-4">
+                              <h5 class="text-sm font-semibold text-gray-700 mb-2">Arweave Links</h5>
+                              <div class="space-y-2">
+                                <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                  <span class="text-xs text-gray-600">Image:</span>
+                                  <a id="nft-image-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                                </div>
+                                <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                  <span class="text-xs text-gray-600">Base Metadata:</span>
+                                  <a id="nft-base-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                                </div>
+                                <div class="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                  <span class="text-xs text-gray-600">Solana Metadata:</span>
+                                  <a id="nft-solana-link" href="#" target="_blank" class="text-xs text-purple-600 hover:underline truncate ml-2"></a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="flex space-x-3">
+                              <button
+                                type="button"
+                                id="generate-nft-metadata"
+                                class="inline-flex items-center justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                              >
+                                <span class="mr-2">📋</span>
+                                Generate NFT Metadata
+                              </button>
+                              <button
+                                type="button"
+                                id="deploy-to-arweave"
+                                class="hidden inline-flex items-center justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              >
+                                <span class="mr-2">🚀</span>
+                                Deploy to Arweave
+                              </button>
+                              <button
+                                type="button"
+                                id="view-mobile-deployment"
+                                class="hidden inline-flex items-center justify-center py-2 px-4 border border-purple-300 shadow-sm text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                              >
+                                <span class="mr-2">📱</span>
+                                Open Mobile View
+                              </button>
                             </div>
                           </div>
                         </div>

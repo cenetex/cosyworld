@@ -1012,7 +1012,6 @@ if (emojiInput) {
   function openMobileDeployment(avatarId) {
     window.open(`/deploy-avatar.html?id=${avatarId}`, '_blank');
   }
-});
 
   // ============================================================
   // SOCIAL PLATFORM FUNCTIONS
@@ -1163,3 +1162,5 @@ if (emojiInput) {
       toastError(error.message);
     }
   }
+});
+
