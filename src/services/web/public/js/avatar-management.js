@@ -24,26 +24,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentSearch: "",
   };
 
-  const SOCIAL_PLATFORM_CONFIG = [
-    {
-      id: 'telegram',
-      label: 'Telegram',
-      description: 'Connect a BotFather token to enable DM + channel routing.',
-      manageHref: (avatarId) => `/admin/telegram-global-posting.html?avatar=${avatarId}`,
-      manageLabel: 'Open Telegram Config',
-      postingEnabled: false
-    },
-    {
-      id: 'x',
-      label: 'X / Twitter',
-      description: 'Authenticate via wallet signature + OAuth to post as this avatar.',
-      manageHref: (avatarId) => `/admin/x-accounts.html?avatar=${avatarId}`,
-      manageLabel: 'Open X Auth',
-      postingEnabled: true,
-      postButtonLabel: 'Post to X'
-    }
-  ];
-
   // Store models data globally for modal use
   let modelsData = [];
   let modelsByProvider = new Map();
@@ -263,6 +243,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     socialSection: document.getElementById('social-connections-section'),
     socialList: document.getElementById('social-connections-content'),
     socialRefreshBtn: document.getElementById('refresh-social-connections'),
+    
+    // Tabs
+    tabBtnGeneral: document.getElementById("tab-btn-general"),
+    tabBtnSocial: document.getElementById("tab-btn-social"),
+    tabBtnNft: document.getElementById("tab-btn-nft"),
+    tabContentGeneral: document.getElementById("tab-content-general"),
+    tabContentSocial: document.getElementById("tab-content-social"),
+    tabContentNft: document.getElementById("tab-content-nft"),
   };
 
   // Initialization
@@ -306,6 +294,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     elements.closeModal.addEventListener("click", closeModal);
     elements.cancelEdit.addEventListener("click", closeModal);
+
+    // Tab Listeners
+    if (elements.tabBtnGeneral) elements.tabBtnGeneral.addEventListener("click", () => switchTab("general"));
+    if (elements.tabBtnSocial) elements.tabBtnSocial.addEventListener("click", () => switchTab("social"));
+    if (elements.tabBtnNft) elements.tabBtnNft.addEventListener("click", () => switchTab("nft"));
 
     // Preview Prompt button
   document.getElementById("preview-prompt").addEventListener("click", withButtonLoading(document.getElementById("preview-prompt"), async () => {
@@ -535,12 +528,43 @@ if (emojiInput) {
   // (removed duplicate updatePagination definition)
 
   // Modal Functions
+  function switchTab(tabName) {
+    const tabs = ['general', 'social', 'nft'];
+    tabs.forEach(t => {
+      const btn = elements[`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`];
+      const content = elements[`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`];
+      
+      if (!btn || !content) return;
+
+      if (t === tabName) {
+        btn.classList.add('border-indigo-500', 'text-indigo-600');
+        btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        content.classList.remove('hidden');
+      } else {
+        btn.classList.remove('border-indigo-500', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        content.classList.add('hidden');
+      }
+    });
+
+    // Special handling for Social tab
+    if (tabName === 'social') {
+      const avatarId = elements.avatarForm.dataset.avatarId;
+      if (avatarId) {
+        loadSocialConnections(avatarId);
+      } else {
+        elements.socialList.innerHTML = '<div class="text-gray-500 p-4 text-center">Please save the avatar first to manage social connections.</div>';
+      }
+    }
+  }
+
   function openNewAvatarModal() {
     elements.avatarForm.dataset.avatarId = "";
     elements.modalTitle.textContent = "Create New Avatar";
     elements.deleteAvatarBtn.classList.add("hidden");
     resetForm();
     initializeModalModelSelectors(); // Reinitialize dropdowns
+    switchTab('general');
     elements.avatarModal.classList.remove("hidden");
   }
 
@@ -548,6 +572,7 @@ if (emojiInput) {
     try {
       elements.avatarModal.classList.remove("hidden");
       elements.modalTitle.textContent = "Loading Avatar Data...";
+      switchTab('general');
     const avatar = await apiFetch(`/api/admin/avatars/${avatarId}`);
       elements.modalTitle.textContent = `Edit Avatar: ${avatar.name}`;
       elements.avatarForm.dataset.avatarId = avatarId;
@@ -988,3 +1013,153 @@ if (emojiInput) {
     window.open(`/deploy-avatar.html?id=${avatarId}`, '_blank');
   }
 });
+
+  // ============================================================
+  // SOCIAL PLATFORM FUNCTIONS
+  // ============================================================
+
+  async function loadSocialConnections(avatarId, options = {}) {
+    if (!elements.socialList) return;
+    
+    if (!options.silent) {
+      elements.socialList.innerHTML = '<div class="text-gray-500">Loading connections...</div>';
+    }
+
+    try {
+      const connections = await apiFetch(`/api/social/connections/${avatarId}`);
+      renderSocialConnections(avatarId, connections);
+    } catch (error) {
+      console.error("Error loading social connections:", error);
+      elements.socialList.innerHTML = `<div class="text-red-500">Failed to load connections: ${error.message}</div>`;
+    }
+  }
+
+  function renderSocialConnections(avatarId, connections) {
+    elements.socialList.innerHTML = '';
+    
+    // Telegram
+    const telegram = connections.find(c => c.platform === 'telegram');
+    const telegramCard = createSocialCard('telegram', 'Telegram', telegram, avatarId);
+    elements.socialList.appendChild(telegramCard);
+
+    // X (Twitter)
+    const x = connections.find(c => c.platform === 'x');
+    const xCard = createSocialCard('x', 'X / Twitter', x, avatarId);
+    elements.socialList.appendChild(xCard);
+    
+    // Discord (Placeholder)
+    const discord = connections.find(c => c.platform === 'discord');
+    const discordCard = createSocialCard('discord', 'Discord', discord, avatarId);
+    elements.socialList.appendChild(discordCard);
+  }
+
+  function createSocialCard(platform, label, connection, avatarId) {
+    const div = document.createElement('div');
+    div.className = 'bg-white p-4 rounded border border-gray-200 shadow-sm';
+    
+    const isConnected = !!connection && connection.status === 'connected';
+    
+    let content = `
+      <div class="flex justify-between items-start">
+        <div>
+          <h5 class="font-bold text-gray-900">${label}</h5>
+          <p class="text-sm text-gray-500 mb-2">${getPlatformDescription(platform)}</p>
+          <div class="flex items-center mt-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isConnected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+              ${isConnected ? 'Connected' : 'Not Connected'}
+            </span>
+            ${isConnected && connection.username ? `<span class="ml-2 text-sm text-gray-600">@${connection.username}</span>` : ''}
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          ${getPlatformActions(platform, isConnected, avatarId)}
+        </div>
+      </div>
+    `;
+    
+    // Add specific inputs for disconnected states (e.g. Telegram Token)
+    if (!isConnected && platform === 'telegram') {
+      content += `
+        <div class="mt-4 pt-4 border-t border-gray-100">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Bot Token (from @BotFather)</label>
+          <div class="flex gap-2">
+            <input type="text" id="telegram-token-${avatarId}" class="flex-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            <button type="button" class="connect-telegram inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Connect
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    div.innerHTML = content;
+
+    // Attach event listeners
+    if (!isConnected && platform === 'telegram') {
+      const btn = div.querySelector('.connect-telegram');
+      const input = div.querySelector(`#telegram-token-${avatarId}`);
+      btn.addEventListener('click', () => connectTelegram(avatarId, input.value));
+    } else if (isConnected) {
+      const disconnectBtn = div.querySelector('.disconnect-btn');
+      if (disconnectBtn) {
+        disconnectBtn.addEventListener('click', () => disconnectPlatform(avatarId, platform));
+      }
+    }
+    
+    if (platform === 'x' && !isConnected) {
+       const connectBtn = div.querySelector('.connect-x');
+       if (connectBtn) {
+         connectBtn.addEventListener('click', () => window.open(`/api/xauth/auth?avatarId=${avatarId}`, '_blank'));
+       }
+    }
+
+    return div;
+  }
+
+  function getPlatformDescription(platform) {
+    switch(platform) {
+      case 'telegram': return 'Connect a BotFather token to enable DM + channel routing.';
+      case 'x': return 'Authenticate via OAuth to post as this avatar.';
+      case 'discord': return 'Manage Discord channel presence.';
+      default: return '';
+    }
+  }
+
+  function getPlatformActions(platform, isConnected, avatarId) {
+    if (isConnected) {
+      return `<button type="button" class="disconnect-btn inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none">Disconnect</button>`;
+    } else {
+      if (platform === 'x') {
+        return `<button type="button" class="connect-x inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-blue-500 hover:bg-blue-600 focus:outline-none">Connect with X</button>`;
+      }
+      return ''; // Telegram handled via input form
+    }
+  }
+
+  async function connectTelegram(avatarId, token) {
+    if (!token) return toastError('Please enter a bot token');
+    try {
+      await apiFetch(`/api/social/connect/${avatarId}`, {
+        method: 'POST',
+        body: { platform: 'telegram', credentials: { token } }
+      });
+      toastSuccess('Telegram connected successfully');
+      loadSocialConnections(avatarId);
+    } catch (error) {
+      toastError(error.message);
+    }
+  }
+
+  async function disconnectPlatform(avatarId, platform) {
+    if (!confirm(`Are you sure you want to disconnect ${platform}?`)) return;
+    try {
+      await apiFetch(`/api/social/disconnect/${avatarId}`, {
+        method: 'POST',
+        body: { platform }
+      });
+      toastSuccess(`${platform} disconnected`);
+      loadSocialConnections(avatarId);
+    } catch (error) {
+      toastError(error.message);
+    }
+  }
