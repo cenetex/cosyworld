@@ -71,6 +71,69 @@ export default function xauthRoutes(services) {
         };
     };
 
+    // Admin-initiated auth flow (redirects directly)
+    router.get('/auth', async (req, res) => {
+        const { avatarId } = req.query;
+        
+        if (!avatarId) {
+            return res.status(400).send('Missing avatarId parameter');
+        }
+
+        // Only allow admins to initiate this flow via direct link
+        if (!isAdmin(req)) {
+             return res.status(403).send('Access denied. Admin only.');
+        }
+
+        try {
+            const db = await services.databaseService.getDatabase();
+            
+            // Ensure X integration config is present
+            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
+                return res.status(500).send('X integration is not configured on server');
+            }
+
+            const state = crypto.randomBytes(16).toString('hex');
+            const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
+    
+            const client = new TwitterApi({
+                clientId: process.env.X_CLIENT_ID,
+                clientSecret: process.env.X_CLIENT_SECRET,
+            });
+    
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
+                scope: [
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                    'follows.write',
+                    'like.write',
+                    'block.write',
+                    'offline.access',
+                    'media.write',
+                ],
+                state,
+            });
+    
+            // Clean up old entries for this avatarId
+            await db.collection('x_auth_temp').deleteMany({ avatarId });
+    
+            // Store the codeVerifier and state for later token exchange.
+            await db.collection('x_auth_temp').insertOne({
+                avatarId,
+                codeVerifier,
+                state,
+                createdAt: new Date(),
+                expiresAt,
+                initiatedBy: 'admin'
+            });
+    
+            res.redirect(url);
+        } catch (error) {
+            console.error('Admin Auth URL generation failed:', error);
+            res.status(500).send(`Failed to generate authorization URL: ${error.message}`);
+        }
+    });
+
     // Issue nonce for client to sign (separate endpoint)
     router.get('/nonce', (req, res) => {
         const { nonce, exp } = issueNonce();
