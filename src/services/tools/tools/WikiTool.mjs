@@ -493,8 +493,8 @@ Generate a comprehensive article that captures the essence of this ${articleType
         max_tokens: 2000
       });
 
-      if (response && typeof response === 'object' && response.text) {
-        response = response.text;
+      if (response && typeof response === 'object') {
+        response = response.text || response.content || '';
       }
 
       return response || `# ${title}\n\n*Article generation failed. Please try again.*`;
@@ -742,10 +742,10 @@ vocabulary: ${vocabulary.join(', ')}`,
     }
 
     // Common topic detection
-    const lowerContent = (content || '').toLowerCase();
+    const lowerContent = String(content || '').toLowerCase();
     const topicKeywords = {
       'battle': ['fight', 'attack', 'defend', 'combat', 'battle'],
-      'exploration': ['discover', 'explore', 'found', 'journey'],
+      'exploration': ['discover', 'explore', 'found', 'journey', 'exploration'],
       'social': ['friendship', 'relationship', 'alliance', 'trust'],
       'mystery': ['strange', 'mysterious', 'unknown', 'secret'],
       'creation': ['create', 'birth', 'new', 'summon', 'emerge']
