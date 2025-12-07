@@ -42,6 +42,14 @@ export class ResponseCoordinator {
     this.TURN_BASED_MODE = String(process.env.TURN_BASED_MODE || 'true').toLowerCase() === 'true';
     this.AMBIENT_DIVERSITY_LOOKBACK = Number(process.env.AMBIENT_DIVERSITY_LOOKBACK || 8);
     
+    // Multi-avatar response settings for human messages
+    // When a human writes, multiple avatars may join the conversation
+    this.MULTI_AVATAR_ENABLED = String(process.env.MULTI_AVATAR_ENABLED || 'true').toLowerCase() === 'true';
+    this.MULTI_AVATAR_MAX = Number(process.env.MULTI_AVATAR_MAX || 3); // Max additional responders beyond primary
+    this.MULTI_AVATAR_CHANCE = Number(process.env.MULTI_AVATAR_CHANCE || 0.4); // Chance for each additional avatar to chime in
+    this.MULTI_AVATAR_DELAY_MS = Number(process.env.MULTI_AVATAR_DELAY_MS || 2500); // Delay between responses
+    this.MULTI_AVATAR_DELAY_VARIANCE_MS = Number(process.env.MULTI_AVATAR_DELAY_VARIANCE_MS || 1500); // Random variance
+    
     // Cache for recent speakers to reduce Discord API calls
     this.recentSpeakersCache = new Map(); // channelId -> { speakers: [], at: timestamp }
     this.SPEAKER_CACHE_TTL = Number(process.env.SPEAKER_CACHE_TTL_MS || 60000); // 1 minute default
@@ -152,6 +160,25 @@ export class ResponseCoordinator {
         // Respect max responses limit
         if (responses.length >= this.MAX_RESPONSES_PER_MESSAGE) {
           break;
+        }
+      }
+
+      // 6. Multi-avatar responses for human messages
+      // When a human is chatting, give other avatars a chance to join the conversation
+      if (this.MULTI_AVATAR_ENABLED && 
+          message && 
+          !message.author.bot && 
+          responses.length > 0 &&
+          trigger.type !== 'ambient') {
+        
+        // Get avatars that didn't respond yet
+        const respondedIds = new Set(selectedAvatars.map(av => `${av._id || av.id}`));
+        const otherAvatars = eligibleAvatars.filter(av => !respondedIds.has(`${av._id || av.id}`));
+        
+        if (otherAvatars.length > 0) {
+          // Schedule additional responses asynchronously (don't block the main response)
+          this.scheduleAdditionalResponses(channel, message, otherAvatars, context, responses[0])
+            .catch(err => this.logger.warn?.(`[ResponseCoordinator] Additional responses failed: ${err.message}`));
         }
       }
 
@@ -1181,6 +1208,99 @@ export class ResponseCoordinator {
     );
 
     this.logger.info('[ResponseCoordinator] Maintenance tasks started');
+  }
+
+  /**
+   * Schedule additional avatar responses for human messages
+   * Creates a more natural conversation where multiple avatars can join in
+   * @param {Object} channel - Discord channel
+   * @param {Object} message - Original human message
+   * @param {Array} otherAvatars - Avatars that haven't responded yet
+   * @param {Object} context - Response context
+   * @param {Object} primaryResponse - The primary avatar's response (to reference)
+   */
+  async scheduleAdditionalResponses(channel, message, otherAvatars, context, primaryResponse) {
+    const channelId = channel.id;
+    
+    // Rank other avatars by relevance/presence
+    const ranked = await this.rankByPresence(channelId, otherAvatars);
+    
+    // Take top candidates
+    const candidates = ranked.slice(0, Math.min(this.MULTI_AVATAR_MAX + 2, ranked.length));
+    
+    let additionalResponders = 0;
+    let cumulativeDelay = this.MULTI_AVATAR_DELAY_MS;
+    
+    for (const candidate of candidates) {
+      if (additionalResponders >= this.MULTI_AVATAR_MAX) break;
+      
+      const avatar = candidate.avatar;
+      
+      // Roll the dice - does this avatar want to chime in?
+      const chimeInRoll = Math.random();
+      
+      // Boost chance if avatar is highly engaged (high presence score)
+      const boostedChance = this.MULTI_AVATAR_CHANCE + (candidate.score * 0.2);
+      
+      if (chimeInRoll > boostedChance) {
+        this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} passed on chiming in (roll: ${chimeInRoll.toFixed(2)}, threshold: ${boostedChance.toFixed(2)})`);
+        continue;
+      }
+      
+      // Check if avatar has something relevant to say (optional AI check)
+      const shouldRespond = await this.decisionMaker.shouldRespond(channel, avatar, message);
+      if (!shouldRespond) {
+        this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} decided not to respond (DecisionMaker)`);
+        continue;
+      }
+      
+      // Calculate delay with variance
+      const variance = Math.random() * this.MULTI_AVATAR_DELAY_VARIANCE_MS;
+      const delay = cumulativeDelay + variance;
+      
+      this.logger.info?.(`[ResponseCoordinator] 🗣️ Scheduling additional response from ${avatar.name} in ${Math.round(delay/1000)}s`);
+      
+      // Schedule the response
+      setTimeout(async () => {
+        try {
+          // Re-check lock to avoid race conditions
+          const lockAcquired = await this.acquireResponseLock(channelId, avatar._id || avatar.id);
+          if (!lockAcquired) {
+            this.logger.debug?.(`[ResponseCoordinator] Lock not acquired for ${avatar.name} additional response`);
+            return;
+          }
+          
+          try {
+            // Provide context about the ongoing conversation
+            const enhancedContext = {
+              ...context,
+              isFollowUp: true,
+              previousResponse: primaryResponse?.content?.slice(0, 200), // Reference primary response
+              conversationType: 'multi_avatar'
+            };
+            
+            const response = await this.generateResponse(avatar, channel, message, enhancedContext);
+            if (response) {
+              this.logger.info?.(`[ResponseCoordinator] ✅ Additional response sent from ${avatar.name}`);
+              
+              // Update presence
+              await this.presenceService.recordTurn(channelId, `${avatar._id || avatar.id}`);
+            }
+          } finally {
+            await this.releaseResponseLock(channelId, avatar._id || avatar.id);
+          }
+        } catch (err) {
+          this.logger.warn?.(`[ResponseCoordinator] Additional response failed for ${avatar.name}: ${err.message}`);
+        }
+      }, delay);
+      
+      additionalResponders++;
+      cumulativeDelay += this.MULTI_AVATAR_DELAY_MS; // Stack delays
+    }
+    
+    if (additionalResponders > 0) {
+      this.logger.info?.(`[ResponseCoordinator] Scheduled ${additionalResponders} additional avatar response(s)`);
+    }
   }
 }
 
