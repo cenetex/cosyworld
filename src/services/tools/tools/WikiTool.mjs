@@ -288,9 +288,35 @@ export class WikiTool extends BasicTool {
   }
 
   /**
+   * Fetch external web references for enriching wiki articles
+   * Uses web search to find relevant external sources
+   */
+  async getExternalReferences(topic, avatar) {
+    if (!this.webSearchService) {
+      return [];
+    }
+
+    try {
+      // Perform a web search for the topic
+      const result = await this.webSearchService.performSearch(avatar, `${topic} wiki reference information`);
+      
+      // Extract web results from the response data
+      const webResults = result?.data?.webResults || [];
+      return webResults.slice(0, 3).map(r => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet
+      }));
+    } catch (error) {
+      this.logger.warn(`[WikiTool] Could not fetch external references: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Curate an existing article (improve formatting, add links, fix structure)
    */
-  async curateArticle(slug, authorId, authorName) {
+  async curateArticle(slug, authorId, authorName, avatar = null) {
     if (!slug) {
       return '📖 Please specify an article to curate: `wiki curate <slug>`';
     }
@@ -303,12 +329,26 @@ export class WikiTool extends BasicTool {
 
     // Get linkable pages for cross-linking
     const linkablePages = await this.getLinkablePages();
+    
+    // Fetch external references via web search if available
+    const externalRefs = await this.getExternalReferences(existing.title, avatar);
     const linkableContext = linkablePages
       .filter(p => p.slug !== slug) // Don't link to self
       .map(p => `- "${p.title}" (slug: ${p.slug})`)
       .join('\n');
 
     const ai = this.unifiedAIService || this.aiService;
+    
+    // Build persona context if avatar has a prompt
+    const personaContext = avatar?.prompt 
+      ? `\n\nYour writing style should reflect this persona: ${avatar.prompt}`
+      : '';
+    
+    // Build external references section if we have any
+    const externalContext = externalRefs.length > 0 
+      ? `\n\nEXTERNAL REFERENCES (from web search - add as "See Also" or inline citations if relevant):
+${externalRefs.map(r => `- [${r.title}](${r.url}): ${r.snippet || ''}`).join('\n')}`
+      : '';
     
     const prompt = `You are an expert wiki curator.${personaContext}
 
@@ -318,17 +358,18 @@ EXISTING ARTICLE:
 ${existing.content}
 
 AVAILABLE WIKI PAGES (for cross-linking):
-${linkableContext}
+${linkableContext}${externalContext}
 
 INSTRUCTIONS:
 1. Improve the formatting and structure (use proper Markdown headers).
 2. Add internal links to other wiki pages where relevant. Use the format: [Title](/wiki/slug).
    - Only link if the concept is mentioned in the text.
    - Do not force links if they don't fit naturally.
-3. Fix any typos or grammatical errors.
-4. Ensure the tone is encyclopedic and objective.
-5. Do NOT remove important information.
-6. If the article is very short, try to expand it slightly with logical deductions or better explanations, but don't hallucinate facts.
+3. If external references are provided and relevant, add a "## See Also" or "## External Links" section at the end.
+4. Fix any typos or grammatical errors.
+5. Ensure the tone is encyclopedic and objective.
+6. Do NOT remove important information.
+7. If the article is very short, try to expand it slightly with logical deductions or better explanations, but don't hallucinate facts.
 
 Return the fully rewritten article content.`;
 
@@ -612,7 +653,7 @@ Return the fully rewritten content for the TARGET article.`;
   /**
    * Use AI to generate article content from context
    */
-  async generateArticleContent(title, contextString, authorName, articleType = 'general', linkablePages = []) {
+  async generateArticleContent(title, contextString, authorName, articleType = 'general', linkablePages = [], avatar = null) {
     const ai = this.unifiedAIService || this.aiService;
     
     const linkableContext = linkablePages.length > 0 
@@ -696,7 +737,7 @@ Generate a comprehensive article that captures the essence of this ${articleType
     const linkablePages = await this.getLinkablePages();
 
     // Generate article content using AI
-    const content = await this.generateArticleContent(title, contextString, authorName, inferredCategory, linkablePages);
+    const content = await this.generateArticleContent(title, contextString, authorName, inferredCategory, linkablePages, avatar);
 
     // Extract tags from context
     const tags = this.extractTags(title, context, content);
