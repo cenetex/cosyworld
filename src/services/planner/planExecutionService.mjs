@@ -53,7 +53,7 @@ export class PlanExecutionService {
     'generate_image', 'generate_keyframe', 'generate_video', 
     'generate_video_from_image', 'generate_video_with_reference',
     'generate_video_interpolation', 'edit_image', 'extend_video',
-    'speak', 'post_tweet', 'research', 'wait'
+    'speak', 'post_tweet', 'research', 'wait', 'react_to_message'
   ]);
 
   /**
@@ -71,7 +71,8 @@ export class PlanExecutionService {
     speak: '💬',
     post_tweet: '🐦',
     research: '🔍',
-    wait: '⏳'
+    wait: '⏳',
+    react_to_message: '👍'
   };
 
   /**
@@ -89,7 +90,8 @@ export class PlanExecutionService {
     speak: 'Composing message',
     post_tweet: 'Posting to X',
     research: 'Researching',
-    wait: 'Processing'
+    wait: 'Processing',
+    react_to_message: 'Reacting to message'
   };
 
   /**

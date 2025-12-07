@@ -522,6 +522,34 @@ export class WaitExecutor extends ActionExecutor {
 }
 
 /**
+ * Executor for react_to_message action
+ */
+export class ReactToMessageExecutor extends ActionExecutor {
+  constructor() {
+    super('react_to_message');
+  }
+
+  getTimeout() {
+    return 10000; // 10 seconds
+  }
+
+  async execute(step, context) {
+    const { ctx, services, stepNum } = context;
+    
+    // Extract emoji from description if possible, or default to 👍
+    // The description usually contains "React with [emoji]" or just the emoji
+    let emoji = '👍';
+    const emojiMatch = step.description?.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+    if (emojiMatch) {
+      emoji = emojiMatch[0];
+    }
+
+    await services.telegram.executeReaction(ctx, emoji);
+    return { success: true, action: this.actionType, stepNum };
+  }
+}
+
+/**
  * Registry of all available action executors
  */
 export class ActionExecutorRegistry {
@@ -545,6 +573,7 @@ export class ActionExecutorRegistry {
     this.register(new PostTweetExecutor());
     this.register(new ResearchExecutor());
     this.register(new WaitExecutor());
+    this.register(new ReactToMessageExecutor());
   }
 
   /**

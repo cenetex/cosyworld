@@ -89,12 +89,12 @@ CRITICAL: When user requests widescreen/banner/landscape images, you MUST set as
               properties: {
                 action: {
                   type: 'string',
-                  enum: ['speak', 'generate_image', 'generate_keyframe', 'generate_video', 'generate_video_with_reference', 'generate_video_from_image', 'extend_video', 'generate_video_interpolation', 'edit_image', 'post_tweet', 'research', 'wait'],
+                  enum: ['speak', 'generate_image', 'generate_keyframe', 'generate_video', 'generate_video_with_reference', 'generate_video_from_image', 'extend_video', 'generate_video_interpolation', 'edit_image', 'post_tweet', 'research', 'wait', 'react_to_message'],
                   description: 'Action to perform.'
                 },
                 description: {
                   type: 'string',
-                  description: 'Detailed prompt or description. For videos, include subject, action, camera, style, audio cues.'
+                  description: 'Detailed prompt or description. For videos, include subject, action, camera, style, audio cues. For reactions, specify the emoji.'
                 },
                 aspectRatio: {
                   type: 'string',
