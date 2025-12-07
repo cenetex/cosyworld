@@ -22,7 +22,7 @@ export class BaseSocialProvider {
    * @param {string} avatarId 
    * @param {object} credentials 
    */
-  async connectAvatar(avatarId, credentials, options = {}) {
+  async connectAvatar(avatarId, credentials, _options = {}) {
     throw new Error('connectAvatar() must be implemented');
   }
 
@@ -30,7 +30,7 @@ export class BaseSocialProvider {
    * Disconnect an avatar from this platform
    * @param {string} avatarId 
    */
-  async disconnectAvatar(avatarId, options = {}) {
+  async disconnectAvatar(avatarId, _options = {}) {
     throw new Error('disconnectAvatar() must be implemented');
   }
 
@@ -39,7 +39,7 @@ export class BaseSocialProvider {
    * @param {string} avatarId 
    * @param {object} content 
    */
-  async post(avatarId, content, options = {}) {
+  async post(avatarId, content, _options = {}) {
     throw new Error('post() must be implemented');
   }
 }

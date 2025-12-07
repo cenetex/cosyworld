@@ -4,7 +4,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import eventBus from '../../utils/eventBus.mjs';
 import { CombatAIService } from './combatAIService.mjs';
 import { CombatMessagingService } from './combatMessagingService.mjs';
-import { StatusEffectService, STATUS_EFFECTS } from './statusEffectService.mjs';
+import { StatusEffectService } from './statusEffectService.mjs';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability

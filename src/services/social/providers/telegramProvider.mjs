@@ -66,7 +66,7 @@ export class TelegramProvider extends BaseSocialProvider {
     }
   }
 
-  async post(avatarId, content) {
+  async post(_avatarId, _content) {
     // TODO: Implement posting logic
     throw new Error('Not implemented');
   }

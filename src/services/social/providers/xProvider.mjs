@@ -37,14 +37,14 @@ export class XProvider extends BaseSocialProvider {
     }
   }
 
-  async disconnectAvatar(avatarId, options = {}) {
+  async disconnectAvatar(avatarId, _options = {}) {
     if (!this.sessions.has(avatarId)) return;
 
     this.sessions.delete(avatarId);
     this.logger.info(`Disconnected X account for avatar ${avatarId}`);
   }
 
-  async post(avatarId, content, options = {}) {
+  async post(avatarId, content, _options = {}) {
     const session = await this._ensureSession(avatarId);
     const client = session.client;
 

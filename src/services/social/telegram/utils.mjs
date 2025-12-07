@@ -254,7 +254,7 @@ export async function downloadImageAsBuffer(imageUrl, logger = null) {
  * @param {Object} [logger] - Optional logger
  * @returns {Promise<Object|null>} - Sent message object
  */
-export async function sendImagePreservingFormat(telegram, chatId, imageUrl, options = {}, logger = null) {
+export async function sendImagePreservingFormat(telegram, chatId, imageUrl, options = {}, _logger = null) {
   const { caption, parseMode = 'HTML', includeDownloadLink = true } = options;
   
   // Check if it's a PNG

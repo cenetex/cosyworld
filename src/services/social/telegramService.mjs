@@ -20,11 +20,8 @@
  */
 
 import { Telegraf } from 'telegraf';
-import { randomUUID } from 'crypto';
-import { encrypt } from '../../utils/encryption.mjs';
 import { filterContent } from '../../utils/contentFilter.mjs';
 import { setupBuybotTelegramCommands } from '../commands/buybotTelegramHandler.mjs';
-import { MediaGenerationError, RateLimitError, ServiceUnavailableError } from '../../utils/errors.mjs';
 import { PlanExecutionService } from '../planner/planExecutionService.mjs';
 import { actionExecutorRegistry } from '../planner/actionExecutor.mjs';
 import eventBus from '../../utils/eventBus.mjs';
@@ -33,20 +30,15 @@ import { generateTraceId } from '../../utils/tracing.mjs';
 // Import modular components
 import {
   // Constants
-  CACHE_CONFIG,
   CONVERSATION_CONFIG,
   REPLY_DELAY_CONFIG,
   MEDIA_LIMITS,
   MEDIA_CONFIG,
-  PLAN_CONFIG,
   // Utilities
-  safeDecrypt,
   escapeHtml,
   formatTelegramMarkdown,
-  inferMimeTypeFromUrl,
   generateRequestId,
   includesMention,
-  buildCreditInfo,
   sendImagePreservingFormat,
   // Managers
   CacheManager,
@@ -58,18 +50,11 @@ import {
   ContextManager,
   InteractionManager,
   // Tool definitions
-  getActionIcon,
-  getActionLabel,
   logPlanSummary,
   validatePlan,
   buildConversationContext,
 } from './telegram/index.mjs';
 import { KnowledgeBaseService } from '../knowledge/knowledgeBaseService.mjs';
-
-const VIDEO_DEFAULTS = Object.freeze({
-  STYLE: 'cinematic',
-  CAMERA: 'wide tracking shot'
-});
 
 const MAX_REFERENCE_IMAGES = 3;
 const VIDEO_LOCK_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes to cover Veo's SLA

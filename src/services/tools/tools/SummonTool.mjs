@@ -8,7 +8,6 @@ import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQu
 import { aiModelService } from '../../ai/aiModelService.mjs';
 import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
 import { isModelRosterAvatar } from '../../avatar/helpers/isModelRosterAvatar.mjs';
-import { isCollectionAvatar, isOnChainAvatar } from '../../avatar/helpers/walletAvatarClassifiers.mjs';
 
 const levenshteinDistance = (a = '', b = '') => {
   const s = a.toLowerCase();

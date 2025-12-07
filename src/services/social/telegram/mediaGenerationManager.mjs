@@ -13,8 +13,7 @@ import {
   downloadImageAsBase64, 
   inferAspectRatioFromPrompt,
   getUserProfilePhoto,
-  getMessageImage,
-  getReplyChainImages
+  getMessageImage
 } from './utils.mjs';
 
 export class MediaGenerationManager {
