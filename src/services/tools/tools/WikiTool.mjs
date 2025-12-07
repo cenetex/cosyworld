@@ -40,6 +40,10 @@ function extractText(response) {
  * - wiki link <slug> - Get shareable link
  * - wiki checkpoint - Create phenomenological checkpoint from context
  */
+// Maximum wiki context history entries
+const MAX_WIKI_HISTORY = 5;
+const MAX_WIKI_READS = 5;
+
 export class WikiTool extends BasicTool {
   /**
    * List of services required by this tool.
@@ -62,6 +66,8 @@ export class WikiTool extends BasicTool {
     discordService,
     knowledgeService,
     promptService,
+    avatarService,
+    webSearchService,
     logger
   }) {
     super();
@@ -73,12 +79,97 @@ export class WikiTool extends BasicTool {
     this.discordService = discordService;
     this.knowledgeService = knowledgeService;
     this.promptService = promptService;
+    this.avatarService = avatarService;
+    this.webSearchService = webSearchService;
     this.logger = logger || console;
     
     this.name = 'wiki';
     this.description = 'Agentic wiki - just say "wiki create <title>" and the wiki agent writes the article from context';
     this.emoji = '📖';
     this.cooldownMs = 10 * 1000; // 10 second cooldown for AI generation
+  }
+
+  /**
+   * Ensure wiki context exists on avatar
+   */
+  ensureWikiContext(avatar) {
+    if (!avatar.wikiContext) {
+      avatar.wikiContext = {
+        latestRead: null,
+        latestSearch: null,
+        reads: [],
+        searches: [],
+        createdArticles: []
+      };
+    }
+    return avatar.wikiContext;
+  }
+
+  /**
+   * Store wiki read in avatar context
+   */
+  async storeWikiRead(avatar, article) {
+    const wikiContext = this.ensureWikiContext(avatar);
+    const entry = {
+      slug: article.slug,
+      title: article.title,
+      category: article.category,
+      summary: article.content?.substring(0, 300) || '',
+      url: article.url,
+      timestamp: Date.now()
+    };
+    wikiContext.latestRead = entry;
+    wikiContext.reads = [entry, ...wikiContext.reads.filter(r => r.slug !== article.slug)].slice(0, MAX_WIKI_READS);
+    avatar.wikiContext = wikiContext;
+    
+    try {
+      await this.avatarService?.updateAvatar(avatar);
+    } catch (err) {
+      this.logger?.error?.(`[WikiTool] Failed to persist wiki read: ${err.message}`);
+    }
+  }
+
+  /**
+   * Store wiki search in avatar context
+   */
+  async storeWikiSearch(avatar, query, results) {
+    const wikiContext = this.ensureWikiContext(avatar);
+    const entry = {
+      query,
+      results: results.map(r => ({ slug: r.slug, title: r.title, category: r.category })),
+      timestamp: Date.now()
+    };
+    wikiContext.latestSearch = entry;
+    wikiContext.searches = [entry, ...wikiContext.searches].slice(0, MAX_WIKI_HISTORY);
+    avatar.wikiContext = wikiContext;
+    
+    try {
+      await this.avatarService?.updateAvatar(avatar);
+    } catch (err) {
+      this.logger?.error?.(`[WikiTool] Failed to persist wiki search: ${err.message}`);
+    }
+  }
+
+  /**
+   * Store created article reference
+   */
+  async storeCreatedArticle(avatar, article) {
+    const wikiContext = this.ensureWikiContext(avatar);
+    const entry = {
+      slug: article.slug,
+      title: article.title,
+      category: article.category,
+      url: article.url,
+      timestamp: Date.now()
+    };
+    wikiContext.createdArticles = [entry, ...wikiContext.createdArticles.filter(a => a.slug !== article.slug)].slice(0, MAX_WIKI_HISTORY);
+    avatar.wikiContext = wikiContext;
+    
+    try {
+      await this.avatarService?.updateAvatar(avatar);
+    } catch (err) {
+      this.logger?.error?.(`[WikiTool] Failed to persist created article: ${err.message}`);
+    }
   }
 
   /**
@@ -145,10 +236,10 @@ export class WikiTool extends BasicTool {
           return this.createArticleFromContext(title, category, authorId, authorName, message, avatar);
           
         case 'read':
-          return this.readArticle(title);
+          return this.readArticle(title, avatar);
           
         case 'search':
-          return this.searchArticles(title);
+          return this.searchArticles(title, avatar);
           
         case 'update':
           return this.updateArticleFromContext(title, authorId, authorName, message, avatar);
@@ -265,9 +356,24 @@ Return the fully rewritten article content.`;
       'Curated by Wiki Agent (formatting, links, structure)'
     );
 
-    return `📖 ✨ Wiki agent curated: **${article.title}** (v${article.version})
-*Added cross-links and improved structure.*
-🔗 ${article.url}`;
+    // Store in avatar context
+    if (avatar) {
+      await this.storeCreatedArticle(avatar, article);
+    }
+
+    // Private result
+    return {
+      message: `📖 ✨ Curated wiki article: "${article.title}" (v${article.version})`,
+      notify: false,
+      data: {
+        article: {
+          title: article.title,
+          slug: article.slug,
+          version: article.version,
+          url: article.url
+        }
+      }
+    };
   }
 
   /**
@@ -355,7 +461,7 @@ Return the fully rewritten content for the TARGET article.`;
 
     // 3. Update target article
     const mergedTitles = sourceArticles.map(a => a.title).join(', ');
-    await this.wikiService.updateArticle(
+    const updatedArticle = await this.wikiService.updateArticle(
       targetSlug,
       { content: newContent },
       authorId,
@@ -368,11 +474,25 @@ Return the fully rewritten content for the TARGET article.`;
       await this.wikiService.deleteArticle(article.slug);
     }
 
-    return `📖 ✨ Wiki agent consolidated articles!
-**${targetArticle.title}** now includes content from: ${mergedTitles}
-*Source articles have been deleted.*
+    // Store in avatar context
+    if (avatar) {
+      await this.storeCreatedArticle(avatar, updatedArticle);
+    }
 
-🔗 ${targetArticle.url}`;
+    // Private result
+    return {
+      message: `📖 ✨ Consolidated wiki articles into "${targetArticle.title}"`,
+      notify: false,
+      data: {
+        article: {
+          title: targetArticle.title,
+          slug: targetSlug,
+          url: targetArticle.url
+        },
+        merged: sourceArticles.map(a => a.title),
+        deleted: sourceSlugs
+      }
+    };
   }
 
   /**
@@ -597,12 +717,29 @@ Generate a comprehensive article that captures the essence of this ${articleType
       }
     });
 
-    return `📖 ✨ Wiki agent created article: **${article.title}**
+    // Store in avatar context
+    if (avatar) {
+      await this.storeCreatedArticle(avatar, article);
+    }
 
-*Generated from ${context.channelMessages.length} messages and ${context.avatarMemories.length} memories*
-*Category: ${article.category} | Tags: ${tags.slice(0, 5).join(', ')}*
-
-🔗 ${article.url}`;
+    // Private result - article created, brief notification
+    return {
+      message: `📖 ✨ Created wiki article: "${article.title}" (${article.category})`,
+      notify: false,
+      data: {
+        article: {
+          title: article.title,
+          slug: article.slug,
+          category: article.category,
+          url: article.url,
+          tags: tags.slice(0, 5)
+        },
+        stats: {
+          messages: context.channelMessages.length,
+          memories: context.avatarMemories.length
+        }
+      }
+    };
   }
 
   /**
@@ -682,12 +819,24 @@ Write an updated version of the article that:
     // Update the article - pass both editorId and editorName
     const article = await this.wikiService.updateArticle(slug, { content: newContent }, authorId, authorName, 'Updated with new context');
 
-    // Show the updated authors list
-    const authorsList = article.authors?.map(a => a.name).join(', ') || authorName;
+    // Store in avatar context
+    if (avatar) {
+      await this.storeCreatedArticle(avatar, article);
+    }
 
-    return `📖 ✨ Wiki agent updated: **${article.title}** (v${article.version})
-*Authors: ${authorsList}*
-🔗 ${article.url}`;
+    // Private result
+    return {
+      message: `📖 ✨ Updated wiki article: "${article.title}" (v${article.version})`,
+      notify: false,
+      data: {
+        article: {
+          title: article.title,
+          slug: article.slug,
+          version: article.version,
+          url: article.url
+        }
+      }
+    };
   }
 
   /**
@@ -752,15 +901,25 @@ vocabulary: ${vocabulary.join(', ')}`,
       authorName
     });
 
-    return `📖 ✨ Phenomenological checkpoint crystallized!
-**${checkpoint.title}**
+    // Store in avatar context
+    if (avatar) {
+      await this.storeCreatedArticle(avatar, checkpoint);
+    }
 
-*Preserved vocabulary:* ${vocabulary.slice(0, 8).join(', ')}${vocabulary.length > 8 ? '...' : ''}
-*Participants:* ${context.participants.slice(0, 5).join(', ')}
-
-🔗 Checkpoint link: ${checkpoint.url}
-
-*Invoke tomorrow with the preserved vocabulary to test coherence persistence.*`;
+    // Private result
+    return {
+      message: `📖 ✨ Created phenomenological checkpoint: "${checkpoint.title}"`,
+      notify: false,
+      data: {
+        checkpoint: {
+          title: checkpoint.title,
+          slug: checkpoint.slug,
+          url: checkpoint.url
+        },
+        vocabulary: vocabulary.slice(0, 8),
+        participants: context.participants.slice(0, 5)
+      }
+    };
   }
 
   /**
@@ -864,9 +1023,9 @@ vocabulary: ${vocabulary.join(', ')}`,
     return 'general';
   }
 
-  // === READ-ONLY METHODS - Returns article content for chat context ===
+  // === READ-ONLY METHODS - Store in avatar context, private results ===
 
-  async readArticle(slug) {
+  async readArticle(slug, avatar) {
     if (!slug) {
       return '📖 Please specify an article: `wiki read <slug>`';
     }
@@ -874,6 +1033,11 @@ vocabulary: ${vocabulary.join(', ')}`,
     const article = await this.wikiService.getArticle(slug);
     if (!article) {
       return `📖 Article not found: "${slug}"`;
+    }
+    
+    // Store in avatar's wiki context for prompt injection
+    if (avatar) {
+      await this.storeWikiRead(avatar, article);
     }
     
     // Format authors list
@@ -884,8 +1048,8 @@ vocabulary: ${vocabulary.join(', ')}`,
       ? article.content.substring(0, 1500) + '\n\n*[Article truncated - full content available at ' + article.url + ']*'
       : article.content;
     
-    // This rich response stays in chat context for follow-up discussion
-    return `📖 **${article.title}**
+    // Private result - full content goes to avatar context, brief message to chat
+    const fullContent = `📖 **${article.title}**
 *Category: ${article.category} | v${article.version} | Views: ${article.viewCount}*
 *Authors: ${authorsList}*
 *Last updated: ${new Date(article.updatedAt).toLocaleDateString()}*
@@ -896,12 +1060,26 @@ vocabulary: ${vocabulary.join(', ')}`,
 ${displayContent}
 
 ---
-🔗 ${article.url}
-
-*This article is now in context. You can discuss it, ask questions, or use "wiki update ${slug}" to add to it.*`;
+🔗 ${article.url}`;
+    
+    return {
+      message: `📖 Read: "${article.title}" (${article.category}) - now in context`,
+      notify: false,
+      data: {
+        article: {
+          title: article.title,
+          slug: article.slug,
+          category: article.category,
+          content: displayContent,
+          url: article.url,
+          authors: authorsList
+        },
+        fullContent
+      }
+    };
   }
 
-  async searchArticles(query) {
+  async searchArticles(query, avatar) {
     if (!query) {
       return '📖 Please specify a search query: `wiki search <query>`';
     }
@@ -909,33 +1087,45 @@ ${displayContent}
     const results = await this.wikiService.search(query, { limit: 5, semantic: true });
     
     if (results.length === 0) {
-      return `📖 No articles found for: "${query}"
-
-*Try "wiki create ${query}" to create a new article about this topic!*`;
+      return `📖 No articles found for: "${query}"`;
     }
     
-    // If only one result, show it in full context
+    // Store search in avatar context
+    if (avatar) {
+      await this.storeWikiSearch(avatar, query, results);
+    }
+    
+    // If only one result, read it directly
     if (results.length === 1) {
-      return this.readArticle(results[0].slug);
+      return this.readArticle(results[0].slug, avatar);
     }
     
-    // Multiple results - show list with previews
+    // Multiple results - build previews for context
     const list = await Promise.all(results.map(async (a, i) => {
-      // Get a brief preview of each article
       const full = await this.wikiService.getArticle(a.slug, false);
       const preview = full?.content?.substring(0, 150)?.replace(/\n/g, ' ') || '';
-      const authorsList = full?.authors?.map(auth => auth.name).slice(0, 3).join(', ') || a.authorName;
-      return `**${i + 1}. ${a.title}** (${a.category})
-   *Authors: ${authorsList}*
-   ${preview}...
-   🔗 \`wiki read ${a.slug}\``;
+      return {
+        index: i + 1,
+        title: a.title,
+        slug: a.slug,
+        category: a.category,
+        preview
+      };
     }));
     
-    return `📖 Search results for "${query}":
-
-${list.join('\n\n')}
-
-*Use "wiki read <slug>" to view an article in full context.*`;
+    const fullContent = `📖 Search results for "${query}":\n\n` + list.map(a => 
+      `**${a.index}. ${a.title}** (${a.category})\n${a.preview}...\n\`wiki read ${a.slug}\``
+    ).join('\n\n');
+    
+    return {
+      message: `📖 Found ${results.length} wiki articles for "${query}" - now in context`,
+      notify: false,
+      data: {
+        query,
+        results: list,
+        fullContent
+      }
+    };
   }
 
   async listArticles(category = null) {

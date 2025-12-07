@@ -89,6 +89,7 @@ export class WebSearchTool extends BasicTool {
     avatarService,
     aiService,
     unifiedAIService,
+    wikiService,
     logger
   }) {
     super();
@@ -96,6 +97,7 @@ export class WebSearchTool extends BasicTool {
     this.schemaService = schemaService;
     this.avatarService = avatarService;
     this.aiService = unifiedAIService || aiService;
+    this.wikiService = wikiService;
     this.logger = logger;
 
     this.name = 'search';
@@ -148,6 +150,16 @@ export class WebSearchTool extends BasicTool {
   }
 
   async performSearch(avatar, query) {
+    // First, search wiki for internal knowledge
+    let wikiResults = [];
+    if (this.wikiService) {
+      try {
+        wikiResults = await this.wikiService.search(query, { limit: 3, semantic: true });
+      } catch (err) {
+        this.logger?.warn?.(`[WebSearchTool] Wiki search failed: ${err.message}`);
+      }
+    }
+
     const prompt = `Today is ${isoDate()}. Run a web search for "${query}".
 Use the web search plugin results to identify the most relevant links.
 Return JSON with fields:\n- "query": the resolved search phrase\n- "summary": 1-2 sentence overview\n- "results": up to ${MAX_RESULTS} objects containing { "title", "url", "snippet", "reason" }.
@@ -232,16 +244,34 @@ Focus on high-quality, current sources.`;
       this.logger?.error?.(`[WebSearchTool] failed to persist search history: ${err.message}`);
     }
 
-    const lines = normalizedResults.map((res, idx) => {
-      const reason = res.reason ? ` — ${res.reason}` : '';
-      return `#${idx + 1}. ${res.title}${reason} (${res.url})`;
-    });
+    // Format wiki results for response
+    const wikiData = wikiResults.map(article => ({
+      title: article.title,
+      slug: article.slug,
+      category: article.category,
+      type: 'wiki'
+    }));
 
-    const header = entry.summary
-      ? `🌐 Search results for "${entry.query}": ${entry.summary}`
-      : `🌐 Search results for "${entry.query}"`;
+    const totalResults = normalizedResults.length + wikiResults.length;
+    const wikiNote = wikiResults.length > 0 ? ` (${wikiResults.length} wiki, ${normalizedResults.length} web)` : '';
 
-    return [`-# [ ${clipText(header, 240)} ]`, ...lines.map(line => `-# [ ${clipText(line, 240)} ]`)].join('\n');
+    // Private result - full search data in context, brief message to chat
+    return {
+      message: `🌐 Found ${totalResults} results for "${entry.query}"${wikiNote} - now in context`,
+      notify: false,
+      data: {
+        query: entry.query,
+        summary: entry.summary,
+        wikiResults: wikiData,
+        webResults: normalizedResults.map((res, idx) => ({
+          index: idx + 1,
+          title: res.title,
+          url: res.url,
+          snippet: res.snippet,
+          type: 'web'
+        }))
+      }
+    };
   }
 
   async openResult(avatar, index) {
@@ -333,14 +363,18 @@ Keep the tone neutral and factual.`;
       this.logger?.error?.(`[WebSearchTool] failed to persist opened summary: ${err.message}`);
     }
 
-    const lines = [
-      `Summary: ${summaryEntry.summary}`,
-      ...summaryEntry.keyPoints.map((point, idx) => `Key ${idx + 1}: ${point}`),
-      ...(summaryEntry.followUp.length ? summaryEntry.followUp.map((item, idx) => `Next ${idx + 1}: ${item}`) : [])
-    ];
-
-    const header = `📖 ${summaryEntry.title} (${summaryEntry.url})`;
-    return [`-# [ ${clipText(header, 240)} ]`, ...lines.map(line => `-# [ ${clipText(line, 240)} ]`)].join('\n');
+    // Private result - full summary in context, brief message to chat
+    return {
+      message: `📖 Opened: "${summaryEntry.title}" - now in context`,
+      notify: false,
+      data: {
+        title: summaryEntry.title,
+        url: summaryEntry.url,
+        summary: summaryEntry.summary,
+        keyPoints: summaryEntry.keyPoints,
+        followUp: summaryEntry.followUp
+      }
+    };
   }
 
   ensureWebContext(avatar) {

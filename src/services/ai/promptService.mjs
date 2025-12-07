@@ -195,6 +195,26 @@ export class PromptService  {
       }
     }
 
+    // Include latest wiki context to ground internal knowledge
+    const wikiContext = avatar.wikiContext || {};
+    const latestWikiRead = wikiContext.latestRead;
+    if (latestWikiRead?.title) {
+      const when = latestWikiRead.timestamp ? new Date(latestWikiRead.timestamp).toISOString().split('T')[0] : 'recently';
+      parts.push(`Wiki knowledge (${when}): "${latestWikiRead.title}" (${latestWikiRead.category})`);
+      if (latestWikiRead.summary) {
+        parts.push(`Summary: ${clip(latestWikiRead.summary, 250)}`);
+      }
+    }
+
+    const latestWikiSearch = wikiContext.latestSearch;
+    if (latestWikiSearch?.query && latestWikiSearch?.results?.length) {
+      const when = latestWikiSearch.timestamp ? new Date(latestWikiSearch.timestamp).toISOString().split('T')[0] : 'recently';
+      parts.push(`Wiki search (${when}): "${latestWikiSearch.query}" found ${latestWikiSearch.results.length} articles`);
+      latestWikiSearch.results.slice(0, 3).forEach((result, idx) => {
+        parts.push(`Wiki ${idx + 1}: ${result.title} (${result.category})`);
+      });
+    }
+
     // Add tool context
     if (toolContext) {
       parts.push(toolContext);
