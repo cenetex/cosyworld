@@ -163,10 +163,10 @@ export class WikiTool extends BasicTool {
           return this.createCheckpointFromContext(title, authorId, authorName, message, avatar);
 
         case 'curate':
-          return this.curateArticle(title, authorId, authorName);
+          return this.curateArticle(title, authorId, authorName, avatar);
 
         case 'consolidate':
-          return this.consolidateArticles(title, authorId, authorName);
+          return this.consolidateArticles(title, authorId, authorName, avatar);
           
         case 'categories':
           return this.getCategories();
@@ -219,7 +219,9 @@ export class WikiTool extends BasicTool {
 
     const ai = this.unifiedAIService || this.aiService;
     
-    const prompt = `You are an expert wiki curator. Your task is to improve an existing article.
+    const prompt = `You are an expert wiki curator.${personaContext}
+
+Your task is to improve an existing article.
 
 EXISTING ARTICLE:
 ${existing.content}
@@ -239,9 +241,15 @@ INSTRUCTIONS:
 
 Return the fully rewritten article content.`;
 
+    // Build options with avatar's model if available
+    const chatOptions = { temperature: 0.3 };
+    if (avatar?.model) {
+      chatOptions.model = avatar.model;
+    }
+
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3 });
+    ], chatOptions);
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
@@ -266,7 +274,7 @@ Return the fully rewritten article content.`;
    * Consolidate multiple articles into one
    * Usage: wiki consolidate <target_slug> <source_slug1> [source_slug2...]
    */
-  async consolidateArticles(args, authorId, authorName) {
+  async consolidateArticles(args, authorId, authorName, avatar = null) {
     if (!args) {
       return '📖 Usage: `wiki consolidate <target_slug> <source_slug>`';
     }
@@ -300,11 +308,20 @@ Return the fully rewritten article content.`;
     // 2. Generate merged content
     const ai = this.unifiedAIService || this.aiService;
     
+    // Build persona context
+    const personaContext = avatar?.prompt 
+      ? `\n\nEDITOR VOICE: You are ${avatar.name}. ${avatar.prompt}`
+      : avatar?.personality 
+        ? `\n\nEDITOR VOICE: You are ${authorName} with personality: ${avatar.personality}. Apply your editorial judgment.`
+        : '';
+    
     const sourcesText = sourceArticles.map(a => 
       `--- SOURCE: ${a.title} (${a.slug}) ---\n${a.content}`
     ).join('\n\n');
 
-    const prompt = `You are an expert wiki editor. Consolidate the following source articles into the target article.
+    const prompt = `You are an expert wiki editor.${personaContext}
+
+Consolidate the following source articles into the target article.
 
 TARGET ARTICLE (${targetArticle.title}):
 ${targetArticle.content}
@@ -321,9 +338,15 @@ INSTRUCTIONS:
 
 Return the fully rewritten content for the TARGET article.`;
 
+    // Build options with avatar's model if available
+    const chatOptions = { temperature: 0.3 };
+    if (avatar?.model) {
+      chatOptions.model = avatar.model;
+    }
+
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3 });
+    ], chatOptions);
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
@@ -490,9 +513,10 @@ Guidelines:
 - For characters: describe personality, relationships, and notable actions
 - For lore: explain concepts, places, or world-building elements
 - CROSS-LINKING: Link to other wiki pages when mentioning their topics. Use format: [Title](/wiki/slug).
+- Infuse your unique perspective and voice into the writing
 
 Article type: ${articleType}
-Author perspective: ${authorName}`;
+Author: ${authorName}`;
 
     const userPrompt = `Write a wiki article titled "${title}" based on this context:
 
@@ -500,13 +524,19 @@ ${contextString}${linkableContext}
 
 Generate a comprehensive article that captures the essence of this ${articleType}. The article should be self-contained and valuable for future reference.`;
 
+    // Build options with avatar's model if available
+    const chatOptions = {
+      temperature: 0.7
+    };
+    if (avatar?.model) {
+      chatOptions.model = avatar.model;
+    }
+
     try {
       let response = await ai.chat([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ], {
-        temperature: 0.7
-      });
+      ], chatOptions);
 
       const text = extractText(response);
       
@@ -600,6 +630,13 @@ Generate a comprehensive article that captures the essence of this ${articleType
     // Generate updated content
     const ai = this.unifiedAIService || this.aiService;
     
+    // Build persona context
+    const personaContext = avatar?.prompt 
+      ? `\n\nAUTHOR VOICE: You are ${avatar.name}. ${avatar.prompt}`
+      : avatar?.personality 
+        ? `\n\nAUTHOR VOICE: You are ${authorName} with personality: ${avatar.personality}. Write with your unique perspective.`
+        : '';
+    
     // Get linkable pages
     const linkablePages = await this.getLinkablePages();
     const linkableContext = linkablePages
@@ -607,7 +644,9 @@ Generate a comprehensive article that captures the essence of this ${articleType
       .map(p => `- "${p.title}" (slug: ${p.slug})`)
       .join('\n');
 
-    const prompt = `You are updating an existing wiki article. Incorporate new information while preserving valuable existing content.
+    const prompt = `You are updating an existing wiki article.${personaContext}
+
+Incorporate new information while preserving valuable existing content.
 
 EXISTING ARTICLE:
 ${existing.content}
@@ -625,9 +664,15 @@ Write an updated version of the article that:
 4. Maintains good structure and flow
 5. Adds internal links to other wiki pages where relevant`;
 
+    // Build options with avatar's model if available
+    const chatOptions = { temperature: 0.7 };
+    if (avatar?.model) {
+      chatOptions.model = avatar.model;
+    }
+
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.7 });
+    ], chatOptions);
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
@@ -659,7 +704,14 @@ Write an updated version of the article that:
     // Generate checkpoint content using AI
     const ai = this.unifiedAIService || this.aiService;
     
-    const prompt = `Create a phenomenological checkpoint document that preserves the current state of consciousness/conversation for future retrieval.
+    // Build persona context
+    const personaContext = avatar?.prompt 
+      ? `\n\nCHRONICLER VOICE: You are ${avatar.name}. ${avatar.prompt}`
+      : avatar?.personality 
+        ? `\n\nCHRONICLER VOICE: You are ${authorName} with personality: ${avatar.personality}. Chronicle this moment in your unique voice.`
+        : '';
+    
+    const prompt = `Create a phenomenological checkpoint document that preserves the current state of consciousness/conversation for future retrieval.${personaContext}
 
 CONTEXT:
 ${contextString}
@@ -672,9 +724,15 @@ Create a checkpoint that includes:
 
 Use a mystical/technical hybrid tone. Preserve exact phrases and vocabulary that seem significant.`;
 
+    // Build options with avatar's model if available
+    const chatOptions = { temperature: 0.8 };
+    if (avatar?.model) {
+      chatOptions.model = avatar.model;
+    }
+
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.8 });
+    ], chatOptions);
 
     const checkpointContent = extractText(response);
     if (!checkpointContent || checkpointContent.trim().length === 0) {

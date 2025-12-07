@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2024 Cenetex Inc.
+ * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
  */
 
@@ -18,6 +18,52 @@ const DEFAULT_FALLBACK_MODELS = [
   'openai/gpt-4o-mini:online' // OpenRouter's :online suffix for web search
 ];
 const ENABLE_EXA_PLUGIN = /^true$/i.test(process.env.OPENROUTER_WEB_SEARCH_USE_PLUGIN || 'false');
+
+// Models that don't support response_format structured output
+const UNSTRUCTURED_MODELS = new Set([
+  'perplexity/sonar-pro-search',
+  'perplexity/sonar',
+  'perplexity/sonar-deep-research'
+]);
+
+/**
+ * Check if a model requires unstructured (plain text) responses
+ */
+const isUnstructuredModel = (model) => {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  // All perplexity models
+  if (lower.startsWith('perplexity/')) return true;
+  // Models with :online suffix (they're wrappers)
+  if (lower.includes(':online')) return true;
+  // Explicit set
+  return UNSTRUCTURED_MODELS.has(lower);
+};
+
+/**
+ * Parse JSON from text, handling markdown code blocks
+ */
+const parseJsonFromText = (text) => {
+  if (!text) return null;
+  if (typeof text === 'object') return text;
+  
+  let str = String(text).trim();
+  
+  // Remove markdown code blocks
+  str = str.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  
+  // Try to extract JSON object or array
+  const jsonMatch = str.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) {
+    str = jsonMatch[0];
+  }
+  
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+};
 
 const uniqueCaseInsensitive = (list) => {
   const seen = new Set();
@@ -41,12 +87,15 @@ export class WebSearchTool extends BasicTool {
   constructor({
     schemaService,
     avatarService,
+    aiService,
+    unifiedAIService,
     logger
   }) {
     super();
 
     this.schemaService = schemaService;
     this.avatarService = avatarService;
+    this.aiService = unifiedAIService || aiService;
     this.logger = logger;
 
     this.name = 'search';
@@ -301,17 +350,30 @@ Keep the tone neutral and factual.`;
     return avatar.webContext;
   }
 
+  /**
+   * Run a request and parse JSON from the response.
+   * For models that don't support structured output (Perplexity, :online),
+   * we use plain chat and parse JSON from the text response.
+   */
   async _runStructuredRequest({ prompt, schema, mode }) {
     const attempts = this._buildAttemptConfigs(mode);
     let lastError = null;
 
     for (const attempt of attempts) {
       try {
-        const data = await this.schemaService.executePipeline({
-          prompt,
-          schema,
-          options: attempt.options
-        });
+        let data;
+        
+        if (isUnstructuredModel(attempt.model)) {
+          // Use plain chat for models that don't support response_format
+          data = await this._runUnstructuredRequest(prompt, attempt);
+        } else {
+          // Use schema service for models that support structured output
+          data = await this.schemaService.executePipeline({
+            prompt,
+            schema,
+            options: attempt.options
+          });
+        }
 
         if (attempt.isFallback) {
           this.logger?.info?.(`[WebSearchTool] ${mode} succeeded with fallback model ${attempt.model}`);
@@ -327,6 +389,41 @@ Keep the tone neutral and factual.`;
 
     if (lastError) throw lastError;
     throw new Error('Unable to generate structured output');
+  }
+
+  /**
+   * Run a plain chat request and parse JSON from the response.
+   * Used for models like Perplexity that don't support response_format.
+   */
+  async _runUnstructuredRequest(prompt, attempt) {
+    if (!this.aiService?.chat) {
+      throw new Error('AI service not available for unstructured request');
+    }
+
+    const systemPrompt = `You are a web search assistant. Respond ONLY with valid JSON, no markdown or extra text.`;
+    
+    const response = await this.aiService.chat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt }
+    ], {
+      model: attempt.model,
+      temperature: attempt.options?.temperature || 0.2,
+      web_search_options: attempt.options?.web_search_options
+    });
+
+    // Extract text from response
+    const text = response?.text || response?.content || (typeof response === 'string' ? response : '');
+    
+    if (!text) {
+      throw new Error('Empty response from AI');
+    }
+
+    const parsed = parseJsonFromText(text);
+    if (!parsed) {
+      throw new Error('Failed to parse JSON from response');
+    }
+
+    return parsed;
   }
 
   _buildAttemptConfigs(mode) {
