@@ -1,7 +1,53 @@
 /**
- * Copyright (c) 2019-2024 Cenetex Inc.
+ * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
  */
+
+/**
+ * Safely parse JSON from AI responses, handling various formats
+ * @param {string|object} response - AI response
+ * @returns {object|null} Parsed object or null
+ */
+function safeParseJSON(response) {
+  if (!response) return null;
+  
+  // Already an object
+  if (typeof response === 'object' && !Array.isArray(response)) {
+    return response;
+  }
+  
+  let text = response.text || response.content || response;
+  if (typeof text !== 'string') return null;
+  
+  // Clean up markdown code blocks
+  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  
+  // Try to extract JSON from text
+  const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) {
+    text = jsonMatch[0];
+  }
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safely convert any value to a string
+ * @param {*} value - Value to convert
+ * @returns {string} String representation
+ */
+function safeString(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    return value.text || value.content || JSON.stringify(value);
+  }
+  return String(value);
+}
 
 export class WikiGardenerService {
   constructor({ wikiService, databaseService, unifiedAIService, aiService, logger }) {
@@ -214,13 +260,10 @@ Return a JSON object with:
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
 
-      let result;
-      let text = response.text || response;
-      if (typeof text === 'string') {
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        result = JSON.parse(text);
-      } else {
-        result = text;
+      const result = safeParseJSON(response);
+      if (!result || !result.content) {
+        this.logger.warn(`[WikiGardener] Invalid profile response for ${username}`);
+        return;
       }
 
       if (existingArticle) {
@@ -301,19 +344,9 @@ Limit to 3 most important actions. If nothing needs doing, return [].`;
         { role: 'user', content: prompt }
       ], { temperature: 0.2, response_format: { type: 'json_object' } });
 
-      let text = response.text || response;
-      // Clean up markdown code blocks if present
-      if (typeof text === 'string') {
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        try {
-            const result = JSON.parse(text);
-            return Array.isArray(result) ? result : (result.actions || []);
-        } catch {
-            // Fallback if JSON parse fails
-            return [];
-        }
-      }
-      return text.actions || [];
+      const result = safeParseJSON(response);
+      if (!result) return [];
+      return Array.isArray(result) ? result : (result.actions || []);
     } catch (e) {
       this.logger.error(`[WikiGardener] Planning failed: ${e.message}`);
       return [];
@@ -384,16 +417,15 @@ Return a JSON object with:
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
       
-      let text = response.text || response;
-      if (typeof text === 'string') {
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(text);
-      }
-      return text;
-    } catch {
-      // Fallback to text-only if JSON fails
+      const result = safeParseJSON(response);
+      if (result && result.content) return result;
+      
+      // Fallback: response might be raw content
+      return { content: safeString(response), summary: null };
+    } catch (e) {
+      this.logger.warn(`[WikiGardener] Content generation fallback: ${e.message}`);
       const text = await this.ai.chat([{ role: 'user', content: prompt }]);
-      return { content: text.text || text, summary: null };
+      return { content: safeString(text), summary: null };
     }
   }
 
@@ -419,17 +451,15 @@ Return a JSON object with:
         { role: 'system', content: 'Output valid JSON only.' },
         { role: 'user', content: prompt }
       ], { response_format: { type: 'json_object' } });
-
-      let text = response.text || response;
-      if (typeof text === 'string') {
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(text);
-      }
-      return text;
-    } catch {
-       // Fallback
-       const text = await this.ai.chat([{ role: 'user', content: prompt }]);
-       return { content: text.text || text, summary: null };
+      
+      const result = safeParseJSON(response);
+      if (result && result.content) return result;
+      
+      return { content: safeString(response), summary: null };
+    } catch (e) {
+      this.logger.warn(`[WikiGardener] Content update fallback: ${e.message}`);
+      const text = await this.ai.chat([{ role: 'user', content: prompt }]);
+      return { content: safeString(text), summary: null };
     }
   }
 }

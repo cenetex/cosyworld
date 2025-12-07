@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2024 Cenetex Inc.
+ * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
  */
 
@@ -131,7 +131,7 @@ export class WikiService {
         slug,
         title,
         content,
-        summary: summary || (content.length > 500 ? content.substring(0, 497) + '...' : content),
+        summary: summary || this._generateSummary(content),
         category,
         authorId, // Original author for backwards compat
         authorName,
@@ -307,12 +307,16 @@ export class WikiService {
     try {
       this.db = this.db || await this.databaseService.getDatabase();
       
+      // Ensure query is a string
+      const searchQuery = typeof query === 'string' ? query : String(query || '');
+      if (!searchQuery.trim()) return [];
+      
       const { category, tags, limit = 20, semantic = false } = options;
       
       // Try semantic search first if enabled and embeddings available
       if (semantic && this.embeddingService) {
         try {
-          const queryVec = await this.embeddingService.embed(query);
+          const queryVec = await this.embeddingService.embed(searchQuery);
           if (queryVec) {
             return this._semanticSearch(queryVec, { category, tags, limit });
           }
@@ -323,7 +327,7 @@ export class WikiService {
       
       // Text search fallback
       const filter = {
-        $text: { $search: query }
+        $text: { $search: searchQuery }
       };
       
       if (category) {
@@ -543,6 +547,30 @@ export class WikiService {
    */
   getShareableLink(slug, baseUrl = process.env.BASE_URL || 'https://cosyworld.app') {
     return `${baseUrl}/wiki/${slug}`;
+  }
+
+  /**
+   * Generate a summary from content
+   * @private
+   * @param {string|object} content - Article content
+   * @returns {string} Summary text
+   */
+  _generateSummary(content) {
+    // Handle non-string content safely
+    const text = typeof content === 'string' 
+      ? content 
+      : (content?.text || content?.content || JSON.stringify(content) || '');
+    
+    if (!text || text.length === 0) return 'No summary available.';
+    if (text.length <= 500) return text;
+    
+    // Try to break at a sentence boundary
+    const truncated = text.substring(0, 500);
+    const lastPeriod = truncated.lastIndexOf('.');
+    if (lastPeriod > 300) {
+      return truncated.substring(0, lastPeriod + 1);
+    }
+    return truncated + '...';
   }
 
   /**

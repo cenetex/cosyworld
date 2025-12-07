@@ -1,9 +1,23 @@
 /**
- * Copyright (c) 2019-2024 Cenetex Inc.
+ * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+
+/**
+ * Safely convert any AI response to a string
+ * @param {*} response - AI response (string, object with text/content, etc.)
+ * @returns {string} Extracted string content
+ */
+function extractText(response) {
+  if (!response) return '';
+  if (typeof response === 'string') return response;
+  if (typeof response === 'object') {
+    return response.text || response.content || '';
+  }
+  return String(response);
+}
 
 /**
  * WikiTool - Agentic Wiki System
@@ -225,12 +239,13 @@ INSTRUCTIONS:
 
 Return the fully rewritten article content.`;
 
-    let newContent = await ai.chat([
+    const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3, max_tokens: 2500 });
+    ], { temperature: 0.3, max_tokens: 4096 });
 
-    if (newContent && typeof newContent === 'object' && newContent.text) {
-      newContent = newContent.text;
+    const newContent = extractText(response);
+    if (!newContent || newContent.trim().length === 0) {
+      return `📖 Failed to curate article "${existing.title}" - model may have hit token limit`;
     }
 
     // Update the article
@@ -306,12 +321,13 @@ INSTRUCTIONS:
 
 Return the fully rewritten content for the TARGET article.`;
 
-    let newContent = await ai.chat([
+    const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3, max_tokens: 3000 });
+    ], { temperature: 0.3, max_tokens: 6000 });
 
-    if (newContent && typeof newContent === 'object' && newContent.text) {
-      newContent = newContent.text;
+    const newContent = extractText(response);
+    if (!newContent || newContent.trim().length === 0) {
+      return `📖 Failed to consolidate articles into "${targetArticle.title}" - model may have hit token limit`;
     }
 
     // 3. Update target article
@@ -490,14 +506,18 @@ Generate a comprehensive article that captures the essence of this ${articleType
         { role: 'user', content: userPrompt }
       ], {
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 4096  // Increased to accommodate models with extended reasoning
       });
 
-      if (response && typeof response === 'object') {
-        response = response.text || response.content || '';
+      const text = extractText(response);
+      
+      // Check if we got empty content (model may have spent all tokens on reasoning)
+      if (!text || text.trim().length === 0) {
+        this.logger.warn(`[WikiTool] AI returned empty content for "${title}" - may have hit token limit`);
+        return `# ${title}\n\n*Article generation incomplete - the AI model may have run out of tokens. Try a shorter title or simpler topic.*`;
       }
-
-      return response || `# ${title}\n\n*Article generation failed. Please try again.*`;
+      
+      return text;
     } catch (error) {
       this.logger.error(`[WikiTool] AI generation failed: ${error.message}`);
       return `# ${title}\n\n*Article generation failed: ${error.message}*`;
@@ -606,12 +626,13 @@ Write an updated version of the article that:
 4. Maintains good structure and flow
 5. Adds internal links to other wiki pages where relevant`;
 
-    let newContent = await ai.chat([
+    const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.7, max_tokens: 2000 });
+    ], { temperature: 0.7, max_tokens: 4096 });
 
-    if (newContent && typeof newContent === 'object' && newContent.text) {
-      newContent = newContent.text;
+    const newContent = extractText(response);
+    if (!newContent || newContent.trim().length === 0) {
+      return `📖 Failed to generate updated content for "${existing.title}" - model may have hit token limit`;
     }
 
     // Update the article - pass both editorId and editorName
@@ -652,12 +673,13 @@ Create a checkpoint that includes:
 
 Use a mystical/technical hybrid tone. Preserve exact phrases and vocabulary that seem significant.`;
 
-    let checkpointContent = await ai.chat([
+    const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.8, max_tokens: 1500 });
+    ], { temperature: 0.8, max_tokens: 3000 });
 
-    if (checkpointContent && typeof checkpointContent === 'object' && checkpointContent.text) {
-      checkpointContent = checkpointContent.text;
+    const checkpointContent = extractText(response);
+    if (!checkpointContent || checkpointContent.trim().length === 0) {
+      return '📖 Failed to generate checkpoint content - model may have hit token limit';
     }
 
     // Create checkpoint article
