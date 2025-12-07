@@ -645,7 +645,7 @@ export class MediaManager {
     });
 
     return {
-      summary: `Recent media you generated (use the short ID in brackets to reference):\n${summaryLines.join('\n')}\n\nIMPORTANT: Match the media ID to what the user asked for. Check the description to ensure you're posting the right image!`,
+      summary: `Recent media you generated (IDs are for your internal tool use only - DO NOT mention them in chat):\n${summaryLines.join('\n')}\n\nIMPORTANT: Match the media ID to what the user asked for. Check the description to ensure you're posting the right image!`,
       items,
     };
   }

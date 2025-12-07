@@ -17,7 +17,7 @@ import { HTML_ENTITY_MAP } from './constants.mjs';
 // ============================================================================
 
 const md = new MarkdownIt({
-  html: false,
+  html: true, // Enable HTML tags in source
   breaks: true,
   linkify: true,
 });

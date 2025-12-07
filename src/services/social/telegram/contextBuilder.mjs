@@ -63,7 +63,10 @@ Conversation mode: ${isMention ? 'Direct mention' : 'General chat'}
 ${toolCreditContext}${buybotContextStr}
 ${plan.summary}
 ${media.summary}
-CRITICAL: When posting to X, use recent media ID. Don't post old images.`;
+CRITICAL INSTRUCTIONS:
+1. When posting to X, use recent media ID. Don't post old images.
+2. DO NOT mention internal media IDs (like "A1B2C3D4") in your chat responses. They are for your internal tool use only.
+3. Use standard Markdown for formatting (e.g., **bold**, *italic*). DO NOT use HTML tags (like <b>, <i>) or HTML entities (like &quot;). Write naturally.`;
 
   const userPrompt = `Recent conversation:\n${conversationContext}\nRespond naturally.`;
 
