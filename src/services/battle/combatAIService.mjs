@@ -223,8 +223,7 @@ export class CombatAIService {
 
       const response = await this.unifiedAIService.chat(messages, {
         model: avatar?.model || 'google/gemini-2.0-flash-001',
-        temperature: 0.9,
-        max_tokens: 40
+        temperature: 0.9
       });
 
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -262,8 +261,7 @@ export class CombatAIService {
 
       const response = await this.unifiedAIService.chat(messages, {
         model: avatar?.model || 'google/gemini-2.0-flash-001',
-        temperature: 0.95,
-        max_tokens: 25
+        temperature: 0.95
       });
 
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -460,8 +458,7 @@ One-liner (no quotes):`;
 
     const response = await this.unifiedAIService.chat(messages, {
       model,
-      temperature: 0.9,
-      max_tokens: 30
+      temperature: 0.9
     });
 
     return (response?.text || '').trim().replace(/^["']|["']$/g, '');

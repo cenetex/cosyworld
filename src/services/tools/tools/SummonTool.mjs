@@ -419,8 +419,7 @@ export class SummonTool extends BasicTool {
           // Use a faster, cheaper model for descriptions (if available)
           const descriptionModel = process.env.FAST_MODEL || modelId;
           const result = await ai.chat(messages, { 
-            model: descriptionModel, 
-            max_tokens: 150,  // Reduced from 220
+            model: descriptionModel,
             corrId, 
             returnEnvelope: true 
           });

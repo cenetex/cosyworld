@@ -387,7 +387,6 @@ export class DecisionMaker  {
     const response = await ai.chat(prompt, {
         model: this.configService.getAIConfig().decisionMakerModel,
         temperature: 0.5,
-        max_tokens: 32,
         corrId
       });
   const text = typeof response === 'object' && response?.text ? response.text : (typeof response === 'string' ? response : '');

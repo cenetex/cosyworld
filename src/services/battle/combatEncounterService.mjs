@@ -767,8 +767,7 @@ One-liner (no quotes):`;
       
       const response = await this.unifiedAIService.chat(messages, {
         model,
-        temperature: 0.9,
-        max_tokens: 30
+        temperature: 0.9
       });
       
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes if any
@@ -912,8 +911,7 @@ One-liner (no quotes):`;
 
           const response = await this.unifiedAIService.chat(messages, {
             model,
-            temperature: 0.95,
-            max_tokens: 40
+            temperature: 0.95
           });
 
           const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -988,8 +986,7 @@ One-liner (no quotes):`;
 
       const response = await this.unifiedAIService.chat(messages, {
         model,
-        temperature: 0.95,
-        max_tokens: 50
+        temperature: 0.95
       });
 
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -1718,8 +1715,7 @@ Requirements:
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
-        temperature: 0.8,
-        max_tokens: 350
+        temperature: 0.8
       });
       
       const sceneDescription = response?.text || actionSummary;
@@ -1800,8 +1796,7 @@ Requirements:
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
-        temperature: 0.8,
-        max_tokens: 350
+        temperature: 0.8
       });
       
       const sceneDescription = response?.text || `The battle continues as ${actionSummary}`;
@@ -2076,8 +2071,7 @@ Generate the video prompt now:`
       ];
       
       const promptResponse = await this.unifiedAIService.chat(promptGenMessages, {
-        temperature: 0.9,
-        max_tokens: 500
+        temperature: 0.9
       });
       
       const sceneDescription = promptResponse?.text || `Epic battle between ${combatants.map(c => c.name).join(' and ')} at ${locationName}. The combat flows from initial clash to victory in one continuous motion.`;
@@ -2659,8 +2653,7 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
           ];
           
           const response = await this.unifiedAIService.chat(messages, {
-            temperature: 0.8,
-            max_tokens: 100
+            temperature: 0.8
           });
           
           if (response?.text) {

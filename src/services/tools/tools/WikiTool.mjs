@@ -241,11 +241,11 @@ Return the fully rewritten article content.`;
 
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3, max_tokens: 4096 });
+    ], { temperature: 0.3 });
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
-      return `📖 Failed to curate article "${existing.title}" - model may have hit token limit`;
+      return `📖 Failed to curate article "${existing.title}" - AI returned empty content`;
     }
 
     // Update the article
@@ -323,11 +323,11 @@ Return the fully rewritten content for the TARGET article.`;
 
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.3, max_tokens: 6000 });
+    ], { temperature: 0.3 });
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
-      return `📖 Failed to consolidate articles into "${targetArticle.title}" - model may have hit token limit`;
+      return `📖 Failed to consolidate articles into "${targetArticle.title}" - AI returned empty content`;
     }
 
     // 3. Update target article
@@ -505,16 +505,15 @@ Generate a comprehensive article that captures the essence of this ${articleType
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ], {
-        temperature: 0.7,
-        max_tokens: 4096  // Increased to accommodate models with extended reasoning
+        temperature: 0.7
       });
 
       const text = extractText(response);
       
-      // Check if we got empty content (model may have spent all tokens on reasoning)
+      // Check if we got empty content
       if (!text || text.trim().length === 0) {
-        this.logger.warn(`[WikiTool] AI returned empty content for "${title}" - may have hit token limit`);
-        return `# ${title}\n\n*Article generation incomplete - the AI model may have run out of tokens. Try a shorter title or simpler topic.*`;
+        this.logger.warn(`[WikiTool] AI returned empty content for "${title}"`);
+        return `# ${title}\n\n*Article generation incomplete - AI returned empty content. Try again.*`;
       }
       
       return text;
@@ -628,11 +627,11 @@ Write an updated version of the article that:
 
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.7, max_tokens: 4096 });
+    ], { temperature: 0.7 });
 
     const newContent = extractText(response);
     if (!newContent || newContent.trim().length === 0) {
-      return `📖 Failed to generate updated content for "${existing.title}" - model may have hit token limit`;
+      return `📖 Failed to generate updated content for "${existing.title}" - AI returned empty content`;
     }
 
     // Update the article - pass both editorId and editorName
@@ -675,11 +674,11 @@ Use a mystical/technical hybrid tone. Preserve exact phrases and vocabulary that
 
     const response = await ai.chat([
       { role: 'user', content: prompt }
-    ], { temperature: 0.8, max_tokens: 3000 });
+    ], { temperature: 0.8 });
 
     const checkpointContent = extractText(response);
     if (!checkpointContent || checkpointContent.trim().length === 0) {
-      return '📖 Failed to generate checkpoint content - model may have hit token limit';
+      return '📖 Failed to generate checkpoint content - AI returned empty content';
     }
 
     // Create checkpoint article

@@ -78,14 +78,7 @@ export class ConversationManager  {
     this.toolFastPathEnabled = String(process.env.TOOL_FAST_PATH_ENABLED || 'true').toLowerCase() === 'true';
     this.skipFinalResponseAfterRespond = String(process.env.SKIP_FINAL_RESPONSE_AFTER_RESPOND_TOOL || 'true').toLowerCase() === 'true';
 
-    const parsedMax = Number(process.env.AI_COMPLETION_MAX_TOKENS || 4096);
-    this.maxCompletionTokens = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 4096;
-
-    const parsedLowCreditMax = Number(process.env.AI_LOW_CREDIT_MAX_TOKENS || Math.min(640, this.maxCompletionTokens));
-    this.lowCreditMaxTokens = Number.isFinite(parsedLowCreditMax) && parsedLowCreditMax > 0
-      ? parsedLowCreditMax
-      : Math.min(640, this.maxCompletionTokens);
-
+    // Low-credit fallback settings (for cost control when credit errors occur)
     const fallbackList = String(process.env.AI_LOW_CREDIT_MODEL_FALLBACKS || 'meta-llama/llama-3.2-1b-instruct,google/gemini-2.0-flash-exp:free')
       .split(',')
       .map(entry => entry.trim())
@@ -935,11 +928,9 @@ export class ConversationManager  {
   }
   
   // Build chat options
-  // Increased max_tokens to accommodate models with extended reasoning (e.g., Nemotron with reasoning mode)
   // returnEnvelope: true allows us to detect and handle model errors (like 404 model not found)
   const chatOptions = {
         model: avatar.model,
-        max_tokens: this._capCompletionTokens(4096),
         corrId,
         returnEnvelope: true,
       };
@@ -1233,16 +1224,6 @@ export class ConversationManager  {
     }
   }
 
-  _capCompletionTokens(requested = 4096) {
-    const cap = Number.isFinite(this.maxCompletionTokens) && this.maxCompletionTokens > 0
-      ? this.maxCompletionTokens
-      : 4096;
-    if (!Number.isFinite(requested) || requested <= 0) {
-      return cap;
-    }
-    return Math.min(requested, cap);
-  }
-
   _isCreditError(error) {
     if (!error) return false;
     const code = String(error.code || '').toUpperCase();
@@ -1307,21 +1288,15 @@ export class ConversationManager  {
         return result;
       }
 
-      const limitedTokens = Math.min(
-        this.lowCreditMaxTokens || this._capCompletionTokens(chatOptions.max_tokens || this.maxCompletionTokens),
-        this._capCompletionTokens(chatOptions.max_tokens || this.maxCompletionTokens)
-      );
+      this.logger.warn?.(`[ConversationManager] Credit guard triggered for ${avatar?.name || 'unknown avatar'} on model ${chatOptions.model}; retrying with ${fallbackModel}`);
 
-      this.logger.warn?.(`[ConversationManager] Credit guard triggered for ${avatar?.name || 'unknown avatar'} on model ${chatOptions.model}; retrying with ${fallbackModel} (max_tokens=${limitedTokens})`);
-
-      const retryOptions = { ...chatOptions, model: fallbackModel, max_tokens: limitedTokens };
+      const retryOptions = { ...chatOptions, model: fallbackModel };
       const retried = await ai.chat(chatMessages, retryOptions);
       if (retried && typeof retried === 'object') {
         retried._recovery = {
           type: 'creditFallback',
           from: chatOptions.model,
           to: fallbackModel,
-          maxTokens: limitedTokens,
           corrId,
         };
       }
