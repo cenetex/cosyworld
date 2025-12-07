@@ -95,8 +95,159 @@ export class WikiGardenerService {
       
       this.logger.info('[WikiGardener] Cycle completed successfully.');
       
+      // 5. Maintain user profiles
+      await this.maintainUserProfiles(db);
+
     } catch (error) {
       this.logger.error(`[WikiGardener] Cycle failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Maintain wiki profiles for active citizens
+   */
+  async maintainUserProfiles(db) {
+    this.logger.info('[WikiGardener] Checking citizen profiles...');
+    
+    try {
+      // 1. Find top active users in last 7 days
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      const activeUsers = await db.collection('messages').aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: sevenDaysAgo },
+            authorName: { $exists: true, $ne: 'Unknown' },
+            // Exclude bots if possible (heuristic: bots usually have 'Bot' in name or specific IDs, but for now just authorName)
+            // We can filter out known bot names if we had a list
+          } 
+        },
+        { 
+          $group: { 
+            _id: "$authorName", 
+            count: { $sum: 1 }, 
+            lastSeen: { $max: "$createdAt" }
+          } 
+        },
+        { $match: { count: { $gt: 10 } } }, // Minimum 10 messages to be "active"
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]).toArray();
+
+      if (activeUsers.length === 0) return;
+
+      // 2. Check which users need a profile update/creation
+      for (const user of activeUsers) {
+        const username = user._id;
+        // Skip if username looks like a bot (simple heuristic)
+        if (username.toLowerCase().includes('bot') && !username.toLowerCase().includes('buy')) continue;
+
+        // Check for existing article
+        // We search by title exact match first
+        const existing = await this.wikiService.search(username, { limit: 1, category: 'citizens' });
+        let article = existing.find(a => a.title.toLowerCase() === username.toLowerCase());
+        
+        // If not found by exact title, try slug
+        if (!article) {
+            const slug = this.wikiService.generateSlug(username);
+            article = await this.wikiService.getArticle(slug, false);
+        }
+
+        const needsUpdate = !article || 
+          (article.lastVerifiedAt && new Date(article.lastVerifiedAt) < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)); // Update weekly
+
+        if (needsUpdate) {
+          this.logger.info(`[WikiGardener] Generating citizen profile for: ${username}`);
+          await this.generateUserProfile(db, username, article);
+          // Only process one user per cycle to be polite to rate limits
+          break; 
+        }
+      }
+    } catch (error) {
+      this.logger.error(`[WikiGardener] User profile maintenance failed: ${error.message}`);
+    }
+  }
+
+  async generateUserProfile(db, username, existingArticle) {
+    // Fetch user's recent messages to analyze personality
+    const messages = await db.collection('messages')
+      .find({ authorName: username })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray();
+
+    if (messages.length === 0) return;
+
+    const messageSample = messages.map(m => m.content).join('\n');
+    const firstSeen = messages[messages.length - 1].createdAt;
+    const lastSeen = messages[0].createdAt;
+
+    const prompt = `You are a biographer for CosyWorld citizens. Write a wiki profile for the user "${username}".
+
+USER MESSAGES SAMPLE:
+${messageSample}
+
+STATS:
+- First observed: ${firstSeen}
+- Last active: ${lastSeen}
+- Total tracked messages (sample): ${messages.length}
+
+INSTRUCTIONS:
+1. Write a "Citizen Profile" in Markdown.
+2. Describe their personality, communication style, and interests based on their messages.
+3. Mention any specific topics they frequently discuss.
+4. Keep it positive, mythical, and lore-friendly (treat them as a character in the world).
+5. Do NOT include private info, only what is public in the chat.
+6. If updating, preserve any existing "Notable Events" if they look manually added.
+
+${existingArticle ? `EXISTING CONTENT TO RESPECT:\n${existingArticle.content}` : ''}
+
+Return a JSON object with:
+{
+  "content": "Full markdown content",
+  "summary": "2-3 sentence summary"
+}`;
+
+    try {
+      const response = await this.ai.chat([
+        { role: 'system', content: 'Output valid JSON only.' },
+        { role: 'user', content: prompt }
+      ], { response_format: { type: 'json_object' } });
+
+      let result;
+      let text = response.text || response;
+      if (typeof text === 'string') {
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        result = JSON.parse(text);
+      } else {
+        result = text;
+      }
+
+      if (existingArticle) {
+        await this.wikiService.updateArticle(
+          existingArticle.slug,
+          { 
+            content: result.content, 
+            summary: result.summary,
+            category: 'citizens',
+            tags: ['citizen', 'user', ...existingArticle.tags || []]
+          },
+          'system-gardener',
+          'Wiki Gardener',
+          'Routine profile update'
+        );
+      } else {
+        await this.wikiService.createArticle({
+          title: username,
+          content: result.content,
+          summary: result.summary,
+          category: 'citizens',
+          authorName: 'Wiki Gardener',
+          tags: ['citizen', 'user']
+        });
+      }
+    } catch (e) {
+      this.logger.error(`[WikiGardener] Failed to generate profile for ${username}: ${e.message}`);
     }
   }
 
