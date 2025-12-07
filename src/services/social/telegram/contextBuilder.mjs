@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { buildCreditInfo } from './utils.mjs';
+import { buildCreditInfo, estimateTokens } from './utils.mjs';
 
 /**
  * Builds the conversation context for the AI model
@@ -29,11 +29,27 @@ export function buildConversationContext({
   isMention
 }) {
   // 1. Build Conversation History
-  // Take last 20 messages, but could be smarter about token limits here
-  const recentHistory = history.slice(-20);
+  // Use token budget instead of fixed count
+  const MAX_HISTORY_TOKENS = 3000; // Reserve space for history
+  let currentTokens = 0;
+  const selectedHistory = [];
   
-  let conversationContext = recentHistory.length > 0
-    ? recentHistory.map(m => `${m.from}: ${m.text}`).join('\n')
+  // Iterate backwards to get most recent messages fitting in token budget
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    const msgContent = `${msg.from}: ${msg.text}`;
+    const tokens = estimateTokens(msgContent);
+    
+    if (currentTokens + tokens > MAX_HISTORY_TOKENS) {
+      break;
+    }
+    
+    selectedHistory.unshift(msg); // Add to front to maintain chronological order
+    currentTokens += tokens;
+  }
+  
+  let conversationContext = selectedHistory.length > 0
+    ? selectedHistory.map(m => `${m.from}: ${m.text}`).join('\n')
     : `${currentMessage.from.first_name || currentMessage.from.username || 'User'}: ${currentMessage.text}`;
 
   if (currentMessage.reply_to_message) {

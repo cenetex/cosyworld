@@ -605,6 +605,17 @@ export function buildCreditInfo(limit, label) {
     : `${label}: 0 left`;
 }
 
+/**
+ * Estimate the number of tokens in a string
+ * Heuristic: ~4 characters per token for English text
+ * @param {string} text
+ * @returns {number}
+ */
+export function estimateTokens(text) {
+  if (!text) return 0;
+  return Math.ceil(String(text).length / 4);
+}
+
 export default {
   safeDecrypt,
   escapeRegExp,
@@ -624,4 +635,5 @@ export default {
   includesMention,
   inferAspectRatioFromPrompt,
   buildCreditInfo,
+  estimateTokens,
 };
