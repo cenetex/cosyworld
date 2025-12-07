@@ -352,6 +352,30 @@ export class SpeakExecutor extends ActionExecutor {
 
   async execute(step, context) {
     const { ctx, channelId, conversationContext, userId, services, stepNum } = context;
+
+    // Check for recent bot messages to avoid double-speaking
+    try {
+      const history = services.telegram.conversationManager.getHistory(channelId);
+      if (history && history.length > 0) {
+        const lastMsg = history[history.length - 1];
+        const now = Date.now();
+        // Check if last message is from Bot and is very recent (< 5 seconds)
+        // Note: message dates are often in seconds, so we need to be careful with comparison
+        const msgTimeMs = (lastMsg.date > 1e10) ? lastMsg.date : lastMsg.date * 1000;
+        
+        const isMediaMarker = lastMsg.text && (
+            lastMsg.text.startsWith('[Generated Image:') || 
+            lastMsg.text.startsWith('[Generated Video:')
+        );
+        
+        if (lastMsg.isBot && (now - msgTimeMs) < 5000 && !isMediaMarker) {
+           services.logger?.info?.(`[SpeakExecutor] Skipping speak action - bot just spoke at ${new Date(msgTimeMs).toISOString()}`);
+           return { success: true, action: this.actionType, stepNum, skipped: true };
+        }
+      }
+    } catch (err) {
+      services.logger?.warn?.('[SpeakExecutor] Failed to check history:', err);
+    }
     
     const speechPrompt = `You are executing a planned action.
 Context: ${conversationContext}
