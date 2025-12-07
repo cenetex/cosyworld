@@ -96,6 +96,7 @@ export class WikiService {
   async createArticle({ 
     title, 
     content, 
+    summary = null,
     category = 'general', 
     authorId = null,
     authorName = 'Anonymous',
@@ -130,6 +131,7 @@ export class WikiService {
         slug,
         title,
         content,
+        summary: summary || (content.length > 500 ? content.substring(0, 497) + '...' : content),
         category,
         authorId, // Original author for backwards compat
         authorName,
@@ -140,6 +142,7 @@ export class WikiService {
         version: 1,
         createdAt: now,
         updatedAt: now,
+        lastVerifiedAt: now,
         viewCount: 0
       };
       
@@ -237,6 +240,7 @@ export class WikiService {
         ...updates,
         version: existing.version + 1,
         updatedAt: now,
+        lastVerifiedAt: now,
         lastEditorId: editorId,
         editSummary
       };

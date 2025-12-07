@@ -106,6 +106,24 @@ async function main() {
     logTiming('ToolService initialized');
     logger.log('[startup] ToolService initialized');
 
+    // Initialize WikiService (indexes)
+    try {
+      const wikiService = container.resolve('wikiService');
+      await wikiService.initialize();
+      logger.log('[startup] WikiService initialized');
+    } catch (e) {
+      logger.warn(`[startup] WikiService initialization failed: ${e.message}`);
+    }
+
+    // Start Wiki Gardener (background curation)
+    try {
+      const wikiGardener = container.resolve('wikiGardenerService');
+      wikiGardener.start?.();
+      logger.log('[startup] WikiGardener started');
+    } catch (e) {
+      logger.warn(`[startup] WikiGardener not started: ${e.message}`);
+    }
+
     // Start Memory nightly job (if enabled)
     try {
       const memoryScheduler = container.resolve('memoryScheduler');

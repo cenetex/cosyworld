@@ -26,7 +26,8 @@ export function buildConversationContext({
   plan,
   media,
   buybot,
-  isMention
+  isMention,
+  rag = []
 }) {
   // 1. Build Conversation History
   // Use token budget instead of fixed count
@@ -73,10 +74,15 @@ Rule: Only call tools if credits available. If 0, explain naturally and mention 
 
   const buybotContextStr = buybot ? `\nToken Tracking (Buybot):\n${buybot}\n` : '';
 
+  const ragContextStr = rag.length > 0 
+    ? `\nRelevant Knowledge:\n${rag.map(r => `- ${r.content} (Source: ${r.source})`).join('\n')}\n`
+    : '';
+
   const systemPrompt = `${botPersonality}
 ${botDynamicPrompt}
 Conversation mode: ${isMention ? 'Direct mention' : 'General chat'}
 ${toolCreditContext}${buybotContextStr}
+${ragContextStr}
 ${plan.summary}
 ${media.summary}
 CRITICAL INSTRUCTIONS:

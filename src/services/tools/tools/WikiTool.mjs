@@ -20,6 +20,8 @@ import { BasicTool } from '../BasicTool.mjs';
  * - wiki read <slug> - Read an article
  * - wiki search <query> - Search articles
  * - wiki update <slug> - AI updates article with new context
+ * - wiki curate <slug> - AI improves article structure and adds links
+ * - wiki consolidate <target> <source> - Merge source article into target
  * - wiki list [category] - List articles
  * - wiki link <slug> - Get shareable link
  * - wiki checkpoint - Create phenomenological checkpoint from context
@@ -74,7 +76,7 @@ export class WikiTool extends BasicTool {
       properties: {
         command: {
           type: 'string',
-          enum: ['create', 'document', 'read', 'search', 'update', 'list', 'link', 'checkpoint', 'categories', 'help'],
+          enum: ['create', 'document', 'read', 'search', 'update', 'list', 'link', 'checkpoint', 'curate', 'consolidate', 'categories', 'help'],
           description: 'Wiki command to execute'
         },
         title: {
@@ -145,6 +147,12 @@ export class WikiTool extends BasicTool {
           
         case 'checkpoint':
           return this.createCheckpointFromContext(title, authorId, authorName, message, avatar);
+
+        case 'curate':
+          return this.curateArticle(title, authorId, authorName);
+
+        case 'consolidate':
+          return this.consolidateArticles(title, authorId, authorName);
           
         case 'categories':
           return this.getCategories();
@@ -157,6 +165,175 @@ export class WikiTool extends BasicTool {
       this.logger.error(`[WikiTool] Error: ${error.message}`);
       return `📖 Wiki error: ${error.message}`;
     }
+  }
+
+  /**
+   * Get a list of potential link targets for the AI
+   */
+  async getLinkablePages() {
+    try {
+      // Fetch recent/popular articles to use as link targets
+      // We limit to 100 to not overwhelm the context window
+      const articles = await this.wikiService.listArticles(null, { limit: 100, sortBy: 'viewCount' });
+      return articles.map(a => ({ title: a.title, slug: a.slug }));
+    } catch (error) {
+      this.logger.warn(`[WikiTool] Could not fetch linkable pages: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Curate an existing article (improve formatting, add links, fix structure)
+   */
+  async curateArticle(slug, authorId, authorName) {
+    if (!slug) {
+      return '📖 Please specify an article to curate: `wiki curate <slug>`';
+    }
+
+    // Get existing article
+    const existing = await this.wikiService.getArticle(slug, false);
+    if (!existing) {
+      return `📖 Article not found: "${slug}"`;
+    }
+
+    // Get linkable pages for cross-linking
+    const linkablePages = await this.getLinkablePages();
+    const linkableContext = linkablePages
+      .filter(p => p.slug !== slug) // Don't link to self
+      .map(p => `- "${p.title}" (slug: ${p.slug})`)
+      .join('\n');
+
+    const ai = this.unifiedAIService || this.aiService;
+    
+    const prompt = `You are an expert wiki curator. Your task is to improve an existing article.
+
+EXISTING ARTICLE:
+${existing.content}
+
+AVAILABLE WIKI PAGES (for cross-linking):
+${linkableContext}
+
+INSTRUCTIONS:
+1. Improve the formatting and structure (use proper Markdown headers).
+2. Add internal links to other wiki pages where relevant. Use the format: [Title](/wiki/slug).
+   - Only link if the concept is mentioned in the text.
+   - Do not force links if they don't fit naturally.
+3. Fix any typos or grammatical errors.
+4. Ensure the tone is encyclopedic and objective.
+5. Do NOT remove important information.
+6. If the article is very short, try to expand it slightly with logical deductions or better explanations, but don't hallucinate facts.
+
+Return the fully rewritten article content.`;
+
+    let newContent = await ai.chat([
+      { role: 'user', content: prompt }
+    ], { temperature: 0.3, max_tokens: 2500 });
+
+    if (newContent && typeof newContent === 'object' && newContent.text) {
+      newContent = newContent.text;
+    }
+
+    // Update the article
+    const article = await this.wikiService.updateArticle(
+      slug, 
+      { content: newContent }, 
+      authorId, 
+      authorName, 
+      'Curated by Wiki Agent (formatting, links, structure)'
+    );
+
+    return `📖 ✨ Wiki agent curated: **${article.title}** (v${article.version})
+*Added cross-links and improved structure.*
+🔗 ${article.url}`;
+  }
+
+  /**
+   * Consolidate multiple articles into one
+   * Usage: wiki consolidate <target_slug> <source_slug1> [source_slug2...]
+   */
+  async consolidateArticles(args, authorId, authorName) {
+    if (!args) {
+      return '📖 Usage: `wiki consolidate <target_slug> <source_slug>`';
+    }
+
+    const slugs = args.split(/\s+/).filter(s => s.trim().length > 0);
+    if (slugs.length < 2) {
+      return '📖 Please specify a target article and at least one source article to merge into it.';
+    }
+
+    const targetSlug = slugs[0];
+    const sourceSlugs = slugs.slice(1);
+
+    // 1. Fetch all articles
+    const targetArticle = await this.wikiService.getArticle(targetSlug, false);
+    if (!targetArticle) {
+      return `📖 Target article not found: "${targetSlug}"`;
+    }
+
+    const sourceArticles = [];
+    for (const slug of sourceSlugs) {
+      const article = await this.wikiService.getArticle(slug, false);
+      if (!article) {
+        return `📖 Source article not found: "${slug}"`;
+      }
+      if (article.slug === targetArticle.slug) {
+        return '📖 Cannot consolidate an article into itself.';
+      }
+      sourceArticles.push(article);
+    }
+
+    // 2. Generate merged content
+    const ai = this.unifiedAIService || this.aiService;
+    
+    const sourcesText = sourceArticles.map(a => 
+      `--- SOURCE: ${a.title} (${a.slug}) ---\n${a.content}`
+    ).join('\n\n');
+
+    const prompt = `You are an expert wiki editor. Consolidate the following source articles into the target article.
+
+TARGET ARTICLE (${targetArticle.title}):
+${targetArticle.content}
+
+${sourcesText}
+
+INSTRUCTIONS:
+1. Merge all unique and valuable information from the SOURCE articles into the TARGET article.
+2. Organize the new content logically using Markdown headers.
+3. Remove duplicate information.
+4. Resolve any contradictions (prefer the most detailed or recent info).
+5. Maintain a consistent tone.
+6. Do not lose any key facts, dates, or names.
+
+Return the fully rewritten content for the TARGET article.`;
+
+    let newContent = await ai.chat([
+      { role: 'user', content: prompt }
+    ], { temperature: 0.3, max_tokens: 3000 });
+
+    if (newContent && typeof newContent === 'object' && newContent.text) {
+      newContent = newContent.text;
+    }
+
+    // 3. Update target article
+    const mergedTitles = sourceArticles.map(a => a.title).join(', ');
+    await this.wikiService.updateArticle(
+      targetSlug,
+      { content: newContent },
+      authorId,
+      authorName,
+      `Consolidated with: ${mergedTitles}`
+    );
+
+    // 4. Delete source articles
+    for (const article of sourceArticles) {
+      await this.wikiService.deleteArticle(article.slug);
+    }
+
+    return `📖 ✨ Wiki agent consolidated articles!
+**${targetArticle.title}** now includes content from: ${mergedTitles}
+*Source articles have been deleted.*
+
+🔗 ${targetArticle.url}`;
   }
 
   /**
@@ -276,9 +453,13 @@ export class WikiTool extends BasicTool {
   /**
    * Use AI to generate article content from context
    */
-  async generateArticleContent(title, contextString, authorName, articleType = 'general') {
+  async generateArticleContent(title, contextString, authorName, articleType = 'general', linkablePages = []) {
     const ai = this.unifiedAIService || this.aiService;
     
+    const linkableContext = linkablePages.length > 0 
+      ? `\n\nEXISTING WIKI PAGES (link to these where relevant using [Title](/wiki/slug)):\n${linkablePages.map(p => `- ${p.title} (${p.slug})`).join('\n')}`
+      : '';
+
     const systemPrompt = `You are an expert wiki author for CosyWorld, a persistent world with AI avatars. 
 Your task is to write a well-structured wiki article based on the provided context.
 
@@ -292,13 +473,14 @@ Guidelines:
 - For events: capture what happened, who was involved, and significance
 - For characters: describe personality, relationships, and notable actions
 - For lore: explain concepts, places, or world-building elements
+- CROSS-LINKING: Link to other wiki pages when mentioning their topics. Use format: [Title](/wiki/slug).
 
 Article type: ${articleType}
 Author perspective: ${authorName}`;
 
     const userPrompt = `Write a wiki article titled "${title}" based on this context:
 
-${contextString}
+${contextString}${linkableContext}
 
 Generate a comprehensive article that captures the essence of this ${articleType}. The article should be self-contained and valuable for future reference.`;
 
@@ -341,8 +523,11 @@ Generate a comprehensive article that captures the essence of this ${articleType
     // Determine category from title if not specified
     const inferredCategory = category || this.inferCategory(title);
 
+    // Get linkable pages
+    const linkablePages = await this.getLinkablePages();
+
     // Generate article content using AI
-    const content = await this.generateArticleContent(title, contextString, authorName, inferredCategory);
+    const content = await this.generateArticleContent(title, contextString, authorName, inferredCategory, linkablePages);
 
     // Extract tags from context
     const tags = this.extractTags(title, context, content);
@@ -396,6 +581,13 @@ Generate a comprehensive article that captures the essence of this ${articleType
     // Generate updated content
     const ai = this.unifiedAIService || this.aiService;
     
+    // Get linkable pages
+    const linkablePages = await this.getLinkablePages();
+    const linkableContext = linkablePages
+      .filter(p => p.slug !== slug)
+      .map(p => `- "${p.title}" (slug: ${p.slug})`)
+      .join('\n');
+
     const prompt = `You are updating an existing wiki article. Incorporate new information while preserving valuable existing content.
 
 EXISTING ARTICLE:
@@ -404,11 +596,15 @@ ${existing.content}
 NEW CONTEXT:
 ${contextString}
 
+EXISTING WIKI PAGES (link to these where relevant using [Title](/wiki/slug)):
+${linkableContext}
+
 Write an updated version of the article that:
 1. Preserves important existing information
 2. Adds new relevant information from the context
 3. Resolves any contradictions (prefer newer information)
-4. Maintains good structure and flow`;
+4. Maintains good structure and flow
+5. Adds internal links to other wiki pages where relevant`;
 
     let newContent = await ai.chat([
       { role: 'user', content: prompt }
@@ -722,6 +918,8 @@ ${list.join('\n\n')}
 
 **Update & Share**:
 • \`wiki update <slug>\` - Update article with new context
+• \`wiki curate <slug>\` - Improve formatting and add cross-links
+• \`wiki consolidate <target> <source>\` - Merge source into target
 • \`wiki link <slug>\` - Get shareable link
 
 *The wiki agent automatically gathers context from the conversation, memories, and knowledge to write articles. Just provide a title!*`;

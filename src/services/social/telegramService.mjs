@@ -64,6 +64,7 @@ import {
   validatePlan,
   buildConversationContext,
 } from './telegram/index.mjs';
+import { KnowledgeBaseService } from '../knowledge/knowledgeBaseService.mjs';
 
 const VIDEO_DEFAULTS = Object.freeze({
   STYLE: 'cinematic',
@@ -87,6 +88,7 @@ class TelegramService {
     xService,
     mediaGenerationService,
     mediaIndexService,
+    wikiService,
   }) {
     this.logger = logger;
     this.databaseService = databaseService;
@@ -100,6 +102,7 @@ class TelegramService {
     this.xService = xService;
     this.mediaGenerationService = mediaGenerationService;
     this.mediaIndexService = mediaIndexService;
+    this.wikiService = wikiService;
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
@@ -151,6 +154,11 @@ class TelegramService {
       veoService: this.veoService,
       mediaGenerationService: this.mediaGenerationService,
       globalBotService: this.globalBotService
+    });
+
+    this.knowledgeBaseService = new KnowledgeBaseService({
+      logger: this.logger,
+      wikiService: this.wikiService
     });
     
     this.contextManager = new ContextManager({
@@ -208,6 +216,11 @@ class TelegramService {
     try {
       if (this.mediaManager.ensureIndexes) {
         await this.mediaManager.ensureIndexes();
+      }
+      
+      // Initialize Knowledge Base (RAG)
+      if (this.knowledgeBaseService) {
+        await this.knowledgeBaseService.initialize();
       }
 
       if (this.globalBot && this.globalBot.botInfo) {
@@ -631,6 +644,15 @@ class TelegramService {
         this.checkMediaGenerationLimit(null, 'tweet')
       ]);
 
+      // Fetch RAG context
+      let ragContext = [];
+      if (this.knowledgeBaseService) {
+         const query = ctx.message?.text || ctx.message?.caption || '';
+         if (query.length > 5) {
+            ragContext = await this.knowledgeBaseService.search(query, 3);
+         }
+      }
+
       let fullHistory = this.conversationManager.getHistory(channelId);
       if (!fullHistory || fullHistory.length === 0) {
         fullHistory = await this.conversationManager.loadConversationHistory(channelId);
@@ -648,7 +670,8 @@ class TelegramService {
         plan: await this.planManager.buildPlanContext(channelId, 3),
         media: await this.mediaManager.buildRecentMediaContext(channelId, 5),
         buybot: buybotContext,
-        isMention
+        isMention,
+        rag: ragContext
       });
 
       if (!this.aiService) {
