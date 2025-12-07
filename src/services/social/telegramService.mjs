@@ -479,7 +479,8 @@ class TelegramService {
       text: message.text ?? message.caption ?? '',
       date: message.date,
       isBot: false,
-      userId
+      userId,
+      messageId: message.message_id
     }, true);
 
     const botId = this.globalBot?.botInfo?.id || ctx.botInfo?.id;
@@ -564,10 +565,15 @@ class TelegramService {
               message: {
                 text: lastMessage.text,
                 from: { first_name: lastMessage.from, id: lastMessage.userId || undefined },
-                date: lastMessage.date
+                date: lastMessage.date,
+                message_id: lastMessage.messageId
               },
               telegram: this.globalBot.telegram,
-              reply: async (text) => this.globalBot.telegram.sendMessage(channelId, text)
+              reply: async (text, extra) => {
+                const opts = { ...extra };
+                if (lastMessage.messageId) opts.reply_to_message_id = lastMessage.messageId;
+                return this.globalBot.telegram.sendMessage(channelId, text, opts);
+              }
             };
             
             await this.generateAndSendReply(mockCtx, channelId, false);
@@ -675,10 +681,10 @@ class TelegramService {
           ? responseObj.text.trim() : '';
         
         if (acknowledgment) {
-          await ctx.reply(acknowledgment);
+          const sent = await ctx.reply(acknowledgment);
           await this.memberManager.recordBotResponse(channelId, userId);
           await this.conversationManager.addMessage(channelId, {
-            from: 'Bot', text: acknowledgment, date: Math.floor(Date.now() / 1000), isBot: true
+            from: 'Bot', text: acknowledgment, date: Math.floor(Date.now() / 1000), isBot: true, messageId: sent?.message_id
           }, true);
         }
         
@@ -688,10 +694,10 @@ class TelegramService {
 
       const responseText = String(responseObj.text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       if (responseText) {
-        await ctx.reply(formatTelegramMarkdown(responseText), { parse_mode: 'HTML' });
+        const sent = await ctx.reply(formatTelegramMarkdown(responseText), { parse_mode: 'HTML' });
         await this.memberManager.recordBotResponse(channelId, userId);
         await this.conversationManager.addMessage(channelId, {
-          from: 'Bot', text: responseText, date: Math.floor(Date.now() / 1000), isBot: true
+          from: 'Bot', text: responseText, date: Math.floor(Date.now() / 1000), isBot: true, messageId: sent?.message_id
         }, true);
       }
 
@@ -766,6 +772,8 @@ class TelegramService {
             mediaId: args.mediaId, 
             channelId, userId, username 
           });
+        } else if (functionName === 'react_to_message') {
+          await this.executeReaction(ctx, args.emoji, args.messageId);
         }
         // Additional tools (video_from_image, extend_video, etc) follow same pattern...
       } catch (toolError) {
@@ -841,6 +849,19 @@ class TelegramService {
   // Media Generation Implementations
   // ===========================================================================
 
+  async executeReaction(ctx, emoji, messageId) {
+    try {
+      const targetMessageId = messageId || ctx.message?.message_id;
+      if (!targetMessageId) return;
+      
+      // Telegram API expects array of reactions
+      await ctx.telegram.setMessageReaction(ctx.chat.id, targetMessageId, [{ type: 'emoji', emoji }]);
+      this.logger?.info?.(`[TelegramService] Reacted with ${emoji} to message ${targetMessageId}`);
+    } catch (error) {
+      this.logger?.warn?.(`[TelegramService] Failed to react: ${error.message}`);
+    }
+  }
+
   async executeImageGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
     try {
       const { imageUrl, enhancedPrompt } = await this.mediaGenerationManager.generateImageAsset({
@@ -865,15 +886,24 @@ class TelegramService {
         {
           caption: caption ? formatTelegramMarkdown(caption) : undefined,
           parseMode: 'HTML',
-          includeDownloadLink: true
+          includeDownloadLink: false
         },
         this.logger
       );
 
-      await this.memberManager.recordBotResponse(String(ctx.chat.id), userId);
+      const channelId = String(ctx.chat.id);
+      await this.memberManager.recordBotResponse(channelId, userId);
       if (userId && username) await this._recordMediaUsage(userId, username, 'image');
 
-      const channelId = String(ctx.chat.id);
+      // Add to conversation history to prevent duplicate processing
+      await this.conversationManager.addMessage(channelId, {
+        from: 'Bot', 
+        text: caption || `[Generated Image: ${prompt}]`, 
+        date: Math.floor(Date.now() / 1000), 
+        isBot: true, 
+        messageId: sentMessage?.message_id
+      }, true);
+
       const pending = this.pendingReplies.get(channelId) || {};
       pending.lastBotResponseTime = Date.now();
       this.pendingReplies.set(channelId, pending);
@@ -924,6 +954,19 @@ class TelegramService {
 
       await this.memberManager.recordBotResponse(channelId, userId);
       if (userId && username) await this._recordMediaUsage(userId, username, 'video');
+
+      // Add to conversation history
+      await this.conversationManager.addMessage(channelId, {
+        from: 'Bot', 
+        text: `[Generated Video: ${prompt}]`, 
+        date: Math.floor(Date.now() / 1000), 
+        isBot: true, 
+        messageId: sentMessage?.message_id
+      }, true);
+
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
 
       const record = await this._rememberGeneratedMedia(channelId, {
         type: 'video', mediaUrl: videoUrl, prompt,
@@ -1373,15 +1416,29 @@ class TelegramService {
     if (result?.tweetId) {
       await this._markMediaAsTweeted(channelId, media.id, { tweetId: result.tweetId });
       const linkText = (result.tweetUrl || '').trim();
+      let sentMessage;
       if (linkText) {
         try {
-          await ctx.reply(linkText, { disable_web_page_preview: false });
+          sentMessage = await ctx.reply(linkText, { disable_web_page_preview: false });
         } catch {
-          await ctx.reply('🕊️ Posted to X (link unavailable).');
+          sentMessage = await ctx.reply('🕊️ Posted to X (link unavailable).');
         }
       } else {
-        await ctx.reply('🕊️ Posted to X.');
+        sentMessage = await ctx.reply('🕊️ Posted to X.');
       }
+
+      // Add to conversation history
+      await this.conversationManager.addMessage(channelId, {
+        from: 'Bot', 
+        text: linkText || '🕊️ Posted to X.', 
+        date: Math.floor(Date.now() / 1000), 
+        isBot: true, 
+        messageId: sentMessage?.message_id
+      }, true);
+
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
       return { success: true, tweetId: result.tweetId, tweetUrl: result.tweetUrl };
     } else {

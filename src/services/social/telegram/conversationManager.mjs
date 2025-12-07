@@ -47,6 +47,7 @@ export class ConversationManager {
         date: asDate,
         userId: message.userId || null,
         isBot: message.isBot || false,
+        messageId: message.messageId || null,
         createdAt: new Date()
       });
       this.logger?.debug?.(`[ConversationManager] Saved message to database for channel ${channelId}`);
@@ -75,7 +76,8 @@ export class ConversationManager {
         from: msg.isBot ? 'Bot' : msg.from,
         text: msg.text,
         date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date,
-        userId: msg.userId || null
+        userId: msg.userId || null,
+        messageId: msg.messageId || null
       }));
       
       // Merge with existing in-memory history (which may have new messages)

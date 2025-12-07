@@ -53,7 +53,8 @@ export function buildToolDefinitions() {
     buildGenerateVideoFromImageTool(),
     buildExtendVideoTool(),
     buildGenerateVideoInterpolationTool(),
-    buildPostTweetTool()
+    buildPostTweetTool(),
+    buildReactToMessageTool()
   ];
 }
 
@@ -631,4 +632,32 @@ export function logPlanSummary(planEntry, logger) {
   planLogLines.push('╚══════════════════════════════════════════════════════════════╝\n');
   
   logger?.info?.(planLogLines.join('\n'));
+}
+
+/**
+ * Build the react_to_message tool definition
+ * @returns {Object} Tool definition
+ */
+function buildReactToMessageTool() {
+  return {
+    type: 'function',
+    function: {
+      name: 'react_to_message',
+      description: 'Add an emoji reaction to a specific message.',
+      parameters: {
+        type: 'object',
+        properties: {
+          emoji: {
+            type: 'string',
+            description: 'The emoji to react with (e.g. 👍, ❤️, 🔥, etc). Must be a supported Telegram reaction emoji.'
+          },
+          messageId: {
+            type: 'number',
+            description: 'The ID of the message to react to. If not provided, reacts to the last user message.'
+          }
+        },
+        required: ['emoji']
+      }
+    }
+  };
 }
