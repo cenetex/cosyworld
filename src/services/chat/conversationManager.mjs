@@ -78,8 +78,8 @@ export class ConversationManager  {
     this.toolFastPathEnabled = String(process.env.TOOL_FAST_PATH_ENABLED || 'true').toLowerCase() === 'true';
     this.skipFinalResponseAfterRespond = String(process.env.SKIP_FINAL_RESPONSE_AFTER_RESPOND_TOOL || 'true').toLowerCase() === 'true';
 
-    const parsedMax = Number(process.env.AI_COMPLETION_MAX_TOKENS || 1024);
-    this.maxCompletionTokens = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 1024;
+    const parsedMax = Number(process.env.AI_COMPLETION_MAX_TOKENS || 4096);
+    this.maxCompletionTokens = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 4096;
 
     const parsedLowCreditMax = Number(process.env.AI_LOW_CREDIT_MAX_TOKENS || Math.min(640, this.maxCompletionTokens));
     this.lowCreditMaxTokens = Number.isFinite(parsedLowCreditMax) && parsedLowCreditMax > 0
@@ -939,7 +939,7 @@ export class ConversationManager  {
   // returnEnvelope: true allows us to detect and handle model errors (like 404 model not found)
   const chatOptions = {
         model: avatar.model,
-        max_tokens: this._capCompletionTokens(1024),
+        max_tokens: this._capCompletionTokens(4096),
         corrId,
         returnEnvelope: true,
       };
@@ -1233,10 +1233,10 @@ export class ConversationManager  {
     }
   }
 
-  _capCompletionTokens(requested = 1024) {
+  _capCompletionTokens(requested = 4096) {
     const cap = Number.isFinite(this.maxCompletionTokens) && this.maxCompletionTokens > 0
       ? this.maxCompletionTokens
-      : 1024;
+      : 4096;
     if (!Number.isFinite(requested) || requested <= 0) {
       return cap;
     }
