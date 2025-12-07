@@ -151,7 +151,7 @@ export class WebhookManager {
     if (entry) {
       try {
         entry.webhook?.destroy?.();
-      } catch (_e) {
+      } catch {
         // Ignore cleanup errors
       }
       this.cache.delete(channelId);
@@ -197,7 +197,7 @@ export class WebhookManager {
       if (now - entry.timestamp >= this.ttlMs) {
         try {
           entry.webhook?.destroy?.();
-        } catch (_e) {
+        } catch {
           // Ignore cleanup errors
         }
         this.cache.delete(channelId);
@@ -236,7 +236,7 @@ export class WebhookManager {
       const entry = this.cache.get(oldestKey);
       try {
         entry?.webhook?.destroy?.();
-      } catch (_e) {
+      } catch {
         // Ignore cleanup errors
       }
       this.cache.delete(oldestKey);
@@ -285,7 +285,7 @@ export class WebhookManager {
     for (const [_channelId, entry] of this.cache.entries()) {
       try {
         entry.webhook?.destroy?.();
-      } catch (_e) {
+      } catch {
         // Ignore cleanup errors
       }
     }

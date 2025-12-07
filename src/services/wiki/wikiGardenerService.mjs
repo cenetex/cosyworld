@@ -390,7 +390,7 @@ Return a JSON object with:
         return JSON.parse(text);
       }
       return text;
-    } catch (e) {
+    } catch {
       // Fallback to text-only if JSON fails
       const text = await this.ai.chat([{ role: 'user', content: prompt }]);
       return { content: text.text || text, summary: null };
@@ -426,7 +426,7 @@ Return a JSON object with:
         return JSON.parse(text);
       }
       return text;
-    } catch (e) {
+    } catch {
        // Fallback
        const text = await this.ai.chat([{ role: 'user', content: prompt }]);
        return { content: text.text || text, summary: null };
