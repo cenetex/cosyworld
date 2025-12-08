@@ -97,6 +97,7 @@ import { ResponseCoordinator } from './services/chat/responseCoordinator.mjs';
 import { ToolSchemaGenerator } from './services/tools/toolSchemaGenerator.mjs';
 import { ToolExecutor } from './services/tools/toolExecutor.mjs';
 import { ToolDecisionService } from './services/tools/toolDecisionService.mjs';
+import { AgentContinuationService } from './services/tools/agentContinuationService.mjs';
 import eventBus from './utils/eventBus.mjs';
 import { SecretsService } from './services/security/secretsService.mjs';
 import { EmbeddingService } from './services/memory/embeddingService.mjs';
@@ -458,6 +459,7 @@ async function initializeContainer() {
     toolService: asClass(ToolService).singleton(),
     toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),
     toolDecisionService: asClass(ToolDecisionService).singleton(),
+    agentContinuationService: asClass(AgentContinuationService).singleton(),
     toolExecutor: asClass(ToolExecutor).singleton(),
     discordService: asClass(DiscordService).singleton(),
     buybotService: asClass(BuybotService).singleton().inject(() => ({

@@ -940,13 +940,20 @@ export class ConversationManager  {
     this.logger.debug?.(`[AI][sendResponse][${corrId}] Executing ${toolCalls.length} tool(s) before response`);
     
     try {
-      const toolResults = await this.toolExecutor.executeToolCalls(
+      // Execute tools with multi-step continuation support
+      const toolExecution = await this.toolExecutor.executeToolCalls(
         toolCalls,
         { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
-        avatar
+        avatar,
+        {}, // services
+        { chatHistory: chatMessages } // Pass chat history for continuation context
       );
       
-      this.logger.debug?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolResults)}`);
+      // Handle both old array format and new object format
+      const toolResults = toolExecution?.results || toolExecution || [];
+      const finalDecision = toolExecution?.finalDecision;
+      
+      this.logger.debug?.(`[AI][sendResponse][${corrId}] ${this.toolExecutor.getSummary(toolExecution)}`);
       
       // Add tool execution context to the conversation
       const toolSummary = toolResults.map(r => 
@@ -1004,10 +1011,21 @@ export class ConversationManager  {
         return null; // Early exit - no final response needed
       }
       
+      // Check if continuation service decided no response needed
+      if (finalDecision && !finalDecision.shouldRespond) {
+        this.logger.debug?.(`[AI][sendResponse][${corrId}] Continuation decided no response needed`);
+        this.channelLastBotMessage.set(channel.id, Date.now());
+        responders.add(avatar._id);
+        return null;
+      }
+      
       // Inject tool results into the conversation
+      const iterationNote = toolExecution?.iterations > 1 
+        ? ` (over ${toolExecution.iterations} steps)` 
+        : '';
       chatMessages.push({
         role: 'user',
-        content: `[System: You just performed these actions:\n${toolSummary}\n\nNow respond naturally, incorporating what just happened.]`
+        content: `[System: You just performed these actions${iterationNote}:\n${toolSummary}\n\nNow respond naturally, incorporating what just happened.]`
       });
       
     } catch (toolError) {

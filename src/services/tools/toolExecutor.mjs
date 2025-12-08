@@ -10,13 +10,14 @@
  * Handles tool call chains and result aggregation for LLM-driven agentic behavior.
  */
 export class ToolExecutor {
-  constructor({ logger, toolService, toolSchemaGenerator }) {
+  constructor({ logger, toolService, toolSchemaGenerator, agentContinuationService }) {
     this.logger = logger || console;
     this.toolService = toolService;
     this.toolSchemaGenerator = toolSchemaGenerator;
+    this.continuationService = agentContinuationService;
     
     // Configuration
-    this.maxIterations = parseInt(process.env.TOOL_MAX_ITERATIONS || '3', 10);
+    this.maxIterations = parseInt(process.env.TOOL_MAX_ITERATIONS || '5', 10);
     this.enableToolChaining = String(process.env.TOOL_ENABLE_CHAINING || 'true').toLowerCase() === 'true';
   }
 
@@ -107,21 +108,23 @@ export class ToolExecutor {
   }
 
   /**
-   * Execute multiple tool calls with optional chaining
+   * Execute multiple tool calls with optional chaining and continuation
    * @param {Array} toolCalls - Array of tool calls from LLM
    * @param {Object} message - Discord message context
    * @param {Object} avatar - Avatar executing the tools
    * @param {Object} services - Additional services for tool execution
-   * @param {Object} options - Execution options { maxIterations, enableChaining }
-   * @returns {Array} Array of tool execution results
+   * @param {Object} options - Execution options { maxIterations, enableChaining, chatHistory }
+   * @returns {Object} Result with { results: Array, finalDecision: Object }
    */
   async executeToolCalls(toolCalls, message, avatar, services = {}, options = {}) {
     const maxIterations = options.maxIterations || this.maxIterations;
     const enableChaining = options.enableChaining !== undefined ? options.enableChaining : this.enableToolChaining;
+    const chatHistory = options.chatHistory || [];
     
     const allResults = [];
     let iteration = 0;
     let currentCalls = toolCalls;
+    let finalDecision = null;
     
     this.logger.debug?.(`[ToolExecutor] Starting tool execution loop (max ${maxIterations} iterations, chaining: ${enableChaining})`);
     
@@ -136,22 +139,83 @@ export class ToolExecutor {
         allResults.push(result);
       }
       
+      iteration++;
+      
       // If chaining disabled or last iteration, stop here
-      if (!enableChaining || iteration >= maxIterations - 1) {
+      if (!enableChaining || iteration >= maxIterations) {
         this.logger.debug?.(`[ToolExecutor] Tool execution complete (chaining disabled or max iterations reached)`);
+        finalDecision = {
+          needsMoreActions: false,
+          reasoning: iteration >= maxIterations ? 'Max iterations reached' : 'Chaining disabled',
+          shouldRespond: true
+        };
         break;
       }
       
-      // For now, don't automatically request follow-up tools
-      // In the future, we could analyze results and suggest next actions
-      currentCalls = [];
-      
-      iteration++;
+      // Use continuation service to decide if more actions needed
+      if (this.continuationService) {
+        try {
+          const decision = await this.continuationService.shouldContinue({
+            avatar,
+            toolResults: iterationResults,
+            chatHistory,
+            originalMessage: message,
+            iteration,
+            maxIterations
+          });
+          
+          this.logger.debug?.(`[ToolExecutor] Continuation decision: needsMore=${decision.needsMoreActions}, tools=${decision.toolCalls?.length || 0}`);
+          
+          if (decision.needsMoreActions && decision.toolCalls?.length > 0) {
+            currentCalls = decision.toolCalls;
+            this.logger.info?.(`[ToolExecutor] ${avatar.name} continuing with ${currentCalls.length} more tool(s)`);
+          } else {
+            currentCalls = [];
+            finalDecision = decision;
+          }
+        } catch (error) {
+          this.logger.error?.(`[ToolExecutor] Continuation check failed: ${error.message}`);
+          currentCalls = [];
+          finalDecision = {
+            needsMoreActions: false,
+            reasoning: `Continuation error: ${error.message}`,
+            shouldRespond: true
+          };
+        }
+      } else {
+        // No continuation service - check heuristically
+        const suggestsContinue = iterationResults.some(r => this._suggestsContinuation(r));
+        if (!suggestsContinue) {
+          currentCalls = [];
+        }
+      }
     }
     
-    this.logger.info?.(`[ToolExecutor] Completed tool execution: ${allResults.length} total calls over ${iteration + 1} iteration(s)`);
+    this.logger.info?.(`[ToolExecutor] Completed tool execution: ${allResults.length} total calls over ${iteration} iteration(s)`);
     
-    return allResults;
+    return {
+      results: allResults,
+      finalDecision: finalDecision || { needsMoreActions: false, shouldRespond: true },
+      iterations: iteration
+    };
+  }
+
+  /**
+   * Simple heuristic to suggest if continuation might be needed
+   * @param {Object} toolResult - Single tool result
+   * @returns {boolean}
+   * @private
+   */
+  _suggestsContinuation(toolResult) {
+    if (!toolResult || !toolResult.success) return false;
+    
+    const result = String(toolResult.result || '').toLowerCase();
+    
+    // Results that suggest follow-up might be useful
+    if (result.includes('now in context')) return true;
+    if (result.includes('found') && result.includes('results')) return true;
+    
+    return false;
   }
 
   /**
@@ -213,14 +277,25 @@ export class ToolExecutor {
 
   /**
    * Get a summary of tool execution for logging
-   * @param {Array} results - Array of tool execution results
+   * @param {Array|Object} resultsOrExecution - Array of results or execution object { results, finalDecision }
    * @returns {string} Summary string
    */
-  getSummary(results) {
+  getSummary(resultsOrExecution) {
+    // Handle both old array format and new object format
+    const results = Array.isArray(resultsOrExecution) 
+      ? resultsOrExecution 
+      : (resultsOrExecution?.results || []);
+    
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     const toolNames = results.map(r => r.toolName).join(', ');
+    const iterations = resultsOrExecution?.iterations;
     
-    return `Executed ${results.length} tool(s): ${toolNames} (${successful} succeeded, ${failed} failed)`;
+    let summary = `Executed ${results.length} tool(s): ${toolNames} (${successful} succeeded, ${failed} failed)`;
+    if (iterations && iterations > 1) {
+      summary += ` over ${iterations} iterations`;
+    }
+    
+    return summary;
   }
 }
