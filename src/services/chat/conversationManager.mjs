@@ -727,6 +727,15 @@ export class ConversationManager  {
       this.logger.debug?.(`[ConversationManager] ${avatar.name} already responded in channel ${channel.id}`);
       return null;
     }
+    
+    // Start typing indicator to show user the bot is working
+    let stopTyping = () => {};
+    try {
+      stopTyping = await this.discordService.startTyping(channel.id);
+    } catch (e) {
+      this.logger.debug?.(`[ConversationManager] Failed to start typing indicator: ${e.message}`);
+    }
+    
     try {
   let response = presetResponse;
   // Capture adapter/provider reasoning to merge into thoughts later
@@ -1263,6 +1272,9 @@ export class ConversationManager  {
     } catch (error) {
       this.logger.error(`CONVERSATION: Error sending response for ${avatar.name}: ${error.message}`);
       throw error;
+    } finally {
+      // Always stop typing indicator when done
+      stopTyping();
     }
   }
 

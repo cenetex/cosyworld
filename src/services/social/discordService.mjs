@@ -605,6 +605,54 @@ export class DiscordService {
     }
   }
 
+  /**
+   * Start a typing indicator in a channel that auto-refreshes until stopped.
+   * Discord typing indicators last ~10 seconds, so we refresh every 8 seconds.
+   * @param {string} channelId - The channel ID to show typing in
+   * @returns {Function} A stop function to call when done typing
+   */
+  async startTyping(channelId) {
+    if (!channelId) return () => {};
+    
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased?.()) return () => {};
+      
+      // Send initial typing indicator
+      await channel.sendTyping().catch(() => {});
+      
+      // Set up interval to refresh typing every 8 seconds (Discord typing lasts ~10s)
+      const intervalId = setInterval(() => {
+        channel.sendTyping().catch(() => {});
+      }, 8000);
+      
+      // Return stop function
+      return () => {
+        clearInterval(intervalId);
+      };
+    } catch (error) {
+      this.logger?.debug?.(`[DiscordService] Failed to start typing in ${channelId}: ${error.message}`);
+      return () => {};
+    }
+  }
+
+  /**
+   * Send a one-time typing indicator to a channel.
+   * @param {string} channelId - The channel ID to show typing in
+   */
+  async sendTyping(channelId) {
+    if (!channelId) return;
+    
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel?.isTextBased?.()) {
+        await channel.sendTyping();
+      }
+    } catch (error) {
+      this.logger?.debug?.(`[DiscordService] Failed to send typing to ${channelId}: ${error.message}`);
+    }
+  }
+
   async sendAvatarEmbed(avatar, targetChannelId, aiService) {
     this.validateAvatar(avatar);
     const channelId = targetChannelId || avatar.channelId;
