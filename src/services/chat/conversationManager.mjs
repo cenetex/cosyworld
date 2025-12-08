@@ -961,9 +961,9 @@ export class ConversationManager  {
       ).join('\n');
       
       // Post tool results to the channel so they're visible
-      // Note: Some tools (like attack/flee in combat) already post via webhook internally,
+      // Note: Some tools (like attack/flee in combat, move) already post via webhook internally,
       // so we filter to avoid double-posting. We only post for tools that return pure status messages.
-      const toolsWithInternalPosting = new Set(['attack', 'flee', 'defend']);
+      const toolsWithInternalPosting = new Set(['attack', 'flee', 'defend', 'move']);
       
       let respondToolPosted = false; // Track if respond tool posted
       
@@ -1017,6 +1017,30 @@ export class ConversationManager  {
         this.channelLastBotMessage.set(channel.id, Date.now());
         responders.add(avatar._id);
         return null;
+      }
+      
+      // CRITICAL: Check if avatar moved during tool execution (e.g., MoveTool)
+      // If so, redirect the final response to the new channel
+      const hadMoveTool = toolResults.some(r => r.toolName === 'move' && r.success);
+      if (hadMoveTool) {
+        try {
+          const freshAvatar = await this.avatarService.getAvatarById(avatar._id || avatar.id);
+          if (freshAvatar && String(freshAvatar.channelId) !== String(channel.id)) {
+            this.logger.info?.(`[AI][sendResponse][${corrId}] Avatar ${avatar.name} moved to ${freshAvatar.channelId}, redirecting final response`);
+            
+            // Fetch the new channel for the final response
+            const newChannel = await this.discordService.client.channels.fetch(freshAvatar.channelId);
+            if (newChannel) {
+              // Update references - avatar data and channel for final response
+              avatar = freshAvatar;
+              channel = newChannel;
+            } else {
+              this.logger.warn?.(`[AI][sendResponse][${corrId}] Could not fetch new channel ${freshAvatar.channelId}, response will go to original channel`);
+            }
+          }
+        } catch (moveCheckError) {
+          this.logger.warn?.(`[AI][sendResponse][${corrId}] Failed to check avatar location after move: ${moveCheckError.message}`);
+        }
       }
       
       // Inject tool results into the conversation
