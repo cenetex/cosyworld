@@ -77,7 +77,8 @@ export class ConversationManager {
         text: msg.text,
         date: msg.date instanceof Date ? Math.floor(msg.date.getTime() / 1000) : msg.date,
         userId: msg.userId || null,
-        messageId: msg.messageId || null
+        messageId: msg.messageId || null,
+        isBot: msg.isBot || false
       }));
       
       // Merge with existing in-memory history (which may have new messages)
@@ -216,7 +217,12 @@ export class ConversationManager {
   async addMessage(channelId, message, saveToDb = true) {
     const normalizedChannelId = String(channelId);
     const history = this.conversationHistory.get(normalizedChannelId) || [];
-    history.push(message);
+    // Ensure isBot field is set correctly
+    const messageWithBot = {
+      ...message,
+      isBot: message.isBot || message.from === 'Bot'
+    };
+    history.push(messageWithBot);
     
     if (history.length > this.HISTORY_LIMIT) {
       this.conversationHistory.set(normalizedChannelId, history.slice(-this.HISTORY_LIMIT));
@@ -225,8 +231,8 @@ export class ConversationManager {
     }
     
     if (saveToDb) {
-      // Don't await to avoid blocking
-      this.saveMessageToDatabase(normalizedChannelId, message).catch(err => 
+      // Don't await to avoid blocking - use messageWithBot to preserve isBot flag
+      this.saveMessageToDatabase(normalizedChannelId, messageWithBot).catch(err => 
         this.logger?.error?.('[ConversationManager] Background save failed:', err)
       );
     }

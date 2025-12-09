@@ -467,9 +467,12 @@ class TelegramService {
 
     let history = this.conversationManager.getHistory(channelId);
     if (!history || history.length === 0) {
-      this.conversationManager.loadConversationHistory(channelId).catch(err => 
-        this.logger?.error?.('[TelegramService] Background history load failed:', err)
-      );
+      // Await the history load to ensure we have context before processing
+      try {
+        history = await this.conversationManager.loadConversationHistory(channelId);
+      } catch (err) {
+        this.logger?.error?.('[TelegramService] History load failed:', err);
+      }
     }
     
     await this.conversationManager.addMessage(channelId, {
