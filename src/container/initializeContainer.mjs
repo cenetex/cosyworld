@@ -297,6 +297,9 @@ export async function initializeContainer({ container, logger, configService }) 
       getMapService: asFunction(() => () => container.resolve('mapService')).singleton(),
     });
     container.register({
+      getBuybotService: asFunction(() => () => container.resolve('buybotService')).singleton(),
+    });
+    container.register({
       getConversationManager: asFunction(() => () => container.resolve('conversationManager')).singleton(),
     });
     container.register({
