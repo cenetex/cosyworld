@@ -2,36 +2,42 @@
  * Collection Sync Service: reusable sync for NFT-derived avatars.
  */
 import 'dotenv/config';
-import { container } from '../../container.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import pkg from 'js-sha3';
 import { buildAvatarGuildMatch, buildCollectionConfigScopeQuery, normalizeGuildId } from '../../utils/guildScope.mjs';
 
-// Lazy helpers to avoid resolving before container is ready
-const getLogger = () => {
-  try { return container.resolve('logger'); } catch { return console; }
-};
-const getDBService = () => container.resolve('databaseService');
-const getAIService = () => {
-  try {
-    const pref = String(process.env.AI_SERVICE || '').toLowerCase();
-    if (pref === 'google') return container.resolve('googleAIService');
-    if (pref === 'openrouter') return container.resolve('openrouterAIService');
-    if (pref === 'ollama') return container.resolve('ollamaAIService');
-    if (pref === 'replicate') return container.resolve('replicateAIService');
-    // Fallbacks
-    if (container.registrations.aiService) return container.resolve('aiService');
-    // Try common names if no explicit preference
-    for (const name of ['openrouterAIService','googleAIService','ollamaAIService','replicateAIService']) {
-      if (container.registrations[name]) return container.resolve(name);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
+function normalizeDeps(deps = {}) {
+  return {
+    logger: deps.logger || console,
+    databaseService: deps.databaseService || null,
+    s3Service: deps.s3Service || null,
+    aiService: deps.aiService || deps.unifiedAIService || null,
+    openrouterAIService: deps.openrouterAIService || null,
+    googleAIService: deps.googleAIService || null,
+    ollamaAIService: deps.ollamaAIService || null,
+    replicateAIService: deps.replicateAIService || null,
+  };
+}
+
+function pickAIService(deps) {
+  const {
+    aiService,
+    openrouterAIService,
+    googleAIService,
+    ollamaAIService,
+    replicateAIService,
+  } = deps;
+
+  const pref = String(process.env.AI_SERVICE || '').toLowerCase();
+  if (pref === 'google') return googleAIService || aiService;
+  if (pref === 'openrouter') return openrouterAIService || aiService;
+  if (pref === 'ollama') return ollamaAIService || aiService;
+  if (pref === 'replicate') return replicateAIService || aiService;
+
+  return aiService || openrouterAIService || googleAIService || ollamaAIService || replicateAIService || null;
+}
 async function getIdentityFns() {
   try {
     const idMod = await import('../../utils/agentIdentity.mjs');
@@ -279,14 +285,14 @@ async function fetchFromHelius({ apiKey, collection }) {
   return tokens;
 }
 
-async function fetchCollectionViaApi({ provider, apiKey, collection, chain }) {
+async function fetchCollectionViaApi({ provider, apiKey, collection, chain }, logger = console) {
   const p = (provider || '').toLowerCase();
   if (!p) return null;
   if (p === 'reservoir') return await fetchFromReservoir({ apiKey, collection });
   if (p === 'opensea') return await fetchFromOpenSea({ apiKey, collection, chain });
   if (p === 'alchemy') return await fetchFromAlchemy({ apiKey, collection, chain });
   if (p === 'helius' || chain === 'solana') return await fetchFromHelius({ apiKey, collection });
-  getLogger().warn(`Unknown NFT provider '${provider}'.`);
+  logger.warn?.(`Unknown NFT provider '${provider}'.`);
   return null;
 }
 
@@ -305,9 +311,9 @@ function buildTraitSummary(nft) {
   return traitEntries.join('\n');
 }
 
-async function synthesizeDynamicPersonality(baseDescription, providedPersonality, traitSummary, coordinator) {
+async function synthesizeDynamicPersonality(baseDescription, providedPersonality, traitSummary, coordinator, deps) {
   const prompt = `You are enriching an avatar personality.\nBase Description:\n${baseDescription}\n\nProvided Personality (optional):\n${providedPersonality || 'N/A'}\n\nTraits:\n${traitSummary}\n\nCoordinator / Faction: ${coordinator || 'Unknown'}\n\nTask: Combine these into an in-universe first-person style dynamic internal monologue (120-200 words).`;
-  const aiService = getAIService();
+  const aiService = pickAIService(deps);
   if (!aiService?.chat) return providedPersonality || baseDescription;
   try {
     const response = await aiService.chat([
@@ -316,21 +322,22 @@ async function synthesizeDynamicPersonality(baseDescription, providedPersonality
     ]);
     return response;
   } catch (e) {
-    getLogger().warn('Failed to synthesize dynamic personality: ' + e.message);
+    deps.logger.warn?.('Failed to synthesize dynamic personality: ' + e.message);
     return providedPersonality || baseDescription;
   }
 }
 
-async function upsertAvatarFromNft(nft, ctx) {
+async function upsertAvatarFromNft(nft, ctx, deps) {
   const { collectionId, chain, provider, force: _force, guildId: rawGuildId } = ctx;
+  const { logger, databaseService, s3Service } = deps;
   const guildId = normalizeGuildId(rawGuildId);
-  const databaseService = getDBService();
+  if (!databaseService?.getDatabase) throw new Error('databaseService is required');
   const db = await databaseService.getDatabase();
   const avatarsCol = db.collection('avatars');
 
   const name = (nft.name || '').trim();
   if (!name) {
-    getLogger().warn('Skipping NFT with no name.');
+    logger.warn?.('Skipping NFT with no name.');
     return null;
   }
 
@@ -345,15 +352,15 @@ async function upsertAvatarFromNft(nft, ctx) {
   const providedPersonality = nft.personality?.trim() || nft.attributes?.Personality || null;
   const traitSummary = buildTraitSummary(nft);
   const coordinator = nft.attributes?.Coordinator || nft.attributes?.Faction || null;
-  const dynamicPersonality = await synthesizeDynamicPersonality(description, providedPersonality, traitSummary, coordinator);
+  const dynamicPersonality = await synthesizeDynamicPersonality(description, providedPersonality, traitSummary, coordinator, deps);
 
-  const aiSvc = getAIService();
+  const aiSvc = pickAIService(deps);
 
   const rawImageUrl = resolveImageUrl(nft);
   let imageUrl = rawImageUrl;
   try {
     if (rawImageUrl && /^https?:\/\//i.test(rawImageUrl)) {
-      const s3Service = container.resolve('s3Service');
+      if (!s3Service?.downloadImage || !s3Service?.uploadImage) return;
       const buf = await s3Service.downloadImage(rawImageUrl).catch(() => null);
       if (buf) {
         const ext = rawImageUrl.split('?')[0].split('.').pop().toLowerCase();
@@ -367,7 +374,7 @@ async function upsertAvatarFromNft(nft, ctx) {
       }
     }
   } catch (e) {
-    getLogger().warn(`Rehosting failed for ${rawImageUrl}: ${e.message}`);
+    logger.warn?.(`Rehosting failed for ${rawImageUrl}: ${e.message}`);
   }
 
   let agentId = null;
@@ -441,26 +448,29 @@ async function upsertAvatarFromNft(nft, ctx) {
   }
 }
 
-export async function syncAvatarsForCollection({
-  collectionId,
-  provider = process.env.NFT_API_PROVIDER || '',
-  apiKey = process.env.NFT_API_KEY || process.env.RESERVOIR_API_KEY || process.env.OPENSEA_API_KEY || process.env.ALCHEMY_API_KEY || process.env.HELIUS_API_KEY,
-  chain = (process.env.NFT_CHAIN || 'ethereum').toLowerCase(),
-  fileSource,
-  force = false,
-  guildId = null,
-}, progressReporter = null) {
+export async function syncAvatarsForCollection(options, progressReporter = null, depsInput = {}) {
+  const {
+    collectionId,
+    provider = process.env.NFT_API_PROVIDER || '',
+    apiKey = process.env.NFT_API_KEY || process.env.RESERVOIR_API_KEY || process.env.OPENSEA_API_KEY || process.env.ALCHEMY_API_KEY || process.env.HELIUS_API_KEY,
+    chain = (process.env.NFT_CHAIN || 'ethereum').toLowerCase(),
+    fileSource,
+    force = false,
+    guildId = null,
+  } = options || {};
+
+  const deps = normalizeDeps(depsInput);
   if (!collectionId) throw new Error('collectionId required');
-  const databaseService = getDBService();
-  await databaseService.getDatabase();
+  if (!deps.databaseService?.getDatabase) throw new Error('databaseService is required');
+  await deps.databaseService.getDatabase();
 
   const normalizedGuildId = normalizeGuildId(guildId);
 
   let apiNfts = null;
   try {
-    apiNfts = await fetchCollectionViaApi({ provider, apiKey, collection: collectionId, chain });
+    apiNfts = await fetchCollectionViaApi({ provider, apiKey, collection: collectionId, chain }, deps.logger);
   } catch (e) {
-    getLogger().error(`API fetch failed: ${e.message}`);
+    deps.logger.error?.(`API fetch failed: ${e.message}`);
   }
   let fileNfts = [];
   if (fileSource) {
@@ -493,14 +503,14 @@ export async function syncAvatarsForCollection({
   let processed = 0;
   for (const nft of nfts) {
     try {
-      await upsertAvatarFromNft(nft, { collectionId, chain, provider, force, guildId: normalizedGuildId });
+      await upsertAvatarFromNft(nft, { collectionId, chain, provider, force, guildId: normalizedGuildId }, deps);
       processed++; success++;
       if (typeof progressReporter === 'function') {
         try { await progressReporter({ collectionId, processed, success, failures, nft, guildId: normalizedGuildId }); } catch {}
       }
     } catch (e) {
       processed++; failures++;
-      getLogger().error(`Failed processing NFT '${nft?.name}': ${e.message}`);
+      deps.logger.error?.(`Failed processing NFT '${nft?.name}': ${e.message}`);
       if (typeof progressReporter === 'function') {
         try { await progressReporter({ collectionId, processed, success, failures, nft, error: e.message, guildId: normalizedGuildId }); } catch {}
       }
@@ -515,13 +525,15 @@ export async function syncAvatarsForCollection({
  * @returns {Promise<object|null>} The synced avatar document or null if not found
  */
 export async function syncAvatarByNameFromCollections(avatarName, guildId = null) {
+export async function syncAvatarByNameFromCollections(avatarName, guildId = null, depsInput = {}) {
+  const deps = normalizeDeps(depsInput);
   if (!avatarName) return null;
-  const logger = getLogger();
+  const logger = deps.logger;
   const normalizedGuildId = normalizeGuildId(guildId);
   
   try {
-    const databaseService = getDBService();
-    const db = await databaseService.getDatabase();
+    if (!deps.databaseService?.getDatabase) throw new Error('databaseService is required');
+    const db = await deps.databaseService.getDatabase();
     
     // Check if there are any configured collections
     const configFilter = normalizedGuildId
@@ -547,7 +559,7 @@ export async function syncAvatarByNameFromCollections(avatarName, guildId = null
         
         // Try API first
         try {
-          const apiNfts = await fetchCollectionViaApi({ provider, apiKey, collection: cfg.key, chain });
+          const apiNfts = await fetchCollectionViaApi({ provider, apiKey, collection: cfg.key, chain }, logger);
           if (apiNfts && apiNfts.length) nfts = apiNfts;
         } catch (e) {
           logger.debug?.(`API fetch failed for ${cfg.key}: ${e.message}`);
@@ -586,7 +598,7 @@ export async function syncAvatarByNameFromCollections(avatarName, guildId = null
             provider,
             force: false,
             guildId: cfgGuildId,
-          });
+          }, deps);
           
           if (avatar) {
             logger.info?.(`Successfully synced ${avatarName} from collection ${cfg.key}`);

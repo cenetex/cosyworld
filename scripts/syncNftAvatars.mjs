@@ -4,10 +4,13 @@ import { container, containerReady } from '../src/container.mjs';
 import { syncAvatarsForCollection } from '../src/services/collections/collectionSyncService.mjs';
 import path from 'path';
 
-const logger = container.resolve('logger');
+const safeResolve = (name) => {
+  try { return container.resolve(name); } catch { return null; }
+};
 
 async function main() {
   await containerReady;
+  const logger = safeResolve('logger') || console;
   const args = process.argv.slice(2);
 
   const optionValue = (flag) => {
@@ -57,6 +60,16 @@ async function main() {
     fileSource,
     force,
     guildId,
+  }, null, {
+    logger,
+    databaseService: safeResolve('databaseService'),
+    s3Service: safeResolve('s3Service'),
+    aiService: safeResolve('aiService'),
+    unifiedAIService: safeResolve('unifiedAIService'),
+    openrouterAIService: safeResolve('openrouterAIService') || safeResolve('openRouterAIService'),
+    googleAIService: safeResolve('googleAIService'),
+    ollamaAIService: safeResolve('ollamaAIService'),
+    replicateAIService: safeResolve('replicateAIService'),
   });
   logger.info(`NFT avatar sync complete. Success ${res.success}/${res.processed}, failures ${res.failures}.`);
   process.exit(res.failures ? 1 : 0);

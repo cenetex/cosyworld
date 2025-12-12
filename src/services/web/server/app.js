@@ -195,6 +195,18 @@ async function initializeApp(services) {
       configService: services.configService,
     };
 
+    const adminCollectionsRouteServices = {
+      logger,
+      databaseService: services.databaseService,
+      s3Service: services.s3Service,
+      aiService: services.aiService,
+      unifiedAIService: services.unifiedAIService,
+      openrouterAIService: services.openrouterAIService || services.openRouterAIService,
+      googleAIService: services.googleAIService,
+      ollamaAIService: services.ollamaAIService,
+      replicateAIService: services.replicateAIService,
+    };
+
     const adminReplicateRouteServices = {
       secretsService: services.secretsService,
       configService: services.configService,
@@ -305,7 +317,7 @@ async function initializeApp(services) {
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
   app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, adminUsersRouteServices));
-  app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
+  app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db, adminCollectionsRouteServices));
   app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(adminReplicateRouteServices));
   
   // Public Invite Route

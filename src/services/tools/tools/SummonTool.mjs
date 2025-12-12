@@ -829,7 +829,12 @@ export class SummonTool extends BasicTool {
         if (!existingAvatar && !collectionDisabled) {
           try {
             const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
-            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName, guildId);
+            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName, guildId, {
+              logger: this.logger,
+              databaseService: this.databaseService,
+              aiService: this.unifiedAIService || this.aiService,
+              unifiedAIService: this.unifiedAIService,
+            });
             if (syncedAvatar) {
               this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection`);
               existingAvatar = syncedAvatar;

@@ -5,7 +5,7 @@ import express from 'express';
 import { syncAvatarsForCollection } from '../../../collections/collectionSyncService.mjs';
 import { buildAvatarGuildMatch, buildCollectionConfigScopeQuery, normalizeGuildId } from '../../../../utils/guildScope.mjs';
 
-export default function(db) {
+export default function(db, routeServices = {}) {
   if (!db) throw new Error('Database not connected');
   const router = express.Router();
   const configs = db.collection('collection_configs');
@@ -94,7 +94,11 @@ export default function(db) {
         });
       };
 
-      const result = await syncAvatarsForCollection({ collectionId: key, provider, apiKey, chain, fileSource, force, guildId: guildIdForSync }, reporter);
+      const result = await syncAvatarsForCollection(
+        { collectionId: key, provider, apiKey, chain, fileSource, force, guildId: guildIdForSync },
+        reporter,
+        routeServices
+      );
       // mark done and store result
       await progressCol.updateOne({ key }, { $set: { done: true, completedAt: new Date(), result, guildId: guildIdForSync } });
       await configs.updateOne({ key }, { $set: { lastSyncAt: new Date(), lastSyncResult: result } });
