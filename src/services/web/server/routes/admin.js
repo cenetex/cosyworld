@@ -1298,7 +1298,7 @@ function createRouter(db, services) {
       }
 
       // Use S3Service to upload the image
-      const s3Service = req.app.locals.services?.s3Service;
+      const s3Service = services?.s3Service;
       if (!s3Service) {
         return res.status(500).json({ error: 'S3Service not available' });
       }

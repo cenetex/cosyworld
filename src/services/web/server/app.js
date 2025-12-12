@@ -118,8 +118,7 @@ async function initializeApp(services) {
   const publicImagesDir = path.join(staticDir, 'images');
   app.use('/images', express.static(publicImagesDir, { maxAge: '7d', etag: false }));
 
-    // Core services
-    app.locals.services = services;
+    // Core app locals
   // Reuse existing DB connection; do not force re-connect if already connected
   const db = await services.databaseService.getDatabase();
   logger.info('Web server using existing database connection');
@@ -216,6 +215,7 @@ async function initializeApp(services) {
       memoryService: services.memoryService,
       promptService: services.promptService,
       secretsService: services.secretsService,
+      s3Service: services.s3Service,
     };
 
     const configRouteServices = {
@@ -279,7 +279,13 @@ async function initializeApp(services) {
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
     app.use('/api/health', (await import('./routes/health.js')).default(db, healthRouteServices));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
-    app.use('/api/nft', (await import('./routes/nft.js')).default);
+    const nftRouteServices = {
+      databaseService: services.databaseService,
+      nftMetadataService: services.nftMetadataService,
+      arweaveService: services.arweaveService,
+      logger,
+    };
+    app.use('/api/nft', (await import('./routes/nft.js')).default(nftRouteServices));
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
     app.use('/api/xauth', (await import('./routes/xauth.js')).default(xAuthRouteServices));
