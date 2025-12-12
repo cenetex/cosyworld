@@ -524,7 +524,6 @@ export async function syncAvatarsForCollection(options, progressReporter = null,
  * @param {string} avatarName - The name to search for
  * @returns {Promise<object|null>} The synced avatar document or null if not found
  */
-export async function syncAvatarByNameFromCollections(avatarName, guildId = null) {
 export async function syncAvatarByNameFromCollections(avatarName, guildId = null, depsInput = {}) {
   const deps = normalizeDeps(depsInput);
   if (!avatarName) return null;

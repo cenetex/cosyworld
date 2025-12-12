@@ -59,6 +59,37 @@ import { KnowledgeBaseService } from '../knowledge/knowledgeBaseService.mjs';
 const MAX_REFERENCE_IMAGES = 3;
 const VIDEO_LOCK_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes to cover Veo's SLA
 
+// Process-wide progress tracking: avoids accumulating eventBus listeners when TelegramService is constructed multiple times (e.g. tests).
+const videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate, logger }
+let videoProgressListenerRegistered = false;
+
+function ensureVideoProgressListener() {
+  if (videoProgressListenerRegistered) return;
+  videoProgressListenerRegistered = true;
+
+  eventBus.on('video:progress', async (event) => {
+    const { traceId, status, progress } = event || {};
+    if (!traceId) return;
+
+    const handler = videoProgressHandlers.get(traceId);
+    if (handler && (Date.now() - handler.lastUpdate > 5000 || status === 'complete')) {
+      try {
+        await handler.ctx.telegram.editMessageText(
+          handler.ctx.chat.id,
+          handler.messageId,
+          null,
+          `🎬 ${status}... ${progress}%`
+        );
+        handler.lastUpdate = Date.now();
+      } catch {}
+    }
+
+    if (status === 'complete' || status === 'error') {
+      videoProgressHandlers.delete(traceId);
+    }
+  });
+}
+
 class TelegramService {
   constructor({
     logger,
@@ -183,7 +214,6 @@ class TelegramService {
     this.USE_ASYNC_VIDEO_GENERATION = asyncVideoEnv === 'true' || asyncVideoEnv === '1' || asyncVideoEnv === 'yes';
 
     // Video progress tracking
-    this._videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate }
     this._setupVideoProgressListener();
 
     this._videoGenerationLocks = new Map(); // channelId -> { traceId, expiresAt }
@@ -1203,24 +1233,12 @@ class TelegramService {
   }
 
   _setupVideoProgressListener() {
-    eventBus.on('video:progress', async (event) => {
-      const { traceId, status, progress } = event;
-      const handler = this._videoProgressHandlers.get(traceId);
-      if (handler && (Date.now() - handler.lastUpdate > 5000 || status === 'complete')) {
-        try {
-          await handler.ctx.telegram.editMessageText(
-            handler.ctx.chat.id, handler.messageId, null, 
-            `🎬 ${status}... ${progress}%`
-          );
-          handler.lastUpdate = Date.now();
-        } catch {}
-      }
-      if (status === 'complete' || status === 'error') this._videoProgressHandlers.delete(traceId);
-    });
+    ensureVideoProgressListener();
   }
 
   _registerVideoProgress(traceId, ctx, messageId) {
-    if (messageId) this._videoProgressHandlers.set(traceId, { ctx, messageId, lastUpdate: Date.now() });
+    if (!messageId) return;
+    videoProgressHandlers.set(traceId, { ctx, messageId, lastUpdate: Date.now(), logger: this.logger || console });
   }
 
   async _handleMediaError(ctx, error, type, userId) {
