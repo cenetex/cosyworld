@@ -10,125 +10,60 @@ export class WebService {
     logger,
     configService,
     databaseService,
-    discordService,
-    s3Service,
-    aiModelService,
-    // Provide AI services for downstream consumers (global X poster needs analyzeImage)
-    aiService,
-    openrouterAIService,
-    veoService,
-    xService,
-    telegramService,
-    socialPlatformService,
-    secretsService,
-    setupStatusService,
-    promptService,
-    globalBotService,
-    memoryService,
-    metricsService,
-    // Story system services
-    storyStateService,
-    worldContextService,
-    narrativeGeneratorService,
-    storyPlannerService,
-    storySchedulerService,
-    storyPostingService,
-    storyArchiveService,
-    // NFT services
-    nftMetadataService,
-    arweaveService,
-    // Payment services
-    x402Service,
-    agentWalletService,
-    pricingService,
-    marketplaceService,
-    marketplaceServiceRegistry,
-    // Wiki service
-    wikiService,
+    // The DI container itself (registered as `services` for historical reasons).
+    services,
   }) {
     this.logger = logger || console;
     this.configService = configService;
     this.databaseService = databaseService;
-    this.discordService = discordService;
-    this.s3Service = s3Service;
-    this.aiModelService = aiModelService;
-    this.aiService = aiService;
-    this.openrouterAIService = openrouterAIService;
-    this.veoService = veoService;
-    this.xService = xService;
-    this.telegramService = telegramService;
-    this.socialPlatformService = socialPlatformService;
-    this.secretsService = secretsService;
-    this.setupStatusService = setupStatusService;
-    this.promptService = promptService;
-    this.globalBotService = globalBotService;
-  this.memoryService = memoryService;
-    this.metricsService = metricsService;
-    // Story system
-    this.storyStateService = storyStateService;
-    this.worldContextService = worldContextService;
-    this.narrativeGeneratorService = narrativeGeneratorService;
-    this.storyPlannerService = storyPlannerService;
-    this.storySchedulerService = storySchedulerService;
-    this.storyPostingService = storyPostingService;
-  this.storyArchiveService = storyArchiveService;
-    // NFT services
-    this.nftMetadataService = nftMetadataService;
-    this.arweaveService = arweaveService;
-    // Payment services
-    this.x402Service = x402Service;
-    this.agentWalletService = agentWalletService;
-    this.pricingService = pricingService;
-    this.marketplaceService = marketplaceService;
-    this.marketplaceServiceRegistry = marketplaceServiceRegistry;
-    // Wiki service
-    this.wikiService = wikiService;
+
+    this.container = services;
 
     this.started = false;
 
-    // Initialize services
-    this.services = {
+    this.services = this.#createServicesFacade();
+  }
+
+  #createServicesFacade() {
+    const container = this.container;
+    const base = {
       logger: this.logger,
       configService: this.configService,
       databaseService: this.databaseService,
-      discordService: this.discordService,
-      s3Service: this.s3Service,
-      aiModelService: this.aiModelService,
-      // Expose both alias and concrete provider; keep a camelCase alias for backward compat
-      aiService: this.aiService || this.openrouterAIService,
-      openrouterAIService: this.openrouterAIService,
-      // Back-compat for modules referencing openRouterAIService (note the capital R)
-      openRouterAIService: this.openrouterAIService,
-      veoService: this.veoService,
-      xService: this.xService,
-      telegramService: this.telegramService,
-      socialPlatformService: this.socialPlatformService,
-      secretsService: this.secretsService,
-      setupStatusService: this.setupStatusService,
-      promptService: this.promptService,
-      globalBotService: this.globalBotService,
-  memoryService: this.memoryService,
-      metricsService: this.metricsService,
-      // Story system services
-      storyStateService: this.storyStateService,
-      worldContextService: this.worldContextService,
-      narrativeGeneratorService: this.narrativeGeneratorService,
-      storyPlannerService: this.storyPlannerService,
-      storySchedulerService: this.storySchedulerService,
-      storyPostingService: this.storyPostingService,
-      storyArchiveService: this.storyArchiveService,
-      // NFT services
-      nftMetadataService: this.nftMetadataService,
-      arweaveService: this.arweaveService,
-      // Payment services
-      x402Service: this.x402Service,
-      agentWalletService: this.agentWalletService,
-      pricingService: this.pricingService,
-      marketplaceService: this.marketplaceService,
-      marketplaceServiceRegistry: this.marketplaceServiceRegistry,
-      // Wiki service
-      wikiService: this.wikiService,
+
+      // Preserve historical access to the full container.
+      services: container,
     };
+
+    // Lazy resolve services on property access to avoid a giant constructor
+    // and keep the web layer decoupled from the full dependency graph.
+    return new Proxy(base, {
+      get: (target, prop) => {
+        if (prop in target) return target[prop];
+        if (!container || typeof prop !== 'string') return undefined;
+
+        // Back-compat aliases
+        if (prop === 'openRouterAIService') {
+          return container.registrations.openrouterAIService
+            ? container.resolve('openrouterAIService')
+            : undefined;
+        }
+        if (prop === 'openrouterAIService') {
+          return container.registrations.openrouterAIService
+            ? container.resolve('openrouterAIService')
+            : undefined;
+        }
+        if (prop === 'aiService') {
+          return container.registrations.aiService ? container.resolve('aiService') : undefined;
+        }
+
+        if (container.registrations[prop]) {
+          return container.resolve(prop);
+        }
+
+        return undefined;
+      },
+    });
   }
 
   async start() {
@@ -136,9 +71,10 @@ export class WebService {
       this.logger.info('Starting WebService...');
       
       // Initialize marketplace service registry
-      if (this.marketplaceServiceRegistry) {
+      const marketplaceServiceRegistry = this.services.marketplaceServiceRegistry;
+      if (marketplaceServiceRegistry) {
         this.logger.info('Initializing marketplace service registry...');
-        await this.marketplaceServiceRegistry.initialize();
+        await marketplaceServiceRegistry.initialize();
         this.logger.info('Marketplace service registry initialized successfully.');
       }
       

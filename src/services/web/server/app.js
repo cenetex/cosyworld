@@ -155,22 +155,137 @@ async function initializeApp(services) {
       });
     } catch (e) { logger?.warn?.('[init] telegramGlobalAutoPoster registration failed: ' + e.message); }
 
+    // Route-scoped service bundles (avoid passing the full services bag into every route module)
+    const setupRouteServices = {
+      logger,
+      setupStatusService: services.setupStatusService,
+      secretsService: services.secretsService,
+      configService: services.configService,
+    };
+
+    const healthRouteServices = {
+      aiService: services.aiService,
+      unifiedAIService: services.unifiedAIService,
+      metricsService: services.metricsService,
+      xService: services.xService,
+      telegramService: services.telegramService,
+    };
+
+    const xAuthRouteServices = {
+      xService: services.xService,
+      databaseService: services.databaseService,
+      logger,
+      socialPlatformService: services.socialPlatformService,
+      configService: services.configService,
+    };
+
+    const telegramAuthRouteServices = {
+      telegramService: services.telegramService,
+      databaseService: services.databaseService,
+      logger,
+      socialPlatformService: services.socialPlatformService,
+      secretsService: services.secretsService,
+      configService: services.configService,
+    };
+
+    const socialRouteServices = {
+      socialPlatformService: services.socialPlatformService,
+    };
+
+    const adminUsersRouteServices = {
+      configService: services.configService,
+    };
+
+    const adminReplicateRouteServices = {
+      secretsService: services.secretsService,
+      configService: services.configService,
+      logger,
+    };
+
+    const inviteRouteServices = {
+      xService: services.xService,
+    };
+
+    const adminRouteServices = {
+      logger,
+      configService: services.configService,
+      databaseService: services.databaseService,
+      telegramService: services.telegramService,
+      xService: services.xService,
+      globalBotService: services.globalBotService,
+      memoryService: services.memoryService,
+      promptService: services.promptService,
+      secretsService: services.secretsService,
+    };
+
+    const configRouteServices = {
+      databaseService: services.databaseService,
+      configService: services.configService,
+      logger,
+    };
+
+    const secretsRouteServices = {
+      secretsService: services.secretsService,
+    };
+
+    const settingsRouteServices = {
+      databaseService: services.databaseService,
+      configService: services.configService,
+      secretsService: services.secretsService,
+      logger,
+    };
+
+    const paymentRouteServices = {
+      configService: services.configService,
+      logger,
+      x402Service: services.x402Service,
+      databaseService: services.databaseService,
+      agentWalletService: services.agentWalletService,
+    };
+
+    const aiRouteServices = {
+      logger,
+      openrouterAIService: services.openrouterAIService,
+      googleAIService: services.googleAIService,
+      pricingService: services.pricingService,
+      x402Service: services.x402Service,
+      configService: services.configService,
+    };
+
+    const modelsRouteServices = {
+      aiModelService: services.aiModelService,
+    };
+
+    const marketplaceRouteServices = {
+      logger,
+      marketplaceService: services.marketplaceService,
+      x402Service: services.x402Service,
+      agentWalletService: services.agentWalletService,
+    };
+
+    const serviceRoutesServices = {
+      logger,
+      marketplaceServiceRegistry: services.marketplaceServiceRegistry,
+      x402Service: services.x402Service,
+      agentWalletService: services.agentWalletService,
+    };
+
     // Setup routes (must be registered before auth checks)
-    app.use('/api/setup', (await import('./routes/setup.js')).default(services));
+    app.use('/api/setup', (await import('./routes/setup.js')).default(setupRouteServices));
 
     // Routes
     app.get('/test', (req, res) => res.json({ message: 'Test route working' }));
   app.use('/api/leaderboard', (await import('./routes/leaderboard.js')).default(db));
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
-    app.use('/api/health', (await import('./routes/health.js')).default(db, services));
+    app.use('/api/health', (await import('./routes/health.js')).default(db, healthRouteServices));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
     app.use('/api/nft', (await import('./routes/nft.js')).default);
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
-    app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));
-    app.use('/api/telegramauth', (await import('./routes/telegramauth.js')).default(services));
+    app.use('/api/xauth', (await import('./routes/xauth.js')).default(xAuthRouteServices));
+    app.use('/api/telegramauth', (await import('./routes/telegramauth.js')).default(telegramAuthRouteServices));
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db, services.wikiService));
-    app.use('/api/social', (await import('./routes/social.js')).default(db, services));
+    app.use('/api/social', (await import('./routes/social.js')).default(db, socialRouteServices));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
   app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
@@ -183,12 +298,12 @@ async function initializeApp(services) {
 
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
-  app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, services));
+  app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, adminUsersRouteServices));
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
-  app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(services));
+  app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(adminReplicateRouteServices));
   
   // Public Invite Route
-  app.use('/api/invite', (await import('./routes/invite.js')).default(db, services));
+  app.use('/api/invite', (await import('./routes/invite.js')).default(db, inviteRouteServices));
 
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads (GET) with session; require signed message for writes (POST/PUT/PATCH/DELETE)
@@ -198,7 +313,7 @@ async function initializeApp(services) {
       return adminWriteRateLimit(req, res, () => requireSignedWrite(req, res, next));
     }
     next();
-  }, (await import('./routes/admin.js')).default(db, services));
+  }, (await import('./routes/admin.js')).default(db, adminRouteServices));
   
   // Story system admin routes (no CSRF/signed message required for MVP, but still requires admin auth)
   try {
@@ -242,16 +357,15 @@ async function initializeApp(services) {
     logger.warn('[Web] Failed to register story public routes:', e.message);
   }
   
-  app.use('/api/config', (await import('./routes/config.js')).default(services));
-  app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
-  app.use('/api/settings', (await import('./routes/settings.js')).default(services));
-  app.use('/api/payment', (await import('./routes/payment.js')).default(services));
-  app.use('/api/ai', (await import('./routes/ai.js')).default(services));
-  app.use('/api/models', (await import('./routes/models.js')).default(db, services));
-  app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(services));
-  app.use('/api/services', (await import('./routes/services.js')).default(services));
+  app.use('/api/config', (await import('./routes/config.js')).default(configRouteServices));
+  app.use('/api/secrets', (await import('./routes/secrets.js')).default(secretsRouteServices));
+  app.use('/api/settings', (await import('./routes/settings.js')).default(settingsRouteServices));
+  app.use('/api/payment', (await import('./routes/payment.js')).default(paymentRouteServices));
+  app.use('/api/ai', (await import('./routes/ai.js')).default(aiRouteServices));
+  app.use('/api/models', (await import('./routes/models.js')).default(db, modelsRouteServices));
+  app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(marketplaceRouteServices));
+  app.use('/api/services', (await import('./routes/services.js')).default(serviceRoutesServices));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));
-  app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
   app.use('/api/auth', (await import('./routes/auth.js')).default(db));
   app.use('/api/memory', ensureAdmin, (await import('./routes/memory.js')).default(db));
