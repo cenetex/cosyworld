@@ -201,4 +201,29 @@ export class EncounterService {
     if (!encounter) return false;
     return encounter.participants.some(p => p.avatarId === String(avatarId));
   }
+
+  /**
+   * Remove an avatar from an active encounter.
+   * @param {string} channelId
+   * @param {string} avatarId
+   * @param {string} reason
+   */
+  leaveEncounter(channelId, avatarId, reason = 'manual') {
+    const encounter = this.getEncounter(channelId);
+    if (!encounter) return null;
+    const before = encounter.participants.length;
+    encounter.participants = encounter.participants.filter(p => p.avatarId !== String(avatarId));
+    const after = encounter.participants.length;
+    if (after !== before) {
+      this.logger.info?.(`[EncounterService] ${avatarId} left encounter in ${channelId} (Reason: ${reason})`);
+      if (encounter.currentTurnIndex >= after) {
+        encounter.currentTurnIndex = 0;
+      }
+      if (after === 0) {
+        this.endEncounter(channelId, `empty:${reason}`);
+        return null;
+      }
+    }
+    return encounter;
+  }
 }

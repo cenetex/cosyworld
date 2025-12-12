@@ -24,6 +24,7 @@ export class ResponseCoordinator {
     discordService,
     conversationThreadService,
     encounterService,
+    avatarAgentService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -34,6 +35,7 @@ export class ResponseCoordinator {
     this.discordService = discordService;
     this.conversationThreadService = conversationThreadService;
     this.encounterService = encounterService;
+    this.avatarAgentService = avatarAgentService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
@@ -129,6 +131,47 @@ export class ResponseCoordinator {
 
         try {
           this.logger.debug?.(`[ResponseCoordinator] Lock acquired, generating response for ${avatar.name}`);
+
+          // Layer B: agentic action decision (respond | wait | disengage)
+          try {
+            if (this.avatarAgentService?.decideAction) {
+              const decision = await this.avatarAgentService.decideAction({
+                channel,
+                message,
+                avatar,
+                trigger,
+              });
+
+              const action = decision?.action;
+              if (action === 'wait') {
+                this.logger.info?.(`[ResponseCoordinator] Agent action=wait for ${avatar.name}${decision?.reason ? ` (${decision.reason})` : ''}`);
+                continue;
+              }
+              if (action === 'disengage') {
+                this.logger.info?.(`[ResponseCoordinator] Agent action=disengage for ${avatar.name}${decision?.reason ? ` (${decision.reason})` : ''}`);
+                try {
+                  await this.presenceService?.disableConversationMode?.(channelId, `${avatar._id || avatar.id}`);
+                } catch (e) {
+                  this.logger.debug?.(`[ResponseCoordinator] disableConversationMode failed: ${e.message}`);
+                }
+                try {
+                  await this.encounterService?.leaveEncounter?.(channelId, `${avatar._id || avatar.id}`, 'agent_disengage');
+                } catch (e) {
+                  this.logger.debug?.(`[ResponseCoordinator] leaveEncounter failed: ${e.message}`);
+                }
+                // Mark cooldown so we don't repeatedly reselect the same avatar immediately.
+                try {
+                  await this.presenceService?.recordTurn?.(channelId, `${avatar._id || avatar.id}`);
+                } catch (e) {
+                  this.logger.debug?.(`[ResponseCoordinator] recordTurn (disengage) failed: ${e.message}`);
+                }
+                continue;
+              }
+            }
+          } catch (e) {
+            this.logger.debug?.(`[ResponseCoordinator] Agent decision failed: ${e.message}`);
+          }
+
           // Generate and send the response
           const avatarId = `${avatar._id || avatar.id}`;
           const responseContext = {
