@@ -743,26 +743,37 @@ export class ConversationManager  {
       if (!response) {
   // Ensure avatar has a model before AI call
   await this.ensureAvatarModel(avatar);
-      const messages = await channel.messages.fetch({ limit: 50 });
-      const imagePromptParts = [];
-      let recentImageMessage = null;
-      for (const msg of Array.from(messages.values()).reverse()) {
-        if (msg.author.id === avatar._id) continue;
-        const hasImages = msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail);
-        if (hasImages) {
-          recentImageMessage = msg;
-          break;
-        }
-      }
-      if (recentImageMessage && this.aiService.supportsMultimodal) {
-        const attachment = recentImageMessage.attachments.find(a => a.contentType?.startsWith('image/'));
-        if (attachment) {
-          imagePromptParts.push({ type: 'image_url', image_url: { url: attachment.url } });
-          this.logger.info(`Using image URL ${attachment.url} for multimodal input`);
-        }
-      }
       const channelHistory = await this.getChannelContext(channel.id, 50);
       const channelSummary = await this.getChannelSummary(avatar._id, channel.id);
+
+      // Multimodal: if the selected model supports vision, pass Discord image URLs directly.
+      // Otherwise we rely on existing caption/summary fields (imageDescription/imageDescriptions).
+      const imagePromptParts = [];
+      try {
+        const capSource = this.unifiedAIService?.base || this.aiService;
+        const supportsVision =
+          (typeof capSource?.supportsVisionModel === 'function' && capSource.supportsVisionModel(avatar.model)) ||
+          (typeof capSource?.modelSupportsVision === 'function' && capSource.modelSupportsVision(avatar.model)) ||
+          false;
+
+        if (supportsVision && Array.isArray(channelHistory) && channelHistory.length) {
+          const recentWithImages = [...channelHistory].reverse().find(m => m?.hasImages && (m?.imageUrls?.length || m?.primaryImageUrl));
+          const urls = Array.isArray(recentWithImages?.imageUrls) && recentWithImages.imageUrls.length
+            ? recentWithImages.imageUrls
+            : (recentWithImages?.primaryImageUrl ? [recentWithImages.primaryImageUrl] : []);
+
+          const maxImages = Number(process.env.MAX_VISION_IMAGES_PER_TURN || 3);
+          for (const url of urls.slice(0, Math.max(1, maxImages))) {
+            if (!url) continue;
+            imagePromptParts.push({ type: 'image_url', image_url: { url } });
+          }
+          if (imagePromptParts.length) {
+            this.logger.info?.(`[ConversationManager] Passing ${imagePromptParts.length} image(s) to vision model for ${avatar.name}`);
+          }
+        }
+      } catch (e) {
+        this.logger.debug?.(`[ConversationManager] multimodal image extraction failed: ${e.message}`);
+      }
       
       // Get relationship context for other avatars in recent conversation
       let relationshipContext = '';
@@ -851,8 +862,11 @@ export class ConversationManager  {
       }
       
       let userContent = chatMessages.find(msg => msg.role === 'user').content;
-      if (this.aiService.supportsMultimodal && imagePromptParts.length > 0) {
-        userContent = [...imagePromptParts, { type: 'text', text: userContent }];
+      if (imagePromptParts.length > 0) {
+        const userText = typeof userContent === 'string'
+          ? userContent
+          : (Array.isArray(userContent) ? (userContent.find(c => c?.type === 'text')?.text || '') : String(userContent || ''));
+        userContent = [...imagePromptParts, { type: 'text', text: userText }];
         chatMessages = chatMessages.map(msg => msg.role === 'user' ? { role: 'user', content: userContent } : msg);
       }
   const ai = this.unifiedAIService || this.aiService;

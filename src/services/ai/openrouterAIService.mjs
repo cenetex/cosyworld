@@ -417,6 +417,45 @@ export class OpenRouterAIService {
   }
 
   /**
+   * Heuristic check for whether a given OpenRouter model supports vision/image inputs.
+   * We keep this lightweight and local (no network calls) because it's used in hot paths.
+   *
+   * @param {string} model
+   * @returns {boolean}
+   */
+  supportsVisionModel(model) {
+    const m = String(model || '')
+      .replace(/:(online|free)$/i, '')
+      .trim()
+      .toLowerCase();
+    if (!m) return false;
+
+    // Provider families that are generally multimodal on OpenRouter.
+    // (We keep this conservative and easy to update.)
+    if (m.startsWith('google/gemini')) return true;
+
+    // OpenAI vision-capable families where slugs often omit 'vision'.
+    if (m.includes('openai/gpt-4o')) return true;
+    if (m.includes('openai/gpt-4.1')) return true;
+    if (m.includes('gpt-4-vision')) return true;
+
+    // Common OpenRouter naming patterns:
+    // - '*vision*' (e.g. llama-3.2-11b-vision-instruct)
+    // - '*vl*' (vision-language, e.g. qwen3-vl-8b)
+    // - '*image*' (e.g. gpt-5-image, gemini-*-image)
+    // - known explicit vision slugs (grok-*-vision)
+    return (
+      m.includes('vision') ||
+      m.includes('-vl-') ||
+      m.includes('/vl-') ||
+      m.includes('vl-') ||
+      m.includes('image') ||
+      m.includes('grok-2-vision') ||
+      m.includes('grok-vision')
+    );
+  }
+
+  /**
  * Generates structured output using OpenRouter-compatible models and OpenAI-style schema.
  * @param {Object} config
  * @param {string} config.prompt - The user prompt to send.
