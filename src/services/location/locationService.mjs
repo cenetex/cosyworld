@@ -86,10 +86,46 @@ export class LocationService  {
     await this.ensureDbConnection();
     
     try {
+      // If historical data already contains duplicate channelIds, a unique index build will fail.
+      // Detect this upfront to avoid noisy startup errors and point to the existing cleanup script.
+      try {
+        const duplicates = await this.db
+          .collection('locations')
+          .aggregate([
+            { $match: { channelId: { $type: 'string' } } },
+            { $group: { _id: '$channelId', count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+          ])
+          .toArray();
+
+        if (duplicates.length > 0) {
+          console.warn(
+            'LocationService: Duplicate channelId values exist; skipping unique index. Run: node scripts/deduplicate-locations.mjs',
+            duplicates
+          );
+
+          // Still create a non-unique index for query performance.
+          await this.db.collection('locations').createIndex(
+            { channelId: 1 },
+            { background: true, name: 'channelId_1' }
+          );
+          return;
+        }
+      } catch (e) {
+        console.warn('LocationService: Duplicate-check failed, continuing:', e.message);
+      }
+
       // Create unique index on channelId to prevent duplicates
       await this.db.collection('locations').createIndex(
         { channelId: 1 },
-        { unique: true, background: true }
+        {
+          unique: true,
+          background: true,
+          name: 'channelId_unique_nonnull',
+          partialFilterExpression: { channelId: { $type: 'string' } },
+        }
       );
       console.log('LocationService: Created unique index on channelId');
     } catch (error) {
