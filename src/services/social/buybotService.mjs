@@ -67,15 +67,16 @@ const cloneDefaultTokenPreferences = () => JSON.parse(JSON.stringify(DEFAULT_TOK
 
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, conversationManager, services }) {
+  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, getConversationManager, getResponseCoordinator, avatarService, avatarRelationshipService, walletInsights, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
     this.getDiscordService = getDiscordService || (() => null); // Late-bound to avoid circular dependency
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
+    this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
+    this.getResponseCoordinator = typeof getResponseCoordinator === 'function' ? getResponseCoordinator : () => null;
     this.avatarService = avatarService;
     this.avatarRelationshipService = avatarRelationshipService;
-    this.conversationManager = conversationManager;
     this.services = services; // Container for late-bound service resolution
     
     // AWS Lambda endpoint for transaction monitoring
@@ -3002,15 +3003,15 @@ export class BuybotService {
         return;
       }
       
-      // Get ResponseCoordinator from services
-      const responseCoordinator = this.services?.resolve?.('responseCoordinator');
+      // Get ResponseCoordinator
+      const responseCoordinator = this.getResponseCoordinator?.() || this.services?.cradle?.responseCoordinator || null;
       if (!responseCoordinator) {
         this.logger.warn(`[BuybotService] ResponseCoordinator not available for trade responses`);
         return;
       }
       
       // Get ConversationManager once for all avatars
-      const conversationManager = this.services?.resolve?.('conversationManager');
+      const conversationManager = this.getConversationManager?.() || this.services?.cradle?.conversationManager || null;
       if (!conversationManager) {
         this.logger.warn(`[BuybotService] ConversationManager not available for trade responses`);
         return;
@@ -3182,19 +3183,9 @@ export class BuybotService {
     // Remove batch from map
     this.avatarResponseBatches.delete(channelId);
     
-    // Get conversation manager (prefer explicit injection; keep a narrow fallback for legacy wiring)
-    let conversationManager = this.conversationManager;
-    if (!conversationManager) {
-      try {
-        if (this.services?.cradle?.conversationManager) {
-          conversationManager = this.services.cradle.conversationManager;
-        } else if (this.configService?.services?.conversationManager) {
-          conversationManager = this.configService.services.conversationManager;
-        }
-      } catch (e) {
-        this.logger.debug(`[BuybotService] Failed to access conversationManager: ${e.message}`);
-      }
-    }
+    // Get conversation manager (prefer injected getter; fall back to cradle if available)
+    let conversationManager = this.getConversationManager?.() || null;
+    if (!conversationManager) conversationManager = this.services?.cradle?.conversationManager || null;
     
     if (!conversationManager) {
       this.logger.error(`[BuybotService] ConversationManager not available for avatar responses`);

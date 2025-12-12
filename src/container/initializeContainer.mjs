@@ -131,6 +131,8 @@ export async function initializeContainer({ container, logger, configService }) 
         .inject(() => ({
           getTelegramService: () => container.resolve('telegramService'),
           getDiscordService: () => container.resolve('discordService'),
+          getConversationManager: () => container.resolve('conversationManager'),
+          getResponseCoordinator: () => container.resolve('responseCoordinator'),
           services: container,
         })),
       responseCoordinator: asClass(ResponseCoordinator).singleton(),

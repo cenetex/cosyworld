@@ -29,7 +29,9 @@ export class DiscordService {
     this.getCombatEncounterService = services.getCombatEncounterService || null;
     this.avatarService = services.avatarService || null;
     this.globalBotService = services.globalBotService || null;
-    this.buybotService = services.buybotService || null;
+    this.getBuybotService = typeof services.getBuybotService === 'function'
+      ? services.getBuybotService
+      : () => services.buybotService;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
@@ -478,9 +480,10 @@ export class DiscordService {
         
         // Get dynamically allowed tokens from buybot tracked tokens
         let dynamicAllowlist = { addresses: [], symbols: [] };
-        if (this.buybotService?.getAllTrackedTokensForAllowlist) {
+          const buybotService = this.getBuybotService?.();
+          if (buybotService?.getAllTrackedTokensForAllowlist) {
           try {
-            dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
+              dynamicAllowlist = await buybotService.getAllTrackedTokensForAllowlist();
           } catch (err) {
             this.logger?.debug?.('[DiscordService] Failed to get dynamic token allowlist:', err.message);
           }

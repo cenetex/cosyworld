@@ -54,10 +54,10 @@ describe('DI escape hatch guardrail', () => {
       const raw = await fs.readFile(filePath, 'utf8');
       const content = stripComments(raw);
 
-      if (/\bcontainer\.resolve\(/.test(content)) {
+      if (/\bcontainer(?:\?\.)?resolve(?:\?\.)?\(/.test(content)) {
         violations.push(`${path.relative(repoRoot, filePath)}: container.resolve(`);
       }
-      if (/\bservices\.resolve\(/.test(content)) {
+      if (/\bservices(?:\?\.)?resolve(?:\?\.)?\(/.test(content)) {
         violations.push(`${path.relative(repoRoot, filePath)}: services.resolve(`);
       }
     }
