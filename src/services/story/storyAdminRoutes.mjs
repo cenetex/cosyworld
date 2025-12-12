@@ -13,19 +13,29 @@
 /**
  * Register story admin routes
  * @param {Express} app - Express app
- * @param {Container} container - DI container
+ * @param {Object} deps - Explicit dependencies
  */
-export function registerStoryAdminRoutes(app, container) {
-  const logger = container.resolve('logger');
+export function registerStoryAdminRoutes(app, deps = {}) {
+  const {
+    logger,
+    storyStateService,
+    storyPlannerService,
+    storyPostingService,
+    storySchedulerService,
+    worldContextService,
+  } = deps;
+
+  if (!logger) {
+    throw new Error('registerStoryAdminRoutes requires logger');
+  }
 
   // Get all arcs
   app.get('/api/admin/story/arcs', async (req, res) => {
     try {
-      const storyState = container.resolve('storyStateService');
       const { status, limit = 50 } = req.query;
       
       const filter = status ? { status } : {};
-      const arcs = await storyState.getArcs(filter, { 
+      const arcs = await storyStateService.getArcs(filter, { 
         sort: { startedAt: -1 }, 
         limit: parseInt(limit) 
       });
@@ -40,8 +50,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Get specific arc
   app.get('/api/admin/story/arcs/:id', async (req, res) => {
     try {
-      const storyState = container.resolve('storyStateService');
-      const arc = await storyState.getArc(req.params.id);
+      const arc = await storyStateService.getArc(req.params.id);
       
       if (!arc) {
         return res.status(404).json({ success: false, error: 'Arc not found' });
@@ -57,17 +66,16 @@ export function registerStoryAdminRoutes(app, container) {
   // Generate new arc
   app.post('/api/admin/story/arcs/generate', async (req, res) => {
     try {
-      const storyPlanner = container.resolve('storyPlannerService');
       const { theme, characters, locations } = req.body;
       
-      const arc = await storyPlanner.createNewArc({
+      const arc = await storyPlannerService.createNewArc({
         theme,
         focusCharacters: characters,
         focusLocations: locations
       });
       
       // Activate the arc
-      await storyPlanner.storyState.updateArcStatus(arc._id, 'active');
+      await storyPlannerService.storyState.updateArcStatus(arc._id, 'active');
       
       res.json({ success: true, arc });
     } catch (error) {
@@ -79,10 +87,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Manually progress arc (generate next chapter - 3 beats)
   app.post('/api/admin/story/arcs/:id/progress', async (req, res) => {
     try {
-      const storyPlanner = container.resolve('storyPlannerService');
-      const storyPosting = container.resolve('storyPostingService');
-      
-      const result = await storyPlanner.progressArc(req.params.id);
+      const result = await storyPlannerService.progressArc(req.params.id);
       
       if (!result) {
         return res.json({ 
@@ -97,7 +102,7 @@ export function registerStoryAdminRoutes(app, container) {
       // Post each beat in the chapter
       const postResults = [];
       for (const beat of beats) {
-        const postResult = await storyPosting.postBeat(arc, beat);
+        const postResult = await storyPostingService.postBeat(arc, beat);
         postResults.push({ beat, postResult });
       }
       
@@ -117,7 +122,6 @@ export function registerStoryAdminRoutes(app, container) {
   // Update arc status
   app.put('/api/admin/story/arcs/:id/status', async (req, res) => {
     try {
-      const storyState = container.resolve('storyStateService');
       const { status } = req.body;
       
       if (!['planning', 'active', 'paused', 'completed', 'abandoned'].includes(status)) {
@@ -127,7 +131,7 @@ export function registerStoryAdminRoutes(app, container) {
         });
       }
       
-      const updated = await storyState.updateArcStatus(req.params.id, status);
+      const updated = await storyStateService.updateArcStatus(req.params.id, status);
       
       res.json({ success: updated });
     } catch (error) {
@@ -139,8 +143,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Get statistics
   app.get('/api/admin/story/stats', async (req, res) => {
     try {
-      const storyPlanner = container.resolve('storyPlannerService');
-      const stats = await storyPlanner.getStatistics();
+      const stats = await storyPlannerService.getStatistics();
       
       res.json({ success: true, stats });
     } catch (error) {
@@ -152,8 +155,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Get scheduler status
   app.get('/api/admin/story/scheduler/status', async (req, res) => {
     try {
-      const storyScheduler = container.resolve('storySchedulerService');
-      const status = storyScheduler.getStatus();
+      const status = storySchedulerService.getStatus();
       
       res.json({ success: true, status });
     } catch (error) {
@@ -165,8 +167,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Start scheduler
   app.post('/api/admin/story/scheduler/start', async (req, res) => {
     try {
-      const storyScheduler = container.resolve('storySchedulerService');
-      storyScheduler.start();
+      storySchedulerService.start();
       
       res.json({ success: true, message: 'Scheduler started' });
     } catch (error) {
@@ -178,8 +179,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Stop scheduler
   app.post('/api/admin/story/scheduler/stop', async (req, res) => {
     try {
-      const storyScheduler = container.resolve('storySchedulerService');
-      storyScheduler.stop();
+      storySchedulerService.stop();
       
       res.json({ success: true, message: 'Scheduler stopped' });
     } catch (error) {
@@ -191,8 +191,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Trigger manual progression
   app.post('/api/admin/story/scheduler/trigger', async (req, res) => {
     try {
-      const storyScheduler = container.resolve('storySchedulerService');
-      const result = await storyScheduler.triggerProgression();
+      const result = await storySchedulerService.triggerProgression();
       
       res.json({ success: true, result });
     } catch (error) {
@@ -204,8 +203,7 @@ export function registerStoryAdminRoutes(app, container) {
   // Get world context
   app.get('/api/admin/story/world/context', async (req, res) => {
     try {
-      const worldContext = container.resolve('worldContextService');
-      const context = await worldContext.getWorldContext();
+      const context = await worldContextService.getWorldContext();
       
       res.json({ success: true, context });
     } catch (error) {

@@ -67,7 +67,7 @@ const cloneDefaultTokenPreferences = () => JSON.parse(JSON.stringify(DEFAULT_TOK
 
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
+  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, conversationManager, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
@@ -75,6 +75,7 @@ export class BuybotService {
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
     this.avatarService = avatarService;
     this.avatarRelationshipService = avatarRelationshipService;
+    this.conversationManager = conversationManager;
     this.services = services; // Container for late-bound service resolution
     
     // AWS Lambda endpoint for transaction monitoring
@@ -3181,19 +3182,18 @@ export class BuybotService {
     // Remove batch from map
     this.avatarResponseBatches.delete(channelId);
     
-    // Get conversation manager (use lazy resolution to avoid circular dependency issues)
-    let conversationManager;
-    try {
-      // Try services container first (preferred)
-      if (this.services?.cradle?.conversationManager) {
-        conversationManager = this.services.cradle.conversationManager;
-      } else if (this.services?.resolve) {
-        conversationManager = this.services.resolve('conversationManager');
-      } else if (this.configService?.services?.conversationManager) {
-        conversationManager = this.configService.services.conversationManager;
+    // Get conversation manager (prefer explicit injection; keep a narrow fallback for legacy wiring)
+    let conversationManager = this.conversationManager;
+    if (!conversationManager) {
+      try {
+        if (this.services?.cradle?.conversationManager) {
+          conversationManager = this.services.cradle.conversationManager;
+        } else if (this.configService?.services?.conversationManager) {
+          conversationManager = this.configService.services.conversationManager;
+        }
+      } catch (e) {
+        this.logger.debug(`[BuybotService] Failed to access conversationManager: ${e.message}`);
       }
-    } catch (e) {
-      this.logger.debug(`[BuybotService] Failed to resolve conversationManager: ${e.message}`);
     }
     
     if (!conversationManager) {
