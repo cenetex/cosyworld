@@ -446,6 +446,20 @@ export async function initializeContainer({ container, logger, configService }) 
       );
     }
 
+    if (container.registrations.openrouterModelRosterSchedulerService) {
+      parallelInits.push(
+        (async () => {
+          try {
+            const roster = container.resolve('openrouterModelRosterSchedulerService');
+            await roster.initialize();
+            console.log('[container] OpenrouterModelRosterSchedulerService initialized.');
+          } catch (e) {
+            console.warn('[container] Failed to initialize OpenrouterModelRosterSchedulerService:', e.message);
+          }
+        })()
+      );
+    }
+
     await Promise.all(parallelInits);
 
     // Late bind s3Service into optional googleAIService

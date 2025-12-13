@@ -344,10 +344,12 @@ export class OpenRouterAIService {
     logger,
     aiModelService,
     configService,
+    openrouterModelCatalogService,
   }) {
     this.logger = logger;
     this.aiModelService = aiModelService;
     this.configService = configService;
+    this.openrouterModelCatalogService = openrouterModelCatalogService || null;
 
     // Resolve defaults from ConfigService (note: align with keys defined in ConfigService)
     const orCfg = this.configService?.config?.ai?.openrouter || {};
@@ -409,6 +411,16 @@ export class OpenRouterAIService {
   }
 
   async selectRandomModel() {
+    try {
+      if (this.openrouterModelCatalogService?.pickRandomExistingModel) {
+        const picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
+        if (picked) return picked;
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[OpenRouterAIService] selectRandomModel catalog pick failed: ${e?.message || e}`);
+    }
+
+    // Fallback: registry-based selection (may be stale, but better than null)
     return this.aiModelService.getRandomModel('openrouter');
   }
 
@@ -814,27 +826,66 @@ export class OpenRouterAIService {
     }
     const original = modelName;
     modelName = this._normalizePreferredModel(modelName);
+
+    // Hard guarantee: never return a model that isn't in the OpenRouter catalog.
+    // If the catalog service isn't available, we fall back to registry checks.
+    const ensureExists = async (candidate) => {
+      const normalized = String(candidate || '').replace(/:(online|free)$/i, '').trim().toLowerCase();
+      if (!normalized) return null;
+      try {
+        if (this.openrouterModelCatalogService?.modelExists) {
+          const ok = await this.openrouterModelCatalogService.modelExists(normalized);
+          return ok ? normalized : null;
+        }
+      } catch (e) {
+        this.logger?.debug?.(`[OpenRouter][trace] catalog exists check failed for '${normalized}': ${e?.message || e}`);
+      }
+      try {
+        if (this.aiModelService?.modelIsAvailable?.('openrouter', normalized)) return normalized;
+      } catch {}
+      return null;
+    };
     if (this.modelLock || this.disableFallbacks) {
       if (this.traceModelSelection && original !== modelName) {
         this.logger?.info?.(`[OpenRouter][trace] canonicalized '${original}' -> '${modelName}' (lock=${this.modelLock} disableFallbacks=${this.disableFallbacks})`);
       }
-      // Return as-is; let upstream provider surface errors for unavailable models.
-      return modelName;
+      // Even when locked, don't allow nonexistent models to be assigned.
+      const ok = await ensureExists(modelName);
+      if (ok) return ok;
+      if (this.traceModelSelection) {
+        this.logger?.warn?.(`[OpenRouter][trace] locked model '${modelName}' not found in catalog; selecting random existing.`);
+      }
+      return await this.selectRandomModel();
     }
     try {
       const mapped = this.aiModelService.findClosestModel('openrouter', modelName);
       if (mapped && mapped !== modelName && this.traceModelSelection) {
         this.logger?.info?.(`[OpenRouter][trace] fuzzy mapped '${modelName}' -> '${mapped}'`);
       }
-      if (mapped) return mapped;
+
+      if (mapped) {
+        const ok = await ensureExists(mapped);
+        if (ok) return ok;
+      }
+
+      // If the original (canonicalized) model exists, prefer it.
+      const directOk = await ensureExists(modelName);
+      if (directOk) return directOk;
+
       const name = modelName.replace(/^google\//, '').replace(/^x-ai\//, '').replace(/^openai\//, '').replace(/^meta-llama\//, 'meta-llama/');
       const fallback = this.aiModelService.findClosestModel('openrouter', name);
       if (fallback && fallback !== modelName && this.traceModelSelection) {
         this.logger?.info?.(`[OpenRouter][trace] provider-prefix stripped map '${modelName}' -> '${fallback}'`);
       }
-      return fallback;
+
+      if (fallback) {
+        const ok = await ensureExists(fallback);
+        if (ok) return ok;
+      }
+
+      return await this.selectRandomModel();
     } catch {
-      return null;
+      return await this.selectRandomModel();
     }
   }
 

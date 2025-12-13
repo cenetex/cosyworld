@@ -154,6 +154,7 @@ export class SummonTool extends BasicTool {
     databaseService,
     aiService,
     unifiedAIService,
+    openrouterModelCatalogService,
     statService,
     presenceService,
     logger,
@@ -168,6 +169,7 @@ export class SummonTool extends BasicTool {
     this.databaseService = databaseService;
     this.aiService = aiService;
     this.unifiedAIService = unifiedAIService;
+    this.openrouterModelCatalogService = openrouterModelCatalogService || null;
     this.statService = statService;
     this.presenceService = presenceService;
     this.logger = logger;
@@ -320,11 +322,28 @@ export class SummonTool extends BasicTool {
       const channelId = message.channel.id;
   const summonGuildId = message.guild?.id;
       const guaranteedTurns = Math.max(1, this.SUMMON_INITIAL_TURNS || 3);
+
+      try {
+        await this.openrouterModelCatalogService?.refreshIfStale?.({ maxAgeMs: 60 * 60 * 1000 });
+      } catch (e) {
+        this.logger?.debug?.(`[SummonTool] OpenRouter catalog refresh failed: ${e?.message || e}`);
+      }
+
       const resolveCatalogModelId = (query = '') => {
         if (!query) return null;
         const cleaned = String(query).trim().toLowerCase();
         if (!cleaned) return null;
-        let models = aiModelService?.getAllModels?.('openrouter') || [];
+        let models = [];
+        try {
+          const liveIds = this.openrouterModelCatalogService?.getAllModelIds?.();
+          if (Array.isArray(liveIds) && liveIds.length) {
+            models = liveIds.map(id => ({ model: id }));
+          }
+        } catch {}
+
+        if (!models.length) {
+          models = aiModelService?.getAllModels?.('openrouter') || [];
+        }
         if (!models.length && Array.isArray(openrouterModelCatalog) && openrouterModelCatalog.length) {
           models = openrouterModelCatalog;
         }
@@ -356,7 +375,18 @@ export class SummonTool extends BasicTool {
       const ensureModel = async (av) => {
         try {
           if (av && !av.model) {
-            const picked = await this.aiService.selectRandomModel();
+            let picked = await this.aiService.selectRandomModel();
+
+            // Hard guard: never assign a model that isn't in the OpenRouter catalog.
+            try {
+              if (picked && this.openrouterModelCatalogService?.modelExists) {
+                const ok = await this.openrouterModelCatalogService.modelExists(picked);
+                if (!ok && this.openrouterModelCatalogService?.pickRandomExistingModel) {
+                  picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
+                }
+              }
+            } catch {}
+
             if (picked) {
               av.model = picked;
               try {
@@ -677,6 +707,14 @@ export class SummonTool extends BasicTool {
 
         if (!bestMatch) return null;
         if (bestMatch.isPartial) return null;
+
+        try {
+          if (bestMatch.model && this.openrouterModelCatalogService?.modelExists) {
+            const ok = await this.openrouterModelCatalogService.modelExists(bestMatch.model, { refreshIfNeeded: false });
+            if (!ok) return null;
+          }
+        } catch {}
+
         return bestMatch;
       };
 
@@ -689,8 +727,22 @@ export class SummonTool extends BasicTool {
         };
         const trySample = async filters => {
           try {
-            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 3 });
-            return Array.isArray(avatars) && avatars.length ? avatars[0] : null;
+            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 10 });
+            if (!Array.isArray(avatars) || !avatars.length) return null;
+
+            // Prefer roster avatars whose model still exists in the OpenRouter catalog.
+            for (const av of avatars) {
+              if (!av?.model) continue;
+              try {
+                if (this.openrouterModelCatalogService?.modelExists) {
+                  const ok = await this.openrouterModelCatalogService.modelExists(av.model, { refreshIfNeeded: false });
+                  if (!ok) continue;
+                }
+              } catch {}
+              return av;
+            }
+
+            return avatars[0] || null;
           } catch (err) {
             this.logger?.debug?.(`[SummonTool] random model avatar fetch failed: ${err?.message}`);
             return null;
@@ -710,6 +762,16 @@ export class SummonTool extends BasicTool {
   const ensureModelRosterAvatar = async (modelId, { guildId: lookupGuildId } = {}) => {
         const normalized = normalizeModelIdentifier(modelId);
         if (!normalized) return null;
+
+        // Hard block: never create roster avatars for models that aren't in OpenRouter.
+        try {
+          if (this.openrouterModelCatalogService?.assertModelExists) {
+            await this.openrouterModelCatalogService.assertModelExists(normalized);
+          }
+        } catch {
+          return null;
+        }
+
         const existing = await findModelAvatarForModelId(normalized, lookupGuildId);
         if (existing) {
           await ensureAvatarStatsAndSummonsday(existing);
@@ -720,7 +782,7 @@ export class SummonTool extends BasicTool {
         const providerKey = normalized.split('/', 1)[0]?.toLowerCase?.() || '';
         const emoji = MODEL_PROVIDER_EMOJI[providerKey] || '💠';
         const description = await describeModelAppearance(normalized, displayName);
-        const personality = `The raw essence of ${displayName}, precise and impartial.`;
+        const personality = '';
         const creationDate = new Date();
         const stats = this.statService.generateStatsFromDate(creationDate);
         const summonsday = formatSummonsday(creationDate);
@@ -732,7 +794,7 @@ export class SummonTool extends BasicTool {
           personality,
           model: normalized,
           channelId: null,
-          guildId: null,
+          guildId: lookupGuildId || 'global',
           summoner: 'system:model-roster',
           stats,
           summonsday,
@@ -865,17 +927,31 @@ export class SummonTool extends BasicTool {
       }
 
       if (requestedModelId) {
-        const ensured = await ensureModelRosterAvatar(requestedModelId, { guildId });
-        if (ensured?.avatar) {
-          const preface = ensured.created
-            ? `${ensured.avatar.name} manifests its core form, summoned straight from the model roster.`
-            : null;
-          const handled = await respondWithExistingAvatar(ensured.avatar, {
-            preface,
-            enforceModelName: true,
-            requestedModelId
-          });
-          if (handled) return handled;
+        try {
+          if (this.openrouterModelCatalogService?.assertModelExists) {
+            requestedModelId = await this.openrouterModelCatalogService.assertModelExists(requestedModelId);
+          }
+        } catch {
+          await this.discordService.replyToMessage(
+            message,
+            `That model doesn't exist in the OpenRouter catalog: ${requestedModelId}`
+          );
+          requestedModelId = null;
+        }
+
+        if (requestedModelId) {
+          const ensured = await ensureModelRosterAvatar(requestedModelId, { guildId });
+          if (ensured?.avatar) {
+            const preface = ensured.created
+              ? `${ensured.avatar.name} manifests its core form, summoned straight from the model roster.`
+              : null;
+            const handled = await respondWithExistingAvatar(ensured.avatar, {
+              preface,
+              enforceModelName: true,
+              requestedModelId
+            });
+            if (handled) return handled;
+          }
         }
       }
 
