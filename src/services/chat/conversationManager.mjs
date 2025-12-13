@@ -14,6 +14,7 @@ export class ConversationManager  {
     databaseService,
     aiService,
   unifiedAIService,
+    openrouterModelCatalogService,
     discordService,
     avatarService,
     memoryService,
@@ -38,6 +39,7 @@ export class ConversationManager  {
     this.databaseService = databaseService;
     this.aiService = aiService;
   this.unifiedAIService = unifiedAIService; // optional adapter
+    this.openrouterModelCatalogService = openrouterModelCatalogService || null;
     this.discordService = discordService;
     this.avatarService = avatarService;
     this.memoryService = memoryService;
@@ -123,14 +125,47 @@ export class ConversationManager  {
   /** Ensure the avatar has a model assigned; persist if we pick one */
   async ensureAvatarModel(avatar) {
     try {
-      if (!avatar?.model) {
-        const picked = await this.aiService.selectRandomModel();
+      if (!avatar) return null;
+
+      const pickRandomExisting = async () => {
+        let picked = await this.aiService?.selectRandomModel?.();
+        try {
+          if (picked && this.openrouterModelCatalogService?.modelExists) {
+            const ok = await this.openrouterModelCatalogService.modelExists(picked);
+            if (!ok && this.openrouterModelCatalogService?.pickRandomExistingModel) {
+              picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
+            }
+          }
+        } catch {}
+        return picked || null;
+      };
+
+      // Missing model: assign and persist.
+      if (!avatar.model) {
+        const picked = await pickRandomExisting();
         if (picked) {
           avatar.model = picked;
           try { await this.avatarService.updateAvatar(avatar); } catch {}
           this.logger.debug?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
         }
+        return avatar.model;
       }
+
+      // Invalid model: repair to a random existing model and persist.
+      try {
+        if (this.openrouterModelCatalogService?.modelExists) {
+          const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
+          if (!ok) {
+            const previous = avatar.model;
+            const picked = await pickRandomExisting();
+            if (picked && picked !== previous) {
+              avatar.model = picked;
+              try { await this.avatarService.updateAvatar(avatar); } catch {}
+              this.logger.warn?.(`[AI] repaired missing model '${previous}' -> '${picked}' for avatar ${avatar?.name || avatar?._id}`);
+            }
+          }
+        }
+      } catch {}
     } catch (e) {
       this.logger.warn?.(`[AI] ensureAvatarModel failed: ${e.message}`);
     }

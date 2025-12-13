@@ -374,9 +374,10 @@ export class SummonTool extends BasicTool {
       };
       const ensureModel = async (av) => {
         try {
-          if (av && !av.model) {
-            let picked = await this.aiService.selectRandomModel();
+          if (!av) return null;
 
+          const pickRandomExisting = async () => {
+            let picked = await this.aiService?.selectRandomModel?.();
             // Hard guard: never assign a model that isn't in the OpenRouter catalog.
             try {
               if (picked && this.openrouterModelCatalogService?.modelExists) {
@@ -386,7 +387,12 @@ export class SummonTool extends BasicTool {
                 }
               }
             } catch {}
+            return picked || null;
+          };
 
+          // Missing model: assign and persist.
+          if (!av.model) {
+            const picked = await pickRandomExisting();
             if (picked) {
               av.model = picked;
               try {
@@ -396,7 +402,28 @@ export class SummonTool extends BasicTool {
               }
               this.logger?.info?.(`[AI][SummonTool] assigned model='${picked}' to ${av.name || av._id}`);
             }
+            return av.model;
           }
+
+          // Invalid model: repair and persist.
+          try {
+            if (this.openrouterModelCatalogService?.modelExists) {
+              const ok = await this.openrouterModelCatalogService.modelExists(av.model);
+              if (!ok) {
+                const previous = av.model;
+                const picked = await pickRandomExisting();
+                if (picked && picked !== previous) {
+                  av.model = picked;
+                  try {
+                    await this.avatarService.updateAvatar(av);
+                  } catch (updateErr) {
+                    this.logger?.warn?.(`[AI][SummonTool] ensureModel repair update failed for ${av.name || av._id}: ${updateErr.message}`);
+                  }
+                  this.logger?.warn?.(`[AI][SummonTool] repaired missing model '${previous}' -> '${picked}' for ${av.name || av._id}`);
+                }
+              }
+            }
+          } catch {}
         } catch (e) { this.logger?.warn?.(`[AI][SummonTool] ensureModel failed: ${e.message}`); }
         return av?.model;
       };
