@@ -22,6 +22,17 @@ export class TurnScheduler {
   // Dead channel detection
   this.DEAD_CHANNEL_THRESHOLD = Number(process.env.DEAD_CHANNEL_THRESHOLD || 12);
   this.DEAD_CHANNEL_CHECK_ENABLED = String(process.env.DEAD_CHANNEL_CHECK_ENABLED || 'true').toLowerCase() === 'true';
+
+  // Dead channel revive: even if a channel is "dead" (no recent human messages), allow an occasional
+  // ambient attempt (default: once/hour) to keep the swarm from going completely silent.
+  this.DEAD_CHANNEL_REVIVE_ENABLED = String(process.env.DEAD_CHANNEL_REVIVE_ENABLED || 'true').toLowerCase() === 'true';
+  this.DEAD_CHANNEL_REVIVE_INTERVAL_MS = Number(process.env.DEAD_CHANNEL_REVIVE_INTERVAL_MS || 60 * 60 * 1000);
+  this.DEAD_CHANNEL_REVIVE_PROBABILITY = (() => {
+    const raw = Number(process.env.DEAD_CHANNEL_REVIVE_PROBABILITY || 0.2);
+    if (!Number.isFinite(raw)) return 0.2;
+    return Math.max(0, Math.min(1, raw));
+  })();
+  this.deadChannelReviveAttemptAt = new Map(); // channelId -> timestamp(ms)
   
   // Turn lease timeout (how long an avatar has to complete their turn)
   // Default: 10 minutes (600000ms) to accommodate video generation
@@ -152,8 +163,12 @@ export class TurnScheduler {
     if (this.DEAD_CHANNEL_CHECK_ENABLED) {
       const isDeadChannel = await this.checkDeadChannel(channelId);
       if (isDeadChannel) {
-        this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - dead channel (no human activity)`);
-        return 0;
+        const allowRevive = this.DEAD_CHANNEL_REVIVE_ENABLED && this._shouldAllowDeadChannelRevive(channelId);
+        if (!allowRevive) {
+          this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - dead channel (no human activity)`);
+          return 0;
+        }
+        this.logger.info?.(`[TurnScheduler] Dead channel revive attempt allowed: ${channelId} (intervalMs=${this.DEAD_CHANNEL_REVIVE_INTERVAL_MS})`);
       }
     }
 
@@ -195,6 +210,21 @@ export class TurnScheduler {
       this.logger.warn(`[TurnScheduler] onChannelTick failed for ${channelId}: ${e.message}`);
       return 0;
     }
+  }
+
+  _shouldAllowDeadChannelRevive(channelId, now = Date.now()) {
+    const last = this.deadChannelReviveAttemptAt.get(channelId) || 0;
+    if (now - last < this.DEAD_CHANNEL_REVIVE_INTERVAL_MS) return false;
+
+    // Only roll once per interval; even if we decline, we still record the attempt
+    // to avoid repeatedly trying every tick.
+    const roll = Math.random();
+    const allow = roll < this.DEAD_CHANNEL_REVIVE_PROBABILITY;
+    this.deadChannelReviveAttemptAt.set(channelId, now);
+    if (!allow) {
+      this.logger.debug?.(`[TurnScheduler] Dead channel revive declined: ${channelId} roll=${roll.toFixed(3)} p=${this.DEAD_CHANNEL_REVIVE_PROBABILITY}`);
+    }
+    return allow;
   }
 
   /**
