@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 // Mock TwitterApi
-const { mockTweet, mockUploadMedia, mockV2Client, mockV1Client } = vi.hoisted(() => {
+const { mockTweet, mockUploadMedia, mockUserMentionTimeline, mockReply, mockV2Client, mockV1Client } = vi.hoisted(() => {
   const mockTweet = vi.fn().mockResolvedValue({ data: { id: '1234567890' } });
+  const mockUserMentionTimeline = vi.fn().mockResolvedValue({ data: { data: [] } });
+  const mockReply = vi.fn().mockResolvedValue({ data: { id: '999999999999999' } });
   const mockUploadMedia = vi.fn().mockImplementation(() => {
     console.error('mockUploadMedia implementation called');
     return Promise.resolve('media_id_123');
@@ -10,12 +12,14 @@ const { mockTweet, mockUploadMedia, mockV2Client, mockV1Client } = vi.hoisted(()
   const mockV2Client = {
     tweet: mockTweet,
     uploadMedia: mockUploadMedia,
-    me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
+    me: vi.fn().mockResolvedValue({ data: { username: 'mockuser', id: 'user123', name: 'Mock User' } }),
+    userMentionTimeline: mockUserMentionTimeline,
+    reply: mockReply,
   };
   const mockV1Client = {
     uploadMedia: mockUploadMedia
   };
-  return { mockTweet, mockUploadMedia, mockV2Client, mockV1Client };
+  return { mockTweet, mockUploadMedia, mockUserMentionTimeline, mockReply, mockV2Client, mockV1Client };
 });
 
 // Mock encryption utils
@@ -37,7 +41,9 @@ beforeAll(async () => {
         uploadMedia: (...args) => {
           return mockUploadMedia(...args);
         },
-        me: vi.fn().mockResolvedValue({ data: { username: 'mockuser' } })
+        me: vi.fn().mockResolvedValue({ data: { username: 'mockuser', id: 'user123', name: 'Mock User' } }),
+        userMentionTimeline: mockUserMentionTimeline,
+        reply: mockReply,
       },
       v1: {
         uploadMedia: mockUploadMedia
@@ -77,6 +83,8 @@ describe('XService Content Filtering', () => {
     vi.clearAllMocks();
     mockUploadMedia.mockResolvedValue('media_id_123');
     mockTweet.mockResolvedValue({ data: { id: '123456789012345' } });
+    mockUserMentionTimeline.mockResolvedValue({ data: { data: [] } });
+    mockReply.mockResolvedValue({ data: { id: '999999999999999' } });
 
     // Mock global fetch for image downloads
     global.fetch = vi.fn().mockResolvedValue({
@@ -230,5 +238,111 @@ describe('XService Content Filtering', () => {
       reason: expect.stringContaining('blocked cashtag')
     });
     expect(mockTweet).not.toHaveBeenCalled();
+  });
+});
+
+describe('XService Mention Auto Reply', () => {
+  let xService;
+  let logger;
+  let databaseService;
+  let xAuthCollection;
+  let mentionsStateCollection;
+  let socialPostsCollection;
+
+  beforeEach(() => {
+    process.env.X_MENTION_REPLY_ENABLED = '1';
+    process.env.X_MENTION_MONTHLY_READ_CAP = '10';
+    process.env.X_MENTION_MAX_RESULTS = '5';
+
+    logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    };
+
+    xAuthCollection = {
+      findOne: vi.fn().mockResolvedValue({
+        _id: 'auth1',
+        accessToken: 'encrypted:mock-token',
+        refreshToken: 'encrypted:mock-refresh',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        global: true,
+        profile: { id: 'user123', username: 'mockuser' },
+        updatedAt: new Date()
+      }),
+      updateOne: vi.fn()
+    };
+
+    mentionsStateCollection = {
+      findOne: vi.fn().mockResolvedValue({
+        _id: 'global',
+        monthKey: new Date().toISOString().slice(0, 7),
+        readsUsed: 0,
+        lastMentionId: null
+      }),
+      updateOne: vi.fn().mockResolvedValue({ acknowledged: true })
+    };
+
+    socialPostsCollection = {
+      findOne: vi.fn().mockResolvedValue(null),
+      insertOne: vi.fn().mockResolvedValue({ acknowledged: true })
+    };
+
+    databaseService = {
+      getDatabase: vi.fn().mockResolvedValue({
+        collection: (name) => {
+          if (name === 'x_auth') return xAuthCollection;
+          if (name === 'x_mentions_state') return mentionsStateCollection;
+          if (name === 'social_posts') return socialPostsCollection;
+          return { findOne: vi.fn(), updateOne: vi.fn() };
+        }
+      })
+    };
+
+    xService = new XService({
+      logger,
+      databaseService,
+      configService: {},
+      secretsService: { getAsync: vi.fn() },
+      metricsService: { increment: vi.fn(), gauge: vi.fn(), recordHealth: vi.fn() }
+    });
+  });
+
+  it('replies to new mentions and advances since_id with budget tracking', async () => {
+    mockUserMentionTimeline.mockResolvedValue({
+      data: {
+        data: [
+          { id: '200000000000000', text: 'Hello CosyWorld!', author_id: 'someoneElse' }
+        ]
+      }
+    });
+
+    const aiService = {
+      chat: vi.fn().mockResolvedValue('Welcome to CosyWorld — what are you exploring today?')
+    };
+
+    const globalBotService = {
+      bot: {
+        name: 'CosyWorld',
+        model: 'anthropic/claude-sonnet-4.5',
+        personality: 'Warm narrator',
+        dynamicPrompt: 'Present',
+        globalBotConfig: {
+          universeName: 'CosyWorld',
+          xPostStyle: 'Warm and concise. No links.',
+          contentFilters: { enabled: true, blockCashtags: true, blockCryptoAddresses: true, allowedCashtags: [], allowedAddresses: [] }
+        }
+      }
+    };
+
+    const result = await xService.processGlobalMentionsAndReply({ aiService, globalBotService });
+
+    expect(result.ok).toBe(true);
+    expect(result.fetched).toBe(1);
+    expect(result.replied).toBe(1);
+    expect(mockReply).toHaveBeenCalledTimes(1);
+    expect(mentionsStateCollection.updateOne).toHaveBeenCalled();
+    expect(socialPostsCollection.insertOne).toHaveBeenCalled();
   });
 });

@@ -17,6 +17,7 @@ import { AuditLogService } from '../../foundation/auditLogService.mjs';
 import eventBus from '../../../utils/eventBus.mjs';
 import { registerXGlobalAutoPoster } from '../../social/xGlobalAutoPoster.mjs';
 import { registerTelegramGlobalAutoPoster } from '../../social/telegramGlobalAutoPoster.mjs';
+import { registerXMentionAutoReplier } from '../../social/xMentionAutoReplier.mjs';
 async function initializeApp(services) {
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -142,6 +143,17 @@ async function initializeApp(services) {
         logger 
       });
     } catch (e) { logger?.warn?.('[init] xGlobalAutoPoster registration failed: ' + e.message); }
+
+    // Register global X mention auto-replier (budgeted polling)
+    try {
+      registerXMentionAutoReplier({
+        xService: services.xService,
+        schedulingService: services.schedulingService,
+        aiService: services.openRouterAIService || services.aiService,
+        globalBotService: services.globalBotService,
+        logger
+      });
+    } catch (e) { logger?.warn?.('[init] xMentionAutoReplier registration failed: ' + e.message); }
 
     // Register global Telegram auto poster
     try {

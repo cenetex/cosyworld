@@ -1891,6 +1891,302 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     }
   }
 
+  _getMonthKey(date = new Date()) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  async _resolveGlobalAuthRecord() {
+    const db = await this.databaseService.getDatabase();
+    let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+    if (!auth) {
+      auth = await db.collection('x_auth').findOne(
+        { accessToken: { $exists: true, $ne: null } },
+        { sort: { updatedAt: -1 } }
+      );
+    }
+    return auth || null;
+  }
+
+  async _loadGlobalMentionState(db) {
+    const col = db.collection('x_mentions_state');
+    const state = await col.findOne({ _id: 'global' });
+    return state || {
+      _id: 'global',
+      monthKey: this._getMonthKey(),
+      readsUsed: 0,
+      lastMentionId: null,
+      lastRunAt: null,
+      updatedAt: new Date(),
+    };
+  }
+
+  async _saveGlobalMentionState(db, patch) {
+    const col = db.collection('x_mentions_state');
+    await col.updateOne(
+      { _id: 'global' },
+      { $set: { ...(patch || {}), updatedAt: new Date() } },
+      { upsert: true }
+    );
+  }
+
+  _maxTweetId(ids = []) {
+    let max = null;
+    for (const id of ids) {
+      if (!this._isValidTweetId(id)) continue;
+      try {
+        const bi = BigInt(String(id));
+        if (max === null || bi > max) max = bi;
+      } catch {}
+    }
+    return max === null ? null : String(max);
+  }
+
+  async _alreadyRepliedToMention(db, mentionId) {
+    if (!this._isValidTweetId(mentionId)) return false;
+    const existing = await db.collection('social_posts').findOne({
+      global: true,
+      type: 'mention_reply',
+      inReplyToTweetId: String(mentionId)
+    });
+    return !!existing;
+  }
+
+  async _generateGlobalMentionReply({ mentionText, globalBotService, aiService }) {
+    const baseStyle = globalBotService?.bot?.globalBotConfig?.xPostStyle
+      || "Warm, engaging narrator voice. No links. No hashtags. Be concise.";
+
+    if (typeof aiService?.chat !== 'function') {
+      const fallback = `Thanks for reaching out — welcome to CosyWorld. What are you exploring today?`;
+      return this._sanitizeTweetText(fallback, { maxLength: 240 });
+    }
+
+    const universeName = globalBotService?.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || 'CosyWorld';
+    const botName = globalBotService?.bot?.name || universeName;
+    const personality = globalBotService?.bot?.personality || '';
+    const dynamicPrompt = globalBotService?.bot?.dynamicPrompt || '';
+
+    const prompt = [
+      `You are ${botName}, the narrator of ${universeName}.`,
+      personality ? `Personality: ${personality}` : null,
+      dynamicPrompt ? `Current perspective: ${dynamicPrompt}` : null,
+      `Style guide: ${baseStyle}`,
+      `Reply to this mention in 1-2 sentences.`,
+      `Hard rules: no links, no hashtags, no cashtags, no @mentions, under 240 characters.`,
+      `Mention: ${mentionText}`
+    ].filter(Boolean).join('\n\n');
+
+    const response = await aiService.chat(
+      [{ role: 'user', content: prompt }],
+      {
+        model: globalBotService?.bot?.model || process.env.GLOBAL_BOT_MODEL,
+        temperature: 0.7,
+      }
+    );
+
+    const cleaned = String(response || '').trim().replace(/^"|"$/g, '');
+    return this._sanitizeTweetText(cleaned, { maxLength: 240 });
+  }
+
+  /**
+   * Poll the GLOBAL account's mentions and (optionally) reply.
+   * This is designed for the Free tier by using:
+   * - persisted since_id
+   * - low max_results
+   * - monthly read budget cap
+   */
+  async processGlobalMentionsAndReply({ aiService, globalBotService } = {}) {
+    const enabled = String(process.env.X_MENTION_REPLY_ENABLED || '').trim() === '1';
+    if (!enabled) return { skipped: true, reason: 'disabled' };
+
+    const monthlyReadCap = (() => {
+      const raw = Number(process.env.X_MENTION_MONTHLY_READ_CAP);
+      if (!Number.isNaN(raw) && raw > 0) return raw;
+      return 80;
+    })();
+
+    const maxPerRun = (() => {
+      const raw = Number(process.env.X_MENTION_MAX_RESULTS);
+      if (!Number.isNaN(raw) && raw > 0) return Math.min(raw, 10);
+      return 5;
+    })();
+
+    const db = await this.databaseService.getDatabase();
+    const auth = await this._resolveGlobalAuthRecord();
+    if (!auth?.accessToken) {
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_auth' });
+      return { skipped: true, reason: 'no_auth' };
+    }
+
+    let accessToken = await this._maybeRefreshAuth(auth);
+    if (!accessToken) {
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_token' });
+      return { skipped: true, reason: 'no_token' };
+    }
+    accessToken = String(accessToken).trim();
+    if (!accessToken) {
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'empty_token' });
+      return { skipped: true, reason: 'empty_token' };
+    }
+
+    const monthKey = this._getMonthKey();
+    const state = await this._loadGlobalMentionState(db);
+    const readsUsed = (state.monthKey === monthKey) ? Number(state.readsUsed || 0) : 0;
+    const remaining = monthlyReadCap - readsUsed;
+    if (remaining <= 0) {
+      await this._saveGlobalMentionState(db, { monthKey, readsUsed, lastRunAt: new Date(), lastError: null });
+      this.logger?.info?.('[XService][mentions] Monthly read budget exhausted', { monthKey, monthlyReadCap });
+      return { skipped: true, reason: 'budget_exhausted', monthKey, monthlyReadCap };
+    }
+
+    const client = new TwitterApi({ accessToken });
+    const v2 = client.v2;
+
+    // Resolve userId (cached on x_auth.profile)
+    let userId = auth?.profile?.id || null;
+    if (!userId) {
+      try {
+        const me = await v2.me({ 'user.fields': 'id,username,name' });
+        userId = me?.data?.id || null;
+        if (userId) {
+          await db.collection('x_auth').updateOne(
+            { _id: auth._id },
+            { $set: { profile: { ...(auth.profile || {}), ...me.data, cachedAt: new Date() }, updatedAt: new Date() } }
+          );
+        }
+      } catch (e) {
+        await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `me_failed:${e?.message || e}` });
+        return { skipped: true, reason: 'me_failed' };
+      }
+    }
+    if (!userId) {
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_user_id' });
+      return { skipped: true, reason: 'no_user_id' };
+    }
+
+    const limit = Math.max(1, Math.min(maxPerRun, remaining));
+    const sinceId = this._isValidTweetId(state.lastMentionId) ? String(state.lastMentionId) : undefined;
+
+    let resp;
+    try {
+      resp = await v2.userMentionTimeline(userId, {
+        max_results: limit,
+        since_id: sinceId,
+        'tweet.fields': 'author_id,created_at,conversation_id',
+      });
+    } catch (e) {
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${e?.message || e}` });
+      return { skipped: true, reason: 'mentions_failed' };
+    }
+
+    const mentions = resp?.data?.data || [];
+    const newReadsUsed = readsUsed + mentions.length;
+
+    if (!mentions.length) {
+      await this._saveGlobalMentionState(db, {
+        monthKey,
+        readsUsed: newReadsUsed,
+        lastRunAt: new Date(),
+        lastError: null,
+      });
+      return { ok: true, replied: 0, fetched: 0, monthKey, readsUsed: newReadsUsed };
+    }
+
+    // Oldest-first for stable processing
+    const sorted = [...mentions].sort((a, b) => {
+      try { return BigInt(a.id) < BigInt(b.id) ? -1 : 1; } catch { return 0; }
+    });
+
+    const newestId = this._maxTweetId(sorted.map(m => m?.id));
+    let replied = 0;
+
+    const contentFilters = globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+    const filterEnabled = contentFilters.enabled !== false;
+
+    for (const mention of sorted) {
+      const mentionId = mention?.id;
+      const mentionText = String(mention?.text || '').trim();
+      const authorId = mention?.author_id || null;
+
+      if (!this._isValidTweetId(mentionId)) continue;
+      if (!mentionText) continue;
+      if (String(authorId || '') === String(userId)) continue;
+
+      // Avoid replying to the same mention twice
+      if (await this._alreadyRepliedToMention(db, mentionId)) continue;
+
+      // Optional: avoid engaging with blocked-content mentions
+      if (filterEnabled) {
+        const cf = filterContent(mentionText, {
+          logger: this.logger,
+          blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+          blockCashtags: contentFilters.blockCashtags !== false,
+          allowedCashtags: contentFilters.allowedCashtags || [],
+          allowedAddresses: contentFilters.allowedAddresses || []
+        });
+        if (cf.blocked) {
+          this.logger?.info?.('[XService][mentions] Skipping blocked mention', { mentionId, reason: cf.reason });
+          continue;
+        }
+      }
+
+      const replyText = await this._generateGlobalMentionReply({ mentionText, globalBotService, aiService });
+      if (!replyText) continue;
+
+      // Re-apply filters to the outgoing reply
+      if (filterEnabled) {
+        const cfOut = filterContent(replyText, {
+          logger: this.logger,
+          blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+          blockCashtags: contentFilters.blockCashtags !== false,
+          allowedCashtags: contentFilters.allowedCashtags || [],
+          allowedAddresses: contentFilters.allowedAddresses || []
+        });
+        if (cfOut.blocked) {
+          this.logger?.info?.('[XService][mentions] Generated reply blocked by filters', { mentionId, reason: cfOut.reason });
+          continue;
+        }
+      }
+
+      try {
+        const result = await v2.reply(replyText, String(mentionId));
+        const replyTweetId = result?.data?.id || null;
+        replied++;
+
+        try {
+          await db.collection('social_posts').insertOne({
+            global: true,
+            type: 'mention_reply',
+            inReplyToTweetId: String(mentionId),
+            tweetId: replyTweetId,
+            content: replyText,
+            metadata: {
+              source: 'x.mentions',
+              mentionAuthorId: authorId || null,
+              mentionText: mentionText.slice(0, 500)
+            },
+            createdAt: new Date(),
+          });
+        } catch (dbErr) {
+          this.logger?.warn?.('[XService][mentions] Failed to persist reply record:', dbErr?.message || dbErr);
+        }
+      } catch (e) {
+        this.logger?.warn?.('[XService][mentions] Reply failed:', e?.message || e);
+      }
+    }
+
+    await this._saveGlobalMentionState(db, {
+      monthKey,
+      readsUsed: newReadsUsed,
+      lastRunAt: new Date(),
+      lastError: null,
+      lastMentionId: newestId || state.lastMentionId || null,
+    });
+
+    return { ok: true, replied, fetched: mentions.length, monthKey, readsUsed: newReadsUsed };
+  }
+
   /**
    * Get health status for X service
    * @returns {Object} Health status information
