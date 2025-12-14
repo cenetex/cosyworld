@@ -52,6 +52,10 @@ export function registerXMentionAutoReplier({
   }
 
   logger?.info?.(`[XMentionAutoReplier] Enabled; interval=${Math.round(intervalMs / 60000)}min`);
+
+  // Run once immediately so the first reply doesn't wait for the interval tick.
+  // Keep it async/non-blocking and respect the inProgress guard.
+  setImmediate(task);
 }
 
 export default registerXMentionAutoReplier;
