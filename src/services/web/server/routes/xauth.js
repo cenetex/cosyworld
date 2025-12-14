@@ -14,6 +14,21 @@ import { ObjectId } from 'mongodb';
 const DEFAULT_TOKEN_EXPIRY = 7200; // 2 hours in seconds
 const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
+// Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
+function safeDecrypt(value) {
+    try {
+        if (!value) return '';
+        // If value contains our GCM triplet separator, attempt decrypt; else treat as plaintext
+        if (typeof value === 'string' && value.includes(':')) {
+            return decrypt(value);
+        }
+        return String(value);
+    } catch {
+        // If decryption fails (e.g., rotated key), return empty to force reauth
+        return '';
+    }
+}
+
 // Accepts a services object with xService and databaseService
 export default function xauthRoutes(services) {
     const router = express.Router();
@@ -603,7 +618,11 @@ export default function xauthRoutes(services) {
             }
 
             try {
-                const client = new TwitterApi(decrypt(auth.accessToken));
+                const accessToken = safeDecrypt(auth.accessToken);
+                if (!accessToken) {
+                    return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
+                }
+                const client = new TwitterApi({ accessToken: accessToken.trim() });
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
                 const user = me?.data || null;
                 const mergedProfile = user || auth.profile || null;
@@ -662,7 +681,11 @@ export default function xauthRoutes(services) {
                 }
             }
 
-            const client = new TwitterApi(decrypt(auth.accessToken));
+            const accessToken = safeDecrypt(auth.accessToken);
+            if (!accessToken) {
+                return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
+            }
+            const client = new TwitterApi({ accessToken: accessToken.trim() });
             await client.v2.me();
             res.json({
                 authorized: now < new Date(auth.expiresAt),
@@ -745,7 +768,11 @@ export default function xauthRoutes(services) {
                 return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
             }
 
-            const client = new TwitterApi(decrypt(auth.accessToken));
+            const accessToken = safeDecrypt(auth.accessToken);
+            if (!accessToken) {
+                return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
+            }
+            const client = new TwitterApi({ accessToken: accessToken.trim() });
             let profile = null;
             try {
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });

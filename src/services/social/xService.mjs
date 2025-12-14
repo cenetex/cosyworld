@@ -55,6 +55,28 @@ class XService {
     this._usernameFetches = new Map();
   }
 
+  /**
+   * Create a TwitterApi client with consistent configuration.
+   * @param {Object} options - Client options
+   * @param {string} [options.accessToken] - OAuth 2.0 access token
+   * @param {Object} [options.oauth1Creds] - OAuth 1.0a credentials
+   * @returns {TwitterApi|null} Twitter client or null if no credentials
+   */
+  _createTwitterClient({ accessToken, oauth1Creds } = {}) {
+    if (oauth1Creds?.apiKey && oauth1Creds?.accessToken) {
+      return new TwitterApi({
+        appKey: oauth1Creds.apiKey,
+        appSecret: oauth1Creds.apiSecret,
+        accessToken: oauth1Creds.accessToken,
+        accessSecret: oauth1Creds.accessTokenSecret,
+      });
+    }
+    if (accessToken) {
+      return new TwitterApi({ accessToken: String(accessToken).trim() });
+    }
+    return null;
+  }
+
   _normalizeAvatarId(avatarOrId) {
     if (!avatarOrId) return null;
     if (typeof avatarOrId === 'string') return avatarOrId;
@@ -508,7 +530,9 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi({ accessToken: decrypt(auth.accessToken) });
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) throw new Error('Failed to decrypt X access token. Please reconnect your X account.');
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const clientV2 = twitterClient.v2;
 
     const res = await fetch(imageUrl);
@@ -662,23 +686,37 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
     const tweetContent = this._sanitizeTweetText(content);
     if (!tweetContent) {
       return '-# [ ❌ Error: Tweet content cannot be empty after removing links. Please add descriptive text. ]';
     }
-    const result = await v2Client.tweet(tweetContent);
-    if (!result) return '-# [ ❌ Failed to post to X. ]';
-    const tweetId = result.data.id;
-    if (!this.isValidTweetId(tweetId)) {
-      this.logger?.error?.('[XService] Invalid tweet ID returned after posting text tweet', { avatarId, tweetId });
-      return '-# [ ✅ Posted to X but could not confirm the tweet URL. Please verify manually. ]';
+    try {
+      const result = await v2Client.tweet(tweetContent);
+      if (!result) return '-# [ ❌ Failed to post to X. ]';
+      const tweetId = result.data.id;
+      if (!this.isValidTweetId(tweetId)) {
+        this.logger?.error?.('[XService] Invalid tweet ID returned after posting text tweet', { avatarId, tweetId });
+        return '-# [ ✅ Posted to X but could not confirm the tweet URL. Please verify manually. ]';
+      }
+      const username = await this._resolveXUsernameForAvatar(avatar);
+      const tweetUrl = this.buildTweetUrl(tweetId, username);
+      await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: tweetContent, timestamp: new Date(), postedToX: true, tweetId });
+      return `-# ✨ [ [Posted to X](${tweetUrl}) ]`;
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][postToX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) {
+        return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      }
+      if (code === 429) {
+        return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      }
+      return `-# [ ❌ Error posting to X: ${apiErr?.message || 'Unknown error'} ]`;
     }
-    const username = await this._resolveXUsernameForAvatar(avatar);
-    const tweetUrl = this.buildTweetUrl(tweetId, username);
-    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: tweetContent, timestamp: new Date(), postedToX: true, tweetId });
-    return `-# ✨ [ [Posted to X](${tweetUrl}) ]`;
   }
 
   async replyToX(avatar, tweetId, content) {
@@ -686,18 +724,28 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
     const replyContent = this._sanitizeTweetText(content);
     if (!replyContent) {
       return '-# [ ❌ Error: Reply content cannot be empty after removing links. ]';
     }
-    const result = await v2Client.reply(replyContent, tweetId);
-    if (!result) return '-# [ ❌ Failed to reply on X. ]';
-    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId, timestamp: new Date(), postedToX: true, type: 'reply' });
-    const targetUrl = this.buildTweetUrl(tweetId);
-    const linkText = targetUrl ? `[Replied to post](${targetUrl})` : 'Replied to post';
-    return `↩️ ${linkText}: "${replyContent}"`;
+    try {
+      const result = await v2Client.reply(replyContent, tweetId);
+      if (!result) return '-# [ ❌ Failed to reply on X. ]';
+      await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId, timestamp: new Date(), postedToX: true, type: 'reply' });
+      const targetUrl = this.buildTweetUrl(tweetId);
+      const linkText = targetUrl ? `[Replied to post](${targetUrl})` : 'Replied to post';
+      return `↩️ ${linkText}: "${replyContent}"`;
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][replyToX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error replying on X: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   async quoteToX(avatar, tweetId, content) {
@@ -705,18 +753,28 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
     const quoteContent = this._sanitizeTweetText(content);
     if (!quoteContent) {
       return '-# [ ❌ Error: Quote content cannot be empty after removing links. ]';
     }
-    const result = await v2Client.tweet({ text: quoteContent, quote_tweet_id: tweetId });
-    if (!result) return '-# [ ❌ Failed to quote on X. ]';
-    await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: quoteContent, tweetId, timestamp: new Date(), postedToX: true, type: 'quote' });
-    const targetUrl = this.buildTweetUrl(tweetId);
-    const linkText = targetUrl ? `[Quoted post](${targetUrl})` : 'Quoted post';
-    return `📜 ${linkText}: "${quoteContent}"`;
+    try {
+      const result = await v2Client.tweet({ text: quoteContent, quote_tweet_id: tweetId });
+      if (!result) return '-# [ ❌ Failed to quote on X. ]';
+      await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: quoteContent, tweetId, timestamp: new Date(), postedToX: true, type: 'quote' });
+      const targetUrl = this.buildTweetUrl(tweetId);
+      const linkText = targetUrl ? `[Quoted post](${targetUrl})` : 'Quoted post';
+      return `📜 ${linkText}: "${quoteContent}"`;
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][quoteToX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error quoting on X: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   async followOnX(avatar, userId) {
@@ -724,11 +782,21 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
-    const me = await v2Client.me();
-    await v2Client.follow(me.data.id, userId);
-    return `➕ Followed user ${userId}`;
+    try {
+      const me = await v2Client.me();
+      await v2Client.follow(me.data.id, userId);
+      return `➕ Followed user ${userId}`;
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][followOnX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error following user: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   async likeOnX(avatar, tweetId) {
@@ -736,12 +804,22 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
-    const me = await v2Client.me();
-    await v2Client.like(me.data.id, tweetId);
-    const targetUrl = this.buildTweetUrl(tweetId);
-    return targetUrl ? `❤️ Liked post ${targetUrl}` : '❤️ Liked post on X';
+    try {
+      const me = await v2Client.me();
+      await v2Client.like(me.data.id, tweetId);
+      const targetUrl = this.buildTweetUrl(tweetId);
+      return targetUrl ? `❤️ Liked post ${targetUrl}` : '❤️ Liked post on X';
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][likeOnX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error liking post: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   async repostOnX(avatar, tweetId) {
@@ -749,12 +827,22 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
-    const me = await v2Client.me();
-    await v2Client.retweet(me.data.id, tweetId);
-    const targetUrl = this.buildTweetUrl(tweetId);
-    return targetUrl ? `🔁 Reposted ${targetUrl}` : '🔁 Reposted on X';
+    try {
+      const me = await v2Client.me();
+      await v2Client.retweet(me.data.id, tweetId);
+      const targetUrl = this.buildTweetUrl(tweetId);
+      return targetUrl ? `🔁 Reposted ${targetUrl}` : '🔁 Reposted on X';
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][repostOnX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error reposting: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   async blockOnX(avatar, userId) {
@@ -762,11 +850,21 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     const auth = await db.collection('x_auth').findOne({ avatarId });
-    const twitterClient = new TwitterApi(decrypt(auth.accessToken));
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
+    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
     const v2Client = twitterClient.v2;
-    const me = await v2Client.me();
-    await v2Client.block(me.data.id, userId);
-    return `🚫 Blocked user ${userId}`;
+    try {
+      const me = await v2Client.me();
+      await v2Client.block(me.data.id, userId);
+      return `🚫 Blocked user ${userId}`;
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.data?.errors?.[0]?.code;
+      this.logger?.error?.('[XService][blockOnX] API error', { avatarId, code, message: apiErr?.message });
+      if (code === 401) return '-# [ ❌ Error: X authorization expired. Please reconnect your X account. ]';
+      if (code === 429) return '-# [ ❌ Error: X rate limit reached. Please try again later. ]';
+      return `-# [ ❌ Error blocking user: ${apiErr?.message || 'Unknown error'} ]`;
+    }
   }
 
   /**
