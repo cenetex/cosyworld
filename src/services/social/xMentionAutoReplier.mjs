@@ -17,9 +17,10 @@ export function registerXMentionAutoReplier({
 }) {
   if (!xService) return;
 
-  const enabled = String(process.env.X_MENTION_REPLY_ENABLED || '').trim() === '1';
-  if (!enabled) {
-    logger?.debug?.('[XMentionAutoReplier] Disabled (X_MENTION_REPLY_ENABLED!=1)');
+  const enabledFlag = String(process.env.X_MENTION_REPLY_ENABLED || '').trim().toLowerCase();
+  const disabled = enabledFlag === '0' || enabledFlag === 'false' || enabledFlag === 'off' || enabledFlag === 'no';
+  if (disabled) {
+    logger?.info?.('[XMentionAutoReplier] Disabled (X_MENTION_REPLY_ENABLED indicates off)');
     return;
   }
 

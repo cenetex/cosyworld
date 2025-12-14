@@ -250,7 +250,7 @@ describe('XService Mention Auto Reply', () => {
   let socialPostsCollection;
 
   beforeEach(() => {
-    process.env.X_MENTION_REPLY_ENABLED = '1';
+    delete process.env.X_MENTION_REPLY_ENABLED;
     process.env.X_MENTION_MONTHLY_READ_CAP = '10';
     process.env.X_MENTION_MAX_RESULTS = '5';
     process.env.X_MENTION_WEEKLY_READ_CAP = '25';

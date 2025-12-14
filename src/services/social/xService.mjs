@@ -2019,8 +2019,9 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
    * - monthly read budget cap
    */
   async processGlobalMentionsAndReply({ aiService, globalBotService } = {}) {
-    const enabled = String(process.env.X_MENTION_REPLY_ENABLED || '').trim() === '1';
-    if (!enabled) return { skipped: true, reason: 'disabled' };
+    const enabledFlag = String(process.env.X_MENTION_REPLY_ENABLED || '').trim().toLowerCase();
+    const disabled = enabledFlag === '0' || enabledFlag === 'false' || enabledFlag === 'off' || enabledFlag === 'no';
+    if (disabled) return { skipped: true, reason: 'disabled' };
 
     const weeklyReadCap = (() => {
       const raw = Number(process.env.X_MENTION_WEEKLY_READ_CAP);
