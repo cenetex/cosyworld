@@ -30,14 +30,23 @@ export function registerXMentionAutoReplier({
     return 5;
   })();
 
-  const intervalMs = Math.max(15, intervalMinutes) * 60 * 1000;
+  const intervalMs = Math.max(1, intervalMinutes) * 60 * 1000;
 
   let inProgress = false;
   const task = async () => {
     if (inProgress) return;
     inProgress = true;
     try {
-      await xService.processGlobalMentionsAndReply({ aiService, globalBotService });
+      const result = await xService.processGlobalMentionsAndReply({ aiService, globalBotService });
+      if (result?.skipped) {
+        logger?.info?.('[XMentionAutoReplier] tick skipped', { reason: result.reason });
+      } else {
+        logger?.info?.('[XMentionAutoReplier] tick ok', {
+          fetched: result?.fetched,
+          replied: result?.replied,
+          sinceId: result?.sinceId,
+        });
+      }
     } catch (e) {
       logger?.warn?.('[XMentionAutoReplier] task failed:', e?.message || e);
     } finally {
