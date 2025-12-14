@@ -26,7 +26,7 @@ export function registerXMentionAutoReplier({
   const intervalMinutes = (() => {
     const raw = Number(process.env.X_MENTION_REPLY_INTERVAL_MINUTES);
     if (!Number.isNaN(raw) && raw > 0) return raw;
-    return 12 * 60;
+    return 5;
   })();
 
   const intervalMs = Math.max(15, intervalMinutes) * 60 * 1000;

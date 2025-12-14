@@ -1897,6 +1897,24 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     return `${y}-${m}`;
   }
 
+  _getDayKey(date = new Date()) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // ISO week key (UTC-based): YYYY-Www
+  _getWeekKey(date = new Date()) {
+    const tmp = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    // Thursday in current week decides the year
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+    const week = String(weekNo).padStart(2, '0');
+    return `${tmp.getUTCFullYear()}-W${week}`;
+  }
+
   async _resolveGlobalAuthRecord() {
     const db = await this.databaseService.getDatabase();
     let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
@@ -1915,7 +1933,11 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     return state || {
       _id: 'global',
       monthKey: this._getMonthKey(),
-      readsUsed: 0,
+      weekKey: this._getWeekKey(),
+      dayKey: this._getDayKey(),
+      readsUsedMonth: 0,
+      readsUsedWeek: 0,
+      readsUsedDay: 0,
       lastMentionId: null,
       lastRunAt: null,
       updatedAt: new Date(),
@@ -2000,6 +2022,19 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     const enabled = String(process.env.X_MENTION_REPLY_ENABLED || '').trim() === '1';
     if (!enabled) return { skipped: true, reason: 'disabled' };
 
+    const weeklyReadCap = (() => {
+      const raw = Number(process.env.X_MENTION_WEEKLY_READ_CAP);
+      if (!Number.isNaN(raw) && raw >= 0) return raw;
+      return 25;
+    })();
+
+    const dailyReadCap = (() => {
+      const raw = Number(process.env.X_MENTION_DAILY_READ_CAP);
+      if (!Number.isNaN(raw) && raw >= 0) return raw;
+      // If not set, default to no explicit daily cap (use weekly/monthly only)
+      return 0;
+    })();
+
     const monthlyReadCap = (() => {
       const raw = Number(process.env.X_MENTION_MONTHLY_READ_CAP);
       if (!Number.isNaN(raw) && raw > 0) return raw;
@@ -2031,13 +2066,51 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     }
 
     const monthKey = this._getMonthKey();
+    const weekKey = this._getWeekKey();
+    const dayKey = this._getDayKey();
     const state = await this._loadGlobalMentionState(db);
-    const readsUsed = (state.monthKey === monthKey) ? Number(state.readsUsed || 0) : 0;
-    const remaining = monthlyReadCap - readsUsed;
+    const readsUsedMonth = (state.monthKey === monthKey) ? Number(state.readsUsedMonth ?? state.readsUsed ?? 0) : 0;
+    const readsUsedWeek = (state.weekKey === weekKey) ? Number(state.readsUsedWeek || 0) : 0;
+    const readsUsedDay = (state.dayKey === dayKey) ? Number(state.readsUsedDay || 0) : 0;
+
+    const remainingMonth = monthlyReadCap - readsUsedMonth;
+    const remainingWeek = weeklyReadCap > 0 ? (weeklyReadCap - readsUsedWeek) : remainingMonth;
+    const remainingDay = dailyReadCap > 0 ? (dailyReadCap - readsUsedDay) : remainingMonth;
+    const remaining = Math.min(remainingMonth, remainingWeek, remainingDay);
+
     if (remaining <= 0) {
-      await this._saveGlobalMentionState(db, { monthKey, readsUsed, lastRunAt: new Date(), lastError: null });
-      this.logger?.info?.('[XService][mentions] Monthly read budget exhausted', { monthKey, monthlyReadCap });
-      return { skipped: true, reason: 'budget_exhausted', monthKey, monthlyReadCap };
+      await this._saveGlobalMentionState(db, {
+        monthKey,
+        weekKey,
+        dayKey,
+        readsUsedMonth,
+        readsUsedWeek,
+        readsUsedDay,
+        lastRunAt: new Date(),
+        lastError: null
+      });
+      const reason = remainingMonth <= 0
+        ? 'budget_exhausted_month'
+        : (remainingWeek <= 0 ? 'budget_exhausted_week' : 'budget_exhausted_day');
+      this.logger?.info?.('[XService][mentions] Read budget exhausted', {
+        reason,
+        monthKey,
+        weekKey,
+        dayKey,
+        monthlyReadCap,
+        weeklyReadCap,
+        dailyReadCap
+      });
+      return {
+        skipped: true,
+        reason,
+        monthKey,
+        weekKey,
+        dayKey,
+        monthlyReadCap,
+        weeklyReadCap,
+        dailyReadCap
+      };
     }
 
     const client = new TwitterApi({ accessToken });
@@ -2081,16 +2154,32 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     }
 
     const mentions = resp?.data?.data || [];
-    const newReadsUsed = readsUsed + mentions.length;
+    const newReadsUsedMonth = readsUsedMonth + mentions.length;
+    const newReadsUsedWeek = readsUsedWeek + mentions.length;
+    const newReadsUsedDay = readsUsedDay + mentions.length;
 
     if (!mentions.length) {
       await this._saveGlobalMentionState(db, {
         monthKey,
-        readsUsed: newReadsUsed,
+        weekKey,
+        dayKey,
+        readsUsedMonth: newReadsUsedMonth,
+        readsUsedWeek: newReadsUsedWeek,
+        readsUsedDay: newReadsUsedDay,
         lastRunAt: new Date(),
         lastError: null,
       });
-      return { ok: true, replied: 0, fetched: 0, monthKey, readsUsed: newReadsUsed };
+      return {
+        ok: true,
+        replied: 0,
+        fetched: 0,
+        monthKey,
+        weekKey,
+        dayKey,
+        readsUsedMonth: newReadsUsedMonth,
+        readsUsedWeek: newReadsUsedWeek,
+        readsUsedDay: newReadsUsedDay
+      };
     }
 
     // Oldest-first for stable processing
@@ -2178,13 +2267,27 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
 
     await this._saveGlobalMentionState(db, {
       monthKey,
-      readsUsed: newReadsUsed,
+      weekKey,
+      dayKey,
+      readsUsedMonth: newReadsUsedMonth,
+      readsUsedWeek: newReadsUsedWeek,
+      readsUsedDay: newReadsUsedDay,
       lastRunAt: new Date(),
       lastError: null,
       lastMentionId: newestId || state.lastMentionId || null,
     });
 
-    return { ok: true, replied, fetched: mentions.length, monthKey, readsUsed: newReadsUsed };
+    return {
+      ok: true,
+      replied,
+      fetched: mentions.length,
+      monthKey,
+      weekKey,
+      dayKey,
+      readsUsedMonth: newReadsUsedMonth,
+      readsUsedWeek: newReadsUsedWeek,
+      readsUsedDay: newReadsUsedDay
+    };
   }
 
   /**

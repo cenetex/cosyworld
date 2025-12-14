@@ -253,6 +253,8 @@ describe('XService Mention Auto Reply', () => {
     process.env.X_MENTION_REPLY_ENABLED = '1';
     process.env.X_MENTION_MONTHLY_READ_CAP = '10';
     process.env.X_MENTION_MAX_RESULTS = '5';
+    process.env.X_MENTION_WEEKLY_READ_CAP = '25';
+    delete process.env.X_MENTION_DAILY_READ_CAP;
 
     logger = {
       info: vi.fn(),
@@ -278,7 +280,19 @@ describe('XService Mention Auto Reply', () => {
       findOne: vi.fn().mockResolvedValue({
         _id: 'global',
         monthKey: new Date().toISOString().slice(0, 7),
-        readsUsed: 0,
+        weekKey: (() => {
+          // matches XService week key format roughly; not critical for this test
+          const now = new Date();
+          const tmp = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+          tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+          const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+          return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        })(),
+        dayKey: new Date().toISOString().slice(0, 10),
+        readsUsedMonth: 0,
+        readsUsedWeek: 0,
+        readsUsedDay: 0,
         lastMentionId: null
       }),
       updateOne: vi.fn().mockResolvedValue({ acknowledged: true })
@@ -344,5 +358,35 @@ describe('XService Mention Auto Reply', () => {
     expect(mockReply).toHaveBeenCalledTimes(1);
     expect(mentionsStateCollection.updateOne).toHaveBeenCalled();
     expect(socialPostsCollection.insertOne).toHaveBeenCalled();
+  });
+
+  it('skips polling when weekly read budget is exhausted (responsive until spent)', async () => {
+    process.env.X_MENTION_WEEKLY_READ_CAP = '1';
+    mentionsStateCollection.findOne.mockResolvedValue({
+      _id: 'global',
+      monthKey: new Date().toISOString().slice(0, 7),
+      weekKey: (() => {
+        const now = new Date();
+        const tmp = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+        return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+      })(),
+      dayKey: new Date().toISOString().slice(0, 10),
+      readsUsedMonth: 1,
+      readsUsedWeek: 1,
+      readsUsedDay: 0,
+      lastMentionId: null
+    });
+
+    const result = await xService.processGlobalMentionsAndReply({
+      aiService: { chat: vi.fn() },
+      globalBotService: { bot: { globalBotConfig: { contentFilters: { enabled: false } } } }
+    });
+
+    expect(result.skipped).toBe(true);
+    expect(result.reason).toBe('budget_exhausted_week');
+    expect(mockUserMentionTimeline).not.toHaveBeenCalled();
   });
 });
