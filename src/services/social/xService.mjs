@@ -659,25 +659,49 @@ class XService {
     const avatarId = avatar._id.toString();
     const auth = await db.collection('x_auth').findOne({ avatarId });
     if (!auth || !await this.isXAuthorized(avatarId)) return { timeline: [], notifications: [], userId: null };
-  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
-    const v2Client = twitterClient.v2;
-    const userData = await v2Client.me();
-    const userId = userData.data.id;
-    const timelineResp = await v2Client.homeTimeline({ max_results: 30 });
-    const notificationsResp = await v2Client.userMentionTimeline(userId, { max_results: 10 });
-    const timeline = timelineResp?.data?.data?.map(t => ({ id: t.id, text: t.text, user: t.author_id, isOwn: t.author_id === userId })) || [];
-    const notifications = notificationsResp?.data?.data?.map(n => ({ id: n.id, text: n.text, user: n.author_id, isOwn: n.author_id === userId })) || [];
-    // Save all tweets to DB
-    const allTweets = [...timeline, ...notifications];
-    for (const tweet of allTweets) {
-      if (!tweet?.id) continue;
-      await db.collection('social_posts').updateOne(
-        { tweetId: tweet.id },
-        { $set: { tweetId: tweet.id, content: tweet.text, userId: tweet.user, isOwn: tweet.isOwn, avatarId: avatar._id, timestamp: new Date(), postedToX: tweet.isOwn } },
-        { upsert: true }
-      );
+    
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) {
+      this.logger?.warn?.('[XService][getXTimelineAndNotifications] Failed to decrypt access token', { avatarId });
+      return { timeline: [], notifications: [], userId: null };
     }
-    return { timeline, notifications, userId };
+    
+    try {
+      const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
+      const v2Client = twitterClient.v2;
+      const userData = await v2Client.me();
+      
+      if (!userData?.data?.id) {
+        this.logger?.warn?.('[XService][getXTimelineAndNotifications] Failed to get user data from X API', { avatarId });
+        return { timeline: [], notifications: [], userId: null };
+      }
+      
+      const userId = userData.data.id;
+      const timelineResp = await v2Client.homeTimeline({ max_results: 30 });
+      const notificationsResp = await v2Client.userMentionTimeline(userId, { max_results: 10 });
+      const timeline = timelineResp?.data?.data?.map(t => ({ id: t.id, text: t.text, user: t.author_id, isOwn: t.author_id === userId })) || [];
+      const notifications = notificationsResp?.data?.data?.map(n => ({ id: n.id, text: n.text, user: n.author_id, isOwn: n.author_id === userId })) || [];
+      // Save all tweets to DB
+      const allTweets = [...timeline, ...notifications];
+      for (const tweet of allTweets) {
+        if (!tweet?.id) continue;
+        await db.collection('social_posts').updateOne(
+          { tweetId: tweet.id },
+          { $set: { tweetId: tweet.id, content: tweet.text, userId: tweet.user, isOwn: tweet.isOwn, avatarId: avatar._id, timestamp: new Date(), postedToX: tweet.isOwn } },
+          { upsert: true }
+        );
+      }
+      return { timeline, notifications, userId };
+    } catch (apiErr) {
+      const code = apiErr?.code || apiErr?.status || apiErr?.statusCode;
+      this.logger?.error?.('[XService][getXTimelineAndNotifications] API error', { 
+        avatarId, 
+        code, 
+        message: apiErr?.message 
+      });
+      // Return empty results instead of throwing
+      return { timeline: [], notifications: [], userId: null, error: apiErr?.message };
+    }
   }
 
   // --- X Social Actions ---
@@ -2128,6 +2152,23 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     const disabled = enabledFlag === '0' || enabledFlag === 'false' || enabledFlag === 'off' || enabledFlag === 'no';
     if (disabled) return { skipped: true, reason: 'disabled' };
 
+    // Check if we're still in a rate limit window
+    const db = await this.databaseService.getDatabase();
+    const existingState = await this._loadGlobalMentionState(db);
+    if (existingState?.rateLimitedUntil && new Date(existingState.rateLimitedUntil) > new Date()) {
+      const remainingSec = Math.ceil((new Date(existingState.rateLimitedUntil) - new Date()) / 1000);
+      this.logger?.debug?.('[XService][mentions] Still rate limited, skipping', { 
+        rateLimitedUntil: existingState.rateLimitedUntil,
+        remainingSec 
+      });
+      return { 
+        skipped: true, 
+        reason: 'rate_limited', 
+        waitSec: remainingSec,
+        message: `Still rate limited. Try again in ${Math.ceil(remainingSec / 60)} minutes.`
+      };
+    }
+
     const weeklyReadCap = (() => {
       const raw = Number(process.env.X_MENTION_WEEKLY_READ_CAP);
       if (!Number.isNaN(raw) && raw >= 0) return raw;
@@ -2153,8 +2194,6 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       return 5;
     })();
 
-    const db = await this.databaseService.getDatabase();
-    
     // Try OAuth 1.0a credentials first (same as posting) since they work reliably
     const oauth1Creds = await this._getOAuth1Credentials();
     let useOAuth1 = false;
@@ -2177,8 +2216,31 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
           this.logger?.debug?.('[XService][mentions] using OAuth 1.0a credentials', { userId: oauth1UserId });
         }
       } catch (oauth1Err) {
+        const errCode = oauth1Err?.code || oauth1Err?.status || oauth1Err?.statusCode;
+        // If rate limited (429), don't fallback - just skip this tick entirely
+        if (Number(errCode) === 429 || /429/.test(oauth1Err?.message || '')) {
+          const resetTime = oauth1Err?.rateLimit?.reset;
+          const waitSec = resetTime ? Math.ceil((resetTime * 1000 - Date.now()) / 1000) : 900; // Default 15 min
+          this.logger?.warn?.('[XService][mentions] OAuth 1.0a rate limited (429), skipping mention poll', { 
+            waitSec,
+            resetTime: resetTime ? new Date(resetTime * 1000).toISOString() : 'unknown'
+          });
+          await this._saveGlobalMentionState(db, { 
+            lastRunAt: new Date(), 
+            lastError: `rate_limited:${waitSec}s`,
+            rateLimitedUntil: new Date(Date.now() + waitSec * 1000)
+          });
+          return { 
+            skipped: true, 
+            reason: 'rate_limited', 
+            waitSec,
+            message: `X API rate limited. Try again in ${Math.ceil(waitSec / 60)} minutes.`
+          };
+        }
+        // For other errors, log and fall back to OAuth 2.0
         this.logger?.warn?.('[XService][mentions] OAuth 1.0a verification failed, falling back to OAuth 2.0', { 
-          error: oauth1Err?.message || String(oauth1Err) 
+          error: oauth1Err?.message || String(oauth1Err),
+          code: errCode
         });
       }
     }
@@ -2312,6 +2374,28 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         type: apiType,
         errors: apiErrors,
       };
+
+      // Handle rate limiting (429) - don't retry, just skip with backoff info
+      if (Number(status) === 429 || /429/.test(e?.message || '')) {
+        const resetTime = e?.rateLimit?.reset;
+        const waitSec = resetTime ? Math.ceil((resetTime * 1000 - Date.now()) / 1000) : 900; // Default 15 min
+        this.logger?.warn?.('[XService][mentions] Rate limited (429), skipping', { 
+          waitSec,
+          resetTime: resetTime ? new Date(resetTime * 1000).toISOString() : 'unknown',
+          usingOAuth1: useOAuth1
+        });
+        await this._saveGlobalMentionState(db, { 
+          lastRunAt: new Date(), 
+          lastError: `rate_limited:${waitSec}s`,
+          rateLimitedUntil: new Date(Date.now() + waitSec * 1000)
+        });
+        return { 
+          skipped: true, 
+          reason: 'rate_limited', 
+          waitSec,
+          message: `X API rate limited. Try again in ${Math.ceil(waitSec / 60)} minutes.`
+        };
+      }
 
       // If the bearer token was revoked/expired, attempt one refresh+retry (if possible).
       // Only applies to OAuth 2.0 flow - OAuth 1.0a doesn't have refresh tokens
