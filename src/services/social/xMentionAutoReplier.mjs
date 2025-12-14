@@ -39,7 +39,7 @@ export function registerXMentionAutoReplier({
     try {
       const result = await xService.processGlobalMentionsAndReply({ aiService, globalBotService });
       if (result?.skipped) {
-        logger?.info?.('[XMentionAutoReplier] tick skipped', { reason: result.reason });
+        logger?.info?.('[XMentionAutoReplier] tick skipped', { reason: result.reason, error: result?.error });
       } else {
         logger?.info?.('[XMentionAutoReplier] tick ok', {
           fetched: result?.fetched,

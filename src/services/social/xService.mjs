@@ -2150,8 +2150,24 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         'tweet.fields': 'author_id,created_at,conversation_id',
       });
     } catch (e) {
-      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${e?.message || e}` });
-      return { skipped: true, reason: 'mentions_failed' };
+      const status = e?.code || e?.statusCode || e?.status || e?.response?.status;
+      const apiTitle = e?.data?.title || e?.response?.data?.title;
+      const apiDetail = e?.data?.detail || e?.response?.data?.detail;
+      const apiType = e?.data?.type || e?.response?.data?.type;
+      const apiErrors = Array.isArray(e?.data?.errors)
+        ? e.data.errors
+        : (Array.isArray(e?.response?.data?.errors) ? e.response.data.errors : null);
+      const errorSummary = {
+        message: e?.message || String(e),
+        status,
+        title: apiTitle,
+        detail: apiDetail,
+        type: apiType,
+        errors: apiErrors,
+      };
+      this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', errorSummary);
+      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${errorSummary.message}` });
+      return { skipped: true, reason: 'mentions_failed', error: errorSummary };
     }
 
     const mentions = resp?.data?.data || [];
