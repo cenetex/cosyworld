@@ -2056,21 +2056,55 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     })();
 
     const db = await this.databaseService.getDatabase();
+    
+    // Try OAuth 1.0a credentials first (same as posting) since they work reliably
+    const oauth1Creds = await this._getOAuth1Credentials();
+    let useOAuth1 = false;
+    let oauth1Client = null;
+    let oauth1UserId = null;
+    
+    if (oauth1Creds) {
+      try {
+        oauth1Client = new TwitterApi({
+          appKey: oauth1Creds.apiKey,
+          appSecret: oauth1Creds.apiSecret,
+          accessToken: oauth1Creds.accessToken,
+          accessSecret: oauth1Creds.accessTokenSecret,
+        });
+        // Verify credentials and get user ID
+        const me = await oauth1Client.v2.me({ 'user.fields': 'id,username,name' });
+        if (me?.data?.id) {
+          oauth1UserId = me.data.id;
+          useOAuth1 = true;
+          this.logger?.debug?.('[XService][mentions] using OAuth 1.0a credentials', { userId: oauth1UserId });
+        }
+      } catch (oauth1Err) {
+        this.logger?.warn?.('[XService][mentions] OAuth 1.0a verification failed, falling back to OAuth 2.0', { 
+          error: oauth1Err?.message || String(oauth1Err) 
+        });
+      }
+    }
+    
+    // Fall back to OAuth 2.0 if OAuth 1.0a not available or failed
     const auth = await this._resolveGlobalAuthRecord();
-    if (!auth?.accessToken) {
-      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_auth' });
-      return { skipped: true, reason: 'no_auth' };
-    }
+    let accessToken = null;
+    
+    if (!useOAuth1) {
+      if (!auth?.accessToken) {
+        await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_auth' });
+        return { skipped: true, reason: 'no_auth' };
+      }
 
-    let accessToken = await this._maybeRefreshAuth(auth);
-    if (!accessToken) {
-      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_token' });
-      return { skipped: true, reason: 'no_token' };
-    }
-    accessToken = String(accessToken).trim();
-    if (!accessToken) {
-      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'empty_token' });
-      return { skipped: true, reason: 'empty_token' };
+      accessToken = await this._maybeRefreshAuth(auth);
+      if (!accessToken) {
+        await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'no_token' });
+        return { skipped: true, reason: 'no_token' };
+      }
+      accessToken = String(accessToken).trim();
+      if (!accessToken) {
+        await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: 'empty_token' });
+        return { skipped: true, reason: 'empty_token' };
+      }
     }
 
     const monthKey = this._getMonthKey();
@@ -2121,16 +2155,24 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       };
     }
 
-    const client = new TwitterApi({ accessToken });
-    const v2 = client.v2;
+    // Use OAuth 1.0a client if available, otherwise OAuth 2.0
+    let client;
+    let v2;
+    if (useOAuth1 && oauth1Client) {
+      client = oauth1Client;
+      v2 = oauth1Client.v2;
+    } else {
+      client = new TwitterApi({ accessToken });
+      v2 = client.v2;
+    }
 
-    // Resolve userId (cached on x_auth.profile)
-    let userId = auth?.profile?.id || null;
+    // Resolve userId (cached on x_auth.profile or from OAuth 1.0a)
+    let userId = useOAuth1 ? oauth1UserId : (auth?.profile?.id || null);
     if (!userId) {
       try {
         const me = await v2.me({ 'user.fields': 'id,username,name' });
         userId = me?.data?.id || null;
-        if (userId) {
+        if (userId && auth?._id) {
           await db.collection('x_auth').updateOne(
             { _id: auth._id },
             { $set: { profile: { ...(auth.profile || {}), ...me.data, cachedAt: new Date() }, updatedAt: new Date() } }
@@ -2174,7 +2216,8 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       };
 
       // If the bearer token was revoked/expired, attempt one refresh+retry (if possible).
-      if (Number(status) === 401 && auth?.refreshToken) {
+      // Only applies to OAuth 2.0 flow - OAuth 1.0a doesn't have refresh tokens
+      if (Number(status) === 401 && !useOAuth1 && auth?.refreshToken) {
         try {
           // Force refresh even if the token isn't "expired"; it may be revoked.
           const refreshed = await this._maybeRefreshAuth(auth, { forceRefresh: true });
@@ -2204,7 +2247,7 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
           return { skipped: true, reason: 'mentions_failed', error: errorSummary };
         }
       } else {
-        this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', errorSummary);
+        this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', { ...errorSummary, usingOAuth1: useOAuth1 });
         await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${errorSummary.message}` });
         return { skipped: true, reason: 'mentions_failed', error: errorSummary };
       }
