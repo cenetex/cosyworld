@@ -43,7 +43,7 @@ async function runLogin() {
     const container = document.querySelector('.wallet-container');
     if (!container) return;
 
-    const providerAvailable = !!(window?.phantom?.solana);
+    const providerAvailable = !!(window?.phantom?.solana || window?.solana?.isPhantom);
 
     let connectBtn = container.querySelector('#wallet-connect-btn');
     if (connectBtn) {
@@ -54,11 +54,18 @@ async function runLogin() {
       connectBtn.type = 'button';
       connectBtn.className = 'w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition';
       connectBtn.textContent = 'Connect Phantom Wallet';
-      connectBtn.addEventListener('click', () => {
-        connectWallet().catch((err) => {
+      connectBtn.addEventListener('click', async () => {
+        try {
+          updateStatusUI('Opening Phantom…', 'processing');
+          const res = await connectWallet();
+          const connected = !!(res?.publicKey || window.state?.wallet?.publicKey);
+          if (!connected) {
+            updateStatusUI('Wallet connection failed. Open Phantom, unlock it, and try again.', 'error');
+          }
+        } catch (err) {
           console.error('Wallet connect error:', err);
-          updateStatusUI(`Wallet connection failed: ${err.message || err}`, 'error');
-        });
+          updateStatusUI(`Wallet connection failed: ${err?.message || err}`, 'error');
+        }
       });
       container.appendChild(connectBtn);
     }
@@ -98,7 +105,7 @@ async function runLogin() {
       const { nonce } = nonceData || {};
       if (!nonce) throw new Error('Nonce missing');
 
-      const provider = window?.phantom?.solana;
+      const provider = window?.phantom?.solana || (window?.solana?.isPhantom ? window.solana : null);
       if (!provider) throw new Error('Phantom not available');
       
       updateStatusUI('Please sign the message in your wallet…', 'processing');

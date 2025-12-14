@@ -329,8 +329,10 @@ class XService {
   const rt = safeDecrypt(auth.refreshToken || '');
   const { accessToken, refreshToken: newRefreshToken, expiresIn } = await client.refreshOAuth2Token(rt);
       const expiresAt = new Date(Date.now() + ((expiresIn || 7200) * 1000));
+
+      const query = auth?.avatarId ? { avatarId: auth.avatarId } : { _id: auth._id };
       await db.collection('x_auth').updateOne(
-        { avatarId: auth.avatarId },
+        query,
         {
           $set: {
     accessToken: encrypt(accessToken),
@@ -342,9 +344,10 @@ class XService {
       );
       return { accessToken, expiresAt };
     } catch (error) {
-      this.logger?.error?.('Token refresh failed:', error.message, { avatarId: auth.avatarId });
+      this.logger?.error?.('Token refresh failed:', error.message, { avatarId: auth?.avatarId, authId: auth?._id, global: auth?.global });
       if (error.code === 401 || error.message?.includes('invalid_grant')) {
-        await db.collection('x_auth').deleteOne({ avatarId: auth.avatarId });
+        const delQuery = auth?.avatarId ? { avatarId: auth.avatarId } : { _id: auth._id };
+        await db.collection('x_auth').deleteOne(delQuery);
       }
       throw new Error('Failed to refresh token');
     }
@@ -1812,16 +1815,20 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
   }
 
   /** Attempt to refresh an OAuth2 token for a record that may be marked global or generic */
-  async _maybeRefreshAuth(auth) {
+  async _maybeRefreshAuth(auth, { forceRefresh = false } = {}) {
     if (!auth) return null;
     try {
       const expired = auth.expiresAt && (new Date() >= new Date(auth.expiresAt));
-      if (expired && auth.refreshToken) {
-        // Reuse refreshAccessToken logic requires avatarId; if absent (pure global), skip.
-        if (auth.avatarId) {
-          const { accessToken } = await this.refreshAccessToken(auth);
-          return accessToken;
-        }
+      if ((forceRefresh || expired) && auth.refreshToken) {
+        this.logger?.debug?.('[XService] refreshing OAuth2 token', {
+          authId: auth?._id,
+          avatarId: auth?.avatarId,
+          global: auth?.global,
+          forceRefresh,
+          expired,
+        });
+        const { accessToken } = await this.refreshAccessToken(auth);
+        return accessToken;
       }
       return safeDecrypt(auth.accessToken || '');
     } catch (e) {
@@ -2165,9 +2172,42 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         type: apiType,
         errors: apiErrors,
       };
-      this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', errorSummary);
-      await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${errorSummary.message}` });
-      return { skipped: true, reason: 'mentions_failed', error: errorSummary };
+
+      // If the bearer token was revoked/expired, attempt one refresh+retry (if possible).
+      if (Number(status) === 401 && auth?.refreshToken) {
+        try {
+          // Force refresh even if the token isn't "expired"; it may be revoked.
+          const refreshed = await this._maybeRefreshAuth(auth, { forceRefresh: true });
+          if (refreshed) {
+            const retryClient = new TwitterApi({ accessToken: String(refreshed).trim() });
+            const retryV2 = retryClient.v2;
+            resp = await retryV2.userMentionTimeline(userId, {
+              max_results: limit,
+              since_id: sinceId,
+              'tweet.fields': 'author_id,created_at,conversation_id',
+            });
+          }
+        } catch (retryErr) {
+          this.logger?.warn?.('[XService][mentions] refresh+retry failed', {
+            message: retryErr?.message || String(retryErr),
+            authId: auth?._id,
+            avatarId: auth?.avatarId,
+            global: auth?.global,
+          });
+        }
+
+        if (resp) {
+          // Successfully recovered; continue normal flow.
+        } else {
+          this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', errorSummary);
+          await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${errorSummary.message}` });
+          return { skipped: true, reason: 'mentions_failed', error: errorSummary };
+        }
+      } else {
+        this.logger?.warn?.('[XService][mentions] userMentionTimeline failed', errorSummary);
+        await this._saveGlobalMentionState(db, { lastRunAt: new Date(), lastError: `mentions_failed:${errorSummary.message}` });
+        return { skipped: true, reason: 'mentions_failed', error: errorSummary };
+      }
     }
 
     const mentions = resp?.data?.data || [];

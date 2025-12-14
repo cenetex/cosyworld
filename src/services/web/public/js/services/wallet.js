@@ -12,6 +12,19 @@ import { setWallet } from '../core/state.js';
 import { showToast } from '../utils/toast.js';
 import { shortenAddress } from '../utils/formatting.js';
 
+function getPhantomProvider() {
+  const phantom = window?.phantom?.solana;
+  if (phantom) return phantom;
+  const solana = window?.solana;
+  if (solana?.isPhantom) return solana;
+  const providers = Array.isArray(solana?.providers) ? solana.providers : null;
+  if (providers?.length) {
+    const p = providers.find((x) => x?.isPhantom);
+    if (p) return p;
+  }
+  return null;
+}
+
 // Lightweight Base58 encoder (Bitcoin alphabet) to avoid bundler/runtime bare specifier issues with 'bs58' in dev mode
 // This mirrors the encoding expected by the server (which uses bs58 to decode signatures)
 const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -115,7 +128,7 @@ function updateFloatingWalletButton() {
  * Try to auto-connect to a wallet if the provider is available
  */
 function autoConnectWallet() {
-  const provider = window?.phantom?.solana;
+  const provider = getPhantomProvider();
   if (provider) {
     provider.connect({ onlyIfTrusted: true })
       .then(connection => {
@@ -124,7 +137,9 @@ function autoConnectWallet() {
         }
       })
       .catch(err => {
-        console.warn("Auto-connect failed or not trusted:", err);
+        // This is common when Phantom is locked or this site isn't trusted yet.
+        // Avoid noisy warnings on every page load.
+        console.debug("Auto-connect skipped:", err?.message || err);
       });
   } else {
     console.log("No compatible wallet provider found for auto-connect");
@@ -138,7 +153,7 @@ function autoConnectWallet() {
 export async function connectWallet() {
   try {
     // Check if Phantom wallet is available
-    const provider = window?.phantom?.solana;
+    const provider = getPhantomProvider();
     
     if (!provider) {
   if (!window.__walletSuppressToasts) showToast("Please install Phantom wallet", { type: 'warning' });
@@ -153,7 +168,11 @@ export async function connectWallet() {
     
     return connection;
   } catch (error) {
-    console.error("Wallet connection error:", error);
+    console.error("Wallet connection error:", {
+      message: error?.message || String(error),
+      name: error?.name,
+      code: error?.code,
+    });
   if (!window.__walletSuppressToasts) showToast(`Wallet connection failed: ${error.message}`, { type: 'error' });
     return null;
   }
@@ -164,7 +183,7 @@ export async function connectWallet() {
  */
 export function disconnectWallet() {
   try {
-    const provider = window?.phantom?.solana;
+    const provider = getPhantomProvider();
     if (provider && provider.disconnect) {
       provider.disconnect();
     }
@@ -272,7 +291,7 @@ export function updateWalletUI() {
  */
 export async function signWriteHeaders(extra = {}) {
   const address = window.state?.wallet?.publicKey;
-  const provider = window?.phantom?.solana;
+  const provider = getPhantomProvider();
   if ((!address || !provider)) {
     // Attempt an on-demand connection (interactive) before failing
     if (provider?.connect) {
@@ -310,7 +329,7 @@ export async function signWriteHeaders(extra = {}) {
  * @returns {Promise<Object>} - { walletAddress, message, signature (base58) }
  */
 export async function signMessage(message) {
-  const provider = window?.phantom?.solana;
+  const provider = getPhantomProvider();
   if (!provider) throw new Error('Wallet not connected');
   
   // Ensure wallet is connected
