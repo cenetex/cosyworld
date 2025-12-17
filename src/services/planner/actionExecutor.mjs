@@ -7,6 +7,8 @@
  *              Part of Phase 2 refactoring to extract action execution logic.
  */
 
+import { DEFAULT_MODEL } from '../social/telegram/constants.mjs';
+
 /**
  * @typedef {Object} ActionContext
  * @property {Object} ctx - Telegram context
@@ -386,7 +388,7 @@ Write the message you should send to the user now to fulfill this action. Keep i
     const response = await services.ai.chat([
       { role: 'user', content: speechPrompt }
     ], {
-      model: services.globalBot?.bot?.model || 'anthropic/claude-sonnet-4.5',
+      model: services.globalBot?.bot?.model || DEFAULT_MODEL,
       temperature: 0.7
     });
     
@@ -465,7 +467,7 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
       const response = await services.ai.chat([
         { role: 'user', content: tweetPrompt }
       ], {
-        model: services.globalBot?.bot?.model || 'anthropic/claude-sonnet-4.5',
+        model: services.globalBot?.bot?.model || DEFAULT_MODEL,
         temperature: 0.8
       });
       

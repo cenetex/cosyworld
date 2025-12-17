@@ -85,10 +85,13 @@ export class ConversationManager {
       const existingHistory = this.conversationHistory.get(normalizedChannelId) || [];
       const mergedHistory = [...history, ...existingHistory];
       
-      // Remove duplicates and keep last N messages
+      // Remove duplicates (prefer messageId match, fallback to date+text) and keep last N messages
       const uniqueHistory = mergedHistory
         .filter((msg, index, self) => 
-          index === self.findIndex(m => m.date === msg.date && m.text === msg.text)
+          index === self.findIndex(m => 
+            (m.messageId && msg.messageId && m.messageId === msg.messageId) ||
+            (!m.messageId && !msg.messageId && m.date === msg.date && m.text === msg.text)
+          )
         )
         .slice(-this.HISTORY_LIMIT);
       

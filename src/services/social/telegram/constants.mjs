@@ -191,6 +191,12 @@ export const BOT_CONFIG = {
 };
 
 // ============================================================================
+// AI Model Configuration
+// ============================================================================
+
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.5';
+
+// ============================================================================
 // HTML Entity Map for Decoding
 // ============================================================================
 
@@ -217,4 +223,5 @@ export default {
   ACTION_LABELS,
   BOT_CONFIG,
   HTML_ENTITY_MAP,
+  DEFAULT_MODEL,
 };

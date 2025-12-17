@@ -34,6 +34,7 @@ import {
   REPLY_DELAY_CONFIG,
   MEDIA_LIMITS,
   MEDIA_CONFIG,
+  DEFAULT_MODEL,
   // Utilities
   escapeHtml,
   formatTelegramMarkdown,
@@ -582,14 +583,9 @@ class TelegramService {
         interactedAt: Date.now(),
         type: isMentioned ? 'mention' : 'reply'
       });
-      // Cleanup old entries periodically
-      if (this._recentInteractors.size > 100) {
-        const now = Date.now();
-        for (const [key, entry] of this._recentInteractors.entries()) {
-          if (now - entry.interactedAt > this._recentInteractorWindowMs) {
-            this._recentInteractors.delete(key);
-          }
-        }
+      // Inline cleanup when map gets large (primary cleanup is in _pruneRecentInteractors)
+      if (this._recentInteractors.size > 50) {
+        this._pruneRecentInteractors();
       }
     }
     
@@ -641,6 +637,9 @@ class TelegramService {
     setInterval(async () => {
       // Top-level error boundary to prevent interval from breaking
       try {
+      // Prune stale recent interactors on each poll cycle
+      this._pruneRecentInteractors();
+      
       for (const [channelId, history] of this.conversationManager.getAllHistories()) {
         try {
           if (!history || history.length === 0) continue;
@@ -861,9 +860,8 @@ class TelegramService {
     
     this.logger?.info?.(`[TelegramService] Processing ${queuedCount} queued messages after warmup`);
     
-    // Mark all queued entries as high priority by setting mentionedAt to now
+    // Mark all queued entries as high priority
     // This ensures they get processed immediately by the queue processor
-    const now = Date.now();
     for (const [channelId, entry] of this._channelReplyQueue.entries()) {
       if (entry.needsReply && !entry.processing) {
         // Set lastActivity to 0 to ensure immediate processing (delay already passed)
@@ -874,6 +872,27 @@ class TelegramService {
         }
         this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for immediate processing after warmup`);
       }
+    }
+  }
+
+  /**
+   * Prune expired entries from the recent interactors map to prevent memory leaks.
+   * @private
+   */
+  _pruneRecentInteractors() {
+    if (this._recentInteractors.size === 0) return;
+    
+    const now = Date.now();
+    let pruned = 0;
+    for (const [key, entry] of this._recentInteractors.entries()) {
+      if (now - entry.interactedAt > this._recentInteractorWindowMs) {
+        this._recentInteractors.delete(key);
+        pruned++;
+      }
+    }
+    
+    if (pruned > 0) {
+      this.logger?.debug?.(`[TelegramService] Pruned ${pruned} stale recent interactors`);
     }
   }
 
@@ -949,7 +968,7 @@ class TelegramService {
 
       const model = this.configService.get('TELEGRAM_BOT_MODEL') || 
                    this.globalBotService?.bot?.model || 
-                   'anthropic/claude-sonnet-4.5';
+                   DEFAULT_MODEL;
 
       const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
@@ -1821,6 +1840,8 @@ class TelegramService {
   async shutdown() {
     this.cacheManager.stopCleanup();
     this.pendingReplies.clear();
+    this._recentInteractors.clear();
+    this._channelReplyQueue.clear();
     if (this.globalBot) await this.globalBot.stop('SIGTERM');
     this.bots.clear();
     this.logger?.info?.('[TelegramService] Shutdown complete');
