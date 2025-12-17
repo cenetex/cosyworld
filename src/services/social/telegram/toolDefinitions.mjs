@@ -495,8 +495,10 @@ export function validatePlan(plan) {
       continue;
     }
     
-    // Check for description
-    if (!step.description && !['wait', 'research'].includes(action)) {
+    // Check for description (only required for media/research actions, not speak/react)
+    const needsDescription = ['generate_image', 'generate_keyframe', 'generate_video', 'generate_video_from_image', 
+                              'generate_video_with_reference', 'generate_video_interpolation', 'edit_image', 'extend_video'].includes(action);
+    if (needsDescription && !step.description) {
       warnings.push(`Step ${stepNum} (${action}): Missing description`);
     }
     

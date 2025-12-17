@@ -1170,14 +1170,75 @@ class TelegramService {
   // Media Generation Implementations
   // ===========================================================================
 
+  // Telegram supported reaction emojis (as of 2024)
+  // See: https://core.telegram.org/bots/api#reactiontype
+  static TELEGRAM_REACTION_EMOJIS = new Set([
+    '👍', '👎', '❤️', '🔥', '🥰', '👏', '😁', '🤔', '🤯', '😱',
+    '🤬', '😢', '🎉', '🤩', '🤮', '💩', '🙏', '👌', '🕊️', '🤡',
+    '🥱', '🥴', '🐳', '❤️‍🔥', '🌚', '🌭', '💯', '🤣', '⚡️', '🍌',
+    '🏆', '💔', '🤨', '😐', '😈', '😍', '👻', '👨‍💻', '👀', '🎃',
+    '💅', '🙈', '👊', '🤝', '✍️', '🤗', '🫡', '🎅', '🎄', '☃️',
+    '🥷', '😘', '😋', '😂', '🤷', '🥳'
+  ]);
+
+  // Map common unsupported emojis to supported alternatives
+  static EMOJI_FALLBACK_MAP = {
+    '🏃': '🔥',   // running -> fire
+    '🏃‍♂️': '🔥',  // man running -> fire
+    '🏃‍♀️': '🔥',  // woman running -> fire
+    '🚀': '🔥',   // rocket -> fire
+    '🌟': '❤️',   // star -> heart
+    '⭐': '❤️',    // star -> heart
+    '✨': '🔥',   // sparkles -> fire
+    '🐀': '🥰',   // rat -> heart with stars (mascot appreciation)
+    '🐁': '🥰',   // mouse -> heart with stars
+    '💰': '💯',   // money bag -> 100
+    '💸': '💯',   // money with wings -> 100
+    '💎': '🔥',   // gem -> fire
+    '🏎️': '🔥',   // racing car -> fire
+    '🏎': '🔥',   // racing car variant -> fire
+    '🚗': '🔥',   // car -> fire
+    '😎': '👍',   // sunglasses -> thumbs up
+    '🤙': '👍',   // call me hand -> thumbs up
+    '✌️': '👍',   // victory -> thumbs up
+    '🤟': '👍',   // love you gesture -> thumbs up
+    '👋': '👍',   // wave -> thumbs up
+    '👑': '💯',   // crown -> 100
+    '💥': '🔥',   // collision -> fire
+    '🌈': '❤️',   // rainbow -> heart
+    '🤖': '👨‍💻', // robot -> technologist
+    '💪': '👊',   // flexed biceps -> fist
+    '🙌': '👏',   // raising hands -> clap
+    '😊': '😁',   // smiling face -> beaming face
+    '😄': '😁',   // grinning face -> beaming face
+    '😃': '😁',   // grinning face with big eyes -> beaming face
+    '🤭': '😁',   // face with hand over mouth -> beaming
+    '💀': '😂',   // skull -> laughing (dead = dying of laughter)
+    '❤': '❤️',    // red heart without variant selector
+  };
+
   async executeReaction(ctx, emoji, messageId) {
     try {
       const targetMessageId = messageId || ctx.message?.message_id;
       if (!targetMessageId) return;
       
+      // Map unsupported emoji to supported alternative
+      let reactionEmoji = emoji;
+      if (!TelegramService.TELEGRAM_REACTION_EMOJIS.has(emoji)) {
+        const fallback = TelegramService.EMOJI_FALLBACK_MAP[emoji];
+        if (fallback) {
+          this.logger?.debug?.(`[TelegramService] Mapping unsupported emoji ${emoji} to ${fallback}`);
+          reactionEmoji = fallback;
+        } else {
+          // Default fallback for unknown emojis
+          this.logger?.debug?.(`[TelegramService] Unknown emoji ${emoji}, defaulting to 👍`);
+          reactionEmoji = '👍';
+        }
+      }
+      
       // Telegram API expects array of reactions
-      await ctx.telegram.setMessageReaction(ctx.chat.id, targetMessageId, [{ type: 'emoji', emoji }]);
-      this.logger?.info?.(`[TelegramService] Reacted with ${emoji} to message ${targetMessageId}`);
+      await ctx.telegram.setMessageReaction(ctx.chat.id, targetMessageId, [{ type: 'emoji', emoji: reactionEmoji }]);
+      this.logger?.info?.(`[TelegramService] Reacted with ${reactionEmoji} to message ${targetMessageId}`);
     } catch (error) {
       this.logger?.warn?.(`[TelegramService] Failed to react: ${error.message}`);
     }
