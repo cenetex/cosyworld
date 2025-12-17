@@ -94,6 +94,14 @@ export class BuybotService {
   this.tokenNotFoundCache = new Map(); // tokenAddress -> { timestamp, count }
   this.TOKEN_NOT_FOUND_CACHE_TTL_MS = Number(process.env.BUYBOT_TOKEN_NOT_FOUND_TTL_MS || (30 * 60_000));
 
+  // Global rate limiter for DexScreener API to prevent overwhelming requests
+  this._dexScreenerRateLimit = {
+    lastRequestAt: 0,
+    minIntervalMs: 250, // Minimum 250ms between requests (4/sec max)
+    queue: [],
+    processing: false,
+  };
+
   // Deduplication for in-flight token info requests
   this.pendingTokenInfoRequests = new Map(); // tokenAddress -> Promise<tokenInfo>
     
@@ -1270,6 +1278,14 @@ export class BuybotService {
         this.logger.debug(`[BuybotService] Skipping DexScreener lookup for ${tokenAddress} (recently not found)`);
         return null;
       }
+
+      // Apply rate limiting to avoid overwhelming DexScreener
+      const timeSinceLastRequest = Date.now() - this._dexScreenerRateLimit.lastRequestAt;
+      if (timeSinceLastRequest < this._dexScreenerRateLimit.minIntervalMs) {
+        const waitMs = this._dexScreenerRateLimit.minIntervalMs - timeSinceLastRequest;
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+      this._dexScreenerRateLimit.lastRequestAt = Date.now();
 
       // Fetch with retry and backoff
       const data = await this.retryWithBackoff(async () => {

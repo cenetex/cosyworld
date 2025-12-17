@@ -2169,6 +2169,28 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       };
     }
 
+    // Global reply cooldown - don't reply more than once every 10 minutes
+    const replyCooldownMs = Number(process.env.X_REPLY_COOLDOWN_MS) || (10 * 60 * 1000); // 10 minutes default
+    if (existingState?.lastReplyAt) {
+      const timeSinceLastReply = Date.now() - new Date(existingState.lastReplyAt).getTime();
+      if (timeSinceLastReply < replyCooldownMs) {
+        const remainingSec = Math.ceil((replyCooldownMs - timeSinceLastReply) / 1000);
+        this.logger?.debug?.('[XService][mentions] Reply cooldown active, skipping', { 
+          lastReplyAt: existingState.lastReplyAt,
+          remainingSec 
+        });
+        return { 
+          skipped: true, 
+          reason: 'reply_cooldown', 
+          waitSec: remainingSec,
+          message: `Reply cooldown active. Try again in ${Math.ceil(remainingSec / 60)} minutes.`
+        };
+      }
+    }
+
+    // Max age for mentions we'll reply to (default 30 minutes)
+    const mentionMaxAgeMs = Number(process.env.X_MENTION_MAX_AGE_MS) || (30 * 60 * 1000);
+
     const weeklyReadCap = (() => {
       const raw = Number(process.env.X_MENTION_WEEKLY_READ_CAP);
       if (!Number.isNaN(raw) && raw >= 0) return raw;
@@ -2479,10 +2501,24 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       const mentionId = mention?.id;
       const mentionText = String(mention?.text || '').trim();
       const authorId = mention?.author_id || null;
+      const mentionCreatedAt = mention?.created_at ? new Date(mention.created_at) : null;
 
       if (!this._isValidTweetId(mentionId)) continue;
       if (!mentionText) continue;
       if (String(authorId || '') === String(userId)) continue;
+
+      // Skip mentions that are too old (default: older than 30 minutes)
+      if (mentionCreatedAt) {
+        const mentionAge = Date.now() - mentionCreatedAt.getTime();
+        if (mentionAge > mentionMaxAgeMs) {
+          this.logger?.debug?.('[XService][mentions] Skipping old mention', { 
+            mentionId, 
+            ageMinutes: Math.round(mentionAge / 60000),
+            maxAgeMinutes: Math.round(mentionMaxAgeMs / 60000)
+          });
+          continue;
+        }
+      }
 
       // Avoid replying to the same mention twice
       if (await this._alreadyRepliedToMention(db, mentionId)) continue;
@@ -2525,6 +2561,9 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         const replyTweetId = result?.data?.id || null;
         replied++;
 
+        // Update lastReplyAt for cooldown tracking
+        await this._saveGlobalMentionState(db, { lastReplyAt: new Date() });
+
         try {
           await db.collection('social_posts').insertOne({
             global: true,
@@ -2542,6 +2581,15 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         } catch (dbErr) {
           this.logger?.warn?.('[XService][mentions] Failed to persist reply record:', dbErr?.message || dbErr);
         }
+
+        // Only reply to one mention per run to avoid rapid-fire replies
+        // The cooldown will prevent the next run from replying too soon
+        this.logger?.info?.('[XService][mentions] Replied to mention, stopping for cooldown', { 
+          mentionId, 
+          replied,
+          cooldownMinutes: Math.round(replyCooldownMs / 60000)
+        });
+        break;
       } catch (e) {
         this.logger?.warn?.('[XService][mentions] Reply failed:', e?.message || e);
       }

@@ -37,7 +37,6 @@ import {
   // Utilities
   escapeHtml,
   formatTelegramMarkdown,
-  generateRequestId,
   includesMention,
   sendImagePreservingFormat,
   // Managers
@@ -565,32 +564,32 @@ class TelegramService {
     const isActiveParticipant = this.conversationManager.isActiveParticipant(channelId, userId);
     const shouldRespond = isMentioned || isReplyToBot || isActiveParticipant;
 
+    // Queue this channel for reply instead of responding immediately
+    // The reply queue processor will handle responses with priority for mentions
     if (shouldRespond) {
       this.conversationManager.updateActiveConversation(channelId, userId);
       
-      const releaseLock = this.cacheManager.tryAcquireLock(channelId);
-      if (!releaseLock) return;
-
-      const pending = this.pendingReplies.get(channelId) || {};
-      if (pending.isProcessing) {
-        releaseLock();
-        return;
-      }
-
-      pending.isProcessing = true;
-      pending.requestId = generateRequestId(ctx);
-      this.pendingReplies.set(channelId, pending);
-
-      try {
-        await this.generateAndSendReply(ctx, channelId, true);
-      } finally {
-        const updatedPending = this.pendingReplies.get(channelId) || {};
-        updatedPending.lastBotResponseTime = Date.now();
-        updatedPending.isProcessing = false;
-        updatedPending.requestId = null;
-        this.pendingReplies.set(channelId, updatedPending);
-        releaseLock();
-      }
+      const existingEntry = this._channelReplyQueue.get(channelId);
+      const now = Date.now();
+      
+      this._channelReplyQueue.set(channelId, {
+        needsReply: true,
+        // Keep earliest mention time if already mentioned
+        mentionedAt: isMentioned ? (existingEntry?.mentionedAt || now) : existingEntry?.mentionedAt || null,
+        // Track if it's a direct reply to bot (higher priority like mention)
+        isReplyToBot: isReplyToBot || existingEntry?.isReplyToBot || false,
+        isPrivate: isPrivateChat,
+        lastActivity: now,
+        ctx: ctx, // Store latest context for replying
+        userId: userId
+      });
+      
+      this.logger?.debug?.(`[TelegramService] Queued channel ${channelId} for reply`, {
+        isMentioned,
+        isReplyToBot,
+        isActiveParticipant,
+        isPrivate: isPrivateChat
+      });
     }
   }
 
@@ -674,6 +673,110 @@ class TelegramService {
         }
       }
     }, POLL_INTERVAL);
+  }
+
+  /**
+   * Processes the channel reply queue with priority for mentions and direct replies.
+   * Mentions/replies get processed quickly (5s delay), regular activity gets normal delay.
+   */
+  startReplyQueueProcessor() {
+    const FAST_POLL_INTERVAL = 2000;  // Check queue every 2 seconds
+    const MENTION_DELAY = 5000;       // 5 second delay for mentions/direct replies
+    const NORMAL_DELAY = 30000;       // 30 second delay for active participant responses
+    
+    setInterval(async () => {
+      // Don't process if not warmed up yet
+      if (!this._isWarmedUp) {
+        return;
+      }
+      
+      const now = Date.now();
+      
+      // Sort queue entries by priority: mentions/replies first, then by time
+      const entries = [...this._channelReplyQueue.entries()]
+        .filter(([, entry]) => entry.needsReply)
+        .sort((a, b) => {
+          const aIsPriority = a[1].mentionedAt || a[1].isReplyToBot || a[1].isPrivate;
+          const bIsPriority = b[1].mentionedAt || b[1].isReplyToBot || b[1].isPrivate;
+          
+          // Priority items come first
+          if (aIsPriority && !bIsPriority) return -1;
+          if (!aIsPriority && bIsPriority) return 1;
+          
+          // For same priority level, earlier activity first
+          return a[1].lastActivity - b[1].lastActivity;
+        });
+      
+      for (const [channelId, entry] of entries) {
+        try {
+          const isPriority = entry.mentionedAt || entry.isReplyToBot || entry.isPrivate;
+          const requiredDelay = isPriority ? MENTION_DELAY : NORMAL_DELAY;
+          const timeSinceActivity = now - entry.lastActivity;
+          
+          // Wait for required delay before responding
+          if (timeSinceActivity < requiredDelay) {
+            continue;
+          }
+          
+          // Try to acquire lock
+          const releaseLock = this.cacheManager.tryAcquireLock(channelId);
+          if (!releaseLock) continue;
+          
+          const pending = this.pendingReplies.get(channelId) || {};
+          if (pending.isProcessing) {
+            releaseLock();
+            continue;
+          }
+          
+          // Mark as processing
+          pending.isProcessing = true;
+          pending.requestId = `queue:${channelId}:${now}`;
+          this.pendingReplies.set(channelId, pending);
+          
+          // Clear from queue immediately to prevent double-processing
+          this._channelReplyQueue.delete(channelId);
+          
+          try {
+            const ctx = entry.ctx;
+            if (!ctx || !this.globalBot) {
+              releaseLock();
+              continue;
+            }
+            
+            this.logger?.info?.(`[TelegramService] Processing queued reply for ${channelId}`, {
+              isPriority,
+              timeSinceActivity: Math.round(timeSinceActivity / 1000) + 's',
+              isMention: !!entry.mentionedAt,
+              isReplyToBot: entry.isReplyToBot,
+              isPrivate: entry.isPrivate
+            });
+            
+            await this.generateAndSendReply(ctx, channelId, isPriority);
+            
+            const updatedPending = this.pendingReplies.get(channelId) || {};
+            updatedPending.lastBotResponseTime = Date.now();
+            updatedPending.isProcessing = false;
+            updatedPending.requestId = null;
+            this.pendingReplies.set(channelId, updatedPending);
+          } catch (error) {
+            this.logger?.error?.(`[TelegramService] Queue processing error for ${channelId}:`, error);
+            const updatedPending = this.pendingReplies.get(channelId) || {};
+            updatedPending.isProcessing = false;
+            updatedPending.requestId = null;
+            this.pendingReplies.set(channelId, updatedPending);
+          } finally {
+            releaseLock();
+          }
+          
+          // Only process one channel per tick to avoid overwhelming
+          break;
+        } catch (error) {
+          this.logger?.error?.(`[TelegramService] Reply queue error for ${channelId}:`, error);
+        }
+      }
+    }, FAST_POLL_INTERVAL);
+    
+    this.logger?.info?.('[TelegramService] Reply queue processor started');
   }
 
   async generateAndSendReply(ctx, channelId, isMention) {
