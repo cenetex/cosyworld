@@ -15,7 +15,8 @@ import { buildCreditInfo, estimateTokens } from './utils.mjs';
  * @param {Object} params.plan - Current plan context
  * @param {Object} params.media - Recent media context
  * @param {Object} params.buybot - Buybot context
- * @param {boolean} params.isMention - Whether the bot was mentioned
+ * @param {boolean} params.isMention - Whether the bot was mentioned (just affects response timing)
+ * @param {string} params.triggerType - What triggered this response ('mention', 'reply', 'active_participant', 'gap')
  * @returns {Object} { systemPrompt, userPrompt }
  */
 export function buildConversationContext({
@@ -27,6 +28,7 @@ export function buildConversationContext({
   media,
   buybot,
   isMention,
+  triggerType = 'general',
   rag = []
 }) {
   // 1. Build Conversation History with Message IDs
@@ -54,7 +56,7 @@ export function buildConversationContext({
     ? selectedHistory.map(m => {
         const msgId = m.messageId ? `[msg:${m.messageId}]` : '';
         return `${msgId}${m.from}: ${m.text}`;
-      }).join('\n')
+      }).join('\\n')
     : `${currentMessage.from.first_name || currentMessage.from.username || 'User'}: ${currentMessage.text}`;
 
   if (currentMessage.reply_to_message) {
@@ -62,18 +64,18 @@ export function buildConversationContext({
     const replyFrom = reply.from?.first_name || reply.from?.username || 'User';
     let replyContent = reply.text || (reply.caption ? `[Media] ${reply.caption}` : '[Media]');
     const replyMsgId = reply.message_id ? `[msg:${reply.message_id}]` : '';
-    conversationContext += `\n(User is replying to ${replyMsgId}${replyFrom}: "${replyContent}")`;
+    conversationContext += `\\n(User is replying to ${replyMsgId}${replyFrom}: "${replyContent}")`;
   }
 
   // Include available message IDs for react/reply actions
   const recentMessageIds = selectedHistory
     .filter(m => m.messageId && !m.isBot)
-    .slice(-5) // Last 5 user messages
-    .map(m => ({ id: m.messageId, from: m.from, preview: (m.text || '').slice(0, 50) }));
+    .slice(-8) // Last 8 user messages for more context
+    .map(m => ({ id: m.messageId, from: m.from, preview: (m.text || '').slice(0, 50), isBot: m.isBot }));
 
   // Format recent message IDs for the system prompt
   const messageIdContext = recentMessageIds.length > 0
-    ? `\nRecent messages you can react to or reply to:\n${recentMessageIds.map(m => `  - [msg:${m.id}] ${m.from}: "${m.preview}${m.preview.length >= 50 ? '...' : ''}"`).join('\n')}\nUse react_to_message tool with messageId to react to a specific message.`
+    ? `\\nRecent messages you can interact with:\\n${recentMessageIds.map(m => `  - [msg:${m.id}] ${m.from}: "${m.preview}${m.preview.length >= 50 ? '...' : ''}"`).join('\\n')}`
     : '';
 
   // 2. Build System Prompt
@@ -86,28 +88,54 @@ export function buildConversationContext({
 
   const toolCreditContext = `
 Tool Credits (global): ${buildCreditInfo(credits.image, 'Images')} | ${buildCreditInfo(credits.video, 'Videos')} | ${buildCreditInfo(credits.tweet, 'X posts')}
-Rule: Only call tools if credits available. If 0, explain naturally and mention reset time.`;
+Rule: Only call media generation tools if credits available. If 0, explain naturally and mention reset time.`;
 
-  const buybotContextStr = buybot ? `\nToken Tracking (Buybot):\n${buybot}\n` : '';
+  const buybotContextStr = buybot ? `\\nToken Tracking (Buybot):\\n${buybot}\\n` : '';
 
   const ragContextStr = rag.length > 0 
-    ? `\nRelevant Knowledge:\n${rag.map(r => `- ${r.content} (Source: ${r.source})`).join('\n')}\n`
+    ? `\\nRelevant Knowledge:\\n${rag.map(r => `- ${r.content} (Source: ${r.source})`).join('\\n')}\\n`
     : '';
+
+  // Trigger context - note that all triggers use the same toolset
+  const triggerContext = isMention 
+    ? 'You were directly mentioned - the user wants your attention.'
+    : triggerType === 'reply' 
+      ? 'A user replied to your message - they may be continuing a conversation with you.'
+      : 'General channel activity - decide if and how to participate.';
 
   const systemPrompt = `${botPersonality}
 ${botDynamicPrompt}
-Conversation mode: ${isMention ? 'Direct mention' : 'General chat'}
+
+CHANNEL INTERACTION:
+${triggerContext}
+You have the same tools available regardless of how you were triggered.
+
+ACTION PLANNING (plan_actions):
+Use plan_actions to interact with the channel. Structure your plan with steps:
+- "speak": Send a message. Use "message" for the text. Use "targetMessageId" to reply to a specific message.
+- "react_to_message": React with emoji. Use "emoji" for the reaction, "targetMessageId" for which message.
+- "wait": Choose not to respond (valid when conversation doesn't need you).
+- "generate_image/generate_video": Create media content.
+- "post_tweet": Share to X/Twitter.
+
+Choosing your response:
+- Direct questions to you → speak with targetMessageId to reply
+- General announcements → speak without targetMessageId
+- Showing appreciation/agreement → react_to_message with appropriate emoji
+- Conversation between others → wait (unless you have something valuable to add)
 ${toolCreditContext}${buybotContextStr}
 ${ragContextStr}
 ${plan.summary}
 ${media.summary}${messageIdContext}
+
 CRITICAL INSTRUCTIONS:
 1. When posting to X, use recent media ID. Don't post old images.
-2. DO NOT mention internal media IDs (like "A1B2C3D4") in your chat responses. They are for your internal tool use only.
-3. Use standard Markdown for formatting (e.g., **bold**, *italic*). DO NOT use HTML tags (like <b>, <i>) or HTML entities (like &quot;). Write naturally.
-4. Message IDs (like [msg:123]) are for your reference only. Use them with react_to_message tool to react to specific messages.`;
+2. DO NOT mention internal media IDs (like "A1B2C3D4") in your messages. They are for tool use only.
+3. Use standard Markdown for formatting. DO NOT use HTML tags or entities.
+4. Message IDs [msg:123] are for targeting specific messages. Pass the numeric ID to targetMessageId in your plan steps.
+5. You can choose to "wait" - not every message needs a response from you.`;
 
-  const userPrompt = `Recent conversation:\n${conversationContext}\nRespond naturally.`;
+  const userPrompt = `Recent conversation:\\n${conversationContext}\\n\\nDecide how to respond (or if to respond at all).`;
 
   return { systemPrompt, userPrompt, conversationContext, recentMessageIds };
 }

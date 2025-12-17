@@ -45,8 +45,11 @@ export function getStepTimeout(action) {
  */
 export function buildToolDefinitions() {
   return [
+    // Primary action planner - handles all responses and media generation
     buildPlanActionsTool(),
+    // Quick tools for simple lookups
     buildGetTokenStatsTool(),
+    // Direct media tools (for simple single-action requests)
     buildGenerateImageTool(),
     buildGenerateVideoTool(),
     buildGenerateVideoWithReferenceTool(),
@@ -67,39 +70,63 @@ function buildPlanActionsTool() {
     type: 'function',
     function: {
       name: 'plan_actions',
-      description: `Outline a plan that lists upcoming actions before executing them.
-VIDEO ACTIONS: generate_video, generate_video_with_reference, generate_video_from_image, extend_video, generate_video_interpolation
-IMAGE ACTIONS: generate_image, generate_keyframe, edit_image
-OTHER: speak, post_tweet, research, wait
+      description: `Plan and execute a sequence of actions. This is your primary tool for responding to the channel.
 
-CRITICAL: When user requests widescreen/banner/landscape images, you MUST set aspectRatio to '16:9'. When user requests portrait/tall images, set aspectRatio to '9:16'. The description alone does NOT control aspect ratio - you must explicitly set the aspectRatio property!`,
+CONVERSATION ACTIONS:
+- speak: Send a message (use 'message' field for what to say, 'targetMessageId' to reply to specific message)
+- react_to_message: React with emoji (MUST include 'emoji' field like 🐀❤️🔥, and 'targetMessageId' for which message)
+- wait: Explicitly choose not to respond
+
+MEDIA ACTIONS:
+- generate_image, generate_keyframe: Create images (set aspectRatio: 16:9=landscape, 9:16=portrait, 1:1=square)
+- generate_video, generate_video_from_image, extend_video: Create videos
+- post_tweet: Post to X with recent media
+
+IMPORTANT:
+- For react_to_message: MUST set 'emoji' field (e.g., "🐀") and 'targetMessageId' from recent messages list
+- For speak: Put what you want to say in 'message' field, NOT 'description'
+- aspectRatio is only needed for image/video actions`,
       parameters: {
         type: 'object',
         properties: {
           objective: {
             type: 'string',
-            description: 'Overall goal or intention for the plan.'
+            description: 'Brief goal for this plan (e.g., "Greet the user", "Generate requested artwork")'
           },
           steps: {
             type: 'array',
             minItems: 1,
-            description: 'Ordered steps describing the actions you will take.',
+            description: 'Ordered steps to execute.',
             items: {
               type: 'object',
               properties: {
                 action: {
                   type: 'string',
-                  enum: ['speak', 'generate_image', 'generate_keyframe', 'generate_video', 'generate_video_with_reference', 'generate_video_from_image', 'extend_video', 'generate_video_interpolation', 'edit_image', 'post_tweet', 'research', 'wait', 'react_to_message'],
-                  description: 'Action to perform.'
+                  enum: ['speak', 'react_to_message', 'generate_image', 'generate_keyframe', 'generate_video', 'generate_video_with_reference', 'generate_video_from_image', 'extend_video', 'generate_video_interpolation', 'edit_image', 'post_tweet', 'research', 'wait'],
+                  description: 'Action type to perform.'
                 },
+                // Conversation action fields
+                message: {
+                  type: 'string',
+                  description: 'For speak: The message to send to the channel.'
+                },
+                emoji: {
+                  type: 'string',
+                  description: 'For react_to_message: The emoji to react with (e.g., 🐀, ❤️, 🔥, 👍, 😂). REQUIRED for reactions.'
+                },
+                targetMessageId: {
+                  type: 'number',
+                  description: 'Message ID to react to or reply to. Use IDs from the recent messages list [msg:XXX].'
+                },
+                // Media action fields
                 description: {
                   type: 'string',
-                  description: 'Detailed prompt or description. For videos, include subject, action, camera, style, audio cues. For reactions, specify the emoji.'
+                  description: 'For media generation: Detailed prompt describing what to create.'
                 },
                 aspectRatio: {
                   type: 'string',
                   enum: ['1:1', '16:9', '9:16', '4:3', '3:4'],
-                  description: 'CRITICAL for generate_image/video actions! 16:9=widescreen/banner/landscape, 9:16=portrait/tall/vertical/story, 1:1=square. MUST match user intent!'
+                  description: 'For image/video: 16:9=widescreen/landscape, 9:16=portrait/vertical, 1:1=square.'
                 },
                 style: {
                   type: 'string',
@@ -111,12 +138,12 @@ CRITICAL: When user requests widescreen/banner/landscape images, you MUST set as
                 },
                 sourceMediaId: {
                   type: 'string',
-                  description: 'For video_from_image, extend_video: ID of source media.'
+                  description: 'For video_from_image, extend_video, edit_image: ID of source media.'
                 },
                 referenceMediaIds: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'For video_with_reference: 1-3 reference image IDs for character consistency.'
+                  description: 'For video_with_reference: 1-3 reference image IDs.'
                 },
                 firstFrameMediaId: {
                   type: 'string',
@@ -129,18 +156,10 @@ CRITICAL: When user requests widescreen/banner/landscape images, you MUST set as
                 negativePrompt: {
                   type: 'string',
                   description: 'Things to avoid in generation.'
-                },
-                expectedOutcome: {
-                  type: 'string',
-                  description: 'Optional expected result of the step.'
                 }
               },
-              required: ['action', 'description', 'aspectRatio']
+              required: ['action']
             }
-          },
-          confidence: {
-            type: 'number',
-            description: 'Optional confidence score between 0 and 1.'
           }
         },
         required: ['objective', 'steps']

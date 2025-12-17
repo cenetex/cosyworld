@@ -361,8 +361,6 @@ export class SpeakExecutor extends ActionExecutor {
       if (history && history.length > 0) {
         const lastMsg = history[history.length - 1];
         const now = Date.now();
-        // Check if last message is from Bot and is very recent (< 5 seconds)
-        // Note: message dates are often in seconds, so we need to be careful with comparison
         const msgTimeMs = (lastMsg.date > 1e10) ? lastMsg.date : lastMsg.date * 1000;
         
         const isMediaMarker = lastMsg.text && (
@@ -379,23 +377,48 @@ export class SpeakExecutor extends ActionExecutor {
       services.logger?.warn?.('[SpeakExecutor] Failed to check history:', err);
     }
     
-    const speechPrompt = `You are executing a planned action.
+    // Use message field directly if provided, otherwise generate from description
+    let text = step.message;
+    
+    if (!text && step.description) {
+      // Generate message from description using AI
+      const speechPrompt = `You are executing a planned action.
 Context: ${conversationContext}
 Action Description: ${step.description}
 
 Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character.`;
 
-    const response = await services.ai.chat([
-      { role: 'user', content: speechPrompt }
-    ], {
-      model: services.globalBot?.bot?.model || DEFAULT_MODEL,
-      temperature: 0.7
-    });
+      const response = await services.ai.chat([
+        { role: 'user', content: speechPrompt }
+      ], {
+        model: services.globalBot?.bot?.model || DEFAULT_MODEL,
+        temperature: 0.7
+      });
+      
+      text = String(response || '').trim().replace(/^["']|["']$/g, '');
+    }
     
-    const text = String(response || '').trim().replace(/^["']|["']$/g, '');
     if (text) {
-      await ctx.reply(services.telegram._formatTelegramMarkdown(text), { parse_mode: 'HTML' });
+      // Support replying to specific message
+      const replyOptions = { parse_mode: 'HTML' };
+      if (step.targetMessageId) {
+        replyOptions.reply_to_message_id = step.targetMessageId;
+      }
+      
+      await ctx.telegram.sendMessage(
+        ctx.chat.id,
+        services.telegram._formatTelegramMarkdown(text),
+        replyOptions
+      );
       await services.telegram._recordBotResponse(channelId, userId);
+      
+      // Track in conversation history
+      await services.telegram.conversationManager.addMessage(channelId, {
+        from: 'Bot',
+        text,
+        date: Math.floor(Date.now() / 1000),
+        isBot: true
+      }, true);
     }
     
     return { success: true, action: this.actionType, stepNum };
@@ -562,27 +585,52 @@ export class ReactToMessageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, services, stepNum, logger } = context;
     
-    // Use emoji directly from step if provided, otherwise extract from description
+    // Use emoji directly from step if provided
     let emoji = step.emoji;
-    if (!emoji) {
-      // Try to extract emoji from description - match any emoji character
-      const emojiMatch = step.description?.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu);
-      if (emojiMatch && emojiMatch.length > 0) {
-        emoji = emojiMatch[0];
+    
+    // If no emoji field, try to extract from description
+    if (!emoji && step.description) {
+      // Common emoji patterns and names to match
+      const emojiPatterns = {
+        'rat': '🐀', 'mouse': '🐁', 'fire': '🔥', 'heart': '❤️', 'love': '❤️',
+        'laugh': '😂', 'lol': '😂', 'thumbs up': '👍', 'thumbs down': '👎',
+        'clap': '👏', 'party': '🎉', 'celebrate': '🎉', 'rocket': '🚀',
+        'star': '⭐', 'eyes': '👀', 'think': '🤔', 'cool': '😎', 'sad': '😢',
+        'angry': '😠', 'wow': '😮', 'surprise': '😮', 'skull': '💀', 'dead': '💀'
+      };
+      
+      const descLower = step.description.toLowerCase();
+      for (const [pattern, emojiChar] of Object.entries(emojiPatterns)) {
+        if (descLower.includes(pattern)) {
+          emoji = emojiChar;
+          break;
+        }
+      }
+      
+      // Also try to extract actual emoji characters from description
+      if (!emoji) {
+        const emojiMatch = step.description.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu);
+        if (emojiMatch && emojiMatch.length > 0) {
+          emoji = emojiMatch[0];
+        }
       }
     }
     
     if (!emoji) {
-      logger?.warn?.('[ReactToMessageExecutor] No emoji found in step, defaulting to 👍');
+      logger?.warn?.('[ReactToMessageExecutor] No emoji found in step, defaulting to 👍', { step });
       emoji = '👍';
     }
     
-    // Use messageId from step if provided
-    const messageId = step.messageId || null;
+    // Use targetMessageId (preferred) or messageId (legacy) from step
+    const messageId = step.targetMessageId || step.messageId || null;
+    
+    if (!messageId) {
+      logger?.warn?.('[ReactToMessageExecutor] No targetMessageId provided, reacting to triggering message');
+    }
     
     logger?.debug?.('[ReactToMessageExecutor] Reacting with emoji', { emoji, messageId });
     await services.telegram.executeReaction(ctx, emoji, messageId);
-    return { success: true, action: this.actionType, stepNum, emoji };
+    return { success: true, action: this.actionType, stepNum, emoji, messageId };
   }
 }
 

@@ -690,7 +690,7 @@ class TelegramService {
               }
             };
             
-            await this.generateAndSendReply(mockCtx, channelId, false);
+            await this.generateAndSendReply(mockCtx, channelId, false, 'gap');
             
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.lastBotResponseTime = Date.now();
@@ -805,7 +805,13 @@ class TelegramService {
               isPrivate: entry.isPrivate
             });
             
-            await this.generateAndSendReply(ctx, channelId, isPriority || isRecentInteractor);
+            // Determine trigger type for context
+            const triggerType = entry.mentionedAt ? 'mention' 
+              : entry.isReplyToBot ? 'reply' 
+              : isRecentInteractor ? 'active_participant' 
+              : 'general';
+            
+            await this.generateAndSendReply(ctx, channelId, isPriority || isRecentInteractor, triggerType);
             
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.lastBotResponseTime = Date.now();
@@ -896,7 +902,14 @@ class TelegramService {
     }
   }
 
-  async generateAndSendReply(ctx, channelId, isMention) {
+  /**
+   * Generate and send a reply to the channel
+   * @param {Object} ctx - Telegraf context
+   * @param {string} channelId - Channel ID
+   * @param {boolean} isMention - Whether bot was mentioned
+   * @param {string} [triggerType='general'] - What triggered this: 'mention', 'reply', 'active_participant', 'gap'
+   */
+  async generateAndSendReply(ctx, channelId, isMention, triggerType = 'general') {
     const isPrivate = ctx.chat?.type === 'private';
     const delayMs = isMention || isPrivate ? this.REPLY_DELAY_CONFIG.mentioned : this.REPLY_DELAY_CONFIG.default;
     
@@ -955,6 +968,7 @@ class TelegramService {
         media: await this.mediaManager.buildRecentMediaContext(channelId, 5),
         buybot: buybotContext,
         isMention,
+        triggerType: isPrivate ? 'private' : triggerType,
         rag: ragContext
       });
 
