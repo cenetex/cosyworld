@@ -131,6 +131,11 @@ class TelegramService {
     // Map<channelId, { needsReply: boolean, mentionedAt: number|null, lastActivity: number, ctx: object }>
     this._channelReplyQueue = new Map();
     
+    // Recent interactors - users who recently mentioned/replied to bot get immediate responses
+    // Map<`${channelId}:${userId}`, { interactedAt: number, type: 'mention' | 'reply' }>
+    this._recentInteractors = new Map();
+    this._recentInteractorWindowMs = 2 * 60 * 1000; // 2 minutes window for immediate responses
+    
     // Initialize Managers
     this.cacheManager = new CacheManager({ logger: this.logger });
     this.recentMediaByChannel = this.cacheManager.recentMediaByChannel;
@@ -562,7 +567,31 @@ class TelegramService {
     const botId = this.globalBot?.botInfo?.id || ctx.botInfo?.id;
     const isReplyToBot = message.reply_to_message && botId && message.reply_to_message.from?.id === botId;
     const isActiveParticipant = this.conversationManager.isActiveParticipant(channelId, userId);
-    const shouldRespond = isMentioned || isReplyToBot || isActiveParticipant;
+    
+    // Check if this user is a recent interactor (mentioned/replied to bot in last 2 minutes)
+    const interactorKey = `${channelId}:${userId}`;
+    const recentInteraction = this._recentInteractors.get(interactorKey);
+    const isRecentInteractor = recentInteraction && 
+      (Date.now() - recentInteraction.interactedAt) < this._recentInteractorWindowMs;
+    
+    // Track new interactions for future immediate responses
+    if (isMentioned || isReplyToBot) {
+      this._recentInteractors.set(interactorKey, {
+        interactedAt: Date.now(),
+        type: isMentioned ? 'mention' : 'reply'
+      });
+      // Cleanup old entries periodically
+      if (this._recentInteractors.size > 100) {
+        const now = Date.now();
+        for (const [key, entry] of this._recentInteractors.entries()) {
+          if (now - entry.interactedAt > this._recentInteractorWindowMs) {
+            this._recentInteractors.delete(key);
+          }
+        }
+      }
+    }
+    
+    const shouldRespond = isMentioned || isReplyToBot || isActiveParticipant || isRecentInteractor;
 
     // Queue this channel for reply instead of responding immediately
     // The reply queue processor will handle responses with priority for mentions
@@ -572,12 +601,17 @@ class TelegramService {
       const existingEntry = this._channelReplyQueue.get(channelId);
       const now = Date.now();
       
+      // Recent interactors get immediate priority (like mentions)
+      const isImmediatePriority = isMentioned || isReplyToBot || isRecentInteractor;
+      
       this._channelReplyQueue.set(channelId, {
         needsReply: true,
-        // Keep earliest mention time if already mentioned
-        mentionedAt: isMentioned ? (existingEntry?.mentionedAt || now) : existingEntry?.mentionedAt || null,
+        // Keep earliest mention time if already mentioned, or set for recent interactors
+        mentionedAt: isImmediatePriority ? (existingEntry?.mentionedAt || now) : existingEntry?.mentionedAt || null,
         // Track if it's a direct reply to bot (higher priority like mention)
         isReplyToBot: isReplyToBot || existingEntry?.isReplyToBot || false,
+        // Track if this is a recent interactor for logging
+        isRecentInteractor: isRecentInteractor,
         isPrivate: isPrivateChat,
         lastActivity: now,
         ctx: ctx, // Store latest context for replying
@@ -588,6 +622,7 @@ class TelegramService {
         isMentioned,
         isReplyToBot,
         isActiveParticipant,
+        isRecentInteractor,
         isPrivate: isPrivateChat
       });
     }
@@ -678,9 +713,11 @@ class TelegramService {
   /**
    * Processes the channel reply queue with priority for mentions and direct replies.
    * Mentions/replies get processed quickly (5s delay), regular activity gets normal delay.
+   * Recent interactors (users who mentioned/replied in last 2 min) get immediate priority.
    */
   startReplyQueueProcessor() {
     const FAST_POLL_INTERVAL = 2000;  // Check queue every 2 seconds
+    const IMMEDIATE_DELAY = 2000;     // 2 second delay for recent interactors
     const MENTION_DELAY = 5000;       // 5 second delay for mentions/direct replies
     const NORMAL_DELAY = 30000;       // 30 second delay for active participant responses
     
@@ -692,14 +729,20 @@ class TelegramService {
       
       const now = Date.now();
       
-      // Sort queue entries by priority: mentions/replies first, then by time
+      // Sort queue entries by priority: recent interactors first, then mentions/replies, then by time
       const entries = [...this._channelReplyQueue.entries()]
         .filter(([, entry]) => entry.needsReply)
         .sort((a, b) => {
+          const aIsImmediate = a[1].isRecentInteractor;
+          const bIsImmediate = b[1].isRecentInteractor;
           const aIsPriority = a[1].mentionedAt || a[1].isReplyToBot || a[1].isPrivate;
           const bIsPriority = b[1].mentionedAt || b[1].isReplyToBot || b[1].isPrivate;
           
-          // Priority items come first
+          // Recent interactors get highest priority
+          if (aIsImmediate && !bIsImmediate) return -1;
+          if (!aIsImmediate && bIsImmediate) return 1;
+          
+          // Then priority items (mentions/replies/private)
           if (aIsPriority && !bIsPriority) return -1;
           if (!aIsPriority && bIsPriority) return 1;
           
@@ -709,8 +752,9 @@ class TelegramService {
       
       for (const [channelId, entry] of entries) {
         try {
+          const isRecentInteractor = entry.isRecentInteractor;
           const isPriority = entry.mentionedAt || entry.isReplyToBot || entry.isPrivate;
-          const requiredDelay = isPriority ? MENTION_DELAY : NORMAL_DELAY;
+          const requiredDelay = isRecentInteractor ? IMMEDIATE_DELAY : (isPriority ? MENTION_DELAY : NORMAL_DELAY);
           const timeSinceActivity = now - entry.lastActivity;
           
           // Wait for required delay before responding
@@ -745,13 +789,14 @@ class TelegramService {
             
             this.logger?.info?.(`[TelegramService] Processing queued reply for ${channelId}`, {
               isPriority,
+              isRecentInteractor,
               timeSinceActivity: Math.round(timeSinceActivity / 1000) + 's',
               isMention: !!entry.mentionedAt,
               isReplyToBot: entry.isReplyToBot,
               isPrivate: entry.isPrivate
             });
             
-            await this.generateAndSendReply(ctx, channelId, isPriority);
+            await this.generateAndSendReply(ctx, channelId, isPriority || isRecentInteractor);
             
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.lastBotResponseTime = Date.now();
