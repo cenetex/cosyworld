@@ -361,12 +361,14 @@ class TelegramService {
       this._startupTimestamp = Math.floor(Date.now() / 1000);
       this.logger?.info?.(`[TelegramService] Startup timestamp set - ignoring messages before ${new Date(this._startupTimestamp * 1000).toISOString()}`);
       
-      // Start warmup period - bot won't respond for 30 seconds
+      // Start warmup period - bot won't respond for a few seconds
       this._isWarmedUp = false;
       this.logger?.info?.(`[TelegramService] Warmup period started - bot will not respond for ${this._warmupPeriodSec} seconds`);
       setTimeout(() => {
         this._isWarmedUp = true;
         this.logger?.info?.('[TelegramService] Warmup period complete - bot is now ready to respond');
+        // Immediately trigger queue processing for any messages that arrived during warmup
+        this._processQueuedRepliesAfterWarmup();
       }, this._warmupPeriodSec * 1000);
       
       this.cacheManager.startCleanup();
@@ -637,6 +639,8 @@ class TelegramService {
     const GAP_THRESHOLD = 45000;
     
     setInterval(async () => {
+      // Top-level error boundary to prevent interval from breaking
+      try {
       for (const [channelId, history] of this.conversationManager.getAllHistories()) {
         try {
           if (!history || history.length === 0) continue;
@@ -706,6 +710,10 @@ class TelegramService {
         } catch (error) {
           this.logger?.error?.(`[TelegramService] Gap polling error for ${channelId}:`, error);
         }
+      }
+      } catch (outerError) {
+        // Catch any unexpected errors to prevent interval from breaking
+        this.logger?.error?.('[TelegramService] Gap polling outer error:', outerError);
       }
     }, POLL_INTERVAL);
   }
@@ -777,8 +785,10 @@ class TelegramService {
           pending.requestId = `queue:${channelId}:${now}`;
           this.pendingReplies.set(channelId, pending);
           
-          // Clear from queue immediately to prevent double-processing
-          this._channelReplyQueue.delete(channelId);
+          // Mark queue entry as processing (not needsReply) to prevent double-processing
+          // We'll delete it after successful completion
+          entry.needsReply = false;
+          entry.processing = true;
           
           try {
             const ctx = entry.ctx;
@@ -803,12 +813,23 @@ class TelegramService {
             updatedPending.isProcessing = false;
             updatedPending.requestId = null;
             this.pendingReplies.set(channelId, updatedPending);
+            
+            // Now safe to delete from queue after successful processing
+            this._channelReplyQueue.delete(channelId);
           } catch (error) {
             this.logger?.error?.(`[TelegramService] Queue processing error for ${channelId}:`, error);
             const updatedPending = this.pendingReplies.get(channelId) || {};
             updatedPending.isProcessing = false;
             updatedPending.requestId = null;
             this.pendingReplies.set(channelId, updatedPending);
+            
+            // On error, allow retry by resetting queue entry state
+            const queueEntry = this._channelReplyQueue.get(channelId);
+            if (queueEntry) {
+              queueEntry.processing = false;
+              // Don't re-enable needsReply to prevent infinite retry loops
+              // Entry will be cleaned up on next cache prune
+            }
           } finally {
             releaseLock();
           }
@@ -822,6 +843,38 @@ class TelegramService {
     }, FAST_POLL_INTERVAL);
     
     this.logger?.info?.('[TelegramService] Reply queue processor started');
+  }
+
+  /**
+   * Process any queued replies immediately after warmup period completes.
+   * This ensures the bot responds to messages that arrived during startup.
+   * @private
+   */
+  async _processQueuedRepliesAfterWarmup() {
+    const queuedCount = [...this._channelReplyQueue.entries()]
+      .filter(([, entry]) => entry.needsReply).length;
+    
+    if (queuedCount === 0) {
+      this.logger?.info?.('[TelegramService] No queued messages to process after warmup');
+      return;
+    }
+    
+    this.logger?.info?.(`[TelegramService] Processing ${queuedCount} queued messages after warmup`);
+    
+    // Mark all queued entries as high priority by setting mentionedAt to now
+    // This ensures they get processed immediately by the queue processor
+    const now = Date.now();
+    for (const [channelId, entry] of this._channelReplyQueue.entries()) {
+      if (entry.needsReply && !entry.processing) {
+        // Set lastActivity to 0 to ensure immediate processing (delay already passed)
+        entry.lastActivity = 0;
+        // Mark as priority if not already
+        if (!entry.mentionedAt && !entry.isReplyToBot) {
+          entry.isRecentInteractor = true; // Give them immediate priority
+        }
+        this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for immediate processing after warmup`);
+      }
+    }
   }
 
   async generateAndSendReply(ctx, channelId, isMention) {
