@@ -305,6 +305,101 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
 }
 
 /**
+ * Executor for generate_video_with_reference action
+ * Creates video using reference images to preserve character/subject appearance
+ */
+export class GenerateVideoWithReferenceExecutor extends ActionExecutor {
+  constructor() {
+    super('generate_video_with_reference');
+  }
+
+  getTimeout() {
+    return 360000; // 6 minutes - longer for reference processing
+  }
+
+  async execute(step, context) {
+    const { ctx, conversationContext, userId, username, services, stepNum, latestMediaId, logger } = context;
+    
+    // Get reference media IDs from step or use latest
+    let referenceMediaIds = Array.isArray(step.referenceMediaIds) 
+      ? step.referenceMediaIds.filter(Boolean) 
+      : [];
+    
+    // If no explicit references, try to use latest generated image
+    if (referenceMediaIds.length === 0 && latestMediaId) {
+      referenceMediaIds = [latestMediaId];
+      logger?.debug?.('[GenerateVideoWithReferenceExecutor] Using latestMediaId as reference:', latestMediaId);
+    }
+    
+    if (referenceMediaIds.length === 0) {
+      await ctx.reply('I need reference images to create this video! Generate some images first or provide referenceMediaIds.');
+      return { success: false, action: this.actionType, stepNum, error: 'No reference images' };
+    }
+
+    const options = {
+      aspectRatio: step.aspectRatio || '16:9',
+      style: step.style,
+      camera: step.camera,
+      negativePrompt: step.negativePrompt,
+      referenceMediaIds
+    };
+    
+    const record = await services.telegram.executeVideoGeneration(
+      ctx, step.description, conversationContext, userId, username, options
+    );
+    
+    if (record) {
+      return { success: true, action: this.actionType, stepNum, mediaId: record.id };
+    }
+    return { success: false, action: this.actionType, stepNum };
+  }
+}
+
+/**
+ * Executor for generate_video_interpolation action
+ * Creates video by interpolating between two keyframe images
+ */
+export class GenerateVideoInterpolationExecutor extends ActionExecutor {
+  constructor() {
+    super('generate_video_interpolation');
+  }
+
+  getTimeout() {
+    return 360000; // 6 minutes
+  }
+
+  async execute(step, context) {
+    const { ctx, services, stepNum, logger } = context;
+    
+    const firstFrameId = step.firstFrameMediaId;
+    const lastFrameId = step.lastFrameMediaId;
+    
+    if (!firstFrameId || !lastFrameId) {
+      await ctx.reply('Video interpolation needs both a first and last frame image! Generate keyframes first.');
+      return { success: false, action: this.actionType, stepNum, error: 'Missing first or last frame' };
+    }
+    
+    // Check if the media generation service supports interpolation
+    if (!services.telegram.executeVideoInterpolation) {
+      logger?.warn?.('[GenerateVideoInterpolationExecutor] Video interpolation not implemented');
+      await ctx.reply('Video interpolation is not yet available. Try generate_video_from_image instead!');
+      return { success: false, action: this.actionType, stepNum, error: 'Not implemented' };
+    }
+    
+    const record = await services.telegram.executeVideoInterpolation(ctx, {
+      firstFrameMediaId: firstFrameId,
+      lastFrameMediaId: lastFrameId,
+      prompt: step.description
+    });
+    
+    if (record) {
+      return { success: true, action: this.actionType, stepNum, mediaId: record.id };
+    }
+    return { success: false, action: this.actionType, stepNum };
+  }
+}
+
+/**
  * Executor for extend_video action
  */
 export class ExtendVideoExecutor extends ActionExecutor {
@@ -666,6 +761,8 @@ export class ActionExecutorRegistry {
     this.register(new EditImageExecutor());
     this.register(new GenerateVideoExecutor());
     this.register(new GenerateVideoFromImageExecutor());
+    this.register(new GenerateVideoWithReferenceExecutor());
+    this.register(new GenerateVideoInterpolationExecutor());
     this.register(new ExtendVideoExecutor());
     this.register(new SpeakExecutor());
     this.register(new PostTweetExecutor());

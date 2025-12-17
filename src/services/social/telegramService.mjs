@@ -1095,8 +1095,24 @@ class TelegramService {
           });
         } else if (functionName === 'react_to_message') {
           await this.executeReaction(ctx, args.emoji, args.messageId);
+        } else if (functionName === 'generate_video_from_image' || functionName === 'generate_video_with_reference' || 
+                   functionName === 'extend_video' || functionName === 'generate_video_interpolation') {
+          // These video tools are best handled through plan_actions for proper context
+          // Wrap in a single-step plan for execution
+          const videoLimit = await this.checkMediaGenerationLimit(null, 'video');
+          if (!videoLimit.allowed) {
+            await ctx.reply('🎬 Video generation charges are fully used up right now.');
+            continue;
+          }
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_video').catch(() => {});
+          const singleStepPlan = {
+            objective: `Execute ${functionName}`,
+            steps: [{ action: functionName, ...args }]
+          };
+          await this.executePlanActions(ctx, singleStepPlan, channelId, userId, username, conversationContext);
+        } else {
+          this.logger?.warn?.(`[TelegramService] Unknown tool: ${functionName}`);
         }
-        // Additional tools (video_from_image, extend_video, etc) follow same pattern...
       } catch (toolError) {
         this.logger?.error?.(`[TelegramService] Tool execution failed (${functionName}):`, toolError);
         await ctx.reply(`⚠️ I had a hiccup trying to ${functionName.replace(/_/g, ' ')}. Continuing...`);
