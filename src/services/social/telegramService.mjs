@@ -122,6 +122,16 @@ class TelegramService {
     this.bots = new Map(); // avatarId -> Telegraf instance
     this.globalBot = null;
     
+    // Startup timestamp - used to skip messages that arrived before bot started
+    this._startupTimestamp = Math.floor(Date.now() / 1000);
+    this._startupGracePeriodSec = 5; // Extra grace period to avoid edge cases
+    this._warmupPeriodSec = 30; // Don't respond to anything for 30 seconds after startup
+    this._isWarmedUp = false; // Will be set to true after warmup period
+    
+    // Channel reply queue - tracks channels needing replies and their priority
+    // Map<channelId, { needsReply: boolean, mentionedAt: number|null, lastActivity: number, ctx: object }>
+    this._channelReplyQueue = new Map();
+    
     // Initialize Managers
     this.cacheManager = new CacheManager({ logger: this.logger });
     this.recentMediaByChannel = this.cacheManager.recentMediaByChannel;
@@ -343,8 +353,21 @@ class TelegramService {
       
       this.logger?.info?.(`[TelegramService] Global bot initialized successfully: @${botInfo.username}`);
       
+      // Update startup timestamp to now (after successful init) to be more accurate
+      this._startupTimestamp = Math.floor(Date.now() / 1000);
+      this.logger?.info?.(`[TelegramService] Startup timestamp set - ignoring messages before ${new Date(this._startupTimestamp * 1000).toISOString()}`);
+      
+      // Start warmup period - bot won't respond for 30 seconds
+      this._isWarmedUp = false;
+      this.logger?.info?.(`[TelegramService] Warmup period started - bot will not respond for ${this._warmupPeriodSec} seconds`);
+      setTimeout(() => {
+        this._isWarmedUp = true;
+        this.logger?.info?.('[TelegramService] Warmup period complete - bot is now ready to respond');
+      }, this._warmupPeriodSec * 1000);
+      
       this.cacheManager.startCleanup();
       this.startConversationGapPolling();
+      this.startReplyQueueProcessor();
       
       return true;
     } catch (error) {
@@ -371,6 +394,11 @@ class TelegramService {
     this.globalBot.on('new_chat_members', async (ctx) => {
       try {
         if (!ctx?.message?.new_chat_members?.length) return;
+        
+        // Skip events from before startup
+        const messageTimestamp = ctx.message?.date || 0;
+        if (messageTimestamp < this._startupTimestamp - this._startupGracePeriodSec) return;
+        
         const channelId = String(ctx.chat.id);
         const botUsername = this.globalBot?.botInfo?.username || ctx.botInfo?.username;
         for (const member of ctx.message.new_chat_members) {
@@ -386,6 +414,11 @@ class TelegramService {
       try {
         const member = ctx?.message?.left_chat_member;
         if (!member?.id || member.is_bot) return;
+        
+        // Skip events from before startup
+        const messageTimestamp = ctx.message?.date || 0;
+        if (messageTimestamp < this._startupTimestamp - this._startupGracePeriodSec) return;
+        
         await this.memberManager.trackUserLeft(String(ctx.chat.id), String(member.id));
       } catch (error) {
         this.logger?.error?.('[TelegramService] left_chat_member handler error:', error);
@@ -455,6 +488,19 @@ class TelegramService {
     const channelId = String(ctx.chat.id);
     const userId = message.from?.id ? String(message.from.id) : null;
     const isPrivateChat = ctx.chat?.type === 'private';
+    
+    // Skip messages that arrived before the bot started (queued while offline)
+    const messageTimestamp = message.date || 0;
+    const effectiveStartupTime = this._startupTimestamp - this._startupGracePeriodSec;
+    if (messageTimestamp < effectiveStartupTime) {
+      this.logger?.debug?.(`[TelegramService] Skipping old message from before startup`, {
+        messageDate: new Date(messageTimestamp * 1000).toISOString(),
+        startupTime: new Date(this._startupTimestamp * 1000).toISOString(),
+        channelId,
+        userId
+      });
+      return;
+    }
     
     if (message.from.is_bot) return;
     if (message.text && message.text.startsWith('/')) return;
