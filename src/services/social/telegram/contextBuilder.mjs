@@ -98,13 +98,28 @@ Rule: Only call media generation tools if credits available. If 0, explain natur
 
   // Trigger context - note that all triggers use the same toolset
   const triggerContext = isMention 
-    ? 'You were directly mentioned - the user wants your attention.'
+    ? 'You were directly mentioned - the user wants your attention. Be responsive and engaging!'
     : triggerType === 'reply' 
-      ? 'A user replied to your message - they may be continuing a conversation with you.'
-      : 'General channel activity - decide if and how to participate.';
+      ? 'A user replied to your message - they want to continue chatting with you.'
+      : triggerType === 'private'
+        ? 'This is a private chat - be more personal and attentive.'
+        : 'General channel activity - join naturally if you have something fun or helpful to add.';
+
+  // Personality guidance for more natural/fun interactions
+  const personalityGuidance = `
+PERSONALITY & STYLE:
+- Be genuinely curious and playful - ask follow-up questions when interested
+- React with appropriate emojis to show you're engaged (don't overdo it - pick moments)
+- Keep responses concise unless elaboration is truly needed
+- Match the energy of the conversation - casual chat gets casual responses
+- It's OK to be witty, make jokes, or use wordplay when appropriate
+- If someone shares something cool, show genuine enthusiasm
+- Don't be afraid to have opinions or preferences (in character)
+- Use reactions (react_to_message) to acknowledge without always needing words`;
 
   const systemPrompt = `${botPersonality}
 ${botDynamicPrompt}
+${personalityGuidance}
 
 CHANNEL INTERACTION:
 ${triggerContext}
@@ -113,16 +128,16 @@ You have the same tools available regardless of how you were triggered.
 ACTION PLANNING (plan_actions):
 Use plan_actions to interact with the channel. Structure your plan with steps:
 - "speak": Send a message. Use "message" for the text. Use "targetMessageId" to reply to a specific message.
-- "react_to_message": React with emoji. Use "emoji" for the reaction, "targetMessageId" for which message.
+- "react_to_message": React with emoji. Use "emoji" for the reaction (🐀❤️🔥👍😂🎉👀🤔😎), "targetMessageId" for which message.
 - "wait": Choose not to respond (valid when conversation doesn't need you).
 - "generate_image/generate_video": Create media content.
 - "post_tweet": Share to X/Twitter.
 
-Choosing your response:
-- Direct questions to you → speak with targetMessageId to reply
-- General announcements → speak without targetMessageId
-- Showing appreciation/agreement → react_to_message with appropriate emoji
-- Conversation between others → wait (unless you have something valuable to add)
+Response patterns:
+- Quick acknowledgment → just react_to_message (no speak needed)
+- Questions to you → speak with targetMessageId to reply directly
+- Something exciting → react first, then speak
+- Between others → wait (or react silently if genuinely amused/interested)
 ${toolCreditContext}${buybotContextStr}
 ${ragContextStr}
 ${plan.summary}
@@ -133,9 +148,9 @@ CRITICAL INSTRUCTIONS:
 2. DO NOT mention internal media IDs (like "A1B2C3D4") in your messages. They are for tool use only.
 3. Use standard Markdown for formatting. DO NOT use HTML tags or entities.
 4. Message IDs [msg:123] are for targeting specific messages. Pass the numeric ID to targetMessageId in your plan steps.
-5. You can choose to "wait" - not every message needs a response from you.`;
+5. Use reactions liberally to stay engaged without being verbose.`;
 
-  const userPrompt = `Recent conversation:\\n${conversationContext}\\n\\nDecide how to respond (or if to respond at all).`;
+  const userPrompt = `Recent conversation:\\n${conversationContext}\\n\\nRespond naturally. Use reactions when a quick acknowledgment fits better than words.`;
 
   return { systemPrompt, userPrompt, conversationContext, recentMessageIds };
 }

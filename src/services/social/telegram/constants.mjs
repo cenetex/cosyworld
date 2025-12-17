@@ -47,10 +47,10 @@ export const CONVERSATION_CONFIG = {
 // ============================================================================
 
 export const REPLY_DELAY_CONFIG = {
-  // Delay for direct mentions (2 seconds)
-  MENTIONED_MS: 2_000,
-  // Delay for gap responses (10 seconds)
-  DEFAULT_MS: 10_000,
+  // Delay for direct mentions (3 seconds - quick but not instant)
+  MENTIONED_MS: 3_000,
+  // Delay for gap responses (8 seconds)
+  DEFAULT_MS: 8_000,
 };
 
 // ============================================================================
@@ -118,6 +118,7 @@ export const VALID_PLAN_ACTIONS = new Set([
   'edit_image',
   'extend_video',
   'speak',
+  'react_to_message',
   'post_tweet',
   'research',
   'wait',
@@ -137,6 +138,7 @@ export const STEP_TIMEOUTS = {
   edit_image: 120_000,
   extend_video: 300_000,
   speak: 30_000,
+  react_to_message: 5_000,
   post_tweet: 60_000,
   research: 30_000,
   wait: 5_000,
@@ -157,6 +159,7 @@ export const ACTION_ICONS = {
   edit_image: '✏️',
   extend_video: '📹',
   speak: '💬',
+  react_to_message: '😊',
   post_tweet: '🐦',
   research: '🔍',
   wait: '⏳',
@@ -172,6 +175,7 @@ export const ACTION_LABELS = {
   edit_image: 'Editing image',
   extend_video: 'Extending video',
   speak: 'Composing message',
+  react_to_message: 'Reacting',
   post_tweet: 'Posting to X',
   research: 'Researching',
   wait: 'Processing',

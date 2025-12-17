@@ -631,8 +631,8 @@ class TelegramService {
   // ===========================================================================
 
   startConversationGapPolling() {
-    const POLL_INTERVAL = 30000;
-    const GAP_THRESHOLD = 45000;
+    const POLL_INTERVAL = 20000;   // Check every 20 seconds
+    const GAP_THRESHOLD = 30000;   // Respond to gaps after 30 seconds of silence
     
     setInterval(async () => {
       // Top-level error boundary to prevent interval from breaking
@@ -719,14 +719,14 @@ class TelegramService {
 
   /**
    * Processes the channel reply queue with priority for mentions and direct replies.
-   * Mentions/replies get processed quickly (5s delay), regular activity gets normal delay.
+   * Mentions/replies get processed quickly, regular activity gets normal delay.
    * Recent interactors (users who mentioned/replied in last 2 min) get immediate priority.
    */
   startReplyQueueProcessor() {
-    const FAST_POLL_INTERVAL = 2000;  // Check queue every 2 seconds
-    const IMMEDIATE_DELAY = 2000;     // 2 second delay for recent interactors
-    const MENTION_DELAY = 5000;       // 5 second delay for mentions/direct replies
-    const NORMAL_DELAY = 30000;       // 30 second delay for active participant responses
+    const FAST_POLL_INTERVAL = 1500;  // Check queue every 1.5 seconds for snappier responses
+    const IMMEDIATE_DELAY = 1500;     // 1.5 second delay for recent interactors (feels instant)
+    const MENTION_DELAY = 3000;       // 3 second delay for mentions/direct replies (responsive)
+    const NORMAL_DELAY = 15000;       // 15 second delay for active participants (still engaged)
     
     setInterval(async () => {
       // Don't process if not warmed up yet

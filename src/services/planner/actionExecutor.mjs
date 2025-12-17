@@ -381,43 +381,50 @@ export class SpeakExecutor extends ActionExecutor {
     let text = step.message;
     
     if (!text && step.description) {
+      // Show typing indicator while generating
+      await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+      
       // Generate message from description using AI
       const speechPrompt = `You are executing a planned action.
 Context: ${conversationContext}
 Action Description: ${step.description}
 
-Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character.`;
+Write the message you should send to the user now to fulfill this action. Keep it natural, brief, and in character. Be conversational - no need to be formal.`;
 
       const response = await services.ai.chat([
         { role: 'user', content: speechPrompt }
       ], {
         model: services.globalBot?.bot?.model || DEFAULT_MODEL,
-        temperature: 0.7
+        temperature: 0.85 // Slightly higher for more natural variation
       });
       
       text = String(response || '').trim().replace(/^["']|["']$/g, '');
     }
     
     if (text) {
+      // Brief natural delay before sending (50-200ms) to feel more human
+      await new Promise(r => setTimeout(r, 50 + Math.random() * 150));
+      
       // Support replying to specific message
       const replyOptions = { parse_mode: 'HTML' };
       if (step.targetMessageId) {
         replyOptions.reply_to_message_id = step.targetMessageId;
       }
       
-      await ctx.telegram.sendMessage(
+      const sent = await ctx.telegram.sendMessage(
         ctx.chat.id,
         services.telegram._formatTelegramMarkdown(text),
         replyOptions
       );
       await services.telegram._recordBotResponse(channelId, userId);
       
-      // Track in conversation history
+      // Track in conversation history with message ID for future reference
       await services.telegram.conversationManager.addMessage(channelId, {
         from: 'Bot',
         text,
         date: Math.floor(Date.now() / 1000),
-        isBot: true
+        isBot: true,
+        messageId: sent?.message_id
       }, true);
     }
     

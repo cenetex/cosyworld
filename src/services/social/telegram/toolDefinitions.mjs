@@ -70,28 +70,30 @@ function buildPlanActionsTool() {
     type: 'function',
     function: {
       name: 'plan_actions',
-      description: `Plan and execute a sequence of actions. This is your primary tool for responding to the channel.
+      description: `Plan and execute actions to interact with the channel. This is your PRIMARY tool.
 
-CONVERSATION ACTIONS:
-- speak: Send a message (use 'message' field for what to say, 'targetMessageId' to reply to specific message)
-- react_to_message: React with emoji (MUST include 'emoji' field like 🐀❤️🔥, and 'targetMessageId' for which message)
-- wait: Explicitly choose not to respond
+QUICK REACTIONS (use liberally!):
+- react_to_message: Add any emoji reaction. Great for quick acknowledgments without being verbose.
 
-MEDIA ACTIONS:
-- generate_image, generate_keyframe: Create images (set aspectRatio: 16:9=landscape, 9:16=portrait, 1:1=square)
-- generate_video, generate_video_from_image, extend_video: Create videos
-- post_tweet: Post to X with recent media
+SPEAKING:
+- speak: Send a message. Use 'message' for the text. Add 'targetMessageId' to reply to someone specific.
 
-IMPORTANT:
-- For react_to_message: MUST set 'emoji' field (e.g., "🐀") and 'targetMessageId' from recent messages list
-- For speak: Put what you want to say in 'message' field, NOT 'description'
-- aspectRatio is only needed for image/video actions`,
+MEDIA CREATION:
+- generate_image: Create artwork (aspectRatio: 16:9=landscape, 9:16=portrait/phone, 1:1=square)
+- generate_video: Create video content
+- post_tweet: Share to X/Twitter
+
+TIPS:
+- Reactions are fast and fun - use them to stay engaged without walls of text
+- Combine: react THEN speak for emphasis
+- One thoughtful message beats three short ones
+- It's OK to just react and not speak - sometimes an emoji says it all`,
       parameters: {
         type: 'object',
         properties: {
           objective: {
             type: 'string',
-            description: 'Brief goal for this plan (e.g., "Greet the user", "Generate requested artwork")'
+            description: 'Brief goal (e.g., "React to cool art", "Answer question about tokens")'
           },
           steps: {
             type: 'array',
@@ -108,15 +110,15 @@ IMPORTANT:
                 // Conversation action fields
                 message: {
                   type: 'string',
-                  description: 'For speak: The message to send to the channel.'
+                  description: 'For speak: The message to send. Keep it conversational and natural.'
                 },
                 emoji: {
                   type: 'string',
-                  description: 'For react_to_message: The emoji to react with (e.g., 🐀, ❤️, 🔥, 👍, 😂). REQUIRED for reactions.'
+                  description: 'For react_to_message: Any single emoji character you want to use as a reaction.'
                 },
                 targetMessageId: {
                   type: 'number',
-                  description: 'Message ID to react to or reply to. Use IDs from the recent messages list [msg:XXX].'
+                  description: 'Message ID from [msg:XXX] in recent messages. Required for react_to_message, optional for speak (makes it a reply).'
                 },
                 // Media action fields
                 description: {
@@ -662,17 +664,18 @@ function buildReactToMessageTool() {
     type: 'function',
     function: {
       name: 'react_to_message',
-      description: 'Add an emoji reaction to a specific message.',
+      description: `Quick emoji reaction - perfect for acknowledging messages without being verbose!
+Use any emoji that fits the moment. This is often better than a text response for quick acknowledgments.`,
       parameters: {
         type: 'object',
         properties: {
           emoji: {
             type: 'string',
-            description: 'The emoji to react with (e.g. 👍, ❤️, 🔥, etc). Must be a supported Telegram reaction emoji.'
+            description: 'Any emoji character you want to react with.'
           },
           messageId: {
             type: 'number',
-            description: 'The ID of the message to react to. If not provided, reacts to the last user message.'
+            description: 'Message ID from [msg:XXX]. If omitted, reacts to the last message.'
           }
         },
         required: ['emoji']
