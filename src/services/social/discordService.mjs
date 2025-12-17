@@ -104,7 +104,7 @@ export class DiscordService {
   }
 
   setupEventListeners() {
-    this.client.once('ready', async () => {
+    this.client.once('clientReady', async () => {
       this.logger.info(`Bot is ready as ${this.client.user.tag}`);
       await this.updateConnectedGuilds();
       // Run guild detection in background to avoid blocking startup

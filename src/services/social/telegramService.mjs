@@ -331,18 +331,13 @@ class TelegramService {
       
       this.setupMessageHandlers();
       
-      const launchTimeout = 30000;
-      const launchPromise = this.globalBot.launch();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Bot launch timeout')), launchTimeout);
+      // Start long-polling (fire-and-forget - launch() never resolves while polling)
+      this.globalBot.launch().catch(err => {
+        this.logger?.error?.('[TelegramService] Bot launch error:', err.message);
       });
       
-      try {
-        await Promise.race([launchPromise, timeoutPromise]);
-        this.logger?.info?.('[TelegramService] Bot launch initiated successfully');
-      } catch (launchErr) {
-        this.logger?.warn?.('[TelegramService] Bot launch warning:', launchErr.message);
-      }
+      // Brief pause to let launch initialize before calling getMe()
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       let botInfo = null;
       const maxRetries = 3;

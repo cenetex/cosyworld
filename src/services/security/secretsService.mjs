@@ -137,7 +137,7 @@ export class SecretsService {
         return false; 
       });
     }
-    this.logger.warn(`[secrets] set() for key="${name}" - no collection bound, only cached!`);
+    this.logger.debug?.(`[secrets] set() for key="${name}" - no collection bound, only cached (pre-DB bootstrap)`);
     return true;
   }
 
