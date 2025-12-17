@@ -124,7 +124,7 @@ class TelegramService {
     // Startup timestamp - used to skip messages that arrived before bot started
     this._startupTimestamp = Math.floor(Date.now() / 1000);
     this._startupGracePeriodSec = 5; // Extra grace period to avoid edge cases
-    this._warmupPeriodSec = 30; // Don't respond to anything for 30 seconds after startup
+    this._warmupPeriodSec = 5; // Don't respond to anything for 5 seconds after startup
     this._isWarmedUp = false; // Will be set to true after warmup period
     
     // Channel reply queue - tracks channels needing replies and their priority

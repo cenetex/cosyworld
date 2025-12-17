@@ -558,18 +558,29 @@ export class ReactToMessageExecutor extends ActionExecutor {
   }
 
   async execute(step, context) {
-    const { ctx, services, stepNum } = context;
+    const { ctx, services, stepNum, logger } = context;
     
-    // Extract emoji from description if possible, or default to 👍
-    // The description usually contains "React with [emoji]" or just the emoji
-    let emoji = '👍';
-    const emojiMatch = step.description?.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-    if (emojiMatch) {
-      emoji = emojiMatch[0];
+    // Use emoji directly from step if provided, otherwise extract from description
+    let emoji = step.emoji;
+    if (!emoji) {
+      // Try to extract emoji from description - match any emoji character
+      const emojiMatch = step.description?.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu);
+      if (emojiMatch && emojiMatch.length > 0) {
+        emoji = emojiMatch[0];
+      }
     }
-
-    await services.telegram.executeReaction(ctx, emoji);
-    return { success: true, action: this.actionType, stepNum };
+    
+    if (!emoji) {
+      logger?.warn?.('[ReactToMessageExecutor] No emoji found in step, defaulting to 👍');
+      emoji = '👍';
+    }
+    
+    // Use messageId from step if provided
+    const messageId = step.messageId || null;
+    
+    logger?.debug?.('[ReactToMessageExecutor] Reacting with emoji', { emoji, messageId });
+    await services.telegram.executeReaction(ctx, emoji, messageId);
+    return { success: true, action: this.actionType, stepNum, emoji };
   }
 }
 
