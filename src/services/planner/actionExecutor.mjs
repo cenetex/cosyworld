@@ -356,6 +356,7 @@ export class SpeakExecutor extends ActionExecutor {
     const { ctx, channelId, conversationContext, userId, services, stepNum } = context;
 
     // Check for recent bot messages to avoid double-speaking
+    // But allow speaking after media generation (which is part of the same plan)
     try {
       const history = services.telegram.conversationManager.getHistory(channelId);
       if (history && history.length > 0) {
@@ -363,12 +364,17 @@ export class SpeakExecutor extends ActionExecutor {
         const now = Date.now();
         const msgTimeMs = (lastMsg.date > 1e10) ? lastMsg.date : lastMsg.date * 1000;
         
+        // Skip the duplicate-speak check if:
+        // 1. Last message was a media marker (explicit marker text)
+        // 2. We're in a multi-step plan (stepNum > 1 means there were prior steps)
         const isMediaMarker = lastMsg.text && (
             lastMsg.text.startsWith('[Generated Image:') || 
             lastMsg.text.startsWith('[Generated Video:')
         );
+        const isMultiStepPlan = stepNum > 1;
         
-        if (lastMsg.isBot && (now - msgTimeMs) < 5000 && !isMediaMarker) {
+        // Only skip if it's a genuine duplicate speak (not after media, not in multi-step plan)
+        if (lastMsg.isBot && (now - msgTimeMs) < 5000 && !isMediaMarker && !isMultiStepPlan) {
            services.logger?.info?.(`[SpeakExecutor] Skipping speak action - bot just spoke at ${new Date(msgTimeMs).toISOString()}`);
            return { success: true, action: this.actionType, stepNum, skipped: true };
         }
