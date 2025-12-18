@@ -86,13 +86,16 @@ export class GenerateImageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum } = context;
     
+    // Accept either 'prompt' or 'description' for the image prompt
+    const prompt = step.prompt || step.description;
+    
     // Extract aspectRatio from step if specified, default to square
     const options = {
       aspectRatio: step.aspectRatio || '1:1'
     };
     
     const record = await services.telegram.executeImageGeneration(
-      ctx, step.description, conversationContext, userId, username, options
+      ctx, prompt, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -117,13 +120,16 @@ export class GenerateKeyframeExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum, logger } = context;
     
+    // Accept either 'prompt' or 'description' for the image prompt
+    const prompt = step.prompt || step.description;
+    
     // Keyframes typically use 16:9 for video compatibility, unless specified
     const options = {
       aspectRatio: step.aspectRatio || '16:9'
     };
     
     const record = await services.telegram.executeImageGeneration(
-      ctx, step.description, conversationContext, userId, username, options
+      ctx, prompt, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -167,7 +173,7 @@ export class EditImageExecutor extends ActionExecutor {
     }
     
     const record = await services.telegram.executeImageEdit(ctx, {
-      prompt: step.description,
+      prompt: step.prompt || step.description,
       sourceMediaId,
       conversationContext,
       userId,
@@ -210,8 +216,11 @@ export class GenerateVideoExecutor extends ActionExecutor {
       fallbackReferenceMediaId: referenceMediaIds.length ? null : latestMediaId
     };
     
+    // Accept either 'prompt' or 'description' for the video prompt
+    const prompt = step.prompt || step.description;
+    
     const record = await services.telegram.executeVideoGeneration(
-      ctx, step.description, conversationContext, userId, username, options
+      ctx, prompt, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -336,6 +345,9 @@ export class GenerateVideoWithReferenceExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum, error: 'No reference images' };
     }
 
+    // Accept either 'prompt' or 'description' for the video prompt
+    const prompt = step.prompt || step.description;
+    
     const options = {
       aspectRatio: step.aspectRatio || '16:9',
       style: step.style,
@@ -345,7 +357,7 @@ export class GenerateVideoWithReferenceExecutor extends ActionExecutor {
     };
     
     const record = await services.telegram.executeVideoGeneration(
-      ctx, step.description, conversationContext, userId, username, options
+      ctx, prompt, conversationContext, userId, username, options
     );
     
     if (record) {
@@ -553,7 +565,15 @@ export class PostTweetExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum, error: 'Prior media generation failed' };
     }
 
-    let mediaIdToTweet = latestMediaId;
+    // Priority: step.mediaId > step.sourceMediaId > latestMediaId (from prior generation)
+    let mediaIdToTweet = step.mediaId || step.sourceMediaId || latestMediaId;
+    
+    if (mediaIdToTweet && (step.mediaId || step.sourceMediaId)) {
+      logger?.info?.('[PostTweetExecutor] Using explicit media from plan', { 
+        mediaId: mediaIdToTweet,
+        source: step.mediaId ? 'mediaId' : 'sourceMediaId'
+      });
+    }
     
     // If no explicit media ID, try semantic search based on step description
     if (!mediaIdToTweet && step.description && services.telegram._findBestMediaForTweet) {
@@ -583,11 +603,14 @@ export class PostTweetExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum, error: 'No media found' };
     }
 
-    let tweetText = step.description;
-    try {
-      const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
+    let tweetText = step.text || step.description;
+    
+    // Only generate AI caption if no explicit text was provided
+    if (!step.text) {
+      try {
+        const tweetPrompt = `You are managing a social media account for a character in CosyWorld.
 Context: ${conversationContext}
-Task: ${step.description}
+Task: ${step.description || 'Share the media'}.
 
 Write a creative, engaging tweet caption (under 280 chars) to accompany the media you just generated.
 - Be in character (witty, slightly chaotic, or helpful depending on the persona).
@@ -595,19 +618,20 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
 - Do not include "Here is the tweet:" or similar prefixes.
 - Make it sound like a real tweet, not a bot command.`;
 
-      const response = await services.ai.chat([
-        { role: 'user', content: tweetPrompt }
-      ], {
-        model: services.globalBot?.bot?.model || DEFAULT_MODEL,
-        temperature: 0.8
-      });
-      
-      const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
-      if (generatedTweet) {
-        tweetText = generatedTweet;
+        const response = await services.ai.chat([
+          { role: 'user', content: tweetPrompt }
+        ], {
+          model: services.globalBot?.bot?.model || DEFAULT_MODEL,
+          temperature: 0.8
+        });
+        
+        const generatedTweet = String(response || '').trim().replace(/^["']|["']$/g, '');
+        if (generatedTweet) {
+          tweetText = generatedTweet;
+        }
+      } catch (err) {
+        logger?.warn?.('[PostTweetExecutor] Failed to generate tweet caption, falling back to description:', err);
       }
-    } catch (err) {
-      logger?.warn?.('[PostTweetExecutor] Failed to generate tweet caption, falling back to description:', err);
     }
 
     const tweetResult = await services.telegram.executeTweetPost(ctx, {

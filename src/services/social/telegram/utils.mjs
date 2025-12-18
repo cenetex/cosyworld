@@ -492,6 +492,9 @@ export function includesMention(source, entities, botUsername) {
  * @returns {string} - Inferred aspect ratio
  */
 export function inferAspectRatioFromPrompt(prompt, defaultRatio = '1:1') {
+  if (!prompt || typeof prompt !== 'string') {
+    return defaultRatio;
+  }
   const lowerPrompt = prompt.toLowerCase();
   
   // Gemini supported ratios: '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'

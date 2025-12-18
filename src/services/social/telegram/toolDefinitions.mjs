@@ -142,6 +142,14 @@ TIPS:
                   type: 'string',
                   description: 'For video_from_image, extend_video, edit_image: ID of source media.'
                 },
+                mediaId: {
+                  type: 'string',
+                  description: 'For post_tweet: ID of the media to share (alternative to sourceMediaId).'
+                },
+                text: {
+                  type: 'string',
+                  description: 'For post_tweet: Tweet text to post (under 280 chars).'
+                },
                 referenceMediaIds: {
                   type: 'array',
                   items: { type: 'string' },
@@ -515,8 +523,8 @@ export function validatePlan(plan) {
     }
     
     if (action === 'post_tweet') {
-      if (!step.sourceMediaId && !hasMediaGeneration) {
-        errors.push(`Step ${stepNum} (post_tweet): Requires prior media generation or sourceMediaId`);
+      if (!step.sourceMediaId && !step.mediaId && !hasMediaGeneration) {
+        errors.push(`Step ${stepNum} (post_tweet): Requires prior media generation or mediaId/sourceMediaId`);
       }
     }
     
