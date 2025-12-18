@@ -60,6 +60,22 @@ const MAX_REFERENCE_IMAGES = 3;
 const VIDEO_LOCK_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes to cover Veo's SLA
 const VIDEO_PROGRESS_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL for progress handlers
 
+// Timing constants - consolidated to avoid magic numbers
+const TIMING = {
+  POLL_INTERVAL_MS: 20000,          // Gap polling interval
+  GAP_THRESHOLD_MS: 30000,          // Silence threshold before responding
+  QUEUE_POLL_INTERVAL_MS: 1500,     // Reply queue check interval
+  IMMEDIATE_DELAY_MS: 1500,         // Delay for recent interactors
+  MENTION_DELAY_MS: 3000,           // Delay for mentions/direct replies
+  NORMAL_DELAY_MS: 15000,           // Delay for active participants
+  PROGRESS_CLEANUP_INTERVAL_MS: 60000, // Progress handler cleanup interval
+  LAUNCH_SETTLE_MS: 500,            // Wait for bot.launch() to settle
+  RETRY_BASE_MS: 1000,              // Base retry delay (multiplied by attempt)
+  WARMUP_STAGGER_MS: 500,           // Stagger between warmup channel processing
+  HANDLER_TIMEOUT_MS: 600000,       // Telegraf handler timeout
+  PROGRESS_UPDATE_THROTTLE_MS: 5000 // Min interval between progress updates
+};
+
 // Process-wide progress tracking: avoids accumulating eventBus listeners when TelegramService is constructed multiple times (e.g. tests).
 const videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate, createdAt, logger }
 let videoProgressListenerRegistered = false;
@@ -73,7 +89,7 @@ function ensureVideoProgressListener() {
     if (!traceId) return;
 
     const handler = videoProgressHandlers.get(traceId);
-    if (handler && (Date.now() - handler.lastUpdate > 5000 || status === 'complete')) {
+    if (handler && (Date.now() - handler.lastUpdate > TIMING.PROGRESS_UPDATE_THROTTLE_MS || status === 'complete')) {
       try {
         await handler.ctx.telegram.editMessageText(
           handler.ctx.chat.id,
@@ -82,7 +98,10 @@ function ensureVideoProgressListener() {
           `🎬 ${status}... ${progress}%`
         );
         handler.lastUpdate = Date.now();
-      } catch { /* User may have deleted message or blocked bot */ }
+      } catch (err) {
+        // User may have deleted message or blocked bot
+        handler.logger?.debug?.('[TelegramService] Progress update failed:', err.message);
+      }
     }
 
     if (status === 'complete' || status === 'error') {
@@ -98,7 +117,7 @@ function ensureVideoProgressListener() {
         videoProgressHandlers.delete(traceId);
       }
     }
-  }, 60000); // Check every minute
+  }, TIMING.PROGRESS_CLEANUP_INTERVAL_MS);
 }
 
 class TelegramService {
@@ -292,14 +311,14 @@ class TelegramService {
       if (this.globalBot) {
         try {
           await this.globalBot.stop('SIGTERM');
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BASE_MS));
         } catch (stopErr) {
           this.logger?.debug?.('[TelegramService] Error stopping existing bot:', stopErr.message);
         }
       }
 
       this.globalBot = new Telegraf(token, {
-        handlerTimeout: 600_000,
+        handlerTimeout: TIMING.HANDLER_TIMEOUT_MS,
       });
       
       this.globalBot.catch((err, ctx) => {
@@ -350,7 +369,7 @@ class TelegramService {
       });
       
       // Brief pause to let launch initialize before calling getMe()
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, TIMING.LAUNCH_SETTLE_MS));
       
       let botInfo = null;
       const maxRetries = 3;
@@ -360,7 +379,7 @@ class TelegramService {
           break;
         } catch (err) {
           if (attempt === maxRetries) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise(resolve => setTimeout(resolve, TIMING.RETRY_BASE_MS * attempt));
         }
       }
       
@@ -639,9 +658,6 @@ class TelegramService {
   // ===========================================================================
 
   startConversationGapPolling() {
-    const POLL_INTERVAL = 20000;   // Check every 20 seconds
-    const GAP_THRESHOLD = 30000;   // Respond to gaps after 30 seconds of silence
-    
     this._gapPollingInterval = setInterval(async () => {
       // Top-level error boundary to prevent interval from breaking
       try {
@@ -655,7 +671,7 @@ class TelegramService {
           const lastMessage = history[history.length - 1];
           const lastMessageTime = lastMessage.date * 1000;
           
-          if (Date.now() - lastMessageTime < GAP_THRESHOLD) continue;
+          if (Date.now() - lastMessageTime < TIMING.GAP_THRESHOLD_MS) continue;
           if (lastMessage.from === 'Bot') continue;
           
           const pending = this.pendingReplies.get(channelId) || {};
@@ -722,7 +738,7 @@ class TelegramService {
         // Catch any unexpected errors to prevent interval from breaking
         this.logger?.error?.('[TelegramService] Gap polling outer error:', outerError);
       }
-    }, POLL_INTERVAL);
+    }, TIMING.POLL_INTERVAL_MS);
   }
 
   /**
@@ -731,11 +747,6 @@ class TelegramService {
    * Recent interactors (users who mentioned/replied in last 2 min) get immediate priority.
    */
   startReplyQueueProcessor() {
-    const FAST_POLL_INTERVAL = 1500;  // Check queue every 1.5 seconds for snappier responses
-    const IMMEDIATE_DELAY = 1500;     // 1.5 second delay for recent interactors (feels instant)
-    const MENTION_DELAY = 3000;       // 3 second delay for mentions/direct replies (responsive)
-    const NORMAL_DELAY = 15000;       // 15 second delay for active participants (still engaged)
-    
     this._replyQueueInterval = setInterval(async () => {
       // Don't process if not warmed up yet
       if (!this._isWarmedUp) {
@@ -769,7 +780,7 @@ class TelegramService {
         try {
           const isRecentInteractor = entry.isRecentInteractor;
           const isPriority = entry.mentionedAt || entry.isReplyToBot || entry.isPrivate;
-          const requiredDelay = isRecentInteractor ? IMMEDIATE_DELAY : (isPriority ? MENTION_DELAY : NORMAL_DELAY);
+          const requiredDelay = isRecentInteractor ? TIMING.IMMEDIATE_DELAY_MS : (isPriority ? TIMING.MENTION_DELAY_MS : TIMING.NORMAL_DELAY_MS);
           const timeSinceActivity = now - entry.lastActivity;
           
           // Wait for required delay before responding
@@ -853,7 +864,7 @@ class TelegramService {
           this.logger?.error?.(`[TelegramService] Reply queue error for ${channelId}:`, error);
         }
       }
-    }, FAST_POLL_INTERVAL);
+    }, TIMING.QUEUE_POLL_INTERVAL_MS);
     
     this.logger?.info?.('[TelegramService] Reply queue processor started');
   }
@@ -877,18 +888,17 @@ class TelegramService {
     // Stagger processing to avoid overwhelming the system
     // Process immediately but with small offsets to prevent simultaneous API calls
     const now = Date.now();
-    const STAGGER_MS = 500; // 500ms between each channel
     
     queuedEntries.forEach(([channelId, entry], index) => {
       // Set lastActivity to a staggered time so they process in sequence
       // Earlier entries get processed first
-      entry.lastActivity = now - (1000 * 60) + (index * STAGGER_MS);
+      entry.lastActivity = now - (1000 * 60) + (index * TIMING.WARMUP_STAGGER_MS);
       
       // Mark as priority if not already
       if (!entry.mentionedAt && !entry.isReplyToBot) {
         entry.isRecentInteractor = true; // Give them immediate priority
       }
-      this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for processing after warmup (offset: ${index * STAGGER_MS}ms)`);
+      this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for processing after warmup (offset: ${index * TIMING.WARMUP_STAGGER_MS}ms)`);
     });
   }
 
@@ -1035,7 +1045,9 @@ class TelegramService {
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Reply generation failed:', error);
-      try { await ctx.reply('I\'m having trouble forming thoughts right now. 💭'); } catch {}
+      try { await ctx.reply('I\'m having trouble forming thoughts right now. 💭'); } catch (replyErr) {
+        this.logger?.debug?.('[TelegramService] Fallback error reply failed:', replyErr.message);
+      }
     } finally {
       clearInterval(typingInterval);
     }
@@ -1285,7 +1297,9 @@ class TelegramService {
           const captionPrompt = `Create a brief (under 100 chars), natural caption for this image generated from: "${prompt}". No hashtags/markdown.`;
           const response = await this.aiService.chat([{ role: 'user', content: captionPrompt }]);
           caption = String(response || '').trim().replace(/^["']|["']$/g, '');
-        } catch {}
+        } catch (captionErr) {
+          this.logger?.debug?.('[TelegramService] Caption generation failed:', captionErr.message);
+        }
       }
 
       const sentMessage = await sendImagePreservingFormat(
@@ -1523,7 +1537,9 @@ class TelegramService {
       );
       try {
         await this.globalBot.telegram.sendMessage(jobData.chatId, '❌ Video generation failed.');
-      } catch {}
+      } catch (msgErr) {
+        this.logger?.debug?.('[TelegramService] Failed to send video error message:', msgErr.message);
+      }
       this._releaseVideoGenerationLock(jobData.channelId, jobData.lockTraceId);
     }
   }
@@ -1725,7 +1741,9 @@ class TelegramService {
           { command: 'settings', description: '⚙️ Manage buybot settings' },
           { command: 'help', description: '❓ Show help' }
         ]);
-      } catch {}
+      } catch (cmdErr) {
+        this.logger?.debug?.('[TelegramService] Buybot command registration failed:', cmdErr.message);
+      }
     }
   }
 
