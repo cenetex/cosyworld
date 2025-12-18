@@ -287,19 +287,22 @@ describe('AvatarService', () => {
     it('should include emoji filter', () => {
       const result = service._legacyToFilters({ emoji: '🐉' });
 
-      expect(result).toEqual({ emoji: '🐉' });
+      // Default includeStatus adds status filter
+      expect(result).toMatchObject({ emoji: '🐉' });
     });
 
     it('should include channelId filter', () => {
       const result = service._legacyToFilters({ channelId: 'chan-123' });
 
-      expect(result).toEqual({ channelId: 'chan-123' });
+      // Default includeStatus adds status filter
+      expect(result).toMatchObject({ channelId: 'chan-123' });
     });
 
     it('should include guildId filter', () => {
       const result = service._legacyToFilters({ guildId: 'guild-123' });
 
-      expect(result).toEqual({ guildId: 'guild-123' });
+      // Default includeStatus adds status filter
+      expect(result).toMatchObject({ guildId: 'guild-123' });
     });
 
     it('should combine multiple filters', () => {
@@ -318,10 +321,11 @@ describe('AvatarService', () => {
       });
     });
 
-    it('should handle empty options', () => {
+    it('should handle empty options with default alive filter', () => {
       const result = service._legacyToFilters({});
 
-      expect(result).toEqual({});
+      // Default includeStatus is 'alive', which adds status filter
+      expect(result).toEqual({ status: { $ne: 'dead' } });
     });
   });
 
