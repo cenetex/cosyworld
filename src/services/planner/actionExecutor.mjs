@@ -568,13 +568,25 @@ export class PostTweetExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum, error: 'Prior media generation failed' };
     }
 
-    // Priority: step.mediaId > step.sourceMediaId > latestMediaId (from prior generation)
-    let mediaIdToTweet = step.mediaId || step.sourceMediaId || latestMediaId;
+    // Helper to detect placeholder values like "(will use generated image ID)" or similar
+    const isPlaceholder = (val) => !val || typeof val !== 'string' || 
+      val.includes('(') || val.includes('will use') || val.includes('generated') || 
+      val.length < 4 || val.length > 20;
     
-    if (mediaIdToTweet && (step.mediaId || step.sourceMediaId)) {
+    // Priority: step.mediaId > step.sourceMediaId > latestMediaId (from prior generation)
+    // But ignore placeholder values from LLM
+    const explicitMediaId = !isPlaceholder(step.mediaId) ? step.mediaId : 
+                           !isPlaceholder(step.sourceMediaId) ? step.sourceMediaId : null;
+    let mediaIdToTweet = explicitMediaId || latestMediaId;
+    
+    if (mediaIdToTweet && explicitMediaId) {
       logger?.info?.('[PostTweetExecutor] Using explicit media from plan', { 
         mediaId: mediaIdToTweet,
         source: step.mediaId ? 'mediaId' : 'sourceMediaId'
+      });
+    } else if (mediaIdToTweet && latestMediaId) {
+      logger?.info?.('[PostTweetExecutor] Using latestMediaId from prior generation', { 
+        mediaId: mediaIdToTweet
       });
     }
     

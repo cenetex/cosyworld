@@ -67,15 +67,15 @@ export function buildConversationContext({
     conversationContext += `\\n(User is replying to ${replyMsgId}${replyFrom}: "${replyContent}")`;
   }
 
-  // Include available message IDs for react/reply actions
+  // Include available message IDs for react/reply actions (including bot's own messages)
   const recentMessageIds = selectedHistory
-    .filter(m => m.messageId && !m.isBot)
-    .slice(-8) // Last 8 user messages for more context
+    .filter(m => m.messageId)
+    .slice(-10) // Last 10 messages for more context
     .map(m => ({ id: m.messageId, from: m.from, preview: (m.text || '').slice(0, 50), isBot: m.isBot }));
 
   // Format recent message IDs for the system prompt
   const messageIdContext = recentMessageIds.length > 0
-    ? `\\nRecent messages you can interact with:\\n${recentMessageIds.map(m => `  - [msg:${m.id}] ${m.from}: "${m.preview}${m.preview.length >= 50 ? '...' : ''}"`).join('\\n')}`
+    ? `\\nRecent messages you can interact with:\\n${recentMessageIds.map(m => `  - [msg:${m.id}] ${m.from}${m.isBot ? ' (you)' : ''}: "${m.preview}${m.preview.length >= 50 ? '...' : ''}"`).join('\\n')}`
     : '';
 
   // 2. Build System Prompt

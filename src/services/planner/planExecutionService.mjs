@@ -172,10 +172,16 @@ export class PlanExecutionService {
         }
       }
       
+      // Helper to detect placeholder values like "(will use generated image ID)" 
+      const isPlaceholder = (val) => !val || typeof val !== 'string' || 
+        val.includes('(') || val.includes('will use') || val.includes('generated') || 
+        val.length < 4 || val.length > 20;
+      
       // For post_tweet, missing media is a warning not an error
       // The executor can use latestMediaId from context (previously generated media)
       if (action === 'post_tweet') {
-        if (!step.sourceMediaId && !step.mediaId && !hasMediaGeneration && !step.useLatestMedia) {
+        const hasValidMediaId = !isPlaceholder(step.sourceMediaId) || !isPlaceholder(step.mediaId);
+        if (!hasValidMediaId && !hasMediaGeneration && !step.useLatestMedia) {
           warnings.push(`Step ${stepNum} (post_tweet): No media in plan - will use most recent media if available`);
         }
       }
@@ -331,6 +337,7 @@ export class PlanExecutionService {
         if (result.mediaId) {
           state.latestMediaId = result.mediaId;
           state.generationFailed = false;
+          this.logger?.info?.(`[PlanExecutionService] Step ${stepNum} produced mediaId: ${result.mediaId}`);
         }
         if (onSuccess) await onSuccess(result, step, stepNum);
       } else {
