@@ -58,9 +58,10 @@ import { KnowledgeBaseService } from '../knowledge/knowledgeBaseService.mjs';
 
 const MAX_REFERENCE_IMAGES = 3;
 const VIDEO_LOCK_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes to cover Veo's SLA
+const VIDEO_PROGRESS_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL for progress handlers
 
 // Process-wide progress tracking: avoids accumulating eventBus listeners when TelegramService is constructed multiple times (e.g. tests).
-const videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate, logger }
+const videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate, createdAt, logger }
 let videoProgressListenerRegistered = false;
 
 function ensureVideoProgressListener() {
@@ -81,13 +82,23 @@ function ensureVideoProgressListener() {
           `🎬 ${status}... ${progress}%`
         );
         handler.lastUpdate = Date.now();
-      } catch {}
+      } catch { /* User may have deleted message or blocked bot */ }
     }
 
     if (status === 'complete' || status === 'error') {
       videoProgressHandlers.delete(traceId);
     }
   });
+  
+  // Periodic cleanup for orphaned handlers (jobs that never completed)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [traceId, handler] of videoProgressHandlers.entries()) {
+      if (now - handler.createdAt > VIDEO_PROGRESS_TTL_MS) {
+        videoProgressHandlers.delete(traceId);
+      }
+    }
+  }, 60000); // Check every minute
 }
 
 class TelegramService {
@@ -137,10 +148,12 @@ class TelegramService {
     this._recentInteractors = new Map();
     this._recentInteractorWindowMs = 2 * 60 * 1000; // 2 minutes window for immediate responses
     
+    // Interval references for cleanup on shutdown
+    this._gapPollingInterval = null;
+    this._replyQueueInterval = null;
+    
     // Initialize Managers
     this.cacheManager = new CacheManager({ logger: this.logger });
-    this.recentMediaByChannel = this.cacheManager.recentMediaByChannel;
-    this.agentPlansByChannel = this.cacheManager.agentPlansByChannel;
     
     this.memberManager = new MemberManager({
       logger: this.logger,
@@ -629,7 +642,7 @@ class TelegramService {
     const POLL_INTERVAL = 20000;   // Check every 20 seconds
     const GAP_THRESHOLD = 30000;   // Respond to gaps after 30 seconds of silence
     
-    setInterval(async () => {
+    this._gapPollingInterval = setInterval(async () => {
       // Top-level error boundary to prevent interval from breaking
       try {
       // Prune stale recent interactors on each poll cycle
@@ -723,7 +736,7 @@ class TelegramService {
     const MENTION_DELAY = 3000;       // 3 second delay for mentions/direct replies (responsive)
     const NORMAL_DELAY = 15000;       // 15 second delay for active participants (still engaged)
     
-    setInterval(async () => {
+    this._replyQueueInterval = setInterval(async () => {
       // Don't process if not warmed up yet
       if (!this._isWarmedUp) {
         return;
@@ -851,29 +864,32 @@ class TelegramService {
    * @private
    */
   async _processQueuedRepliesAfterWarmup() {
-    const queuedCount = [...this._channelReplyQueue.entries()]
-      .filter(([, entry]) => entry.needsReply).length;
+    const queuedEntries = [...this._channelReplyQueue.entries()]
+      .filter(([, entry]) => entry.needsReply && !entry.processing);
     
-    if (queuedCount === 0) {
+    if (queuedEntries.length === 0) {
       this.logger?.info?.('[TelegramService] No queued messages to process after warmup');
       return;
     }
     
-    this.logger?.info?.(`[TelegramService] Processing ${queuedCount} queued messages after warmup`);
+    this.logger?.info?.(`[TelegramService] Processing ${queuedEntries.length} queued messages after warmup`);
     
-    // Mark all queued entries as high priority
-    // This ensures they get processed immediately by the queue processor
-    for (const [channelId, entry] of this._channelReplyQueue.entries()) {
-      if (entry.needsReply && !entry.processing) {
-        // Set lastActivity to 0 to ensure immediate processing (delay already passed)
-        entry.lastActivity = 0;
-        // Mark as priority if not already
-        if (!entry.mentionedAt && !entry.isReplyToBot) {
-          entry.isRecentInteractor = true; // Give them immediate priority
-        }
-        this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for immediate processing after warmup`);
+    // Stagger processing to avoid overwhelming the system
+    // Process immediately but with small offsets to prevent simultaneous API calls
+    const now = Date.now();
+    const STAGGER_MS = 500; // 500ms between each channel
+    
+    queuedEntries.forEach(([channelId, entry], index) => {
+      // Set lastActivity to a staggered time so they process in sequence
+      // Earlier entries get processed first
+      entry.lastActivity = now - (1000 * 60) + (index * STAGGER_MS);
+      
+      // Mark as priority if not already
+      if (!entry.mentionedAt && !entry.isReplyToBot) {
+        entry.isRecentInteractor = true; // Give them immediate priority
       }
-    }
+      this.logger?.debug?.(`[TelegramService] Marked channel ${channelId} for processing after warmup (offset: ${index * STAGGER_MS}ms)`);
+    });
   }
 
   /**
@@ -1590,7 +1606,8 @@ class TelegramService {
 
   _registerVideoProgress(traceId, ctx, messageId) {
     if (!messageId) return;
-    videoProgressHandlers.set(traceId, { ctx, messageId, lastUpdate: Date.now(), logger: this.logger || console });
+    const now = Date.now();
+    videoProgressHandlers.set(traceId, { ctx, messageId, lastUpdate: now, createdAt: now, logger: this.logger || console });
   }
 
   async _handleMediaError(ctx, error, type, userId) {
@@ -1617,8 +1634,8 @@ class TelegramService {
       const limit = Number.isFinite(this.RECENT_MEDIA_LIMIT)
         ? Math.max(1, Number(this.RECENT_MEDIA_LIMIT))
         : MEDIA_CONFIG.RECENT_LIMIT;
-      const cached = (this.recentMediaByChannel.get(record.channelId) || []).slice(0, limit);
-      this.recentMediaByChannel.set(record.channelId, cached);
+      const cached = (this.cacheManager.recentMediaByChannel.get(record.channelId) || []).slice(0, limit);
+      this.cacheManager.recentMediaByChannel.set(record.channelId, cached);
     }
     return record;
   }
@@ -1924,6 +1941,16 @@ class TelegramService {
   }
 
   async shutdown() {
+    // Clear interval timers to prevent memory leaks
+    if (this._gapPollingInterval) {
+      clearInterval(this._gapPollingInterval);
+      this._gapPollingInterval = null;
+    }
+    if (this._replyQueueInterval) {
+      clearInterval(this._replyQueueInterval);
+      this._replyQueueInterval = null;
+    }
+    
     this.cacheManager.stopCleanup();
     this.pendingReplies.clear();
     this._recentInteractors.clear();
