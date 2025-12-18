@@ -563,6 +563,13 @@ export class PostTweetExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, channelId, conversationContext, userId, username, services, stepNum, latestMediaId, generationFailed, logger } = context;
     
+    logger?.debug?.('[PostTweetExecutor] Starting with context', {
+      latestMediaId,
+      generationFailed,
+      stepMediaId: step.mediaId,
+      stepSourceMediaId: step.sourceMediaId
+    });
+    
     if (generationFailed) {
       await ctx.reply('Skipping X post because the media generation failed.');
       return { success: false, action: this.actionType, stepNum, error: 'Prior media generation failed' };

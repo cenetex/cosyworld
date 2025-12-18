@@ -606,7 +606,7 @@ class TelegramService {
       from: message.from.first_name || message.from.username || 'User',
       text: message.text ?? message.caption ?? '',
       date: message.date,
-      isBot: false,
+      isBot: message.from.is_bot || false,
       userId,
       messageId: message.message_id
     }, true);
