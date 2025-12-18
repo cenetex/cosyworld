@@ -94,6 +94,19 @@ export const MEDIA_CONFIG = {
 };
 
 // ============================================================================
+// Content Filter Configuration
+// ============================================================================
+
+/**
+ * Core cashtags that are always allowed through content filters.
+ * Can be overridden via ALLOWED_CORE_CASHTAGS environment variable (comma-separated).
+ */
+export const CORE_CASHTAGS = (process.env.ALLOWED_CORE_CASHTAGS || '$RATI,$HISS')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// ============================================================================
 // Agent Planning Configuration
 // ============================================================================
 

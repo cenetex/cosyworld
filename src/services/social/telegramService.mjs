@@ -53,6 +53,8 @@ import {
   logPlanSummary,
   validatePlan,
   buildConversationContext,
+  buildToolDefinitions,
+  filterToolCalls,
 } from './telegram/index.mjs';
 import { KnowledgeBaseService } from '../knowledge/knowledgeBaseService.mjs';
 
@@ -75,6 +77,19 @@ const TIMING = {
   HANDLER_TIMEOUT_MS: 600000,       // Telegraf handler timeout
   PROGRESS_UPDATE_THROTTLE_MS: 5000 // Min interval between progress updates
 };
+
+/**
+ * Normalize channel ID to string format for consistent usage across the service.
+ * @param {string|number|object} source - ctx.chat.id, raw ID, or object with id property
+ * @returns {string} Normalized channel ID as string
+ */
+function normalizeChannelId(source) {
+  if (!source) return '';
+  if (typeof source === 'string') return source;
+  if (typeof source === 'number') return String(source);
+  if (source.id !== undefined) return String(source.id);
+  return '';
+}
 
 // Process-wide progress tracking: avoids accumulating eventBus listeners when TelegramService is constructed multiple times (e.g. tests).
 const videoProgressHandlers = new Map(); // traceId -> { ctx, messageId, lastUpdate, createdAt, logger }
@@ -498,7 +513,7 @@ class TelegramService {
     const allowedCashtags = [
       ...(contentFilters.allowedCashtags || []),
       ...dynamicSymbols,
-      '$RATI', '$HISS' // Explicitly allow core tokens
+      ...CORE_CASHTAGS // Core tokens from constants (configurable via env)
     ];
     
     const allowedAddresses = [
@@ -945,7 +960,16 @@ class TelegramService {
         const member = await ctx.telegram.getChatMember(ctx.chat.id, userId);
         if (member && ['left', 'kicked', 'restricted'].includes(member.status)) return;
       } catch (error) {
-        if (error?.message?.includes('USER_NOT_PARTICIPANT')) return;
+        // Handle various Telegram API errors gracefully
+        const errMsg = error?.message || '';
+        if (errMsg.includes('USER_NOT_PARTICIPANT') || 
+            errMsg.includes('user not found') ||
+            errMsg.includes('chat not found') ||
+            errMsg.includes('bot was blocked')) {
+          return; // User can't receive messages
+        }
+        // Rate limits or network issues - continue anyway, reply might still work
+        this.logger?.debug?.('[TelegramService] getChatMember check failed:', errMsg);
       }
     }
 
@@ -998,8 +1022,8 @@ class TelegramService {
         return;
       }
 
-      // Use tool definitions from module
-      const tools = (await import('./telegram/toolDefinitions.mjs')).buildToolDefinitions();
+      // Use tool definitions from module (statically imported)
+      const tools = buildToolDefinitions();
 
       const model = this.configService.get('TELEGRAM_BOT_MODEL') || 
                    this.globalBotService?.bot?.model || 
@@ -1045,9 +1069,7 @@ class TelegramService {
 
     } catch (error) {
       this.logger?.error?.('[TelegramService] Reply generation failed:', error);
-      try { await ctx.reply('I\'m having trouble forming thoughts right now. 💭'); } catch (replyErr) {
-        this.logger?.debug?.('[TelegramService] Fallback error reply failed:', replyErr.message);
-      }
+      await this._safeReply(ctx, 'I\'m having trouble forming thoughts right now. 💭');
     } finally {
       clearInterval(typingInterval);
     }
@@ -1058,13 +1080,12 @@ class TelegramService {
   // ===========================================================================
 
   async handleToolCalls(ctx, toolCalls, conversationContext) {
-    // Import helper to filter calls
-    const { filterToolCalls } = await import('./telegram/toolDefinitions.mjs');
+    // Use statically imported filterToolCalls
     const finalToolCalls = filterToolCalls(toolCalls, { logger: this.logger });
     
     const userId = String(ctx.message?.from?.id || ctx.from?.id);
     const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
-    const channelId = String(ctx.chat?.id || '');
+    const channelId = normalizeChannelId(ctx.chat);
 
     for (const toolCall of finalToolCalls) {
       let functionName = toolCall.function?.name;
@@ -1084,19 +1105,11 @@ class TelegramService {
           await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
           await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
         } else if (functionName === 'generate_image') {
-          const limit = await this.checkMediaGenerationLimit(null, 'image');
-          if (!limit.allowed) {
-            await ctx.reply('🎨 Image generation charges are fully used up right now.');
-            continue;
-          }
+          if (!await this._guardMediaLimit(ctx, 'image', '🎨 Image generation charges are fully used up right now.')) continue;
           await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_photo').catch(() => {});
           await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio: args.aspectRatio || '1:1' });
         } else if (functionName === 'generate_video') {
-          const limit = await this.checkMediaGenerationLimit(null, 'video');
-          if (!limit.allowed) {
-            await ctx.reply('🎬 Video generation charges are fully used up right now.');
-            continue;
-          }
+          if (!await this._guardMediaLimit(ctx, 'video', '🎬 Video generation charges are fully used up right now.')) continue;
           await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_video').catch(() => {});
           const videoOptions = {
             aspectRatio: args.aspectRatio || '16:9',
@@ -1121,12 +1134,7 @@ class TelegramService {
         } else if (functionName === 'generate_video_from_image' || functionName === 'generate_video_with_reference' || 
                    functionName === 'extend_video' || functionName === 'generate_video_interpolation') {
           // These video tools are best handled through plan_actions for proper context
-          // Wrap in a single-step plan for execution
-          const videoLimit = await this.checkMediaGenerationLimit(null, 'video');
-          if (!videoLimit.allowed) {
-            await ctx.reply('🎬 Video generation charges are fully used up right now.');
-            continue;
-          }
+          if (!await this._guardMediaLimit(ctx, 'video', '🎬 Video generation charges are fully used up right now.')) continue;
           await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_video').catch(() => {});
           const singleStepPlan = {
             objective: `Execute ${functionName}`,
@@ -1138,7 +1146,7 @@ class TelegramService {
         }
       } catch (toolError) {
         this.logger?.error?.(`[TelegramService] Tool execution failed (${functionName}):`, toolError);
-        await ctx.reply(`⚠️ I had a hiccup trying to ${functionName.replace(/_/g, ' ')}. Continuing...`);
+        await this._safeReply(ctx, `⚠️ I had a hiccup trying to ${functionName.replace(/_/g, ' ')}. Continuing...`);
       }
     }
   }
@@ -1490,11 +1498,12 @@ class TelegramService {
     
     const job = await collection.findOneAndUpdate(
       { _id: new ObjectId(jobId), status: 'queued' },
-      { $set: { status: 'processing', startedAt: new Date() } }
+      { $set: { status: 'processing', startedAt: new Date() } },
+      { returnDocument: 'before' } // Explicitly get doc before update for the queued data
     );
     
     if (!job) return;
-    const jobData = job; // job is actually the doc before update if returnDocument not set, or verify result
+    const jobData = job; // Document before update contains original queued data
 
     try {
       // Get character design for reference
@@ -1595,6 +1604,12 @@ class TelegramService {
   _acquireVideoGenerationLock(channelId, traceId) {
     if (!channelId) return true;
     const now = Date.now();
+    
+    // Clean up expired locks to prevent memory growth
+    for (const [cid, lock] of this._videoGenerationLocks.entries()) {
+      if (lock.expiresAt <= now) this._videoGenerationLocks.delete(cid);
+    }
+    
     const current = this._videoGenerationLocks.get(channelId);
     if (current && current.expiresAt > now && current.traceId !== traceId) return false;
     this._videoGenerationLocks.set(channelId, { traceId, expiresAt: now + this.VIDEO_GENERATION_LOCK_MS });
@@ -1624,6 +1639,37 @@ class TelegramService {
     if (!messageId) return;
     const now = Date.now();
     videoProgressHandlers.set(traceId, { ctx, messageId, lastUpdate: now, createdAt: now, logger: this.logger || console });
+  }
+
+  /**
+   * Check media generation limit and reply with a message if exhausted.
+   * @param {object} ctx - Telegraf context
+   * @param {string} mediaType - 'image', 'video', or 'tweet'
+   * @param {string} exhaustedMessage - Message to send if limit is reached
+   * @returns {Promise<boolean>} true if allowed, false if limit exceeded
+   */
+  async _guardMediaLimit(ctx, mediaType, exhaustedMessage) {
+    const limit = await this.checkMediaGenerationLimit(null, mediaType);
+    if (!limit.allowed) {
+      await this._safeReply(ctx, exhaustedMessage);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Safely send a reply, catching and logging any errors.
+   * @param {object} ctx - Telegraf context
+   * @param {string} message - Message to send
+   * @returns {Promise<object|null>} Sent message or null on failure
+   */
+  async _safeReply(ctx, message) {
+    try {
+      return await ctx.reply(message);
+    } catch (err) {
+      this.logger?.debug?.('[TelegramService] Safe reply failed:', err.message);
+      return null;
+    }
   }
 
   async _handleMediaError(ctx, error, type, userId) {
