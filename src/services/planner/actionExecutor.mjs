@@ -86,8 +86,8 @@ export class GenerateImageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum } = context;
     
-    // Accept either 'prompt' or 'description' for the image prompt
-    const prompt = step.prompt || step.description;
+    // Accept 'prompt', 'description', or 'message' for the image prompt (LLM sometimes uses wrong field)
+    const prompt = step.prompt || step.description || step.message;
     
     // Extract aspectRatio from step if specified, default to square
     const options = {
@@ -120,8 +120,8 @@ export class GenerateKeyframeExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum, logger } = context;
     
-    // Accept either 'prompt' or 'description' for the image prompt
-    const prompt = step.prompt || step.description;
+    // Accept 'prompt', 'description', or 'message' for the image prompt (LLM sometimes uses wrong field)
+    const prompt = step.prompt || step.description || step.message;
     
     // Keyframes typically use 16:9 for video compatibility, unless specified
     const options = {
@@ -173,7 +173,7 @@ export class EditImageExecutor extends ActionExecutor {
     }
     
     const record = await services.telegram.executeImageEdit(ctx, {
-      prompt: step.prompt || step.description,
+      prompt: step.prompt || step.description || step.message,
       sourceMediaId,
       conversationContext,
       userId,
@@ -216,8 +216,8 @@ export class GenerateVideoExecutor extends ActionExecutor {
       fallbackReferenceMediaId: referenceMediaIds.length ? null : latestMediaId
     };
     
-    // Accept either 'prompt' or 'description' for the video prompt
-    const prompt = step.prompt || step.description;
+    // Accept 'prompt', 'description', or 'message' for the video prompt (LLM sometimes uses wrong field)
+    const prompt = step.prompt || step.description || step.message;
     
     const record = await services.telegram.executeVideoGeneration(
       ctx, prompt, conversationContext, userId, username, options
@@ -245,6 +245,9 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
   async execute(step, context) {
     const { ctx, conversationContext, userId, username, services, stepNum, latestMediaId } = context;
     
+    // Accept 'prompt', 'description', or 'message' for the video prompt (LLM sometimes uses wrong field)
+    const prompt = step.prompt || step.description || step.message;
+    
     // Video typically uses 9:16 (vertical) for social media, unless specified
     const options = {
       aspectRatio: step.aspectRatio || '9:16'
@@ -255,7 +258,7 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
     if (!sourceMediaId) {
       // Fall back to text-to-video
       const record = await services.telegram.executeVideoGeneration(
-        ctx, step.description, conversationContext, userId, username, options
+        ctx, prompt, conversationContext, userId, username, options
       );
       if (record) {
         return { success: true, action: this.actionType, stepNum, mediaId: record.id };
@@ -276,7 +279,7 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
     
     // Generate video from image
     const videoUrls = await telegram.mediaGenerationManager.generateVideoFromImage({
-      prompt: step.description,
+      prompt,
       imageUrl: sourceMedia.mediaUrl,
       config: { aspectRatio: options.aspectRatio, durationSeconds: 8 }
     });
@@ -293,12 +296,12 @@ export class GenerateVideoFromImageExecutor extends ActionExecutor {
     const record = await telegram._rememberGeneratedMedia(channelId, {
       type: 'video',
       mediaUrl: videoUrl,
-      prompt: step.description,
+      prompt,
       messageId: sentMessage?.message_id,
       userId,
       source: 'telegram.generate_video_from_image',
       toolingState: { 
-        originalPrompt: step.description, 
+        originalPrompt: prompt, 
         aspectRatio: options.aspectRatio,
         sourceMediaId,
         sourceImageUrl: sourceMedia.mediaUrl
@@ -345,8 +348,8 @@ export class GenerateVideoWithReferenceExecutor extends ActionExecutor {
       return { success: false, action: this.actionType, stepNum, error: 'No reference images' };
     }
 
-    // Accept either 'prompt' or 'description' for the video prompt
-    const prompt = step.prompt || step.description;
+    // Accept 'prompt', 'description', or 'message' for the video prompt (LLM sometimes uses wrong field)
+    const prompt = step.prompt || step.description || step.message;
     
     const options = {
       aspectRatio: step.aspectRatio || '16:9',
@@ -401,7 +404,7 @@ export class GenerateVideoInterpolationExecutor extends ActionExecutor {
     const record = await services.telegram.executeVideoInterpolation(ctx, {
       firstFrameMediaId: firstFrameId,
       lastFrameMediaId: lastFrameId,
-      prompt: step.description
+      prompt: step.prompt || step.description || step.message
     });
     
     if (record) {
@@ -433,7 +436,7 @@ export class ExtendVideoExecutor extends ActionExecutor {
     }
     
     const record = await services.telegram.executeVideoExtension(ctx, {
-      prompt: step.description,
+      prompt: step.prompt || step.description || step.message,
       sourceMediaId,
       conversationContext,
       userId,
