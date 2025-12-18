@@ -35,6 +35,7 @@ import {
   MEDIA_LIMITS,
   MEDIA_CONFIG,
   DEFAULT_MODEL,
+  CORE_CASHTAGS,
   // Utilities
   escapeHtml,
   formatTelegramMarkdown,
