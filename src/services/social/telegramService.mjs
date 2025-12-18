@@ -552,7 +552,8 @@ class TelegramService {
       return;
     }
     
-    if (message.from.is_bot) return;
+    // Allow bot messages for inter-bot communication
+    // if (message.from.is_bot) return;
     if (message.text && message.text.startsWith('/')) return;
     
     // Resolve content filters
