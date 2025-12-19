@@ -148,6 +148,7 @@ export class BuybotService {
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
     this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
     this.ACTIVITY_SUMMARIES_COLLECTION = 'buybot_activity_summaries'; // New collection for Discord summaries
+    this.SPAM_TOKENS_COLLECTION = 'buybot_spam_tokens'; // Persistently blocked spam tokens
 
     // Global failure/backoff tracking to avoid hammering upstream providers
     this.globalFailureCount = 0;
@@ -155,6 +156,11 @@ export class BuybotService {
     this.globalBackoffUntil = null;
     this.GLOBAL_FAILURE_THRESHOLD = Number(process.env.BUYBOT_GLOBAL_FAILURE_THRESHOLD || 3);
     this.GLOBAL_BACKOFF_MS = Number(process.env.BUYBOT_GLOBAL_BACKOFF_MS || (24 * 60 * 60 * 1000));
+
+    // Spam token detection - mark tokens as spam after repeated lookup failures
+    this.spamTokenCache = new Map(); // tokenAddress -> true (in-memory cache of known spam tokens)
+    this.SPAM_TOKEN_FAILURE_THRESHOLD = Number(process.env.BUYBOT_SPAM_TOKEN_FAILURE_THRESHOLD || 3); // Mark as spam after N failures
+    this.SPAM_TOKEN_CACHE_LOADED = false; // Track if we've loaded the spam cache from DB
   }
 
   /**
@@ -336,6 +342,12 @@ export class BuybotService {
         { key: { channelId: 1 }, name: 'collection_channel_lookup' },
         { key: { contextChannelId: 1 }, name: 'collection_context_lookup' },
         { key: { collectionAddress: 1 }, name: 'collection_lookup' },
+      ]);
+
+      // Index for spam tokens collection
+      await this.db.collection(this.SPAM_TOKENS_COLLECTION).createIndexes([
+        { key: { tokenAddress: 1 }, unique: true, name: 'spam_token_address' },
+        { key: { markedAt: -1 }, name: 'spam_marked_at' },
       ]);
 
       this.logger.info('[BuybotService] Database indexes created');
@@ -1230,7 +1242,7 @@ export class BuybotService {
     return true;
   }
 
-  _markTokenAsNotFound(tokenAddress, reason = 'unknown') {
+  async _markTokenAsNotFound(tokenAddress, reason = 'unknown') {
     if (!tokenAddress) {
       return;
     }
@@ -1251,6 +1263,154 @@ export class BuybotService {
     } else {
       this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} still unavailable on DexScreener (${reason}); attempts=${entry.count}`);
     }
+
+    // Check if we should mark this token as permanent spam
+    if (entry.count >= this.SPAM_TOKEN_FAILURE_THRESHOLD) {
+      await this._markTokenAsSpam(tokenAddress, reason);
+    }
+  }
+
+  /**
+   * Check if a token is known spam (in-memory cache backed by database)
+   * @param {string} tokenAddress - Token address
+   * @returns {Promise<boolean>}
+   */
+  async _isSpamToken(tokenAddress) {
+    if (!tokenAddress) return false;
+
+    // Check in-memory cache first
+    if (this.spamTokenCache.has(tokenAddress)) {
+      return true;
+    }
+
+    // Lazy-load spam token cache from database on first check
+    if (!this.SPAM_TOKEN_CACHE_LOADED && this.db) {
+      await this._loadSpamTokenCache();
+    }
+
+    return this.spamTokenCache.has(tokenAddress);
+  }
+
+  /**
+   * Load spam tokens from database into in-memory cache
+   * @private
+   */
+  async _loadSpamTokenCache() {
+    if (this.SPAM_TOKEN_CACHE_LOADED || !this.db) return;
+
+    try {
+      const spamTokens = await this.db
+        .collection(this.SPAM_TOKENS_COLLECTION)
+        .find({}, { projection: { tokenAddress: 1 } })
+        .toArray();
+
+      for (const doc of spamTokens) {
+        if (doc.tokenAddress) {
+          this.spamTokenCache.set(doc.tokenAddress, true);
+        }
+      }
+
+      this.SPAM_TOKEN_CACHE_LOADED = true;
+      this.logger?.debug?.(`[BuybotService] Loaded ${spamTokens.length} spam tokens from database`);
+    } catch (error) {
+      this.logger?.warn?.(`[BuybotService] Failed to load spam token cache: ${error.message}`);
+    }
+  }
+
+  /**
+   * Mark a token as permanent spam (persisted to database)
+   * @param {string} tokenAddress - Token address
+   * @param {string} reason - Why the token is spam
+   * @private
+   */
+  async _markTokenAsSpam(tokenAddress, reason = 'repeated-lookup-failures') {
+    if (!tokenAddress || this.spamTokenCache.has(tokenAddress)) {
+      return;
+    }
+
+    // Add to in-memory cache immediately
+    this.spamTokenCache.set(tokenAddress, true);
+
+    // Remove from temporary suppression cache - it's now permanently blocked
+    this.tokenNotFoundCache.delete(tokenAddress);
+
+    this.logger?.info?.(`[BuybotService] Marking token ${tokenAddress} as spam (${reason}); will be permanently skipped`);
+
+    // Persist to database
+    if (this.db) {
+      try {
+        await this.db.collection(this.SPAM_TOKENS_COLLECTION).updateOne(
+          { tokenAddress },
+          {
+            $set: {
+              tokenAddress,
+              reason,
+              markedAt: new Date(),
+            },
+            $setOnInsert: {
+              createdAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+      } catch (error) {
+        this.logger?.warn?.(`[BuybotService] Failed to persist spam token to database: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Remove a token from the spam list (for manual rehabilitation)
+   * @param {string} tokenAddress - Token address
+   * @returns {Promise<boolean>} - True if the token was removed
+   */
+  async unmarkSpamToken(tokenAddress) {
+    if (!tokenAddress) return false;
+
+    this.spamTokenCache.delete(tokenAddress);
+    this.tokenNotFoundCache.delete(tokenAddress);
+
+    if (this.db) {
+      try {
+        const result = await this.db.collection(this.SPAM_TOKENS_COLLECTION).deleteOne({ tokenAddress });
+        if (result.deletedCount > 0) {
+          this.logger?.info?.(`[BuybotService] Removed token ${tokenAddress} from spam list`);
+          return true;
+        }
+      } catch (error) {
+        this.logger?.warn?.(`[BuybotService] Failed to remove spam token from database: ${error.message}`);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get statistics about spam tokens
+   * @returns {Promise<{ count: number, recentlyAdded: Array }>}
+   */
+  async getSpamTokenStats() {
+    const stats = {
+      inMemoryCount: this.spamTokenCache.size,
+      databaseCount: 0,
+      recentlyAdded: [],
+    };
+
+    if (this.db) {
+      try {
+        stats.databaseCount = await this.db.collection(this.SPAM_TOKENS_COLLECTION).countDocuments();
+        stats.recentlyAdded = await this.db
+          .collection(this.SPAM_TOKENS_COLLECTION)
+          .find({})
+          .sort({ markedAt: -1 })
+          .limit(10)
+          .toArray();
+      } catch (error) {
+        this.logger?.warn?.(`[BuybotService] Failed to get spam token stats: ${error.message}`);
+      }
+    }
+
+    return stats;
   }
 
   /**
@@ -1260,6 +1420,12 @@ export class BuybotService {
    */
   async getPriceFromDexScreener(tokenAddress) {
     try {
+      // Skip known spam tokens entirely
+      if (await this._isSpamToken(tokenAddress)) {
+        this.logger.debug(`[BuybotService] Skipping DexScreener lookup for spam token ${tokenAddress}`);
+        return null;
+      }
+
       // Check cache first
       const cached = this.priceCache.get(tokenAddress);
       if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL_MS) {
@@ -1299,7 +1465,7 @@ export class BuybotService {
 
       if (!data || !data.pairs || data.pairs.length === 0) {
         this.logger.debug(`[BuybotService] No pairs found on DexScreener for ${tokenAddress}`);
-        this._markTokenAsNotFound(tokenAddress, 'no-pairs');
+        await this._markTokenAsNotFound(tokenAddress, 'no-pairs');
         return null;
       }
 
@@ -1312,7 +1478,7 @@ export class BuybotService {
 
       if (!bestPair || !bestPair.priceUsd) {
         this.logger.debug(`[BuybotService] No valid price found on DexScreener for ${tokenAddress}`);
-        this._markTokenAsNotFound(tokenAddress, 'no-price');
+        await this._markTokenAsNotFound(tokenAddress, 'no-price');
         return null;
       }
 
@@ -1370,6 +1536,12 @@ export class BuybotService {
    */
   async getTokenInfo(tokenAddress) {
     try {
+      // Skip known spam tokens entirely
+      if (await this._isSpamToken(tokenAddress)) {
+        this.logger.debug(`[BuybotService] Skipping token info lookup for spam token ${tokenAddress}`);
+        return null;
+      }
+
       // Check cache first
       const cached = this.tokenInfoCache.get(tokenAddress);
       if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL_MS) {
