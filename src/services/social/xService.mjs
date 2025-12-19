@@ -53,6 +53,59 @@ class XService {
     this.metricsService = metricsService;
     this._usernameCache = new Map();
     this._usernameFetches = new Map();
+    
+    // Initialize rate limit state (will be loaded from DB on first use)
+    this._rateLimitsInitialized = false;
+    this._globalRate = null;
+  }
+  
+  /**
+   * Initialize rate limiting state from persistent storage.
+   * Called lazily on first rate-limited operation.
+   * @returns {Promise<void>}
+   */
+  async _initRateLimitsIfNeeded() {
+    if (this._rateLimitsInitialized) return;
+    
+    try {
+      const state = await this._loadRateLimitState('global');
+      if (state) {
+        const now = Date.now();
+        this._globalRate = {
+          windowStart: state.windowStart || now,
+          count: state.count || 0,
+          lastPostedAt: state.lastPostedAt || null,
+          rateLimited: state.rateLimited || false,
+          rateLimitResetAt: state.rateLimitResetAt || null,
+          consecutiveFailures: state.consecutiveFailures || 0
+        };
+        
+        // Check if rate limit has expired since last save
+        if (this._globalRate.rateLimited && this._globalRate.rateLimitResetAt) {
+          if (now >= this._globalRate.rateLimitResetAt) {
+            this._globalRate.rateLimited = false;
+            this._globalRate.rateLimitResetAt = null;
+            this.logger?.info?.('[XService] Rate limit expired during downtime, resuming normal operation');
+          }
+        }
+        
+        // Check if hour window has expired
+        const hourMs = 3600_000;
+        if (now - this._globalRate.windowStart >= hourMs) {
+          this._globalRate.windowStart = now;
+          this._globalRate.count = 0;
+        }
+        
+        this.logger?.debug?.('[XService] Loaded persistent rate limit state', {
+          count: this._globalRate.count,
+          rateLimited: this._globalRate.rateLimited
+        });
+      }
+    } catch (err) {
+      this.logger?.warn?.('[XService] Failed to load rate limit state: ' + err.message);
+    }
+    
+    this._rateLimitsInitialized = true;
   }
 
   /**
@@ -1461,9 +1514,12 @@ class XService {
         return { error: true, reason: 'No media or text content to post' };
       }
 
-      // Simple hour bucket limiter (in-memory). Good enough for MVP; restart resets window.
+      // Initialize rate limits from persistent storage if needed
+      await this._initRateLimitsIfNeeded();
+      
+      // Hour bucket limiter with persistent state
       const now = Date.now();
-      if (!this._globalRate) this._globalRate = { windowStart: now, count: 0 };
+      if (!this._globalRate) this._globalRate = { windowStart: now, count: 0, consecutiveFailures: 0 };
       
       // Check if we're currently rate limited
       if (this._globalRate.rateLimited && this._globalRate.rateLimitResetAt) {
@@ -1483,7 +1539,11 @@ class XService {
           // Rate limit has expired, clear it
           this._globalRate.rateLimited = false;
           this._globalRate.rateLimitResetAt = null;
+          this._globalRate.consecutiveFailures = 0;
           this.logger?.info?.('[XService][globalPost] Rate limit expired, resuming normal operation');
+          
+          // Save cleared state
+          this._saveRateLimitState('global', this._globalRate).catch(() => {});
           
           // Update health status
           this.metricsService?.recordHealth('xService', {
@@ -1942,10 +2002,14 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
             details: { resetTime, waitSec }
           });
           
-          // Store backoff time
+          // Store backoff time (both in-memory and persistent)
           if (!this._globalRate) this._globalRate = { windowStart: Date.now(), count: 0 };
           this._globalRate.rateLimitResetAt = resetTime * 1000;
           this._globalRate.rateLimited = true;
+          this._globalRate.consecutiveFailures = (this._globalRate.consecutiveFailures || 0) + 1;
+          
+          // Save to persistent storage
+          this._saveRateLimitState('global', this._globalRate).catch(() => {});
           
           try {
             const db = await this.databaseService.getDatabase();
@@ -2016,7 +2080,11 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
       }
 
       this._globalRate.count++;
-  try { this._globalRate.lastPostedAt = Date.now(); } catch {}
+      this._globalRate.lastPostedAt = Date.now();
+      this._globalRate.consecutiveFailures = 0; // Reset on success
+      
+      // Save successful state
+      this._saveRateLimitState('global', this._globalRate).catch(() => {});
       
       // Track successful post metrics
       this.metricsService?.increment('xService', 'posts_successful');
@@ -2976,6 +3044,355 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         rate_limited_count: metrics.rate_limited_count || 0
       }
     };
+  }
+
+  // ========================================
+  // RATE LIMIT PERSISTENCE
+  // ========================================
+
+  /**
+   * Load rate limit state from database (survives server restarts).
+   * @returns {Promise<Object>} Rate limit state
+   */
+  async _loadRateLimitState() {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const state = await db.collection('x_rate_limits').findOne({ _id: 'global_post' });
+      if (state) {
+        // Restore in-memory state
+        this._globalRate = {
+          windowStart: state.windowStart ? new Date(state.windowStart).getTime() : Date.now(),
+          count: state.count || 0,
+          rateLimited: state.rateLimited || false,
+          rateLimitResetAt: state.rateLimitResetAt ? new Date(state.rateLimitResetAt).getTime() : null,
+          lastPostedAt: state.lastPostedAt ? new Date(state.lastPostedAt).getTime() : null,
+          backoffLevel: state.backoffLevel || 0
+        };
+        return this._globalRate;
+      }
+    } catch (e) {
+      this.logger?.warn?.('[XService] Failed to load rate limit state:', e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Save rate limit state to database.
+   * @param {Object} [updates] - Partial updates to merge
+   */
+  async _saveRateLimitState(updates = {}) {
+    try {
+      const db = await this.databaseService.getDatabase();
+      const state = {
+        ...this._globalRate,
+        ...updates,
+        updatedAt: new Date()
+      };
+      await db.collection('x_rate_limits').updateOne(
+        { _id: 'global_post' },
+        { 
+          $set: {
+            windowStart: state.windowStart ? new Date(state.windowStart) : null,
+            count: state.count || 0,
+            rateLimited: state.rateLimited || false,
+            rateLimitResetAt: state.rateLimitResetAt ? new Date(state.rateLimitResetAt) : null,
+            lastPostedAt: state.lastPostedAt ? new Date(state.lastPostedAt) : null,
+            backoffLevel: state.backoffLevel || 0,
+            updatedAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (e) {
+      this.logger?.warn?.('[XService] Failed to save rate limit state:', e.message);
+    }
+  }
+
+  /**
+   * Apply exponential backoff when rate limited.
+   * @param {number} baseWaitSec - Base wait time from API
+   * @returns {number} Adjusted wait time with backoff
+   */
+  _applyBackoff(baseWaitSec) {
+    const level = this._globalRate?.backoffLevel || 0;
+    // Exponential backoff: 1x, 2x, 4x, 8x (max)
+    const multiplier = Math.min(Math.pow(2, level), 8);
+    return Math.ceil(baseWaitSec * multiplier);
+  }
+
+  // ========================================
+  // ENGAGEMENT METRICS SYNC
+  // ========================================
+
+  /**
+   * Sync engagement metrics for recent posts.
+   * Fetches public_metrics (impressions, likes, retweets, replies) from X API.
+   * @param {Object} [options] - Options
+   * @param {number} [options.lookbackDays=7] - How many days back to sync
+   * @param {number} [options.limit=50] - Max posts to sync per run
+   * @returns {Promise<{synced: number, errors: number}>}
+   */
+  async syncPostEngagement({ lookbackDays = 7, limit = 50 } = {}) {
+    const db = await this.databaseService.getDatabase();
+    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+
+    // Get posts without recent metrics sync
+    const posts = await db.collection('social_posts').find({
+      postedToX: true,
+      tweetId: { $exists: true, $ne: null },
+      createdAt: { $gte: since },
+      $or: [
+        { 'metrics.syncedAt': { $exists: false } },
+        { 'metrics.syncedAt': { $lt: new Date(Date.now() - 6 * 60 * 60 * 1000) } } // Re-sync every 6 hours
+      ]
+    }).sort({ createdAt: -1 }).limit(limit).toArray();
+
+    if (!posts.length) {
+      this.logger?.debug?.('[XService][syncEngagement] No posts to sync');
+      return { synced: 0, errors: 0 };
+    }
+
+    // Get a client (prefer OAuth 1.0a for reliability)
+    const oauth1Creds = await this._getOAuth1Credentials();
+    let v2Client;
+    
+    if (oauth1Creds) {
+      const client = this._createTwitterClient({ oauth1Creds });
+      v2Client = client.v2;
+    } else {
+      // Fall back to global auth
+      const auth = await this._resolveGlobalAuthRecord();
+      if (!auth?.accessToken) {
+        this.logger?.warn?.('[XService][syncEngagement] No auth available');
+        return { synced: 0, errors: 0 };
+      }
+      const client = this._createTwitterClient({ accessToken: safeDecrypt(auth.accessToken) });
+      v2Client = client.v2;
+    }
+
+    let synced = 0;
+    let errors = 0;
+
+    // Batch tweets into groups of 100 (API limit)
+    const tweetIds = posts.map(p => p.tweetId).filter(Boolean);
+    const batches = [];
+    for (let i = 0; i < tweetIds.length; i += 100) {
+      batches.push(tweetIds.slice(i, i + 100));
+    }
+
+    for (const batch of batches) {
+      try {
+        const response = await v2Client.tweets(batch, {
+          'tweet.fields': 'public_metrics,created_at'
+        });
+
+        const tweetsData = response?.data || [];
+        for (const tweet of tweetsData) {
+          const metrics = tweet.public_metrics || {};
+          const engagementRate = metrics.impression_count > 0
+            ? ((metrics.like_count + metrics.retweet_count + metrics.reply_count) / metrics.impression_count * 100)
+            : 0;
+
+          await db.collection('social_posts').updateOne(
+            { tweetId: tweet.id },
+            {
+              $set: {
+                'metrics.impressions': metrics.impression_count || 0,
+                'metrics.likes': metrics.like_count || 0,
+                'metrics.retweets': metrics.retweet_count || 0,
+                'metrics.replies': metrics.reply_count || 0,
+                'metrics.quotes': metrics.quote_count || 0,
+                'metrics.engagementRate': Math.round(engagementRate * 100) / 100,
+                'metrics.syncedAt': new Date()
+              }
+            }
+          );
+          synced++;
+        }
+
+        // Small delay between batches to avoid rate limiting
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (apiErr) {
+        const code = apiErr?.code || apiErr?.status;
+        this.logger?.warn?.('[XService][syncEngagement] Batch failed:', apiErr?.message);
+        errors += batch.length;
+
+        if (code === 429) {
+          this.logger?.warn?.('[XService][syncEngagement] Rate limited, stopping sync');
+          break;
+        }
+      }
+    }
+
+    this.logger?.info?.(`[XService][syncEngagement] Synced ${synced} posts, ${errors} errors`);
+    return { synced, errors };
+  }
+
+  /**
+   * Get engagement summary for an avatar's posts.
+   * @param {string} avatarId - Avatar ID
+   * @param {number} [days=30] - Lookback period
+   * @returns {Promise<Object>} Engagement summary
+   */
+  async getAvatarEngagementSummary(avatarId, days = 30) {
+    const db = await this.databaseService.getDatabase();
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const result = await db.collection('social_posts').aggregate([
+      {
+        $match: {
+          avatarId: new ObjectId(avatarId),
+          postedToX: true,
+          createdAt: { $gte: since }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPosts: { $sum: 1 },
+          totalImpressions: { $sum: { $ifNull: ['$metrics.impressions', 0] } },
+          totalLikes: { $sum: { $ifNull: ['$metrics.likes', 0] } },
+          totalRetweets: { $sum: { $ifNull: ['$metrics.retweets', 0] } },
+          totalReplies: { $sum: { $ifNull: ['$metrics.replies', 0] } },
+          avgEngagementRate: { $avg: { $ifNull: ['$metrics.engagementRate', 0] } },
+          postsWithMetrics: { 
+            $sum: { $cond: [{ $ifNull: ['$metrics.syncedAt', false] }, 1, 0] } 
+          }
+        }
+      }
+    ]).toArray();
+
+    const stats = result[0] || {
+      totalPosts: 0,
+      totalImpressions: 0,
+      totalLikes: 0,
+      totalRetweets: 0,
+      totalReplies: 0,
+      avgEngagementRate: 0,
+      postsWithMetrics: 0
+    };
+
+    // Calculate best performing post
+    const topPost = await db.collection('social_posts').findOne(
+      {
+        avatarId: new ObjectId(avatarId),
+        postedToX: true,
+        'metrics.engagementRate': { $exists: true }
+      },
+      { sort: { 'metrics.engagementRate': -1 } }
+    );
+
+    return {
+      period: `${days} days`,
+      ...stats,
+      avgEngagementRate: Math.round((stats.avgEngagementRate || 0) * 100) / 100,
+      topPost: topPost ? {
+        tweetId: topPost.tweetId,
+        content: topPost.content?.slice(0, 100),
+        engagementRate: topPost.metrics?.engagementRate,
+        impressions: topPost.metrics?.impressions
+      } : null
+    };
+  }
+
+  /**
+   * Get global engagement summary across all posts.
+   * @param {number} [days=30] - Lookback period
+   * @returns {Promise<Object>} Global engagement summary
+   */
+  async getGlobalEngagementSummary(days = 30) {
+    const db = await this.databaseService.getDatabase();
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const result = await db.collection('social_posts').aggregate([
+      {
+        $match: {
+          postedToX: true,
+          createdAt: { $gte: since }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPosts: { $sum: 1 },
+          totalImpressions: { $sum: { $ifNull: ['$metrics.impressions', 0] } },
+          totalLikes: { $sum: { $ifNull: ['$metrics.likes', 0] } },
+          totalRetweets: { $sum: { $ifNull: ['$metrics.retweets', 0] } },
+          avgEngagementRate: { $avg: { $ifNull: ['$metrics.engagementRate', 0] } },
+          threadCount: { $sum: { $cond: [{ $eq: ['$type', 'thread'] }, 1, 0] } },
+          imageCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'image'] }, 1, 0] } },
+          videoCount: { $sum: { $cond: [{ $eq: ['$mediaType', 'video'] }, 1, 0] } }
+        }
+      }
+    ]).toArray();
+
+    // Get posting frequency by hour
+    const hourlyDistribution = await db.collection('social_posts').aggregate([
+      {
+        $match: {
+          postedToX: true,
+          createdAt: { $gte: since }
+        }
+      },
+      {
+        $group: {
+          _id: { $hour: '$createdAt' },
+          count: { $sum: 1 },
+          avgEngagement: { $avg: { $ifNull: ['$metrics.engagementRate', 0] } }
+        }
+      },
+      { $sort: { avgEngagement: -1 } }
+    ]).toArray();
+
+    const bestHour = hourlyDistribution[0];
+
+    return {
+      period: `${days} days`,
+      ...(result[0] || {}),
+      avgEngagementRate: Math.round((result[0]?.avgEngagementRate || 0) * 100) / 100,
+      bestPostingHourUTC: bestHour ? bestHour._id : null,
+      bestHourEngagement: bestHour ? Math.round(bestHour.avgEngagement * 100) / 100 : null
+    };
+  }
+
+  // ========================================
+  // REPLY WITH MEDIA
+  // ========================================
+
+  /**
+   * Reply to a tweet with text and optional media.
+   * @param {Object} avatar - Avatar object
+   * @param {string} tweetId - Tweet ID to reply to
+   * @param {string} content - Reply text
+   * @param {Object} [options] - Options
+   * @param {string} [options.imageUrl] - Optional image URL
+   * @param {string} [options.videoUrl] - Optional video URL
+   * @returns {Promise<string>} Result message
+   */
+  async replyToXWithMedia(avatar, tweetId, content, { imageUrl, videoUrl } = {}) {
+    // If no media, use standard reply
+    if (!imageUrl && !videoUrl) {
+      return await this.replyToX(avatar, tweetId, content);
+    }
+
+    // Route to appropriate media reply method
+    if (videoUrl) {
+      const replyId = await this.replyWithVideoToX(avatar, tweetId, videoUrl, content);
+      const targetUrl = this.buildTweetUrl(replyId);
+      return targetUrl 
+        ? `↩️ [Replied with video](${targetUrl})`
+        : '↩️ Replied with video on X';
+    }
+
+    if (imageUrl) {
+      const replyId = await this.replyWithImageToX(avatar, tweetId, imageUrl, content);
+      const targetUrl = this.buildTweetUrl(replyId);
+      return targetUrl 
+        ? `↩️ [Replied with image](${targetUrl})`
+        : '↩️ Replied with image on X';
+    }
   }
 }
 
