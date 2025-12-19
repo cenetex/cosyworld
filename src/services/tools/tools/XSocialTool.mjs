@@ -32,7 +32,7 @@ export class XSocialTool extends BasicTool {
         this.replyNotification = true;
         this.emoji = '🐦';
         this.name = 'x';
-        this.description = 'Manage X social interactions (post, reply, quote, follow, like, repost, block) using avatar context.';
+        this.description = 'Manage X social interactions (post, thread, reply, quote, follow, like, repost, block) using avatar context.';
     }
 
     // --- Authorization ---
@@ -111,7 +111,25 @@ export class XSocialTool extends BasicTool {
                 return await this.xService.postToX(avatar, content);
             }
 
-            return '-# [ ❌ Unknown command. Use: browse or post <message> ]';
+            if (command === 'thread') {
+                let content = params.slice(1).join(' ');
+                if (!content) return '-# [ ❌ Please provide content for the thread. ]';
+                content = content.replace(/<[^>]*>/g, '').replace(/https?:\/\/\S+/gi, '');
+                if (!content.trim()) return '-# [ ❌ Content is empty after filtering. ]';
+                
+                try {
+                    const result = await this.xService.postThreadToX(avatar, content, { addThreadNumbers: true });
+                    if (result.isThread) {
+                        return `-# ✨ [ Posted thread with ${result.count} tweets: ${result.tweetUrls[0]} ]`;
+                    } else {
+                        return result.tweetUrls[0] || '-# ✨ [ Posted to X ]';
+                    }
+                } catch (threadErr) {
+                    return `-# [ ❌ Thread posting failed: ${threadErr.message} ]`;
+                }
+            }
+
+            return '-# [ ❌ Unknown command. Use: browse, post <message>, or thread <long content> ]';
         } catch (error) {
             if (error.code === 401) {
                 return '-# ❌ [ X authorization required. Please connect your account. ]';
@@ -196,11 +214,11 @@ Only output the JSON array, no commentary.`.trim();
     }
 
     getDescription() {
-        return 'Manage X interactions: browse timeline/notifications or post a message.';
+        return 'Manage X interactions: browse timeline/notifications, post a message, or create a thread for longer content.';
     }
 
     async getSyntax() {
-        return `${this.emoji} [browse|post <message>]`;
+        return `${this.emoji} [browse|post <message>|thread <long content>]`;
     }
 
     async close() {

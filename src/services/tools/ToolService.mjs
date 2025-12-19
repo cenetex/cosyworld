@@ -227,10 +227,22 @@ export class ToolService {
   }
 
   /**
-   * Schedules periodic X posting using XSocialTool logic.
-   * Posts every hour from a random authenticated avatar.
+   * Check if current time is optimal for posting to X.
+   * Based on general engagement patterns (UTC times).
+   * @returns {boolean}
    */
-  startScheduledXPosting(intervalMs = 60 * 60 * 1000) {
+  _isOptimalXPostingTime() {
+    const hour = new Date().getUTCHours();
+    // Peak engagement hours: 13:00-21:00 UTC (covers US morning to EU evening)
+    const optimalHours = [13, 14, 15, 16, 17, 18, 19, 20, 21];
+    return optimalHours.includes(hour);
+  }
+
+  /**
+   * Schedules periodic X posting using XSocialTool logic.
+   * Posts every hour from a random authenticated avatar, with optimal timing.
+   */
+  startScheduledXPosting(intervalMs = 30 * 60 * 1000) { // Check every 30 minutes
     const schedulingService = this.schedulingService;
     const avatarService = this.avatarService;
     const xSocialTool = this.tools.get('x');
@@ -238,8 +250,25 @@ export class ToolService {
       this.logger?.warn?.('[ToolService] Scheduled X posting not started: missing dependencies');
       return;
     }
+
+    // Track last post time to enforce minimum interval
+    let lastPostTime = 0;
+    const minIntervalMs = 60 * 60 * 1000; // Minimum 1 hour between posts
+
     schedulingService.addTask('x-auto-post', async () => {
       try {
+        // Check optimal timing
+        if (!this._isOptimalXPostingTime()) {
+          this.logger?.debug?.('[ToolService] Skipping X post: not optimal time');
+          return;
+        }
+
+        // Enforce minimum interval
+        if (Date.now() - lastPostTime < minIntervalMs) {
+          this.logger?.debug?.('[ToolService] Skipping X post: too soon since last post');
+          return;
+        }
+
         const db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
         if (!db) return;
         // Get all authenticated avatars
@@ -264,12 +293,13 @@ export class ToolService {
         if (!postAction) return;
         // Post to X
         await xSocialTool.xService.postToX(avatar, postAction.content);
+        lastPostTime = Date.now();
         this.logger?.info?.(`[ToolService] Scheduled X post for avatar ${avatar.name}`);
       } catch (err) {
         this.logger?.error?.('[ToolService] Scheduled X posting error:', err);
       }
     }, intervalMs);
-    this.logger?.info?.('[ToolService] Scheduled X posting enabled');
+    this.logger?.info?.('[ToolService] Scheduled X posting enabled (checks every 30min, posts during optimal hours)');
   }
 
   extractToolCommands(text) {

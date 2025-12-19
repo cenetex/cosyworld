@@ -390,3 +390,114 @@ describe('XService Mention Auto Reply', () => {
     expect(mockUserMentionTimeline).not.toHaveBeenCalled();
   });
 });
+
+describe('XService Content Validation', () => {
+  let xService;
+  let logger;
+  let databaseService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    };
+
+    databaseService = {
+      getDatabase: vi.fn().mockResolvedValue({
+        collection: () => ({
+          findOne: vi.fn(),
+          updateOne: vi.fn(),
+        })
+      })
+    };
+
+    xService = new XService({
+      logger,
+      databaseService,
+      configService: {},
+      secretsService: { getAsync: vi.fn() },
+      metricsService: { increment: vi.fn(), gauge: vi.fn(), recordHealth: vi.fn() }
+    });
+  });
+
+  it('should validate tweet length correctly', () => {
+    const shortTweet = xService._validateTweetContent('Hello world!');
+    expect(shortTweet.valid).toBe(true);
+    expect(shortTweet.stats.length).toBe(12);
+
+    const longTweet = xService._validateTweetContent('x'.repeat(300));
+    expect(longTweet.valid).toBe(false);
+    expect(longTweet.issues.some(i => i.type === 'length')).toBe(true);
+  });
+
+  it('should detect excessive mentions', () => {
+    const manyMentions = xService._validateTweetContent(
+      Array(55).fill('@user').join(' ')
+    );
+    expect(manyMentions.valid).toBe(false);
+    expect(manyMentions.issues.some(i => i.type === 'mentions')).toBe(true);
+  });
+
+  it('should warn about excessive hashtags', () => {
+    const manyHashtags = xService._validateTweetContent(
+      Array(12).fill('#tag').join(' ')
+    );
+    expect(manyHashtags.valid).toBe(true); // warnings don't fail validation
+    expect(manyHashtags.issues.some(i => i.type === 'hashtags')).toBe(true);
+  });
+
+  it('should detect empty content', () => {
+    const empty = xService._validateTweetContent('');
+    expect(empty.valid).toBe(false);
+    expect(empty.issues.some(i => i.type === 'empty')).toBe(true);
+  });
+});
+
+describe('XService Thread Splitting', () => {
+  let xService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    xService = new XService({
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      databaseService: { getDatabase: vi.fn() },
+      configService: {},
+      secretsService: { getAsync: vi.fn() },
+      metricsService: { increment: vi.fn(), gauge: vi.fn(), recordHealth: vi.fn() }
+    });
+  });
+
+  it('should not split short content', () => {
+    const result = xService._splitIntoThread('Hello world!');
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe('Hello world!');
+  });
+
+  it('should split long content into multiple tweets', () => {
+    const longContent = 'This is a sentence. '.repeat(20); // ~400 chars
+    const result = xService._splitIntoThread(longContent, { maxLength: 100 });
+    expect(result.length).toBeGreaterThan(1);
+    result.forEach(tweet => {
+      expect(tweet.length).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it('should preserve word boundaries when splitting', () => {
+    const content = 'Hello world this is a test message that definitely needs splitting into parts';
+    const result = xService._splitIntoThread(content, { maxLength: 30, preserveWords: true });
+    // Each tweet should be a complete unit, not cut mid-word
+    expect(result.length).toBeGreaterThan(1);
+    // Verify all parts together equal the original (minus extra whitespace)
+    expect(result.join(' ').replace(/\s+/g, ' ')).toBe(content.replace(/\s+/g, ' '));
+  });
+
+  it('should handle empty content', () => {
+    const result = xService._splitIntoThread('');
+    expect(result).toHaveLength(0);
+  });
+});

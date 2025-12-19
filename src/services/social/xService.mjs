@@ -77,6 +77,333 @@ class XService {
     return null;
   }
 
+  /**
+   * Get an authenticated Twitter client for an avatar with automatic token refresh.
+   * Centralizes auth lookup, decryption, and client creation.
+   * @param {Object|string} avatarOrId - Avatar object or avatar ID string
+   * @param {Object} [options] - Options
+   * @param {boolean} [options.preferOAuth1=false] - Prefer OAuth 1.0a if available (needed for video)
+   * @param {boolean} [options.throwOnError=true] - Throw error or return null on failure
+   * @returns {Promise<{client: TwitterApi, v2: TwitterApiV2, v1?: TwitterApiV1, auth: Object}|null>}
+   */
+  async _getAuthenticatedClientForAvatar(avatarOrId, { preferOAuth1 = false, throwOnError = true } = {}) {
+    const avatarId = this._normalizeAvatarId(avatarOrId);
+    if (!avatarId) {
+      if (throwOnError) throw new Error('Invalid avatar ID');
+      return null;
+    }
+
+    const db = await this.databaseService.getDatabase();
+    const auth = await db.collection('x_auth').findOne({ avatarId });
+    
+    if (!auth?.accessToken) {
+      if (throwOnError) throw new Error('X authorization required. Please connect your account.');
+      return null;
+    }
+
+    // Check if token needs refresh
+    if (auth.expiresAt && new Date() >= new Date(auth.expiresAt) && auth.refreshToken) {
+      try {
+        await this.refreshAccessToken(auth);
+        // Re-fetch updated auth
+        const refreshedAuth = await db.collection('x_auth').findOne({ avatarId });
+        if (refreshedAuth) Object.assign(auth, refreshedAuth);
+      } catch (refreshErr) {
+        this.logger?.warn?.(`[XService] Token refresh failed for avatar ${avatarId}: ${refreshErr.message}`);
+        if (throwOnError) throw new Error('X authorization expired. Please reconnect your account.');
+        return null;
+      }
+    }
+
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) {
+      if (throwOnError) throw new Error('Failed to decrypt X access token. Please reconnect your X account.');
+      return null;
+    }
+
+    // Try OAuth 1.0a if preferred and available
+    if (preferOAuth1) {
+      const oauth1Creds = await this._getOAuth1Credentials();
+      if (oauth1Creds) {
+        const client = this._createTwitterClient({ oauth1Creds });
+        return { client, v2: client.v2, v1: client.v1, auth, isOAuth1: true };
+      }
+    }
+
+    const client = this._createTwitterClient({ accessToken });
+    return { client, v2: client.v2, v1: client.v1, auth, isOAuth1: false };
+  }
+
+  /**
+   * Validate tweet content before sending to API.
+   * Pre-flight check to avoid wasted API calls and improve error messages.
+   * @param {string} text - Tweet text to validate
+   * @param {Object} [options] - Validation options
+   * @param {number} [options.maxLength=280] - Maximum character length
+   * @param {boolean} [options.allowEmpty=false] - Allow empty content
+   * @returns {{valid: boolean, issues: Array<{type: string, message: string, current?: number, max?: number}>}}
+   */
+  _validateTweetContent(text, { maxLength = 280, allowEmpty = false } = {}) {
+    const issues = [];
+    const content = String(text ?? '').trim();
+
+    // Empty check
+    if (!content && !allowEmpty) {
+      issues.push({ type: 'empty', message: 'Tweet content cannot be empty' });
+      return { valid: false, issues };
+    }
+
+    // Length check
+    if (content.length > maxLength) {
+      issues.push({ 
+        type: 'length', 
+        message: `Tweet exceeds ${maxLength} characters`,
+        current: content.length, 
+        max: maxLength,
+        overflow: content.length - maxLength
+      });
+    }
+
+    // Mention count (X allows max 50 mentions per tweet)
+    const mentions = (content.match(/@[A-Za-z0-9_]+/g) || []);
+    if (mentions.length > 50) {
+      issues.push({ 
+        type: 'mentions', 
+        message: 'Too many @mentions (max 50)',
+        current: mentions.length, 
+        max: 50 
+      });
+    }
+
+    // Hashtag count (warn if > 5, but don't fail)
+    const hashtags = (content.match(/#[A-Za-z0-9_]+/g) || []);
+    if (hashtags.length > 10) {
+      issues.push({ 
+        type: 'hashtags', 
+        message: 'Excessive hashtags may reduce engagement',
+        current: hashtags.length, 
+        recommended: 3,
+        severity: 'warning'
+      });
+    }
+
+    // URL count check (each URL counts as ~23 chars in Twitter's calculation)
+    const urls = (content.match(/https?:\/\/[^\s]+/g) || []);
+    const effectiveLength = content.length + (urls.length * (23 - urls.reduce((sum, url) => sum + url.length, 0) / Math.max(1, urls.length)));
+    if (effectiveLength > maxLength && content.length <= maxLength) {
+      issues.push({
+        type: 'url_length',
+        message: 'URLs may cause tweet to exceed limit after t.co shortening',
+        severity: 'warning'
+      });
+    }
+
+    return { 
+      valid: issues.filter(i => i.severity !== 'warning').length === 0, 
+      issues,
+      stats: {
+        length: content.length,
+        mentions: mentions.length,
+        hashtags: hashtags.length,
+        urls: urls.length
+      }
+    };
+  }
+
+  /**
+   * Split long content into thread-sized chunks.
+   * @param {string} content - Full content to split
+   * @param {Object} [options] - Split options
+   * @param {number} [options.maxLength=270] - Max chars per tweet (leave room for thread numbering)
+   * @param {boolean} [options.preserveWords=true] - Don't break mid-word
+   * @returns {string[]} Array of tweet texts
+   */
+  _splitIntoThread(content, { maxLength = 270, preserveWords = true } = {}) {
+    const text = String(content ?? '').trim();
+    if (!text) return [];
+    if (text.length <= maxLength) return [text];
+
+    const tweets = [];
+    let remaining = text;
+
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLength) {
+        tweets.push(remaining.trim());
+        break;
+      }
+
+      let splitPoint = maxLength;
+      
+      if (preserveWords) {
+        // Try to find sentence boundary first
+        const sentenceEnd = remaining.slice(0, maxLength).search(/[.!?]\s+(?=[A-Z])/);
+        if (sentenceEnd > maxLength * 0.5) {
+          splitPoint = sentenceEnd + 1;
+        } else {
+          // Fall back to word boundary
+          const lastSpace = remaining.slice(0, maxLength).lastIndexOf(' ');
+          if (lastSpace > maxLength * 0.6) {
+            splitPoint = lastSpace;
+          }
+        }
+      }
+
+      tweets.push(remaining.slice(0, splitPoint).trim());
+      remaining = remaining.slice(splitPoint).trim();
+    }
+
+    return tweets;
+  }
+
+  /**
+   * Post a thread (tweetstorm) to X.
+   * Chains multiple tweets together as replies for longer content.
+   * @param {Object} avatar - Avatar object
+   * @param {string|string[]} content - Long text to thread, or array of pre-split tweets
+   * @param {Object} [options] - Thread options
+   * @param {boolean} [options.addThreadNumbers=false] - Add "1/n" prefixes
+   * @param {string} [options.imageUrl] - Optional image for first tweet only
+   * @returns {Promise<{threadId: string, tweetIds: string[], tweetUrls: string[], count: number}>}
+   */
+  async postThreadToX(avatar, content, options = {}) {
+    const { addThreadNumbers = false, imageUrl = null } = options;
+    const avatarId = avatar._id?.toString() || avatar;
+
+    // Get authenticated client
+    const { v2: v2Client } = await this._getAuthenticatedClientForAvatar(avatar);
+    const db = await this.databaseService.getDatabase();
+
+    // Split content into tweets if string, or use as-is if array
+    const tweets = Array.isArray(content) 
+      ? content.map(t => String(t).trim()).filter(Boolean)
+      : this._splitIntoThread(content);
+
+    if (tweets.length === 0) {
+      throw new Error('Thread content cannot be empty');
+    }
+
+    // If only one tweet, use regular posting
+    if (tweets.length === 1 && !imageUrl) {
+      const result = await this.postToX(avatar, tweets[0]);
+      return { 
+        threadId: null, 
+        tweetIds: [], 
+        tweetUrls: [result], 
+        count: 1,
+        isThread: false 
+      };
+    }
+
+    const results = [];
+    let previousTweetId = null;
+    const username = await this._resolveXUsernameForAvatar(avatar);
+
+    for (let i = 0; i < tweets.length; i++) {
+      let text = tweets[i];
+      
+      // Add thread numbering if requested
+      if (addThreadNumbers) {
+        text = `${i + 1}/${tweets.length} ${text}`;
+      }
+
+      // Validate each tweet
+      const validation = this._validateTweetContent(text);
+      if (!validation.valid) {
+        throw new Error(`Tweet ${i + 1} validation failed: ${validation.issues.map(i => i.message).join(', ')}`);
+      }
+
+      // Sanitize
+      const sanitizedText = this._sanitizeTweetText(text);
+      if (!sanitizedText) {
+        throw new Error(`Tweet ${i + 1} content is empty after sanitization`);
+      }
+
+      const payload = { text: sanitizedText };
+
+      // Add image to first tweet only
+      if (i === 0 && imageUrl) {
+        try {
+          const res = await fetch(imageUrl);
+          if (res.ok) {
+            const buffer = Buffer.from(await res.arrayBuffer());
+            const mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+            const mediaId = await v2Client.uploadMedia(buffer, {
+              media_category: 'tweet_image',
+              media_type: mimeType,
+            });
+            payload.media = { media_ids: [mediaId] };
+          }
+        } catch (imgErr) {
+          this.logger?.warn?.(`[XService][postThreadToX] Failed to attach image: ${imgErr.message}`);
+        }
+      }
+
+      // Chain as reply after first tweet
+      if (previousTweetId) {
+        payload.reply = { in_reply_to_tweet_id: previousTweetId };
+      }
+
+      try {
+        const result = await v2Client.tweet(payload);
+        const tweetId = result?.data?.id;
+        
+        if (!tweetId) {
+          throw new Error(`Failed to post tweet ${i + 1} in thread`);
+        }
+
+        previousTweetId = tweetId;
+        results.push({
+          tweetId,
+          tweetUrl: this.buildTweetUrl(tweetId, username),
+          text: sanitizedText
+        });
+      } catch (apiErr) {
+        const code = apiErr?.code || apiErr?.status;
+        this.logger?.error?.(`[XService][postThreadToX] Failed at tweet ${i + 1}/${tweets.length}:`, apiErr?.message);
+        
+        // If rate limited mid-thread, return partial results
+        if (code === 429) {
+          this.logger?.warn?.('[XService][postThreadToX] Rate limited mid-thread, returning partial results');
+          break;
+        }
+        throw apiErr;
+      }
+
+      // Small delay between tweets to avoid rate limiting
+      if (i < tweets.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Store thread in database
+    const threadId = results[0]?.tweetId;
+    try {
+      await db.collection('social_posts').insertOne({
+        avatarId: avatar._id,
+        type: 'thread',
+        threadId,
+        tweetIds: results.map(r => r.tweetId),
+        content: tweets.join('\n\n---\n\n'),
+        tweetCount: results.length,
+        imageUrl: imageUrl || null,
+        timestamp: new Date(),
+        postedToX: true
+      });
+    } catch (dbErr) {
+      this.logger?.warn?.(`[XService][postThreadToX] Failed to store thread record: ${dbErr.message}`);
+    }
+
+    this.logger?.info?.(`[XService][postThreadToX] Posted thread with ${results.length} tweets for avatar ${avatar.name || avatarId}`);
+
+    return {
+      threadId,
+      tweetIds: results.map(r => r.tweetId),
+      tweetUrls: results.map(r => r.tweetUrl),
+      count: results.length,
+      isThread: true
+    };
+  }
+
   _normalizeAvatarId(avatarOrId) {
     if (!avatarOrId) return null;
     if (typeof avatarOrId === 'string') return avatarOrId;
