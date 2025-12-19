@@ -990,6 +990,7 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
     const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth?.accessToken) throw new Error('X authorization not found. Please reconnect your account.');
     const accessToken = safeDecrypt(auth.accessToken);
     if (!accessToken) throw new Error('Failed to decrypt X access token. Please reconnect your X account.');
     const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
@@ -1020,8 +1021,9 @@ class XService {
     const avatarId = avatar._id.toString();
     if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
     const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth?.accessToken) throw new Error('X authorization not found. Please reconnect your account.');
 
-  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
+    const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v1Client = twitterClient.v1;
     const v2Client = twitterClient.v2;
 
@@ -1059,9 +1061,12 @@ class XService {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
     const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth?.accessToken) {
+      return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
+    }
 
     // Initialize clients
-  const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
+    const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
     const v1Client = twitterClient.v1;
     const v2Client = twitterClient.v2;
 
