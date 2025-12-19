@@ -492,10 +492,23 @@ export class OpenRouterAIService {
       schema: baseSchema,
       strict: isStrict,
     };
+
+    // Normalize the model to a valid OpenRouter model before validation
+    let selectedModel = options.model || this.structured_model;
+    if (!this.modelLock) {
+      try {
+        const mapped = await this.getModel(selectedModel);
+        if (mapped) selectedModel = mapped;
+      } catch (e) {
+        this.logger?.debug?.(`[OpenRouter][StructuredOutput] model mapping failed for '${selectedModel}': ${e?.message || e}`);
+      }
+    }
+
     const structuredOptions = {
-      model: options.model || this.structured_model,
+      model: selectedModel,
       response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
       ...options,
+      model: selectedModel, // Ensure normalized model takes precedence
     };
 
     await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
@@ -961,6 +974,10 @@ export class OpenRouterAIService {
 
     const res = await fetch(url, { method: 'GET', headers });
     if (!res.ok) {
+      // Provide a clearer error for model not found (404) cases
+      if (res.status === 404) {
+        throw new Error(`Model '${model}' not found on OpenRouter. Please verify the model ID is correct.`);
+      }
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
     }
     const json = await res.json();
