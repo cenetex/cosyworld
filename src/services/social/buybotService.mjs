@@ -1246,7 +1246,8 @@ export class BuybotService {
 
     const ttlMinutes = (this.TOKEN_NOT_FOUND_CACHE_TTL_MS / 60_000).toFixed(1);
     if (!previous) {
-      this.logger?.warn?.(`[BuybotService] Token ${tokenAddress} not found on DexScreener (${reason}); suppressing lookups for ~${ttlMinutes}m`);
+      // Log at debug level - spam/unknown tokens not being on DexScreener is expected behavior
+      this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} not found on DexScreener (${reason}); suppressing lookups for ~${ttlMinutes}m`);
     } else {
       this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} still unavailable on DexScreener (${reason}); attempts=${entry.count}`);
     }
@@ -1419,11 +1420,8 @@ export class BuybotService {
           }
 
           // If DexScreener doesn't have the token, return minimal info
-          if (this._isTokenTemporarilySuppressed(tokenAddress)) {
-            this.logger.debug(`[BuybotService] Token ${tokenAddress} suppressed after repeated DexScreener misses; returning fallback avatar info`);
-          } else {
-            this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
-          }
+          // This is expected behavior for spam/unknown tokens - log at debug level
+          this.logger.debug(`[BuybotService] Token ${tokenAddress} not found in DexScreener; returning fallback info`);
           const tokenInfo = {
             address: tokenAddress,
             name: 'Unknown Token',
