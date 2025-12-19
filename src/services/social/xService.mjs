@@ -2499,6 +2499,174 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     return !!existing;
   }
 
+  /**
+   * Fetch conversation context for a mention to provide better reply context.
+   * Retrieves the parent tweet if it's a reply, and optionally recent conversation tweets.
+   * @param {Object} options - Context fetch options
+   * @param {TwitterApi} options.v2 - Authenticated Twitter v2 client
+   * @param {Object} options.mention - The mention object
+   * @param {number} [options.maxContextTweets=3] - Max number of context tweets to fetch
+   * @returns {Promise<{parentTweet?: Object, authorProfile?: Object, conversationTweets?: Array}>}
+   */
+  async _fetchMentionContext({ v2, mention, maxContextTweets = 3 } = {}) {
+    const context = {
+      parentTweet: null,
+      authorProfile: null,
+      conversationTweets: [],
+    };
+
+    if (!v2 || !mention) return context;
+
+    try {
+      // If the mention is a reply to another tweet, fetch the parent
+      if (mention.in_reply_to_user_id || mention.referenced_tweets?.length > 0) {
+        const replyToTweetRef = mention.referenced_tweets?.find(r => r.type === 'replied_to');
+        if (replyToTweetRef?.id) {
+          try {
+            const parentResp = await v2.singleTweet(replyToTweetRef.id, {
+              'tweet.fields': 'text,author_id,created_at,public_metrics',
+              'user.fields': 'username,name,description',
+              expansions: 'author_id'
+            });
+            if (parentResp?.data) {
+              context.parentTweet = {
+                id: parentResp.data.id,
+                text: parentResp.data.text,
+                authorId: parentResp.data.author_id,
+                createdAt: parentResp.data.created_at,
+                metrics: parentResp.data.public_metrics,
+              };
+              // Extract author info from includes
+              const authorUser = parentResp.includes?.users?.find(u => u.id === parentResp.data.author_id);
+              if (authorUser) {
+                context.parentTweet.authorUsername = authorUser.username;
+                context.parentTweet.authorName = authorUser.name;
+              }
+            }
+          } catch (parentErr) {
+            this.logger?.debug?.('[XService][context] Failed to fetch parent tweet:', parentErr?.message);
+          }
+        }
+      }
+
+      // Fetch author profile for the mention
+      if (mention.author_id) {
+        try {
+          const authorResp = await v2.user(mention.author_id, {
+            'user.fields': 'description,public_metrics,created_at'
+          });
+          if (authorResp?.data) {
+            context.authorProfile = {
+              id: authorResp.data.id,
+              username: authorResp.data.username,
+              name: authorResp.data.name,
+              bio: authorResp.data.description,
+              followers: authorResp.data.public_metrics?.followers_count,
+              joined: authorResp.data.created_at,
+            };
+          }
+        } catch (authorErr) {
+          this.logger?.debug?.('[XService][context] Failed to fetch author profile:', authorErr?.message);
+        }
+      }
+
+      // Optionally fetch recent tweets in the conversation (if conversation_id available)
+      if (mention.conversation_id && maxContextTweets > 0) {
+        try {
+          // Search for tweets in this conversation
+          const searchResp = await v2.search(`conversation_id:${mention.conversation_id}`, {
+            max_results: Math.min(maxContextTweets + 1, 10),
+            'tweet.fields': 'author_id,created_at',
+            expansions: 'author_id',
+            'user.fields': 'username'
+          });
+          if (searchResp?.data?.data) {
+            const tweets = searchResp.data.data
+              .filter(t => t.id !== mention.id) // Exclude the mention itself
+              .slice(0, maxContextTweets);
+            context.conversationTweets = tweets.map(t => ({
+              id: t.id,
+              text: t.text,
+              authorId: t.author_id,
+              authorUsername: searchResp.data.includes?.users?.find(u => u.id === t.author_id)?.username,
+            }));
+          }
+        } catch (convErr) {
+          this.logger?.debug?.('[XService][context] Failed to fetch conversation:', convErr?.message);
+        }
+      }
+    } catch (err) {
+      this.logger?.debug?.('[XService][context] Context fetch error:', err?.message);
+    }
+
+    return context;
+  }
+
+  /**
+   * Generate a contextually-aware reply to a mention.
+   * Uses conversation context to provide more relevant responses.
+   * @param {Object} options - Reply generation options
+   * @returns {Promise<string|null>} Generated reply text
+   */
+  async _generateGlobalMentionReplyWithContext({ mentionText, mentionContext, globalBotService, aiService }) {
+    const baseStyle = globalBotService?.bot?.globalBotConfig?.xPostStyle
+      || "Warm, engaging narrator voice. No links. No hashtags. Be concise.";
+
+    if (typeof aiService?.chat !== 'function') {
+      const fallback = `Thanks for reaching out — welcome to CosyWorld. What are you exploring today?`;
+      return this._sanitizeTweetText(fallback, { maxLength: 240 });
+    }
+
+    const universeName = globalBotService?.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || 'CosyWorld';
+    const botName = globalBotService?.bot?.name || universeName;
+    const personality = globalBotService?.bot?.personality || '';
+    const dynamicPrompt = globalBotService?.bot?.dynamicPrompt || '';
+
+    // Build context string from mention context
+    const contextParts = [];
+    if (mentionContext?.parentTweet) {
+      const parent = mentionContext.parentTweet;
+      contextParts.push(`Original tweet (by @${parent.authorUsername || 'someone'}): "${parent.text?.slice(0, 200)}"`);
+    }
+    if (mentionContext?.authorProfile) {
+      const author = mentionContext.authorProfile;
+      const bioSnippet = author.bio ? ` Bio: "${author.bio.slice(0, 80)}"` : '';
+      contextParts.push(`Mentioner: @${author.username} (${author.followers || 0} followers)${bioSnippet}`);
+    }
+    if (mentionContext?.conversationTweets?.length > 0) {
+      const convText = mentionContext.conversationTweets
+        .map(t => `- @${t.authorUsername || 'user'}: "${t.text?.slice(0, 100)}"`)
+        .join('\n');
+      contextParts.push(`Recent conversation:\n${convText}`);
+    }
+
+    const contextSection = contextParts.length > 0
+      ? `\n\nConversation context:\n${contextParts.join('\n\n')}\n`
+      : '';
+
+    const prompt = [
+      `You are ${botName}, the narrator of ${universeName}.`,
+      personality ? `Personality: ${personality}` : null,
+      dynamicPrompt ? `Current perspective: ${dynamicPrompt}` : null,
+      `Style guide: ${baseStyle}`,
+      contextSection,
+      `Reply to this mention in 1-2 sentences. Consider the conversation context if provided.`,
+      `Hard rules: no links, no hashtags, no cashtags, no @mentions, under 240 characters.`,
+      `Mention: ${mentionText}`
+    ].filter(Boolean).join('\n\n');
+
+    const response = await aiService.chat(
+      [{ role: 'user', content: prompt }],
+      {
+        model: globalBotService?.bot?.model || process.env.GLOBAL_BOT_MODEL,
+        temperature: 0.7,
+      }
+    );
+
+    const cleaned = String(response || '').trim().replace(/^"|"$/g, '');
+    return this._sanitizeTweetText(cleaned, { maxLength: 240 });
+  }
+
   async _generateGlobalMentionReply({ mentionText, globalBotService, aiService }) {
     const baseStyle = globalBotService?.bot?.globalBotConfig?.xPostStyle
       || "Warm, engaging narrator voice. No links. No hashtags. Be concise.";
@@ -2933,7 +3101,34 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         }
       }
 
-      const replyText = await this._generateGlobalMentionReply({ mentionText, globalBotService, aiService });
+      // Optionally fetch conversation context for more informed replies
+      // Controlled by X_MENTION_CONTEXT_ENABLED env var (default: false to conserve API calls)
+      const contextEnabled = String(process.env.X_MENTION_CONTEXT_ENABLED || '').toLowerCase() === 'true';
+      let mentionContext = null;
+      let replyText;
+      
+      if (contextEnabled && v2) {
+        try {
+          mentionContext = await this._fetchMentionContext({ v2, mention, maxContextTweets: 2 });
+          replyText = await this._generateGlobalMentionReplyWithContext({ 
+            mentionText, 
+            mentionContext, 
+            globalBotService, 
+            aiService 
+          });
+          this.logger?.debug?.('[XService][mentions] Using context-aware reply', { 
+            hasParent: !!mentionContext.parentTweet,
+            hasAuthorBio: !!mentionContext.authorProfile?.bio,
+            conversationCount: mentionContext.conversationTweets?.length || 0
+          });
+        } catch (ctxErr) {
+          this.logger?.debug?.('[XService][mentions] Context fetch failed, falling back:', ctxErr?.message);
+          replyText = await this._generateGlobalMentionReply({ mentionText, globalBotService, aiService });
+        }
+      } else {
+        replyText = await this._generateGlobalMentionReply({ mentionText, globalBotService, aiService });
+      }
+      
       if (!replyText) continue;
 
       // Re-apply filters to the outgoing reply
