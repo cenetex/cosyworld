@@ -860,9 +860,12 @@ class XService {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
     const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth?.accessToken) {
+      return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
+    }
 
     // Initialize a v2 client with OAuth2 bearer token
-  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
+    const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
     try {
@@ -931,8 +934,11 @@ class XService {
       throw new Error('X authorization required. Please connect your account.');
     }
     const auth = await db.collection('x_auth').findOne({ avatarId });
+    if (!auth?.accessToken) {
+      throw new Error('X authorization not found. Please reconnect your account.');
+    }
 
-  const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
+    const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
     const clientV2 = twitterClient.v2;
 
     // 1. Download image
