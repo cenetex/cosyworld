@@ -1002,6 +1002,10 @@ class TelegramService {
         fullHistory = await this.conversationManager.loadConversationHistory(channelId);
       }
 
+      // Get pending context for X error state (if any)
+      const pendingContext = this.pendingReplies.get(channelId) || {};
+      const lastXError = pendingContext.lastXError || null;
+
       const { systemPrompt, userPrompt, conversationContext } = buildConversationContext({
         history: fullHistory,
         currentMessage: ctx.message,
@@ -1016,7 +1020,8 @@ class TelegramService {
         buybot: buybotContext,
         isMention,
         triggerType: isPrivate ? 'private' : triggerType,
-        rag: ragContext
+        rag: ragContext,
+        lastXError
       });
 
       if (!this.aiService) {
@@ -1906,10 +1911,20 @@ class TelegramService {
       if (userId) await this._recordMediaUsage(userId, username, 'tweet');
       return { success: true, tweetId: result.tweetId, tweetUrl: result.tweetUrl };
     } else {
-      const reason = result?.error || result?.reason || 'unknown error';
-      this.logger?.warn?.('[TelegramService] Tweet post failed:', { channelId, mediaId, reason, result });
-      await ctx.reply(`❌ Failed to tweet: ${escapeHtml(reason)}`);
-      return { success: false, error: reason };
+      // Extract the actual error message - result.error may be boolean true, real message is in result.reason
+      const errorMessage = (typeof result?.reason === 'string' && result.reason) 
+        ? result.reason 
+        : (typeof result?.error === 'string' ? result.error : 'unknown error');
+      this.logger?.warn?.('[TelegramService] Tweet post failed:', { channelId, mediaId, reason: errorMessage, result });
+      
+      // Store the error in pending context so AI can see it without broadcasting
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastXError = { message: errorMessage, timestamp: Date.now(), mediaId };
+      this.pendingReplies.set(channelId, pending);
+      
+      // Send a brief user-facing message (not the full error details)
+      await ctx.reply('❌ Tweet failed. Will retry later.');
+      return { success: false, error: errorMessage };
     }
   }
 

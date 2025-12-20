@@ -17,6 +17,7 @@ import { buildCreditInfo, estimateTokens } from './utils.mjs';
  * @param {Object} params.buybot - Buybot context
  * @param {boolean} params.isMention - Whether the bot was mentioned (just affects response timing)
  * @param {string} params.triggerType - What triggered this response ('mention', 'reply', 'active_participant', 'gap')
+ * @param {Object} params.lastXError - Last X posting error (for AI context, not broadcast)
  * @returns {Object} { systemPrompt, userPrompt }
  */
 export function buildConversationContext({
@@ -29,7 +30,8 @@ export function buildConversationContext({
   buybot,
   isMention,
   triggerType = 'general',
-  rag = []
+  rag = [],
+  lastXError = null
 }) {
   // 1. Build Conversation History with Message IDs
   // Use token budget instead of fixed count
@@ -96,6 +98,11 @@ Rule: Only call media generation tools if credits available. If 0, explain natur
     ? `\\nRelevant Knowledge:\\n${rag.map(r => `- ${r.content} (Source: ${r.source})`).join('\\n')}\\n`
     : '';
 
+  // X posting error context (for AI awareness, not broadcast to users)
+  const xErrorContextStr = lastXError?.message 
+    ? `\\nX POSTING STATUS: Last tweet attempt failed: "${lastXError.message}". Avoid retrying immediately - wait for conditions to improve or try different content.\\n`
+    : '';
+
   // Trigger context - note that all triggers use the same toolset
   const triggerContext = isMention 
     ? 'You were directly mentioned - the user wants your attention. Be responsive and engaging!'
@@ -138,7 +145,7 @@ Response patterns:
 - Questions to you → speak with targetMessageId to reply directly
 - Something exciting → react first, then speak
 - Between others → wait (or react silently if genuinely amused/interested)
-${toolCreditContext}${buybotContextStr}
+${toolCreditContext}${buybotContextStr}${xErrorContextStr}
 ${ragContextStr}
 ${plan.summary}
 ${media.summary}${messageIdContext}
