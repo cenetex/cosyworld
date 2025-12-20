@@ -54,6 +54,7 @@ import { MediaGenerationService } from '../services/media/mediaGenerationService
 import { MediaIndexService } from '../services/media/mediaIndexService.mjs';
 import { WikiService } from '../services/wiki/wikiService.mjs';
 import { WikiGardenerService } from '../services/wiki/wikiGardenerService.mjs';
+import { ImageGenerationRateLimiter } from '../services/ai/imageGenerationRateLimiter.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -153,6 +154,8 @@ export async function initializeContainer({ container, logger, configService }) 
       storyArchiveService: asClass(StoryArchiveService).singleton(),
       characterContinuityService: asClass(CharacterContinuityService).singleton(),
       chapterContextService: asClass(ChapterContextService).singleton(),
+      // Image generation rate limiter
+      imageGenerationRateLimiter: asClass(ImageGenerationRateLimiter).singleton(),
     });
 
     // Load payment configuration from database before creating payment services

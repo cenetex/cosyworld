@@ -36,6 +36,7 @@ export class OpenrouterModelCatalogService {
     this.aiModelService = aiModelService || null;
 
     this._modelsById = new Map(); // id(lower) -> raw model record
+    this._imageCapableModels = new Set(); // models with image output modality
     this._lastRefreshAt = 0;
     this._lastRefreshOk = false;
   }
@@ -50,6 +51,34 @@ export class OpenrouterModelCatalogService {
 
   getAllModelIds() {
     return [...this._modelsById.keys()];
+  }
+
+  /**
+   * Get all models that support image output generation.
+   * @returns {string[]} Array of model IDs that can generate images
+   */
+  getImageCapableModels() {
+    return [...this._imageCapableModels];
+  }
+
+  /**
+   * Check if a model supports image output generation.
+   * @param {string} modelId 
+   * @returns {boolean}
+   */
+  isImageCapable(modelId) {
+    const id = normalizeId(modelId);
+    return id ? this._imageCapableModels.has(id) : false;
+  }
+
+  /**
+   * Get full model metadata including architecture info.
+   * @param {string} modelId 
+   * @returns {object|null}
+   */
+  getModelMetadata(modelId) {
+    const id = normalizeId(modelId);
+    return id ? this._modelsById.get(id) || null : null;
   }
 
   hasModel(modelId) {
@@ -87,15 +116,28 @@ export class OpenrouterModelCatalogService {
       const list = Array.isArray(json?.data) ? json.data : [];
 
       const next = new Map();
+      const imageCapable = new Set();
+      
       for (const item of list) {
         const id = normalizeId(item?.id);
         if (!id) continue;
         next.set(id, item);
+        
+        // Track models with image output capability
+        const outputModalities = item?.architecture?.output_modalities;
+        if (Array.isArray(outputModalities) && outputModalities.includes('image')) {
+          imageCapable.add(id);
+        }
       }
 
       this._modelsById = next;
+      this._imageCapableModels = imageCapable;
       this._lastRefreshAt = now;
       this._lastRefreshOk = true;
+      
+      if (imageCapable.size > 0) {
+        this.logger?.info?.(`[OpenrouterModelCatalog] Found ${imageCapable.size} image-capable models: ${[...imageCapable].join(', ')}`);
+      }
 
       const newModelIds = [];
       for (const id of next.keys()) {

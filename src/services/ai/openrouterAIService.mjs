@@ -374,6 +374,9 @@ export class OpenRouterAIService {
   this.disableFallbacks = /^true$/i.test(process.env.OPENROUTER_DISABLE_MODEL_FALLBACKS || 'false');
     this._modelSupportCache = new Map();
 
+    // Cache for models that DON'T support json_schema (to skip straight to json_object)
+    this._jsonSchemaUnsupportedCache = new Set();
+
     // Validate that the configured structured model can honor json_schema response format.
     this.ready = this._validateStructuredModelSupport(this.structured_model)
       .catch(err => {
@@ -504,75 +507,73 @@ export class OpenRouterAIService {
       }
     }
 
-    const structuredOptions = {
-      model: selectedModel,
-      response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
-      ...options,
-      model: selectedModel, // Ensure normalized model takes precedence
-    };
+    const modelKey = String(selectedModel || '').toLowerCase();
+    
+    // Check if this model is known to NOT support json_schema (skip directly to json_object)
+    const skipJsonSchema = this._jsonSchemaUnsupportedCache.has(modelKey);
+    
+    if (!skipJsonSchema) {
+      // Try json_schema first
+      const structuredOptions = {
+        model: selectedModel,
+        response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
+        ...options,
+        model: selectedModel,
+      };
 
-    await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
-
-    try {
-      const response = await this.chat(messages, structuredOptions);
-      if (!response) {
-        throw new Error('Chat returned null/empty response with json_schema format');
-      }
-      return typeof response === 'string' ? parseFirstJson(response) : response;
-    } catch (err) {
-      const parsed = parseProviderError(err);
-      this.logger?.error?.('[OpenRouter][StructuredOutput] json_schema attempt failed', parsed);
-
-      // Capability hint: if status 400 and we previously marked model as supporting response_format, note possible transient / schema error.
       try {
+        await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
+        const response = await this.chat(messages, structuredOptions);
+        if (!response) {
+          throw new Error('Chat returned null/empty response with json_schema format');
+        }
+        return typeof response === 'string' ? parseFirstJson(response) : response;
+      } catch (err) {
+        const parsed = parseProviderError(err);
+        
+        // For 400 errors, mark this model as not supporting json_schema and fall through
         if (parsed.status === 400) {
-          const key = String(structuredOptions.model || '').toLowerCase();
-          const supported = this._modelSupportCache.get(key);
-          if (supported === true) {
-            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is cached as supporting response_format but returned 400 – likely doesn't support json_schema type, only json_object. Falling back.`);
-          } else if (supported === false) {
-            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is NOT marked as supporting response_format; falling back immediately.`);
-          }
-        }
-      } catch {}
-
-      // For 400 errors, try json_object format immediately as many models support it but not json_schema
-      if (parsed.status === 400) {
-        this.logger?.info?.('[OpenRouter][StructuredOutput] Attempting json_object fallback for 400 error');
-        try {
-          const withoutRF = { ...options, model: options.model || this.structured_model };
-          const alt = await this.chat(messages, { ...withoutRF, response_format: { type: 'json_object' } });
-          if (!alt) {
-            throw new Error('Chat returned null/empty response with json_object format');
-          }
-          return typeof alt === 'string' ? parseFirstJson(alt) : alt;
-        } catch (e2) {
-          this.logger?.warn?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', parseProviderError(e2));
-          // Continue to instruction-only fallback below
+          this._jsonSchemaUnsupportedCache.add(modelKey);
+          this.logger?.debug?.(`[OpenRouter][StructuredOutput] Model '${selectedModel}' doesn't support json_schema, cached for future requests`);
+        } else {
+          // Non-400 errors are logged as warnings (could be transient)
+          this.logger?.warn?.('[OpenRouter][StructuredOutput] json_schema attempt failed', parsed);
         }
       }
+    }
 
-  // Build concise schema instructions to coerce JSON without relying on response_format
-  const schemaKeys = Object.keys(baseSchema?.properties || {});
-  const example = JSON.stringify(Object.fromEntries(schemaKeys.map(k => [k, '...'])), null, 2);
-      const instructions = `Respond ONLY with a single valid JSON object. It must match this shape (types can vary as appropriate):\n${example}\nDo not include any extra commentary or markdown.`;
-      const fallbackMessages = [
-        { role: 'system', content: instructions },
-        { role: 'user', content: prompt }
-      ];
-      const withoutRF = { ...options, model: options.model || this.structured_model };
-      try {
-        const raw = await parseWithRetries(async () => {
-          const r = await this.chat(fallbackMessages, withoutRF);
-          if (!r) throw new Error('Chat returned null/empty response');
-          return typeof r === 'string' ? r : JSON.stringify(r);
-        }, { retries: 2, backoffMs: 600 });
-        return raw;
-      } catch (e2) {
-        const p2 = parseProviderError(e2);
-        this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p2);
-        throw new Error(`Structured output generation failed after all attempts: ${p2.userMessage || p2.providerMessage || 'Unable to generate valid JSON'}`);
+    // Try json_object format (many models support this but not json_schema)
+    try {
+      const jsonObjectOptions = { ...options, model: selectedModel, response_format: { type: 'json_object' } };
+      const alt = await this.chat(messages, jsonObjectOptions);
+      if (alt) {
+        return typeof alt === 'string' ? parseFirstJson(alt) : alt;
       }
+    } catch (e2) {
+      const parsed2 = parseProviderError(e2);
+      this.logger?.debug?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', parsed2);
+    }
+
+    // Build concise schema instructions to coerce JSON without relying on response_format
+    const schemaKeys = Object.keys(baseSchema?.properties || {});
+    const example = JSON.stringify(Object.fromEntries(schemaKeys.map(k => [k, '...'])), null, 2);
+    const instructions = `Respond ONLY with a single valid JSON object. It must match this shape (types can vary as appropriate):\n${example}\nDo not include any extra commentary or markdown.`;
+    const fallbackMessages = [
+      { role: 'system', content: instructions },
+      { role: 'user', content: prompt }
+    ];
+    const withoutRF = { ...options, model: selectedModel };
+    try {
+      const raw = await parseWithRetries(async () => {
+        const r = await this.chat(fallbackMessages, withoutRF);
+        if (!r) throw new Error('Chat returned null/empty response');
+        return typeof r === 'string' ? r : JSON.stringify(r);
+      }, { retries: 2, backoffMs: 600 });
+      return raw;
+    } catch (e2) {
+      const p2 = parseProviderError(e2);
+      this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p2);
+      throw new Error(`Structured output generation failed after all attempts: ${p2.userMessage || p2.providerMessage || 'Unable to generate valid JSON'}`);
     }
   }
 
@@ -705,19 +706,44 @@ export class OpenRouterAIService {
         };
       }
 
-        // Normalize content that might be an array of segments
-        let normalizedContent = result.content;
-        if (Array.isArray(normalizedContent)) {
-          try {
-            normalizedContent = normalizedContent.map(p => (typeof p === 'string' ? p : p?.text || p?.content || ''))
-              .filter(Boolean)
-              .join('\n')
-              .trim();
-          } catch {}
-        }
-        // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
-        const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
-        if (!normalizedContent && !hasReasoning) {
+      // Normalize content that might be an array of segments (including multimodal)
+      let normalizedContent = result.content;
+      let imageData = null;
+      
+      if (Array.isArray(normalizedContent)) {
+        try {
+          const textParts = [];
+          for (const p of normalizedContent) {
+            if (typeof p === 'string') {
+              textParts.push(p);
+            } else if (p?.type === 'text' && p?.text) {
+              textParts.push(p.text);
+            } else if (p?.type === 'image_url' && p?.image_url?.url) {
+              // Handle image output from multimodal models
+              imageData = imageData || [];
+              imageData.push({
+                url: p.image_url.url,
+                detail: p.image_url.detail || 'auto'
+              });
+            } else if (p?.type === 'image' && (p?.url || p?.data)) {
+              // Alternative image format
+              imageData = imageData || [];
+              imageData.push({
+                url: p.url || null,
+                data: p.data || null,
+                mimeType: p.mime_type || p.mimeType || 'image/png'
+              });
+            } else if (p?.text || p?.content) {
+              textParts.push(p.text || p.content);
+            }
+          }
+          normalizedContent = textParts.filter(Boolean).join('\n').trim();
+        } catch {}
+      }
+      
+      // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
+      const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
+      if (!normalizedContent && !hasReasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
         this.logger.info(JSON.stringify(result, null, 2));
         
@@ -769,8 +795,18 @@ export class OpenRouterAIService {
           return String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         } catch { return String(s || '').trim(); }
       };
-    const baseText = (scrub(result.content) || '...');
-  return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
+      
+      const baseText = (scrub(result.content) || '...');
+    
+      // If we have image data from a multimodal response, include it
+      if (imageData && imageData.length > 0) {
+        this.logger?.info?.(`[OpenRouter][Chat] Multimodal response with ${imageData.length} image(s) from ${mergedOptions.model}`);
+        return options.returnEnvelope 
+          ? { text: baseText, images: imageData, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null }
+          : { text: baseText, images: imageData };
+      }
+    
+      return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
     } catch (error) {
       const parsed = parseProviderError(error);
       this.logger.error('[OpenRouter][Chat] error', parsed);
@@ -1059,28 +1095,120 @@ export class OpenRouterAIService {
   }
 
   /**
-   * Generate an image using the selected model. If the model is Replicate/flux-dev-lora, use ReplicateService.
-   * @param {string} prompt
-   * @param {object|array} [images] - Array of image URLs/base64 or single image. Only one is supported for Replicate; if multiple, one is chosen at random.
-   * @param {object} [options]
-   * @returns {Promise<string|null>} - The URL or base64 of the generated image.
+   * Generate an image using an image-capable OpenRouter model.
+   * @param {string} prompt - The image generation prompt
+   * @param {object|array} [images] - Optional reference images
+   * @param {object} [options] - Options including model selection
+   * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
    */
   async generateImage(prompt, images = [], options = {}) {
-    // Check if the selected model is Replicate/flux-dev-lora
+    // Check if the selected model is Replicate/flux-dev-lora (legacy path)
     const model = options.model || this.model;
     if (model && model.includes('flux-dev-lora')) {
       if (!this.services?.replicateService) {
         this.logger?.error?.('ReplicateService not available in services');
         return null;
       }
-      // Accepts images as array or single image
       const imageArr = Array.isArray(images) ? images : images ? [images] : [];
       return await this.services.replicateService.generateImage(prompt, imageArr, options);
     }
-    // Fallback to OpenRouter's own image generation (if supported)
-    // ...existing code for OpenRouter image generation (if any)...
-    this.logger?.warn?.('No image generation implemented for this model in OpenRouterAIService.');
+    
+    // Check if model is image-capable via OpenRouter
+    const catalogService = this.openrouterModelCatalogService;
+    const isImageCapable = catalogService?.isImageCapable?.(model);
+    
+    if (isImageCapable) {
+      return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
+    }
+    
+    this.logger?.warn?.(`[OpenRouter] Model '${model}' is not image-capable. Use an image model like google/gemini-2.5-flash-image or openai/gpt-5-image.`);
     return null;
+  }
+
+  /**
+   * Generate an image using OpenRouter's native image generation models.
+   * These models return images as part of the chat response.
+   * @param {string} prompt 
+   * @param {array} [referenceImages] - Optional reference images to include
+   * @param {object} [options]
+   * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
+   */
+  async generateImageViaOpenRouter(prompt, referenceImages = [], options = {}) {
+    const model = options.model || 'google/gemini-2.5-flash-image';
+    
+    // Build message content with optional reference images
+    const content = [];
+    
+    // Add reference images if provided
+    const imageArr = Array.isArray(referenceImages) ? referenceImages : referenceImages ? [referenceImages] : [];
+    for (const img of imageArr.slice(0, 4)) { // Limit to 4 reference images
+      if (typeof img === 'string' && img.startsWith('http')) {
+        content.push({ type: 'image_url', image_url: { url: img } });
+      } else if (typeof img === 'string' && img.startsWith('data:')) {
+        content.push({ type: 'image_url', image_url: { url: img } });
+      }
+    }
+    
+    // Add the generation prompt
+    content.push({ type: 'text', text: `Generate an image: ${prompt}` });
+    
+    const messages = [
+      { role: 'user', content }
+    ];
+    
+    try {
+      const response = await this.chat(messages, {
+        ...options,
+        model,
+        returnEnvelope: true,
+      });
+      
+      if (response?.images && response.images.length > 0) {
+        const image = response.images[0];
+        return {
+          url: image.url || null,
+          data: image.data || null,
+          text: response.text || null,
+          model,
+        };
+      }
+      
+      // Some models might return image URL in text
+      if (response?.text) {
+        const urlMatch = response.text.match(/https?:\/\/[^\s"'<>]+\.(png|jpg|jpeg|gif|webp)/i);
+        if (urlMatch) {
+          return {
+            url: urlMatch[0],
+            text: response.text,
+            model,
+          };
+        }
+      }
+      
+      this.logger?.warn?.(`[OpenRouter] Image model ${model} did not return image data`);
+      return response?.text ? { text: response.text, model } : null;
+      
+    } catch (e) {
+      this.logger?.error?.(`[OpenRouter] Image generation failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a model supports image output generation.
+   * @param {string} modelId 
+   * @returns {boolean}
+   */
+  isImageCapableModel(modelId) {
+    return this.openrouterModelCatalogService?.isImageCapable?.(modelId) || false;
+  }
+
+  /**
+   * Get list of available image-capable models.
+   * @returns {string[]}
+   */
+  getImageCapableModels() {
+    return this.openrouterModelCatalogService?.getImageCapableModels?.() || [];
   }
 
   /**
@@ -1101,7 +1229,15 @@ export class OpenRouterAIService {
       const imageArr = Array.isArray(images) ? images : images ? [images] : [];
       return await this.services.replicateService.generateImage(prompt, imageArr, options);
     }
-    // ...existing code for OpenRouter composeImage (if any)...
+    
+    // Try OpenRouter image-capable models for composition
+    const catalogService = this.openrouterModelCatalogService;
+    const isImageCapable = catalogService?.isImageCapable?.(model);
+    
+    if (isImageCapable) {
+      return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
+    }
+    
     this.logger?.warn?.('No composeImage implemented for this model in OpenRouterAIService.');
     return null;
   }
