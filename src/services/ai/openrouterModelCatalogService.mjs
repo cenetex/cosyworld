@@ -15,6 +15,27 @@ const normalizeId = (value) => {
   return trimmed.replace(/:(online|free)$/i, '').toLowerCase();
 };
 
+/**
+ * Known image-capable model patterns that may not appear in the catalog.
+ * These models support image generation via OpenRouter's chat completions API.
+ */
+const KNOWN_IMAGE_MODEL_PATTERNS = [
+  /^black-forest-labs\/flux/i,        // FLUX models (flux.2-max, flux.1-schnell, etc.)
+  /^stabilityai\/stable-diffusion/i,  // Stable Diffusion models
+  /\/dall-e/i,                         // DALL-E models
+  /\/imagen/i,                         // Google Imagen
+];
+
+/**
+ * Check if a model ID matches known image-generation model patterns.
+ * @param {string} modelId 
+ * @returns {boolean}
+ */
+const isKnownImageModel = (modelId) => {
+  if (!modelId) return false;
+  return KNOWN_IMAGE_MODEL_PATTERNS.some(pattern => pattern.test(modelId));
+};
+
 async function probeModelExistsViaEndpoints(modelId) {
   const id = normalizeId(modelId);
   if (!id) return false;
@@ -63,12 +84,17 @@ export class OpenrouterModelCatalogService {
 
   /**
    * Check if a model supports image output generation.
+   * Checks both the catalog and known image-generation model patterns.
    * @param {string} modelId 
    * @returns {boolean}
    */
   isImageCapable(modelId) {
     const id = normalizeId(modelId);
-    return id ? this._imageCapableModels.has(id) : false;
+    if (!id) return false;
+    // Check catalog first
+    if (this._imageCapableModels.has(id)) return true;
+    // Check known image model patterns (for models not in catalog)
+    return isKnownImageModel(modelId);
   }
 
   /**

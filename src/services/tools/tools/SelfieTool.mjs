@@ -149,11 +149,19 @@ Context Subjects: ${contextPrompt}\nDesired emotional tone: ${prompt}`;
             const genPrompt = `Create a candid polaroid-style selfie photograph. ${contextPrompt}\nDesired mood/scene: ${prompt}`;
             const result = await this.openrouterAIService.generateImageViaOpenRouter(genPrompt, images, { aspectRatio: '1:1' });
             
-            if (result?.imageUrl) {
-              imageUrl = result.imageUrl;
+            // Handle both url and base64 data responses
+            if (result?.url || result?.data) {
+              if (result.url) {
+                imageUrl = result.url;
+              } else if (result.data) {
+                // Upload base64 data to S3
+                const buffer = Buffer.from(result.data, 'base64');
+                const s3Key = `selfies/${avatarId}_${Date.now()}.png`;
+                imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, 'image/png');
+              }
               // Record generation in rate limiter
-              if (this.imageGenerationRateLimiter) {
-                const estimatedCost = result.cost || 0.01; // Default estimated cost
+              if (this.imageGenerationRateLimiter && imageUrl) {
+                const estimatedCost = result.cost || 0.05; // FLUX costs ~$0.07
                 this.imageGenerationRateLimiter.recordGeneration(avatarId, estimatedCost, context);
               }
               this.logger?.info?.(`[SelfieTool] OpenRouter image generated successfully for ${avatar.name}`);
