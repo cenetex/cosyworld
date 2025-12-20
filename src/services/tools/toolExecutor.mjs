@@ -243,6 +243,14 @@ export class ToolExecutor {
         // create expects description/prompt
         return args.description ? [args.description] : args.prompt ? [args.prompt] : [];
       
+      case 'summon':
+        // summon expects name/description
+        return args.name ? [args.name] : args.description ? [args.description] : [];
+      
+      case 'breed':
+        // breed expects two avatar names
+        return [args.avatar1, args.avatar2].filter(Boolean);
+      
       case 'x':
         // x (Twitter) expects tweet content
         return args.content ? [args.content] : args.text ? [args.text] : [];

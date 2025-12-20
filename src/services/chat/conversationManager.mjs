@@ -999,9 +999,23 @@ export class ConversationManager  {
     
     try {
       // Execute tools with multi-step continuation support
+      // Construct a synthetic message object that tools expect
+      const syntheticMessage = {
+        channel,
+        author: { id: avatar._id, bot: true },
+        content: '',
+        guild: channel.guild,
+        guildId: channel.guild?.id,
+        // Add methods that some tools might try to call
+        reply: async (content) => {
+          return this.discordService.sendAsWebhook(channel.id, typeof content === 'string' ? content : content?.content || '', avatar);
+        },
+        react: async () => { /* no-op for AI-initiated calls */ }
+      };
+      
       const toolExecution = await this.toolExecutor.executeToolCalls(
         toolCalls,
-        { channel, author: { id: avatar._id }, content: '', guild: channel.guild },
+        syntheticMessage,
         avatar,
         {}, // services
         { chatHistory: chatMessages } // Pass chat history for continuation context

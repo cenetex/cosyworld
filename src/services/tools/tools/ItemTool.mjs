@@ -57,8 +57,30 @@ export class ItemTool extends BasicTool {
   }
 
   async postItemDetails(channelId, item) {
-    await this.discordService.sendAsWebhook(channelId, item.imageUrl, item);
-    await this.discordService.sendAsWebhook(channelId, `**${item.name}**\n\n${item.description}`, item);
+    // Post item with nice embed showing the image prominently
+    const embed = {
+      title: item.name,
+      description: item.description || '',
+      image: item.imageUrl ? { url: item.imageUrl } : null,
+      color: 0x8B4513, // Brown color for items
+      footer: { text: item.rarity ? `Rarity: ${item.rarity}` : 'Item' }
+    };
+    
+    try {
+      await this.discordService.sendEmbedAsWebhook(
+        channelId,
+        embed,
+        item.name,
+        item.imageUrl
+      );
+    } catch (embedError) {
+      // Fallback to simple messages if embed fails
+      this.logger?.warn?.(`[ItemTool] Failed to post item embed: ${embedError.message}`);
+      if (item.imageUrl) {
+        await this.discordService.sendAsWebhook(channelId, item.imageUrl, item);
+      }
+      await this.discordService.sendAsWebhook(channelId, `**${item.name}**\n\n${item.description}`, item);
+    }
   }
 
   async execute(message, params, avatar, services = {}) {

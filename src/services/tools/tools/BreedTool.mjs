@@ -44,6 +44,27 @@ export class BreedTool extends BasicTool {
     return 'Breeds two existing avatars to create a new one';
   }
 
+  /**
+   * Returns the parameter schema for AI tool calling.
+   * @returns {object} OpenAI-compatible parameter schema.
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        avatar1: {
+          type: 'string',
+          description: 'Name of the first avatar to breed'
+        },
+        avatar2: {
+          type: 'string',
+          description: 'Name of the second avatar to breed'
+        }
+      },
+      required: ['avatar1', 'avatar2']
+    };
+  }
+
   async getSyntax() {
     return `${this.emoji} <avatar1> <avatar2>`;
   }
@@ -55,7 +76,15 @@ export class BreedTool extends BasicTool {
 
   async execute(message, params, avatar, context) {
     try {
-      const commandLine = message.content.trim().substring(2).trim();
+      // Handle params from AI tool calling
+      let paramContent = '';
+      if (Array.isArray(params) && params.length >= 2) {
+        paramContent = params.join(' ');
+      } else if (typeof params === 'object' && !Array.isArray(params) && params.avatar1 && params.avatar2) {
+        paramContent = `${params.avatar1} ${params.avatar2}`;
+      }
+      
+      const commandLine = paramContent || message.content.trim().substring(2).trim();
       const avatars = await this.avatarService.getAvatarsInChannel(message.channel.id, message.guildId);
       let mentionedAvatars = [];
       if (this.avatarService?.matchAvatarsByContent) {

@@ -214,6 +214,23 @@ export class SummonTool extends BasicTool {
   }
 
   /**
+   * Returns the parameter schema for AI tool calling.
+   * @returns {object} OpenAI-compatible parameter schema.
+   */
+  getParameterSchema() {
+    return {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name or description of the avatar to summon. Can be an existing avatar name, a model ID (e.g., "google/gemini-2.5-flash"), or a description for creating a new avatar.'
+        }
+      },
+      required: ['name']
+    };
+  }
+
+  /**
    * Returns the syntax of the tool.
    * @returns {string} The syntax.
    */
@@ -876,8 +893,18 @@ export class SummonTool extends BasicTool {
         await ensureAvatarStatsAndSummonsday(insertedAvatar);
         return { avatar: insertedAvatar, created: true };
       };
+      
+      // Handle params passed from AI tool calling (array of arguments)
+      // If params has content, use it instead of message.content
+      let paramContent = '';
+      if (Array.isArray(params) && params.length > 0 && typeof params[0] === 'string' && params[0].trim()) {
+        paramContent = params[0].trim();
+      } else if (typeof params === 'object' && !Array.isArray(params) && (params.name || params.description)) {
+        paramContent = (params.name || params.description || '').trim();
+      }
+      
       // Parse command content robustly: remove leading emoji + optional word 'summon'
-      const raw = (message.content || '').trim();
+      const raw = paramContent || (message.content || '').trim();
       const content = raw
         .replace(/^<a?:\w+?:\d+>\s*/,'') // custom discord emoji
         .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
@@ -1270,28 +1297,64 @@ export class SummonTool extends BasicTool {
         }
       }
 
-      // Send final response
-      setImmediate(() => {
-        (async () => {
-          await this.discordService.sendAsWebhook(message.channel.id, createdAvatar.imageUrl, createdAvatar);
+      // Send avatar image and intro BEFORE returning result (so image displays prominently)
+      try {
+        // Post the avatar image as an embed for nice display
+        if (createdAvatar.imageUrl) {
+          const avatarEmbed = {
+            title: `${createdAvatar.emoji || '🔮'} ${createdAvatar.name}`,
+            description: createdAvatar.description || intro,
+            image: { url: createdAvatar.imageUrl },
+            color: 0x9B59B6, // Purple for summons
+            footer: { text: 'Newly summoned' }
+          };
+          await this.discordService.sendEmbedAsWebhook(
+            message.channel.id,
+            avatarEmbed,
+            createdAvatar.name,
+            createdAvatar.imageUrl
+          );
+        }
+        
+        // Send avatar intro message
+        if (intro) {
           await this.discordService.sendAsWebhook(message.channel.id, intro, createdAvatar);
-          await this.discordService.sendAvatarEmbed(createdAvatar, message.channel.id, this.aiService);
-          createdAvatar.channelId = message.channel.id;
+        }
+        
+        createdAvatar.channelId = message.channel.id;
+        
+        // React to the original message
+        try {
           await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
-          
-          // Mark introduction as completed
-          try {
-            await this.avatarService.updateAvatar({
-              ...createdAvatar,
-              introductionCompletedAt: new Date()
-            });
-          } catch (err) {
-            this.logger?.warn?.(`[SummonTool] Failed to mark intro complete: ${err.message}`);
-          }
-        })().catch(err => {
-          this.logger?.warn?.(`[SummonTool] Post-summon follow-up failed: ${err.message}`);
+        } catch (reactErr) {
+          this.logger?.debug?.(`[SummonTool] Could not react to message: ${reactErr.message}`);
+        }
+        
+        // Mark introduction as completed
+        try {
+          await this.avatarService.updateAvatar({
+            ...createdAvatar,
+            introductionCompletedAt: new Date()
+          });
+        } catch (err) {
+          this.logger?.warn?.(`[SummonTool] Failed to mark intro complete: ${err.message}`);
+        }
+      } catch (postErr) {
+        this.logger?.warn?.(`[SummonTool] Post-summon display failed: ${postErr.message}`);
+      }
+      
+      // Schedule proactive followups in background (non-blocking)
+      if (this.SUMMON_PROACTIVE_ENABLED) {
+        setImmediate(() => {
+          this._scheduleSummonFollowups({
+            avatar: createdAvatar,
+            message,
+            otherAvatars,
+            thread: summonThread
+          });
         });
-      });
+      }
+
       return `-# ${this.emoji} [ ${createdAvatar.name} has been summoned into existence. ]`;
     } catch (error) {
       this.logger.error(`Summon error: ${error.message}`);
