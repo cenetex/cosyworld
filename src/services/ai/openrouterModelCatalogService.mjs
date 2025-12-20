@@ -19,30 +19,34 @@ const normalizeId = (value) => {
  * Fetch model details from the OpenRouter endpoints API.
  * This works for models not in the main catalog (like FLUX).
  * @param {string} modelId 
- * @returns {Promise<{exists: boolean, outputModalities: string[], inputModalities: string[], data: object|null}>}
+ * @param {object} logger - Optional logger for debugging
+ * @returns {Promise<{exists: boolean, outputModalities: string[], inputModalities: string[], data: object|null, probeStatus: number|null}>}
  */
-async function fetchModelEndpointInfo(modelId) {
+async function fetchModelEndpointInfo(modelId, logger = null) {
   const id = normalizeId(modelId);
-  if (!id) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+  if (!id) return { exists: false, outputModalities: [], inputModalities: [], data: null, probeStatus: null };
   const [author, ...rest] = id.split('/');
-  if (!author || !rest.length) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+  if (!author || !rest.length) return { exists: false, outputModalities: [], inputModalities: [], data: null, probeStatus: null };
   const slug = rest.join('/');
   const url = `https://openrouter.ai/api/v1/models/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/endpoints`;
   try {
     const res = await fetch(url, { headers: DEFAULT_HEADERS });
-    if (!res.ok) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+    logger?.debug?.(`[OpenrouterModelCatalog] Endpoint probe for ${id}: HTTP ${res.status}`);
+    if (!res.ok) return { exists: false, outputModalities: [], inputModalities: [], data: null, probeStatus: res.status };
     const json = await res.json();
     const data = json?.data;
-    if (!data) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+    if (!data) return { exists: false, outputModalities: [], inputModalities: [], data: null, probeStatus: res.status };
     const arch = data.architecture || {};
     return {
       exists: true,
       outputModalities: arch.output_modalities || [],
       inputModalities: arch.input_modalities || [],
-      data
+      data,
+      probeStatus: res.status
     };
-  } catch {
-    return { exists: false, outputModalities: [], inputModalities: [], data: null };
+  } catch (e) {
+    logger?.debug?.(`[OpenrouterModelCatalog] Endpoint probe error for ${id}: ${e.message}`);
+    return { exists: false, outputModalities: [], inputModalities: [], data: null, probeStatus: null };
   }
 }
 
@@ -236,9 +240,11 @@ export class OpenrouterModelCatalogService {
     }
     
     // Fetch from endpoints API
-    const info = await fetchModelEndpointInfo(id);
+    const info = await fetchModelEndpointInfo(id, this.logger);
     if (!info.exists) {
-      const result = { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false };
+      // If endpoints probe returned 404, the model might still be valid (new models aren't always in endpoints API)
+      // Cache as "unknown" rather than "non-existent" - don't set exists: false
+      const result = { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false, probeStatus: info.probeStatus };
       this._modelCapabilitiesCache.set(id, result);
       return result;
     }
