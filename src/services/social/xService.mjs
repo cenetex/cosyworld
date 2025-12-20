@@ -188,6 +188,40 @@ class XService {
   }
 
   /**
+   * Get an authenticated Twitter client for global posting/reading.
+   * Centralizes global auth resolution, OAuth 1.0a preference, and token decryption.
+   * @param {Object} [options] - Options
+   * @param {boolean} [options.preferOAuth1=false] - Prefer OAuth 1.0a if available
+   * @param {boolean} [options.throwOnError=false] - Throw error or return null on failure
+   * @returns {Promise<{client: TwitterApi, v2: TwitterApiV2, v1?: TwitterApiV1, auth: Object, isOAuth1: boolean}|null>}
+   */
+  async _getAuthenticatedClientForGlobal({ preferOAuth1 = false, throwOnError = false } = {}) {
+    const auth = await this._resolveGlobalAuthRecord();
+    if (!auth?.accessToken) {
+      if (throwOnError) throw new Error('No global X authorization found.');
+      return null;
+    }
+
+    // Try OAuth 1.0a if preferred
+    if (preferOAuth1) {
+      const oauth1Creds = await this._getOAuth1Credentials();
+      if (oauth1Creds) {
+        const client = this._createTwitterClient({ oauth1Creds });
+        return { client, v2: client.v2, v1: client.v1, auth, isOAuth1: true };
+      }
+    }
+
+    const accessToken = safeDecrypt(auth.accessToken);
+    if (!accessToken) {
+      if (throwOnError) throw new Error('Failed to decrypt global X access token.');
+      return null;
+    }
+
+    const client = this._createTwitterClient({ accessToken });
+    return { client, v2: client.v2, v1: client.v1, auth, isOAuth1: false };
+  }
+
+  /**
    * Validate tweet content before sending to API.
    * Pre-flight check to avoid wasted API calls and improve error messages.
    * @param {string} text - Tweet text to validate
@@ -624,8 +658,13 @@ class XService {
 
       const fetchPromise = (async () => {
         try {
-          const client = new TwitterApi(safeDecrypt(auth.accessToken));
-          const me = await client.v2.me({ 'user.fields': 'username,profile_image_url,name,id' });
+          // Use centralized client factory - pass avatar object or create minimal one
+          const avatar = typeof avatarOrId === 'object' ? avatarOrId : { _id: avatarId };
+          const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+          if (!clientResult) return null;
+          
+          const { v2: clientV2 } = clientResult;
+          const me = await clientV2.me({ 'user.fields': 'username,profile_image_url,name,id' });
           const username = me?.data?.username;
           if (this._isValidTwitterHandle(username)) {
             this._cacheTwitterUsername(avatarId, username);
@@ -854,19 +893,13 @@ class XService {
   }
 
   async postImageToX(avatar, imageUrl, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) {
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+    if (!clientResult) {
       return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
     }
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) {
-      return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
-    }
 
-    // Initialize a v2 client with OAuth2 bearer token
-    const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
-    const clientV2 = twitterClient.v2;
+    const { v2: clientV2 } = clientResult;
+    const avatarId = avatar._id?.toString() || avatar;
 
     try {
       // 1. Download the image
@@ -875,10 +908,7 @@ class XService {
       const buffer = Buffer.from(await res.arrayBuffer());
 
       // 2. Determine MIME type or fallback
-      let mimeType = res.headers.get('content-type')?.split(';')[0];  // may be null :contentReference[oaicite:8]{index=8}
-      if (!mimeType) {
-        mimeType = 'image/png';                                       // default fallback :contentReference[oaicite:9]{index=9}
-      }
+      const mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
 
       const mediaId = await clientV2.uploadMedia(buffer, {
         media_category: 'tweet_image',
@@ -895,7 +925,7 @@ class XService {
         media: { media_ids: [mediaId] }
       });
 
-      if (!tweet || !tweet.data?.id) {
+      if (!tweet?.data?.id) {
         return '-# [ ❌ Failed to post image to X. ]';
       }
 
@@ -907,19 +937,21 @@ class XService {
       }
       const username = await this._resolveXUsernameForAvatar(avatar);
       const tweetUrl = this.buildTweetUrl(tweetId, username);
+      const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({
         avatarId: avatar._id,
         content: tweetContent,
         imageUrl,
         timestamp: new Date(),
         postedToX: true,
-        tweetId
+        tweetId,
+        mediaType: 'image'
       });
 
       return `-# ✨ [ [Posted image to X](${tweetUrl}) ]`;
     } catch (err) {
-      this.logger?.error('Error posting image to X (v2):', err);
-      throw new Error('Failed to post image to X');
+      this.logger?.error?.('[XService][postImageToX] Error:', err?.message || err);
+      return this._formatXApiError(err, 'posting image to X');
     }
   }
 
@@ -928,24 +960,15 @@ class XService {
    * Returns { tweetId, tweetUrl, content } on success.
    */
   async postImageToXDetailed(avatar, imageUrl, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) {
-      throw new Error('X authorization required. Please connect your account.');
-    }
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) {
-      throw new Error('X authorization not found. Please reconnect your account.');
-    }
-
-    const twitterClient = new TwitterApi({ accessToken: safeDecrypt(auth.accessToken) });
-    const clientV2 = twitterClient.v2;
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: true });
+    const { v2: clientV2 } = clientResult;
+    const avatarId = avatar._id?.toString() || avatar;
 
     // 1. Download image
     const res = await fetch(imageUrl);
     if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
     const buffer = Buffer.from(await res.arrayBuffer());
-    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+    const mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
 
     // 2. Upload media and post
     const mediaId = await clientV2.uploadMedia(buffer, {
@@ -969,6 +992,7 @@ class XService {
     const username = await this._resolveXUsernameForAvatar(avatar);
     const tweetUrl = this.buildTweetUrl(tweetId, username);
 
+    const db = await this.databaseService.getDatabase();
     await db.collection('social_posts').insertOne({
       avatarId: avatar._id,
       content: tweetContent,
@@ -986,20 +1010,14 @@ class XService {
    * Reply with an image to a given tweetId.
    */
   async replyWithImageToX(avatar, parentTweetId, imageUrl, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) throw new Error('X authorization not found. Please reconnect your account.');
-    const accessToken = safeDecrypt(auth.accessToken);
-    if (!accessToken) throw new Error('Failed to decrypt X access token. Please reconnect your X account.');
-    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-    const clientV2 = twitterClient.v2;
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: true });
+    const { v2: clientV2 } = clientResult;
+    const _avatarId = avatar._id?.toString() || avatar; // eslint: prefixed as unused
 
     const res = await fetch(imageUrl);
     if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
     const buffer = Buffer.from(await res.arrayBuffer());
-    let mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
+    const mimeType = res.headers.get('content-type')?.split(';')[0] || 'image/png';
     const mediaId = await clientV2.uploadMedia(buffer, { media_category: 'tweet_image', media_type: mimeType });
 
     const replyContent = String(content || '').trim().slice(0, 280);
@@ -1009,23 +1027,20 @@ class XService {
       reply: { in_reply_to_tweet_id: parentTweetId }
     });
     if (!result?.data?.id) throw new Error('Failed to post image reply to X');
+    
+    const db = await this.databaseService.getDatabase();
     await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'image' });
     return result.data.id;
   }
 
   /**
    * Reply with a video to a given tweetId.
+   * Note: Video upload requires OAuth 1.0a which is handled by the client factory.
    */
   async replyWithVideoToX(avatar, parentTweetId, videoUrl, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) throw new Error('X authorization required. Please connect your account.');
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) throw new Error('X authorization not found. Please reconnect your account.');
-
-    const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
-    const v1Client = twitterClient.v1;
-    const v2Client = twitterClient.v2;
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: true });
+    const { v1: v1Client, v2: v2Client } = clientResult;
+    const _avatarId = avatar._id?.toString() || avatar; // eslint: prefixed as unused
 
     const res = await fetch(videoUrl);
     if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
@@ -1033,7 +1048,7 @@ class XService {
     const mimeHeader = res.headers.get('content-type') || '';
     let mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
 
-    // Process video
+    // Process video for X compatibility
     try {
       buffer = await this._processVideoForX(buffer);
       mimeType = 'video/mp4';
@@ -1042,7 +1057,6 @@ class XService {
     }
 
     const mediaId = await v1Client.uploadMedia(buffer, { mimeType });
-
     const replyContent = String(content || '').trim().slice(0, 280);
     const result = await v2Client.tweet({
       text: replyContent,
@@ -1050,27 +1064,22 @@ class XService {
       reply: { in_reply_to_tweet_id: parentTweetId }
     });
     if (!result?.data?.id) throw new Error('Failed to post video reply to X');
+    
+    const db = await this.databaseService.getDatabase();
     await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId: parentTweetId, timestamp: new Date(), postedToX: true, type: 'reply', mediaType: 'video' });
     return result.data.id;
   }
 
+  /**
+   * Post a video tweet.
+   * Note: Video upload requires OAuth 1.0a which is handled by the client factory.
+   */
   async postVideoToX(avatar, videoUrl, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) {
-      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
-    }
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) {
-      return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
-    }
-
-    // Initialize clients
-    const twitterClient = new TwitterApi(safeDecrypt(auth.accessToken));
-    const v1Client = twitterClient.v1;
-    const v2Client = twitterClient.v2;
-
     try {
+      const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: true });
+      const { v1: v1Client, v2: v2Client } = clientResult;
+      const avatarId = avatar._id?.toString() || avatar;
+
       // Download the video
       const res = await fetch(videoUrl);
       if (!res.ok) throw new Error(`Video fetch failed: ${res.status} ${res.statusText}`);
@@ -1078,7 +1087,7 @@ class XService {
       const mimeHeader = res.headers.get('content-type') || '';
       let mimeType = (mimeHeader.split(';')[0] || '').trim() || 'video/mp4';
 
-      // Process video
+      // Process video for X compatibility
       try {
         buffer = await this._processVideoForX(buffer);
         mimeType = 'video/mp4';
@@ -1103,6 +1112,8 @@ class XService {
       }
       const username = await this._resolveXUsernameForAvatar(avatar);
       const tweetUrl = this.buildTweetUrl(tweetId, username);
+      
+      const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({
         avatarId: avatar._id,
         content: tweetContent,
@@ -1115,25 +1126,21 @@ class XService {
       return `-# ✨ [ [Posted video to X](${tweetUrl}) ]`;
     } catch (err) {
       this.logger?.error('Error posting video to X:', err);
-      throw new Error('Failed to post video to X');
+      const errorMsg = this._formatXApiError(err);
+      return `-# [ ❌ Error: ${errorMsg} ]`;
     }
   }
 
   async getXTimelineAndNotifications(avatar) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth || !await this.isXAuthorized(avatarId)) return { timeline: [], notifications: [], userId: null };
-    
-    const accessToken = safeDecrypt(auth.accessToken);
-    if (!accessToken) {
-      this.logger?.warn?.('[XService][getXTimelineAndNotifications] Failed to decrypt access token', { avatarId });
+    const avatarId = avatar._id?.toString() || avatar;
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+    if (!clientResult) {
       return { timeline: [], notifications: [], userId: null };
     }
     
+    const { v2: v2Client } = clientResult;
+    
     try {
-      const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-      const v2Client = twitterClient.v2;
       const userData = await v2Client.me();
       
       if (!userData?.data?.id) {
@@ -1146,16 +1153,23 @@ class XService {
       const notificationsResp = await v2Client.userMentionTimeline(userId, { max_results: 10 });
       const timeline = timelineResp?.data?.data?.map(t => ({ id: t.id, text: t.text, user: t.author_id, isOwn: t.author_id === userId })) || [];
       const notifications = notificationsResp?.data?.data?.map(n => ({ id: n.id, text: n.text, user: n.author_id, isOwn: n.author_id === userId })) || [];
-      // Save all tweets to DB
-      const allTweets = [...timeline, ...notifications];
-      for (const tweet of allTweets) {
-        if (!tweet?.id) continue;
-        await db.collection('social_posts').updateOne(
-          { tweetId: tweet.id },
-          { $set: { tweetId: tweet.id, content: tweet.text, userId: tweet.user, isOwn: tweet.isOwn, avatarId: avatar._id, timestamp: new Date(), postedToX: tweet.isOwn } },
-          { upsert: true }
-        );
+      
+      // Save all tweets to DB (batched for performance)
+      const allTweets = [...timeline, ...notifications].filter(t => t?.id);
+      if (allTweets.length > 0) {
+        const db = await this.databaseService.getDatabase();
+        const bulkOps = allTweets.map(tweet => ({
+          updateOne: {
+            filter: { tweetId: tweet.id },
+            update: { $set: { tweetId: tweet.id, content: tweet.text, userId: tweet.user, isOwn: tweet.isOwn, avatarId: avatar._id, timestamp: new Date(), postedToX: tweet.isOwn } },
+            upsert: true
+          }
+        }));
+        await db.collection('social_posts').bulkWrite(bulkOps, { ordered: false }).catch(err => {
+          this.logger?.debug?.('[XService] Bulk save tweets failed:', err?.message);
+        });
       }
+      
       return { timeline, notifications, userId };
     } catch (apiErr) {
       const code = apiErr?.code || apiErr?.status || apiErr?.statusCode;
@@ -1171,19 +1185,19 @@ class XService {
 
   // --- X Social Actions ---
   async postToX(avatar, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
-    const accessToken = safeDecrypt(auth.accessToken);
-    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
-    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-    const v2Client = twitterClient.v2;
     const tweetContent = this._sanitizeTweetText(content);
     if (!tweetContent) {
       return '-# [ ❌ Error: Tweet content cannot be empty after removing links. Please add descriptive text. ]';
     }
+    
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+    if (!clientResult) {
+      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    }
+    
+    const { v2: v2Client } = clientResult;
+    const avatarId = avatar._id?.toString() || avatar;
+    
     try {
       const result = await v2Client.tweet(tweetContent);
       if (!result) return '-# [ ❌ Failed to post to X. ]';
@@ -1194,6 +1208,7 @@ class XService {
       }
       const username = await this._resolveXUsernameForAvatar(avatar);
       const tweetUrl = this.buildTweetUrl(tweetId, username);
+      const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: tweetContent, timestamp: new Date(), postedToX: true, tweetId });
       return `-# ✨ [ [Posted to X](${tweetUrl}) ]`;
     } catch (apiErr) {
@@ -1203,22 +1218,23 @@ class XService {
   }
 
   async replyToX(avatar, tweetId, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
-    const accessToken = safeDecrypt(auth.accessToken);
-    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
-    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-    const v2Client = twitterClient.v2;
     const replyContent = this._sanitizeTweetText(content);
     if (!replyContent) {
       return '-# [ ❌ Error: Reply content cannot be empty after removing links. ]';
     }
+    
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+    if (!clientResult) {
+      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    }
+    
+    const { v2: v2Client } = clientResult;
+    const avatarId = avatar._id?.toString() || avatar;
+    
     try {
       const result = await v2Client.reply(replyContent, tweetId);
       if (!result) return '-# [ ❌ Failed to reply on X. ]';
+      const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: replyContent, tweetId, timestamp: new Date(), postedToX: true, type: 'reply' });
       const targetUrl = this.buildTweetUrl(tweetId);
       const linkText = targetUrl ? `[Replied to post](${targetUrl})` : 'Replied to post';
@@ -1230,22 +1246,23 @@ class XService {
   }
 
   async quoteToX(avatar, tweetId, content) {
-    const db = await this.databaseService.getDatabase();
-    const avatarId = avatar._id.toString();
-    if (!await this.isXAuthorized(avatarId)) return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
-    const auth = await db.collection('x_auth').findOne({ avatarId });
-    if (!auth?.accessToken) return '-# [ ❌ Error: X authorization not found. Please reconnect your account. ]';
-    const accessToken = safeDecrypt(auth.accessToken);
-    if (!accessToken) return '-# [ ❌ Error: Failed to decrypt X access token. Please reconnect your X account. ]';
-    const twitterClient = new TwitterApi({ accessToken: accessToken.trim() });
-    const v2Client = twitterClient.v2;
     const quoteContent = this._sanitizeTweetText(content);
     if (!quoteContent) {
       return '-# [ ❌ Error: Quote content cannot be empty after removing links. ]';
     }
+    
+    const clientResult = await this._getAuthenticatedClientForAvatar(avatar, { throwOnError: false });
+    if (!clientResult) {
+      return '-# [ ❌ Error: X authorization required. Please connect your account. ]';
+    }
+    
+    const { v2: v2Client } = clientResult;
+    const avatarId = avatar._id?.toString() || avatar;
+    
     try {
       const result = await v2Client.tweet({ text: quoteContent, quote_tweet_id: tweetId });
       if (!result) return '-# [ ❌ Failed to quote on X. ]';
+      const db = await this.databaseService.getDatabase();
       await db.collection('social_posts').insertOne({ avatarId: avatar._id, content: quoteContent, tweetId, timestamp: new Date(), postedToX: true, type: 'quote' });
       const targetUrl = this.buildTweetUrl(tweetId);
       const linkText = targetUrl ? `[Quoted post](${targetUrl})` : 'Quoted post';
@@ -2410,12 +2427,9 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
   async fetchAndCacheGlobalProfile(force = false) {
     try {
       const db = await this.databaseService.getDatabase();
-      // Resolve the candidate global auth in the same way postGlobalMediaUpdate does.
-      let auth = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
-      if (!auth) {
-        auth = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
-      }
+      const auth = await this._resolveGlobalAuthRecord();
       if (!auth || !auth.accessToken) return null;
+      
       const existing = auth.profile || null;
       const now = Date.now();
       const staleMs = 6 * 60 * 60 * 1000; // 6 hours
@@ -2423,17 +2437,19 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
         const age = now - new Date(existing.cachedAt).getTime();
         if (age < staleMs) return existing; // fresh enough
       }
-      // Build client with decrypted token
-      const token = safeDecrypt(auth.accessToken);
-      if (!token) return existing; // fallback to existing if decrypt failed
+      
+      // Use centralized global client factory
+      const clientResult = await this._getAuthenticatedClientForGlobal({ throwOnError: false });
+      if (!clientResult) return existing; // fallback to existing if client creation failed
+      
       try {
-        const client = new TwitterApi({ accessToken: token.trim() });
-        const me = await client.v2.me({ 'user.fields': 'name,username,profile_image_url' });
+        const { v2: clientV2 } = clientResult;
+        const me = await clientV2.me({ 'user.fields': 'name,username,profile_image_url' });
         const data = me?.data;
         if (!data) return existing;
         const profile = {
           id: data.id,
-            name: data.name,
+          name: data.name,
           username: data.username,
           profile_image_url: data.profile_image_url,
           cachedAt: new Date()
@@ -3383,22 +3399,12 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
     }
 
     // Get a client (prefer OAuth 1.0a for reliability)
-    const oauth1Creds = await this._getOAuth1Credentials();
-    let v2Client;
-    
-    if (oauth1Creds) {
-      const client = this._createTwitterClient({ oauth1Creds });
-      v2Client = client.v2;
-    } else {
-      // Fall back to global auth
-      const auth = await this._resolveGlobalAuthRecord();
-      if (!auth?.accessToken) {
-        this.logger?.warn?.('[XService][syncEngagement] No auth available');
-        return { synced: 0, errors: 0 };
-      }
-      const client = this._createTwitterClient({ accessToken: safeDecrypt(auth.accessToken) });
-      v2Client = client.v2;
+    const clientResult = await this._getAuthenticatedClientForGlobal({ preferOAuth1: true, throwOnError: false });
+    if (!clientResult) {
+      this.logger?.warn?.('[XService][syncEngagement] No auth available');
+      return { synced: 0, errors: 0 };
     }
+    const { v2: v2Client } = clientResult;
 
     let synced = 0;
     let errors = 0;
