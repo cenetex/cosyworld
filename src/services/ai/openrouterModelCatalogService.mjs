@@ -53,6 +53,9 @@ async function fetchModelEndpointInfo(modelId, logger = null) {
 // Cache TTL for model capabilities in database (7 days)
 const CAPABILITY_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Cooldown for failed model probes (5 minutes) - allows re-probing after cooldown
+const FAILED_PROBE_COOLDOWN_MS = 5 * 60 * 1000;
+
 export class OpenrouterModelCatalogService {
   constructor({ logger, aiModelService, databaseService } = {}) {
     this.logger = logger || console;
@@ -91,6 +94,10 @@ export class OpenrouterModelCatalogService {
         const id = doc.modelId;
         if (!id) continue;
         
+        // Only cache exists: true from DB - exists: false entries will be re-probed on next access
+        // This prevents stale "not found" entries from blocking valid models
+        if (doc.exists !== true) continue;
+        
         const caps = {
           exists: doc.exists,
           outputModalities: doc.outputModalities || [],
@@ -114,11 +121,15 @@ export class OpenrouterModelCatalogService {
 
   /**
    * Save model capabilities to database.
+   * Only persists exists: true entries to avoid caching false negatives.
    * @param {string} modelId 
    * @param {object} capabilities 
    */
   async _saveCapabilitiesToDb(modelId, capabilities) {
     if (!this.databaseService || !modelId) return;
+    
+    // Only persist successful probes - don't cache "not found" as it might be temporary
+    if (capabilities?.exists !== true) return;
     
     try {
       const db = await this.databaseService.getDatabase();
@@ -219,10 +230,20 @@ export class OpenrouterModelCatalogService {
     // Load from DB on first access
     await this._loadCapabilitiesFromDb();
     
-    // Check memory cache first
+    // Check memory cache first - but only trust exists: true, since exists: false might be stale
     const cached = this._modelCapabilitiesCache.get(id);
-    if (cached) {
+    if (cached?.exists === true) {
       return cached;
+    }
+    
+    // For exists: false, check if we're still in cooldown period before re-probing
+    if (cached?.exists === false && cached?.lastProbeAt) {
+      const elapsed = Date.now() - cached.lastProbeAt;
+      if (elapsed < FAILED_PROBE_COOLDOWN_MS) {
+        this.logger?.debug?.(`[OpenrouterModelCatalog] Model ${id} probe in cooldown (${Math.round((FAILED_PROBE_COOLDOWN_MS - elapsed) / 1000)}s remaining)`);
+        return cached;
+      }
+      this.logger?.debug?.(`[OpenrouterModelCatalog] Re-probing model ${id} (cooldown expired)`);
     }
     
     // Check if we have it in the main catalog
@@ -243,8 +264,8 @@ export class OpenrouterModelCatalogService {
     const info = await fetchModelEndpointInfo(id, this.logger);
     if (!info.exists) {
       // If endpoints probe returned 404, the model might still be valid (new models aren't always in endpoints API)
-      // Cache as "unknown" rather than "non-existent" - don't set exists: false
-      const result = { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false, probeStatus: info.probeStatus };
+      // Cache with lastProbeAt so we can re-probe after cooldown
+      const result = { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false, probeStatus: info.probeStatus, lastProbeAt: Date.now() };
       this._modelCapabilitiesCache.set(id, result);
       return result;
     }
