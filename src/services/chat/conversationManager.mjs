@@ -154,7 +154,9 @@ export class ConversationManager  {
       // Invalid model: repair to a random existing model and persist.
       try {
         if (this.openrouterModelCatalogService?.modelExists) {
+          this.logger.debug?.(`[AI] ensureAvatarModel checking if model '${avatar.model}' exists for ${avatar?.name}`);
           const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
+          this.logger.debug?.(`[AI] ensureAvatarModel model '${avatar.model}' exists: ${ok}`);
           if (!ok) {
             const previous = avatar.model;
             const picked = await pickRandomExisting();
@@ -786,7 +788,9 @@ export class ConversationManager  {
   // If so, route to image generation instead of chat
   if (this.openrouterModelCatalogService) {
     try {
+      this.logger.info?.(`[ConversationManager] Checking if ${avatar.name}'s model '${avatar.model}' is image-only`);
       const isImageOnly = await this.openrouterModelCatalogService.isImageOnlyAsync(avatar.model);
+      this.logger.info?.(`[ConversationManager] isImageOnly result for '${avatar.model}': ${isImageOnly}`);
       if (isImageOnly) {
         this.logger.info?.(`[ConversationManager] ${avatar.name} has image-only model '${avatar.model}', routing to image generation`);
         
