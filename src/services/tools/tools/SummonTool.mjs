@@ -706,14 +706,14 @@ export class SummonTool extends BasicTool {
             ], { model: existingAvatar.model, corrId });
 
             // Debug: log the greeting result structure
-            this.logger?.debug?.(`[SummonTool] greetingResult for ${existingAvatar.name}: hasImages=${!!greetingResult?.images}, imagesLength=${greetingResult?.images?.length}, textLength=${greetingResult?.text?.length}, keys=${Object.keys(greetingResult || {}).join(',')}`);
+            this.logger?.info?.(`[SummonTool] greetingResult for ${existingAvatar.name}: hasImages=${!!greetingResult?.images}, imagesLength=${greetingResult?.images?.length}, textLength=${greetingResult?.text?.length}, keys=${Object.keys(greetingResult || {}).join(',')}`);
 
             // Check if the response includes images (for image-generating models)
             if (greetingResult?.images?.length > 0) {
               const img = greetingResult.images[0];
               let imageUrl = img.url;
               
-              this.logger?.debug?.(`[SummonTool] Image found: hasUrl=${!!img.url}, hasData=${!!img.data}, dataLen=${img.data?.length}, hasS3Service=${!!this.s3Service?.uploadBuffer}`);
+              this.logger?.info?.(`[SummonTool] Image found: hasUrl=${!!img.url}, hasData=${!!img.data}, dataLen=${img.data?.length}, hasS3Service=${!!this.s3Service?.uploadBuffer}`);
               
               // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
               if (!imageUrl && img.data && this.s3Service?.uploadBuffer) {
