@@ -35,10 +35,36 @@ export default function xauthRoutes(services) {
     const xService = services.xService;
     const logger = services.logger || console;
     const socialPlatformService = services.socialPlatformService;
+    const secretsService = services.secretsService;
 
     if (!socialPlatformService) {
         throw new Error('socialPlatformService is required for xauth routes');
     }
+    
+    // Get OAuth 2.0 credentials from secrets service or environment variables
+    const getOAuth2Credentials = async () => {
+        let clientId = process.env.X_CLIENT_ID;
+        let clientSecret = process.env.X_CLIENT_SECRET;
+        let callbackUrl = process.env.X_CALLBACK_URL;
+        
+        // Try to get from secrets service if available
+        if (secretsService) {
+            try {
+                const storedCreds = await secretsService.get('x_oauth2_creds', 'global');
+                if (storedCreds) {
+                    if (storedCreds.clientId) clientId = storedCreds.clientId;
+                    if (storedCreds.clientSecret) clientSecret = storedCreds.clientSecret;
+                    if (storedCreds.callbackUrl) callbackUrl = storedCreds.callbackUrl;
+                    logger?.debug?.('[xauth] Using OAuth 2.0 credentials from secrets service');
+                }
+            } catch (e) {
+                logger?.debug?.('[xauth] No stored OAuth 2.0 credentials, using env vars');
+            }
+        }
+        
+        return { clientId, clientSecret, callbackUrl };
+    };
+    
     // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
     // Fallback uses the default AI chat model name to generate a deterministic id.
     const getAdminAvatarId = () => {
@@ -336,8 +362,9 @@ export default function xauthRoutes(services) {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
 
-            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
-                return res.status(500).json({ error: 'X integration is not configured on server' });
+            const creds = await getOAuth2Credentials();
+            if (!creds.clientId || !creds.clientSecret) {
+                return res.status(500).json({ error: 'X integration is not configured on server (missing OAuth 2.0 credentials)' });
             }
 
             const db = await services.databaseService.getDatabase();
@@ -353,11 +380,12 @@ export default function xauthRoutes(services) {
             const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
 
             const client = new TwitterApi({
-                clientId: process.env.X_CLIENT_ID,
-                clientSecret: process.env.X_CLIENT_SECRET,
+                clientId: creds.clientId,
+                clientSecret: creds.clientSecret,
             });
 
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
+            const callbackUrl = creds.callbackUrl || getCallbackUrl();
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(callbackUrl, {
                 scope: [
                     'tweet.read',
                     'tweet.write',
@@ -460,22 +488,28 @@ export default function xauthRoutes(services) {
                 return res.status(400).json({ error: 'Authentication session expired' });
             }
 
+            const creds = await getOAuth2Credentials();
             const client = new TwitterApi({
-                clientId: process.env.X_CLIENT_ID,
-                clientSecret: process.env.X_CLIENT_SECRET,
+                clientId: creds.clientId,
+                clientSecret: creds.clientSecret,
             });
 
+            const callbackUrl = creds.callbackUrl || getCallbackUrl();
             console.log('Token exchange details:', {
-                code,
-                codeVerifier: storedAuth.codeVerifier,
-                redirectUri: getCallbackUrl(),
+                code: code?.substring(0, 20) + '...',
+                codeVerifier: storedAuth.codeVerifier?.substring(0, 20) + '...',
+                redirectUri: callbackUrl,
                 avatarId: storedAuth.avatarId,
+                clientIdLength: creds.clientId?.length,
+                clientSecretLength: creds.clientSecret?.length,
+                clientIdPrefix: creds.clientId?.substring(0, 10),
+                usingSecretsService: !!secretsService,
             });
 
             const { accessToken, refreshToken, expiresIn, scope } = await client.loginWithOAuth2({
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: getCallbackUrl(),
+                redirectUri: callbackUrl,
             });
 
             const expiresAt = new Date(Date.now() + (expiresIn || DEFAULT_TOKEN_EXPIRY) * 1000);

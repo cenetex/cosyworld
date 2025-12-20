@@ -1823,6 +1823,71 @@ Please ensure the server is fully initialized.
     }
   }));
 
+  // OAuth 2.0 credentials management
+  router.get('/x-oauth2', asyncHandler(async (req, res) => {
+    const { secretsService } = services;
+    const creds = await secretsService.getAsync('x_oauth2_creds');
+    
+    // Also check environment variables as fallback
+    const envClientId = process.env.X_CLIENT_ID;
+    const envClientSecret = process.env.X_CLIENT_SECRET;
+    const envCallbackUrl = process.env.X_CALLBACK_URL;
+    
+    if (!creds && !envClientId) {
+      return res.json({ hasCredentials: false, source: 'none' });
+    }
+    
+    // Return non-secret fields and flags for secret fields
+    res.json({
+      clientId: creds?.clientId || envClientId || null,
+      hasClientSecret: !!(creds?.clientSecret || envClientSecret),
+      callbackUrl: creds?.callbackUrl || envCallbackUrl || null,
+      hasCredentials: true,
+      source: creds?.clientId ? 'database' : 'environment'
+    });
+  }));
+
+  router.post('/x-oauth2', asyncHandler(async (req, res) => {
+    const { clientId, clientSecret, callbackUrl } = req.body;
+    const { secretsService } = services;
+    
+    console.log('[admin] Saving OAuth 2.0 credentials:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasCallbackUrl: !!callbackUrl,
+      clientIdLength: clientId?.length,
+      clientSecretLength: clientSecret?.length
+    });
+    
+    // Get existing credentials
+    const existing = await secretsService.getAsync('x_oauth2_creds') || {};
+    
+    // Update with new values (preserve existing if new value is null/undefined/empty)
+    const updated = {
+      clientId: clientId?.trim() || existing.clientId || null,
+      clientSecret: clientSecret?.trim() || existing.clientSecret || null,
+      callbackUrl: callbackUrl?.trim() || existing.callbackUrl || null
+    };
+    
+    console.log('[admin] Updated OAuth 2.0 credentials:', {
+      hasClientId: !!updated.clientId,
+      hasClientSecret: !!updated.clientSecret,
+      hasCallbackUrl: !!updated.callbackUrl
+    });
+    
+    await secretsService.set('x_oauth2_creds', updated);
+    
+    res.json({ 
+      success: true,
+      message: 'OAuth 2.0 credentials saved',
+      saved: {
+        clientId: !!updated.clientId,
+        clientSecret: !!updated.clientSecret,
+        callbackUrl: !!updated.callbackUrl
+      }
+    });
+  }));
+
   const checkWhitelistStatus = async (guildId) => {
     try {
       // Check if database is initialized
