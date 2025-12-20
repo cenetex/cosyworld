@@ -1813,6 +1813,93 @@ export class ConversationManager  {
   }
 
   /**
+   * Generate a scene description for image generation using an orchestrator model.
+   * Analyzes the channel conversation and creates a detailed visual prompt.
+   * @param {object} avatar - The avatar that will be depicted
+   * @param {Array} channelHistory - Recent channel messages for context
+   * @returns {Promise<string>} A detailed scene description for image generation
+   * @private
+   */
+  async _generateSceneDescription(avatar, channelHistory = []) {
+    // Fallback prompt if orchestrator fails
+    const fallbackPrompt = avatar.imagePrompt || avatar.appearance || `A fantasy character named ${avatar.name}`;
+    
+    try {
+      // Need a text-capable AI service for the orchestrator
+      const orchestrator = this.unifiedAIService;
+      if (!orchestrator?.chat) {
+        this.logger?.debug?.(`[ConversationManager] No orchestrator available, using fallback prompt for ${avatar.name}`);
+        return fallbackPrompt;
+      }
+      
+      // Build conversation context summary
+      let conversationContext = '';
+      if (channelHistory?.length > 0) {
+        const recentMessages = channelHistory.slice(-8); // Last 8 messages
+        conversationContext = recentMessages
+          .map(m => {
+            const author = m.author?.username || m.author?.name || 'Unknown';
+            const content = (m.content || '').slice(0, 150);
+            return `${author}: ${content}`;
+          })
+          .filter(line => line.length > 10)
+          .join('\n');
+      }
+      
+      // Build the orchestrator prompt
+      const systemPrompt = `You are an expert at describing scenes for AI image generation. 
+Given a character and conversation context, create a vivid, detailed image generation prompt.
+
+The prompt should:
+- Describe a single coherent scene/moment
+- Include the main character's appearance and pose
+- Set the mood, lighting, and atmosphere
+- Be 2-4 sentences, under 300 characters total
+- Focus on visual elements only (no dialogue or sounds)
+- Be suitable for a fantasy/creative art style
+
+Output ONLY the image prompt, nothing else.`;
+
+      const userPrompt = `Character: ${avatar.name}
+Appearance: ${avatar.appearance || avatar.imagePrompt || 'A fantasy character'}
+Personality: ${avatar.personality || 'Mysterious and creative'}
+
+Recent conversation:
+${conversationContext || '(No recent messages)'}
+
+Generate an image prompt depicting ${avatar.name} in this scene:`;
+
+      // Use a fast, capable model for orchestration
+      const orchestratorModel = 'openai/gpt-4o-mini';
+      
+      this.logger?.debug?.(`[ConversationManager] Generating scene description for ${avatar.name}`);
+      
+      const result = await orchestrator.chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], {
+        model: orchestratorModel,
+        max_tokens: 150,
+        temperature: 0.8,
+      });
+      
+      const scenePrompt = typeof result === 'string' ? result.trim() : result?.text?.trim();
+      
+      if (scenePrompt && scenePrompt.length > 20) {
+        this.logger?.info?.(`[ConversationManager] Generated scene description for ${avatar.name}: "${scenePrompt.slice(0, 100)}..."`);
+        return scenePrompt;
+      }
+      
+      this.logger?.debug?.(`[ConversationManager] Orchestrator returned empty/short result, using fallback`);
+      return fallbackPrompt;
+      
+    } catch (e) {
+      this.logger?.warn?.(`[ConversationManager] Scene description generation failed: ${e.message}, using fallback`);
+      return fallbackPrompt;
+    }
+  }
+
+  /**
    * Generate a response for an avatar that has an image-only model (like FLUX).
    * These models cannot generate text, only images, so we use them directly for image generation.
    * @param {object} avatar - The avatar with an image-only model
@@ -1830,20 +1917,8 @@ export class ConversationManager  {
         return null;
       }
       
-      // Build a prompt from context - use recent conversation as inspiration
-      let imagePrompt = avatar.imagePrompt || avatar.appearance || `A fantasy character named ${avatar.name}`;
-      
-      // Add context from recent messages if available
-      if (channelHistory?.length > 0) {
-        const recentMessages = channelHistory.slice(-3);
-        const contextHints = recentMessages
-          .map(m => m.content || '')
-          .filter(c => c.length > 0 && c.length < 200)
-          .join('. ');
-        if (contextHints) {
-          imagePrompt = `${imagePrompt}. Scene context: ${contextHints.slice(0, 300)}`;
-        }
-      }
+      // Use orchestrator model to generate a scene description from channel context
+      let imagePrompt = await this._generateSceneDescription(avatar, channelHistory);
       
       // Collect reference images from channel history (profile pics of avatars and users)
       const referenceImages = [];
