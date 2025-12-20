@@ -751,17 +751,17 @@ export class ConversationManager  {
     
     const lastMessageTime = this.channelLastMessage.get(channel.id) || 0;
   if (!overrideCooldown && Date.now() - lastMessageTime < this.CHANNEL_COOLDOWN) {
-      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked by channel cooldown in ${channel.id}`);
+      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked by channel cooldown in ${channel.id} (${Date.now() - lastMessageTime}ms since last message, cooldown is ${this.CHANNEL_COOLDOWN}ms)`);
       return null;
     }
     if (!this.channelResponders.has(channel.id)) this.channelResponders.set(channel.id, new Set());
     const responders = this.channelResponders.get(channel.id);
     if (responders.size >= this.MAX_RESPONSES_PER_MESSAGE) {
-      this.logger.debug?.(`[ConversationManager] ${avatar.name} blocked - channel ${channel.id} has reached maximum responses`);
+      this.logger.info?.(`[ConversationManager] ${avatar.name} blocked - channel ${channel.id} has reached maximum responses (${responders.size}/${this.MAX_RESPONSES_PER_MESSAGE})`);
       return null;
     }
     if (responders.has(avatar._id)) {
-      this.logger.debug?.(`[ConversationManager] ${avatar.name} already responded in channel ${channel.id}`);
+      this.logger.info?.(`[ConversationManager] ${avatar.name} already responded in channel ${channel.id}`);
       return null;
     }
     
