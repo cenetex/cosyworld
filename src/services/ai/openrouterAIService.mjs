@@ -194,12 +194,15 @@ function sanitizeForLogging(obj, maxStringLen = 200) {
 function parseProviderError(err) {
   try {
     const status = err?.response?.status || err?.status || null;
-    // OpenAI style: err.error { type, code, message }
-    const raw = err?.error || err?.response?.data?.error || err?.data?.error || null;
+    // OpenAI SDK style: err has .code, .message, .error (nested), and .headers
+    // OpenRouter sometimes wraps in err.error.error
+    const raw = err?.error?.error || err?.error || err?.response?.data?.error || err?.data?.error || null;
     const type = raw?.type || err?.type || null;
     const code = raw?.code || err?.code || (status ? `HTTP_${status}` : null);
-    // Prefer provider's message, fallback to generic
+    // Prefer provider's detailed message, fallback to generic
     const providerMessage = raw?.message || err?.message || 'Unknown provider error';
+    // Include metadata if available (OpenRouter often includes helpful context)
+    const metadata = raw?.metadata || err?.metadata || null;
     // Public-friendly (avoid leaking internal texts like policy references)
     let userMessage = 'Upstream model request failed';
     if (status === 400) userMessage = 'Invalid request for selected model';
@@ -210,9 +213,9 @@ function parseProviderError(err) {
     else if (status === 429) userMessage = 'Rate limit reached – slowing down';
     else if (status === 500) userMessage = 'Provider internal error';
     else if (status === 503) userMessage = 'Provider temporarily unavailable';
-    return { status, code, type, providerMessage, userMessage };
+    return { status, code, type, providerMessage, userMessage, metadata };
   } catch (e) {
-    return { status: null, code: null, type: null, providerMessage: e.message || 'parse error', userMessage: 'Unknown error' };
+    return { status: null, code: null, type: null, providerMessage: e.message || 'parse error', userMessage: 'Unknown error', metadata: null };
   }
 }
 
@@ -551,21 +554,41 @@ export class OpenRouterAIService {
     const skipJsonSchema = this._jsonSchemaUnsupportedCache.has(modelKey);
     
     if (!skipJsonSchema) {
-      // Try json_schema first
+      // Try json_schema first - use returnEnvelope to capture error details
       const structuredOptions = {
         model: selectedModel,
         response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
         ...options,
         model: selectedModel,
+        returnEnvelope: true,
       };
 
       try {
         await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
-        const response = await this.chat(messages, structuredOptions);
-        if (!response) {
-          throw new Error('Chat returned null/empty response with json_schema format');
+        const envelope = await this.chat(messages, structuredOptions);
+        
+        // Check if the response has an error
+        if (envelope?.error) {
+          const errorCode = envelope.error.code || '';
+          const isHttp400 = errorCode.includes('400') || errorCode === 'HTTP_400';
+          if (isHttp400) {
+            this._jsonSchemaUnsupportedCache.add(modelKey);
+            this.logger?.debug?.(`[OpenRouter][StructuredOutput] Model '${selectedModel}' doesn't support json_schema (400 error), cached for future requests`);
+            // Fall through to json_object fallback
+          } else {
+            this.logger?.warn?.('[OpenRouter][StructuredOutput] json_schema attempt failed', { 
+              code: envelope.error.code, 
+              message: envelope.error.message,
+              model: selectedModel 
+            });
+          }
+        } else if (envelope?.text) {
+          // Success - parse and return
+          return typeof envelope.text === 'string' ? parseFirstJson(envelope.text) : envelope.text;
+        } else {
+          // Empty response - fall through to fallbacks
+          this.logger?.debug?.(`[OpenRouter][StructuredOutput] Empty response from json_schema for '${selectedModel}'`);
         }
-        return typeof response === 'string' ? parseFirstJson(response) : response;
       } catch (err) {
         const parsed = parseProviderError(err);
         
@@ -582,10 +605,15 @@ export class OpenRouterAIService {
 
     // Try json_object format (many models support this but not json_schema)
     try {
-      const jsonObjectOptions = { ...options, model: selectedModel, response_format: { type: 'json_object' } };
-      const alt = await this.chat(messages, jsonObjectOptions);
-      if (alt) {
-        return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+      const jsonObjectOptions = { ...options, model: selectedModel, response_format: { type: 'json_object' }, returnEnvelope: true };
+      const envelope = await this.chat(messages, jsonObjectOptions);
+      if (envelope?.error) {
+        this.logger?.debug?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', { 
+          code: envelope.error.code, 
+          message: envelope.error.message 
+        });
+      } else if (envelope?.text) {
+        return typeof envelope.text === 'string' ? parseFirstJson(envelope.text) : envelope.text;
       }
     } catch (e2) {
       const parsed2 = parseProviderError(e2);
@@ -600,12 +628,13 @@ export class OpenRouterAIService {
       { role: 'system', content: instructions },
       { role: 'user', content: prompt }
     ];
-    const withoutRF = { ...options, model: selectedModel };
+    const withoutRF = { ...options, model: selectedModel, returnEnvelope: true };
     try {
       const raw = await parseWithRetries(async () => {
-        const r = await this.chat(fallbackMessages, withoutRF);
-        if (!r) throw new Error('Chat returned null/empty response');
-        return typeof r === 'string' ? r : JSON.stringify(r);
+        const envelope = await this.chat(fallbackMessages, withoutRF);
+        if (envelope?.error) throw new Error(envelope.error.message || 'Chat error');
+        if (!envelope?.text) throw new Error('Chat returned null/empty response');
+        return typeof envelope.text === 'string' ? envelope.text : JSON.stringify(envelope.text);
       }, { retries: 2, backoffMs: 600 });
       return raw;
     } catch (e2) {
@@ -690,6 +719,18 @@ export class OpenRouterAIService {
       messages: (messages || []).filter(m => m && m.content !== undefined),
       ...rest,
     };
+
+    // GPT-5.x models don't support temperature, top_p, frequency_penalty, presence_penalty
+    // Remove these parameters to avoid 400 errors
+    if (/^openai\/gpt-5/i.test(mergedOptions.model)) {
+      const unsupportedParams = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'];
+      for (const param of unsupportedParams) {
+        if (param in mergedOptions) {
+          this.logger?.debug?.(`[OpenRouter][Chat] Removing unsupported parameter '${param}' for ${mergedOptions.model}`);
+          delete mergedOptions[param];
+        }
+      }
+    }
 
     if (mergedOptions.response_format?.type === 'json_schema') {
       await this._ensureModelSupportsStructuredOutputs(mergedOptions.model);
@@ -995,6 +1036,16 @@ export class OpenRouterAIService {
     } catch (error) {
       const parsed = parseProviderError(error);
       this.logger.error('[OpenRouter][Chat] error', parsed);
+      
+      // Log full error details at debug level for diagnosis
+      if (parsed.status === 400) {
+        this.logger.debug?.('[OpenRouter][Chat] Full 400 error details', {
+          model: mergedOptions.model,
+          errorMessage: error?.message,
+          errorResponse: error?.response?.data || error?.error,
+          errorBody: error?.body
+        });
+      }
       const status = parsed.status;
       
       // Retry if the error is a rate limit error
