@@ -1284,12 +1284,19 @@ export class OpenRouterAIService {
       { role: 'user', content }
     ];
     
+    this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] About to call chat() with model=${model}, contentParts=${content.length}`);
+    
     try {
       const response = await this.chat(messages, {
         ...options,
         model,
         returnEnvelope: true,
       });
+      
+      this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] chat() returned: hasResponse=${!!response}, hasImages=${!!response?.images}, imagesLen=${response?.images?.length}, hasText=${!!response?.text}, hasError=${!!response?.error}`);
+      if (response?.error) {
+        this.logger?.warn?.(`[OpenRouter][generateImageViaOpenRouter] chat() error: code=${response.error.code}, message=${response.error.message}`);
+      }
       
       if (response?.images && response.images.length > 0) {
         const image = response.images[0];
