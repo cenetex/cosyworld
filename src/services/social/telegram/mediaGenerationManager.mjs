@@ -85,6 +85,16 @@ export class MediaGenerationManager {
 
     // Get character design configuration
     const charDesign = this._getCharacterDesign();
+    
+    // Debug: Log character design retrieval for troubleshooting
+    this.logger?.debug?.('[MediaGenerationManager] Character design from globalBotService', {
+      hasGlobalBotService: !!this.globalBotService,
+      hasBot: !!this.globalBotService?.bot,
+      hasGlobalBotConfig: !!this.globalBotService?.bot?.globalBotConfig,
+      hasCharacterDesign: !!charDesign,
+      characterDesignEnabled: charDesign?.enabled,
+      hasReferenceUrl: !!charDesign?.referenceImageUrl
+    });
 
     // Primary path: Use MediaGenerationService (unified provider with retry/circuit breaker)
     if (this.mediaGenerationService) {

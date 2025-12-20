@@ -80,7 +80,7 @@ export const SPAM_CONFIG = {
 
 export const MEDIA_LIMITS = {
   video: { hourly: 2, daily: 4 },
-  image: { hourly: 3, daily: 100 },
+  image: { hourly: 30, daily: 100 },
   tweet: { hourly: 3, daily: 12 },
 };
 

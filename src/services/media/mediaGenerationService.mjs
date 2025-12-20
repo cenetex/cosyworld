@@ -142,11 +142,21 @@ export class MediaGenerationService {
     let enhancedPrompt = prompt;
     const refImages = [...referenceImages];
     
+    // Debug: Log character design state for troubleshooting
+    this.logger?.debug?.('[MediaGenerationService] Character design check', {
+      hasCharacterDesign: !!characterDesign,
+      enabled: characterDesign?.enabled,
+      enabledType: typeof characterDesign?.enabled,
+      hasReferenceUrl: !!characterDesign?.referenceImageUrl,
+      referenceUrlPreview: characterDesign?.referenceImageUrl?.substring?.(0, 50)
+    });
+    
     if (characterDesign?.enabled) {
       enhancedPrompt = this._applyCharacterPrompt(prompt, characterDesign);
       ctx.recordEvent('character_design_applied');
       if (characterDesign.referenceImageUrl && !refImages.includes(characterDesign.referenceImageUrl)) {
         refImages.push(characterDesign.referenceImageUrl);
+        this.logger?.info?.('[MediaGenerationService] Added character reference image to generation');
       }
     }
 
@@ -154,6 +164,7 @@ export class MediaGenerationService {
       traceId: ctx.traceId,
       prompt: prompt.substring(0, 100),
       hasReferenceImages: refImages.length > 0,
+      characterDesignEnabled: !!characterDesign?.enabled,
       aspectRatio,
       source
     });

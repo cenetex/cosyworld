@@ -96,7 +96,14 @@ export class GlobalBotService {
       const intervalHours = Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168); // 168 hours = 7 days
       this.scheduleNarrativeGeneration(intervalHours);
       
-      this.logger?.info?.(`[GlobalBotService] Initialized with bot ID: ${this.botId}`);
+      // Log character design configuration state for debugging
+      const charDesign = this.bot?.globalBotConfig?.characterDesign;
+      this.logger?.info?.(`[GlobalBotService] Initialized with bot ID: ${this.botId}`, {
+        hasCharacterDesign: !!charDesign,
+        characterDesignEnabled: charDesign?.enabled,
+        hasReferenceUrl: !!charDesign?.referenceImageUrl,
+        referenceUrlPreview: charDesign?.referenceImageUrl?.substring?.(0, 50)
+      });
     } catch (err) {
       this.logger?.error?.(`[GlobalBotService] Initialization failed: ${err.message}`);
       throw err;
@@ -916,6 +923,15 @@ Be thoughtful and introspective. This is for your own reflection, not for postin
           platformHandles,
           activePlatforms: activePlatforms.length ? activePlatforms : defaultConfig.activePlatforms
         };
+        
+        // Log character design state after merge for debugging
+        const charDesign = this.bot.globalBotConfig?.characterDesign;
+        this.logger?.debug?.('[GlobalBotService] Character design after merge', {
+          enabled: charDesign?.enabled,
+          enabledType: typeof charDesign?.enabled,
+          hasReferenceUrl: !!charDesign?.referenceImageUrl,
+          referenceUrl: charDesign?.referenceImageUrl?.substring?.(0, 50)
+        });
       }
       
       await this.avatarService.updateAvatar(this.bot);
