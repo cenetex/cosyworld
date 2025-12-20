@@ -374,10 +374,17 @@ export class OpenrouterModelCatalogService {
 
   /**
    * Strict existence check (uses cached catalog; refreshes if empty or stale).
+   * Falls back to probing the model via multiple API endpoints.
    */
   async modelExists(modelId, { refreshIfNeeded = true } = {}) {
     const id = normalizeId(modelId);
     if (!id) return false;
+
+    // Must have vendor/model format
+    if (!id.includes('/')) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] modelExists: '${id}' invalid format (no /)`);
+      return false;
+    }
 
     if (refreshIfNeeded) {
       if (!this._lastRefreshAt || !this._modelsById.size) {
@@ -387,13 +394,67 @@ export class OpenrouterModelCatalogService {
       }
     }
 
-    if (this._modelsById.has(id)) return true;
+    // Check main catalog first
+    if (this._modelsById.has(id)) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] modelExists: '${id}' found in catalog`);
+      return true;
+    }
 
-    // If the global catalog isn't available (or the model is brand new), fall back to probing
-    // the per-model endpoints route which returns 200 only for real models.
-    // This also fetches capabilities so we know if it's image-only.
+    // Check if we've already cached this model's capabilities (including from successful API calls)
+    const cached = this._modelCapabilitiesCache.get(id);
+    if (cached?.exists === true) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] modelExists: '${id}' found in capabilities cache`);
+      return true;
+    }
+
+    // Try the endpoints API probe
     const capabilities = await this.getModelCapabilities(id);
-    return capabilities.exists;
+    if (capabilities.exists) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] modelExists: '${id}' confirmed via endpoints API`);
+      return true;
+    }
+
+    // Endpoints API returned 404 - try probing the single-model API as final fallback
+    // Some models work with chat but aren't in the endpoints API
+    try {
+      const [author, ...rest] = id.split('/');
+      const slug = rest.join('/');
+      const singleModelUrl = `https://openrouter.ai/api/v1/models/${encodeURIComponent(author)}/${encodeURIComponent(slug)}`;
+      const res = await fetch(singleModelUrl, { headers: DEFAULT_HEADERS });
+      this.logger?.debug?.(`[OpenrouterModelCatalog] Single model probe for ${id}: HTTP ${res.status}`);
+      
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data || json?.id) {
+          // Model exists! Cache it
+          this.logger?.info?.(`[OpenrouterModelCatalog] modelExists: '${id}' confirmed via single-model API`);
+          const arch = json?.data?.architecture || json?.architecture || {};
+          const outputs = arch.output_modalities || [];
+          const inputs = arch.input_modalities || [];
+          const isImageCapable = outputs.includes('image');
+          const isImageOnly = outputs.length > 0 && outputs.every(m => m === 'image');
+          
+          this._modelCapabilitiesCache.set(id, { 
+            exists: true, 
+            outputModalities: outputs, 
+            inputModalities: inputs, 
+            isImageCapable, 
+            isImageOnly 
+          });
+          this._modelsById.set(id, json.data || json);
+          
+          if (isImageOnly) this._imageOnlyModels.add(id);
+          if (isImageCapable) this._imageCapableModels.add(id);
+          
+          return true;
+        }
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] Single model probe error for ${id}: ${e.message}`);
+    }
+
+    this.logger?.debug?.(`[OpenrouterModelCatalog] modelExists: '${id}' not found in any API`);
+    return false;
   }
 
   async assertModelExists(modelId) {
