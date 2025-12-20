@@ -690,7 +690,27 @@ export class OpenRouterAIService {
         this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit${limitMsg}. Consider increasing or removing max_tokens.`);
       }
       this.logger.debug?.(`[OpenRouter][Chat] finish_reason=${finishReason} usage=${JSON.stringify(response.usage)}`);
-
+      
+      // Debug logging for image models to understand response structure
+      const isImageModel = /flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model);
+      if (isImageModel) {
+        this.logger.debug?.(`[OpenRouter][Chat] Image model response structure: ${JSON.stringify({
+          contentType: typeof result.content,
+          contentIsArray: Array.isArray(result.content),
+          contentLength: typeof result.content === 'string' ? result.content.length : (Array.isArray(result.content) ? result.content.length : 'N/A'),
+          hasData: !!response.data,
+          hasImages: !!result.images,
+          imagesCount: result.images?.length || 0,
+          keys: Object.keys(result)
+        })}`);
+        // Log first 500 chars of content for debugging
+        if (result.content) {
+          const preview = typeof result.content === 'string' 
+            ? result.content.slice(0, 500)
+            : JSON.stringify(result.content).slice(0, 500);
+          this.logger.debug?.(`[OpenRouter][Chat] Image model content preview: ${preview}`);
+        }
+      }
       // If response is meant to be structured JSON, preserve it
       if (mergedOptions.response_format?.type === 'json_object') {
         return result.content;
@@ -709,6 +729,92 @@ export class OpenRouterAIService {
       // Normalize content that might be an array of segments (including multimodal)
       let normalizedContent = result.content;
       let imageData = null;
+      
+      // Check for image data in result.images (FLUX format)
+      // FLUX returns: { images: [{ index, type, image_url: { url: "data:image/png;base64,..." } }] }
+      if (result.images && Array.isArray(result.images) && result.images.length > 0) {
+        this.logger.debug?.(`[OpenRouter][Chat] Found ${result.images.length} image(s) in result.images (FLUX format)`);
+        imageData = imageData || [];
+        for (const img of result.images) {
+          if (img.image_url?.url) {
+            // image_url.url is a data URI like "data:image/png;base64,..."
+            const dataUrl = img.image_url.url;
+            if (dataUrl.startsWith('data:')) {
+              // Parse data URI to extract base64 and mime type
+              const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                imageData.push({
+                  data: match[2],
+                  mimeType: match[1],
+                  url: null
+                });
+              } else {
+                // Fallback - treat as URL
+                imageData.push({ url: dataUrl });
+              }
+            } else {
+              imageData.push({ url: dataUrl });
+            }
+          }
+        }
+      }
+      
+      // Check for image data at response level (some providers put it in response.data)
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.b64_json || response.data.url) {
+          imageData = imageData || [];
+          imageData.push({
+            url: response.data.url || null,
+            data: response.data.b64_json || null,
+            mimeType: 'image/png'
+          });
+        }
+      }
+      
+      // Check if content is a single object with image data (not an array)
+      if (normalizedContent && typeof normalizedContent === 'object' && !Array.isArray(normalizedContent)) {
+        // Handle single content part
+        const p = normalizedContent;
+        if (p.image?.data || p.image?.url) {
+          // FLUX-style: { image: { data: base64, mime_type: 'image/png' } }
+          imageData = imageData || [];
+          imageData.push({
+            url: p.image.url || null,
+            data: p.image.data || null,
+            mimeType: p.image.mime_type || p.image.mimeType || 'image/png'
+          });
+          normalizedContent = p.text || '';
+        } else if (p.type === 'image' && (p.data || p.url)) {
+          imageData = imageData || [];
+          imageData.push({
+            url: p.url || null,
+            data: p.data || null,
+            mimeType: p.mime_type || p.mimeType || 'image/png'
+          });
+          normalizedContent = '';
+        } else if (p.type === 'image_url' && p.image_url?.url) {
+          imageData = imageData || [];
+          imageData.push({ url: p.image_url.url });
+          normalizedContent = '';
+        } else if (p.text) {
+          normalizedContent = p.text;
+        }
+      }
+      
+      // Check if content is a base64 string (some image models return raw base64)
+      if (typeof normalizedContent === 'string' && normalizedContent.length > 1000) {
+        // Check if it looks like base64 image data (starts with base64 chars, no spaces/newlines)
+        const base64Pattern = /^[A-Za-z0-9+/=]{1000,}$/;
+        if (base64Pattern.test(normalizedContent.slice(0, 1100).replace(/\s/g, ''))) {
+          this.logger.debug?.(`[OpenRouter][Chat] Detected base64 image data in content (length: ${normalizedContent.length})`);
+          imageData = imageData || [];
+          imageData.push({
+            data: normalizedContent.replace(/\s/g, ''),
+            mimeType: 'image/png'
+          });
+          normalizedContent = '';
+        }
+      }
       
       if (Array.isArray(normalizedContent)) {
         try {
