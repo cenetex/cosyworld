@@ -1027,11 +1027,15 @@ export class OpenRouterAIService {
       // If we have image data from a multimodal response, include it
       if (imageData && imageData.length > 0) {
         this.logger?.info?.(`[OpenRouter][Chat] Multimodal response with ${imageData.length} image(s) from ${mergedOptions.model}`);
+        // Mark model as valid since the API call succeeded
+        this.openrouterModelCatalogService?.markModelAsValid?.(mergedOptions.model, { outputModalities: ['image'] });
         return options.returnEnvelope 
           ? { text: baseText, images: imageData, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null }
           : { text: baseText, images: imageData };
       }
     
+      // Mark model as valid since the API call succeeded
+      this.openrouterModelCatalogService?.markModelAsValid?.(mergedOptions.model, { outputModalities: ['text'] });
       return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
     } catch (error) {
       const parsed = parseProviderError(error);
