@@ -174,7 +174,7 @@ export class OpenrouterModelCatalogService {
     // Check cached results only
     if (this._imageCapableModels.has(id)) return true;
     const cached = this._modelCapabilitiesCache.get(id);
-    if (cached) return cached.isImageCapable || false;
+    if (cached) return Boolean(cached.isImageCapable);
     // Not cached - caller should use isImageCapableAsync() for reliable detection
     return false;
   }
@@ -195,7 +195,7 @@ export class OpenrouterModelCatalogService {
     // Check cached capabilities
     const cached = this._modelCapabilitiesCache.get(id);
     if (cached) {
-      return cached.isImageOnly || false;
+      return cached.isImageOnly ?? false;
     }
     // Not cached - caller should use isImageOnlyAsync() for reliable detection
     return false;
