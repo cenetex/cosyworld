@@ -152,22 +152,29 @@ export class ConversationManager  {
       }
 
       // Invalid model: repair to a random existing model and persist.
-      try {
-        if (this.openrouterModelCatalogService?.modelExists) {
-          this.logger.debug?.(`[AI] ensureAvatarModel checking if model '${avatar.model}' exists for ${avatar?.name}`);
-          const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
-          this.logger.debug?.(`[AI] ensureAvatarModel model '${avatar.model}' exists: ${ok}`);
-          if (!ok) {
-            const previous = avatar.model;
-            const picked = await pickRandomExisting();
-            if (picked && picked !== previous) {
-              avatar.model = picked;
-              try { await this.avatarService.updateAvatar(avatar); } catch {}
-              this.logger.warn?.(`[AI] repaired missing model '${previous}' -> '${picked}' for avatar ${avatar?.name || avatar?._id}`);
+      // SKIP validation if model looks like a valid OpenRouter ID (has vendor/model format)
+      // This prevents overwriting models that work but aren't in the catalog yet
+      const looksLikeOpenRouterId = typeof avatar.model === 'string' && avatar.model.includes('/');
+      if (looksLikeOpenRouterId) {
+        this.logger.debug?.(`[AI] ensureAvatarModel skipping validation for OpenRouter-style model '${avatar.model}' for ${avatar?.name}`);
+      } else {
+        try {
+          if (this.openrouterModelCatalogService?.modelExists) {
+            this.logger.debug?.(`[AI] ensureAvatarModel checking if model '${avatar.model}' exists for ${avatar?.name}`);
+            const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
+            this.logger.debug?.(`[AI] ensureAvatarModel model '${avatar.model}' exists: ${ok}`);
+            if (!ok) {
+              const previous = avatar.model;
+              const picked = await pickRandomExisting();
+              if (picked && picked !== previous) {
+                avatar.model = picked;
+                try { await this.avatarService.updateAvatar(avatar); } catch {}
+                this.logger.warn?.(`[AI] repaired missing model '${previous}' -> '${picked}' for avatar ${avatar?.name || avatar?._id}`);
+              }
             }
           }
-        }
-      } catch {}
+        } catch {}
+      }
     } catch (e) {
       this.logger.warn?.(`[AI] ensureAvatarModel failed: ${e.message}`);
     }

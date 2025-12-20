@@ -425,24 +425,30 @@ export class SummonTool extends BasicTool {
           }
 
           // Invalid model: repair and persist.
-          try {
-            if (this.openrouterModelCatalogService?.modelExists) {
-              const ok = await this.openrouterModelCatalogService.modelExists(av.model);
-              if (!ok) {
-                const previous = av.model;
-                const picked = await pickRandomExisting();
-                if (picked && picked !== previous) {
-                  av.model = picked;
-                  try {
-                    await this.avatarService.updateAvatar(av);
-                  } catch (updateErr) {
-                    this.logger?.warn?.(`[AI][SummonTool] ensureModel repair update failed for ${av.name || av._id}: ${updateErr.message}`);
+          // SKIP validation if model looks like a valid OpenRouter ID (has vendor/model format)
+          const looksLikeOpenRouterId = typeof av.model === 'string' && av.model.includes('/');
+          if (looksLikeOpenRouterId) {
+            this.logger?.debug?.(`[AI][SummonTool] ensureModel skipping validation for OpenRouter-style model '${av.model}' for ${av.name || av._id}`);
+          } else {
+            try {
+              if (this.openrouterModelCatalogService?.modelExists) {
+                const ok = await this.openrouterModelCatalogService.modelExists(av.model);
+                if (!ok) {
+                  const previous = av.model;
+                  const picked = await pickRandomExisting();
+                  if (picked && picked !== previous) {
+                    av.model = picked;
+                    try {
+                      await this.avatarService.updateAvatar(av);
+                    } catch (updateErr) {
+                      this.logger?.warn?.(`[AI][SummonTool] ensureModel repair update failed for ${av.name || av._id}: ${updateErr.message}`);
+                    }
+                    this.logger?.warn?.(`[AI][SummonTool] repaired missing model '${previous}' -> '${picked}' for ${av.name || av._id}`);
                   }
-                  this.logger?.warn?.(`[AI][SummonTool] repaired missing model '${previous}' -> '${picked}' for ${av.name || av._id}`);
                 }
               }
-            }
-          } catch {}
+            } catch {}
+          }
         } catch (e) { this.logger?.warn?.(`[AI][SummonTool] ensureModel failed: ${e.message}`); }
         return av?.model;
       };
@@ -705,10 +711,15 @@ export class SummonTool extends BasicTool {
               { role: 'user', content: greetingPrompt }
             ], { model: existingAvatar.model, corrId });
 
+            // Debug: log the greeting result structure
+            this.logger?.debug?.(`[SummonTool] greetingResult for ${existingAvatar.name}: hasImages=${!!greetingResult?.images}, imagesLength=${greetingResult?.images?.length}, textLength=${greetingResult?.text?.length}, keys=${Object.keys(greetingResult || {}).join(',')}`);
+
             // Check if the response includes images (for image-generating models)
             if (greetingResult?.images?.length > 0) {
               const img = greetingResult.images[0];
               let imageUrl = img.url;
+              
+              this.logger?.debug?.(`[SummonTool] Image found: hasUrl=${!!img.url}, hasData=${!!img.data}, dataLen=${img.data?.length}, hasS3Service=${!!this.s3Service?.uploadBuffer}`);
               
               // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
               if (!imageUrl && img.data && this.s3Service?.uploadBuffer) {
