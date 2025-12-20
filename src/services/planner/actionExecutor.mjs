@@ -666,7 +666,10 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
     
     // Check the result from executeTweetPost
     if (!tweetResult?.success) {
-      const error = tweetResult?.error || 'Tweet post failed';
+      // Extract meaningful error message - 'error' may be boolean true, real message is in 'reason'
+      const error = typeof tweetResult?.reason === 'string' 
+        ? tweetResult.reason 
+        : (typeof tweetResult?.error === 'string' ? tweetResult.error : 'Tweet post failed');
       logger?.warn?.('[PostTweetExecutor] Tweet failed:', { error, alreadyTweeted: tweetResult?.alreadyTweeted });
       return { 
         success: false, 
