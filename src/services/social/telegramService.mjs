@@ -37,7 +37,6 @@ import {
   DEFAULT_MODEL,
   CORE_CASHTAGS,
   // Utilities
-  escapeHtml,
   formatTelegramMarkdown,
   includesMention,
   sendImagePreservingFormat,

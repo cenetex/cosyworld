@@ -101,8 +101,15 @@ export class XProvider extends BaseSocialProvider {
     const client = new TwitterApi(tokens.accessToken);
     let profileData = options.metadata || null;
 
+    // Only fetch profile if not provided - don't fail if rate limited
     if (!profileData || !profileData.username) {
-      profileData = await this._fetchProfile(client);
+      try {
+        profileData = await this._fetchProfile(client);
+      } catch (fetchErr) {
+        // Log but don't fail - profile can be fetched later
+        this.logger.warn(`[XProvider] Could not fetch profile for ${avatarId}: ${fetchErr.message}`);
+        profileData = options.metadata || {};
+      }
     }
 
     const metadata = this._buildMetadata(profileData, options.metadata);
@@ -115,12 +122,8 @@ export class XProvider extends BaseSocialProvider {
   }
 
   async _fetchProfile(client) {
-    try {
-      const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
-      return me?.data || null;
-    } catch (error) {
-      throw new Error(`Failed to fetch X profile: ${error.message}`);
-    }
+    const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
+    return me?.data || null;
   }
 
   _buildMetadata(profile, fallback = {}) {
