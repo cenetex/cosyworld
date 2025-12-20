@@ -650,12 +650,12 @@ export class SummonTool extends BasicTool {
                 
                 setTimeout(async () => {
                   try {
-                    await this.discordService.sendMessage({
-                      channelId: message.channel.id,
-                      avatarName: existingAvatar.name,
-                      avatarImage: existingAvatar.imageUrl,
-                      embeds: [embed],
-                    });
+                    await this.discordService.sendEmbedAsWebhook(
+                      message.channel.id,
+                      embed,
+                      existingAvatar.name,
+                      existingAvatar.imageUrl
+                    );
                     if (!alreadyHere) {
                       await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
                     }
@@ -703,12 +703,12 @@ export class SummonTool extends BasicTool {
                 };
                 setTimeout(async () => {
                   try {
-                    await this.discordService.sendMessage({
-                      channelId: message.channel.id,
-                      avatarName: existingAvatar.name,
-                      avatarImage: existingAvatar.imageUrl,
-                      embeds: [embed],
-                    });
+                    await this.discordService.sendEmbedAsWebhook(
+                      message.channel.id,
+                      embed,
+                      existingAvatar.name,
+                      existingAvatar.imageUrl
+                    );
                     if (!alreadyHere) {
                       await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
                     }
