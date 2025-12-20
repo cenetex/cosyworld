@@ -690,8 +690,44 @@ export class SummonTool extends BasicTool {
               { role: 'user', content: greetingPrompt }
             ], { model: existingAvatar.model, corrId });
 
+            // Check if the response includes images (for image-generating models)
+            if (greetingResult?.images?.length > 0) {
+              const img = greetingResult.images[0];
+              const imageUrl = img.url || (img.data ? `data:${img.mimeType || 'image/png'};base64,${img.data}` : null);
+              if (imageUrl) {
+                this.logger?.info?.(`[SummonTool] ${existingAvatar.name} generated image greeting instead of text`);
+                const embed = {
+                  color: 0x9b59b6,
+                  image: { url: imageUrl },
+                  footer: { text: alreadyHere ? `${existingAvatar.name} acknowledges the summon` : `${existingAvatar.name} arrives` }
+                };
+                setTimeout(async () => {
+                  try {
+                    await this.discordService.sendMessage({
+                      channelId: message.channel.id,
+                      avatarName: existingAvatar.name,
+                      avatarImage: existingAvatar.imageUrl,
+                      embeds: [embed],
+                    });
+                    if (!alreadyHere) {
+                      await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
+                    }
+                  } catch (err) {
+                    this.logger?.warn?.(`[SummonTool] Failed to send image greeting: ${err?.message}`);
+                  }
+                }, 800);
+                return alreadyHere
+                  ? `-# ${this.emoji} [ ${existingAvatar.name} is already here. ]`
+                  : `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
+              }
+            }
+
             greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
             if (typeof greeting === 'string') greeting = stripHiddenTags(greeting);
+            // Fallback if we got an object without text (shouldn't happen, but safety check)
+            if (greeting && typeof greeting === 'object') {
+              greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+            }
           } catch (e) {
             this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
             greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;

@@ -569,7 +569,7 @@ export class OpenRouterAIService {
         
         // Check if the response has an error
         if (envelope?.error) {
-          const errorCode = envelope.error.code || '';
+          const errorCode = String(envelope.error.code ?? '');
           const isHttp400 = errorCode.includes('400') || errorCode === 'HTTP_400';
           if (isHttp400) {
             this._jsonSchemaUnsupportedCache.add(modelKey);

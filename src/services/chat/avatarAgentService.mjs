@@ -111,7 +111,7 @@ export class AvatarAgentService {
         confidence: { type: 'number', minimum: 0, maximum: 1 },
         reason: { type: 'string' },
       },
-      required: ['action'],
+      required: ['action', 'confidence', 'reason'],
     };
 
     const prompt = [
