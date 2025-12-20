@@ -16,46 +16,6 @@ const normalizeId = (value) => {
 };
 
 /**
- * Known image-capable model patterns that may not appear in the catalog.
- * These models support image generation via OpenRouter's chat completions API.
- */
-const KNOWN_IMAGE_MODEL_PATTERNS = [
-  /^black-forest-labs\/flux/i,        // FLUX models (flux.2-max, flux.1-schnell, etc.)
-  /^stabilityai\/stable-diffusion/i,  // Stable Diffusion models
-  /\/dall-e/i,                         // DALL-E models
-  /\/imagen/i,                         // Google Imagen
-];
-
-/**
- * Known image-ONLY model patterns (cannot generate text, only images).
- * These models should NOT be used for chat - they need image generation flow.
- */
-const IMAGE_ONLY_MODEL_PATTERNS = [
-  /^black-forest-labs\/flux/i,        // FLUX models are image-only
-  /^stabilityai\/stable-diffusion/i,  // SD models are image-only
-];
-
-/**
- * Check if a model ID matches known image-generation model patterns.
- * @param {string} modelId 
- * @returns {boolean}
- */
-const isKnownImageModel = (modelId) => {
-  if (!modelId) return false;
-  return KNOWN_IMAGE_MODEL_PATTERNS.some(pattern => pattern.test(modelId));
-};
-
-/**
- * Check if a model ID is an image-ONLY model (cannot generate text).
- * @param {string} modelId 
- * @returns {boolean}
- */
-const isImageOnlyModel = (modelId) => {
-  if (!modelId) return false;
-  return IMAGE_ONLY_MODEL_PATTERNS.some(pattern => pattern.test(modelId));
-};
-
-/**
  * Fetch model details from the OpenRouter endpoints API.
  * This works for models not in the main catalog (like FLUX).
  * @param {string} modelId 
@@ -202,25 +162,28 @@ export class OpenrouterModelCatalogService {
   }
 
   /**
-   * Check if a model supports image output generation.
-   * Checks both the catalog and known image-generation model patterns.
+   * Check if a model supports image output generation (sync, cache-only).
+   * Returns cached result if available, false otherwise.
+   * For reliable detection, use isImageCapableAsync() which fetches from API.
    * @param {string} modelId 
    * @returns {boolean}
    */
   isImageCapable(modelId) {
     const id = normalizeId(modelId);
     if (!id) return false;
-    // Check catalog first
+    // Check cached results only
     if (this._imageCapableModels.has(id)) return true;
-    // Check known image model patterns (for models not in catalog)
-    return isKnownImageModel(modelId);
+    const cached = this._modelCapabilitiesCache.get(id);
+    if (cached) return cached.isImageCapable || false;
+    // Not cached - caller should use isImageCapableAsync() for reliable detection
+    return false;
   }
 
   /**
-   * Check if a model is image-ONLY (cannot generate text, only images).
+   * Check if a model is image-ONLY (cannot generate text, only images) - sync, cache-only.
    * These models need special handling - they should generate images instead of chat.
-   * Uses cached capabilities if available, otherwise falls back to pattern matching.
-   * For async capability lookup, use getModelCapabilities() first.
+   * Returns cached result if available, false otherwise.
+   * For reliable detection, use isImageOnlyAsync() which fetches from API.
    * @param {string} modelId 
    * @returns {boolean}
    */
@@ -232,14 +195,10 @@ export class OpenrouterModelCatalogService {
     // Check cached capabilities
     const cached = this._modelCapabilitiesCache.get(id);
     if (cached) {
-      const outputs = cached.outputModalities || [];
-      // Image-only if ONLY "image" is in output modalities (no "text")
-      if (outputs.length > 0 && outputs.every(m => m === 'image')) {
-        return true;
-      }
+      return cached.isImageOnly || false;
     }
-    // Fall back to pattern matching
-    return isImageOnlyModel(modelId);
+    // Not cached - caller should use isImageOnlyAsync() for reliable detection
+    return false;
   }
 
   /**
@@ -481,10 +440,7 @@ export class OpenrouterModelCatalogService {
       return this._modelCapabilitiesCache.get(id).isImageOnly;
     }
     
-    // Quick pattern check before API call
-    if (isImageOnlyModel(modelId)) return true;
-    
-    // Fetch capabilities
+    // Fetch capabilities from API (will cache the result)
     const caps = await this.getModelCapabilities(modelId);
     return caps.isImageOnly;
   }
@@ -505,10 +461,7 @@ export class OpenrouterModelCatalogService {
       return this._modelCapabilitiesCache.get(id).isImageCapable;
     }
     
-    // Quick pattern check before API call
-    if (isKnownImageModel(modelId)) return true;
-    
-    // Fetch capabilities
+    // Fetch capabilities from API (will cache the result)
     const caps = await this.getModelCapabilities(modelId);
     return caps.isImageCapable;
   }
