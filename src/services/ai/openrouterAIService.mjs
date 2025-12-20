@@ -733,6 +733,14 @@ export class OpenRouterAIService {
                 data: p.data || null,
                 mimeType: p.mime_type || p.mimeType || 'image/png'
               });
+            } else if (p?.image?.data || p?.image?.url) {
+              // FLUX-style format: { image: { data: base64, mime_type: 'image/png' } }
+              imageData = imageData || [];
+              imageData.push({
+                url: p.image.url || null,
+                data: p.image.data || null,
+                mimeType: p.image.mime_type || p.image.mimeType || 'image/png'
+              });
             } else if (p?.text || p?.content) {
               textParts.push(p.text || p.content);
             }
