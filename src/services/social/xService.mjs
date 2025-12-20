@@ -1528,10 +1528,22 @@ class XService {
         if (!authRecord) {
           // 1. Prefer an auth marked global
           authRecord = await db.collection('x_auth').findOne({ global: true }, { sort: { updatedAt: -1 } });
+          if (authRecord) {
+            this.logger?.debug?.('[XService][globalPost] Found global auth record', { avatarId: authRecord.avatarId, hasToken: !!authRecord.accessToken });
+          }
         }
         if (!authRecord) {
           // 2. Fallback to most recently updated auth record with a token
           authRecord = await db.collection('x_auth').findOne({ accessToken: { $exists: true, $ne: null } }, { sort: { updatedAt: -1 } });
+          if (authRecord) {
+            this.logger?.debug?.('[XService][globalPost] Found fallback auth record', { avatarId: authRecord.avatarId, hasToken: !!authRecord.accessToken });
+          } else {
+            // Log all x_auth records for debugging
+            const allRecords = await db.collection('x_auth').find({}).limit(5).toArray();
+            this.logger?.warn?.('[XService][globalPost] No auth records with accessToken found. Records in DB:', 
+              allRecords.map(r => ({ avatarId: r.avatarId, hasToken: !!r.accessToken, global: r.global, updatedAt: r.updatedAt }))
+            );
+          }
         }
         if (authRecord?.accessToken) {
           if (!accessToken) accessToken = safeDecrypt(authRecord.accessToken);

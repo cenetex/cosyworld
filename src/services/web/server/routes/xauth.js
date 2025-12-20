@@ -372,7 +372,7 @@ export default function xauthRoutes(services) {
             });
 
             await db.collection('x_auth_temp').deleteMany({ avatarId });
-            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt });
+            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt, initiatedBy: 'admin' });
 
             try { services?.auditLogService?.log?.({ action: 'xauth.admin.request', actor: req.user?.walletAddress, details: { avatarId, state }, ip: req.ip }); } catch {}
             return res.json({ url, state });
@@ -492,6 +492,19 @@ export default function xauthRoutes(services) {
 
             const adminId = getAdminAvatarId();
             const isAdminAvatar = storedAuth.avatarId === adminId;
+            // For admin-initiated auth flows, always mark as global
+            const markAsGlobal = isAdminAvatar || storedAuth.initiatedBy === 'admin';
+            
+            console.log('[xauth] Saving tokens:', { 
+                avatarId: storedAuth.avatarId, 
+                adminId, 
+                isAdminAvatar, 
+                markAsGlobal,
+                initiatedBy: storedAuth.initiatedBy,
+                hasAccessToken: !!accessToken,
+                hasRefreshToken: !!refreshToken
+            });
+            
             await db.collection('x_auth').updateOne(
                 { avatarId: storedAuth.avatarId },
                 {
@@ -502,7 +515,7 @@ export default function xauthRoutes(services) {
                         updatedAt: new Date(),
                         ...(profile ? { profile } : {}),
                         // Mark admin account as global so globalPost can find it
-                        ...(isAdminAvatar ? { global: true } : {}),
+                        ...(markAsGlobal ? { global: true } : {}),
                         scope: scope || null,
                     },
                 },
