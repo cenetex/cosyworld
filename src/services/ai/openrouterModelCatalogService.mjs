@@ -27,6 +27,15 @@ const KNOWN_IMAGE_MODEL_PATTERNS = [
 ];
 
 /**
+ * Known image-ONLY model patterns (cannot generate text, only images).
+ * These models should NOT be used for chat - they need image generation flow.
+ */
+const IMAGE_ONLY_MODEL_PATTERNS = [
+  /^black-forest-labs\/flux/i,        // FLUX models are image-only
+  /^stabilityai\/stable-diffusion/i,  // SD models are image-only
+];
+
+/**
  * Check if a model ID matches known image-generation model patterns.
  * @param {string} modelId 
  * @returns {boolean}
@@ -36,30 +45,140 @@ const isKnownImageModel = (modelId) => {
   return KNOWN_IMAGE_MODEL_PATTERNS.some(pattern => pattern.test(modelId));
 };
 
-async function probeModelExistsViaEndpoints(modelId) {
+/**
+ * Check if a model ID is an image-ONLY model (cannot generate text).
+ * @param {string} modelId 
+ * @returns {boolean}
+ */
+const isImageOnlyModel = (modelId) => {
+  if (!modelId) return false;
+  return IMAGE_ONLY_MODEL_PATTERNS.some(pattern => pattern.test(modelId));
+};
+
+/**
+ * Fetch model details from the OpenRouter endpoints API.
+ * This works for models not in the main catalog (like FLUX).
+ * @param {string} modelId 
+ * @returns {Promise<{exists: boolean, outputModalities: string[], inputModalities: string[], data: object|null}>}
+ */
+async function fetchModelEndpointInfo(modelId) {
   const id = normalizeId(modelId);
-  if (!id) return false;
+  if (!id) return { exists: false, outputModalities: [], inputModalities: [], data: null };
   const [author, ...rest] = id.split('/');
-  if (!author || !rest.length) return false;
+  if (!author || !rest.length) return { exists: false, outputModalities: [], inputModalities: [], data: null };
   const slug = rest.join('/');
   const url = `https://openrouter.ai/api/v1/models/${encodeURIComponent(author)}/${encodeURIComponent(slug)}/endpoints`;
   try {
     const res = await fetch(url, { headers: DEFAULT_HEADERS });
-    return res.ok;
+    if (!res.ok) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+    const json = await res.json();
+    const data = json?.data;
+    if (!data) return { exists: false, outputModalities: [], inputModalities: [], data: null };
+    const arch = data.architecture || {};
+    return {
+      exists: true,
+      outputModalities: arch.output_modalities || [],
+      inputModalities: arch.input_modalities || [],
+      data
+    };
   } catch {
-    return false;
+    return { exists: false, outputModalities: [], inputModalities: [], data: null };
   }
 }
 
+// Cache TTL for model capabilities in database (7 days)
+const CAPABILITY_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export class OpenrouterModelCatalogService {
-  constructor({ logger, aiModelService } = {}) {
+  constructor({ logger, aiModelService, databaseService } = {}) {
     this.logger = logger || console;
     this.aiModelService = aiModelService || null;
+    this.databaseService = databaseService || null;
 
     this._modelsById = new Map(); // id(lower) -> raw model record
     this._imageCapableModels = new Set(); // models with image output modality
+    this._imageOnlyModels = new Set(); // models that ONLY output images (no text)
+    this._modelCapabilitiesCache = new Map(); // cache for dynamic endpoint lookups
+    this._dbCacheLoaded = false; // whether we've loaded from DB
     this._lastRefreshAt = 0;
     this._lastRefreshOk = false;
+  }
+
+  /**
+   * Load cached model capabilities from database.
+   * Called once on first capability lookup.
+   */
+  async _loadCapabilitiesFromDb() {
+    if (this._dbCacheLoaded || !this.databaseService) return;
+    this._dbCacheLoaded = true;
+    
+    try {
+      const db = await this.databaseService.getDatabase();
+      if (!db) return;
+      
+      const collection = db.collection('model_capabilities');
+      const now = Date.now();
+      const cutoff = now - CAPABILITY_CACHE_TTL_MS;
+      
+      // Load non-expired capabilities
+      const docs = await collection.find({ cachedAt: { $gte: cutoff } }).toArray();
+      
+      for (const doc of docs) {
+        const id = doc.modelId;
+        if (!id) continue;
+        
+        const caps = {
+          exists: doc.exists,
+          outputModalities: doc.outputModalities || [],
+          inputModalities: doc.inputModalities || [],
+          isImageCapable: doc.isImageCapable || false,
+          isImageOnly: doc.isImageOnly || false
+        };
+        
+        this._modelCapabilitiesCache.set(id, caps);
+        if (caps.isImageOnly) this._imageOnlyModels.add(id);
+        if (caps.isImageCapable) this._imageCapableModels.add(id);
+      }
+      
+      if (docs.length > 0) {
+        this.logger?.debug?.(`[OpenrouterModelCatalog] Loaded ${docs.length} cached model capabilities from DB`);
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] Failed to load capabilities from DB: ${e.message}`);
+    }
+  }
+
+  /**
+   * Save model capabilities to database.
+   * @param {string} modelId 
+   * @param {object} capabilities 
+   */
+  async _saveCapabilitiesToDb(modelId, capabilities) {
+    if (!this.databaseService || !modelId) return;
+    
+    try {
+      const db = await this.databaseService.getDatabase();
+      if (!db) return;
+      
+      const collection = db.collection('model_capabilities');
+      await collection.updateOne(
+        { modelId },
+        {
+          $set: {
+            modelId,
+            exists: capabilities.exists,
+            outputModalities: capabilities.outputModalities || [],
+            inputModalities: capabilities.inputModalities || [],
+            isImageCapable: capabilities.isImageCapable || false,
+            isImageOnly: capabilities.isImageOnly || false,
+            cachedAt: Date.now()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (e) {
+      this.logger?.debug?.(`[OpenrouterModelCatalog] Failed to save capabilities to DB: ${e.message}`);
+    }
   }
 
   get lastRefreshAt() {
@@ -95,6 +214,102 @@ export class OpenrouterModelCatalogService {
     if (this._imageCapableModels.has(id)) return true;
     // Check known image model patterns (for models not in catalog)
     return isKnownImageModel(modelId);
+  }
+
+  /**
+   * Check if a model is image-ONLY (cannot generate text, only images).
+   * These models need special handling - they should generate images instead of chat.
+   * Uses cached capabilities if available, otherwise falls back to pattern matching.
+   * For async capability lookup, use getModelCapabilities() first.
+   * @param {string} modelId 
+   * @returns {boolean}
+   */
+  isImageOnly(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return false;
+    // Check cache from dynamic lookups
+    if (this._imageOnlyModels.has(id)) return true;
+    // Check cached capabilities
+    const cached = this._modelCapabilitiesCache.get(id);
+    if (cached) {
+      const outputs = cached.outputModalities || [];
+      // Image-only if ONLY "image" is in output modalities (no "text")
+      if (outputs.length > 0 && outputs.every(m => m === 'image')) {
+        return true;
+      }
+    }
+    // Fall back to pattern matching
+    return isImageOnlyModel(modelId);
+  }
+
+  /**
+   * Fetch model capabilities from OpenRouter's endpoints API.
+   * Caches the result in memory and database for future lookups.
+   * This works for models not in the main catalog (like FLUX).
+   * @param {string} modelId 
+   * @returns {Promise<{exists: boolean, outputModalities: string[], inputModalities: string[], isImageCapable: boolean, isImageOnly: boolean}>}
+   */
+  async getModelCapabilities(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false };
+    
+    // Load from DB on first access
+    await this._loadCapabilitiesFromDb();
+    
+    // Check memory cache first
+    const cached = this._modelCapabilitiesCache.get(id);
+    if (cached) {
+      return cached;
+    }
+    
+    // Check if we have it in the main catalog
+    const catalogModel = this._modelsById.get(id);
+    if (catalogModel) {
+      const outputs = catalogModel.architecture?.output_modalities || [];
+      const inputs = catalogModel.architecture?.input_modalities || [];
+      const isImageCapable = outputs.includes('image');
+      const isImageOnly = outputs.length > 0 && outputs.every(m => m === 'image');
+      const result = { exists: true, outputModalities: outputs, inputModalities: inputs, isImageCapable, isImageOnly };
+      this._modelCapabilitiesCache.set(id, result);
+      if (isImageOnly) this._imageOnlyModels.add(id);
+      if (isImageCapable) this._imageCapableModels.add(id);
+      return result;
+    }
+    
+    // Fetch from endpoints API
+    const info = await fetchModelEndpointInfo(id);
+    if (!info.exists) {
+      const result = { exists: false, outputModalities: [], inputModalities: [], isImageCapable: false, isImageOnly: false };
+      this._modelCapabilitiesCache.set(id, result);
+      return result;
+    }
+    
+    const outputs = info.outputModalities;
+    const inputs = info.inputModalities;
+    const isImageCapable = outputs.includes('image');
+    const isImageOnly = outputs.length > 0 && outputs.every(m => m === 'image');
+    
+    const result = { exists: true, outputModalities: outputs, inputModalities: inputs, isImageCapable, isImageOnly };
+    this._modelCapabilitiesCache.set(id, result);
+    
+    // Update capability sets
+    if (isImageOnly) {
+      this._imageOnlyModels.add(id);
+      this.logger?.info?.(`[OpenrouterModelCatalog] Detected image-ONLY model: ${id}`);
+    }
+    if (isImageCapable) {
+      this._imageCapableModels.add(id);
+    }
+    
+    // Cache minimal model existence
+    if (!this._modelsById.has(id)) {
+      this._modelsById.set(id, { id, architecture: { output_modalities: outputs, input_modalities: inputs } });
+    }
+    
+    // Persist to database for future restarts
+    await this._saveCapabilitiesToDb(id, result);
+    
+    return result;
   }
 
   /**
@@ -211,12 +426,9 @@ export class OpenrouterModelCatalogService {
 
     // If the global catalog isn't available (or the model is brand new), fall back to probing
     // the per-model endpoints route which returns 200 only for real models.
-    const probed = await probeModelExistsViaEndpoints(id);
-    if (probed) {
-      // Cache the existence minimally so subsequent checks are fast.
-      this._modelsById.set(id, this._modelsById.get(id) || { id });
-    }
-    return probed;
+    // This also fetches capabilities so we know if it's image-only.
+    const capabilities = await this.getModelCapabilities(id);
+    return capabilities.exists;
   }
 
   async assertModelExists(modelId) {
@@ -251,5 +463,53 @@ export class OpenrouterModelCatalogService {
 
     const idx = Math.floor(Math.random() * candidates.length);
     return candidates[idx] || null;
+  }
+
+  /**
+   * Async check if a model is image-ONLY (cannot generate text, only images).
+   * Fetches from API if not in cache.
+   * @param {string} modelId 
+   * @returns {Promise<boolean>}
+   */
+  async isImageOnlyAsync(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return false;
+    
+    // Quick check for cached results
+    if (this._imageOnlyModels.has(id)) return true;
+    if (this._modelCapabilitiesCache.has(id)) {
+      return this._modelCapabilitiesCache.get(id).isImageOnly;
+    }
+    
+    // Quick pattern check before API call
+    if (isImageOnlyModel(modelId)) return true;
+    
+    // Fetch capabilities
+    const caps = await this.getModelCapabilities(modelId);
+    return caps.isImageOnly;
+  }
+
+  /**
+   * Async check if a model supports image output generation.
+   * Fetches from API if not in cache.
+   * @param {string} modelId 
+   * @returns {Promise<boolean>}
+   */
+  async isImageCapableAsync(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return false;
+    
+    // Quick check for cached results
+    if (this._imageCapableModels.has(id)) return true;
+    if (this._modelCapabilitiesCache.has(id)) {
+      return this._modelCapabilitiesCache.get(id).isImageCapable;
+    }
+    
+    // Quick pattern check before API call
+    if (isKnownImageModel(modelId)) return true;
+    
+    // Fetch capabilities
+    const caps = await this.getModelCapabilities(modelId);
+    return caps.isImageCapable;
   }
 }
