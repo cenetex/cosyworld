@@ -694,6 +694,8 @@ export class OpenRouterAIService {
       // Debug logging for image models to understand response structure
       const isImageModel = /flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model);
       if (isImageModel) {
+        this.logger.info?.(`[OpenRouter][Chat] Image model ${mergedOptions.model} response keys: ${JSON.stringify(Object.keys(result))}`);
+        this.logger.info?.(`[OpenRouter][Chat] result.images exists: ${!!result.images}, type: ${typeof result.images}, isArray: ${Array.isArray(result.images)}, length: ${result.images?.length}`);
         this.logger.debug?.(`[OpenRouter][Chat] Image model response structure: ${JSON.stringify({
           contentType: typeof result.content,
           contentIsArray: Array.isArray(result.content),
@@ -733,16 +735,19 @@ export class OpenRouterAIService {
       // Check for image data in result.images (FLUX format)
       // FLUX returns: { images: [{ index, type, image_url: { url: "data:image/png;base64,..." } }] }
       if (result.images && Array.isArray(result.images) && result.images.length > 0) {
-        this.logger.debug?.(`[OpenRouter][Chat] Found ${result.images.length} image(s) in result.images (FLUX format)`);
+        this.logger.info?.(`[OpenRouter][Chat] Found ${result.images.length} image(s) in result.images (FLUX format)`);
         imageData = imageData || [];
         for (const img of result.images) {
+          this.logger.debug?.(`[OpenRouter][Chat] Processing FLUX image: keys=${JSON.stringify(Object.keys(img))}, has image_url=${!!img.image_url}`);
           if (img.image_url?.url) {
             // image_url.url is a data URI like "data:image/png;base64,..."
             const dataUrl = img.image_url.url;
+            this.logger.debug?.(`[OpenRouter][Chat] FLUX image_url.url starts with: ${dataUrl.slice(0, 50)}`);
             if (dataUrl.startsWith('data:')) {
               // Parse data URI to extract base64 and mime type
               const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
               if (match) {
+                this.logger.info?.(`[OpenRouter][Chat] Extracted FLUX image: mimeType=${match[1]}, dataLength=${match[2].length}`);
                 imageData.push({
                   data: match[2],
                   mimeType: match[1],
