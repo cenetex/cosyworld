@@ -583,24 +583,119 @@ export class SummonTool extends BasicTool {
         const ai = this.unifiedAIService || this.aiService;
         const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
         let greeting = null;
+        
+        // Check if avatar has an image-only model (e.g., FLUX)
+        let isImageOnlyModel = false;
         try {
-          const greetingPrompt = alreadyHere
-            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
-            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
-
-          const greetingResult = await ai.chat([
-            {
-              role: 'system',
-              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}`
-            },
-            { role: 'user', content: greetingPrompt }
-          ], { model: existingAvatar.model, corrId });
-
-          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
-          if (typeof greeting === 'string') greeting = stripHiddenTags(greeting);
+          if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
+            isImageOnlyModel = await this.openrouterModelCatalogService.isImageOnlyAsync(existingAvatar.model);
+          }
         } catch (e) {
-          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+          this.logger?.debug?.(`[SummonTool] Image-only check failed: ${e.message}`);
+        }
+        
+        // For image-only models, generate an image as greeting
+        if (isImageOnlyModel) {
+          this.logger?.info?.(`[SummonTool] ${existingAvatar.name} has image-only model, generating image greeting`);
+          try {
+            // Build image prompt from avatar context
+            const imagePrompt = `${existingAvatar.imagePrompt || existingAvatar.appearance || existingAvatar.name}. ${alreadyHere ? 'Waving hello, already present' : 'Arriving dramatically, making an entrance'}. Fantasy art style.`;
+            
+            // Collect reference images (avatar's own image + recent user/avatar profile pics)
+            const referenceImages = [];
+            if (existingAvatar.imageUrl) {
+              referenceImages.push(existingAvatar.imageUrl);
+            }
+            
+            // Try to get recent channel context for reference images
+            try {
+              const channelHistory = await this.conversationManager?.getChannelContext?.(message.channel.id, 10);
+              if (channelHistory?.length > 0) {
+                const seenUrls = new Set(referenceImages);
+                for (const msg of channelHistory.slice(0, 5)) {
+                  // Add avatar profile pics
+                  if (msg.avatarImageUrl && !seenUrls.has(msg.avatarImageUrl)) {
+                    referenceImages.push(msg.avatarImageUrl);
+                    seenUrls.add(msg.avatarImageUrl);
+                  }
+                  // Add user avatars
+                  if (msg.authorAvatarUrl && !seenUrls.has(msg.authorAvatarUrl)) {
+                    referenceImages.push(msg.authorAvatarUrl);
+                    seenUrls.add(msg.authorAvatarUrl);
+                  }
+                  if (referenceImages.length >= 4) break;
+                }
+              }
+            } catch (e) {
+              this.logger?.debug?.(`[SummonTool] Failed to gather reference images: ${e.message}`);
+            }
+            
+            // Generate the image
+            const imageResult = await (ai.base?.generateImageViaOpenRouter || ai.generateImageViaOpenRouter)?.call(
+              ai.base || ai,
+              imagePrompt,
+              referenceImages.slice(0, 4),
+              { model: existingAvatar.model, source: `summon:${existingAvatar._id}` }
+            );
+            
+            if (imageResult?.url || imageResult?.data) {
+              const imageUrl = imageResult.url || (imageResult.data ? `data:image/png;base64,${imageResult.data}` : null);
+              if (imageUrl) {
+                // Send image as greeting embed
+                const embed = {
+                  color: 0x9b59b6,
+                  image: { url: imageUrl },
+                  footer: { text: alreadyHere ? `${existingAvatar.name} acknowledges the summon` : `${existingAvatar.name} arrives` }
+                };
+                
+                setTimeout(async () => {
+                  try {
+                    await this.discordService.sendMessage({
+                      channelId: message.channel.id,
+                      avatarName: existingAvatar.name,
+                      avatarImage: existingAvatar.imageUrl,
+                      embeds: [embed],
+                    });
+                    if (!alreadyHere) {
+                      await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
+                    }
+                  } catch (err) {
+                    this.logger?.warn?.(`[SummonTool] Failed to send image greeting: ${err?.message}`);
+                  }
+                }, 800);
+                
+                return alreadyHere
+                  ? `-# ${this.emoji} [ ${existingAvatar.name} is already here. ]`
+                  : `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
+              }
+            }
+            this.logger?.warn?.(`[SummonTool] Image generation failed for ${existingAvatar.name}, falling back`);
+          } catch (e) {
+            this.logger?.warn?.(`[SummonTool] Image greeting failed for ${existingAvatar.name}: ${e.message}`);
+          }
+          // Fallback for image-only models if image generation fails
           greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+        } else {
+          // Normal text greeting for text-capable models
+          try {
+            const greetingPrompt = alreadyHere
+              ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
+              : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
+
+            const greetingResult = await ai.chat([
+              {
+                role: 'system',
+                content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}`
+              },
+              { role: 'user', content: greetingPrompt }
+            ], { model: existingAvatar.model, corrId });
+
+            greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
+            if (typeof greeting === 'string') greeting = stripHiddenTags(greeting);
+          } catch (e) {
+            this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+            greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
+          }
         }
 
         if (alreadyHere) {

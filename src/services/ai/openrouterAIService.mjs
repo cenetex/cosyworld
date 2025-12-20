@@ -681,6 +681,15 @@ export class OpenRouterAIService {
   this.logger.info('Response:', JSON.stringify(response, null, 2));
   return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
+      
+      // Debug: log raw choice for image models to find where images are
+      if (/flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model)) {
+        const choice = response.choices[0];
+        const choiceKeys = Object.keys(choice);
+        const messageKeys = choice.message ? Object.keys(choice.message) : [];
+        this.logger.info?.(`[OpenRouter][Chat] FLUX raw choice keys: ${JSON.stringify(choiceKeys)}, message keys: ${JSON.stringify(messageKeys)}`);
+      }
+      
       const result = response.choices[0].message;
       const finishReason = response.choices[0].finish_reason;
 

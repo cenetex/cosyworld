@@ -1841,10 +1841,47 @@ export class ConversationManager  {
         }
       }
       
+      // Collect reference images from channel history (profile pics of avatars and users)
+      const referenceImages = [];
+      
+      // Add avatar's own image as primary reference
+      if (avatar.imageUrl) {
+        referenceImages.push(avatar.imageUrl);
+      }
+      
+      // Collect profile pics from recent messages in channel history
+      if (channelHistory?.length > 0) {
+        const recentHistory = channelHistory.slice(-10); // Last 10 messages
+        const seenUrls = new Set(referenceImages);
+        
+        for (const msg of recentHistory) {
+          // Avatar profile pics from webhook messages
+          if (msg.author?.avatar && msg.webhookId) {
+            const avatarUrl = msg.author.displayAvatarURL?.() || msg.author.avatarURL?.();
+            if (avatarUrl && !seenUrls.has(avatarUrl)) {
+              referenceImages.push(avatarUrl);
+              seenUrls.add(avatarUrl);
+            }
+          }
+          // User profile pics from regular messages
+          if (msg.author && !msg.webhookId) {
+            const userUrl = msg.author.displayAvatarURL?.() || msg.author.avatarURL?.();
+            if (userUrl && !seenUrls.has(userUrl)) {
+              referenceImages.push(userUrl);
+              seenUrls.add(userUrl);
+            }
+          }
+          // Stop if we have enough references
+          if (referenceImages.length >= 5) break;
+        }
+      }
+      
+      this.logger?.info?.(`[ConversationManager] Collected ${referenceImages.length} reference images for ${avatar.name}`);
+      
       // Generate the image using the avatar's model
       this.logger?.info?.(`[ConversationManager] Generating image for ${avatar.name} with model ${avatar.model}`);
       
-      const result = await (ai.generateImageViaOpenRouter || ai.generateImage).call(ai, imagePrompt, [], {
+      const result = await (ai.generateImageViaOpenRouter || ai.generateImage).call(ai, imagePrompt, referenceImages, {
         model: avatar.model,
         source: `avatar:${avatar._id}`,
       });
