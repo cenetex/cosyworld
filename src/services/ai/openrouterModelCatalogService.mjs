@@ -457,6 +457,48 @@ export class OpenrouterModelCatalogService {
     return false;
   }
 
+  /**
+   * Mark a model as "known good" - it worked with OpenRouter even if not in catalog.
+   * Call this after a successful API call to prevent future false negatives.
+   * @param {string} modelId 
+   * @param {object} options - Optional modality info from the API response
+   */
+  markModelAsValid(modelId, { outputModalities = [], inputModalities = [] } = {}) {
+    const id = normalizeId(modelId);
+    if (!id) return;
+    
+    // Don't override if we already have detailed info
+    if (this._modelsById.has(id)) return;
+    
+    const cached = this._modelCapabilitiesCache.get(id);
+    if (cached?.exists === true) return;
+    
+    const isImageCapable = outputModalities.includes('image');
+    const isImageOnly = outputModalities.length > 0 && outputModalities.every(m => m === 'image');
+    
+    this._modelCapabilitiesCache.set(id, {
+      exists: true,
+      outputModalities,
+      inputModalities,
+      isImageCapable,
+      isImageOnly
+    });
+    
+    // Add to modelsById so modelExists returns true without API calls
+    this._modelsById.set(id, { 
+      id, 
+      architecture: { 
+        output_modalities: outputModalities, 
+        input_modalities: inputModalities 
+      } 
+    });
+    
+    if (isImageOnly) this._imageOnlyModels.add(id);
+    if (isImageCapable) this._imageCapableModels.add(id);
+    
+    this.logger?.debug?.(`[OpenrouterModelCatalog] Marked model as valid: ${id}`);
+  }
+
   async assertModelExists(modelId) {
     const id = normalizeId(modelId);
     if (!id) throw new Error('Invalid model identifier');
