@@ -160,6 +160,7 @@ export class SummonTool extends BasicTool {
     logger,
     conversationManager,
     conversationThreadService,
+    s3Service,
   }) {
     super();
     this.discordService = discordService;
@@ -175,6 +176,7 @@ export class SummonTool extends BasicTool {
     this.logger = logger;
     this.conversationManager = conversationManager;
     this.conversationThreadService = conversationThreadService;
+    this.s3Service = s3Service || null;
 
     this.name = 'summon';
     this.description = 'Summons a new avatar';
@@ -639,7 +641,20 @@ export class SummonTool extends BasicTool {
             );
             
             if (imageResult?.url || imageResult?.data) {
-              const imageUrl = imageResult.url || (imageResult.data ? `data:image/png;base64,${imageResult.data}` : null);
+              let imageUrl = imageResult.url;
+              
+              // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
+              if (!imageUrl && imageResult.data && this.s3Service?.uploadBuffer) {
+                try {
+                  const buffer = Buffer.from(imageResult.data, 'base64');
+                  const s3Key = `summon-greetings/${existingAvatar._id}_${Date.now()}.png`;
+                  imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, 'image/png');
+                  this.logger?.debug?.(`[SummonTool] Uploaded image-only greeting to S3: ${imageUrl}`);
+                } catch (uploadErr) {
+                  this.logger?.warn?.(`[SummonTool] Failed to upload image to S3: ${uploadErr.message}`);
+                }
+              }
+              
               if (imageUrl) {
                 // Send image as greeting embed
                 const embed = {
@@ -693,7 +708,20 @@ export class SummonTool extends BasicTool {
             // Check if the response includes images (for image-generating models)
             if (greetingResult?.images?.length > 0) {
               const img = greetingResult.images[0];
-              const imageUrl = img.url || (img.data ? `data:${img.mimeType || 'image/png'};base64,${img.data}` : null);
+              let imageUrl = img.url;
+              
+              // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
+              if (!imageUrl && img.data && this.s3Service?.uploadBuffer) {
+                try {
+                  const buffer = Buffer.from(img.data, 'base64');
+                  const s3Key = `summon-greetings/${existingAvatar._id}_${Date.now()}.png`;
+                  imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, img.mimeType || 'image/png');
+                  this.logger?.debug?.(`[SummonTool] Uploaded greeting image to S3: ${imageUrl}`);
+                } catch (uploadErr) {
+                  this.logger?.warn?.(`[SummonTool] Failed to upload image to S3: ${uploadErr.message}`);
+                }
+              }
+              
               if (imageUrl) {
                 this.logger?.info?.(`[SummonTool] ${existingAvatar.name} generated image greeting instead of text`);
                 const embed = {
