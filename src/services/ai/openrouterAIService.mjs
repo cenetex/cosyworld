@@ -108,6 +108,44 @@ import models from '../../models.openrouter.config.mjs';
 import { parseFirstJson, parseWithRetries } from '../../utils/jsonParse.mjs';
 
 /**
+ * Sanitize an API response object for logging by truncating large data.
+ * Removes or truncates base64 image data and other large payloads.
+ * 
+ * @param {any} obj - Object to sanitize
+ * @param {number} [maxStringLen=200] - Maximum length for string values
+ * @returns {any} - Sanitized copy of the object safe for logging
+ */
+function sanitizeForLogging(obj, maxStringLen = 200) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    // Truncate long strings (like base64 data)
+    if (obj.length > maxStringLen) {
+      // Check if it looks like base64
+      if (/^[A-Za-z0-9+/=]{100,}$/.test(obj.slice(0, 100))) {
+        return `[base64 data, ${obj.length} chars]`;
+      }
+      if (obj.startsWith('data:')) {
+        const match = obj.match(/^data:([^;,]+)/);
+        return `[data URI: ${match?.[1] || 'unknown'}, ${obj.length} chars]`;
+      }
+      return obj.slice(0, maxStringLen) + `... [truncated, ${obj.length} total chars]`;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForLogging(item, maxStringLen));
+  }
+  if (typeof obj === 'object') {
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = sanitizeForLogging(value, maxStringLen);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
  * Normalize an OpenRouter/OpenAI style error object into a structured diagnostic form.
  * 
  * @description
@@ -622,14 +660,27 @@ export class OpenRouterAIService {
     // Merge defaults with caller options and map model to an available one
     let selectedModel = options.model || this.defaultChatOptions?.model || this.model;
     const originalRequested = selectedModel;
-    if (!this.modelLock) {
+    
+    // Check if this is an image-only model - these should NOT be remapped
+    // since text models can't substitute for image generation
+    let skipModelRemap = false;
+    if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
+      try {
+        skipModelRemap = await this.openrouterModelCatalogService.isImageOnlyAsync(selectedModel);
+        if (skipModelRemap) {
+          this.logger?.debug?.(`[OpenRouter][Chat] Skipping model remap for image-only model: ${selectedModel}`);
+        }
+      } catch {}
+    }
+    
+    if (!this.modelLock && !skipModelRemap) {
       try {
         const mapped = await this.getModel(selectedModel);
         if (mapped) selectedModel = mapped;
       } catch {}
     }
     if (this.traceModelSelection) {
-      this.logger?.info?.(`[OpenRouter][trace] chat request model requested='${originalRequested}' normalized='${selectedModel}' lock=${this.modelLock}`);
+      this.logger?.info?.(`[OpenRouter][trace] chat request model requested='${originalRequested}' normalized='${selectedModel}' lock=${this.modelLock} skipRemap=${skipModelRemap}`);
     }
     // Merge with correct precedence: defaults < selected model/messages < caller options
     const { model: _discardModel, ...rest } = options || {};
@@ -743,6 +794,7 @@ export class OpenRouterAIService {
       
       // Check for image data in result.images (FLUX format)
       // FLUX returns: { images: [{ index, type, image_url: { url: "data:image/png;base64,..." } }] }
+      this.logger.debug?.(`[OpenRouter][Chat] Checking result.images: exists=${!!result.images}, isArray=${Array.isArray(result.images)}, length=${result.images?.length}`);
       if (result.images && Array.isArray(result.images) && result.images.length > 0) {
         this.logger.info?.(`[OpenRouter][Chat] Found ${result.images.length} image(s) in result.images (FLUX format)`);
         imageData = imageData || [];
@@ -764,6 +816,7 @@ export class OpenRouterAIService {
                 });
               } else {
                 // Fallback - treat as URL
+                this.logger.debug?.(`[OpenRouter][Chat] FLUX image data URI didn't match base64 pattern, using as URL`);
                 imageData.push({ url: dataUrl });
               }
             } else {
@@ -771,6 +824,7 @@ export class OpenRouterAIService {
             }
           }
         }
+        this.logger.info?.(`[OpenRouter][Chat] Processed ${imageData?.length || 0} image(s) from result.images`);
       }
       
       // Check for image data at response level (some providers put it in response.data)
@@ -871,9 +925,12 @@ export class OpenRouterAIService {
       
       // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
       const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
-      if (!normalizedContent && !hasReasoning) {
+      const hasImageData = imageData && imageData.length > 0;
+      
+      // For image-only models, having images without text is valid
+      if (!normalizedContent && !hasReasoning && !hasImageData) {
         this.logger.error('Invalid response from OpenRouter during chat.');
-        this.logger.info(JSON.stringify(result, null, 2));
+        this.logger.info(JSON.stringify(sanitizeForLogging(result), null, 2));
         
         // Return error envelope or throw instead of returning placeholder text
         // This prevents error messages from being treated as valid content
@@ -893,9 +950,9 @@ export class OpenRouterAIService {
       
       // Special case: reasoning exists but content is empty (e.g., GPT-5 reasoning models)
       // This typically indicates an incomplete response where the model only provided internal reasoning
-      if (!normalizedContent && hasReasoning) {
+      if (!normalizedContent && hasReasoning && !hasImageData) {
         this.logger.warn(`Model returned reasoning but no content. finish_reason=${finishReason}. This may indicate an incomplete response${finishReason === 'length' ? ' due to hitting max_tokens limit' : ''}.`);
-        this.logger.info(JSON.stringify(result, null, 2));
+        this.logger.info(JSON.stringify(sanitizeForLogging(result), null, 2));
         
         if (options.returnEnvelope) {
           return { 
@@ -948,7 +1005,17 @@ export class OpenRouterAIService {
       }
       
       // Handle model not found error (404) by selecting a new random model
-      if (status === 404 && parsed.userMessage === 'Model not found' && retries > 0) {
+      // But NOT for image-only models - they need special handling (check dynamically)
+      let isImageOnlyModel = false;
+      if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
+        try {
+          isImageOnlyModel = await this.openrouterModelCatalogService.isImageOnlyAsync(mergedOptions.model);
+        } catch {
+          // Fallback to pattern-based check
+          isImageOnlyModel = /black-forest-labs\/flux|stabilityai\/stable-diffusion/i.test(mergedOptions.model);
+        }
+      }
+      if (status === 404 && parsed.userMessage === 'Model not found' && retries > 0 && !isImageOnlyModel) {
         this.logger.warn(`[OpenRouter][Chat] Model '${mergedOptions.model}' not found (404), selecting fallback model...`);
         
         try {
@@ -1267,24 +1334,45 @@ export class OpenRouterAIService {
     // Build message content with optional reference images
     const content = [];
     
-    // Add reference images if provided
-    const imageArr = Array.isArray(referenceImages) ? referenceImages : referenceImages ? [referenceImages] : [];
-    for (const img of imageArr.slice(0, 4)) { // Limit to 4 reference images
-      if (typeof img === 'string' && img.startsWith('http')) {
-        content.push({ type: 'image_url', image_url: { url: img } });
-      } else if (typeof img === 'string' && img.startsWith('data:')) {
-        content.push({ type: 'image_url', image_url: { url: img } });
+    // Dynamically check if this model accepts image input
+    // Image-output-only models like FLUX don't accept image inputs - check via API
+    let acceptsImageInput = true; // Default to true for safety
+    if (this.openrouterModelCatalogService?.acceptsImageInputAsync) {
+      try {
+        acceptsImageInput = await this.openrouterModelCatalogService.acceptsImageInputAsync(model);
+        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Model ${model} acceptsImageInput=${acceptsImageInput}`);
+      } catch {
+        // Fallback to pattern-based check if API check fails
+        const isImageOnlyPattern = /black-forest-labs\/flux|stabilityai\/stable-diffusion/i.test(model);
+        acceptsImageInput = !isImageOnlyPattern;
+        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] API check failed, using pattern: acceptsImageInput=${acceptsImageInput}`);
       }
     }
     
+    // Add reference images if provided AND the model supports image input
+    if (acceptsImageInput) {
+      const imageArr = Array.isArray(referenceImages) ? referenceImages : referenceImages ? [referenceImages] : [];
+      for (const img of imageArr.slice(0, 4)) { // Limit to 4 reference images
+        if (typeof img === 'string' && img.startsWith('http')) {
+          content.push({ type: 'image_url', image_url: { url: img } });
+        } else if (typeof img === 'string' && img.startsWith('data:')) {
+          content.push({ type: 'image_url', image_url: { url: img } });
+        }
+      }
+    } else {
+      this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Skipping reference images - model ${model} doesn't accept image input`);
+    }
+    
     // Add the generation prompt
-    content.push({ type: 'text', text: `Generate an image: ${prompt}` });
+    // For image-only models, just use the prompt directly (they don't need "Generate an image:" prefix)
+    const promptText = acceptsImageInput ? `Generate an image: ${prompt}` : prompt;
+    content.push({ type: 'text', text: promptText });
     
     const messages = [
       { role: 'user', content }
     ];
     
-    this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] About to call chat() with model=${model}, contentParts=${content.length}`);
+    this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] About to call chat() with model=${model}, contentParts=${content.length}, acceptsImageInput=${acceptsImageInput}`);
     
     try {
       const response = await this.chat(messages, {

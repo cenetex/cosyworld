@@ -512,4 +512,25 @@ export class OpenrouterModelCatalogService {
     const caps = await this.getModelCapabilities(modelId);
     return caps.isImageCapable;
   }
+
+  /**
+   * Async check if a model accepts image input (vision/multimodal).
+   * Fetches from API if not in cache.
+   * @param {string} modelId 
+   * @returns {Promise<boolean>}
+   */
+  async acceptsImageInputAsync(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return false;
+    
+    // Check cached capabilities
+    if (this._modelCapabilitiesCache.has(id)) {
+      const cached = this._modelCapabilitiesCache.get(id);
+      return cached.inputModalities?.includes('image') || false;
+    }
+    
+    // Fetch capabilities from API
+    const caps = await this.getModelCapabilities(modelId);
+    return caps.inputModalities?.includes('image') || false;
+  }
 }
