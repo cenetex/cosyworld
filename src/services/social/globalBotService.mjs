@@ -484,21 +484,207 @@ export class GlobalBotService {
   }
 
   /**
+   * Gather balanced cross-platform context for narrative generation
+   * Collects recent activity from Discord, Telegram, X/Twitter, and memories
+   * with balanced sampling to avoid one platform crowding out others.
+   * @param {Object} options - Configuration options
+   * @param {number} options.maxPerPlatform - Max items per platform (default: 5)
+   * @param {number} options.maxMemories - Max memories to include (default: 5)
+   * @param {number} options.hoursBack - How many hours back to look (default: 48)
+   * @returns {Promise<Object>} - Cross-platform context object
+   */
+  async getCrossPlatformContext({ maxPerPlatform = 5, maxMemories = 5, hoursBack = 48 } = {}) {
+    const db = await this.databaseService.getDatabase();
+    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    const context = {
+      discord: [],
+      telegram: [],
+      x: [],
+      memories: [],
+      formatted: ''
+    };
+
+    try {
+      // 1. Discord messages - from the main messages collection
+      const discordMessages = await db.collection('messages')
+        .find({
+          timestamp: { $gte: cutoff },
+          $or: [
+            { platform: 'discord' },
+            { platform: { $exists: false } } // Default to Discord for legacy messages
+          ]
+        })
+        .sort({ timestamp: -1 })
+        .limit(maxPerPlatform * 3) // Get more to sample variety
+        .project({ content: 1, authorName: 1, channelName: 1, timestamp: 1 })
+        .toArray();
+
+      // Sample to get variety (different authors/channels)
+      const discordSampled = this._sampleMessages(discordMessages, maxPerPlatform, 'authorName');
+      context.discord = discordSampled.map(m => ({
+        text: m.content?.slice(0, 200) || '',
+        author: m.authorName || 'Someone',
+        channel: m.channelName || 'a channel',
+        timestamp: m.timestamp
+      }));
+
+      // 2. Telegram messages
+      const telegramMessages = await db.collection('telegram_messages')
+        .find({ date: { $gte: cutoff } })
+        .sort({ date: -1 })
+        .limit(maxPerPlatform * 3)
+        .project({ text: 1, from: 1, channelId: 1, date: 1 })
+        .toArray();
+
+      const telegramSampled = this._sampleMessages(telegramMessages, maxPerPlatform, 'from');
+      context.telegram = telegramSampled.map(m => ({
+        text: m.text?.slice(0, 200) || '',
+        author: m.from || 'Someone',
+        timestamp: m.date
+      }));
+
+      // 3. X/Twitter - recent posts/mentions from social_posts
+      const xPosts = await db.collection('social_posts')
+        .find({
+          createdAt: { $gte: cutoff },
+          $or: [
+            { platform: 'x' },
+            { platform: 'twitter' },
+            { tweetId: { $exists: true } }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .limit(maxPerPlatform)
+        .project({ content: 1, type: 1, createdAt: 1, metadata: 1 })
+        .toArray();
+
+      context.x = xPosts.map(p => ({
+        text: p.content?.slice(0, 200) || '',
+        type: p.type || 'post',
+        timestamp: p.createdAt
+      }));
+
+      // 4. Recent memories (balanced with platform content)
+      const memories = await this.memoryService.getMemories(this.botId, maxMemories);
+      context.memories = memories
+        .map(m => m.memory || m.text)
+        .filter(Boolean)
+        .slice(0, maxMemories);
+
+      // 5. Format into readable text with balanced sections
+      context.formatted = this._formatCrossPlatformContext(context);
+
+    } catch (err) {
+      this.logger?.warn?.(`[GlobalBotService] getCrossPlatformContext error: ${err.message}`);
+      // Fallback to just memories
+      const memories = await this.memoryService.getMemories(this.botId, maxMemories * 2);
+      context.memories = memories.map(m => m.memory || m.text).filter(Boolean);
+      context.formatted = context.memories.length > 0 
+        ? `Recent memories:\n${context.memories.join('\n')}`
+        : 'No recent activity recorded yet.';
+    }
+
+    return context;
+  }
+
+  /**
+   * Sample messages to get variety (avoid same author dominating)
+   */
+  _sampleMessages(messages, maxCount, authorField) {
+    if (!messages || messages.length <= maxCount) return messages || [];
+    
+    const byAuthor = new Map();
+    const sampled = [];
+    
+    // First pass: one per unique author
+    for (const msg of messages) {
+      const author = msg[authorField] || 'unknown';
+      if (!byAuthor.has(author)) {
+        byAuthor.set(author, msg);
+        sampled.push(msg);
+        if (sampled.length >= maxCount) break;
+      }
+    }
+    
+    // Second pass: fill remaining with most recent
+    if (sampled.length < maxCount) {
+      for (const msg of messages) {
+        if (!sampled.includes(msg)) {
+          sampled.push(msg);
+          if (sampled.length >= maxCount) break;
+        }
+      }
+    }
+    
+    return sampled;
+  }
+
+  /**
+   * Format cross-platform context into readable text
+   */
+  _formatCrossPlatformContext(context) {
+    const sections = [];
+
+    if (context.discord.length > 0) {
+      const discordText = context.discord
+        .map(m => `• ${m.author} in ${m.channel}: "${m.text.slice(0, 100)}${m.text.length > 100 ? '...' : ''}"`)
+        .join('\n');
+      sections.push(`Discord activity:\n${discordText}`);
+    }
+
+    if (context.telegram.length > 0) {
+      const telegramText = context.telegram
+        .map(m => `• ${m.author}: "${m.text.slice(0, 100)}${m.text.length > 100 ? '...' : ''}"`)
+        .join('\n');
+      sections.push(`Telegram conversations:\n${telegramText}`);
+    }
+
+    if (context.x.length > 0) {
+      const xText = context.x
+        .map(p => `• [${p.type}] "${p.text.slice(0, 100)}${p.text.length > 100 ? '...' : ''}"`)
+        .join('\n');
+      sections.push(`X/Twitter activity:\n${xText}`);
+    }
+
+    if (context.memories.length > 0) {
+      const memoryText = context.memories
+        .map(m => `• ${m.slice(0, 150)}${m.length > 150 ? '...' : ''}`)
+        .join('\n');
+      sections.push(`Recent memories:\n${memoryText}`);
+    }
+
+    return sections.length > 0 
+      ? sections.join('\n\n')
+      : 'No recent activity recorded yet.';
+  }
+
+  /**
    * Generate a new narrative reflection for the bot (persona evolution)
+   * Uses balanced cross-platform context instead of just memories
    */
   async generateNarrative() {
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
       
-      // Get recent memories
-      const memories = await this.memoryService.getMemories(this.botId, 20);
+      // Get balanced cross-platform context
+      const crossPlatformContext = await this.getCrossPlatformContext({
+        maxPerPlatform: 5,
+        maxMemories: 5,
+        hoursBack: 48
+      });
+      
+      // Also get recent memories as fallback
+      const memories = await this.memoryService.getMemories(this.botId, 10);
       const memoryText = memories
         .map(m => m.memory || m.text)
         .filter(Boolean)
         .join('\n');
       
-      if (!memoryText || memoryText.length < 50) {
-        this.logger?.debug?.('[GlobalBotService] Not enough memories for narrative generation yet');
+      // Combine context - prefer cross-platform if available
+      const contextText = crossPlatformContext.formatted || memoryText;
+      
+      if (!contextText || contextText.length < 50) {
+        this.logger?.debug?.('[GlobalBotService] Not enough context for narrative generation yet');
         return;
       }
       
@@ -521,27 +707,28 @@ Core personality:
 ${personaSummary || `A curious narrator who delights in describing the evolving tapestry of ${universeName}.`}
 
 Your current guiding perspective:
-${currentPerspective || `You are always searching for patterns and meaning among the arrivals and happenings in ${universeName}.`}
+${currentPerspective || `You are always searching for patterns and meaning among the happenings in ${universeName}.`}
 
 ${platformStatusText}
 
-Reflect on your recent experiences in that voice.`
+Reflect on your recent experiences across all platforms in that voice.`
       }, {
         role: 'user',
         content: this.bot.globalBotConfig?.narrativeReflectionPromptTemplate 
           ? this.bot.globalBotConfig.narrativeReflectionPromptTemplate
-              .replace(/\{\{memories\}\}/g, memoryText)
+              .replace(/\{\{memories\}\}/g, contextText)
               .replace(/\{\{universeName\}\}/g, universeName)
-          : `Based on these recent events and introductions you've made:
+              .replace(/\{\{crossPlatformContext\}\}/g, contextText)
+          : `Based on this recent activity across platforms:
 
-${memoryText}
+${contextText}
 
-Write 2-3 sentences about your evolving perspective on the ${universeName} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?
+Write 2-3 sentences about your evolving perspective on the ${universeName} community. What patterns do you notice across Discord, Telegram, and X? What themes are emerging? What's the current vibe of the community?
 
-Be thoughtful and introspective. This is for your own reflection, not for posting.`
+Be thoughtful and introspective. Focus on the overall mood and connections you're observing, not specific events. This is for your own reflection, not for posting.`
       }];
       
-        const response = await this.aiService.chat(narrativePrompt, { model: this.bot.model, temperature: 0.7 });
+      const response = await this.aiService.chat(narrativePrompt, { model: this.bot.model, temperature: 0.7 });
       
       const narrative = typeof response === 'object' ? response.text : response;
       const cleanNarrative = String(narrative || '')
