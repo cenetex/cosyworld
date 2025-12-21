@@ -1,5 +1,10 @@
-const api = window.AdminAPI;
-const ui = window.AdminUI;
+// Wait for admin bootstrap to be ready
+let api, ui;
+
+function initGlobals() {
+  api = window.AdminAPI;
+  ui = window.AdminUI;
+}
 
 async function fetchSecrets() {
   return api.apiFetch('/api/secrets');
@@ -145,34 +150,69 @@ async function load() {
     }
   } catch (e) {
     container.innerHTML = `<div class="text-sm text-red-600">${e.message}</div>`;
-    ui.error(e.message || 'Failed to load secrets');
+    ui?.error?.(e.message || 'Failed to load secrets');
   }
 }
 
-document.getElementById('refresh')?.addEventListener('click', load);
+function init() {
+  initGlobals();
+  
+  if (!api || !ui) {
+    console.error('[admin-secrets] AdminAPI or AdminUI not available');
+    const container = document.getElementById('secrets-list');
+    if (container) {
+      container.innerHTML = '<div class="text-sm text-red-600">Admin modules not loaded. Please refresh the page.</div>';
+    }
+    return;
+  }
+  
+  document.getElementById('refresh')?.addEventListener('click', load);
+  
+  // Import .env handler
+  document.getElementById('importEnv')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const ta = document.getElementById('envText');
+    const status = document.getElementById('importStatus');
+    await ui.withButtonLoading(btn, async () => {
+      status.textContent = 'Importing...';
+      try {
+        const data = await api.apiFetch('/api/secrets/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ envText: ta.value || '' })
+        });
+        status.textContent = `Imported ${data.imported} keys.`;
+        ui.success(`Imported ${data.imported} secrets`);
+        ta.value = '';
+        await load();
+      } catch (err) {
+        status.textContent = err.message;
+        ui.error(err.message || 'Import failed');
+      }
+    });
+  });
+  
+  load();
+}
 
-document.addEventListener('DOMContentLoaded', load);
-
-// Import .env handler
-document.getElementById('importEnv')?.addEventListener('click', async (e) => {
-  const btn = e.currentTarget;
-  const ta = document.getElementById('envText');
-  const status = document.getElementById('importStatus');
-  await ui.withButtonLoading(btn, async () => {
-    status.textContent = 'Importing...';
-    try {
-      const data = await api.apiFetch('/api/secrets/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ envText: ta.value || '' })
-      });
-      status.textContent = `Imported ${data.imported} keys.`;
-      ui.success(`Imported ${data.imported} secrets`);
-      ta.value = '';
-      await load();
-    } catch (err) {
-      status.textContent = err.message;
-      ui.error(err.message || 'Import failed');
+// Wait for bootstrap to be ready
+if (window.AdminAPI && window.AdminUI) {
+  // Already available
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+} else {
+  // Wait for bootstrap event
+  window.addEventListener('admin:bootstrapReady', () => {
+    init();
+  }, { once: true });
+  
+  // Fallback: also try DOMContentLoaded in case we missed the event
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!api) {
+      setTimeout(init, 100); // Small delay for globals to be set
     }
   });
-});
+}
