@@ -1497,6 +1497,7 @@ Please ensure the server is fully initialized.
         if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
       }
       if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
+      if (Array.isArray(body.allowedCashtags)) patch.allowedCashtags = body.allowedCashtags.filter(c => typeof c === 'string' && c.trim()).map(c => c.trim().replace(/^\$/, '').toUpperCase());
       if (body.media && typeof body.media === 'object') {
         patch.media = { altAutogen: !!body.media.altAutogen };
       }

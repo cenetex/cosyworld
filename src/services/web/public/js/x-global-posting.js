@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mode: document.getElementById('cfg-mode'),
     rateHourly: document.getElementById('cfg-rate-hourly'),
     hashtags: document.getElementById('cfg-hashtags'),
+    cashtags: document.getElementById('cfg-cashtags'),
     altAutogen: document.getElementById('cfg-altAutogen'),
     save: document.getElementById('save-config'),
     refresh: document.getElementById('refresh-config'),
@@ -69,16 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
     els.mode.value = cfg.mode === 'shadow' ? 'shadow' : 'live';
     els.rateHourly.value = cfg?.rate?.hourly || '';
     els.hashtags.value = Array.isArray(cfg.hashtags) ? cfg.hashtags.join(',') : '';
+    els.cashtags.value = Array.isArray(cfg.allowedCashtags) ? cfg.allowedCashtags.join(',') : '';
     els.altAutogen.checked = !!(cfg.media && cfg.media.altAutogen);
   }
 
   function collectForm() {
     const hashtags = els.hashtags.value.split(/[,\s]+/).map(t => t.trim()).filter(Boolean);
+    const cashtags = els.cashtags.value.split(/[,\s]+/).map(t => t.trim().replace(/^\$/, '').toUpperCase()).filter(Boolean);
     const payload = {
       enabled: els.enabled.value === 'true',
       mode: els.mode.value,
       rate: { hourly: els.rateHourly.value ? Number(els.rateHourly.value) : undefined },
       hashtags,
+      allowedCashtags: cashtags,
       media: { altAutogen: !!els.altAutogen.checked },
     };
     if (!payload.rate.hourly) delete payload.rate;
