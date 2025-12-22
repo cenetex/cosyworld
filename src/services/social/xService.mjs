@@ -1390,14 +1390,36 @@ class XService {
    */
   async postGlobalMediaUpdate(opts = {}, services = {}) {
     try {
-      // Get content filter settings - try to get from globalBotService if available
-      const contentFilters = services.globalBotService?.bot?.globalBotConfig?.contentFilters || opts.contentFilters || {};
+      // Load the x_post_config first so we can use allowedCashtags from admin UI
+      let config = await this._loadGlobalPostingConfig();
+      
+      // Get content filter settings - merge from multiple sources:
+      // 1. Admin UI config (x_post_config.allowedCashtags)
+      // 2. globalBotService config
+      // 3. opts.contentFilters passed by caller
+      const baseContentFilters = services.globalBotService?.bot?.globalBotConfig?.contentFilters || opts.contentFilters || {};
+      const configAllowedCashtags = Array.isArray(config?.allowedCashtags) ? config.allowedCashtags : [];
+      const baseAllowedCashtags = Array.isArray(baseContentFilters.allowedCashtags) ? baseContentFilters.allowedCashtags : [];
+      const optsAllowedCashtags = Array.isArray(opts.contentFilters?.allowedCashtags) ? opts.contentFilters.allowedCashtags : [];
+      
+      // Merge all allowed cashtags (normalize to uppercase without $)
+      const mergedAllowedCashtags = [...new Set([
+        ...configAllowedCashtags,
+        ...baseAllowedCashtags,
+        ...optsAllowedCashtags
+      ].map(c => String(c).replace(/^\$/, '').toUpperCase()))];
+      
+      const contentFilters = {
+        ...baseContentFilters,
+        allowedCashtags: mergedAllowedCashtags
+      };
       const filterEnabled = contentFilters.enabled !== false;
       
       this.logger?.debug?.('[XService] Content filters check:', {
         hasGlobalBotService: !!services.globalBotService,
         hasOptsFilters: !!opts.contentFilters,
-        allowedCashtags: contentFilters.allowedCashtags,
+        configAllowedCashtags,
+        mergedAllowedCashtags,
         filterEnabled
       });
 
@@ -1407,7 +1429,7 @@ class XService {
           logger: this.logger,
           blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
           blockCashtags: contentFilters.blockCashtags !== false,
-          allowedCashtags: contentFilters.allowedCashtags || [],
+          allowedCashtags: mergedAllowedCashtags,
           allowedAddresses: contentFilters.allowedAddresses || []
         });
         
@@ -1467,7 +1489,7 @@ class XService {
           this._globalPostMetrics.last = { at: Date.now(), reason, ...meta };
         } catch {}
       };
-      let config = await this._loadGlobalPostingConfig();
+      // Config already loaded at the start of the function
       // Fallback enablement: if no config doc exists, treat as enabled unless X_GLOBAL_POST_ENABLED explicitly set false/0.
       let enabled;
       if (!config) {
