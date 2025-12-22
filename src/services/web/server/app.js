@@ -580,35 +580,22 @@ async function initializeApp(services) {
     });
 
     // SPA fallback for console routes
-<<<<<<< Updated upstream
     app.get(/^\/console(?:\/.*)?$/, (req, res, next) => {
-=======
-    app.get('/console/{*splat}', (req, res, next) => {
->>>>>>> Stashed changes
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
     // SPA fallback for app routes (backwards compatibility)
-<<<<<<< Updated upstream
     app.get(/^\/app(?:\/.*)?$/, (req, res, next) => {
-=======
-    app.get('/app/{*splat}', (req, res, next) => {
->>>>>>> Stashed changes
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
     // Catch-all for other paths
-<<<<<<< Updated upstream
     app.get(/^\/(?!api\/).*/, (req, res, next) => {
       if (path.extname(req.path)) {
-=======
-    app.get('{*splat}', (req, res, next) => {
-      if (req.path.startsWith('/api/') || path.extname(req.path)) {
->>>>>>> Stashed changes
         return next();
       }
       // Redirect unknown routes to landing page
