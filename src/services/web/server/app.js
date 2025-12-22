@@ -528,6 +528,16 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
+    app.get('/admin/x-global-posting', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'x-global-posting.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/telegram-global-posting', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'telegram-global-posting.html'), (err) => {
+        if (err) next(err);
+      });
+    });
 
     // Root path - serves the landing page with links (index.html)
     app.get('/', (req, res, next) => {
