@@ -1945,10 +1945,6 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
       }
       
       if (!baseText) baseText = '';
-      // Ensure single hashtag #CosyWorld appended (unless already present case-insensitively)
-      if (!/#cosyworld/i.test(baseText)) {
-        baseText = (baseText).trim();
-      }
       
       // Smart truncation: if text is over 280 chars, try to truncate at sentence boundary
       let tweetText = baseText;
@@ -1970,10 +1966,6 @@ Do not use quotes or extra hashtags. Be conversational and engaging.`;
         // If we found a sentence ending and it's not too short (at least 100 chars), use it
         if (lastSentenceEnd > 100) {
           tweetText = truncated.slice(0, lastSentenceEnd + 1).trim();
-          // Re-add #CosyWorld if it got cut off
-          if (!/#cosyworld/i.test(tweetText) && tweetText.length < 268) {
-            tweetText = (tweetText).trim();
-          }
           this.logger?.debug?.('[XService][globalPost] truncated at sentence boundary', { newLength: tweetText.length });
         } else {
           // No good sentence boundary found, try to regenerate with strict length limit
@@ -1991,10 +1983,6 @@ Make it punchy and complete. No quotes. Natural tone. Must be UNDER 250 characte
               
               if (newCaption) {
                 let shortened = String(newCaption).replace(/[#\n\r]+/g, ' ').trim();
-                // Add hashtag if not present
-                if (!/#cosyworld/i.test(shortened)) {
-                  shortened = (shortened).trim();
-                }
                 // If still too long, hard truncate at sentence
                 if (shortened.length > 280) {
                   const trunc = shortened.slice(0, 280);
