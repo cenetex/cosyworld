@@ -114,7 +114,7 @@ describe('TelegramService tweet tool helpers', () => {
       prompt: 'prompt text',
       createdAt: new Date()
     };
-    service.recentMediaByChannel.set('channel-1', [mediaEntry]);
+    service.cacheManager.recentMediaByChannel.set('channel-1', [mediaEntry]);
 
     const ctx = {
       reply: vi.fn(),
@@ -264,7 +264,7 @@ describe('TelegramService planning tool helpers', () => {
     
     // Should have executed image generation
     expect(service.executeImageGeneration).toHaveBeenCalled();
-    const plans = service.agentPlansByChannel.get('channel-plan');
+    const plans = service.cacheManager.agentPlansByChannel.get('channel-plan');
     expect(plans).toBeDefined();
     expect(plans[0].steps).toHaveLength(2);
     expect(plans[0].objective).toContain('fresh creation');
@@ -272,7 +272,7 @@ describe('TelegramService planning tool helpers', () => {
 
   it('summarizes recent plans for prompt context', async () => {
     const now = new Date();
-    service.agentPlansByChannel.set('channel-plan', [{
+    service.cacheManager.agentPlansByChannel.set('channel-plan', [{
       id: 'plan-1',
       channelId: 'channel-plan',
       objective: 'Delight the chat',
