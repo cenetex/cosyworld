@@ -10,12 +10,12 @@ const NAV_HTML = `
       <div class="nav-brand">RATi Admin</div>
       <div class="nav-links">
         <a class="nav-link" href="/admin">Dashboard</a>
+        <a class="nav-link" href="/admin/bots/">Bots</a>
         <a class="nav-link" href="/admin/entity-management">Entities</a>
         <a class="nav-link" href="/admin/collections">Collections</a>
         <a class="nav-link" href="/admin/servers">Servers</a>
-        <a class="nav-link" href="/admin/x-accounts">X Accounts</a>
         <a class="nav-link" href="/admin/users">Users</a>
-        <a class="nav-link" href="/admin/settings">Settings</a>
+        <a class="nav-link" href="/admin/global-settings">Settings</a>
       </div>
     </div>
     <div class="nav-right" style="display:flex; align-items:center; gap:.5rem;">
@@ -31,6 +31,26 @@ function injectShell() {
   // Skip injection on login and setup pages
   const pathname = window.location.pathname;
   if (pathname === '/admin/login' || pathname === '/admin/setup') {
+    return;
+  }
+
+  // Skip injection on v2 pages that have their own navigation (admin-v2 body class)
+  if (document.body.classList.contains('admin-v2')) {
+    return;
+  }
+
+  // Skip injection on dashboard (has its own custom nav)
+  if (document.body.classList.contains('admin-v2-dashboard')) {
+    return;
+  }
+
+  // Skip injection on bots pages (they use admin-v2 design)
+  if (pathname.startsWith('/admin/bots')) {
+    return;
+  }
+
+  // Skip injection on global-settings page
+  if (pathname === '/admin/global-settings' || pathname === '/admin/global-settings.html') {
     return;
   }
 
