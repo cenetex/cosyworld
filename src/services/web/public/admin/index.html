@@ -109,11 +109,12 @@
             </div>
             <div class="hidden md:flex items-baseline space-x-4">
               <a href="/admin" class="px-3 py-2 rounded-lg text-sm font-medium bg-purple-700 bg-opacity-50">Dashboard</a>
+              <a href="/admin/bots/" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Bots</a>
               <a href="/admin/entity-management" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Entities</a>
               <a href="/admin/x-accounts" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">X Accounts</a>
               <a href="/admin/x-global-posting" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">X Posting</a>
               <a href="/admin/collections" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Collections</a>
-              <a href="/admin/settings" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Settings</a>
+              <a href="/admin/global-settings" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white hover:bg-opacity-10">Settings</a>
             </div>
             <div class="flex items-center space-x-3">
               <div class="wallet-container"></div>
@@ -184,6 +185,28 @@
             </div>
           </div>
 
+          <!-- Bot Status Grid -->
+          <div class="card p-6 mb-8 fade-in" style="animation-delay: 0.15s" id="bot-status-panel">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                  🤖 Bot Swarm Status
+                  <span id="bot-count-badge" class="ml-3 text-xs px-3 py-1 rounded-full bg-purple-100 text-purple-700">Loading...</span>
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">Monitor all active bot instances across platforms</p>
+              </div>
+              <a href="/admin/bots/" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium">
+                Manage Bots →
+              </a>
+            </div>
+            <div id="bot-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Bot cards loaded dynamically -->
+              <div class="bg-gray-50 rounded-lg p-4 border border-dashed border-gray-300 text-center">
+                <div class="text-gray-400 text-sm">Loading bots...</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Agentic Economy Panel -->
           <div class="card p-6 mb-8 fade-in" style="animation-delay: 0.2s">
             <div class="flex items-center justify-between mb-4">
@@ -240,10 +263,10 @@
 
             <div class="card p-6">
               <div class="text-3xl mb-3">🤖</div>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Global Bot</h3>
-              <p class="text-sm text-gray-600 mb-4">Configure the global bot's persona, model, and memories</p>
-              <a href="/admin/global-bot" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
-                Manage Global Bot
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Bot Management</h3>
+              <p class="text-sm text-gray-600 mb-4">Configure multi-platform bots with isolated credentials</p>
+              <a href="/admin/bots/" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+                Manage Bots
               </a>
             </div>
 
@@ -258,9 +281,9 @@
 
             <div class="card p-6">
               <div class="text-3xl mb-3">⚙️</div>
-              <h3 class="text-lg font-bold text-gray-900 mb-2">Server Settings</h3>
-              <p class="text-sm text-gray-600 mb-4">Configure Discord servers, summon emojis, and permissions</p>
-              <a href="/admin/settings" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
+              <h3 class="text-lg font-bold text-gray-900 mb-2">Global Settings</h3>
+              <p class="text-sm text-gray-600 mb-4">Configure system-wide settings and defaults</p>
+              <a href="/admin/global-settings" class="quick-action-btn text-white px-4 py-2 rounded-lg text-sm font-medium inline-block">
                 Settings
               </a>
             </div>

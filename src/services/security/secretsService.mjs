@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2024 Cenetex Inc.
+ * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
  */
 
@@ -10,8 +10,29 @@ import crypto from 'crypto';
  * - Encrypts/decrypts sensitive values at rest (in memory or persisted later)
  * - Single root key: ENCRYPTION_KEY (32+ bytes recommended)
  * - Provides get/set helpers with optional namespacing
+ * - Supports scoped secrets: global, bot, guild, and avatar scopes
+ * 
+ * Scope hierarchy (most specific to least):
+ * 1. avatar - Per-avatar secrets (e.g., individual X account tokens)
+ * 2. bot - Per-bot instance secrets (e.g., Discord bot token for "ProductionBot")
+ * 3. guild - Per-Discord-guild overrides
+ * 4. global - Shared across all bots (e.g., AI API keys)
+ * 
+ * @example
+ * // Set a bot-scoped secret
+ * await secretsService.set('DISCORD_BOT_TOKEN', 'xoxb-...', { botId: 'bot_abc123' });
+ * 
+ * // Get with fallback resolution
+ * const token = await secretsService.getAsync('DISCORD_BOT_TOKEN', { botId: 'bot_abc123' });
+ * // Will check: bot scope -> global scope
  */
 export class SecretsService {
+  /** @type {Set<string>} Valid scope types */
+  static VALID_SCOPES = new Set(['global', 'bot', 'guild', 'avatar']);
+
+  /** @type {Set<string>} Platform categories for organizing secrets */
+  static PLATFORMS = new Set(['discord', 'x', 'telegram', 'ai', 'infrastructure', 'other']);
+
   constructor({ logger } = {}) {
     this.logger = logger || console;
     const key = process.env.ENCRYPTION_KEY || process.env.APP_SECRET || '';
@@ -40,10 +61,14 @@ export class SecretsService {
     try {
       this.db = db;
       this.collection = db.collection(collectionName);
-      // Ensure indexes support per-guild overrides
+      // Ensure indexes support scoped secrets (bot, guild, avatar)
       try {
         const indexes = await this.collection.indexes();
-        const bad = (indexes || []).find(ix => ix.unique && ix.key && ix.key.key === 1 && !('scope' in ix.key) && !('guildId' in ix.key));
+        // Drop old incompatible unique indexes
+        const bad = (indexes || []).find(ix => 
+          ix.unique && ix.key && ix.key.key === 1 && 
+          !('scope' in ix.key) && !('scopeId' in ix.key) && !('guildId' in ix.key)
+        );
         if (bad) {
           await this.collection.dropIndex(bad.name).catch((e) => {
             this.logger.warn('[secrets] drop old unique index failed:', e?.message || e);
@@ -52,27 +77,43 @@ export class SecretsService {
       } catch (e) {
         this.logger.warn('[secrets] index introspection failed:', e?.message || e);
       }
-      await this.collection.createIndex({ key: 1, scope: 1, guildId: 1 }, { unique: true, name: 'uniq_key_scope_guild' });
+      // New compound unique index supporting all scope types
+      await this.collection.createIndex(
+        { key: 1, scope: 1, scopeId: 1 }, 
+        { unique: true, name: 'uniq_key_scope_scopeId' }
+      );
+      // Index for platform-based queries
+      await this.collection.createIndex({ platform: 1 }, { name: 'idx_platform' });
+      // Index for listing by scope
+      await this.collection.createIndex({ scope: 1, scopeId: 1 }, { name: 'idx_scope' });
+
       // Load existing secrets into cache so synchronous get() works immediately
       try {
-        const docs = await this.collection.find({}, { projection: { key: 1, value: 1, scope: 1, guildId: 1 } }).toArray();
+        const docs = await this.collection.find({}, { projection: { key: 1, value: 1, scope: 1, scopeId: 1, guildId: 1 } }).toArray();
         for (const d of docs) {
           if (d?.key && d?.value) {
-            const comp = this._ck(d.key, d.scope, d.guildId);
+            // Support both old (guildId) and new (scopeId) formats
+            const scopeId = d.scopeId || d.guildId || null;
+            const comp = this._ck(d.key, d.scope || 'global', scopeId);
             this.cache.set(comp, d.value);
           }
         }
+        this.logger.info(`[secrets] Loaded ${docs.length} secrets into cache`);
       } catch (e) {
         this.logger.warn('[secrets] preload from DB failed:', e.message);
       }
       // Sync any cached (env-hydrated) secrets into DB if missing
       for (const [compKey, enc] of this.cache.entries()) {
-        const { name, scope, guildId } = this._parseCk(compKey);
-        const filter = { key: name };
-        if (scope) filter.scope = scope;
-        if (guildId) filter.guildId = guildId;
+        const { name, scope, scopeId } = this._parseCk(compKey);
+        const filter = { key: name, scope: scope || 'global', scopeId: scopeId || null };
         const exists = await this.collection.findOne(filter);
-        if (!exists) await this.collection.updateOne(filter, { $set: { key: name, scope: scope || 'global', guildId: guildId || null, value: enc, updatedAt: new Date() } }, { upsert: true });
+        if (!exists) {
+          await this.collection.updateOne(
+            filter, 
+            { $set: { key: name, scope: scope || 'global', scopeId: scopeId || null, value: enc, updatedAt: new Date() } }, 
+            { upsert: true }
+          );
+        }
       }
     } catch (e) {
       this.logger.error('[secrets] attachDB failed:', e?.stack || e?.message || e);
@@ -105,29 +146,57 @@ export class SecretsService {
     }
   }
 
-  _ck(name, scope = 'global', guildId = null) {
-    return `${scope}:${guildId || ''}:${name}`;
+  _ck(name, scope = 'global', scopeId = null) {
+    return `${scope}:${scopeId || ''}:${name}`;
   }
 
   _parseCk(comp) {
-    const [scope, guildId, ...rest] = String(comp).split(':');
+    const [scope, scopeId, ...rest] = String(comp).split(':');
     const name = rest.join(':');
-    return { scope, guildId: guildId || null, name };
+    return { scope, scopeId: scopeId || null, name };
   }
 
-  // Set a secret; optionally pass { guildId } for per-guild override
+  /**
+   * Determine the scope and scopeId from options
+   * Supports legacy guildId parameter for backward compatibility
+   * @private
+   */
+  _resolveScope(opts = {}) {
+    const { guildId, botId, avatarId, scope: explicitScope } = opts;
+    
+    // Priority: explicit scope > avatarId > botId > guildId > global
+    if (avatarId) return { scope: 'avatar', scopeId: avatarId };
+    if (botId) return { scope: 'bot', scopeId: botId };
+    if (guildId) return { scope: 'guild', scopeId: guildId };
+    if (explicitScope && explicitScope !== 'global') {
+      return { scope: explicitScope, scopeId: opts.scopeId || null };
+    }
+    return { scope: 'global', scopeId: null };
+  }
+
+  // Set a secret; supports botId, avatarId, or guildId for scoped secrets
   set(name, value, opts = {}) {
-    const { guildId = null } = opts || {};
-    const scope = guildId ? 'guild' : 'global';
+    const { scope, scopeId } = this._resolveScope(opts);
+    const { platform } = opts;
     const enc = this.encrypt(value);
-    this.cache.set(this._ck(name, scope, guildId), enc);
-    this.logger.info(`[secrets] set() called for key="${name}", scope="${scope}", cached=true, hasCollection=${!!this.collection}`);
+    this.cache.set(this._ck(name, scope, scopeId), enc);
+    this.logger.info(`[secrets] set() called for key="${name}", scope="${scope}", scopeId="${scopeId || 'null'}", cached=true`);
+    
     // Persist if DB bound
     if (this.collection) {
-      const filter = { key: name, scope, guildId: guildId || null };
+      const filter = { key: name, scope, scopeId: scopeId || null };
+      const update = { 
+        key: name, 
+        scope, 
+        scopeId: scopeId || null, 
+        value: enc, 
+        updatedAt: new Date(),
+        // Only set platform if provided
+        ...(platform ? { platform } : {}),
+      };
       return this.collection.updateOne(
         filter,
-        { $set: { key: name, scope, guildId: guildId || null, value: enc, updatedAt: new Date() } },
+        { $set: update },
         { upsert: true }
       ).then(() => {
         this.logger.info(`[secrets] set() persisted to DB for key="${name}"`);
@@ -137,11 +206,11 @@ export class SecretsService {
         return false; 
       });
     }
-    this.logger.debug?.(`[secrets] set() for key="${name}" - no collection bound, only cached (pre-DB bootstrap)`);
+    this.logger.debug?.(`[secrets] set() for key="${name}" - no collection bound, only cached`);
     return true;
   }
 
-  // Get from memory, or fallback to env for bootstrap
+  // Get from memory, or fallback to env for bootstrap (sync, global only)
   get(name, { envFallback = true } = {}) {
     // global only (sync)
     const enc = this.cache.get(this._ck(name, 'global'));
@@ -152,50 +221,67 @@ export class SecretsService {
     return undefined;
   }
 
-  async getAsync(name, { envFallback = true, guildId = null } = {}) {
-    this.logger.debug?.(`[secrets] getAsync() called for key="${name}", guildId=${guildId}, hasCollection=${!!this.collection}`);
-    // Prefer guild override
-    let enc = this.cache.get(this._ck(name, 'guild', guildId));
-    if (!enc && this.collection && guildId) {
-      try {
-        const doc = await this.collection.findOne({ key: name, scope: 'guild', guildId });
-        if (doc?.value) {
-          enc = doc.value;
-          this.cache.set(this._ck(name, 'guild', guildId), enc);
-          this.logger.debug?.(`[secrets] getAsync() loaded guild secret from DB for key="${name}"`);
-        }
-      } catch (e) {
-        this.logger.error('[secrets] getAsync guild query failed:', e.message);
-      }
-    }
-    // Fallback to global
-    if (!enc) {
-      enc = this.cache.get(this._ck(name, 'global'));
-      this.logger.debug?.(`[secrets] getAsync() cache check for key="${name}": ${enc ? 'FOUND' : 'NOT FOUND'}`);
-      if (!enc && this.collection) {
-        this.logger.debug?.(`[secrets] getAsync() querying DB for key="${name}"`);
-        try {
-          const doc = await this.collection.findOne({ key: name, $or: [{ scope: 'global' }, { scope: { $exists: false } }] });
-          this.logger.debug?.(`[secrets] getAsync() DB query result for key="${name}": ${doc ? 'FOUND' : 'NOT FOUND'}`);
-          if (doc?.value) {
-            enc = doc.value;
-            this.cache.set(this._ck(name, 'global'), enc);
-            this.logger.debug?.(`[secrets] getAsync() loaded global secret from DB for key="${name}"`);
-          }
-        } catch (e) {
-          this.logger.error('[secrets] getAsync global query failed:', e.message);
+  /**
+   * Get a secret asynchronously with scope resolution
+   * Resolution order: avatar -> bot -> guild -> global -> env (if allowed)
+   */
+  async getAsync(name, opts = {}) {
+    const { envFallback = true, guildId, botId, avatarId } = opts;
+    
+    this.logger.debug?.(`[secrets] getAsync() for key="${name}", botId=${botId}, avatarId=${avatarId}, guildId=${guildId}`);
+    
+    // Try each scope in order of specificity
+    const scopes = [];
+    if (avatarId) scopes.push({ scope: 'avatar', scopeId: avatarId });
+    if (botId) scopes.push({ scope: 'bot', scopeId: botId });
+    if (guildId) scopes.push({ scope: 'guild', scopeId: guildId });
+    scopes.push({ scope: 'global', scopeId: null });
+    
+    for (const { scope, scopeId } of scopes) {
+      const enc = await this._getFromScope(name, scope, scopeId);
+      if (enc) {
+        try { 
+          const decrypted = this.decrypt(enc);
+          this.logger.debug?.(`[secrets] getAsync() returning value from scope="${scope}" for key="${name}"`);
+          return decrypted;
+        } catch (e) { 
+          this.logger.error('[secrets] decrypt failed:', e.message); 
         }
       }
     }
-    if (enc) {
-      try { 
-        const decrypted = this.decrypt(enc);
-        this.logger.debug?.(`[secrets] getAsync() returning decrypted value for key="${name}"`);
-        return decrypted;
-      } catch (e) { this.logger.error('[secrets] decrypt failed:', e.message); }
-    }
+    
     if (envFallback) return process.env[name];
     return undefined;
+  }
+
+  /**
+   * Get encrypted value from a specific scope
+   * @private
+   */
+  async _getFromScope(name, scope, scopeId) {
+    // Check cache first
+    const cacheKey = this._ck(name, scope, scopeId);
+    let enc = this.cache.get(cacheKey);
+    
+    if (!enc && this.collection) {
+      try {
+        const filter = { key: name, scope };
+        if (scopeId) {
+          filter.scopeId = scopeId;
+        } else {
+          filter.$or = [{ scopeId: null }, { scopeId: { $exists: false } }];
+        }
+        const doc = await this.collection.findOne(filter);
+        if (doc?.value) {
+          enc = doc.value;
+          this.cache.set(cacheKey, enc);
+        }
+      } catch (e) {
+        this.logger.error(`[secrets] _getFromScope query failed for scope=${scope}:`, e.message);
+      }
+    }
+    
+    return enc;
   }
 
   // Bulk load common secrets from env into encrypted cache for unified access
@@ -208,70 +294,167 @@ export class SecretsService {
   }
 
   delete(name, opts = {}) {
-    const { guildId = null } = opts || {};
-    const scope = guildId ? 'guild' : 'global';
-    this.cache.delete(this._ck(name, scope, guildId));
+    const { scope, scopeId } = this._resolveScope(opts);
+    this.cache.delete(this._ck(name, scope, scopeId));
     if (this.collection) {
-      const filter = { key: name, ...(scope ? { scope } : {}), guildId: guildId || null };
-      return this.collection.deleteOne(filter).then(() => true).catch((e) => { this.logger.error('[secrets] delete failed:', e.message); return false; });
+      const filter = { key: name, scope, scopeId: scopeId || null };
+      return this.collection.deleteOne(filter).then(() => true).catch((e) => { 
+        this.logger.error('[secrets] delete failed:', e.message); 
+        return false; 
+      });
     }
     return true;
   }
 
-  async listKeys({ guildId = null } = {}) {
-    // Return union of global keys + guild override keys (names only)
-    const names = new Set();
-    // from cache
+  /**
+   * List secret keys with optional filtering
+   * @param {Object} opts - Filter options
+   * @param {string} [opts.guildId] - Filter by guild
+   * @param {string} [opts.botId] - Filter by bot
+   * @param {string} [opts.avatarId] - Filter by avatar
+   * @param {string} [opts.platform] - Filter by platform (discord, x, telegram, ai, infrastructure)
+   * @param {boolean} [opts.includeGlobal=true] - Include global secrets in results
+   * @returns {Promise<Array<{key: string, scope: string, scopeId: string|null, platform: string|null}>>}
+   */
+  async listKeys(opts = {}) {
+    const { guildId, botId, avatarId, platform, includeGlobal = true } = opts;
+    const results = [];
+    const seen = new Set();
+
+    // Helper to add unique results
+    const addResult = (key, scope, scopeId, plat) => {
+      const id = `${scope}:${scopeId}:${key}`;
+      if (!seen.has(id)) {
+        seen.add(id);
+        results.push({ key, scope, scopeId, platform: plat });
+      }
+    };
+
+    // From cache
     for (const comp of this.cache.keys()) {
-      const { name, scope, guildId: g } = this._parseCk(comp);
-      if (scope === 'global' || (guildId && scope === 'guild' && g === guildId)) names.add(name);
+      const { name, scope, scopeId } = this._parseCk(comp);
+      if (scope === 'global' && includeGlobal) {
+        addResult(name, scope, scopeId, null);
+      }
+      if (avatarId && scope === 'avatar' && scopeId === avatarId) {
+        addResult(name, scope, scopeId, null);
+      }
+      if (botId && scope === 'bot' && scopeId === botId) {
+        addResult(name, scope, scopeId, null);
+      }
+      if (guildId && scope === 'guild' && scopeId === guildId) {
+        addResult(name, scope, scopeId, null);
+      }
     }
+
+    // From database
     if (this.collection) {
       try {
-        // global keys
-        const globalDocs = await this.collection.find({ $or: [{ scope: 'global' }, { scope: { $exists: false } }] }, { projection: { key: 1 } }).toArray();
-        for (const d of globalDocs) names.add(d.key);
-        if (guildId) {
-          const guildDocs = await this.collection.find({ scope: 'guild', guildId }, { projection: { key: 1 } }).toArray();
-          for (const d of guildDocs) names.add(d.key);
+        const query = { $or: [] };
+        
+        if (includeGlobal) {
+          query.$or.push({ scope: 'global' });
+          query.$or.push({ scope: { $exists: false } });
+        }
+        if (avatarId) query.$or.push({ scope: 'avatar', scopeId: avatarId });
+        if (botId) query.$or.push({ scope: 'bot', scopeId: botId });
+        if (guildId) query.$or.push({ scope: 'guild', scopeId: guildId });
+        
+        if (platform) {
+          query.platform = platform;
+        }
+        
+        if (query.$or.length === 0) {
+          query.$or.push({ scope: 'global' });
+        }
+
+        const docs = await this.collection.find(query, { 
+          projection: { key: 1, scope: 1, scopeId: 1, platform: 1 } 
+        }).toArray();
+        
+        for (const d of docs) {
+          addResult(d.key, d.scope || 'global', d.scopeId || null, d.platform || null);
         }
       } catch (e) {
         this.logger.error('[secrets] listKeys failed:', e.message);
       }
     }
-    return Array.from(names);
+
+    return results;
   }
 
-  async getWithSource(name, { guildId = null, envFallback = true } = {}) {
-    // Try guild override
-    if (guildId) {
-      const encG = this.cache.get(this._ck(name, 'guild', guildId));
-      if (encG || this.collection) {
+  /**
+   * Get a secret with source information
+   * Useful for debugging where a secret value comes from
+   */
+  async getWithSource(name, opts = {}) {
+    const { guildId, botId, avatarId, envFallback = true } = opts;
+
+    // Try each scope in order
+    const scopes = [];
+    if (avatarId) scopes.push({ scope: 'avatar', scopeId: avatarId });
+    if (botId) scopes.push({ scope: 'bot', scopeId: botId });
+    if (guildId) scopes.push({ scope: 'guild', scopeId: guildId });
+    scopes.push({ scope: 'global', scopeId: null });
+
+    for (const { scope, scopeId } of scopes) {
+      const enc = await this._getFromScope(name, scope, scopeId);
+      if (enc) {
         try {
-          let enc = encG;
-          if (!enc && this.collection) {
-            const doc = await this.collection.findOne({ key: name, scope: 'guild', guildId });
-            if (doc?.value) {
-              enc = doc.value;
-              this.cache.set(this._ck(name, 'guild', guildId), enc);
-            }
-          }
-          if (enc) return { value: this.decrypt(enc), source: 'guild' };
+          return { value: this.decrypt(enc), source: scope, scopeId };
         } catch (e) {
-          this.logger.error('[secrets] getWithSource guild query failed:', e.message);
+          this.logger.error('[secrets] getWithSource decrypt failed:', e.message);
         }
       }
     }
-    // Global
-    try {
-      const val = this.get(name, { envFallback: false });
-      if (val !== undefined) return { value: val, source: 'global' };
-    } catch {}
+
     if (envFallback) {
       const env = process.env[name];
-      if (env !== undefined) return { value: env, source: 'env' };
+      if (env !== undefined) return { value: env, source: 'env', scopeId: null };
     }
-    return { value: undefined, source: null };
+    
+    return { value: undefined, source: null, scopeId: null };
+  }
+
+  /**
+   * List all secrets for a specific scope (for admin UI)
+   * Returns metadata without decrypting values
+   */
+  async listSecretsForScope(scope, scopeId = null) {
+    if (!this.collection) return [];
+
+    const query = { scope };
+    if (scopeId) {
+      query.scopeId = scopeId;
+    } else {
+      query.$or = [{ scopeId: null }, { scopeId: { $exists: false } }];
+    }
+
+    const docs = await this.collection.find(query, {
+      projection: { key: 1, scope: 1, scopeId: 1, platform: 1, updatedAt: 1 }
+    }).toArray();
+
+    return docs.map(d => ({
+      key: d.key,
+      scope: d.scope,
+      scopeId: d.scopeId,
+      platform: d.platform,
+      updatedAt: d.updatedAt,
+      hasValue: true, // Value exists but not returned for security
+    }));
+  }
+
+  /**
+   * Get a masked version of a secret value (for display)
+   * Shows first 4 and last 4 characters if long enough
+   */
+  async getMaskedValue(name, opts = {}) {
+    const value = await this.getAsync(name, { ...opts, envFallback: false });
+    if (!value) return null;
+    
+    const str = String(value);
+    if (str.length <= 8) return '••••••••';
+    return `${str.slice(0, 4)}••••••••${str.slice(-4)}`;
   }
 
   /**

@@ -35,6 +35,117 @@ async function fetchPaymentStats() {
   }
 }
 
+async function fetchBotStatus() {
+  try {
+    const res = await fetch('/api/admin/bots');
+    if (!res.ok) {
+      renderBotGrid([]);
+      return;
+    }
+    const data = await res.json();
+    renderBotGrid(data.data || []);
+  } catch (e) {
+    console.warn('Failed to load bot status', e);
+    renderBotGrid([]);
+  }
+}
+
+function renderBotGrid(bots) {
+  const grid = document.getElementById('bot-grid');
+  const badge = document.getElementById('bot-count-badge');
+  
+  if (!grid) return;
+  
+  // Update badge
+  if (badge) {
+    const activeCount = bots.filter(b => b.enabled).length;
+    badge.textContent = `${activeCount}/${bots.length} Active`;
+    badge.className = activeCount > 0 
+      ? 'ml-3 text-xs px-3 py-1 rounded-full bg-green-100 text-green-700'
+      : 'ml-3 text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700';
+  }
+  
+  if (bots.length === 0) {
+    grid.innerHTML = `
+      <a href="/admin/bots/" class="bg-gray-50 rounded-lg p-4 border border-dashed border-gray-300 text-center hover:border-purple-300 hover:bg-purple-50 transition">
+        <div class="text-2xl mb-2">➕</div>
+        <div class="text-gray-600 text-sm font-medium">Create your first bot</div>
+        <div class="text-gray-400 text-xs mt-1">Click to get started</div>
+      </a>
+    `;
+    return;
+  }
+  
+  grid.innerHTML = bots.slice(0, 6).map(bot => `
+    <a href="/admin/bots/detail.html?id=${bot.botId}" class="bg-white rounded-lg p-4 border hover:border-purple-300 hover:shadow-md transition">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl ${
+            bot.platforms?.discord?.enabled ? 'bg-indigo-100' : 
+            bot.platforms?.telegram?.enabled ? 'bg-blue-100' : 
+            bot.platforms?.x?.enabled ? 'bg-gray-100' : 'bg-purple-100'
+          }">
+            ${getBotEmoji(bot)}
+          </div>
+          <div>
+            <div class="font-semibold text-gray-900 text-sm">${escapeHtml(bot.name)}</div>
+            <div class="text-xs text-gray-500">${bot.botId}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="w-2 h-2 rounded-full ${bot.enabled ? 'bg-green-500' : 'bg-gray-300'}"></div>
+          <span class="text-xs text-gray-500">${bot.enabled ? 'Active' : 'Paused'}</span>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        ${bot.platforms?.discord?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Discord</span>' : ''}
+        ${bot.platforms?.telegram?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">Telegram</span>' : ''}
+        ${bot.platforms?.x?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">𝕏</span>' : ''}
+        ${!bot.platforms?.discord?.enabled && !bot.platforms?.telegram?.enabled && !bot.platforms?.x?.enabled ? '<span class="text-xs text-gray-400">No platforms</span>' : ''}
+      </div>
+      <div class="mt-3 pt-3 border-t flex justify-between text-xs text-gray-500">
+        <span>${bot.avatars?.length || 0} avatars</span>
+        <span>Last active: ${formatRelativeTime(bot.lastActiveAt)}</span>
+      </div>
+    </a>
+  `).join('') + (bots.length > 6 ? `
+    <a href="/admin/bots/" class="bg-gray-50 rounded-lg p-4 border border-dashed border-gray-300 text-center hover:border-purple-300 hover:bg-purple-50 transition flex flex-col items-center justify-center">
+      <div class="text-gray-600 text-sm font-medium">View all ${bots.length} bots</div>
+      <div class="text-gray-400 text-xs mt-1">→</div>
+    </a>
+  ` : '');
+}
+
+function getBotEmoji(bot) {
+  if (bot.platforms?.discord?.enabled) return '💬';
+  if (bot.platforms?.telegram?.enabled) return '📱';
+  if (bot.platforms?.x?.enabled) return '𝕏';
+  return '🤖';
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return 'Never';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function updatePaymentUI(data) {
   const badge = document.getElementById('payment-status-badge');
   const setText = (id, v) => { 
@@ -141,6 +252,7 @@ function wirePhantomLogin() {
 function init() {
   initializeWallet();
   fetchStats();
+  fetchBotStatus();
   ensureAdminSession();
   wirePhantomLogin();
   wireGlobalXToggle();

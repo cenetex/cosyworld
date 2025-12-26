@@ -33,6 +33,7 @@ import WalletInsights from '../services/social/buybot/walletInsights.mjs';
 import { XService } from '../services/social/xService.mjs';
 import { TelegramService } from '../services/social/telegramService.mjs';
 import { GlobalBotService } from '../services/social/globalBotService.mjs';
+import { BotService } from '../services/bot/botService.mjs';
 import { SocialPlatformService } from '../services/social/socialPlatformService.mjs';
 import { UnifiedAIService } from '../services/ai/unifiedAIService.mjs';
 import { StoryStateService } from '../services/story/storyStateService.mjs';
@@ -120,6 +121,7 @@ export async function initializeContainer({ container, logger, configService }) 
       xService: asClass(XService).singleton(),
       telegramService: asClass(TelegramService).singleton(),
       globalBotService: asClass(GlobalBotService).singleton(),
+      botService: asClass(BotService).singleton(),
       socialPlatformService: asClass(SocialPlatformService).singleton(),
       toolService: asClass(ToolService).singleton(),
       toolSchemaGenerator: asClass(ToolSchemaGenerator).singleton(),

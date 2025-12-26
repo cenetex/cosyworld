@@ -225,6 +225,12 @@ async function initializeApp(services) {
       logger,
     };
 
+    const adminBotsRouteServices = {
+      botService: services.botService,
+      secretsService: services.secretsService,
+      logger,
+    };
+
     const inviteRouteServices = {
       xService: services.xService,
     };
@@ -331,6 +337,7 @@ async function initializeApp(services) {
   app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, adminUsersRouteServices));
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db, adminCollectionsRouteServices));
   app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(adminReplicateRouteServices));
+  app.use('/api/admin/bots', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.bots.js')).default(db, adminBotsRouteServices));
   
   // Public Invite Route
   app.use('/api/invite', (await import('./routes/invite.js')).default(db, inviteRouteServices));
