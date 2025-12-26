@@ -145,6 +145,29 @@ export default function(db, routeServices = {}) {
     res.json({ success: true, message: 'Bot deleted' });
   }));
 
+  /**
+   * POST /api/admin/bots/:botId/sync-platforms
+   * Sync platform configs from environment/secrets
+   */
+  router.post('/:botId/sync-platforms', asyncHandler(async (req, res) => {
+    if (!botService) {
+      return res.status(503).json({ error: 'Bot service not available' });
+    }
+
+    const { botId } = req.params;
+
+    try {
+      const bot = await botService.syncPlatformConfigsFromEnv(botId);
+      logger?.info?.(`[admin.bots] Synced platform configs for bot: ${botId}`);
+      res.json({ success: true, data: bot });
+    } catch (err) {
+      if (err.message === 'Bot not found') {
+        return res.status(404).json({ error: 'Bot not found' });
+      }
+      throw err;
+    }
+  }));
+
   // ============================================
   // PLATFORM MANAGEMENT
   // ============================================

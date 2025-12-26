@@ -117,15 +117,62 @@ export class BotService {
     const existing = await this.collection.findOne({ _id: 'default' });
     if (existing) return existing;
 
+    // Try to load legacy configuration from secrets/config
+    let discordConfig = { enabled: false, guildIds: [] };
+    let telegramConfig = { enabled: false, channelIds: [] };
+    let xConfig = { enabled: false };
+
+    try {
+      // Check if we have Discord configuration
+      const discordToken = await this.secretsService?.getSecret?.('DISCORD_TOKEN') 
+        || process.env.DISCORD_TOKEN;
+      if (discordToken) {
+        discordConfig = {
+          enabled: true,
+          clientId: process.env.DISCORD_CLIENT_ID || '',
+          guildIds: (process.env.GUILD_IDS || process.env.DISCORD_GUILD_IDS || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean),
+        };
+      }
+
+      // Check if we have Telegram configuration
+      const telegramToken = await this.secretsService?.getSecret?.('TELEGRAM_BOT_TOKEN')
+        || process.env.TELEGRAM_BOT_TOKEN;
+      if (telegramToken) {
+        telegramConfig = {
+          enabled: true,
+          botUsername: process.env.TELEGRAM_BOT_USERNAME || '',
+          channelIds: (process.env.TELEGRAM_CHANNEL_IDS || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean),
+        };
+      }
+
+      // Check if we have X/Twitter configuration
+      const xClientId = await this.secretsService?.getSecret?.('X_CLIENT_ID')
+        || process.env.X_CLIENT_ID;
+      if (xClientId) {
+        xConfig = {
+          enabled: true,
+          accountId: process.env.X_ACCOUNT_ID || '',
+        };
+      }
+    } catch (e) {
+      this.logger.warn('[BotService] Could not load legacy configs:', e.message);
+    }
+
     const defaultBot = {
       _id: 'default',
       name: 'Default Bot',
       description: 'Primary bot instance (migrated from legacy configuration)',
       status: 'running',
       platforms: {
-        discord: { enabled: true, guildIds: [] },
-        x: { enabled: true },
-        telegram: { enabled: true, channelIds: [] },
+        discord: discordConfig,
+        x: xConfig,
+        telegram: telegramConfig,
       },
       config: { ...DEFAULT_BOT_CONFIG },
       avatarIds: [],
@@ -138,6 +185,89 @@ export class BotService {
     await this.collection.insertOne(defaultBot);
     this.logger.info('[BotService] Created default bot for backward compatibility');
     return defaultBot;
+  }
+
+  /**
+   * Sync a bot's platform configs from environment/secrets (for migration or refresh)
+   * @param {string} botId - Bot ID to sync
+   * @returns {Promise<Bot>}
+   */
+  async syncPlatformConfigsFromEnv(botId) {
+    await this.initialize();
+
+    const bot = await this.collection.findOne({ _id: botId });
+    if (!bot) {
+      throw new Error('Bot not found');
+    }
+
+    // Load configs from environment/secrets
+    let discordConfig = { ...bot.platforms?.discord };
+    let telegramConfig = { ...bot.platforms?.telegram };
+    let xConfig = { ...bot.platforms?.x };
+
+    try {
+      // Discord
+      const discordToken = await this.secretsService?.getSecret?.('DISCORD_TOKEN', botId)
+        || await this.secretsService?.getSecret?.('DISCORD_TOKEN')
+        || process.env.DISCORD_TOKEN;
+      if (discordToken) {
+        discordConfig = {
+          ...discordConfig,
+          enabled: true,
+          clientId: process.env.DISCORD_CLIENT_ID || discordConfig.clientId || '',
+          guildIds: (process.env.GUILD_IDS || process.env.DISCORD_GUILD_IDS || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean) || discordConfig.guildIds || [],
+        };
+      }
+
+      // Telegram
+      const telegramToken = await this.secretsService?.getSecret?.('TELEGRAM_BOT_TOKEN', botId)
+        || await this.secretsService?.getSecret?.('TELEGRAM_BOT_TOKEN')
+        || process.env.TELEGRAM_BOT_TOKEN;
+      if (telegramToken) {
+        telegramConfig = {
+          ...telegramConfig,
+          enabled: true,
+          botUsername: process.env.TELEGRAM_BOT_USERNAME || telegramConfig.botUsername || '',
+          channelIds: (process.env.TELEGRAM_CHANNEL_IDS || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean) || telegramConfig.channelIds || [],
+        };
+      }
+
+      // X/Twitter
+      const xClientId = await this.secretsService?.getSecret?.('X_CLIENT_ID', botId)
+        || await this.secretsService?.getSecret?.('X_CLIENT_ID')
+        || process.env.X_CLIENT_ID;
+      if (xClientId) {
+        xConfig = {
+          ...xConfig,
+          enabled: true,
+          accountId: process.env.X_ACCOUNT_ID || xConfig.accountId || '',
+        };
+      }
+    } catch (e) {
+      this.logger.warn(`[BotService] Could not sync platform configs for ${botId}:`, e.message);
+    }
+
+    const result = await this.collection.findOneAndUpdate(
+      { _id: botId },
+      {
+        $set: {
+          'platforms.discord': discordConfig,
+          'platforms.telegram': telegramConfig,
+          'platforms.x': xConfig,
+          updatedAt: new Date(),
+        }
+      },
+      { returnDocument: 'after' }
+    );
+
+    this.logger.info(`[BotService] Synced platform configs for bot: ${botId}`);
+    return this._transformBot(result);
   }
 
   /**

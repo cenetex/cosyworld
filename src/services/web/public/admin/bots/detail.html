@@ -550,6 +550,19 @@
 
         <!-- Platforms Panel -->
         <div class="tab-panel" id="panel-platforms">
+          <div class="card" style="margin-bottom: var(--space-4);">
+            <div class="card-body" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong>Platform Configuration</strong>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">
+                  Configure which platforms this bot connects to.
+                </p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="syncPlatformConfigs()">
+                🔄 Sync from Environment
+              </button>
+            </div>
+          </div>
           <div class="platforms-grid" id="platformsGrid">
             <!-- Discord -->
             <div class="platform-card" id="discordCard">
@@ -1021,6 +1034,16 @@
     }
 
     // Platform actions
+    async function syncPlatformConfigs() {
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/sync-platforms`, { method: 'POST' });
+        showToast('Platform configs synced from environment', 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to sync: ' + err.message, 'error');
+      }
+    }
+
     async function togglePlatform(platform, enabled) {
       try {
         const action = enabled ? 'enable' : 'disable';
