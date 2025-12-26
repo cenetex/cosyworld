@@ -812,8 +812,10 @@
     const urlParams = new URLSearchParams(window.location.search);
     botId = urlParams.get('id');
 
+    // Redirect if no bot ID - stop execution
     if (!botId) {
-      window.location.href = '/admin/bots/';
+      window.location.replace('/admin/bots/');
+      throw new Error('No bot ID provided');
     }
 
     // API helper

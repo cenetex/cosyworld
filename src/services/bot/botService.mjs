@@ -148,6 +148,25 @@ export class BotService {
   }
 
   /**
+   * Transform bot document to include botId alias for frontend compatibility
+   * @param {Object} bot - Bot document from MongoDB
+   * @returns {Object} Bot with botId field
+   */
+  _transformBot(bot) {
+    if (!bot) return null;
+    return { ...bot, botId: bot._id };
+  }
+
+  /**
+   * Transform array of bots
+   * @param {Object[]} bots - Array of bot documents
+   * @returns {Object[]} Bots with botId fields
+   */
+  _transformBots(bots) {
+    return bots.map(b => this._transformBot(b));
+  }
+
+  /**
    * Create a new bot instance
    * @param {Object} data - Bot creation data
    * @returns {Promise<Bot>}
@@ -188,7 +207,7 @@ export class BotService {
     await this.collection.insertOne(bot);
     this.logger.info(`[BotService] Created bot: ${bot.name} (${bot._id})`);
 
-    return bot;
+    return this._transformBot(bot);
   }
 
   /**
@@ -198,7 +217,8 @@ export class BotService {
    */
   async getBot(botId) {
     await this.initialize();
-    return this.collection.findOne({ _id: botId });
+    const bot = await this.collection.findOne({ _id: botId });
+    return this._transformBot(bot);
   }
 
   /**
@@ -208,7 +228,8 @@ export class BotService {
    */
   async getBotByName(name) {
     await this.initialize();
-    return this.collection.findOne({ name });
+    const bot = await this.collection.findOne({ name });
+    return this._transformBot(bot);
   }
 
   /**
@@ -238,7 +259,7 @@ export class BotService {
       .sort({ isDefault: -1, createdAt: -1 })
       .toArray();
 
-    return bots;
+    return this._transformBots(bots);
   }
 
   /**
@@ -277,7 +298,7 @@ export class BotService {
       this.logger.info(`[BotService] Updated bot: ${botId}`);
     }
 
-    return result;
+    return this._transformBot(result);
   }
 
   /**
@@ -316,11 +337,12 @@ export class BotService {
       updatedAt: new Date(),
     };
 
-    return this.collection.findOneAndUpdate(
+    const result = await this.collection.findOneAndUpdate(
       { _id: botId },
       { $set: updates },
       { returnDocument: 'after' }
     );
+    return this._transformBot(result);
   }
 
   /**
@@ -331,7 +353,7 @@ export class BotService {
   async disablePlatform(botId, platform) {
     await this.initialize();
 
-    return this.collection.findOneAndUpdate(
+    const result = await this.collection.findOneAndUpdate(
       { _id: botId },
       { 
         $set: { 
@@ -341,6 +363,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
+    return this._transformBot(result);
   }
 
   /**
@@ -351,7 +374,7 @@ export class BotService {
   async assignAvatar(botId, avatarId) {
     await this.initialize();
 
-    return this.collection.findOneAndUpdate(
+    const result = await this.collection.findOneAndUpdate(
       { _id: botId },
       { 
         $addToSet: { avatarIds: avatarId },
@@ -359,6 +382,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
+    return this._transformBot(result);
   }
 
   /**
@@ -369,7 +393,7 @@ export class BotService {
   async unassignAvatar(botId, avatarId) {
     await this.initialize();
 
-    return this.collection.findOneAndUpdate(
+    const result = await this.collection.findOneAndUpdate(
       { _id: botId },
       { 
         $pull: { avatarIds: avatarId },
@@ -377,6 +401,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
+    return this._transformBot(result);
   }
 
   /**
