@@ -424,14 +424,16 @@
                   <div class="setting-label">Default Model</div>
                   <div class="setting-description">Model used when no specific model is requested</div>
                 </div>
-                <div class="setting-control">
-                  <select id="defaultModel" class="form-select">
-                    <option value="gpt-4o-mini">GPT-4o Mini</option>
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
-                    <option value="gemini-pro">Gemini Pro</option>
+                <div class="setting-control" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <select id="defaultModelProvider" class="form-select">
+                    <option value="">Loading providers...</option>
                   </select>
+                  <select id="defaultModel" class="form-select" disabled>
+                    <option value="">Select provider first</option>
+                  </select>
+                  <div id="defaultModelRarityBadge" class="hidden">
+                    <span></span>
+                  </div>
                 </div>
               </div>
               <div class="setting-row">
@@ -675,10 +677,13 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script>
+  <script type="module">
+    import { initTwoPartSelector, getRarityStyle } from '/js/admin/model-selector.js';
+    
     // State
     let settings = {};
     let globalSecrets = [];
+    let modelSelectorInitialized = false;
 
     // API helpers
     async function fetchWithAuth(url, options = {}) {
@@ -696,7 +701,7 @@
       try {
         const response = await fetchWithAuth('/api/settings');
         settings = response.data || response || {};
-        applySettings();
+        await applySettings();
       } catch (err) {
         console.error('Failed to load settings:', err);
         showToast('Failed to load settings', 'error');
@@ -715,7 +720,7 @@
     }
 
     // Apply settings to form
-    function applySettings() {
+    async function applySettings() {
       // General
       if (settings.systemName) document.getElementById('systemName').value = settings.systemName;
       if (settings.adminContact) document.getElementById('adminContact').value = settings.adminContact;
@@ -723,7 +728,28 @@
 
       // AI
       if (settings.defaultProvider) document.getElementById('defaultProvider').value = settings.defaultProvider;
-      if (settings.defaultModel) document.getElementById('defaultModel').value = settings.defaultModel;
+      
+      // Initialize two-part model selector
+      if (!modelSelectorInitialized) {
+        await initTwoPartSelector({
+          providerSelect: document.getElementById('defaultModelProvider'),
+          modelSelect: document.getElementById('defaultModel'),
+          rarityBadge: document.getElementById('defaultModelRarityBadge'),
+          initialValue: settings.defaultModel || 'openai/gpt-4o-mini'
+        });
+        modelSelectorInitialized = true;
+      } else if (settings.defaultModel) {
+        // If already initialized, just update the value
+        const [provider, model] = settings.defaultModel.includes('/') 
+          ? settings.defaultModel.split('/') 
+          : ['openai', settings.defaultModel];
+        document.getElementById('defaultModelProvider').value = provider;
+        document.getElementById('defaultModelProvider').dispatchEvent(new Event('change'));
+        setTimeout(() => {
+          document.getElementById('defaultModel').value = settings.defaultModel;
+        }, 100);
+      }
+      
       if (settings.imageProvider) document.getElementById('imageProvider').value = settings.imageProvider;
       if (settings.defaultTemperature !== undefined) {
         document.getElementById('defaultTemperature').value = settings.defaultTemperature;

@@ -718,12 +718,17 @@
               <h3 class="config-section-title">AI Settings</h3>
               <div class="form-group">
                 <label class="form-label">Default Model</label>
-                <select id="configDefaultModel" class="form-select">
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                  <option value="gemini-pro">Gemini Pro</option>
-                </select>
+                <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                  <select id="configModelProvider" class="form-select" style="flex: 1; min-width: 150px;">
+                    <option value="">Loading...</option>
+                  </select>
+                  <select id="configModelName" class="form-select" style="flex: 2; min-width: 200px;" disabled>
+                    <option value="">Select provider first</option>
+                  </select>
+                </div>
+                <div id="model-rarity-badge" class="hidden" style="margin-top: var(--space-1);">
+                  <span></span>
+                </div>
               </div>
               <div class="form-group">
                 <label class="form-label">Temperature</label>
@@ -807,6 +812,7 @@
 
   <script type="module">
     import { apiFetch } from '/js/admin/admin-api.js';
+    import { initTwoPartSelector, initSingleSelector, fetchModels, getProviders, getModelsForProvider } from '/js/admin/model-selector.js';
     
     // State
     let bot = null;
@@ -991,9 +997,17 @@
       document.getElementById('xAccountId').value = x.accountId || '';
     }
 
-    function updateConfigFields() {
+    async function updateConfigFields() {
       const config = bot.config || {};
-      document.getElementById('configDefaultModel').value = config.defaultModel || 'gpt-4o-mini';
+      
+      // Initialize two-part model selector
+      await initTwoPartSelector({
+        providerSelect: document.getElementById('configModelProvider'),
+        modelSelect: document.getElementById('configModelName'),
+        rarityBadge: document.getElementById('model-rarity-badge'),
+        initialValue: config.defaultModel || 'openai/gpt-4o-mini'
+      });
+      
       document.getElementById('configTemperature').value = config.temperature || 0.7;
       document.getElementById('temperatureValue').textContent = config.temperature || 0.7;
       document.getElementById('configMaxTokens').value = config.maxTokens || 4096;
@@ -1157,7 +1171,7 @@
     async function saveConfig() {
       try {
         const config = {
-          defaultModel: document.getElementById('configDefaultModel').value,
+          defaultModel: document.getElementById('configModelName').value,
           temperature: parseFloat(document.getElementById('configTemperature').value),
           maxTokens: parseInt(document.getElementById('configMaxTokens').value),
           features: {

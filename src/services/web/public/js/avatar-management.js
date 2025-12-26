@@ -6,6 +6,14 @@
 import { apiFetch } from './admin/admin-api.js';
 import { success as toastSuccess, error as toastError, withButtonLoading } from './admin/admin-ui.js';
 import { ensureWallet } from './admin/admin-auth.js';
+import { 
+  fetchModels, 
+  getProviders, 
+  getModelsForProvider, 
+  initTwoPartSelector, 
+  initSingleSelector,
+  getRarityStyle 
+} from './admin/model-selector.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Ensure wallet (non-fatal)
@@ -24,107 +32,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentSearch: "",
   };
 
-  // Store models data globally for modal use
+  // Store models data for backward compatibility
   let modelsData = [];
   let modelsByProvider = new Map();
 
-  // Enhanced model selector functionality with provider/model split
+  // Enhanced model selector functionality using shared module
   async function loadModels() {
     const modelSelect = document.getElementById('model-filter');
-
-    // Show loading indicator
-    const loadingOption = document.createElement('option');
-    loadingOption.textContent = 'Loading...';
-    loadingOption.disabled = true;
-    loadingOption.selected = true;
-    modelSelect.appendChild(loadingOption);
+    if (!modelSelect) return;
 
     try {
-      console.log('Fetching models from /api/models/config...');
-      const response = await fetch('/api/models/config');
-      if (!response.ok) {
-        console.error(`HTTP error ${response.status}`);
-        throw new Error(`HTTP error ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Raw API response:', data);
-
-      // Store models data globally
-      modelsData = Array.isArray(data) ? data : [];
-      console.log(`Parsed ${modelsData.length} models from API`);
-
-      // Clear existing options
-      modelSelect.innerHTML = '';
-
-      // Add default option
-      const defaultOption = document.createElement('option');
-      defaultOption.value = 'all';
-      defaultOption.textContent = 'All Models';
-      modelSelect.appendChild(defaultOption);
-
-      // Compute model name list from API
-      const modelNames = modelsData.map(m => m?.model).filter(Boolean);
-      console.log(`Found ${modelNames.length} valid model names`);
-
-      if (modelNames.length === 0) {
-        console.warn('No models returned from API - check API endpoint');
-        modelSelect.innerHTML = '<option disabled selected>No models available</option>';
-        return;
-      }
-
-      // Build provider map for modal
-      modelsByProvider.clear();
-      modelNames.forEach((fullModel) => {
-        const [provider, ...modelParts] = fullModel.split('/');
-        const modelName = modelParts.join('/');
-        if (provider && modelName) {
-          if (!modelsByProvider.has(provider)) {
-            modelsByProvider.set(provider, []);
-          }
-          modelsByProvider.get(provider).push({
-            fullName: fullModel,
-            modelName: modelName,
-            rarity: modelsData.find(m => m.model === fullModel)?.rarity || 'common'
-          });
-        }
+      // Use shared module to initialize filter dropdown with optgroups
+      await initSingleSelector({
+        selectElement: modelSelect,
+        includeAllOption: true,
+        onModelChange: (value) => {
+          state.currentModelFilter = value;
+          state.currentPage = 1;
+          loadAvatars();
+        },
+        initialValue: state.currentModelFilter !== 'all' ? state.currentModelFilter : null
       });
 
-      console.log(`Loaded ${modelNames.length} models from ${modelsByProvider.size} providers`);
-      console.log('Providers:', Array.from(modelsByProvider.keys()));
-
-      // Populate filter dropdown with full model names
-      modelNames.forEach((model) => {
-        const option = document.createElement('option');
-        option.value = model;
-        option.textContent = model;
-        modelSelect.appendChild(option);
+      // Store data for backward compatibility
+      modelsData = await fetchModels();
+      
+      // Build provider map for local use
+      modelsByProvider = new Map();
+      const providers = getProviders();
+      providers.forEach(provider => {
+        modelsByProvider.set(provider, getModelsForProvider(provider));
       });
 
-      // Preserve current selection if possible
-      if (modelNames.includes(state.currentModelFilter)) {
-        modelSelect.value = state.currentModelFilter;
-      }
-
-      // Add filter listeners (ensure only one listener is attached)
-      modelSelect.onchange = () => {
-        state.currentModelFilter = modelSelect.value;
-        state.currentPage = 1;
-        loadAvatars();
-      };
+      console.log(`[avatar-management] Loaded ${modelsData.length} models from ${providers.length} providers`);
 
       // Initialize modal dropdowns after models are loaded
       initializeModalModelSelectors();
     } catch (error) {
       console.error('Error loading models:', error);
-
-      // Show error message
       modelSelect.innerHTML = '<option disabled selected>Error loading models</option>';
     }
   }
 
-  // Initialize provider/model dropdowns in modal
-  function initializeModalModelSelectors() {
+  // Initialize provider/model dropdowns in modal using shared module
+  async function initializeModalModelSelectors() {
     const providerSelect = document.getElementById('avatar-model-provider');
     const modelNameSelect = document.getElementById('avatar-model-name');
     const rarityBadge = document.getElementById('model-rarity-badge');
@@ -134,81 +85,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Check if models are loaded yet
-    if (modelsByProvider.size === 0) {
-      console.warn('Models not loaded yet, provider list will be empty');
-      providerSelect.innerHTML = '<option value="">Loading providers...</option>';
-      modelNameSelect.innerHTML = '<option value="">Loading models...</option>';
-      modelNameSelect.disabled = true;
-      return;
-    }
-
-    // Clear and populate provider dropdown
-    providerSelect.innerHTML = '<option value="">Select provider...</option>';
-    const providers = Array.from(modelsByProvider.keys()).sort();
-    
-    console.log('Populating providers:', providers.length, 'providers found');
-    
-    providers.forEach(provider => {
-      const option = document.createElement('option');
-      option.value = provider;
-      option.textContent = provider;
-      providerSelect.appendChild(option);
+    await initTwoPartSelector({
+      providerSelect,
+      modelSelect: modelNameSelect,
+      rarityBadge
     });
-
-    // Reset model dropdown
-    modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
-    modelNameSelect.disabled = true;
-
-    // Provider change handler
-    providerSelect.onchange = () => {
-      const selectedProvider = providerSelect.value;
-      modelNameSelect.innerHTML = '';
-      modelNameSelect.disabled = !selectedProvider;
-      
-      if (selectedProvider) {
-        const models = modelsByProvider.get(selectedProvider) || [];
-        console.log(`Provider ${selectedProvider} has ${models.length} models`);
-        models.forEach(modelInfo => {
-          const option = document.createElement('option');
-          option.value = modelInfo.fullName;
-          option.textContent = modelInfo.modelName;
-          option.dataset.rarity = modelInfo.rarity;
-          modelNameSelect.appendChild(option);
-        });
-        if (models.length > 0) {
-          modelNameSelect.selectedIndex = 0;
-          updateRarityBadge(models[0].rarity);
-        }
-      } else {
-        modelNameSelect.innerHTML = '<option value="">Select provider first</option>';
-        hideRarityBadge();
-      }
-    };
-
-    // Model name change handler
-    modelNameSelect.onchange = () => {
-      const selectedOption = modelNameSelect.options[modelNameSelect.selectedIndex];
-      if (selectedOption && selectedOption.dataset.rarity) {
-        updateRarityBadge(selectedOption.dataset.rarity);
-      }
-    };
   }
 
-  // Update rarity badge
+  // Update rarity badge - now uses shared module's getRarityStyle
   function updateRarityBadge(rarity) {
     const badge = document.getElementById('model-rarity-badge');
     if (!badge) return;
     
     const span = badge.querySelector('span');
-    const rarityStyles = {
-      'legendary': 'background: rgba(234, 179, 8, 0.2); color: #facc15; border-color: rgba(234, 179, 8, 0.5);',
-      'rare': 'background: rgba(168, 85, 247, 0.2); color: #c084fc; border-color: rgba(168, 85, 247, 0.5);',
-      'uncommon': 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.5);',
-      'common': 'background: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);'
-    };
-    
-    span.style.cssText = `display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid; ${rarityStyles[rarity] || rarityStyles.common}`;
+    span.style.cssText = `display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid; ${getRarityStyle(rarity)}`;
     span.className = '';
     span.textContent = rarity.toUpperCase();
     badge.classList.remove('hidden');
