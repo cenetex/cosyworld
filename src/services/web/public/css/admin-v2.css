@@ -473,6 +473,76 @@ body.admin-v2 {
   gap: var(--space-1);
 }
 
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  transition: var(--transition-fast);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: white;
+  border-radius: 50%;
+  transition: var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  left: calc(100% - 20px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px var(--color-primary-muted);
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle with label */
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.toggle-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
 /* =============================================================================
    Tables
    ============================================================================= */

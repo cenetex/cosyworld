@@ -165,47 +165,7 @@
       .setting-control { width: 100%; }
     }
 
-    /* Toggle Switch */
-    .toggle-switch {
-      position: relative;
-      width: 48px;
-      height: 24px;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      inset: 0;
-      background: var(--color-bg-tertiary);
-      border-radius: var(--radius-full);
-      transition: var(--transition-fast);
-    }
-
-    .toggle-slider::before {
-      content: '';
-      position: absolute;
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background: white;
-      border-radius: 50%;
-      transition: var(--transition-fast);
-    }
-
-    .toggle-switch input:checked + .toggle-slider {
-      background: var(--color-success);
-    }
-
-    .toggle-switch input:checked + .toggle-slider::before {
-      transform: translateX(24px);
-    }
+    /* Toggle switch styles are now in admin-v2.css */
 
     /* Secrets Section */
     .secrets-table {

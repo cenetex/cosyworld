@@ -9,7 +9,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "WEB_PORT=3001 cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon src/index.mjs --delay 3000",
+    "dev": "WEB_PORT=3000 cross-env NODE_ENV=development DEBUG=awilix:resolver nodemon src/index.mjs --delay 3000",
     "start": "cross-env NODE_ENV=production node src/index.mjs",
     "serve:prod": "npm run start",
     "reset-setup": "node scripts/reset-setup.mjs",
