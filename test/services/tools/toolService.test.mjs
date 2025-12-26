@@ -40,34 +40,58 @@ vi.mock('../../../src/services/tools/tools/RememberTool.mjs', () => ({
   }
 }));
 
-// Mock remaining tools as no-ops
-const mockToolClass = (name, emoji) => ({
-  [name.charAt(0).toUpperCase() + name.slice(1) + 'Tool']: class {
-    name = name;
-    emoji = emoji;
-    execute = vi.fn().mockResolvedValue({ message: `${name} executed`, notify: true });
-    getDescription = () => `${name} description`;
-    getSyntax = () => `${emoji} ${name}`;
-  }
-});
-
-vi.mock('../../../src/services/tools/tools/ChallengeTool.mjs', () => mockToolClass('challenge', '⚔️'));
-vi.mock('../../../src/services/tools/tools/DefendTool.mjs', () => mockToolClass('defend', '🛡️'));
-vi.mock('../../../src/services/tools/tools/SummonTool.mjs', () => mockToolClass('summon', '✨'));
-vi.mock('../../../src/services/tools/tools/BreedTool.mjs', () => mockToolClass('breed', '💕'));
-vi.mock('../../../src/services/tools/tools/CreationTool.mjs', () => mockToolClass('create', '🎨'));
-vi.mock('../../../src/services/tools/tools/XSocialTool.mjs', () => mockToolClass('x', '𝕏'));
-vi.mock('../../../src/services/tools/tools/ItemTool.mjs', () => mockToolClass('item', '🎒'));
-vi.mock('../../../src/services/tools/tools/ThinkTool.mjs', () => mockToolClass('respond', '💬'));
-vi.mock('../../../src/services/tools/tools/WebSearchTool.mjs', () => mockToolClass('search', '🔍'));
-vi.mock('../../../src/services/tools/tools/SelfieTool.mjs', () => mockToolClass('selfie', '🤳'));
-vi.mock('../../../src/services/tools/tools/SceneCameraTool.mjs', () => mockToolClass('camera', '📷'));
-vi.mock('../../../src/services/tools/tools/VideoCameraTool.mjs', () => mockToolClass('video camera', '🎥'));
-vi.mock('../../../src/services/tools/tools/DevilTool.mjs', () => mockToolClass('devil', '😈'));
-vi.mock('../../../src/services/tools/tools/HideTool.mjs', () => mockToolClass('hide', '🫥'));
-vi.mock('../../../src/services/tools/tools/FleeTool.mjs', () => mockToolClass('flee', '🏃'));
-vi.mock('../../../src/services/tools/tools/PotionTool.mjs', () => mockToolClass('potion', '🧪'));
-vi.mock('../../../src/services/tools/tools/WikiTool.mjs', () => mockToolClass('wiki', '📖'));
+// Mock remaining tools as no-ops - inline factories to avoid hoisting issues
+vi.mock('../../../src/services/tools/tools/ChallengeTool.mjs', () => ({
+  ChallengeTool: class { name = 'challenge'; emoji = '⚔️'; execute = vi.fn().mockResolvedValue({ message: 'challenge executed', notify: true }); getDescription = () => 'challenge description'; getSyntax = () => '⚔️ challenge'; }
+}));
+vi.mock('../../../src/services/tools/tools/DefendTool.mjs', () => ({
+  DefendTool: class { name = 'defend'; emoji = '🛡️'; execute = vi.fn().mockResolvedValue({ message: 'defend executed', notify: true }); getDescription = () => 'defend description'; getSyntax = () => '🛡️ defend'; }
+}));
+vi.mock('../../../src/services/tools/tools/SummonTool.mjs', () => ({
+  SummonTool: class { name = 'summon'; emoji = '✨'; execute = vi.fn().mockResolvedValue({ message: 'summon executed', notify: true }); getDescription = () => 'summon description'; getSyntax = () => '✨ summon'; }
+}));
+vi.mock('../../../src/services/tools/tools/BreedTool.mjs', () => ({
+  BreedTool: class { name = 'breed'; emoji = '💕'; execute = vi.fn().mockResolvedValue({ message: 'breed executed', notify: true }); getDescription = () => 'breed description'; getSyntax = () => '💕 breed'; }
+}));
+vi.mock('../../../src/services/tools/tools/CreationTool.mjs', () => ({
+  CreationTool: class { name = 'create'; emoji = '🎨'; execute = vi.fn().mockResolvedValue({ message: 'create executed', notify: true }); getDescription = () => 'create description'; getSyntax = () => '🎨 create'; }
+}));
+vi.mock('../../../src/services/tools/tools/XSocialTool.mjs', () => ({
+  XSocialTool: class { name = 'x'; emoji = '𝕏'; execute = vi.fn().mockResolvedValue({ message: 'x executed', notify: true }); getDescription = () => 'x description'; getSyntax = () => '𝕏 x'; }
+}));
+vi.mock('../../../src/services/tools/tools/ItemTool.mjs', () => ({
+  ItemTool: class { name = 'item'; emoji = '🎒'; execute = vi.fn().mockResolvedValue({ message: 'item executed', notify: true }); getDescription = () => 'item description'; getSyntax = () => '🎒 item'; }
+}));
+vi.mock('../../../src/services/tools/tools/ThinkTool.mjs', () => ({
+  ThinkTool: class { name = 'respond'; emoji = '💬'; execute = vi.fn().mockResolvedValue({ message: 'respond executed', notify: true }); getDescription = () => 'respond description'; getSyntax = () => '💬 respond'; }
+}));
+vi.mock('../../../src/services/tools/tools/WebSearchTool.mjs', () => ({
+  WebSearchTool: class { name = 'search'; emoji = '🔍'; execute = vi.fn().mockResolvedValue({ message: 'search executed', notify: true }); getDescription = () => 'search description'; getSyntax = () => '🔍 search'; }
+}));
+vi.mock('../../../src/services/tools/tools/SelfieTool.mjs', () => ({
+  SelfieTool: class { name = 'selfie'; emoji = '🤳'; execute = vi.fn().mockResolvedValue({ message: 'selfie executed', notify: true }); getDescription = () => 'selfie description'; getSyntax = () => '🤳 selfie'; }
+}));
+vi.mock('../../../src/services/tools/tools/SceneCameraTool.mjs', () => ({
+  SceneCameraTool: class { name = 'camera'; emoji = '📷'; execute = vi.fn().mockResolvedValue({ message: 'camera executed', notify: true }); getDescription = () => 'camera description'; getSyntax = () => '📷 camera'; }
+}));
+vi.mock('../../../src/services/tools/tools/VideoCameraTool.mjs', () => ({
+  VideoCameraTool: class { name = 'video camera'; emoji = '🎥'; execute = vi.fn().mockResolvedValue({ message: 'video camera executed', notify: true }); getDescription = () => 'video camera description'; getSyntax = () => '🎥 video camera'; }
+}));
+vi.mock('../../../src/services/tools/tools/DevilTool.mjs', () => ({
+  DevilTool: class { name = 'devil'; emoji = '😈'; execute = vi.fn().mockResolvedValue({ message: 'devil executed', notify: true }); getDescription = () => 'devil description'; getSyntax = () => '😈 devil'; }
+}));
+vi.mock('../../../src/services/tools/tools/HideTool.mjs', () => ({
+  HideTool: class { name = 'hide'; emoji = '🫥'; execute = vi.fn().mockResolvedValue({ message: 'hide executed', notify: true }); getDescription = () => 'hide description'; getSyntax = () => '🫥 hide'; }
+}));
+vi.mock('../../../src/services/tools/tools/FleeTool.mjs', () => ({
+  FleeTool: class { name = 'flee'; emoji = '🏃'; execute = vi.fn().mockResolvedValue({ message: 'flee executed', notify: true }); getDescription = () => 'flee description'; getSyntax = () => '🏃 flee'; }
+}));
+vi.mock('../../../src/services/tools/tools/PotionTool.mjs', () => ({
+  PotionTool: class { name = 'potion'; emoji = '🧪'; execute = vi.fn().mockResolvedValue({ message: 'potion executed', notify: true }); getDescription = () => 'potion description'; getSyntax = () => '🧪 potion'; }
+}));
+vi.mock('../../../src/services/tools/tools/WikiTool.mjs', () => ({
+  WikiTool: class { name = 'wiki'; emoji = '📖'; execute = vi.fn().mockResolvedValue({ message: 'wiki executed', notify: true }); getDescription = () => 'wiki description'; getSyntax = () => '📖 wiki'; }
+}));
 
 const createMockDeps = () => ({
   logger: {
