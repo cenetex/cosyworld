@@ -699,8 +699,9 @@
     // Load settings
     async function loadSettings() {
       try {
-        const response = await fetchWithAuth('/api/settings');
-        settings = response.data || response || {};
+        const response = await fetchWithAuth('/api/admin/config');
+        // Config is nested in response.config
+        settings = response.config || {};
         await applySettings();
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -711,8 +712,8 @@
     // Load global secrets
     async function loadGlobalSecrets() {
       try {
-        const response = await fetchWithAuth('/api/secrets/list?scope=global');
-        globalSecrets = response.data || [];
+        const response = await fetchWithAuth('/api/secrets');
+        globalSecrets = response.items || [];
         renderSecrets();
       } catch (err) {
         console.error('Failed to load secrets:', err);
@@ -772,7 +773,9 @@
 
       // Advanced
       document.getElementById('debugMode').checked = settings.debugMode || false;
-      if (settings.globalRateLimit) document.getElementById('globalRateLimit').value = settings.globalRateLimit;
+      // Map rateLimit.messages to globalRateLimit field
+      const rateLimit = settings.rateLimit || {};
+      if (rateLimit.messages) document.getElementById('globalRateLimit').value = rateLimit.messages;
       if (settings.memoryRetention) document.getElementById('memoryRetention').value = settings.memoryRetention;
     }
 
@@ -808,9 +811,17 @@
     async function saveSettings() {
       try {
         const data = collectSettings();
-        await fetchWithAuth('/api/settings', {
+        // API expects { features, rateLimit, prompts, adminRoles }
+        await fetchWithAuth('/api/admin/settings', {
           method: 'POST',
-          body: JSON.stringify(data)
+          body: JSON.stringify({
+            prompts: data.prompts,
+            features: data.features,
+            rateLimit: {
+              messages: data.globalRateLimit || 5,
+              interval: 10
+            }
+          })
         });
         showToast('Settings saved successfully', 'success');
       } catch (err) {
@@ -836,8 +847,8 @@
       tbody.innerHTML = globalSecrets.map(secret => `
         <tr>
           <td><span class="secret-key">${escapeHtml(secret.key)}</span></td>
-          <td><span class="secret-value-masked">${secret.maskedValue || '••••••••'}</span></td>
-          <td style="font-size: var(--text-xs); color: var(--color-text-muted);">${formatDate(secret.updatedAt)}</td>
+          <td><span class="secret-value-masked">${secret.value || '••••••••'}</span></td>
+          <td style="font-size: var(--text-xs); color: var(--color-text-muted);">${secret.source || 'global'}</td>
           <td>
             <button class="btn btn-ghost btn-sm" onclick="deleteGlobalSecret('${escapeHtml(secret.key)}')" title="Delete">🗑️</button>
           </td>
@@ -861,9 +872,10 @@
       }
 
       try {
-        await fetchWithAuth('/api/secrets', {
+        // API uses POST /:key with { value } in body
+        await fetchWithAuth(`/api/secrets/${encodeURIComponent(key)}`, {
           method: 'POST',
-          body: JSON.stringify({ key, value, scope: 'global' })
+          body: JSON.stringify({ value })
         });
         showToast('Secret added', 'success');
         document.getElementById('newSecretKey').value = '';
@@ -879,8 +891,10 @@
       if (!confirm(`Delete secret "${key}"?`)) return;
 
       try {
-        await fetchWithAuth(`/api/secrets/${encodeURIComponent(key)}?scope=global`, {
-          method: 'DELETE'
+        // API uses POST /:key/rotate without value to clear
+        await fetchWithAuth(`/api/secrets/${encodeURIComponent(key)}/rotate`, {
+          method: 'POST',
+          body: JSON.stringify({})
         });
         showToast('Secret deleted', 'success');
         loadGlobalSecrets();
@@ -960,6 +974,13 @@
 
     // Event listeners
     document.getElementById('saveAllBtn').addEventListener('click', saveSettings);
+
+    // Expose functions to window for onclick handlers
+    window.toggleAddSecretForm = toggleAddSecretForm;
+    window.addGlobalSecret = addGlobalSecret;
+    window.deleteGlobalSecret = deleteGlobalSecret;
+    window.runMaintenance = runMaintenance;
+    window.exportConfig = exportConfig;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
