@@ -488,8 +488,8 @@ async function initializeApp(services) {
       }
     });
     app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
-      // Consolidated into /admin/settings
-      res.redirect('/admin/settings');
+      // Consolidated into /admin/global-settings
+      res.redirect('/admin/global-settings');
     });
     // Backward compat: redirect old Avatar Management to Entity Management
     app.get('/admin/avatar-management', ensureAdmin, (req, res) => {
@@ -500,10 +500,9 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old secrets page to new bot management
+    app.get('/admin/secrets', ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
     });
     app.get('/admin/collections', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'collections.html'), (err) => {
@@ -515,23 +514,37 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/x-accounts', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'x-accounts.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old X accounts page to new bot management
+    app.get('/admin/x-accounts', ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
     });
-    app.get('/admin/settings', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'settings.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old settings page to new global settings
+    app.get('/admin/settings', ensureAdmin, (req, res) => {
+      res.redirect('/admin/global-settings');
     });
     app.get('/admin/users', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'users.html'), (err) => {
         if (err) next(err);
       });
     });
-    app.get('/admin/global-bot', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'global-bot.html'), (err) => {
+    // Redirect old global-bot page to new bots hub
+    app.get('/admin/global-bot', ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
+    });
+    // New bots management pages
+    app.get(['/admin/bots', '/admin/bots/'], ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'bots', 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/bots/detail.html', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'bots', 'detail.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    // New global settings page
+    app.get('/admin/global-settings', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'global-settings.html'), (err) => {
         if (err) next(err);
       });
     });
