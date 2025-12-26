@@ -55,15 +55,19 @@ const createMockDeps = () => {
       getAvatarById: vi.fn().mockResolvedValue({ _id: 'av1', name: 'TestAvatar' }),
       getAvatarsByChannelId: vi.fn().mockResolvedValue([]),
       findByName: vi.fn().mockResolvedValue(null),
+      updateAvatar: vi.fn().mockResolvedValue(true),
     },
     memoryService: {
       getMemories: vi.fn().mockResolvedValue([]),
       createMemory: vi.fn().mockResolvedValue(true),
       getLastNarrative: vi.fn().mockResolvedValue(null),
       storeNarrative: vi.fn().mockResolvedValue(true),
+      updateNarrativeHistory: vi.fn().mockImplementation((avatar) => Promise.resolve(avatar)),
     },
     promptService: {
       buildSystemPrompt: vi.fn().mockReturnValue('System prompt'),
+      getNarrativeChatMessages: vi.fn().mockResolvedValue([]),
+      getFullSystemPrompt: vi.fn().mockResolvedValue('Full system prompt'),
     },
     configService: {
       get: vi.fn().mockReturnValue(null),
@@ -72,6 +76,7 @@ const createMockDeps = () => {
     knowledgeService: {
       getKnowledge: vi.fn().mockResolvedValue([]),
       queryKnowledgeGraph: vi.fn().mockResolvedValue(''),
+      updateKnowledgeGraph: vi.fn().mockResolvedValue(true),
     },
     mapService: {
       getLocation: vi.fn().mockResolvedValue(null),
