@@ -80,16 +80,70 @@ export function extractUrls(text) {
 }
 
 /**
- * Remove all URLs from text
+ * Remove URLs from text, optionally preserving URLs from allowed domains
  * @param {string} text - The text to sanitize
  * @param {Object} [options] - Options
  * @param {string} [options.replacement=''] - What to replace URLs with
- * @returns {string} Text with URLs removed
+ * @param {string[]} [options.allowedDomains=[]] - List of allowed domain patterns to preserve (e.g., 'cloudfront.net', 'amazonaws.com')
+ * @param {boolean} [options.preserveMarkdownLinks=true] - Whether to preserve URLs inside markdown link syntax [text](url) when they point to media files
+ * @returns {string} Text with URLs removed (except allowed ones)
  */
 export function stripUrls(text, options = {}) {
-  const { replacement = '' } = options;
+  const { replacement = '', allowedDomains = [], preserveMarkdownLinks = true } = options;
   if (!text || typeof text !== 'string') return text;
-  return text.replace(URL_REGEX, replacement).replace(/\s+/g, ' ').trim();
+  
+  // Build a set of allowed domain patterns for faster lookup
+  const allowedPatterns = allowedDomains.map(d => d.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, ''));
+  
+  // Helper to check if a URL is from an allowed domain
+  const isAllowedUrl = (url) => {
+    if (allowedPatterns.length === 0) return false;
+    try {
+      const urlLower = url.toLowerCase();
+      return allowedPatterns.some(pattern => urlLower.includes(pattern));
+    } catch {
+      return false;
+    }
+  };
+  
+  // Helper to check if URL points to a media file
+  const isMediaUrl = (url) => /\.(png|jpg|jpeg|gif|webp|mp4|webm|svg)(\?|$)/i.test(url);
+  
+  let result = text;
+  const protectedLinks = new Map();
+  let linkIndex = 0;
+  
+  // If preserving markdown links, first extract and protect them
+  if (preserveMarkdownLinks) {
+    // Match markdown links: [text](url)
+    const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi;
+    
+    result = result.replace(markdownLinkRegex, (match, linkText, url) => {
+      // Preserve if URL is from allowed domain or if it looks like an image/media URL
+      if (isAllowedUrl(url) || isMediaUrl(url)) {
+        const placeholder = `__MDLINK_${linkIndex}__`;
+        protectedLinks.set(placeholder, match);
+        linkIndex++;
+        return placeholder;
+      }
+      // Strip the URL but keep the link text
+      return linkText;
+    });
+  }
+  
+  // Now strip remaining URLs (not in markdown links)
+  result = result.replace(URL_REGEX, (url) => {
+    if (isAllowedUrl(url)) return url;
+    return replacement;
+  });
+  
+  // Restore protected markdown links
+  for (const [placeholder, original] of protectedLinks.entries()) {
+    result = result.replace(placeholder, original);
+  }
+  
+  // Clean up whitespace
+  return result.replace(/\s+/g, ' ').trim();
 }
 
 /**

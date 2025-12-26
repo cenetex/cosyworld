@@ -475,7 +475,18 @@ export class DiscordService {
       if (filterEnabled) {
         // Strip URLs from AI-generated content if blockUrls is enabled
         if (contentFilters.blockUrls !== false) {
-          filteredContent = stripUrls(filteredContent);
+          // Build list of allowed URL domains (CDN, S3, etc.) to preserve image links
+          const allowedDomains = [
+            ...(contentFilters.allowedUrlDomains || []),
+            'cloudfront.net',     // AWS CloudFront CDN
+            'amazonaws.com',      // AWS S3
+            'cdn.discordapp.com', // Discord CDN
+            'media.discordapp.net' // Discord media
+          ];
+          filteredContent = stripUrls(filteredContent, { 
+            allowedDomains,
+            preserveMarkdownLinks: true  // Preserve markdown links to media files
+          });
         }
         
         // Get dynamically allowed tokens from buybot tracked tokens
