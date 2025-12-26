@@ -198,7 +198,7 @@ function renderAvatarDetails(avatar) {
   // Set image
   const avatarImage = document.getElementById("avatar-image");
   if (avatarImage) {
-    avatarImage.src = avatar.imageUrl || "/images/default-avatar.png";
+    avatarImage.src = avatar.imageUrl || "/images/default-avatar.svg";
     avatarImage.onerror = function() {
       this.onerror = null;
       const initial = (avatar.name || 'A').charAt(0).toUpperCase();

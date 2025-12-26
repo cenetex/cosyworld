@@ -484,7 +484,7 @@ if (emojiInput) {
     return `
       <tr class="hover:bg-gray-50 transition">
         <td class="px-3 py-3">
-          <img class="h-10 w-10 rounded-full object-cover" src="${avatar.thumbnailUrl || avatar.imageUrl || "/default-avatar.png"}" alt="${avatar.name || "Avatar"}">
+          <img class="h-10 w-10 rounded-full object-cover" src="${avatar.thumbnailUrl || avatar.imageUrl || "/images/default-avatar.svg"}" alt="${avatar.name || "Avatar"}">
         </td>
         <td class="px-3 py-3 text-sm font-medium text-gray-900">
           <div class="flex flex-col">

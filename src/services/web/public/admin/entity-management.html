@@ -11,13 +11,14 @@
     <title>Entity Management - RATi Admin</title>
     <link rel="stylesheet" href="/css/admin-v2.css" />
     <style>
-      /* Entity management specific styles */
+      /* Entity management specific styles for v2 theme */
+      
+      /* Tabs */
       .entity-tabs {
         display: flex;
         gap: 0.5rem;
         border-bottom: 1px solid var(--color-border);
         margin-bottom: 1.5rem;
-        padding-bottom: 0;
       }
       .entity-tab {
         padding: 0.75rem 1.25rem;
@@ -34,11 +35,16 @@
       .entity-tab:hover {
         color: var(--color-text);
       }
+      .entity-tab.border-indigo-600,
       .entity-tab.active {
         color: var(--color-accent);
         border-bottom-color: var(--color-accent);
       }
+      .entity-tab.border-transparent {
+        border-bottom-color: transparent;
+      }
       
+      /* Toolbar */
       .entity-toolbar {
         display: flex;
         flex-wrap: wrap;
@@ -49,19 +55,15 @@
         border-radius: 0.5rem;
         margin-bottom: 1rem;
       }
-      .entity-toolbar .form-input {
-        flex: 1;
-        min-width: 200px;
-      }
       
-      /* Table styles for entity management */
+      /* Table */
       .entity-table {
         width: 100%;
         border-collapse: collapse;
       }
       .entity-table th {
         text-align: left;
-        padding: 0.75rem 1rem;
+        padding: 0.75rem 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -71,7 +73,7 @@
         border-bottom: 1px solid var(--color-border);
       }
       .entity-table td {
-        padding: 0.75rem 1rem;
+        padding: 0.75rem;
         font-size: 0.875rem;
         color: var(--color-text);
         border-bottom: 1px solid var(--color-border);
@@ -80,7 +82,7 @@
       .entity-table tbody tr:hover {
         background: rgba(255,255,255,0.02);
       }
-      .entity-table img.entity-thumb {
+      .entity-table img {
         width: 40px;
         height: 40px;
         border-radius: 0.375rem;
@@ -88,7 +90,38 @@
         background: var(--color-surface);
       }
       
-      /* Modal overlay styles */
+      /* Pagination */
+      .pagination-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--color-surface);
+        border-radius: 0.5rem;
+        margin-top: 1rem;
+      }
+      .pagination-bar button {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        background: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: 0.375rem;
+        color: var(--color-text);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .pagination-bar button:hover:not(:disabled) {
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+      }
+      .pagination-bar button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      
+      /* Modal overlay */
       .modal-overlay {
         position: fixed;
         inset: 0;
@@ -99,14 +132,14 @@
         padding: 1rem;
         z-index: 100;
       }
-      .modal-overlay.active {
+      .modal-overlay:not(.hidden) {
         display: flex;
       }
       .modal-content {
         background: var(--color-bg);
         border-radius: 0.75rem;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        max-width: 56rem;
+        max-width: 80rem;
         width: 100%;
         max-height: 90vh;
         overflow-y: auto;
@@ -117,42 +150,42 @@
         justify-content: space-between;
         align-items: center;
         padding: 1rem 1.5rem;
-        background: var(--color-surface);
-        border-bottom: 1px solid var(--color-border);
+        background: linear-gradient(135deg, var(--color-accent), #4f46e5);
         position: sticky;
         top: 0;
         z-index: 10;
       }
       .modal-header h3 {
-        font-size: 1.125rem;
+        font-size: 1.25rem;
         font-weight: 600;
-        color: var(--color-text);
+        color: white;
       }
       .modal-close {
-        font-size: 1.5rem;
-        color: var(--color-text-muted);
+        color: white;
         background: none;
         border: none;
         cursor: pointer;
         padding: 0.25rem;
-        line-height: 1;
+        opacity: 0.8;
+        transition: opacity 0.2s;
       }
       .modal-close:hover {
-        color: var(--color-text);
+        opacity: 1;
       }
       .modal-body {
         padding: 1.5rem;
       }
       
-      /* Sub-tabs within modal */
-      .sub-tabs {
+      /* Modal sub-tabs */
+      .modal-tabs {
         display: flex;
-        gap: 0.5rem;
+        gap: 2rem;
         border-bottom: 1px solid var(--color-border);
-        margin-bottom: 1.5rem;
+        padding: 0 1.5rem;
+        background: var(--color-surface);
       }
-      .sub-tab {
-        padding: 0.5rem 1rem;
+      .modal-tab {
+        padding: 1rem 0.25rem;
         font-size: 0.875rem;
         font-weight: 500;
         color: var(--color-text-muted);
@@ -163,26 +196,72 @@
         cursor: pointer;
         transition: all 0.2s;
       }
-      .sub-tab:hover {
+      .modal-tab:hover {
         color: var(--color-text);
       }
-      .sub-tab.active {
+      .modal-tab.border-indigo-500 {
         color: var(--color-accent);
         border-bottom-color: var(--color-accent);
       }
       
-      /* NFT section styling */
+      /* Form grid layout */
+      .form-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+      }
+      @media (max-width: 1024px) {
+        .form-grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      
+      /* Avatar preview in modal */
+      .avatar-preview-container {
+        position: relative;
+      }
+      .avatar-preview-container img {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 0.5rem;
+        object-fit: cover;
+        border: 2px solid var(--color-border);
+      }
+      .avatar-preview-emoji {
+        position: absolute;
+        bottom: 0.5rem;
+        right: 0.5rem;
+        font-size: 2.5rem;
+        background: var(--color-bg);
+        border-radius: 9999px;
+        padding: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      }
+      
+      /* Social connections */
+      .social-section {
+        padding: 1rem;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 0.5rem;
+      }
+      .social-section h4 {
+        color: #60a5fa;
+        font-size: 1.125rem;
+        font-weight: 500;
+      }
+      
+      /* NFT section */
       .nft-section {
-        margin-top: 1.5rem;
         padding: 1rem;
         background: rgba(139, 92, 246, 0.1);
         border: 1px solid rgba(139, 92, 246, 0.3);
         border-radius: 0.5rem;
       }
       .nft-section h4 {
-        font-size: 1rem;
-        font-weight: 500;
         color: #a78bfa;
+        font-size: 1.125rem;
+        font-weight: 500;
         margin-bottom: 1rem;
       }
       .nft-manifest-grid {
@@ -198,7 +277,7 @@
         border: 1px solid var(--color-border);
       }
       .nft-manifest-card h5 {
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--color-text-muted);
         margin-bottom: 0.5rem;
@@ -212,83 +291,8 @@
         max-height: 12rem;
         color: var(--color-text);
       }
-      .nft-links {
-        margin-bottom: 1rem;
-      }
-      .nft-link-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: var(--color-surface);
-        padding: 0.5rem 0.75rem;
-        border-radius: 0.375rem;
-        border: 1px solid var(--color-border);
-        margin-bottom: 0.5rem;
-      }
-      .nft-link-row span {
-        font-size: 0.75rem;
-        color: var(--color-text-muted);
-      }
-      .nft-link-row a {
-        font-size: 0.75rem;
-        color: #a78bfa;
-        text-decoration: none;
-        margin-left: 0.5rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .nft-link-row a:hover {
-        text-decoration: underline;
-      }
       
-      /* Social connections */
-      .social-connections-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-      }
-      .social-connection-card {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-        border-radius: 0.5rem;
-        padding: 0.75rem;
-      }
-      .social-connection-card .status-badge {
-        display: inline-flex;
-        align-items: center;
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 9999px;
-        margin-bottom: 0.5rem;
-      }
-      .social-connection-card .status-badge.connected {
-        background: rgba(16, 185, 129, 0.2);
-        color: #34d399;
-      }
-      .social-connection-card .status-badge.disconnected {
-        background: rgba(107, 114, 128, 0.2);
-        color: #9ca3af;
-      }
-      
-      /* Avatar preview */
-      .avatar-preview {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.75rem;
-      }
-      .avatar-preview img {
-        width: 8rem;
-        height: 8rem;
-        border-radius: 0.5rem;
-        object-fit: cover;
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-      }
-      
-      /* Button variants for modals */
+      /* Button variants */
       .btn-danger {
         background: var(--color-danger);
         color: white;
@@ -310,52 +314,66 @@
       .btn-green:hover {
         background: #047857;
       }
-      
-      /* Pagination */
-      .pagination {
-        display: flex;
-        justify-content: center;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--color-border);
+      .btn-indigo-outline {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.5);
+        color: #818cf8;
       }
-      .pagination button {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
+      .btn-indigo-outline:hover {
+        background: rgba(99, 102, 241, 0.2);
+      }
+      
+      /* Prompt preview */
+      .prompt-preview {
+        margin-top: 0.75rem;
+        padding: 1rem;
         background: var(--color-surface);
+        border-radius: 0.5rem;
         border: 1px solid var(--color-border);
-        border-radius: 0.375rem;
+      }
+      .prompt-preview h4 {
+        font-size: 0.875rem;
+        font-weight: 500;
         color: var(--color-text);
-        cursor: pointer;
-        transition: all 0.2s;
+        margin-bottom: 0.5rem;
       }
-      .pagination button:hover:not(:disabled) {
-        background: var(--color-accent);
-        border-color: var(--color-accent);
-      }
-      .pagination button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .pagination button.active {
-        background: var(--color-accent);
-        border-color: var(--color-accent);
+      .prompt-preview-content {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        white-space: pre-wrap;
+        max-height: 10rem;
+        overflow-y: auto;
       }
       
-      /* Panel sections */
-      .panel-section {
-        display: none;
+      /* Model rarity badge */
+      .rarity-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.625rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
       }
-      .panel-section.active {
-        display: block;
+      .rarity-legendary {
+        background: rgba(234, 179, 8, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(234, 179, 8, 0.3);
       }
-      
-      /* Form grid for modals */
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
+      .rarity-rare {
+        background: rgba(168, 85, 247, 0.2);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.3);
+      }
+      .rarity-uncommon {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+      }
+      .rarity-common {
+        background: rgba(107, 114, 128, 0.2);
+        color: #9ca3af;
+        border: 1px solid rgba(107, 114, 128, 0.3);
       }
       
       .hidden { display: none !important; }
@@ -419,45 +437,64 @@
             </div>
           </div>
 
-          <!-- Entity Tabs -->
+          <!-- Entity Tabs - IDs match legacy for JS compatibility -->
           <div class="entity-tabs">
-            <button class="entity-tab active" data-tab="avatars">Avatars</button>
-            <button class="entity-tab" data-tab="locations">Locations</button>
-            <button class="entity-tab" data-tab="items">Items</button>
+            <button id="tab-avatars" class="entity-tab border-indigo-600 text-indigo-600 font-medium">Avatars</button>
+            <button id="tab-locations" class="entity-tab border-transparent text-gray-500">Locations</button>
+            <button id="tab-items" class="entity-tab border-transparent text-gray-500">Items</button>
           </div>
 
           <!-- Avatars Panel -->
-          <section id="panel-avatars" class="panel-section active">
+          <section id="panel-avatars" class="space-y-4">
             <div class="entity-toolbar">
               <button id="new-avatar" class="btn btn-primary">+ New Avatar</button>
-              <input id="avatar-search" type="text" placeholder="Search avatars..." class="form-input" />
+              <input id="avatar-search" type="text" placeholder="Search avatars..." class="form-input" style="flex: 1; min-width: 16rem;" />
+              <select id="status-filter" class="form-select">
+                <option value="all">All Status</option>
+                <option value="alive">Alive</option>
+                <option value="dead">Dead</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <select id="model-filter" class="form-select" style="min-width: 12rem;">
+                <option value="all">All Models</option>
+              </select>
             </div>
             <div class="card">
               <div class="card-body" style="padding: 0; overflow-x: auto;">
                 <table class="entity-table">
                   <thead>
                     <tr>
-                      <th>Image</th>
+                      <th>Avatar</th>
                       <th>Name</th>
-                      <th>Model</th>
-                      <th>Created</th>
+                      <th class="hidden md:table-cell">ID</th>
+                      <th>Status</th>
+                      <th class="hidden lg:table-cell">Model</th>
+                      <th class="hidden sm:table-cell">Created</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody id="avatars-body">
-                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">Loading avatars...</td></tr>
+                    <tr>
+                      <td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">Loading avatars...</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
-              <div id="avatars-pagination" class="pagination"></div>
+            </div>
+            <div class="pagination-bar">
+              <div id="pagination-info" style="font-size: 0.875rem; color: var(--color-text-muted);">Showing 1-20 of 0 avatars</div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button id="prev-page">Previous</button>
+                <button id="next-page">Next</button>
+              </div>
             </div>
           </section>
 
           <!-- Locations Panel -->
-          <section id="panel-locations" class="panel-section">
+          <section id="panel-locations" class="hidden space-y-4">
             <div class="entity-toolbar">
               <button id="new-location" class="btn btn-primary">+ New Location</button>
-              <input id="location-search" type="text" placeholder="Search locations..." class="form-input" />
+              <input id="location-search" type="text" placeholder="Search locations..." class="form-input" style="flex: 1;" />
             </div>
             <div class="card">
               <div class="card-body" style="padding: 0; overflow-x: auto;">
@@ -480,10 +517,10 @@
           </section>
 
           <!-- Items Panel -->
-          <section id="panel-items" class="panel-section">
+          <section id="panel-items" class="hidden space-y-4">
             <div class="entity-toolbar">
               <button id="new-item" class="btn btn-primary">+ New Item</button>
-              <input id="item-search" type="text" placeholder="Search items..." class="form-input" />
+              <input id="item-search" type="text" placeholder="Search items..." class="form-input" style="flex: 1;" />
             </div>
             <div class="card">
               <div class="card-body" style="padding: 0; overflow-x: auto;">
@@ -513,302 +550,281 @@
     </div>
 
     <!-- Avatar Edit Modal -->
-    <div id="avatar-modal" class="modal-overlay">
-      <div class="modal-content" style="max-width: 56rem;">
+    <div id="avatar-modal" class="modal-overlay hidden">
+      <div class="modal-content">
         <div class="modal-header">
-          <h3 id="avatar-modal-title">Edit Avatar</h3>
-          <button id="close-avatar-modal" class="modal-close">✕</button>
+          <h3 id="modal-title">Edit Avatar</h3>
+          <button id="close-modal" class="modal-close">
+            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
-          <form id="avatar-form">
-            <!-- Sub-tabs -->
-            <div class="sub-tabs">
-              <button type="button" class="sub-tab active" data-subtab="general">General</button>
-              <button type="button" class="sub-tab" data-subtab="social">Social</button>
-              <button type="button" class="sub-tab" data-subtab="nft">NFT</button>
-            </div>
+        
+        <!-- Modal Tabs -->
+        <div class="modal-tabs">
+          <button type="button" id="tab-btn-general" class="modal-tab border-indigo-500">General</button>
+          <button type="button" id="tab-btn-social" class="modal-tab border-transparent">Social Connections</button>
+          <button type="button" id="tab-btn-nft" class="modal-tab border-transparent">NFT & Deployment</button>
+        </div>
 
-            <!-- General Tab -->
-            <div id="subtab-general" class="panel-section active">
-              <div class="form-grid" style="grid-template-columns: 1fr 2fr;">
-                <!-- Avatar Preview Column -->
-                <div class="avatar-preview">
-                  <img id="avatar-image-preview" src="" alt="Avatar Preview" />
-                  <div id="avatar-status-badge" class="badge badge-success">Active</div>
-                </div>
-
-                <!-- Form Fields Column -->
-                <div class="form-stack">
-                  <div class="form-group">
-                    <label class="form-label">Name</label>
-                    <input id="avatar-name" class="form-input" placeholder="Avatar name" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Emoji</label>
-                    <input id="avatar-emoji" class="form-input" placeholder="🤖" maxlength="10" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Model</label>
-                    <select id="avatar-model" class="form-select">
-                      <option value="">Select a model...</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Image URL</label>
-                    <input id="avatar-imageUrl" class="form-input" placeholder="https://..." />
+        <form id="avatar-form" class="modal-body">
+          <!-- Tab Content: General -->
+          <div id="tab-content-general">
+            <div class="form-grid-3">
+              <!-- Left Column - Avatar Preview -->
+              <div class="form-stack">
+                <div class="form-group">
+                  <label class="form-label">Avatar Preview</label>
+                  <div class="avatar-preview-container">
+                    <img id="avatar-image-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23374151' width='200' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="Avatar Preview" />
+                    <div id="avatar-preview-emoji" class="avatar-preview-emoji hidden"></div>
                   </div>
                 </div>
-              </div>
-
-              <div class="form-group" style="margin-top: 1.5rem;">
-                <label class="form-label">Personality</label>
-                <textarea id="avatar-personality" class="form-textarea" rows="4" placeholder="Describe the avatar's personality..."></textarea>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Description</label>
-                <textarea id="avatar-dynamicPersonality" class="form-textarea" rows="3" placeholder="Dynamic description..."></textarea>
-              </div>
-            </div>
-
-            <!-- Social Tab -->
-            <div id="subtab-social" class="panel-section">
-              <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--color-text);">Social Connections</h4>
-              <div id="social-connections" class="social-connections-grid">
-                <!-- Discord -->
-                <div class="social-connection-card">
-                  <div class="status-badge disconnected">
-                    <span style="margin-right: 0.25rem;">○</span> Discord
-                  </div>
-                  <p style="font-size: 0.75rem; color: var(--color-text-muted);">Not connected</p>
+                <div class="form-group">
+                  <label for="avatar-image-url" class="form-label">Image URL</label>
+                  <input type="url" id="avatar-image-url" name="imageUrl" placeholder="https://..." class="form-input" />
                 </div>
-                <!-- Twitter -->
-                <div class="social-connection-card">
-                  <div class="status-badge disconnected">
-                    <span style="margin-right: 0.25rem;">○</span> Twitter
-                  </div>
-                  <p style="font-size: 0.75rem; color: var(--color-text-muted);">Not connected</p>
+                <div class="form-group">
+                  <label for="avatar-emoji" class="form-label">Emoji</label>
+                  <input type="text" id="avatar-emoji" name="emoji" maxlength="4" placeholder="😀" class="form-input" style="font-size: 1.5rem; text-align: center;" />
+                  <p style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-text-muted);">Choose a representative emoji</p>
                 </div>
-                <!-- Telegram -->
-                <div class="social-connection-card">
-                  <div class="status-badge disconnected">
-                    <span style="margin-right: 0.25rem;">○</span> Telegram
-                  </div>
-                  <p style="font-size: 0.75rem; color: var(--color-text-muted);">Not connected</p>
+                <div class="form-group">
+                  <label for="avatar-status" class="form-label">Status</label>
+                  <select id="avatar-status" name="status" class="form-select">
+                    <option value="alive">Alive</option>
+                    <option value="dead">Dead</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
                 </div>
               </div>
-            </div>
 
-            <!-- NFT Tab -->
-            <div id="subtab-nft" class="panel-section">
-              <div class="nft-section">
-                <h4>🎨 NFT Deployment</h4>
-                
-                <div id="nft-status" style="margin-bottom: 1rem;">
-                  <!-- NFT status will be displayed here -->
+              <!-- Middle Column - Identity & AI -->
+              <div class="form-stack">
+                <div class="form-group">
+                  <label for="avatar-name" class="form-label">Name <span style="color: var(--color-danger);">*</span></label>
+                  <input type="text" id="avatar-name" name="name" placeholder="Avatar name" class="form-input" required />
                 </div>
-
-                <div id="nft-manifests" class="hidden">
-                  <div class="nft-manifest-grid">
-                    <div class="nft-manifest-card">
-                      <h5>Base (ERC-721)</h5>
-                      <pre id="base-manifest"></pre>
+                <div class="form-group">
+                  <label class="form-label">AI Model</label>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div>
+                      <label for="avatar-model-provider" style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 0.25rem; display: block;">Provider</label>
+                      <select id="avatar-model-provider" class="form-select">
+                        <option value="">Select...</option>
+                      </select>
                     </div>
-                    <div class="nft-manifest-card">
-                      <h5>Solana (Metaplex)</h5>
-                      <pre id="solana-manifest"></pre>
+                    <div>
+                      <label for="avatar-model-name" style="font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 0.25rem; display: block;">Model</label>
+                      <select id="avatar-model-name" name="model" class="form-select" disabled>
+                        <option value="">Select provider first</option>
+                      </select>
                     </div>
                   </div>
-                </div>
-
-                <div id="nft-deployment-links" class="hidden nft-links">
-                  <h5 style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 0.5rem;">Arweave Links</h5>
-                  <div class="nft-link-row">
-                    <span>Image:</span>
-                    <a id="nft-image-link" href="#" target="_blank"></a>
-                  </div>
-                  <div class="nft-link-row">
-                    <span>Base Metadata:</span>
-                    <a id="nft-base-link" href="#" target="_blank"></a>
-                  </div>
-                  <div class="nft-link-row">
-                    <span>Solana Metadata:</span>
-                    <a id="nft-solana-link" href="#" target="_blank"></a>
+                  <div id="model-rarity-badge" class="hidden">
+                    <span class="rarity-badge rarity-common"></span>
                   </div>
                 </div>
+                <div class="form-group">
+                  <label for="avatar-description" class="form-label">Description</label>
+                  <textarea id="avatar-description" name="description" rows="4" placeholder="Brief description of this avatar..." class="form-textarea"></textarea>
+                  <p style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-text-muted);">Public-facing description</p>
+                </div>
+              </div>
 
-                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                  <button type="button" id="generate-nft-metadata" class="btn btn-purple">
-                    <span style="margin-right: 0.5rem;">📋</span>
-                    Generate NFT Metadata
-                  </button>
-                  <button type="button" id="deploy-to-arweave" class="btn btn-green hidden">
-                    <span style="margin-right: 0.5rem;">🚀</span>
-                    Deploy to Arweave
-                  </button>
-                  <button type="button" id="view-mobile-deployment" class="btn btn-secondary hidden">
-                    <span style="margin-right: 0.5rem;">📱</span>
-                    Open Mobile View
-                  </button>
+              <!-- Right Column - Personality -->
+              <div class="form-stack">
+                <div class="form-group">
+                  <label for="avatar-personality" class="form-label">Personality</label>
+                  <textarea id="avatar-personality" name="personality" rows="12" placeholder="Describe the avatar's personality traits, communication style, and behavioral patterns..." class="form-textarea"></textarea>
+                  <p style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--color-text-muted);">Used for AI prompt generation</p>
+                </div>
+                <button type="button" id="preview-prompt" class="btn btn-indigo-outline" style="width: 100%;">
+                  <svg class="h-4 w-4" style="margin-right: 0.5rem; display: inline;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Preview AI Prompt
+                </button>
+                <div id="prompt-preview-container" class="prompt-preview hidden">
+                  <h4>Sample Contextual Prompt</h4>
+                  <div id="prompt-preview-content" class="prompt-preview-content"></div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Action Buttons -->
-            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
-              <button type="button" id="delete-avatar" class="btn btn-danger hidden">
-                🗑️ Delete Avatar
-              </button>
-              <div style="display: flex; gap: 0.75rem; margin-left: auto;">
-                <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
-                <button type="submit" id="save-avatar" class="btn btn-primary">Save Changes</button>
+          <!-- Tab Content: Social -->
+          <div id="tab-content-social" class="hidden">
+            <div id="social-connections-section" class="social-section">
+              <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
+                <div>
+                  <h4>Social Connections</h4>
+                  <p style="font-size: 0.875rem; color: var(--color-text-muted);">Live status via SocialPlatformService.</p>
+                </div>
+                <button type="button" id="refresh-social-connections" class="btn btn-secondary">Refresh</button>
+              </div>
+              <div id="social-connections-content" style="margin-top: 1rem;">
+                <div style="color: var(--color-text-muted);">Select an avatar to load connection status.</div>
               </div>
             </div>
-          </form>
-        </div>
+          </div>
+
+          <!-- Tab Content: NFT -->
+          <div id="tab-content-nft" class="hidden">
+            <div id="nft-section" class="nft-section">
+              <h4>🎨 NFT Deployment</h4>
+              
+              <div id="nft-status" style="margin-bottom: 1rem;">
+                <!-- NFT status will be displayed here -->
+              </div>
+
+              <div id="nft-manifests" class="hidden">
+                <div class="nft-manifest-grid">
+                  <div class="nft-manifest-card">
+                    <h5>Base (ERC-721)</h5>
+                    <pre id="base-manifest"></pre>
+                  </div>
+                  <div class="nft-manifest-card">
+                    <h5>Solana (Metaplex)</h5>
+                    <pre id="solana-manifest"></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div id="nft-deployment-links" class="hidden" style="margin-bottom: 1rem;">
+                <h5 style="font-size: 0.875rem; font-weight: 600; color: var(--color-text-muted); margin-bottom: 0.5rem;">Arweave Links</h5>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-surface); padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid var(--color-border);">
+                    <span style="font-size: 0.75rem; color: var(--color-text-muted);">Image:</span>
+                    <a id="nft-image-link" href="#" target="_blank" style="font-size: 0.75rem; color: #a78bfa;"></a>
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-surface); padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid var(--color-border);">
+                    <span style="font-size: 0.75rem; color: var(--color-text-muted);">Base Metadata:</span>
+                    <a id="nft-base-link" href="#" target="_blank" style="font-size: 0.75rem; color: #a78bfa;"></a>
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-surface); padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid var(--color-border);">
+                    <span style="font-size: 0.75rem; color: var(--color-text-muted);">Solana Metadata:</span>
+                    <a id="nft-solana-link" href="#" target="_blank" style="font-size: 0.75rem; color: #a78bfa;"></a>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <button type="button" id="generate-nft-metadata" class="btn btn-purple">
+                  <span style="margin-right: 0.5rem;">📋</span>
+                  Generate NFT Metadata
+                </button>
+                <button type="button" id="deploy-to-arweave" class="btn btn-green hidden">
+                  <span style="margin-right: 0.5rem;">🚀</span>
+                  Deploy to Arweave
+                </button>
+                <button type="button" id="view-mobile-deployment" class="btn btn-secondary hidden">
+                  <span style="margin-right: 0.5rem;">📱</span>
+                  Open Mobile View
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <button type="button" id="delete-avatar" class="btn btn-danger hidden">
+              🗑️ Delete Avatar
+            </button>
+            <div style="display: flex; gap: 0.75rem; margin-left: auto;">
+              <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+              <button type="submit" id="save-avatar" class="btn btn-primary">Save Changes</button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
 
     <!-- Location Edit Modal -->
-    <div id="location-modal" class="modal-overlay">
+    <div id="location-modal" class="modal-overlay hidden">
       <div class="modal-content" style="max-width: 40rem;">
         <div class="modal-header">
           <h3 id="location-modal-title">Edit Location</h3>
-          <button id="close-location-modal" class="modal-close">✕</button>
+          <button id="close-location-modal" class="modal-close">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
-          <form id="location-form" class="form-stack">
-            <div class="form-group">
-              <label class="form-label">Name</label>
-              <input id="location-name" class="form-input" placeholder="Location name" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <input id="location-type" class="form-input" placeholder="e.g., city, forest, dungeon" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Image URL</label>
-              <input id="location-imageUrl" class="form-input" placeholder="https://..." />
-              <img id="location-image-preview" src="" alt="Location Preview" class="hidden" style="margin-top: 0.75rem; width: 100%; max-height: 20rem; object-fit: contain; border-radius: 0.5rem; border: 1px solid var(--color-border);" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea id="location-description" class="form-textarea" rows="3" placeholder="Describe the location..."></textarea>
-            </div>
+        <form id="location-form" class="modal-body form-stack">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input id="location-name" class="form-input" placeholder="Location name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <input id="location-type" class="form-input" placeholder="e.g., city, forest, dungeon" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Image URL</label>
+            <input id="location-imageUrl" class="form-input" placeholder="https://..." />
+            <img id="location-image-preview" src="" alt="Location Preview" class="hidden" style="margin-top: 0.75rem; width: 100%; max-height: 20rem; object-fit: contain; border-radius: 0.5rem; border: 1px solid var(--color-border);" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea id="location-description" class="form-textarea" rows="3" placeholder="Describe the location..."></textarea>
+          </div>
 
-            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-              <button type="button" id="delete-location" class="btn btn-danger hidden">Delete</button>
-              <div style="display: flex; gap: 0.75rem; margin-left: auto;">
-                <button type="button" id="cancel-location" class="btn btn-secondary">Cancel</button>
-                <button type="submit" id="save-location" class="btn btn-primary">Save</button>
-              </div>
+          <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <button type="button" id="delete-location" class="btn btn-danger hidden">Delete</button>
+            <div style="display: flex; gap: 0.75rem; margin-left: auto;">
+              <button type="button" id="cancel-location" class="btn btn-secondary">Cancel</button>
+              <button type="submit" id="save-location" class="btn btn-primary">Save</button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
 
     <!-- Item Edit Modal -->
-    <div id="item-modal" class="modal-overlay">
+    <div id="item-modal" class="modal-overlay hidden">
       <div class="modal-content" style="max-width: 40rem;">
         <div class="modal-header">
           <h3 id="item-modal-title">Edit Item</h3>
-          <button id="close-item-modal" class="modal-close">✕</button>
+          <button id="close-item-modal" class="modal-close">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
-          <form id="item-form" class="form-stack">
-            <div class="form-group">
-              <label class="form-label">Name <span style="color: var(--color-text-muted); font-size: 0.75rem;">(max 120 chars)</span></label>
-              <input id="item-name" class="form-input" maxlength="120" placeholder="Item name" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Rarity</label>
-              <input id="item-rarity" class="form-input" placeholder="e.g., common, rare, legendary" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Image URL</label>
-              <input id="item-imageUrl" class="form-input" placeholder="https://..." />
-              <img id="item-image-preview" src="" alt="Item Preview" class="hidden" style="margin-top: 0.75rem; width: 100%; max-height: 20rem; object-fit: contain; border-radius: 0.5rem; border: 1px solid var(--color-border);" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea id="item-description" class="form-textarea" rows="3" placeholder="Describe the item..."></textarea>
-            </div>
+        <form id="item-form" class="modal-body form-stack">
+          <div class="form-group">
+            <label class="form-label">Name <span style="color: var(--color-text-muted); font-size: 0.75rem;">(max 120 chars)</span></label>
+            <input id="item-name" class="form-input" maxlength="120" placeholder="Item name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rarity</label>
+            <input id="item-rarity" class="form-input" placeholder="e.g., common, rare, legendary" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Image URL</label>
+            <input id="item-imageUrl" class="form-input" placeholder="https://..." />
+            <img id="item-image-preview" src="" alt="Item Preview" class="hidden" style="margin-top: 0.75rem; width: 100%; max-height: 20rem; object-fit: contain; border-radius: 0.5rem; border: 1px solid var(--color-border);" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea id="item-description" class="form-textarea" rows="3" placeholder="Describe the item..."></textarea>
+          </div>
 
-            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-              <button type="button" id="delete-item" class="btn btn-danger hidden">Delete</button>
-              <div style="display: flex; gap: 0.75rem; margin-left: auto;">
-                <button type="button" id="cancel-item" class="btn btn-secondary">Cancel</button>
-                <button type="submit" id="save-item" class="btn btn-primary">Save</button>
-              </div>
+          <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <button type="button" id="delete-item" class="btn btn-danger hidden">Delete</button>
+            <div style="display: flex; gap: 0.75rem; margin-left: auto;">
+              <button type="button" id="cancel-item" class="btn btn-secondary">Cancel</button>
+              <button type="submit" id="save-item" class="btn btn-primary">Save</button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
 
     <script type="module" src="/js/admin/admin-bootstrap.js"></script>
     <script type="module" src="/js/entity-management.js"></script>
-    <script>
-      // Tab switching for main entity tabs
-      document.querySelectorAll('.entity-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          // Update tab active state
-          document.querySelectorAll('.entity-tab').forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          
-          // Show corresponding panel
-          const targetId = 'panel-' + tab.dataset.tab;
-          document.querySelectorAll('.panel-section').forEach(p => {
-            if (p.closest('.modal-overlay')) return; // Skip modal panels
-            p.classList.remove('active');
-          });
-          document.getElementById(targetId)?.classList.add('active');
-        });
-      });
-
-      // Sub-tab switching for avatar modal
-      document.querySelectorAll('.sub-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          // Update sub-tab active state
-          document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          
-          // Show corresponding sub-panel
-          const targetId = 'subtab-' + tab.dataset.subtab;
-          document.querySelectorAll('#avatar-modal .panel-section').forEach(p => p.classList.remove('active'));
-          document.getElementById(targetId)?.classList.add('active');
-        });
-      });
-
-      // Modal close handlers
-      document.getElementById('close-avatar-modal')?.addEventListener('click', () => {
-        document.getElementById('avatar-modal').classList.remove('active');
-      });
-      document.getElementById('cancel-edit')?.addEventListener('click', () => {
-        document.getElementById('avatar-modal').classList.remove('active');
-      });
-      document.getElementById('close-location-modal')?.addEventListener('click', () => {
-        document.getElementById('location-modal').classList.remove('active');
-      });
-      document.getElementById('cancel-location')?.addEventListener('click', () => {
-        document.getElementById('location-modal').classList.remove('active');
-      });
-      document.getElementById('close-item-modal')?.addEventListener('click', () => {
-        document.getElementById('item-modal').classList.remove('active');
-      });
-      document.getElementById('cancel-item')?.addEventListener('click', () => {
-        document.getElementById('item-modal').classList.remove('active');
-      });
-
-      // Close modal on overlay click
-      document.querySelectorAll('.modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) {
-            overlay.classList.remove('active');
-          }
-        });
-      });
-    </script>
   </body>
 </html>

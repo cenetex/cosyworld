@@ -1050,7 +1050,7 @@
 
       grid.innerHTML = avatars.map(avatar => `
         <div class="avatar-card">
-          <img src="${avatar.avatar || '/images/default-avatar.png'}" alt="${escapeHtml(avatar.name)}" class="avatar-image" onerror="this.src='/images/default-avatar.png'" />
+          <img src="${avatar.avatar || '/images/default-avatar.svg'}" alt="${escapeHtml(avatar.name)}" class="avatar-image" onerror="this.src='/images/default-avatar.svg'" />
           <div class="avatar-name">${avatar.emoji || ''} ${escapeHtml(avatar.name)}</div>
           <div class="avatar-model">${avatar.model || 'Default Model'}</div>
           <button class="btn btn-ghost btn-sm" onclick="removeAvatar('${avatar._id}')" style="margin-top: var(--space-2);">Remove</button>
