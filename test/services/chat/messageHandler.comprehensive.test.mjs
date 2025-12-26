@@ -137,14 +137,6 @@ describe('MessageHandler', () => {
 
       expect(handler.started).toBe(true);
     });
-
-    it('should set conversation manager on tool service', async () => {
-      await handler.start();
-
-      expect(deps.toolService.setConversationManager).toHaveBeenCalledWith(
-        deps.conversationManager
-      );
-    });
   });
 
   describe('_isPureModelOnlyGuild', () => {

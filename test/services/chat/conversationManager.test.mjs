@@ -71,6 +71,7 @@ const createMockDeps = () => {
     },
     knowledgeService: {
       getKnowledge: vi.fn().mockResolvedValue([]),
+      queryKnowledgeGraph: vi.fn().mockResolvedValue(''),
     },
     mapService: {
       getLocation: vi.fn().mockResolvedValue(null),
