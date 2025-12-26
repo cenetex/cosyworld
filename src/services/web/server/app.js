@@ -487,7 +487,7 @@ async function initializeApp(services) {
         return res.redirect('/admin/setup');
       }
     });
-    app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
+    app.get(['/admin/guild-settings', '/admin/guild-settings.html'], ensureAdmin, (req, res) => {
       // Consolidated into /admin/global-settings
       res.redirect('/admin/global-settings');
     });
@@ -501,7 +501,7 @@ async function initializeApp(services) {
       });
     });
     // Redirect old secrets page to new bot management
-    app.get('/admin/secrets', ensureAdmin, (req, res) => {
+    app.get(['/admin/secrets', '/admin/secrets.html'], ensureAdmin, (req, res) => {
       res.redirect('/admin/bots/');
     });
     app.get('/admin/collections', ensureAdmin, (req, res, next) => {
@@ -515,11 +515,11 @@ async function initializeApp(services) {
       });
     });
     // Redirect old X accounts page to new bot management
-    app.get('/admin/x-accounts', ensureAdmin, (req, res) => {
+    app.get(['/admin/x-accounts', '/admin/x-accounts.html'], ensureAdmin, (req, res) => {
       res.redirect('/admin/bots/');
     });
     // Redirect old settings page to new global settings
-    app.get('/admin/settings', ensureAdmin, (req, res) => {
+    app.get(['/admin/settings', '/admin/settings.html'], ensureAdmin, (req, res) => {
       res.redirect('/admin/global-settings');
     });
     app.get('/admin/users', ensureAdmin, (req, res, next) => {
@@ -528,11 +528,11 @@ async function initializeApp(services) {
       });
     });
     // Redirect old global-bot page to new bots hub
-    app.get('/admin/global-bot', ensureAdmin, (req, res) => {
+    app.get(['/admin/global-bot', '/admin/global-bot.html'], ensureAdmin, (req, res) => {
       res.redirect('/admin/bots/');
     });
     // New bots management pages
-    app.get(['/admin/bots', '/admin/bots/'], ensureAdmin, (req, res, next) => {
+    app.get(['/admin/bots', '/admin/bots/', '/admin/bots/index.html'], ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'bots', 'index.html'), (err) => {
         if (err) next(err);
       });
@@ -543,7 +543,7 @@ async function initializeApp(services) {
       });
     });
     // New global settings page
-    app.get('/admin/global-settings', ensureAdmin, (req, res, next) => {
+    app.get(['/admin/global-settings', '/admin/global-settings.html'], ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'global-settings.html'), (err) => {
         if (err) next(err);
       });
