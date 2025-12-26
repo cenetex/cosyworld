@@ -435,7 +435,7 @@ export class BotService {
     try {
       messageCount = await db.collection('messages')
         .countDocuments({ botId });
-    } catch (_e) {
+    } catch {
       // Messages may not have botId field yet
     }
 
