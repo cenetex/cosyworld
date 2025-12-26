@@ -56,62 +56,54 @@ function renderBotGrid(bots) {
   
   if (!grid) return;
   
-  // Update badge
+  // Update badge (v2 design)
   if (badge) {
     const activeCount = bots.filter(b => b.enabled).length;
     badge.textContent = `${activeCount}/${bots.length} Active`;
-    badge.className = activeCount > 0 
-      ? 'ml-3 text-xs px-3 py-1 rounded-full bg-green-100 text-green-700'
-      : 'ml-3 text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700';
+    badge.className = activeCount > 0 ? 'badge badge-success' : 'badge badge-warning';
   }
   
   if (bots.length === 0) {
     grid.innerHTML = `
-      <a href="/admin/bots/" class="bg-gray-50 rounded-lg p-4 border border-dashed border-gray-300 text-center hover:border-purple-300 hover:bg-purple-50 transition">
-        <div class="text-2xl mb-2">➕</div>
-        <div class="text-gray-600 text-sm font-medium">Create your first bot</div>
-        <div class="text-gray-400 text-xs mt-1">Click to get started</div>
+      <a href="/admin/bots/" class="bot-card bot-card-empty">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">➕</div>
+        <div style="font-weight: 500;">Create your first bot</div>
+        <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 0.25rem;">Click to get started</div>
       </a>
     `;
     return;
   }
   
   grid.innerHTML = bots.slice(0, 6).map(bot => `
-    <a href="/admin/bots/detail.html?id=${bot.botId}" class="bg-white rounded-lg p-4 border hover:border-purple-300 hover:shadow-md transition">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl ${
-            bot.platforms?.discord?.enabled ? 'bg-indigo-100' : 
-            bot.platforms?.telegram?.enabled ? 'bg-blue-100' : 
-            bot.platforms?.x?.enabled ? 'bg-gray-100' : 'bg-purple-100'
-          }">
-            ${getBotEmoji(bot)}
-          </div>
+    <a href="/admin/bots/detail.html?id=${bot.botId}" class="bot-card">
+      <div class="bot-card-header">
+        <div class="bot-card-info">
+          <div class="bot-card-avatar">${getBotEmoji(bot)}</div>
           <div>
-            <div class="font-semibold text-gray-900 text-sm">${escapeHtml(bot.name)}</div>
-            <div class="text-xs text-gray-500">${bot.botId}</div>
+            <div class="bot-card-name">${escapeHtml(bot.name)}</div>
+            <div class="bot-card-id">${bot.botId}</div>
           </div>
         </div>
-        <div class="flex items-center gap-1">
-          <div class="w-2 h-2 rounded-full ${bot.enabled ? 'bg-green-500' : 'bg-gray-300'}"></div>
-          <span class="text-xs text-gray-500">${bot.enabled ? 'Active' : 'Paused'}</span>
+        <div class="bot-card-status">
+          <div class="dot ${bot.enabled ? 'active' : 'inactive'}"></div>
+          <span>${bot.enabled ? 'Active' : 'Paused'}</span>
         </div>
       </div>
-      <div class="flex gap-2">
-        ${bot.platforms?.discord?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Discord</span>' : ''}
-        ${bot.platforms?.telegram?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">Telegram</span>' : ''}
-        ${bot.platforms?.x?.enabled ? '<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">𝕏</span>' : ''}
-        ${!bot.platforms?.discord?.enabled && !bot.platforms?.telegram?.enabled && !bot.platforms?.x?.enabled ? '<span class="text-xs text-gray-400">No platforms</span>' : ''}
+      <div class="bot-card-platforms">
+        ${bot.platforms?.discord?.enabled ? '<span class="badge badge-info">Discord</span>' : ''}
+        ${bot.platforms?.telegram?.enabled ? '<span class="badge badge-primary">Telegram</span>' : ''}
+        ${bot.platforms?.x?.enabled ? '<span class="badge">𝕏</span>' : ''}
+        ${!bot.platforms?.discord?.enabled && !bot.platforms?.telegram?.enabled && !bot.platforms?.x?.enabled ? '<span style="font-size: var(--text-xs); color: var(--color-text-muted);">No platforms</span>' : ''}
       </div>
-      <div class="mt-3 pt-3 border-t flex justify-between text-xs text-gray-500">
+      <div class="bot-card-footer">
         <span>${bot.avatars?.length || 0} avatars</span>
         <span>Last active: ${formatRelativeTime(bot.lastActiveAt)}</span>
       </div>
     </a>
   `).join('') + (bots.length > 6 ? `
-    <a href="/admin/bots/" class="bg-gray-50 rounded-lg p-4 border border-dashed border-gray-300 text-center hover:border-purple-300 hover:bg-purple-50 transition flex flex-col items-center justify-center">
-      <div class="text-gray-600 text-sm font-medium">View all ${bots.length} bots</div>
-      <div class="text-gray-400 text-xs mt-1">→</div>
+    <a href="/admin/bots/" class="bot-card bot-card-empty">
+      <div style="font-weight: 500;">View all ${bots.length} bots</div>
+      <div style="margin-top: 0.25rem;">→</div>
     </a>
   ` : '');
 }
@@ -157,7 +149,7 @@ function updatePaymentUI(data) {
     // Not configured or error loading
     if (badge) {
       badge.textContent = 'ERROR';
-      badge.className = 'text-xs px-2 py-0.5 rounded bg-red-100 text-red-800';
+      badge.className = 'badge badge-danger';
     }
     setText('payment-stat-transactions', '0');
     setText('payment-stat-volume', '$0.00');
@@ -180,17 +172,17 @@ function updatePaymentUI(data) {
   const totalVolume = data.stats.totalVolume || 0;
   const platformRevenue = data.stats.platformRevenue || 0;
   
-  // Update badge based on configuration and activity
+  // Update badge based on configuration and activity (v2 design)
   if (badge) {
     if (!x402Configured && !walletConfigured) {
       badge.textContent = 'NOT CONFIGURED';
-      badge.className = 'text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-800';
+      badge.className = 'badge badge-warning';
     } else if (totalTx > 0) {
       badge.textContent = 'OPERATIONAL';
-      badge.className = 'text-xs px-2 py-0.5 rounded bg-green-100 text-green-800';
+      badge.className = 'badge badge-success';
     } else {
       badge.textContent = 'READY';
-      badge.className = 'text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800';
+      badge.className = 'badge badge-info';
     }
   }
   
@@ -293,14 +285,12 @@ async function wireAdminX() {
   function showHint(msg, kind='warn') {
     if (!hint) return;
     hint.textContent = msg;
-    hint.classList.remove('hidden');
-    hint.classList.remove('bg-green-50','text-green-700','border-green-200','bg-yellow-50','text-yellow-700','border-yellow-200','bg-red-50','text-red-700','border-red-200');
-    if (kind === 'ok') hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
-    else if (kind === 'error') hint.classList.add('bg-red-50','text-red-700','border','border-red-200');
-    else hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
+    hint.style.display = 'block';
+    // Use v2 alert classes
+    hint.className = kind === 'ok' ? 'alert alert-success' : kind === 'error' ? 'alert alert-danger' : 'alert alert-warning';
   }
 
-  function hideHint() { hint?.classList.add('hidden'); }
+  function hideHint() { if (hint) hint.style.display = 'none'; }
 
   async function fetchJson(url) {
     const r = await fetch(url);
@@ -347,9 +337,9 @@ async function wireAdminX() {
       const exp = document.getElementById('admin-x-expiry');
 
       if (status?.authorized) {
-        connectBtn?.classList.add('hidden');
-        disconnectBtn?.classList.remove('hidden');
-        profileWrapper?.classList.remove('hidden');
+        if (connectBtn) connectBtn.style.display = 'none';
+        if (disconnectBtn) disconnectBtn.style.display = '';
+        if (profileWrapper) profileWrapper.style.display = '';
         const p = status.profile || {};
         if (img) {
           if (p.profile_image_url) {
@@ -368,9 +358,9 @@ async function wireAdminX() {
         if (name) name.textContent = 'No X account connected';
         if (user) user.textContent = '';
         if (exp) exp.textContent = '';
-        connectBtn?.classList.remove('hidden');
-        disconnectBtn?.classList.add('hidden');
-        profileWrapper?.classList.remove('hidden');
+        if (connectBtn) connectBtn.style.display = '';
+        if (disconnectBtn) disconnectBtn.style.display = 'none';
+        if (profileWrapper) profileWrapper.style.display = '';
         showHint('No authorized X account. Connect to enable auto posting.');
       }
     } catch (e) {
@@ -442,11 +432,12 @@ async function fetchCsrfToken() {
 function wireGlobalXToggle() {
   const toggle = document.getElementById('global-x-enabled');
   const pill = document.getElementById('global-x-state-pill');
-  if (!toggle || !pill) return;
+  if (!toggle) return;
 
   const setPill = (enabled) => {
+    if (!pill) return;
     pill.textContent = enabled ? 'ENABLED' : 'DISABLED';
-    pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700');
+    pill.className = enabled ? 'badge badge-success' : 'badge';
   };
 
   async function load() {
@@ -511,21 +502,22 @@ function wireOAuth1Form() {
   function showStatus(msg, type = 'info') {
     if (!status) return;
     status.textContent = msg;
-    status.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-blue-600');
-    if (type === 'success') status.classList.add('text-green-600');
-    else if (type === 'error') status.classList.add('text-red-600');
-    else status.classList.add('text-blue-600');
+    status.style.display = 'block';
+    // Use v2 color variables
+    status.style.color = type === 'success' ? 'var(--color-success)' : 
+                          type === 'error' ? 'var(--color-danger)' : 
+                          'var(--color-info)';
   }
   
   // Toggle form visibility
   toggleBtn?.addEventListener('click', () => {
-    const isHidden = form?.classList.contains('hidden');
+    const isHidden = !form || form.style.display === 'none';
     if (isHidden) {
-      form?.classList.remove('hidden');
+      if (form) form.style.display = '';
       toggleBtn.textContent = 'Hide';
       loadCredentials();
     } else {
-      form?.classList.add('hidden');
+      if (form) form.style.display = 'none';
       toggleBtn.textContent = 'Show';
     }
   });

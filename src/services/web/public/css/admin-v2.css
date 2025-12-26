@@ -39,9 +39,14 @@
   --color-warning: #f59e0b;
   --color-warning-bg: rgba(245, 158, 11, 0.15);
   --color-error: #ef4444;
+  --color-danger: #ef4444;
   --color-error-bg: rgba(239, 68, 68, 0.15);
   --color-info: #3b82f6;
   --color-info-bg: rgba(59, 130, 246, 0.15);
+  
+  /* Alias for primary color */
+  --color-primary: #8b5cf6;
+  --color-primary-muted: rgba(139, 92, 246, 0.2);
   
   /* Platform Colors */
   --color-discord: #5865f2;
@@ -614,7 +619,8 @@ body.admin-v2 {
   color: var(--color-warning);
 }
 
-.badge-error {
+.badge-error,
+.badge-danger {
   background: var(--color-error-bg);
   color: var(--color-error);
 }
@@ -638,6 +644,43 @@ body.admin-v2 {
 .badge-telegram {
   background: rgba(0, 136, 204, 0.2);
   color: var(--color-telegram);
+}
+
+/* =============================================================================
+   Alerts
+   ============================================================================= */
+
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  border: 1px solid transparent;
+}
+
+.alert-success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.alert-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.alert-danger,
+.alert-error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.alert-info {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 /* =============================================================================
