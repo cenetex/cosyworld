@@ -429,39 +429,57 @@
   </style>
 </head>
 <body class="admin-v2">
-  <div class="admin-layout">
-    <!-- Navigation -->
-    <nav class="admin-nav">
-      <div class="admin-nav-inner">
-        <div class="admin-nav-brand">
-          <img src="/images/logo.png" alt="Logo" class="admin-nav-logo" onerror="this.style.display='none'" />
-          <span class="admin-nav-title">Moonstone Sanctum</span>
-        </div>
-        <div class="admin-nav-links">
-          <a href="/admin/" class="admin-nav-link">
-            <span>📊</span> Dashboard
-          </a>
-          <a href="/admin/bots/" class="admin-nav-link active">
-            <span>🤖</span> Bots
-          </a>
-          <a href="/admin/settings.html" class="admin-nav-link">
-            <span>⚙️</span> Settings
-          </a>
-          <a href="/admin/entity-management.html" class="admin-nav-link">
-            <span>👤</span> Avatars
-          </a>
-          <a href="/admin/servers.html" class="admin-nav-link">
-            <span>🏰</span> Servers
-          </a>
-        </div>
-        <div class="admin-nav-right">
-          <span id="walletAddress" class="badge badge-primary">Not Connected</span>
+  <div class="admin-layout has-sidebar">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <img src="/images/image.png" alt="RATi" class="sidebar-logo" onerror="this.style.display='none'" />
+        <div class="sidebar-brand">
+          <span class="brand-name">RATi Admin</span>
+          <span class="brand-tagline">Moonstone Sanctum</span>
         </div>
       </div>
-    </nav>
+      
+      <nav class="sidebar-nav">
+        <a href="/admin" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="/admin/bots/" class="nav-item active">
+          <span class="nav-icon">🤖</span>
+          <span class="nav-label">Bots</span>
+        </a>
+        <a href="/admin/entity-management" class="nav-item">
+          <span class="nav-icon">🎭</span>
+          <span class="nav-label">Entities</span>
+        </a>
+        <a href="/admin/collections" class="nav-item">
+          <span class="nav-icon">💎</span>
+          <span class="nav-label">Collections</span>
+        </a>
+        <a href="/admin/servers" class="nav-item">
+          <span class="nav-icon">🖥️</span>
+          <span class="nav-label">Servers</span>
+        </a>
+        <a href="/admin/users" class="nav-item">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Users</span>
+        </a>
+        <a href="/admin/global-settings" class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <span id="walletAddress" class="badge badge-primary" style="width: 100%; text-align: center; margin-bottom: var(--space-2);">Not Connected</span>
+        <button id="admin-logout" class="btn btn-secondary btn-sm" style="width: 100%;">Logout</button>
+      </div>
+    </aside>
 
     <!-- Main Content -->
-    <main class="admin-main">
+    <main class="main-content">
+      <div class="content-wrapper">
       <!-- Header -->
       <div class="bots-header">
         <div>
@@ -504,6 +522,18 @@
         <div class="bot-card skeleton" style="height: 280px;"></div>
         <div class="bot-card skeleton" style="height: 280px;"></div>
       </div>
+      </div><!-- end content-wrapper -->
+
+      <!-- Footer -->
+      <footer class="admin-footer">
+        <div class="footer-content">
+          <p>RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025</p>
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/console">Swarm UI</a>
+          </div>
+        </div>
+      </footer>
     </main>
   </div>
 
