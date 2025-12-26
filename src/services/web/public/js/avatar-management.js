@@ -201,14 +201,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!badge) return;
     
     const span = badge.querySelector('span');
-    const rarityColors = {
-      'legendary': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      'rare': 'bg-purple-100 text-purple-800 border-purple-300',
-      'uncommon': 'bg-blue-100 text-blue-800 border-blue-300',
-      'common': 'bg-gray-100 text-gray-800 border-gray-300'
+    const rarityStyles = {
+      'legendary': 'background: rgba(234, 179, 8, 0.2); color: #facc15; border-color: rgba(234, 179, 8, 0.5);',
+      'rare': 'background: rgba(168, 85, 247, 0.2); color: #c084fc; border-color: rgba(168, 85, 247, 0.5);',
+      'uncommon': 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.5);',
+      'common': 'background: var(--color-surface); color: var(--color-text-muted); border-color: var(--color-border);'
     };
     
-    span.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${rarityColors[rarity] || rarityColors.common}`;
+    span.style.cssText = `display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid; ${rarityStyles[rarity] || rarityStyles.common}`;
+    span.className = '';
     span.textContent = rarity.toUpperCase();
     badge.classList.remove('hidden');
   }
@@ -445,7 +446,7 @@ if (emojiInput) {
       state.totalAvatars = data.total || 0;
 
       if (avatars.length === 0) {
-        elements.avatarsBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No avatars found</td></tr>';
+        elements.avatarsBody.innerHTML = '<tr><td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-text-muted);">No avatars found</td></tr>';
       } else {
         renderAvatars(avatars);
       }
@@ -453,7 +454,7 @@ if (emojiInput) {
       updatePagination(state.totalAvatars, data.page || 1, data.limit || state.pageSize);
     } catch (error) {
       console.error("Error loading avatars:", error);
-      elements.avatarsBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">Failed to load avatars</td></tr>';
+      elements.avatarsBody.innerHTML = '<tr><td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-danger);">Failed to load avatars</td></tr>';
     }
   }
 
@@ -472,7 +473,7 @@ if (emojiInput) {
 
   function renderAvatars(avatars) {
     if (avatars.length === 0) {
-      elements.avatarsBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No avatars found</td></tr>`;
+      elements.avatarsBody.innerHTML = `<tr><td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-text-muted);">No avatars found</td></tr>`;
       return;
     }
     elements.avatarsBody.innerHTML = avatars.map(createAvatarRow).join("");
@@ -482,28 +483,28 @@ if (emojiInput) {
   function createAvatarRow(avatar) {
     const truncatedId = avatar._id ? avatar._id.substring(0, 8) + '...' : '';
     return `
-      <tr class="hover:bg-gray-50 transition">
-        <td class="px-3 py-3">
-          <img class="h-10 w-10 rounded-full object-cover" src="${avatar.thumbnailUrl || avatar.imageUrl || "/images/default-avatar.svg"}" alt="${avatar.name || "Avatar"}">
+      <tr style="transition: background 0.2s;" onmouseover="this.style.background='var(--color-surface-hover)'" onmouseout="this.style.background=''">
+        <td style="padding: 0.75rem;">
+          <img style="height: 2.5rem; width: 2.5rem; border-radius: 50%; object-fit: cover;" src="${avatar.thumbnailUrl || avatar.imageUrl || "/images/default-avatar.svg"}" alt="${avatar.name || "Avatar"}">
         </td>
-        <td class="px-3 py-3 text-sm font-medium text-gray-900">
-          <div class="flex flex-col">
-            <span class="truncate">${avatar.name || "Unnamed"} ${avatar.emoji || ""}</span>
-            <span class="md:hidden text-xs text-gray-400 font-normal">${truncatedId}</span>
+        <td style="padding: 0.75rem; font-size: 0.875rem; font-weight: 500; color: var(--color-text);">
+          <div style="display: flex; flex-direction: column;">
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${avatar.name || "Unnamed"} ${avatar.emoji || ""}</span>
+            <span class="mobile-only" style="font-size: 0.75rem; color: var(--color-text-muted); font-weight: normal;">${truncatedId}</span>
           </div>
         </td>
-        <td class="hidden md:table-cell px-3 py-3 text-xs text-gray-500 truncate" title="${avatar._id}">${truncatedId}</td>
-        <td class="px-3 py-3">
-          <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(avatar.status)}">
+        <td class="desktop-only" style="padding: 0.75rem; font-size: 0.75rem; color: var(--color-text-muted);" title="${avatar._id}">${truncatedId}</td>
+        <td style="padding: 0.75rem;">
+          <span style="padding: 0.25rem 0.5rem; display: inline-flex; font-size: 0.75rem; line-height: 1.25rem; font-weight: 600; border-radius: 9999px; ${getStatusStyle(avatar.status)}">
             ${avatar.status || "Unknown"}
           </span>
         </td>
-        <td class="hidden lg:table-cell px-3 py-3 text-xs text-gray-500 truncate" title="${avatar.model || "Not specified"}">${avatar.model || "Not specified"}</td>
-        <td class="hidden sm:table-cell px-3 py-3 text-xs text-gray-500">${formatDate(avatar.createdAt)}</td>
-        <td class="px-3 py-3 text-sm">
-          <div class="flex flex-col sm:flex-row gap-1 sm:gap-2">
-            <button data-avatar-id="${avatar._id}" class="edit-avatar text-indigo-600 hover:text-indigo-900 font-medium">Edit</button>
-            <button data-avatar-id="${avatar._id}" class="delete-avatar text-red-600 hover:text-red-900 font-medium">Del</button>
+        <td class="desktop-only" style="padding: 0.75rem; font-size: 0.75rem; color: var(--color-text-muted);" title="${avatar.model || "Not specified"}">${avatar.model || "Not specified"}</td>
+        <td class="tablet-only" style="padding: 0.75rem; font-size: 0.75rem; color: var(--color-text-muted);">${formatDate(avatar.createdAt)}</td>
+        <td style="padding: 0.75rem; font-size: 0.875rem;">
+          <div style="display: flex; gap: 0.5rem;">
+            <button data-avatar-id="${avatar._id}" class="edit-avatar" style="color: var(--color-accent); font-weight: 500; cursor: pointer; background: none; border: none;">Edit</button>
+            <button data-avatar-id="${avatar._id}" class="delete-avatar" style="color: var(--color-danger); font-weight: 500; cursor: pointer; background: none; border: none;">Del</button>
           </div>
         </td>
       </tr>
@@ -537,12 +538,12 @@ if (emojiInput) {
       if (!btn || !content) return;
 
       if (t === tabName) {
-        btn.classList.add('border-indigo-500', 'text-indigo-600');
-        btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        btn.classList.add('tab-active');
+        btn.classList.remove('tab-inactive');
         content.classList.remove('hidden');
       } else {
-        btn.classList.remove('border-indigo-500', 'text-indigo-600');
-        btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        btn.classList.remove('tab-active');
+        btn.classList.add('tab-inactive');
         content.classList.add('hidden');
       }
     });
@@ -553,7 +554,7 @@ if (emojiInput) {
       if (avatarId) {
         loadSocialConnections(avatarId);
       } else {
-        elements.socialList.innerHTML = '<div class="text-gray-500 p-4 text-center">Please save the avatar first to manage social connections.</div>';
+        elements.socialList.innerHTML = '<div style="color: var(--color-text-muted); padding: 1rem; text-align: center;">Please save the avatar first to manage social connections.</div>';
       }
     }
   }
@@ -777,6 +778,15 @@ if (emojiInput) {
     );
   }
 
+  function getStatusStyle(status) {
+    const styles = {
+      alive: "background: rgba(34, 197, 94, 0.2); color: #4ade80;",
+      dead: "background: rgba(239, 68, 68, 0.2); color: #f87171;",
+      inactive: "background: var(--color-surface); color: var(--color-text-muted);",
+    };
+    return styles[status] || styles.inactive;
+  }
+
   function formatDate(dateString) {
     if (!dateString) return "Unknown";
     const date = new Date(dateString);
@@ -800,10 +810,10 @@ if (emojiInput) {
   function loadingSpinner() {
     return `
       <tr>
-        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
-          <svg class="animate-spin h-5 w-5 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-text-muted);">
+          <svg style="animation: spin 1s linear infinite; height: 1.25rem; width: 1.25rem; margin: 0 auto; color: var(--color-accent-primary);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </td>
       </tr>
@@ -816,13 +826,13 @@ if (emojiInput) {
       const avatars = data.avatars || [];
 
       if (avatars.length === 0) {
-        elements.avatarsBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No avatars found</td></tr>';
+        elements.avatarsBody.innerHTML = '<tr><td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-text-muted);">No avatars found</td></tr>';
       } else {
         renderAvatars(avatars);
       }
     } catch (error) {
       console.error("Error searching avatars:", error);
-      elements.avatarsBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">Failed to search avatars</td></tr>';
+      elements.avatarsBody.innerHTML = '<tr><td colspan="7" style="padding: 1rem 1.5rem; text-align: center; font-size: 0.875rem; color: var(--color-danger);">Failed to search avatars</td></tr>';
     }
   }
 
@@ -869,8 +879,8 @@ if (emojiInput) {
         mobileBtn.classList.remove('hidden');
       } else {
         nftStatus.innerHTML = `
-          <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-            <span class="font-semibold">Ready to deploy!</span> Generate NFT metadata and deploy to Arweave.
+          <div style="background: var(--color-info-bg); border: 1px solid var(--color-info); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-info);">
+            <span style="font-weight: 600;">Ready to deploy!</span> Generate NFT metadata and deploy to Arweave.
           </div>
         `;
         generateBtn.classList.remove('hidden');
@@ -880,7 +890,7 @@ if (emojiInput) {
     } catch (error) {
       console.error('Error checking NFT status:', error);
       nftStatus.innerHTML = `
-        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+        <div style="background: var(--color-warning-bg); border: 1px solid var(--color-warning); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-warning);">
           Could not load NFT status. You can still generate metadata.
         </div>
       `;
@@ -913,8 +923,8 @@ if (emojiInput) {
       deployBtn.classList.remove('hidden');
       
       nftStatus.innerHTML = `
-        <div class="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
-          <span class="font-semibold">✓ Metadata generated!</span> Review the manifests below and deploy to Arweave.
+        <div style="background: var(--color-success-bg); border: 1px solid var(--color-success); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-success);">
+          <span style="font-weight: 600;">✓ Metadata generated!</span> Review the manifests below and deploy to Arweave.
         </div>
       `;
       
@@ -923,8 +933,8 @@ if (emojiInput) {
       console.error('Error generating NFT metadata:', error);
       toastError(error.message || 'Failed to generate NFT metadata');
       nftStatus.innerHTML = `
-        <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
-          <span class="font-semibold">Error:</span> ${error.message || 'Failed to generate metadata'}
+        <div style="background: var(--color-error-bg); border: 1px solid var(--color-error); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-error);">
+          <span style="font-weight: 600;">Error:</span> ${error.message || 'Failed to generate metadata'}
         </div>
       `;
     } finally {
@@ -947,13 +957,13 @@ if (emojiInput) {
       deployBtn.innerHTML = '<span class="mr-2">⏳</span>Deploying...';
       
       nftStatus.innerHTML = `
-        <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-          <div class="flex items-center">
-            <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        <div style="background: var(--color-info-bg); border: 1px solid var(--color-info); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-info);">
+          <div style="display: flex; align-items: center;">
+            <svg style="animation: spin 1s linear infinite; height: 1.25rem; width: 1.25rem; margin-right: 0.5rem;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span class="font-semibold">Uploading to Arweave...</span> This may take a few moments.
+            <span style="font-weight: 600;">Uploading to Arweave...</span> This may take a few moments.
           </div>
         </div>
       `;
@@ -975,8 +985,8 @@ if (emojiInput) {
       console.error('Error deploying to Arweave:', error);
       toastError(error.message || 'Failed to deploy to Arweave');
       nftStatus.innerHTML = `
-        <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
-          <span class="font-semibold">Deployment failed:</span> ${error.message || 'Unknown error'}
+        <div style="background: var(--color-error-bg); border: 1px solid var(--color-error); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-error);">
+          <span style="font-weight: 600;">Deployment failed:</span> ${error.message || 'Unknown error'}
         </div>
       `;
       deployBtn.disabled = false;
@@ -989,10 +999,10 @@ if (emojiInput) {
     const linksDiv = document.getElementById('nft-deployment-links');
     
     nftStatus.innerHTML = `
-      <div class="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-800">
-        <span class="font-semibold">✓ Deployed to Arweave!</span>
-        <div class="mt-2 text-xs">
-          ${deployment.simulated ? '<span class="bg-yellow-200 text-yellow-900 px-2 py-1 rounded">Simulated (Arweave not configured)</span>' : ''}
+      <div style="background: var(--color-success-bg); border: 1px solid var(--color-success); border-radius: 0.375rem; padding: 0.75rem; font-size: 0.875rem; color: var(--color-success);">
+        <span style="font-weight: 600;">✓ Deployed to Arweave!</span>
+        <div style="margin-top: 0.5rem; font-size: 0.75rem;">
+          ${deployment.simulated ? '<span style="background: var(--color-warning-bg); color: var(--color-warning); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">Simulated (Arweave not configured)</span>' : ''}
           Deployed on: ${new Date(deployment.deployed).toLocaleString()}
         </div>
       </div>
@@ -1021,7 +1031,7 @@ if (emojiInput) {
     if (!elements.socialList) return;
     
     if (!options.silent) {
-      elements.socialList.innerHTML = '<div class="text-gray-500">Loading connections...</div>';
+      elements.socialList.innerHTML = '<div style="color: var(--color-text-muted);">Loading connections...</div>';
     }
 
     try {
@@ -1029,7 +1039,7 @@ if (emojiInput) {
       renderSocialConnections(avatarId, response.connections || []);
     } catch (error) {
       console.error("Error loading social connections:", error);
-      elements.socialList.innerHTML = `<div class="text-red-500">Failed to load connections: ${error.message}</div>`;
+      elements.socialList.innerHTML = `<div style="color: var(--color-danger);">Failed to load connections: ${error.message}</div>`;
     }
   }
 
@@ -1054,23 +1064,27 @@ if (emojiInput) {
 
   function createSocialCard(platform, label, connection, avatarId) {
     const div = document.createElement('div');
-    div.className = 'bg-white p-4 rounded border border-gray-200 shadow-sm';
+    div.className = 'card';
+    div.style.cssText = 'padding: 1rem;';
     
     const isConnected = !!connection && connection.status === 'connected';
+    const statusStyle = isConnected 
+      ? 'background: rgba(34, 197, 94, 0.2); color: #4ade80;' 
+      : 'background: var(--color-surface); color: var(--color-text-muted);';
     
     let content = `
-      <div class="flex justify-between items-start">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-          <h5 class="font-bold text-gray-900">${label}</h5>
-          <p class="text-sm text-gray-500 mb-2">${getPlatformDescription(platform)}</p>
-          <div class="flex items-center mt-2">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isConnected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+          <h5 style="font-weight: 700; color: var(--color-text);">${label}</h5>
+          <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-bottom: 0.5rem;">${getPlatformDescription(platform)}</p>
+          <div style="display: flex; align-items: center; margin-top: 0.5rem;">
+            <span style="display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${statusStyle}">
               ${isConnected ? 'Connected' : 'Not Connected'}
             </span>
-            ${isConnected && connection.username ? `<span class="ml-2 text-sm text-gray-600">@${connection.username}</span>` : ''}
+            ${isConnected && connection.username ? `<span style="margin-left: 0.5rem; font-size: 0.875rem; color: var(--color-text-secondary);">@${connection.username}</span>` : ''}
           </div>
         </div>
-        <div class="flex flex-col gap-2">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
           ${getPlatformActions(platform, isConnected, avatarId)}
         </div>
       </div>
@@ -1079,11 +1093,11 @@ if (emojiInput) {
     // Add specific inputs for disconnected states (e.g. Telegram Token)
     if (!isConnected && platform === 'telegram') {
       content += `
-        <div class="mt-4 pt-4 border-t border-gray-100">
-          <label class="block text-xs font-medium text-gray-700 mb-1">Bot Token (from @BotFather)</label>
-          <div class="flex gap-2">
-            <input type="text" id="telegram-token-${avatarId}" class="flex-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
-            <button type="button" class="connect-telegram inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border-subtle);">
+          <label style="display: block; font-size: 0.75rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Bot Token (from @BotFather)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="telegram-token-${avatarId}" class="form-input" style="flex: 1; font-size: 0.875rem;" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            <button type="button" class="connect-telegram btn btn-primary" style="white-space: nowrap;">
               Connect
             </button>
           </div>
@@ -1126,10 +1140,10 @@ if (emojiInput) {
 
   function getPlatformActions(platform, isConnected, avatarId) {
     if (isConnected) {
-      return `<button type="button" class="disconnect-btn inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none">Disconnect</button>`;
+      return `<button type="button" class="disconnect-btn btn btn-sm" style="color: var(--color-danger); border: 1px solid var(--color-border); background: var(--color-surface);">Disconnect</button>`;
     } else {
       if (platform === 'x') {
-        return `<button type="button" class="connect-x inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-blue-500 hover:bg-blue-600 focus:outline-none">Connect with X</button>`;
+        return `<button type="button" class="connect-x btn btn-sm btn-primary">Connect with X</button>`;
       }
       return ''; // Telegram handled via input form
     }

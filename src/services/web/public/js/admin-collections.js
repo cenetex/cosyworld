@@ -85,26 +85,27 @@ async function saveConfig(ev) {
 
 function renderItem(cfg) {
   const div = document.createElement('div');
-  div.className = 'border rounded p-3 grid md:grid-cols-[1fr_auto] gap-2 items-center';
+  div.className = 'card';
+  div.style.cssText = 'padding: 0.75rem; display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center;';
   const meta = [cfg.type || 'avatar', cfg.chain || 'eth', cfg.provider || '-'].join(' • ');
   div.innerHTML = `
     <div>
-      <div class="font-mono text-sm">${cfg.key}</div>
-      <div class="text-xs text-gray-600">${meta}</div>
-      <div class="text-xs text-gray-600">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
-      <div class="text-xs text-gray-600">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
-      <div class="text-xs text-gray-600" data-count>avatars: <span data-count-value>loading...</span></div>
-      <div class="mt-2" data-prog>
-        <div class="h-2 w-full bg-gray-200 rounded overflow-hidden">
-          <div class="h-full bg-indigo-600" style="width:0%" data-bar></div>
+      <div style="font-family: monospace; font-size: 0.875rem; color: var(--color-text);">${cfg.key}</div>
+      <div style="font-size: 0.75rem; color: var(--color-text-muted);">${meta}</div>
+      <div style="font-size: 0.75rem; color: var(--color-text-muted);">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
+      <div style="font-size: 0.75rem; color: var(--color-text-muted);">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
+      <div style="font-size: 0.75rem; color: var(--color-text-muted);" data-count>avatars: <span data-count-value>loading...</span></div>
+      <div style="margin-top: 0.5rem;" data-prog>
+        <div style="height: 0.5rem; width: 100%; background: var(--color-surface); border-radius: 0.25rem; overflow: hidden;">
+          <div style="height: 100%; background: var(--color-accent-primary); width: 0%;" data-bar></div>
         </div>
-        <div class="text-xs text-gray-600 mt-1" data-prog-meta></div>
+        <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.25rem;" data-prog-meta></div>
       </div>
     </div>
-    <div class="flex gap-2 justify-end">
-      <button class="px-2 py-1 rounded bg-gray-100 text-sm" data-act="status">Status</button>
-      <button class="px-2 py-1 rounded bg-indigo-600 text-white text-sm" data-act="sync">Sync</button>
-      <button class="px-2 py-1 rounded bg-red-600 text-white text-sm" data-act="delete">Delete</button>
+    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+      <button class="btn btn-sm" data-act="status">Status</button>
+      <button class="btn btn-sm btn-primary" data-act="sync">Sync</button>
+      <button class="btn btn-sm btn-danger" data-act="delete">Delete</button>
     </div>`;
   // hide progress by default until we have data
   const prog = div.querySelector('[data-prog]');

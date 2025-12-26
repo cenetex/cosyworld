@@ -981,6 +981,34 @@ body.admin-v2 {
   display: block;
 }
 
+/* Tab state classes for JavaScript */
+.tab-active {
+  color: var(--color-accent-primary) !important;
+  border-bottom-color: var(--color-accent-primary) !important;
+}
+
+.tab-inactive {
+  color: var(--color-text-secondary);
+  border-bottom-color: transparent;
+}
+
+/* Responsive table cell visibility */
+.mobile-only { display: none; }
+.tablet-only { display: none; }
+.desktop-only { display: none; }
+
+@media (max-width: 639px) {
+  .mobile-only { display: block; }
+}
+
+@media (min-width: 640px) {
+  .tablet-only { display: table-cell; }
+}
+
+@media (min-width: 768px) {
+  .desktop-only { display: table-cell; }
+}
+
 /* =============================================================================
    Bot Cards (specific component)
    ============================================================================= */

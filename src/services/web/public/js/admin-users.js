@@ -16,40 +16,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load Admins
   async function loadAdmins() {
-    listEl.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td></tr>';
+    listEl.innerHTML = '<tr><td colspan="5" style="padding: 1rem 1.5rem; text-align: center; color: var(--color-text-muted);">Loading...</td></tr>';
     try {
       const data = await apiFetch('/api/admin/users');
       renderAdmins(data.admins);
     } catch (e) {
-      listEl.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Error: ${e.message}</td></tr>`;
+      listEl.innerHTML = `<tr><td colspan="5" style="padding: 1rem 1.5rem; text-align: center; color: var(--color-danger);">Error: ${e.message}</td></tr>`;
     }
   }
 
   function renderAdmins(admins) {
     if (!admins || admins.length === 0) {
-      listEl.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No admins found.</td></tr>';
+      listEl.innerHTML = '<tr><td colspan="5" style="padding: 1rem 1.5rem; text-align: center; color: var(--color-text-muted);">No admins found.</td></tr>';
       return;
     }
 
     listEl.innerHTML = admins.map(admin => `
-      <tr>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
+      <tr style="transition: background 0.2s;" onmouseover="this.style.background='var(--color-surface-hover)'" onmouseout="this.style.background=''">
+        <td style="padding: 1rem 1.5rem; white-space: nowrap; font-size: 0.875rem; font-weight: 500; color: var(--color-text); font-family: monospace;">
           ${admin.walletAddress}
-          ${admin.isEnv ? '<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Env</span>' : ''}
+          ${admin.isEnv ? '<span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; display: inline-flex; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; background: var(--color-warning-bg); color: var(--color-warning);">Env</span>' : ''}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td style="padding: 1rem 1.5rem; white-space: nowrap; font-size: 0.875rem; color: var(--color-text-muted);">
           ${admin.source}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td style="padding: 1rem 1.5rem; white-space: nowrap; font-size: 0.875rem; color: var(--color-text-muted);">
           ${admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : '-'}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td style="padding: 1rem 1.5rem; white-space: nowrap; font-size: 0.875rem; color: var(--color-text-muted);">
           ${admin.lastLogin ? new Date(admin.lastLogin).toLocaleDateString() : '-'}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <td style="padding: 1rem 1.5rem; white-space: nowrap; text-align: right; font-size: 0.875rem; font-weight: 500;">
           ${!admin.isEnv ? `
-            <button class="text-red-600 hover:text-red-900 remove-admin-btn" data-wallet="${admin.walletAddress}">Remove</button>
-          ` : '<span class="text-gray-400 cursor-not-allowed" title="Cannot remove environment-configured admin">Locked</span>'}
+            <button class="remove-admin-btn" style="color: var(--color-danger); cursor: pointer; background: none; border: none;" data-wallet="${admin.walletAddress}">Remove</button>
+          ` : '<span style="color: var(--color-text-muted); cursor: not-allowed;" title="Cannot remove environment-configured admin">Locked</span>'}
         </td>
       </tr>
     `).join('');
