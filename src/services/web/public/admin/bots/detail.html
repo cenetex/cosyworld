@@ -805,7 +805,9 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script>
+  <script type="module">
+    import { apiFetch } from '/js/admin/admin-api.js';
+    
     // State
     let bot = null;
     let botId = null;
@@ -821,15 +823,19 @@
       throw new Error('No bot ID provided');
     }
 
-    // API helper
+    // API helper - wrapper around apiFetch with proper CSRF and signing for write operations
     async function fetchWithAuth(url, options = {}) {
-      const headers = { 'Content-Type': 'application/json', ...options.headers };
-      const res = await fetch(url, { ...options, headers, credentials: 'include' });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(error.error || 'Request failed');
-      }
-      return res.json();
+      const method = options.method || 'GET';
+      const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+      
+      return apiFetch(url, {
+        method,
+        body: options.body,
+        headers: options.headers,
+        requireCsrf: isMutating,
+        sign: isMutating,
+        signMeta: { op: 'bot_admin', botId }
+      });
     }
 
     // Load bot data
@@ -1226,6 +1232,14 @@
       }
     }
 
+    // Edit secret - open form with existing values
+    function editSecret(key) {
+      // For now, just show the add form - in the future this could pre-populate
+      toggleAddSecretForm();
+      document.getElementById('newSecretKey').value = key;
+      showToast('Edit the value and save', 'info');
+    }
+
     // Avatar actions
     function openAvatarPicker() {
       // TODO: Implement avatar picker modal
@@ -1242,6 +1256,38 @@
       } catch (err) {
         showToast('Failed to remove avatar: ' + err.message, 'error');
       }
+    }
+
+    // Config actions
+    function resetConfig() {
+      document.getElementById('configTemperature').value = 0.7;
+      document.getElementById('temperatureValue').textContent = '0.7';
+      document.getElementById('configMaxTokens').value = 1000;
+      document.getElementById('configSystemPrompt').value = '';
+      showToast('Config reset to defaults', 'info');
+    }
+
+    async function restartBot() {
+      if (!confirm('Restart this bot? This will temporarily disconnect it from all platforms.')) return;
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/restart`, { method: 'POST' });
+        showToast('Bot restart initiated', 'success');
+        setTimeout(() => loadBot(), 2000);
+      } catch (err) {
+        showToast('Failed to restart: ' + err.message, 'error');
+      }
+    }
+
+    // Tab switching
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `panel-${tabName}`);
+      });
+      if (tabName === 'secrets') loadSecrets();
+      if (tabName === 'avatars') loadAvatars();
     }
 
     // Helper functions
@@ -1294,6 +1340,23 @@
 
     // Event listeners
     document.getElementById('saveDetailsBtn').addEventListener('click', saveDetails);
+
+    // Expose functions to global scope for onclick handlers
+    window.syncPlatformConfigs = syncPlatformConfigs;
+    window.savePlatformConfig = savePlatformConfig;
+    window.toggleAddSecretForm = toggleAddSecretForm;
+    window.addSecret = addSecret;
+    window.editSecret = editSecret;
+    window.deleteSecret = deleteSecret;
+    window.openAvatarPicker = openAvatarPicker;
+    window.removeAvatar = removeAvatar;
+    window.toggleBotEnabled = toggleBotEnabled;
+    window.saveConfig = saveConfig;
+    window.resetConfig = resetConfig;
+    window.restartBot = restartBot;
+    window.togglePlatform = togglePlatform;
+    window.saveDetails = saveDetails;
+    window.showTab = showTab;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
