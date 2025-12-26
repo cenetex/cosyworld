@@ -844,16 +844,22 @@
         return;
       }
 
-      tbody.innerHTML = globalSecrets.map(secret => `
+      tbody.innerHTML = globalSecrets.map(secret => {
+        // Handle case where secret might be a string key instead of object
+        const key = typeof secret === 'string' ? secret : (secret.key || '');
+        const value = typeof secret === 'object' ? (secret.value || '••••••••') : '••••••••';
+        const source = typeof secret === 'object' ? (secret.source || 'global') : 'global';
+        
+        return `
         <tr>
-          <td><span class="secret-key">${escapeHtml(secret.key)}</span></td>
-          <td><span class="secret-value-masked">${secret.value || '••••••••'}</span></td>
-          <td style="font-size: var(--text-xs); color: var(--color-text-muted);">${secret.source || 'global'}</td>
+          <td><span class="secret-key">${escapeHtml(key)}</span></td>
+          <td><span class="secret-value-masked">${escapeHtml(value)}</span></td>
+          <td style="font-size: var(--text-xs); color: var(--color-text-muted);">${escapeHtml(source)}</td>
           <td>
-            <button class="btn btn-ghost btn-sm" onclick="deleteGlobalSecret('${escapeHtml(secret.key)}')" title="Delete">🗑️</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteGlobalSecret('${escapeHtml(key)}')" title="Delete">🗑️</button>
           </td>
         </tr>
-      `).join('');
+      `}).join('');
     }
 
     // Secret actions
