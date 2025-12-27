@@ -562,76 +562,38 @@
           </div>
         </div>
 
-        <!-- Global X Posting -->
-        <div class="card" id="x-global-panel">
+        <!-- Platform Connections Summary -->
+        <div class="card" id="platform-connections-panel">
           <div class="card-header">
             <div>
-              <h3 class="card-title">🐦 Global X Auto Posting</h3>
+              <h3 class="card-title">🔗 Platform Connections</h3>
               <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1);">
-                Automatically posts newly generated images using the connected admin X account
+                Multi-platform posting is configured per-bot. Configure your default bot's connections below.
               </p>
             </div>
-            <div class="toggle-group">
-              <label class="toggle-switch">
-                <input type="checkbox" id="global-x-enabled" />
-                <span class="toggle-slider"></span>
-              </label>
-              <span class="toggle-label">Enabled</span>
-            </div>
+            <a href="/admin/bots/detail.html?id=default&tab=platforms" class="btn btn-primary btn-sm">Configure Default Bot →</a>
           </div>
           <div class="card-body">
-            <div id="global-x-hint" class="alert alert-warning" style="display: none;"></div>
-
-            <div id="x-profile-wrapper" class="x-profile-card" style="display: none;">
-              <div class="x-profile-info">
-                <img id="admin-x-avatar" src="" alt="X avatar" class="x-profile-avatar" />
-                <div>
-                  <div class="x-profile-name" id="admin-x-name"></div>
-                  <div class="x-profile-username" id="admin-x-username"></div>
-                  <div class="x-profile-expiry" id="admin-x-expiry"></div>
-                </div>
+            <div id="platform-status-grid" class="economy-stats">
+              <div class="economy-stat" id="discord-status-card">
+                <div class="economy-stat-label">💬 Discord</div>
+                <div class="economy-stat-value" id="platform-discord-status">--</div>
               </div>
-              <div style="display: flex; gap: var(--space-2);">
-                <button id="admin-x-connect" class="btn btn-primary btn-sm">Connect</button>
-                <button id="admin-x-disconnect" class="btn btn-secondary btn-sm" style="display: none;">Disconnect</button>
+              <div class="economy-stat" id="telegram-status-card">
+                <div class="economy-stat-label">📱 Telegram</div>
+                <div class="economy-stat-value" id="platform-telegram-status">--</div>
+              </div>
+              <div class="economy-stat" id="x-status-card">
+                <div class="economy-stat-label">𝕏 X (Twitter)</div>
+                <div class="economy-stat-value" id="platform-x-status">--</div>
+              </div>
+              <div class="economy-stat" id="avatars-status-card">
+                <div class="economy-stat-label">🎭 Avatars</div>
+                <div class="economy-stat-value" id="platform-avatars-count">--</div>
               </div>
             </div>
-
-            <!-- OAuth 1.0a Credentials -->
-            <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
-                <h4 style="font-weight: 600; color: var(--color-text-primary);">OAuth 1.0a Credentials</h4>
-                <button id="oauth1-toggle" class="btn btn-ghost btn-sm">Show</button>
-              </div>
-              <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4);">
-                Required for media upload. Get these from your Twitter Developer Portal under "Keys and tokens".
-              </p>
-
-              <div id="oauth1-form" style="display: none;">
-                <div class="oauth-form">
-                  <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">API Key (Consumer Key)</label>
-                    <input type="text" id="oauth1-api-key" class="form-input" placeholder="Your API Key" />
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">API Secret (Consumer Secret)</label>
-                    <input type="password" id="oauth1-api-secret" class="form-input" placeholder="Your API Secret" />
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">Access Token</label>
-                    <input type="text" id="oauth1-access-token" class="form-input" placeholder="Your Access Token" />
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">Access Token Secret</label>
-                    <input type="password" id="oauth1-access-token-secret" class="form-input" placeholder="Your Access Token Secret" />
-                  </div>
-                </div>
-                <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-                  <button id="oauth1-save" class="btn btn-success btn-sm">Save Credentials</button>
-                  <button id="oauth1-test" class="btn btn-secondary btn-sm">Test Upload</button>
-                </div>
-                <div id="oauth1-status" style="margin-top: var(--space-3); display: none;"></div>
-              </div>
+            <div id="platform-hint" class="alert alert-info" style="margin-top: var(--space-4); display: none;">
+              <strong>Tip:</strong> Configure platform credentials in the <a href="/admin/bots/detail.html?id=default&tab=platforms">Default Bot settings</a> to enable cross-platform posting.
             </div>
           </div>
         </div>

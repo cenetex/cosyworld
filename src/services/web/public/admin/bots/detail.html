@@ -654,11 +654,44 @@
                 </label>
               </div>
               <div id="xConfig" style="display: none;">
-                <div class="form-group">
-                  <label class="form-label">Account ID</label>
-                  <input type="text" id="xAccountId" class="form-input" placeholder="X Account Reference" />
+                <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4);">
+                  Configure OAuth 1.0a credentials from your <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">X Developer Portal</a>.
+                </p>
+                
+                <!-- Auto-Posting Toggle -->
+                <div class="form-group" style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle);">
+                  <label class="form-label" style="display: flex; align-items: center; gap: var(--space-3);">
+                    <input type="checkbox" id="xAutoPost" />
+                    <span>Enable Auto-Posting</span>
+                  </label>
+                  <p style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1);">
+                    Automatically post newly generated images to X using this bot's credentials.
+                  </p>
                 </div>
-                <button class="btn btn-secondary" onclick="savePlatformConfig('x')">Save X Config</button>
+                
+                <!-- OAuth 1.0a Credentials -->
+                <div class="form-group">
+                  <label class="form-label">API Key (Consumer Key)</label>
+                  <input type="text" id="xApiKey" class="form-input" placeholder="Your API Key" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">API Secret (Consumer Secret)</label>
+                  <input type="password" id="xApiSecret" class="form-input" placeholder="Your API Secret" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Access Token</label>
+                  <input type="text" id="xAccessToken" class="form-input" placeholder="Your Access Token" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Access Token Secret</label>
+                  <input type="password" id="xAccessTokenSecret" class="form-input" placeholder="Your Access Token Secret" autocomplete="off" />
+                </div>
+                
+                <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+                  <button class="btn btn-success" onclick="savePlatformConfig('x')">Save X Credentials</button>
+                  <button class="btn btn-secondary" onclick="testXConnection()">Test Connection</button>
+                </div>
+                <div id="xTestStatus" style="margin-top: var(--space-3); display: none;"></div>
               </div>
             </div>
           </div>
@@ -993,8 +1026,28 @@
       document.getElementById('xEnabled').checked = x.enabled || false;
       document.getElementById('xCard').classList.toggle('enabled', x.enabled);
       document.getElementById('xConfig').style.display = x.enabled ? 'block' : 'none';
-      document.getElementById('xStatus').textContent = x.enabled ? 'Connected' : 'Not configured';
-      document.getElementById('xAccountId').value = x.accountId || '';
+      
+      // Update status based on credentials
+      const hasCredentials = x.oauth1?.apiKey && x.oauth1?.accessToken;
+      const xStatusEl = document.getElementById('xStatus');
+      if (x.enabled && hasCredentials) {
+        xStatusEl.textContent = 'Connected';
+        xStatusEl.style.color = 'var(--color-success)';
+      } else if (x.enabled) {
+        xStatusEl.textContent = 'Enabled - credentials needed';
+        xStatusEl.style.color = 'var(--color-warning)';
+      } else {
+        xStatusEl.textContent = 'Not configured';
+        xStatusEl.style.color = '';
+      }
+      
+      document.getElementById('xAutoPost').checked = x.autoPost || false;
+      // Populate non-secret fields (API keys may be partially returned for display)
+      document.getElementById('xApiKey').value = x.oauth1?.apiKey || '';
+      document.getElementById('xAccessToken').value = x.oauth1?.accessToken || '';
+      // Secrets are not returned for security - show placeholder if they exist
+      document.getElementById('xApiSecret').placeholder = x.oauth1?.hasApiSecret ? '••••••••••••' : 'Your API Secret';
+      document.getElementById('xAccessTokenSecret').placeholder = x.oauth1?.hasAccessTokenSecret ? '••••••••••••' : 'Your Access Token Secret';
     }
 
     async function updateConfigFields() {
@@ -1122,8 +1175,20 @@
           };
         } else if (platform === 'x') {
           config = {
-            accountId: document.getElementById('xAccountId').value
+            autoPost: document.getElementById('xAutoPost').checked,
+            oauth1: {}
           };
+          
+          // Only include credentials if they have values (don't overwrite with empty)
+          const apiKey = document.getElementById('xApiKey').value.trim();
+          const apiSecret = document.getElementById('xApiSecret').value.trim();
+          const accessToken = document.getElementById('xAccessToken').value.trim();
+          const accessTokenSecret = document.getElementById('xAccessTokenSecret').value.trim();
+          
+          if (apiKey) config.oauth1.apiKey = apiKey;
+          if (apiSecret) config.oauth1.apiSecret = apiSecret;
+          if (accessToken) config.oauth1.accessToken = accessToken;
+          if (accessTokenSecret) config.oauth1.accessTokenSecret = accessTokenSecret;
         }
 
         await fetchWithAuth(`/api/admin/bots/${botId}/platforms/${platform}`, {
@@ -1132,9 +1197,40 @@
         });
 
         showToast(`${platform} configuration saved`, 'success');
+        
+        // Clear password fields after save for security
+        if (platform === 'x') {
+          document.getElementById('xApiSecret').value = '';
+          document.getElementById('xAccessTokenSecret').value = '';
+        }
+        
         loadBot();
       } catch (err) {
         showToast('Failed to save platform config: ' + err.message, 'error');
+      }
+    }
+
+    async function testXConnection() {
+      const statusEl = document.getElementById('xTestStatus');
+      if (!statusEl) return;
+      
+      statusEl.style.display = 'block';
+      statusEl.className = 'alert alert-info';
+      statusEl.textContent = 'Testing X connection...';
+      
+      try {
+        const response = await fetchWithAuth(`/api/admin/bots/${botId}/platforms/x/test`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          statusEl.className = 'alert alert-success';
+          statusEl.textContent = data.message || 'Connection successful!';
+        } else {
+          throw new Error(data.error || 'Test failed');
+        }
+      } catch (err) {
+        statusEl.className = 'alert alert-danger';
+        statusEl.textContent = 'Test failed: ' + err.message;
       }
     }
 
@@ -1358,6 +1454,7 @@
     // Expose functions to global scope for onclick handlers
     window.syncPlatformConfigs = syncPlatformConfigs;
     window.savePlatformConfig = savePlatformConfig;
+    window.testXConnection = testXConnection;
     window.toggleAddSecretForm = toggleAddSecretForm;
     window.addSecret = addSecret;
     window.editSecret = editSecret;
