@@ -84,14 +84,16 @@ export class GenerateImageExecutor extends ActionExecutor {
   }
 
   async execute(step, context) {
-    const { ctx, conversationContext, userId, username, services, stepNum } = context;
+    const { ctx, conversationContext, userId, username, services, stepNum, userReferenceImage } = context;
     
     // Accept 'prompt', 'description', or 'message' for the image prompt (LLM sometimes uses wrong field)
     const prompt = step.prompt || step.description || step.message;
     
     // Extract aspectRatio from step if specified, default to square
+    // Include user's reference image if they sent one
     const options = {
-      aspectRatio: step.aspectRatio || '1:1'
+      aspectRatio: step.aspectRatio || '1:1',
+      referenceImage: userReferenceImage || null
     };
     
     const record = await services.telegram.executeImageGeneration(
@@ -118,14 +120,16 @@ export class GenerateKeyframeExecutor extends ActionExecutor {
   }
 
   async execute(step, context) {
-    const { ctx, conversationContext, userId, username, services, stepNum, logger } = context;
+    const { ctx, conversationContext, userId, username, services, stepNum, logger, userReferenceImage } = context;
     
     // Accept 'prompt', 'description', or 'message' for the image prompt (LLM sometimes uses wrong field)
     const prompt = step.prompt || step.description || step.message;
     
     // Keyframes typically use 16:9 for video compatibility, unless specified
+    // Include user's reference image if they sent one
     const options = {
-      aspectRatio: step.aspectRatio || '16:9'
+      aspectRatio: step.aspectRatio || '16:9',
+      referenceImage: userReferenceImage || null
     };
     
     const record = await services.telegram.executeImageGeneration(

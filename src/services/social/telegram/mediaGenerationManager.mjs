@@ -62,6 +62,7 @@ export class MediaGenerationManager {
    * @param {string} [options.aspectRatio='1:1'] - Aspect ratio
    * @param {string} [options.source='telegram'] - Source identifier
    * @param {boolean} [options.fetchBinary=false] - Whether to return binary data
+   * @param {Array} [options.referenceImages=[]] - User-provided reference images for style/content guidance
    * @returns {Promise<{imageUrl: string, enhancedPrompt: string, binary: string|null}>}
    */
   async generateImageAsset({
@@ -71,7 +72,8 @@ export class MediaGenerationManager {
     username = null,
     aspectRatio = '1:1',
     source = 'telegram',
-    fetchBinary = false
+    fetchBinary = false,
+    referenceImages = []
   }) {
     // Infer aspect ratio from prompt if not explicitly set or if set to default
     const effectiveAspectRatio = inferAspectRatioFromPrompt(prompt, aspectRatio);
@@ -80,7 +82,8 @@ export class MediaGenerationManager {
       prompt: prompt.substring(0, 100), 
       userId, username, source, 
       effectiveAspectRatio,
-      usingMediaGenerationService: !!this.mediaGenerationService
+      usingMediaGenerationService: !!this.mediaGenerationService,
+      userReferenceImagesCount: referenceImages.length
     });
 
     // Get character design configuration
@@ -99,13 +102,25 @@ export class MediaGenerationManager {
     // Primary path: Use MediaGenerationService (unified provider with retry/circuit breaker)
     if (this.mediaGenerationService) {
       try {
+        // Convert user-provided base64 images to data URLs for the service
+        const refImageUrls = referenceImages
+          .filter(img => img.data && img.mimeType)
+          .map(img => `data:${img.mimeType};base64,${img.data}`);
+        
+        if (refImageUrls.length > 0) {
+          this.logger?.info?.('[MediaGenerationManager] Using user-provided reference images', {
+            count: refImageUrls.length
+          });
+        }
+        
         // Note: MediaGenerationService handles character design application internally
         const result = await this.mediaGenerationService.generateImage(prompt, {
           characterDesign: charDesign,
           aspectRatio: effectiveAspectRatio,
           source,
           purpose: 'user_generated',
-          fetchBinary
+          fetchBinary,
+          referenceImages: refImageUrls
         });
         
         this.logger?.info?.('[MediaGenerationManager] MediaGenerationService image success', { 
@@ -129,7 +144,12 @@ export class MediaGenerationManager {
     const { prompt: promptWithCharacter } = this.applyCharacterPrompt(prompt, charDesign);
     let imageUrl = null;
     let enhancedPrompt = prompt;
-    const referenceImages = charDesign?.referenceImageUrl ? [charDesign.referenceImageUrl] : [];
+    
+    // Combine user-provided reference images with character design reference
+    const fallbackReferenceImages = [...referenceImages.filter(img => img.data).map(img => `data:${img.mimeType};base64,${img.data}`)];
+    if (charDesign?.referenceImageUrl) {
+      fallbackReferenceImages.push(charDesign.referenceImageUrl);
+    }
 
     if (this.globalBotService?.generateImage) {
       try {
@@ -139,7 +159,7 @@ export class MediaGenerationManager {
           purpose: 'user_generated',
           enhanceWithDirector: true,
           context: conversationContext,
-          referenceImages,
+          referenceImages: fallbackReferenceImages,
           characterDesign: charDesign,
           aspectRatio: effectiveAspectRatio
         });
@@ -153,7 +173,7 @@ export class MediaGenerationManager {
 
       if (this.aiService?.generateImage) {
         try {
-          imageUrl = await this.aiService.generateImage(enhancedPrompt, referenceImages, {
+          imageUrl = await this.aiService.generateImage(enhancedPrompt, fallbackReferenceImages, {
             source,
             purpose: 'user_generated',
             context: enhancedPrompt,

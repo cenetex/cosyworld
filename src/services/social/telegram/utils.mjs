@@ -369,9 +369,27 @@ export async function getMessageImage(telegram, message, logger = null) {
     const imageData = await downloadImageAsBase64(fileUrl, logger);
     if (!imageData) return null;
     
+    // Determine the correct MIME type:
+    // - If Telegram returns a generic type (octet-stream), use our inferred type based on file extension or default
+    // - For photos (from photo array), Telegram always uses JPEG
+    // - For documents, use the document's mime_type
+    let finalMimeType = mimeType; // Default based on message type
+    if (imageData.mimeType && 
+        imageData.mimeType !== 'application/octet-stream' && 
+        imageData.mimeType.startsWith('image/')) {
+      finalMimeType = imageData.mimeType;
+    } else if (file.file_path) {
+      // Infer from file extension
+      const ext = file.file_path.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') finalMimeType = 'image/jpeg';
+      else if (ext === 'png') finalMimeType = 'image/png';
+      else if (ext === 'gif') finalMimeType = 'image/gif';
+      else if (ext === 'webp') finalMimeType = 'image/webp';
+    }
+    
     return {
-      ...imageData,
-      mimeType: imageData.mimeType || mimeType,
+      data: imageData.data,
+      mimeType: finalMimeType,
       width,
       height
     };

@@ -456,11 +456,14 @@ export function setupBuybotTelegramCommands(bot, services) {
   });
 
   // Handle photo uploads for custom media
-  bot.on('photo', async (ctx) => {
+  bot.on('photo', async (ctx, next) => {
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
-    if (!state || state.action !== 'upload_custom_image') return;
+    // If not in upload state, pass to next handler
+    if (!state || state.action !== 'upload_custom_image') {
+      return next();
+    }
 
     try {
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
@@ -486,11 +489,14 @@ export function setupBuybotTelegramCommands(bot, services) {
   });
 
   // Handle video uploads for custom media
-  bot.on('video', async (ctx) => {
+  bot.on('video', async (ctx, next) => {
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
-    if (!state || state.action !== 'upload_custom_video') return;
+    // If not in upload state, pass to next handler
+    if (!state || state.action !== 'upload_custom_video') {
+      return next();
+    }
 
     try {
       const result = await buybotService.setCustomMedia(state.channelId, state.tokenAddress, ctx.message.video.file_id, 'video');
