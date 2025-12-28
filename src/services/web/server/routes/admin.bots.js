@@ -457,5 +457,91 @@ export default function(db, routeServices = {}) {
     res.json({ success: true, data: result });
   }));
 
+  /**
+   * POST /api/admin/bots/:botId/avatars/bulk
+   * Bulk assign avatars to a bot
+   */
+  router.post('/:botId/avatars/bulk', asyncHandler(async (req, res) => {
+    if (!botService) {
+      return res.status(503).json({ error: 'Bot service not available' });
+    }
+
+    const { botId } = req.params;
+    const { avatarIds } = req.body;
+
+    if (!Array.isArray(avatarIds) || avatarIds.length === 0) {
+      return res.status(400).json({ error: 'avatarIds array is required' });
+    }
+
+    let assigned = 0;
+    for (const avatarId of avatarIds) {
+      try {
+        await botService.assignAvatar(botId, avatarId);
+        assigned++;
+      } catch (e) {
+        logger?.warn?.(`[admin.bots] Failed to assign avatar ${avatarId} to ${botId}: ${e.message}`);
+      }
+    }
+
+    logger?.info?.(`[admin.bots] Bulk assigned ${assigned}/${avatarIds.length} avatars to bot: ${botId}`);
+    
+    const bot = await botService.getBot(botId);
+    res.json({ success: true, data: { assigned, total: avatarIds.length, bot } });
+  }));
+
+  /**
+   * POST /api/admin/bots/migrate-avatars
+   * Assign all unassigned avatars to the default bot
+   */
+  router.post('/migrate-avatars', asyncHandler(async (req, res) => {
+    if (!botService) {
+      return res.status(503).json({ error: 'Bot service not available' });
+    }
+
+    // Get all avatar IDs
+    const allAvatars = await db.collection('avatars').find({}, { projection: { _id: 1, name: 1 } }).toArray();
+    const allAvatarIds = allAvatars.map(a => a._id.toString());
+
+    // Get all bots to find which avatars are already assigned
+    const allBots = await botService.listBots({});
+    const assignedAvatarIds = new Set();
+    for (const bot of allBots) {
+      for (const avatarId of (bot.avatarIds || bot.avatars || [])) {
+        assignedAvatarIds.add(avatarId.toString());
+      }
+    }
+
+    // Find unassigned avatars
+    const unassignedIds = allAvatarIds.filter(id => !assignedAvatarIds.has(id));
+
+    if (unassignedIds.length === 0) {
+      return res.json({ success: true, data: { assigned: 0, message: 'All avatars are already assigned' } });
+    }
+
+    // Assign to default bot
+    let assigned = 0;
+    for (const avatarId of unassignedIds) {
+      try {
+        await botService.assignAvatar('default', avatarId);
+        assigned++;
+      } catch (e) {
+        logger?.warn?.(`[admin.bots] Failed to assign avatar ${avatarId} to default: ${e.message}`);
+      }
+    }
+
+    logger?.info?.(`[admin.bots] Migrated ${assigned}/${unassignedIds.length} unassigned avatars to default bot`);
+    
+    const defaultBot = await botService.getBot('default');
+    res.json({ 
+      success: true, 
+      data: { 
+        assigned, 
+        total: unassignedIds.length,
+        totalAvatars: allAvatarIds.length,
+        bot: defaultBot
+      } 
+    });
+  }));
+
   return router;
 }

@@ -250,12 +250,49 @@ function init() {
   wirePhantomLogin();
 }
 
+// Expose migration function globally
+window.migrateAvatarsToDefault = async function() {
+  const migrationStatus = document.getElementById('migration-status');
+  const migrateBtn = document.getElementById('migrate-avatars-btn');
+  
+  if (migrationStatus) {
+    migrationStatus.style.display = 'block';
+    migrationStatus.className = 'alert alert-info';
+    migrationStatus.textContent = 'Migrating avatars to default bot...';
+  }
+  if (migrateBtn) migrateBtn.disabled = true;
+  
+  try {
+    const res = await fetch('/api/admin/bots/migrate-avatars', { method: 'POST' });
+    const data = await res.json();
+    
+    if (!res.ok) throw new Error(data.error || 'Migration failed');
+    
+    if (migrationStatus) {
+      migrationStatus.className = 'alert alert-success';
+      migrationStatus.textContent = `Successfully assigned ${data.data.assigned} avatar(s) to the default bot.`;
+    }
+    if (migrateBtn) migrateBtn.style.display = 'none';
+    
+    // Refresh platform status
+    await fetchPlatformStatus();
+  } catch (e) {
+    if (migrationStatus) {
+      migrationStatus.className = 'alert alert-danger';
+      migrationStatus.textContent = 'Migration failed: ' + e.message;
+    }
+  } finally {
+    if (migrateBtn) migrateBtn.disabled = false;
+  }
+};
+
 async function fetchPlatformStatus() {
   const discordStatus = document.getElementById('platform-discord-status');
   const telegramStatus = document.getElementById('platform-telegram-status');
   const xStatus = document.getElementById('platform-x-status');
   const avatarsCount = document.getElementById('platform-avatars-count');
   const hint = document.getElementById('platform-hint');
+  const migrateBtn = document.getElementById('migrate-avatars-btn');
   
   if (!discordStatus && !telegramStatus && !xStatus) return;
   
@@ -276,11 +313,22 @@ async function fetchPlatformStatus() {
     const bot = data.data || data;
     const platforms = bot.platforms || {};
     
-    // Update platform statuses
+    // Update platform statuses with handles/usernames
     if (discordStatus) {
-      if (platforms.discord?.enabled) {
-        discordStatus.textContent = 'Connected';
-        discordStatus.style.color = 'var(--color-success)';
+      const discord = platforms.discord || {};
+      if (discord.enabled) {
+        const guildCount = discord.guildIds?.length || 0;
+        const clientId = discord.clientId;
+        if (guildCount > 0) {
+          discordStatus.textContent = `${guildCount} guild${guildCount > 1 ? 's' : ''}`;
+          discordStatus.style.color = 'var(--color-success)';
+        } else if (clientId) {
+          discordStatus.textContent = 'Connected';
+          discordStatus.style.color = 'var(--color-success)';
+        } else {
+          discordStatus.textContent = 'Enabled';
+          discordStatus.style.color = 'var(--color-warning)';
+        }
       } else {
         discordStatus.textContent = 'Disabled';
         discordStatus.style.color = 'var(--color-text-muted)';
@@ -288,12 +336,19 @@ async function fetchPlatformStatus() {
     }
     
     if (telegramStatus) {
-      if (platforms.telegram?.enabled && platforms.telegram?.botToken) {
-        telegramStatus.textContent = 'Connected';
-        telegramStatus.style.color = 'var(--color-success)';
-      } else if (platforms.telegram?.enabled) {
-        telegramStatus.textContent = 'Enabled';
-        telegramStatus.style.color = 'var(--color-warning)';
+      const telegram = platforms.telegram || {};
+      if (telegram.enabled) {
+        const username = telegram.botUsername;
+        if (username) {
+          telegramStatus.textContent = `@${username.replace(/^@/, '')}`;
+          telegramStatus.style.color = 'var(--color-success)';
+        } else if (telegram.botToken) {
+          telegramStatus.textContent = 'Connected';
+          telegramStatus.style.color = 'var(--color-success)';
+        } else {
+          telegramStatus.textContent = 'Enabled';
+          telegramStatus.style.color = 'var(--color-warning)';
+        }
       } else {
         telegramStatus.textContent = 'Disabled';
         telegramStatus.style.color = 'var(--color-text-muted)';
@@ -301,21 +356,45 @@ async function fetchPlatformStatus() {
     }
     
     if (xStatus) {
-      if (platforms.x?.enabled && platforms.x?.oauth1?.apiKey) {
-        xStatus.textContent = 'Connected';
-        xStatus.style.color = 'var(--color-success)';
-      } else if (platforms.x?.enabled) {
-        xStatus.textContent = 'Enabled';
-        xStatus.style.color = 'var(--color-warning)';
+      const x = platforms.x || {};
+      if (x.enabled) {
+        const handle = x.accountId || x.handle || x.username;
+        if (handle) {
+          xStatus.textContent = `@${handle.replace(/^@/, '')}`;
+          xStatus.style.color = 'var(--color-success)';
+        } else if (x.oauth1?.apiKey) {
+          xStatus.textContent = 'Connected';
+          xStatus.style.color = 'var(--color-success)';
+        } else {
+          xStatus.textContent = 'Enabled';
+          xStatus.style.color = 'var(--color-warning)';
+        }
       } else {
         xStatus.textContent = 'Disabled';
         xStatus.style.color = 'var(--color-text-muted)';
       }
     }
     
+    // Get the bot's assigned avatar count
+    const botAvatarCount = bot.avatars?.length || bot.avatarIds?.length || 0;
+    
+    // Get global avatar count from stats element (already populated by fetchStats)
+    const globalAvatarsEl = document.getElementById('stat-avatars');
+    const globalAvatarCount = globalAvatarsEl ? parseInt(globalAvatarsEl.textContent, 10) || 0 : 0;
+    
     if (avatarsCount) {
-      const count = bot.avatars?.length || 0;
-      avatarsCount.textContent = count.toString();
+      avatarsCount.textContent = botAvatarCount.toString();
+      
+      // Show migrate button if there are unassigned avatars
+      if (migrateBtn) {
+        const unassigned = globalAvatarCount - botAvatarCount;
+        if (unassigned > 0) {
+          migrateBtn.style.display = 'block';
+          migrateBtn.textContent = `Assign ${unassigned} unassigned`;
+        } else {
+          migrateBtn.style.display = 'none';
+        }
+      }
     }
     
     // Show hint if no platforms are configured

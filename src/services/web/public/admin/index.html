@@ -590,11 +590,15 @@
               <div class="economy-stat" id="avatars-status-card">
                 <div class="economy-stat-label">🎭 Avatars</div>
                 <div class="economy-stat-value" id="platform-avatars-count">--</div>
+                <button id="migrate-avatars-btn" class="btn btn-ghost btn-sm" style="margin-top: var(--space-2); display: none;" onclick="migrateAvatarsToDefault()">
+                  Assign All
+                </button>
               </div>
             </div>
             <div id="platform-hint" class="alert alert-info" style="margin-top: var(--space-4); display: none;">
               <strong>Tip:</strong> Configure platform credentials in the <a href="/admin/bots/detail.html?id=default&tab=platforms">Default Bot settings</a> to enable cross-platform posting.
             </div>
+            <div id="migration-status" class="alert" style="margin-top: var(--space-3); display: none;"></div>
           </div>
         </div>
       </div>

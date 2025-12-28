@@ -284,7 +284,12 @@ export class BotService {
    */
   _transformBot(bot) {
     if (!bot) return null;
-    return { ...bot, botId: bot._id };
+    return { 
+      ...bot, 
+      botId: bot._id,
+      // Alias avatarIds as avatars for frontend compatibility
+      avatars: bot.avatarIds || [],
+    };
   }
 
   /**
