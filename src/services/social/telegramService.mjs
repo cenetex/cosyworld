@@ -1286,6 +1286,19 @@ class TelegramService {
           });
         } else if (functionName === 'react_to_message') {
           await this.executeReaction(ctx, args.emoji, args.messageId);
+        } else if (functionName === 'speak') {
+          // Handle speak tool - send a message, optionally as a reply
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+          const formattedMessage = this._formatTelegramMarkdown(args.message || args.text || '');
+          if (args.targetMessageId) {
+            await ctx.reply(formattedMessage, { 
+              reply_to_message_id: args.targetMessageId,
+              parse_mode: 'HTML',
+              allow_sending_without_reply: true
+            });
+          } else {
+            await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
+          }
         } else if (functionName === 'generate_video_from_image' || functionName === 'generate_video_with_reference' || 
                    functionName === 'extend_video' || functionName === 'generate_video_interpolation') {
           // These video tools are best handled through plan_actions for proper context
