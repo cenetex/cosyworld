@@ -40,6 +40,7 @@ import {
   formatTelegramMarkdown,
   includesMention,
   sendImagePreservingFormat,
+  getMessageImage,
   // Managers
   CacheManager,
   MemberManager,
@@ -440,6 +441,27 @@ class TelegramService {
       }
     });
 
+    // Handle photo messages - extract image for vision processing
+    this.globalBot.on('photo', async (ctx) => {
+      try {
+        await this.handleIncomingMessage(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Photo message handling error:', error);
+      }
+    });
+
+    // Handle document messages (including images sent as files)
+    this.globalBot.on('document', async (ctx) => {
+      try {
+        // Only process image documents
+        if (ctx.message?.document?.mime_type?.startsWith('image/')) {
+          await this.handleIncomingMessage(ctx);
+        }
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Document message handling error:', error);
+      }
+    });
+
     this.globalBot.on('new_chat_members', async (ctx) => {
       try {
         if (!ctx?.message?.new_chat_members?.length) return;
@@ -601,13 +623,23 @@ class TelegramService {
       }
     }
     
+    // Build message text - include image notation for conversation context
+    let messageText = message.text ?? message.caption ?? '';
+    const hasPhoto = message.photo?.length > 0;
+    const hasImageDocument = message.document?.mime_type?.startsWith('image/');
+    if (hasPhoto || hasImageDocument) {
+      const imageNote = messageText ? `[sent an image] ${messageText}` : '[sent an image]';
+      messageText = imageNote;
+    }
+    
     await this.conversationManager.addMessage(channelId, {
       from: message.from.first_name || message.from.username || 'User',
-      text: message.text ?? message.caption ?? '',
+      text: messageText,
       date: message.date,
       isBot: message.from.is_bot || false,
       userId,
-      messageId: message.message_id
+      messageId: message.message_id,
+      hasImage: hasPhoto || hasImageDocument
     }, true);
 
     const botId = this.globalBot?.botInfo?.id || ctx.botInfo?.id;
@@ -996,6 +1028,22 @@ class TelegramService {
          }
       }
 
+      // Extract image from message if present (for vision processing)
+      let messageImage = null;
+      try {
+        messageImage = await getMessageImage(ctx.telegram, ctx.message, this.logger);
+        if (messageImage) {
+          this.logger?.debug?.('[TelegramService] Extracted image from message for vision processing', {
+            mimeType: messageImage.mimeType,
+            hasData: !!messageImage.data,
+            width: messageImage.width,
+            height: messageImage.height
+          });
+        }
+      } catch (imageErr) {
+        this.logger?.debug?.('[TelegramService] Failed to extract image from message:', imageErr.message);
+      }
+
       let fullHistory = this.conversationManager.getHistory(channelId);
       if (!fullHistory || fullHistory.length === 0) {
         fullHistory = await this.conversationManager.loadConversationHistory(channelId);
@@ -1035,9 +1083,29 @@ class TelegramService {
                    this.globalBotService?.bot?.model || 
                    DEFAULT_MODEL;
 
+      // Build messages array - use multimodal format if image is present
+      let userMessage;
+      if (messageImage && messageImage.data) {
+        // Multimodal message with image for vision processing
+        const imageDescription = ctx.message?.caption 
+          ? `User sent an image with caption: "${ctx.message.caption}"`
+          : 'User sent an image.';
+        userMessage = {
+          role: 'user',
+          content: [
+            { type: 'text', text: `${userPrompt}\n\n[${imageDescription} Please describe or respond to this image appropriately.]` },
+            { type: 'image_url', image_url: { url: `data:${messageImage.mimeType};base64,${messageImage.data}` } }
+          ]
+        };
+        this.logger?.debug?.('[TelegramService] Using multimodal message format for vision');
+      } else {
+        // Standard text-only message
+        userMessage = { role: 'user', content: userPrompt };
+      }
+
       const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        userMessage
       ], {
         model,
         temperature: 0.8,
