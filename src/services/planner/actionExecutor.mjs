@@ -84,16 +84,42 @@ export class GenerateImageExecutor extends ActionExecutor {
   }
 
   async execute(step, context) {
-    const { ctx, conversationContext, userId, username, services, stepNum, userReferenceImage } = context;
+    const { ctx, conversationContext, userId, username, services, stepNum, userReferenceImage, logger } = context;
     
     // Accept 'prompt', 'description', or 'message' for the image prompt (LLM sometimes uses wrong field)
     const prompt = step.prompt || step.description || step.message;
+    
+    // Determine reference image: prefer userReferenceImage (from same message), then referenceMediaId lookup
+    let referenceImage = userReferenceImage || null;
+    
+    // If LLM specified a referenceMediaId, look it up in recent media
+    if (!referenceImage && step.referenceMediaId && services.telegram?.mediaManager) {
+      try {
+        const channelId = ctx?.chat?.id ? String(ctx.chat.id) : null;
+        if (channelId) {
+          const recentMedia = await services.telegram.mediaManager.getRecentMedia(channelId, 20);
+          const match = recentMedia.find(m => 
+            m.id === step.referenceMediaId || 
+            String(m.id).toUpperCase().startsWith(step.referenceMediaId.toUpperCase())
+          );
+          if (match?.mediaUrl) {
+            referenceImage = match.mediaUrl;
+            logger?.info?.('[GenerateImageExecutor] Resolved referenceMediaId to image', {
+              referenceMediaId: step.referenceMediaId,
+              source: match.source
+            });
+          }
+        }
+      } catch (err) {
+        logger?.warn?.('[GenerateImageExecutor] Failed to resolve referenceMediaId:', err.message);
+      }
+    }
     
     // Extract aspectRatio from step if specified, default to square
     // Include user's reference image if they sent one
     const options = {
       aspectRatio: step.aspectRatio || '1:1',
-      referenceImage: userReferenceImage || null
+      referenceImage
     };
     
     const record = await services.telegram.executeImageGeneration(

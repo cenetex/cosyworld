@@ -213,7 +213,11 @@ function buildGenerateImageTool() {
     function: {
       name: 'generate_image',
       description: `Generate an image based on a text prompt.
-If the user sent an image with their message, it will automatically be used as a style/content reference for the generation. This is great for "make this into...", "remix this", or "create something like this but..." requests.
+
+USING REFERENCE IMAGES:
+1. If the user sent an image WITH their message, it's automatically used as a style/content reference
+2. If the user sent an image in a PREVIOUS message, look at the recent media context for "📤USER UPLOAD" entries and use that media ID as referenceMediaId
+3. Great for "make this into...", "remix this", "edit my photo", or "create something like this but..." requests
 
 ASPECT RATIO GUIDE:
 - 16:9 = widescreen, banner, landscape, cinematic, YouTube thumbnail
@@ -232,6 +236,10 @@ You MUST set aspectRatio explicitly - it controls the actual image dimensions!`,
             type: 'string',
             enum: ['16:9', '9:16', '1:1', '6:2'],
             description: 'REQUIRED - 16:9 for widescreen/banner, 9:16 for portrait/story, 1:1 for square, 6:2 for ultrawide banner. Default to 16:9 if unclear.'
+          },
+          referenceMediaId: {
+            type: 'string',
+            description: 'Optional: ID of a user-uploaded image from recent media context to use as a reference. Look for "📤USER UPLOAD" entries.'
           }
         },
         required: ['prompt', 'aspectRatio']

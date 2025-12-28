@@ -622,7 +622,7 @@ export class MediaManager {
   async buildRecentMediaContext(channelId, limit = 5) {
     const items = await this.getRecentMedia(channelId, limit);
     if (!items.length) {
-      return { summary: 'Recent media you generated: none in the last few days.', items: [] };
+      return { summary: 'Recent media: none in the last few days.', items: [] };
     }
 
     const summaryLines = items.map((item, idx) => {
@@ -640,12 +640,14 @@ export class MediaManager {
       const aspectRatio = item.toolingState?.aspectRatio || item.metadata?.aspectRatio || '';
       const aspectMarker = aspectRatio ? ` [${aspectRatio}]` : '';
       const msgIdMarker = item.messageId ? ` (msg#${item.messageId})` : '';
+      const sourceMarker = item.source === 'user_upload' ? ' 📤USER UPLOAD' : '';
+      const uploadedBy = item.source === 'user_upload' && item.metadata?.uploadedBy ? ` from ${item.metadata.uploadedBy}` : '';
 
-      return `${idx + 1}. [${shortId}] ${item.type}${aspectMarker} — "${contentDesc.slice(0, 150)}" (${ago}${tweetedMarker}${msgIdMarker})\n    full id: ${item.id}`;
+      return `${idx + 1}. [${shortId}] ${item.type}${aspectMarker} — "${contentDesc.slice(0, 150)}" (${ago}${tweetedMarker}${sourceMarker}${uploadedBy}${msgIdMarker})\n    full id: ${item.id}`;
     });
 
     return {
-      summary: `Recent media you generated (IDs are for your internal tool use only - DO NOT mention them in chat):\n${summaryLines.join('\n')}\n\nIMPORTANT: Match the media ID to what the user asked for. Check the description to ensure you're posting the right image!`,
+      summary: `Recent media in this chat (IDs are for your internal tool use only - DO NOT mention them in chat):\n${summaryLines.join('\n')}\n\nIMPORTANT: User uploads (📤) can be used as reference images for generate_image. Match the media ID to what the user asked for. Check the description to ensure you're using the right image!`,
       items,
     };
   }

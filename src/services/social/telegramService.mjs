@@ -658,6 +658,36 @@ class TelegramService {
     if (hasPhoto || hasImageDocument) {
       const imageNote = messageText ? `[sent an image] ${messageText}` : '[sent an image]';
       messageText = imageNote;
+      
+      // Store user-uploaded image for later reference in image generation
+      try {
+        const imageData = await getMessageImage(ctx.telegram, message, this.logger);
+        if (imageData?.data) {
+          const base64Url = `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.data}`;
+          await this._rememberGeneratedMedia(channelId, {
+            type: 'image',
+            mediaUrl: base64Url,
+            prompt: null,
+            caption: message.caption || null,
+            messageId: message.message_id,
+            userId: userId,
+            source: 'user_upload',
+            metadata: {
+              contentDescription: message.caption || 'User-uploaded image',
+              width: imageData.width,
+              height: imageData.height,
+              uploadedBy: message.from?.first_name || message.from?.username || 'User'
+            }
+          });
+          this.logger?.info?.('[TelegramService] Stored user-uploaded image for reference', {
+            channelId,
+            messageId: message.message_id,
+            hasCaption: !!message.caption
+          });
+        }
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Failed to store user image:', err.message);
+      }
     }
     
     await this.conversationManager.addMessage(channelId, {
