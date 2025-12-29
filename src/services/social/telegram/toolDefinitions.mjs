@@ -79,7 +79,7 @@ SPEAKING:
 - speak: Send a message. Use 'message' for the text. Add 'targetMessageId' to reply to someone specific.
 
 MEDIA CREATION:
-- generate_image: Create artwork (aspectRatio: 16:9=landscape, 9:16=portrait/phone, 1:1=square)
+- generate_image: Create artwork (aspectRatio: 16:9=landscape, 9:16=portrait/phone, 1:1=square). If user sent an image, it's automatically used as a reference for style/content!
 - generate_video: Create video content
 - post_tweet: Share to X/Twitter
 
@@ -87,7 +87,8 @@ TIPS:
 - Reactions are fast and fun - use them to stay engaged without walls of text
 - Combine: react THEN speak for emphasis
 - One thoughtful message beats three short ones
-- It's OK to just react and not speak - sometimes an emoji says it all`,
+- It's OK to just react and not speak - sometimes an emoji says it all
+- When user sends an image with a request like "make this into..." or "remix this", use generate_image - their image is automatically used as reference`,
       parameters: {
         type: 'object',
         properties: {
@@ -212,6 +213,12 @@ function buildGenerateImageTool() {
     function: {
       name: 'generate_image',
       description: `Generate an image based on a text prompt.
+
+USING REFERENCE IMAGES:
+1. If the user sent an image WITH their message, it's automatically used as a style/content reference
+2. If the user sent an image in a PREVIOUS message, look at the recent media context for "📤USER UPLOAD" entries and use that media ID as referenceMediaId
+3. Great for "make this into...", "remix this", "edit my photo", or "create something like this but..." requests
+
 ASPECT RATIO GUIDE:
 - 16:9 = widescreen, banner, landscape, cinematic, YouTube thumbnail
 - 9:16 = portrait, tall, vertical, story, TikTok, mobile
@@ -223,12 +230,16 @@ You MUST set aspectRatio explicitly - it controls the actual image dimensions!`,
         properties: {
           prompt: {
             type: 'string',
-            description: 'A detailed description of the image to generate. Be creative and descriptive.'
+            description: 'A detailed description of the image to generate. Be creative and descriptive. Reference the user\'s image if they sent one.'
           },
           aspectRatio: {
             type: 'string',
             enum: ['16:9', '9:16', '1:1', '6:2'],
             description: 'REQUIRED - 16:9 for widescreen/banner, 9:16 for portrait/story, 1:1 for square, 6:2 for ultrawide banner. Default to 16:9 if unclear.'
+          },
+          referenceMediaId: {
+            type: 'string',
+            description: 'Optional: ID of a user-uploaded image from recent media context to use as a reference. Look for "📤USER UPLOAD" entries.'
           }
         },
         required: ['prompt', 'aspectRatio']

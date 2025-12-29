@@ -167,7 +167,8 @@ describe('AvatarService', () => {
         toArray: vi.fn().mockResolvedValue([]),
       });
 
-      await service.getAvatarsByIds(['id1'], { limit: 50 });
+      // Use a valid 24-character hex ObjectId string
+      await service.getAvatarsByIds(['507f1f77bcf86cd799439011'], { limit: 50 });
 
       expect(limitMock).toHaveBeenCalledWith(50);
     });
@@ -188,7 +189,8 @@ describe('AvatarService', () => {
     it('should return default stats if none found', async () => {
       mockCollection.findOne.mockResolvedValue(null);
 
-      const result = await service.getAvatarStats('nonexistent');
+      // Use a valid 24-character hex ObjectId string for the nonexistent lookup
+      const result = await service.getAvatarStats('507f1f77bcf86cd799439012');
 
       expect(result).toMatchObject({
         hp: 100,

@@ -1,79 +1,260 @@
-<!doctype html>
+<!--
+  Copyright (c) 2019-2025 Cenetex Inc.
+  Licensed under the MIT License.
+  
+  Users Management - v2 Design System
+-->
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Users - CosyWorld</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-    <link href="/css/admin-common.css" rel="stylesheet" />
-  </head>
-  <body class="bg-gray-100">
-    <div class="min-h-screen flex flex-col">
-      <!-- Shell injected by admin-bootstrap.js -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Users :: Moonstone Sanctum</title>
+  <link href="/css/admin-v2.css" rel="stylesheet" />
+  <style>
+    /* Page-specific styles */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+    }
+
+    .page-title {
+      font-size: var(--text-3xl);
+      font-weight: 700;
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .page-subtitle {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      margin-top: var(--space-1);
+    }
+
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .users-table thead {
+      background: var(--color-bg-tertiary);
+    }
+
+    .users-table th {
+      padding: var(--space-3) var(--space-4);
+      text-align: left;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .users-table td {
+      padding: var(--space-4);
+      border-bottom: 1px solid var(--color-border-subtle);
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+    }
+
+    .users-table tbody tr:hover {
+      background: var(--color-surface-hover);
+    }
+
+    .wallet-address {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--color-text-primary);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: var(--z-modal);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid var(--color-border-subtle);
+    }
+
+    .modal-title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-4);
+      text-align: center;
+    }
+
+    .modal-body {
+      margin-bottom: var(--space-4);
+    }
+
+    .modal-body p {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-4);
+      text-align: center;
+    }
+
+    .invite-link-container {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    .invite-link-container input {
+      flex: 1;
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-2) var(--space-3);
+      font-size: var(--text-sm);
+      color: var(--color-text-primary);
+      font-family: var(--font-mono);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8);
+      color: var(--color-text-muted);
+    }
+  </style>
+</head>
+<body class="admin-v2">
+  <div class="admin-layout has-sidebar">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <img src="/images/image.png" alt="RATi" class="sidebar-logo" onerror="this.style.display='none'" />
+        <div class="sidebar-brand">
+          <span class="brand-name">RATi Admin</span>
+          <span class="brand-tagline">Moonstone Sanctum</span>
+        </div>
+      </div>
       
-      <main class="flex-grow">
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div class="px-4 py-6 sm:px-0">
-            <div class="flex justify-between items-center mb-6">
-              <h1 class="text-2xl font-semibold text-gray-900">Admin Management</h1>
-              <button id="invite-admin-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                <svg class="mr-2 -ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Invite New Admin
-              </button>
-            </div>
+      <nav class="sidebar-nav">
+        <a href="/admin" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="/admin/bots/" class="nav-item">
+          <span class="nav-icon">🤖</span>
+          <span class="nav-label">Bots</span>
+        </a>
+        <a href="/admin/entity-management" class="nav-item">
+          <span class="nav-icon">🎭</span>
+          <span class="nav-label">Entities</span>
+        </a>
+        <a href="/admin/collections" class="nav-item">
+          <span class="nav-icon">💎</span>
+          <span class="nav-label">Collections</span>
+        </a>
+        <a href="/admin/servers" class="nav-item">
+          <span class="nav-icon">🖥️</span>
+          <span class="nav-label">Servers</span>
+        </a>
+        <a href="/admin/users" class="nav-item active">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Users</span>
+        </a>
+        <a href="/admin/global-settings" class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <span id="walletAddress" class="badge badge-primary" style="width: 100%; text-align: center; margin-bottom: var(--space-2);">Not Connected</span>
+        <button id="admin-logout" class="btn btn-secondary btn-sm" style="width: 100%;">Logout</button>
+      </div>
+    </aside>
 
-            <!-- Invite Link Modal -->
-            <div id="invite-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-              <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                  <h3 class="text-lg leading-6 font-medium text-gray-900">Invite Link Generated</h3>
-                  <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500 mb-4">
-                      Share this link with the new admin. It expires in 24 hours and can only be used once.
-                    </p>
-                    <div class="flex items-center gap-2">
-                      <input type="text" id="invite-link" readonly class="w-full p-2 border rounded bg-gray-50 text-sm" />
-                      <button id="copy-link-btn" class="p-2 text-gray-500 hover:text-indigo-600" title="Copy to clipboard">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                      </button>
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-wrapper">
+        <!-- Header -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Admin Users</h1>
+            <p class="page-subtitle">Manage administrator access and invitations</p>
+          </div>
+          <button id="invite-admin-btn" class="btn btn-primary">
+            👤+ Invite New Admin
+          </button>
+        </div>
+
+        <!-- Users Table -->
+        <div class="card">
+          <div class="card-body" style="padding: 0; overflow-x: auto;">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Wallet Address</th>
+                  <th>Source</th>
+                  <th>Added</th>
+                  <th>Last Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admins-list">
+                <tr>
+                  <td colspan="5">
+                    <div class="empty-state">
+                      <div class="loading-spinner"></div>
+                      <p style="margin-top: var(--space-3);">Loading admins...</p>
                     </div>
-                  </div>
-                  <div class="items-center px-4 py-3">
-                    <button id="close-invite-modal" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Admins List -->
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wallet Address</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Added</th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
-                    <th scope="col" class="relative px-6 py-3">
-                      <span class="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="admins-list" class="bg-white divide-y divide-gray-200">
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
 
-    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
-    <script type="module" src="/js/admin-users.js"></script>
-  </body>
+      <!-- Footer -->
+      <footer class="admin-footer">
+        <div class="footer-content">
+          <p>RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025</p>
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/console">Swarm UI</a>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Invite Modal -->
+  <div class="modal-overlay" id="invite-modal">
+    <div class="modal">
+      <h3 class="modal-title">Invite Link Generated</h3>
+      <div class="modal-body">
+        <p>Share this link with the new admin. It expires in 24 hours and can only be used once.</p>
+        <div class="invite-link-container">
+          <input type="text" id="invite-link" readonly />
+          <button id="copy-link-btn" class="btn btn-secondary btn-sm" title="Copy to clipboard">📋</button>
+        </div>
+      </div>
+      <button id="close-invite-modal" class="btn btn-primary" style="width: 100%;">Close</button>
+    </div>
+  </div>
+
+  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+  <script type="module" src="/js/admin-users.js"></script>
+</body>
 </html>

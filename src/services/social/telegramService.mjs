@@ -40,6 +40,7 @@ import {
   formatTelegramMarkdown,
   includesMention,
   sendImagePreservingFormat,
+  getMessageImage,
   // Managers
   CacheManager,
   MemberManager,
@@ -440,6 +441,33 @@ class TelegramService {
       }
     });
 
+    // Handle photo messages - extract image for vision processing
+    this.globalBot.on('photo', async (ctx) => {
+      try {
+        this.logger?.info?.('[TelegramService] Received photo message', {
+          chatId: ctx.chat?.id,
+          userId: ctx.message?.from?.id,
+          hasPhoto: !!ctx.message?.photo?.length,
+          caption: ctx.message?.caption?.substring(0, 50)
+        });
+        await this.handleIncomingMessage(ctx);
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Photo message handling error:', error);
+      }
+    });
+
+    // Handle document messages (including images sent as files)
+    this.globalBot.on('document', async (ctx) => {
+      try {
+        // Only process image documents
+        if (ctx.message?.document?.mime_type?.startsWith('image/')) {
+          await this.handleIncomingMessage(ctx);
+        }
+      } catch (error) {
+        this.logger?.error?.('[TelegramService] Document message handling error:', error);
+      }
+    });
+
     this.globalBot.on('new_chat_members', async (ctx) => {
       try {
         if (!ctx?.message?.new_chat_members?.length) return;
@@ -538,6 +566,17 @@ class TelegramService {
     const userId = message.from?.id ? String(message.from.id) : null;
     const isPrivateChat = ctx.chat?.type === 'private';
     
+    // Debug: Log incoming message details
+    this.logger?.debug?.('[TelegramService] handleIncomingMessage called', {
+      channelId,
+      userId,
+      isPrivate: isPrivateChat,
+      hasText: !!message.text,
+      hasPhoto: !!message.photo?.length,
+      hasCaption: !!message.caption,
+      messageDate: message.date
+    });
+    
     // Skip messages that arrived before the bot started (queued while offline)
     const messageTimestamp = message.date || 0;
     const effectiveStartupTime = this._startupTimestamp - this._startupGracePeriodSec;
@@ -581,6 +620,17 @@ class TelegramService {
       includesMention(message.caption, message.caption_entities, botUsername)
     );
 
+    // Debug: Log mention detection for photo messages
+    this.logger?.debug?.('[TelegramService] Mention detection', {
+      botUsername,
+      hasText: !!message.text,
+      hasCaption: !!message.caption,
+      isMentioned,
+      isPrivate: isPrivateChat,
+      textEntities: message.entities?.length || 0,
+      captionEntities: message.caption_entities?.length || 0
+    });
+
     const shouldProcess = await this.memberManager.shouldProcessUser(ctx, channelId, userId, {
       isMentioned,
       isPrivate: isPrivateChat
@@ -601,13 +651,53 @@ class TelegramService {
       }
     }
     
+    // Build message text - include image notation for conversation context
+    let messageText = message.text ?? message.caption ?? '';
+    const hasPhoto = message.photo?.length > 0;
+    const hasImageDocument = message.document?.mime_type?.startsWith('image/');
+    if (hasPhoto || hasImageDocument) {
+      const imageNote = messageText ? `[sent an image] ${messageText}` : '[sent an image]';
+      messageText = imageNote;
+      
+      // Store user-uploaded image for later reference in image generation
+      try {
+        const imageData = await getMessageImage(ctx.telegram, message, this.logger);
+        if (imageData?.data) {
+          const base64Url = `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.data}`;
+          await this._rememberGeneratedMedia(channelId, {
+            type: 'image',
+            mediaUrl: base64Url,
+            prompt: null,
+            caption: message.caption || null,
+            messageId: message.message_id,
+            userId: userId,
+            source: 'user_upload',
+            metadata: {
+              contentDescription: message.caption || 'User-uploaded image',
+              width: imageData.width,
+              height: imageData.height,
+              uploadedBy: message.from?.first_name || message.from?.username || 'User'
+            }
+          });
+          this.logger?.info?.('[TelegramService] Stored user-uploaded image for reference', {
+            channelId,
+            messageId: message.message_id,
+            hasCaption: !!message.caption
+          });
+        }
+      } catch (err) {
+        this.logger?.warn?.('[TelegramService] Failed to store user image:', err.message);
+      }
+    }
+    
     await this.conversationManager.addMessage(channelId, {
       from: message.from.first_name || message.from.username || 'User',
-      text: message.text ?? message.caption ?? '',
+      text: messageText,
       date: message.date,
       isBot: message.from.is_bot || false,
       userId,
-      messageId: message.message_id
+      messageId: message.message_id,
+      hasImage: hasPhoto || hasImageDocument
     }, true);
 
     const botId = this.globalBot?.botInfo?.id || ctx.botInfo?.id;
@@ -633,6 +723,19 @@ class TelegramService {
     }
     
     const shouldRespond = isMentioned || isReplyToBot || isActiveParticipant || isRecentInteractor;
+
+    // Debug: Log shouldRespond decision
+    this.logger?.info?.('[TelegramService] Response decision', {
+      channelId,
+      userId,
+      shouldRespond,
+      isMentioned,
+      isReplyToBot,
+      isActiveParticipant,
+      isRecentInteractor,
+      isPrivate: isPrivateChat,
+      hasPhoto: !!message.photo?.length
+    });
 
     // Queue this channel for reply instead of responding immediately
     // The reply queue processor will handle responses with priority for mentions
@@ -996,6 +1099,22 @@ class TelegramService {
          }
       }
 
+      // Extract image from message if present (for vision processing)
+      let messageImage = null;
+      try {
+        messageImage = await getMessageImage(ctx.telegram, ctx.message, this.logger);
+        if (messageImage) {
+          this.logger?.debug?.('[TelegramService] Extracted image from message for vision processing', {
+            mimeType: messageImage.mimeType,
+            hasData: !!messageImage.data,
+            width: messageImage.width,
+            height: messageImage.height
+          });
+        }
+      } catch (imageErr) {
+        this.logger?.debug?.('[TelegramService] Failed to extract image from message:', imageErr.message);
+      }
+
       let fullHistory = this.conversationManager.getHistory(channelId);
       if (!fullHistory || fullHistory.length === 0) {
         fullHistory = await this.conversationManager.loadConversationHistory(channelId);
@@ -1035,9 +1154,29 @@ class TelegramService {
                    this.globalBotService?.bot?.model || 
                    DEFAULT_MODEL;
 
+      // Build messages array - use multimodal format if image is present
+      let userMessage;
+      if (messageImage && messageImage.data) {
+        // Multimodal message with image for vision processing
+        const imageDescription = ctx.message?.caption 
+          ? `User sent an image with caption: "${ctx.message.caption}"`
+          : 'User sent an image.';
+        userMessage = {
+          role: 'user',
+          content: [
+            { type: 'text', text: `${userPrompt}\n\n[${imageDescription} Please describe or respond to this image appropriately.]` },
+            { type: 'image_url', image_url: { url: `data:${messageImage.mimeType};base64,${messageImage.data}` } }
+          ]
+        };
+        this.logger?.debug?.('[TelegramService] Using multimodal message format for vision');
+      } else {
+        // Standard text-only message
+        userMessage = { role: 'user', content: userPrompt };
+      }
+
       const response = await this.aiService.chat([
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        userMessage
       ], {
         model,
         temperature: 0.8,
@@ -1060,7 +1199,7 @@ class TelegramService {
           }, true);
         }
         
-        await this.handleToolCalls(ctx, responseObj.tool_calls, conversationContext);
+        await this.handleToolCalls(ctx, responseObj.tool_calls, conversationContext, messageImage);
         return;
       }
 
@@ -1085,13 +1224,20 @@ class TelegramService {
   // Tool Execution & Media
   // ===========================================================================
 
-  async handleToolCalls(ctx, toolCalls, conversationContext) {
+  async handleToolCalls(ctx, toolCalls, conversationContext, messageImage = null) {
     // Use statically imported filterToolCalls
     const finalToolCalls = filterToolCalls(toolCalls, { logger: this.logger });
     
     const userId = String(ctx.message?.from?.id || ctx.from?.id);
     const username = ctx.message?.from?.username || ctx.from?.username || 'Unknown';
     const channelId = normalizeChannelId(ctx.chat);
+    
+    // If user sent an image, store it for potential use in image generation
+    const userReferenceImage = messageImage?.data ? {
+      data: messageImage.data,
+      mimeType: messageImage.mimeType,
+      label: 'user_provided_reference'
+    } : null;
 
     for (const toolCall of finalToolCalls) {
       let functionName = toolCall.function?.name;
@@ -1106,14 +1252,17 @@ class TelegramService {
       try {
         if (functionName === 'plan_actions') {
           await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
-          await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext);
+          await this.executePlanActions(ctx, args, channelId, userId, username, conversationContext, userReferenceImage);
         } else if (functionName === 'get_token_stats') {
           await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
           await this.executeTokenStatsLookup(ctx, args.tokenSymbol, String(ctx.chat.id));
         } else if (functionName === 'generate_image') {
           if (!await this._guardMediaLimit(ctx, 'image', '🎨 Image generation charges are fully used up right now.')) continue;
           await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_photo').catch(() => {});
-          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { aspectRatio: args.aspectRatio || '1:1' });
+          await this.executeImageGeneration(ctx, args.prompt, conversationContext, userId, username, { 
+            aspectRatio: args.aspectRatio || '1:1',
+            referenceImage: userReferenceImage
+          });
         } else if (functionName === 'generate_video') {
           if (!await this._guardMediaLimit(ctx, 'video', '🎬 Video generation charges are fully used up right now.')) continue;
           await ctx.telegram.sendChatAction(ctx.chat.id, 'upload_video').catch(() => {});
@@ -1137,6 +1286,19 @@ class TelegramService {
           });
         } else if (functionName === 'react_to_message') {
           await this.executeReaction(ctx, args.emoji, args.messageId);
+        } else if (functionName === 'speak') {
+          // Handle speak tool - send a message, optionally as a reply
+          await ctx.telegram.sendChatAction(ctx.chat.id, 'typing').catch(() => {});
+          const formattedMessage = this._formatTelegramMarkdown(args.message || args.text || '');
+          if (args.targetMessageId) {
+            await ctx.reply(formattedMessage, { 
+              reply_to_message_id: args.targetMessageId,
+              parse_mode: 'HTML',
+              allow_sending_without_reply: true
+            });
+          } else {
+            await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
+          }
         } else if (functionName === 'generate_video_from_image' || functionName === 'generate_video_with_reference' || 
                    functionName === 'extend_video' || functionName === 'generate_video_interpolation') {
           // These video tools are best handled through plan_actions for proper context
@@ -1157,7 +1319,7 @@ class TelegramService {
     }
   }
 
-  async executePlanActions(ctx, planEntry, channelId, userId, username, conversationContext) {
+  async executePlanActions(ctx, planEntry, channelId, userId, username, conversationContext, userReferenceImage = null) {
     const plan = {
       objective: planEntry.objective || 'Respond thoughtfully',
       steps: Array.isArray(planEntry?.steps) ? planEntry.steps : [],
@@ -1190,6 +1352,7 @@ class TelegramService {
 
     const executionContext = {
       ctx, channelId, userId, username, conversationContext,
+      userReferenceImage, // Pass user's image for reference in media generation
       services: {
         telegram: this,
         ai: this.aiService,
@@ -1299,10 +1462,18 @@ class TelegramService {
 
   async executeImageGeneration(ctx, prompt, conversationContext = '', userId = null, username = null, options = {}) {
     try {
+      // Build reference images array if user provided an image
+      const referenceImages = [];
+      if (options.referenceImage?.data) {
+        referenceImages.push(options.referenceImage);
+        this.logger?.info?.('[TelegramService] Using user-provided image as reference for generation');
+      }
+      
       const { imageUrl, enhancedPrompt } = await this.mediaGenerationManager.generateImageAsset({
         prompt, conversationContext, userId, username,
         aspectRatio: options.aspectRatio || '1:1',
-        source: 'telegram.user_request'
+        source: 'telegram.user_request',
+        referenceImages
       });
 
       let caption = null;

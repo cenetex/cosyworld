@@ -358,7 +358,8 @@ describe('UnifiedAIService', () => {
       const env = { text: '' };
       service._estimateTokens(env);
 
-      expect(env.usage).toBeDefined();
+      // Empty text returns early without setting usage
+      expect(env.usage).toBeUndefined();
     });
 
     it('should handle null text', () => {

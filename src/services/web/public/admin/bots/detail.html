@@ -1,0 +1,1480 @@
+<!--
+  Copyright (c) 2019-2025 Cenetex Inc.
+  Licensed under the MIT License.
+  
+  Bot Detail Page - Configure individual bot instances
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot Configuration :: Moonstone Sanctum</title>
+  <link href="/css/admin-v2.css" rel="stylesheet" />
+  <link href="/css/admin-common.css" rel="stylesheet" />
+  <style>
+    /* Page Layout */
+    .bot-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+      padding-bottom: var(--space-6);
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    .bot-header-left {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-5);
+    }
+
+    .bot-avatar-large {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--color-accent-primary) 0%, var(--color-accent-secondary) 100%);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      flex-shrink: 0;
+    }
+
+    .bot-header-info h1 {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--color-text-primary);
+      margin: 0 0 var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .bot-header-info .bot-id {
+      font-size: var(--text-sm);
+      font-family: var(--font-mono);
+      color: var(--color-text-muted);
+      background: var(--color-bg-tertiary);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-sm);
+    }
+
+    .bot-header-info .bot-description {
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      margin-top: var(--space-2);
+      max-width: 500px;
+    }
+
+    .bot-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-full);
+      font-size: var(--text-sm);
+      font-weight: 500;
+    }
+
+    .bot-status-badge.running {
+      background: var(--color-success-bg);
+      color: var(--color-success);
+    }
+
+    .bot-status-badge.paused {
+      background: var(--color-warning-bg);
+      color: var(--color-warning);
+    }
+
+    .bot-status-badge.error {
+      background: var(--color-error-bg);
+      color: var(--color-error);
+    }
+
+    .bot-header-actions {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: var(--space-1);
+      border-bottom: 1px solid var(--color-border-subtle);
+      margin-bottom: var(--space-6);
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: var(--space-3) var(--space-5);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--color-text-primary);
+    }
+
+    .tab.active {
+      color: var(--color-accent-primary);
+      border-bottom-color: var(--color-accent-primary);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Platform Cards */
+    .platforms-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+
+    @media (max-width: 1024px) {
+      .platforms-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      .platforms-grid { grid-template-columns: 1fr; }
+    }
+
+    .platform-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      transition: all var(--transition-normal);
+    }
+
+    .platform-card.enabled {
+      border-color: var(--color-success);
+    }
+
+    .platform-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+
+    .platform-card-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .platform-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border-radius: var(--radius-lg);
+    }
+
+    .platform-icon.discord { background: rgba(88, 101, 242, 0.15); }
+    .platform-icon.telegram { background: rgba(0, 136, 204, 0.15); }
+    .platform-icon.x { background: rgba(255, 255, 255, 0.1); }
+
+    .platform-name {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .platform-status {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+    }
+
+    /* Toggle switch styles are now in admin-v2.css */
+
+    /* Secrets Section */
+    .secrets-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .secret-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .secret-info {
+      flex: 1;
+    }
+
+    .secret-key {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .secret-meta {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      margin-top: var(--space-1);
+    }
+
+    .secret-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      background: var(--color-bg-tertiary);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-sm);
+      min-width: 200px;
+    }
+
+    .secret-actions {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    /* Avatars Grid */
+    .avatars-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .avatar-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      text-align: center;
+      transition: all var(--transition-normal);
+    }
+
+    .avatar-card:hover {
+      border-color: var(--color-accent-primary);
+    }
+
+    .avatar-image {
+      width: 80px;
+      height: 80px;
+      border-radius: var(--radius-full);
+      margin: 0 auto var(--space-3);
+      object-fit: cover;
+      background: var(--color-bg-tertiary);
+    }
+
+    .avatar-name {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .avatar-model {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+    }
+
+    .add-avatar-card {
+      border: 2px dashed var(--color-border);
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 160px;
+    }
+
+    .add-avatar-card:hover {
+      border-color: var(--color-accent-primary);
+      background: rgba(139, 92, 246, 0.05);
+    }
+
+    /* Config Section */
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-6);
+    }
+
+    @media (max-width: 768px) {
+      .config-grid { grid-template-columns: 1fr; }
+    }
+
+    .config-section {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+
+    .config-section-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-3);
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+
+    /* Add Secret Form */
+    .add-secret-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-4);
+    }
+
+    @media (max-width: 768px) {
+      .add-secret-form {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Loading & Empty States */
+    .loading-state, .empty-state {
+      text-align: center;
+      padding: var(--space-12);
+      color: var(--color-text-muted);
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--space-4);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      bottom: var(--space-6);
+      right: var(--space-6);
+      z-index: var(--z-toast);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .toast {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      box-shadow: var(--shadow-lg);
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.success { border-left: 3px solid var(--color-success); }
+    .toast.error { border-left: 3px solid var(--color-error); }
+    .toast.warning { border-left: 3px solid var(--color-warning); }
+
+    /* Breadcrumb */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-4);
+    }
+
+    .breadcrumb a {
+      color: var(--color-text-muted);
+      text-decoration: none;
+    }
+
+    .breadcrumb a:hover {
+      color: var(--color-accent-primary);
+    }
+
+    .breadcrumb-separator {
+      color: var(--color-text-muted);
+    }
+
+    .breadcrumb-current {
+      color: var(--color-text-primary);
+    }
+  </style>
+</head>
+<body class="admin-v2">
+  <div class="admin-layout has-sidebar">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <img src="/images/image.png" alt="RATi" class="sidebar-logo" onerror="this.style.display='none'" />
+        <div class="sidebar-brand">
+          <span class="brand-name">RATi Admin</span>
+          <span class="brand-tagline">Moonstone Sanctum</span>
+        </div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="/admin" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="/admin/bots/" class="nav-item active">
+          <span class="nav-icon">🤖</span>
+          <span class="nav-label">Bots</span>
+        </a>
+        <a href="/admin/entity-management" class="nav-item">
+          <span class="nav-icon">🎭</span>
+          <span class="nav-label">Entities</span>
+        </a>
+        <a href="/admin/collections" class="nav-item">
+          <span class="nav-icon">💎</span>
+          <span class="nav-label">Collections</span>
+        </a>
+        <a href="/admin/servers" class="nav-item">
+          <span class="nav-icon">🖥️</span>
+          <span class="nav-label">Servers</span>
+        </a>
+        <a href="/admin/users" class="nav-item">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Users</span>
+        </a>
+        <a href="/admin/global-settings" class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <span id="walletAddress" class="badge badge-primary" style="width: 100%; text-align: center; margin-bottom: var(--space-2);">Not Connected</span>
+        <button id="admin-logout" class="btn btn-secondary btn-sm" style="width: 100%;">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-wrapper">
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <a href="/admin/bots/">Bots</a>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-current" id="breadcrumbBotName">Loading...</span>
+      </div>
+
+      <!-- Bot Header -->
+      <div class="bot-header" id="botHeader">
+        <div class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading bot configuration...</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" id="tabsContainer" style="display: none;">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="platforms">Platforms</button>
+        <button class="tab" data-tab="secrets">Secrets</button>
+        <button class="tab" data-tab="avatars">Avatars</button>
+        <button class="tab" data-tab="config">Configuration</button>
+      </div>
+
+      <!-- Tab Panels -->
+      <div id="tabPanels" style="display: none;">
+        <!-- Overview Panel -->
+        <div class="tab-panel active" id="panel-overview">
+          <div class="config-grid">
+            <div class="config-section">
+              <h3 class="config-section-title">Quick Stats</h3>
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4);">
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: 600; color: var(--color-text-primary);" id="overviewAvatars">0</div>
+                  <div style="font-size: var(--text-sm); color: var(--color-text-muted);">Avatars</div>
+                </div>
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: 600; color: var(--color-text-primary);" id="overviewPlatforms">0</div>
+                  <div style="font-size: var(--text-sm); color: var(--color-text-muted);">Platforms</div>
+                </div>
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: 600; color: var(--color-text-primary);" id="overviewSecrets">0</div>
+                  <div style="font-size: var(--text-sm); color: var(--color-text-muted);">Secrets</div>
+                </div>
+                <div>
+                  <div style="font-size: var(--text-2xl); font-weight: 600; color: var(--color-text-primary);" id="overviewUptime">-</div>
+                  <div style="font-size: var(--text-sm); color: var(--color-text-muted);">Uptime</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Recent Activity</h3>
+              <div id="recentActivity" style="color: var(--color-text-muted); font-size: var(--text-sm);">
+                No recent activity
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Platform Status</h3>
+              <div id="platformStatusOverview" style="display: flex; flex-direction: column; gap: var(--space-3);">
+                <!-- Filled by JS -->
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Bot Details</h3>
+              <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" id="editBotName" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="editBotDescription" class="form-textarea"></textarea>
+              </div>
+              <button class="btn btn-primary" id="saveDetailsBtn">Save Changes</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Platforms Panel -->
+        <div class="tab-panel" id="panel-platforms">
+          <div class="card" style="margin-bottom: var(--space-4);">
+            <div class="card-body" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong>Platform Configuration</strong>
+                <p style="margin: 0; color: var(--color-text-muted); font-size: var(--text-sm);">
+                  Configure which platforms this bot connects to.
+                </p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="syncPlatformConfigs()">
+                🔄 Sync from Environment
+              </button>
+            </div>
+          </div>
+          <div class="platforms-grid" id="platformsGrid">
+            <!-- Discord -->
+            <div class="platform-card" id="discordCard">
+              <div class="platform-card-header">
+                <div class="platform-card-title">
+                  <div class="platform-icon discord">💬</div>
+                  <div>
+                    <div class="platform-name">Discord</div>
+                    <div class="platform-status" id="discordStatus">Not configured</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="discordEnabled" onchange="togglePlatform('discord', this.checked)" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="discordConfig" style="display: none;">
+                <div class="form-group">
+                  <label class="form-label">Client ID</label>
+                  <input type="text" id="discordClientId" class="form-input" placeholder="Discord Application Client ID" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Guild IDs (comma-separated)</label>
+                  <input type="text" id="discordGuildIds" class="form-input" placeholder="123456789,987654321" />
+                </div>
+                <button class="btn btn-secondary" onclick="savePlatformConfig('discord')">Save Discord Config</button>
+              </div>
+            </div>
+
+            <!-- Telegram -->
+            <div class="platform-card" id="telegramCard">
+              <div class="platform-card-header">
+                <div class="platform-card-title">
+                  <div class="platform-icon telegram">📱</div>
+                  <div>
+                    <div class="platform-name">Telegram</div>
+                    <div class="platform-status" id="telegramStatus">Not configured</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="telegramEnabled" onchange="togglePlatform('telegram', this.checked)" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="telegramConfig" style="display: none;">
+                <div class="form-group">
+                  <label class="form-label">Bot Username</label>
+                  <input type="text" id="telegramBotUsername" class="form-input" placeholder="@your_bot" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Channel IDs (comma-separated)</label>
+                  <input type="text" id="telegramChannelIds" class="form-input" placeholder="-1001234567890" />
+                </div>
+                <button class="btn btn-secondary" onclick="savePlatformConfig('telegram')">Save Telegram Config</button>
+              </div>
+            </div>
+
+            <!-- X (Twitter) -->
+            <div class="platform-card" id="xCard">
+              <div class="platform-card-header">
+                <div class="platform-card-title">
+                  <div class="platform-icon x">𝕏</div>
+                  <div>
+                    <div class="platform-name">X (Twitter)</div>
+                    <div class="platform-status" id="xStatus">Not configured</div>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="xEnabled" onchange="togglePlatform('x', this.checked)" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="xConfig" style="display: none;">
+                <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4);">
+                  Configure OAuth 1.0a credentials from your <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">X Developer Portal</a>.
+                </p>
+                
+                <!-- Auto-Posting Toggle -->
+                <div class="form-group" style="margin-bottom: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle);">
+                  <label class="form-label" style="display: flex; align-items: center; gap: var(--space-3);">
+                    <input type="checkbox" id="xAutoPost" />
+                    <span>Enable Auto-Posting</span>
+                  </label>
+                  <p style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1);">
+                    Automatically post newly generated images to X using this bot's credentials.
+                  </p>
+                </div>
+                
+                <!-- OAuth 1.0a Credentials -->
+                <div class="form-group">
+                  <label class="form-label">API Key (Consumer Key)</label>
+                  <input type="text" id="xApiKey" class="form-input" placeholder="Your API Key" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">API Secret (Consumer Secret)</label>
+                  <input type="password" id="xApiSecret" class="form-input" placeholder="Your API Secret" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Access Token</label>
+                  <input type="text" id="xAccessToken" class="form-input" placeholder="Your Access Token" autocomplete="off" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Access Token Secret</label>
+                  <input type="password" id="xAccessTokenSecret" class="form-input" placeholder="Your Access Token Secret" autocomplete="off" />
+                </div>
+                
+                <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+                  <button class="btn btn-success" onclick="savePlatformConfig('x')">Save X Credentials</button>
+                  <button class="btn btn-secondary" onclick="testXConnection()">Test Connection</button>
+                </div>
+                <div id="xTestStatus" style="margin-top: var(--space-3); display: none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Secrets Panel -->
+        <div class="tab-panel" id="panel-secrets">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Bot Secrets</h3>
+              <button class="btn btn-primary btn-sm" onclick="toggleAddSecretForm()">➕ Add Secret</button>
+            </div>
+            <div class="card-body">
+              <div class="add-secret-form" id="addSecretForm" style="display: none;">
+                <input type="text" id="newSecretKey" class="form-input" placeholder="Secret Key (e.g., DISCORD_TOKEN)" />
+                <input type="password" id="newSecretValue" class="form-input" placeholder="Secret Value" />
+                <select id="newSecretPlatform" class="form-select">
+                  <option value="">Platform (optional)</option>
+                  <option value="discord">Discord</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="x">X (Twitter)</option>
+                </select>
+                <button class="btn btn-success" onclick="addSecret()">Save</button>
+              </div>
+              <div class="secrets-list" id="secretsList">
+                <div class="loading-state">
+                  <div class="loading-spinner"></div>
+                  <p>Loading secrets...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Avatars Panel -->
+        <div class="tab-panel" id="panel-avatars">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Assigned Avatars</h3>
+              <button class="btn btn-primary btn-sm" onclick="openAvatarPicker()">➕ Assign Avatar</button>
+            </div>
+            <div class="card-body">
+              <div class="avatars-grid" id="avatarsGrid">
+                <div class="loading-state">
+                  <div class="loading-spinner"></div>
+                  <p>Loading avatars...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="tab-panel" id="panel-config">
+          <div class="config-grid">
+            <div class="config-section">
+              <h3 class="config-section-title">AI Settings</h3>
+              <div class="form-group">
+                <label class="form-label">Default Model</label>
+                <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                  <select id="configModelProvider" class="form-select" style="flex: 1; min-width: 150px;">
+                    <option value="">Loading...</option>
+                  </select>
+                  <select id="configModelName" class="form-select" style="flex: 2; min-width: 200px;" disabled>
+                    <option value="">Select provider first</option>
+                  </select>
+                </div>
+                <div id="model-rarity-badge" class="hidden" style="margin-top: var(--space-1);">
+                  <span></span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Temperature</label>
+                <input type="range" id="configTemperature" min="0" max="2" step="0.1" value="0.7" class="form-input" />
+                <span id="temperatureValue">0.7</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max Tokens</label>
+                <input type="number" id="configMaxTokens" class="form-input" value="4096" min="100" max="32000" />
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Features</h3>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                  <input type="checkbox" id="featureBreeding" />
+                  <span>Enable Breeding</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                  <input type="checkbox" id="featureCombat" />
+                  <span>Enable Combat</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                  <input type="checkbox" id="featureItemCreation" />
+                  <span>Enable Item Creation</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                  <input type="checkbox" id="featureModeration" />
+                  <span>Enable Moderation</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Rate Limiting</h3>
+              <div class="form-group">
+                <label class="form-label">Messages per Interval</label>
+                <input type="number" id="rateLimitMessages" class="form-input" value="5" min="1" max="100" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Interval (seconds)</label>
+                <input type="number" id="rateLimitInterval" class="form-input" value="10" min="1" max="3600" />
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Actions</h3>
+              <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 Save Configuration</button>
+                <button class="btn btn-secondary" onclick="resetConfig()">🔄 Reset to Defaults</button>
+                <button class="btn btn-warning" onclick="restartBot()">🔁 Restart Bot</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div><!-- end content-wrapper -->
+
+      <!-- Footer -->
+      <footer class="admin-footer">
+        <div class="footer-content">
+          <p>RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025</p>
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/console">Swarm UI</a>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script type="module">
+    import { apiFetch } from '/js/admin/admin-api.js';
+    import { initTwoPartSelector, initSingleSelector, fetchModels, getProviders, getModelsForProvider } from '/js/admin/model-selector.js';
+    
+    // State
+    let bot = null;
+    let botId = null;
+    let secrets = [];
+
+    // Get bot ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    botId = urlParams.get('id');
+
+    // Redirect if no bot ID - stop execution
+    if (!botId) {
+      window.location.replace('/admin/bots/');
+      throw new Error('No bot ID provided');
+    }
+
+    // API helper - wrapper around apiFetch with proper CSRF and signing for write operations
+    async function fetchWithAuth(url, options = {}) {
+      const method = options.method || 'GET';
+      const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+      
+      return apiFetch(url, {
+        method,
+        body: options.body,
+        headers: options.headers,
+        requireCsrf: isMutating,
+        sign: isMutating,
+        signMeta: { op: 'bot_admin', botId }
+      });
+    }
+
+    // Load bot data
+    async function loadBot() {
+      try {
+        const response = await fetchWithAuth(`/api/admin/bots/${botId}`);
+        bot = response.data;
+        renderBot();
+        document.getElementById('tabsContainer').style.display = '';
+        document.getElementById('tabPanels').style.display = '';
+      } catch (err) {
+        console.error('Failed to load bot:', err);
+        showToast('Failed to load bot: ' + err.message, 'error');
+        document.getElementById('botHeader').innerHTML = `
+          <div class="empty-state">
+            <p>Failed to load bot. <a href="/admin/bots/">Return to bots list</a></p>
+          </div>
+        `;
+      }
+    }
+
+    // Load secrets
+    async function loadSecrets() {
+      try {
+        const response = await fetchWithAuth(`/api/admin/bots/${botId}/secrets`);
+        secrets = response.data || [];
+        renderSecrets();
+      } catch (err) {
+        console.error('Failed to load secrets:', err);
+      }
+    }
+
+    // Load avatars
+    async function loadAvatars() {
+      try {
+        const response = await fetchWithAuth(`/api/admin/bots/${botId}/avatars`);
+        const avatars = response.data || [];
+        renderAvatars(avatars);
+      } catch (err) {
+        console.error('Failed to load avatars:', err);
+      }
+    }
+
+    // Render bot header
+    function renderBot() {
+      document.getElementById('breadcrumbBotName').textContent = bot.name;
+      document.title = `${bot.name} :: Moonstone Sanctum`;
+
+      const statusClass = bot.status || 'paused';
+      const statusText = { running: 'Running', paused: 'Paused', error: 'Error', initializing: 'Initializing' }[statusClass] || 'Unknown';
+
+      document.getElementById('botHeader').innerHTML = `
+        <div class="bot-header-left">
+          <div class="bot-avatar-large">${getBotEmoji()}</div>
+          <div class="bot-header-info">
+            <h1>
+              ${escapeHtml(bot.name)}
+              ${bot.botId === 'default' ? '<span class="badge badge-primary">Default</span>' : ''}
+            </h1>
+            <span class="bot-id">${bot.botId}</span>
+            ${bot.description ? `<p class="bot-description">${escapeHtml(bot.description)}</p>` : ''}
+          </div>
+        </div>
+        <div class="bot-header-actions">
+          <span class="bot-status-badge ${statusClass}">
+            <span class="status-dot"></span>
+            ${statusText}
+          </span>
+          ${bot.enabled 
+            ? `<button class="btn btn-warning" onclick="toggleBotEnabled(false)">⏸️ Pause</button>`
+            : `<button class="btn btn-success" onclick="toggleBotEnabled(true)">▶️ Start</button>`
+          }
+        </div>
+      `;
+
+      // Update form fields
+      document.getElementById('editBotName').value = bot.name;
+      document.getElementById('editBotDescription').value = bot.description || '';
+
+      // Update overview stats
+      updateOverviewStats();
+
+      // Update platform cards
+      updatePlatformCards();
+
+      // Update config fields
+      updateConfigFields();
+    }
+
+    function getBotEmoji() {
+      if (bot.platforms?.discord?.enabled) return '💬';
+      if (bot.platforms?.telegram?.enabled) return '📱';
+      if (bot.platforms?.x?.enabled) return '𝕏';
+      return '🤖';
+    }
+
+    function updateOverviewStats() {
+      const enabledPlatforms = countEnabledPlatforms();
+      document.getElementById('overviewAvatars').textContent = bot.avatars?.length || 0;
+      document.getElementById('overviewPlatforms').textContent = enabledPlatforms;
+      document.getElementById('overviewSecrets').textContent = secrets.length;
+
+      // Platform status overview
+      const statusHtml = ['discord', 'telegram', 'x'].map(p => {
+        const enabled = bot.platforms?.[p]?.enabled;
+        const names = { discord: 'Discord', telegram: 'Telegram', x: 'X (Twitter)' };
+        const icons = { discord: '💬', telegram: '📱', x: '𝕏' };
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2); background: var(--color-bg-primary); border-radius: var(--radius-sm);">
+            <span style="display: flex; align-items: center; gap: var(--space-2);">
+              <span>${icons[p]}</span> ${names[p]}
+            </span>
+            <span class="badge ${enabled ? 'badge-success' : 'badge-error'}">${enabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('platformStatusOverview').innerHTML = statusHtml;
+    }
+
+    function countEnabledPlatforms() {
+      let count = 0;
+      if (bot.platforms?.discord?.enabled) count++;
+      if (bot.platforms?.telegram?.enabled) count++;
+      if (bot.platforms?.x?.enabled) count++;
+      return count;
+    }
+
+    function updatePlatformCards() {
+      // Discord
+      const discord = bot.platforms?.discord || {};
+      document.getElementById('discordEnabled').checked = discord.enabled || false;
+      document.getElementById('discordCard').classList.toggle('enabled', discord.enabled);
+      document.getElementById('discordConfig').style.display = discord.enabled ? 'block' : 'none';
+      document.getElementById('discordStatus').textContent = discord.enabled ? 'Connected' : 'Not configured';
+      document.getElementById('discordClientId').value = discord.clientId || '';
+      document.getElementById('discordGuildIds').value = (discord.guildIds || []).join(', ');
+
+      // Telegram
+      const telegram = bot.platforms?.telegram || {};
+      document.getElementById('telegramEnabled').checked = telegram.enabled || false;
+      document.getElementById('telegramCard').classList.toggle('enabled', telegram.enabled);
+      document.getElementById('telegramConfig').style.display = telegram.enabled ? 'block' : 'none';
+      document.getElementById('telegramStatus').textContent = telegram.enabled ? 'Connected' : 'Not configured';
+      document.getElementById('telegramBotUsername').value = telegram.botUsername || '';
+      document.getElementById('telegramChannelIds').value = (telegram.channelIds || []).join(', ');
+
+      // X
+      const x = bot.platforms?.x || {};
+      document.getElementById('xEnabled').checked = x.enabled || false;
+      document.getElementById('xCard').classList.toggle('enabled', x.enabled);
+      document.getElementById('xConfig').style.display = x.enabled ? 'block' : 'none';
+      
+      // Update status based on credentials
+      const hasCredentials = x.oauth1?.apiKey && x.oauth1?.accessToken;
+      const xStatusEl = document.getElementById('xStatus');
+      if (x.enabled && hasCredentials) {
+        xStatusEl.textContent = 'Connected';
+        xStatusEl.style.color = 'var(--color-success)';
+      } else if (x.enabled) {
+        xStatusEl.textContent = 'Enabled - credentials needed';
+        xStatusEl.style.color = 'var(--color-warning)';
+      } else {
+        xStatusEl.textContent = 'Not configured';
+        xStatusEl.style.color = '';
+      }
+      
+      document.getElementById('xAutoPost').checked = x.autoPost || false;
+      // Populate non-secret fields (API keys may be partially returned for display)
+      document.getElementById('xApiKey').value = x.oauth1?.apiKey || '';
+      document.getElementById('xAccessToken').value = x.oauth1?.accessToken || '';
+      // Secrets are not returned for security - show placeholder if they exist
+      document.getElementById('xApiSecret').placeholder = x.oauth1?.hasApiSecret ? '••••••••••••' : 'Your API Secret';
+      document.getElementById('xAccessTokenSecret').placeholder = x.oauth1?.hasAccessTokenSecret ? '••••••••••••' : 'Your Access Token Secret';
+    }
+
+    async function updateConfigFields() {
+      const config = bot.config || {};
+      
+      // Initialize two-part model selector
+      await initTwoPartSelector({
+        providerSelect: document.getElementById('configModelProvider'),
+        modelSelect: document.getElementById('configModelName'),
+        rarityBadge: document.getElementById('model-rarity-badge'),
+        initialValue: config.defaultModel || 'openai/gpt-4o-mini'
+      });
+      
+      document.getElementById('configTemperature').value = config.temperature || 0.7;
+      document.getElementById('temperatureValue').textContent = config.temperature || 0.7;
+      document.getElementById('configMaxTokens').value = config.maxTokens || 4096;
+
+      const features = config.features || {};
+      document.getElementById('featureBreeding').checked = features.breeding !== false;
+      document.getElementById('featureCombat').checked = features.combat !== false;
+      document.getElementById('featureItemCreation').checked = features.itemCreation !== false;
+      document.getElementById('featureModeration').checked = features.moderation !== false;
+
+      const rateLimit = config.rateLimit || {};
+      document.getElementById('rateLimitMessages').value = rateLimit.messages || 5;
+      document.getElementById('rateLimitInterval').value = rateLimit.interval || 10;
+    }
+
+    // Render secrets
+    function renderSecrets() {
+      const list = document.getElementById('secretsList');
+      
+      if (secrets.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <p>No secrets configured for this bot</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = secrets.map(secret => `
+        <div class="secret-item">
+          <div class="secret-info">
+            <div class="secret-key">${escapeHtml(secret.key)}</div>
+            <div class="secret-meta">
+              ${secret.platform ? `Platform: ${secret.platform} • ` : ''}
+              Updated: ${formatDate(secret.updatedAt)}
+            </div>
+          </div>
+          <div class="secret-value">${secret.maskedValue || '••••••••'}</div>
+          <div class="secret-actions">
+            <button class="btn btn-ghost btn-sm" onclick="editSecret('${escapeHtml(secret.key)}')" title="Edit">✏️</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteSecret('${escapeHtml(secret.key)}', '${secret.platform || ''}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render avatars
+    function renderAvatars(avatars) {
+      const grid = document.getElementById('avatarsGrid');
+      
+      if (avatars.length === 0) {
+        grid.innerHTML = `
+          <div class="avatar-card add-avatar-card" onclick="openAvatarPicker()">
+            <span style="font-size: 32px; margin-bottom: var(--space-2);">➕</span>
+            <span style="color: var(--color-text-muted);">Assign an avatar</span>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = avatars.map(avatar => `
+        <div class="avatar-card">
+          <img src="${avatar.avatar || '/images/default-avatar.svg'}" alt="${escapeHtml(avatar.name)}" class="avatar-image" onerror="this.src='/images/default-avatar.svg'" />
+          <div class="avatar-name">${avatar.emoji || ''} ${escapeHtml(avatar.name)}</div>
+          <div class="avatar-model">${avatar.model || 'Default Model'}</div>
+          <button class="btn btn-ghost btn-sm" onclick="removeAvatar('${avatar._id}')" style="margin-top: var(--space-2);">Remove</button>
+        </div>
+      `).join('') + `
+        <div class="avatar-card add-avatar-card" onclick="openAvatarPicker()">
+          <span style="font-size: 32px; margin-bottom: var(--space-2);">➕</span>
+          <span style="color: var(--color-text-muted);">Assign another</span>
+        </div>
+      `;
+    }
+
+    // Platform actions
+    async function syncPlatformConfigs() {
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/sync-platforms`, { method: 'POST' });
+        showToast('Platform configs synced from environment', 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to sync: ' + err.message, 'error');
+      }
+    }
+
+    async function togglePlatform(platform, enabled) {
+      try {
+        const action = enabled ? 'enable' : 'disable';
+        await fetchWithAuth(`/api/admin/bots/${botId}/platforms/${platform}/${action}`, { method: 'POST' });
+        showToast(`${platform} ${enabled ? 'enabled' : 'disabled'}`, 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to update platform: ' + err.message, 'error');
+        loadBot(); // Reset state
+      }
+    }
+
+    async function savePlatformConfig(platform) {
+      try {
+        let config = {};
+        
+        if (platform === 'discord') {
+          config = {
+            clientId: document.getElementById('discordClientId').value,
+            guildIds: document.getElementById('discordGuildIds').value.split(',').map(s => s.trim()).filter(Boolean)
+          };
+        } else if (platform === 'telegram') {
+          config = {
+            botUsername: document.getElementById('telegramBotUsername').value,
+            channelIds: document.getElementById('telegramChannelIds').value.split(',').map(s => s.trim()).filter(Boolean)
+          };
+        } else if (platform === 'x') {
+          config = {
+            autoPost: document.getElementById('xAutoPost').checked,
+            oauth1: {}
+          };
+          
+          // Only include credentials if they have values (don't overwrite with empty)
+          const apiKey = document.getElementById('xApiKey').value.trim();
+          const apiSecret = document.getElementById('xApiSecret').value.trim();
+          const accessToken = document.getElementById('xAccessToken').value.trim();
+          const accessTokenSecret = document.getElementById('xAccessTokenSecret').value.trim();
+          
+          if (apiKey) config.oauth1.apiKey = apiKey;
+          if (apiSecret) config.oauth1.apiSecret = apiSecret;
+          if (accessToken) config.oauth1.accessToken = accessToken;
+          if (accessTokenSecret) config.oauth1.accessTokenSecret = accessTokenSecret;
+        }
+
+        await fetchWithAuth(`/api/admin/bots/${botId}/platforms/${platform}`, {
+          method: 'PUT',
+          body: JSON.stringify(config)
+        });
+
+        showToast(`${platform} configuration saved`, 'success');
+        
+        // Clear password fields after save for security
+        if (platform === 'x') {
+          document.getElementById('xApiSecret').value = '';
+          document.getElementById('xAccessTokenSecret').value = '';
+        }
+        
+        loadBot();
+      } catch (err) {
+        showToast('Failed to save platform config: ' + err.message, 'error');
+      }
+    }
+
+    async function testXConnection() {
+      const statusEl = document.getElementById('xTestStatus');
+      if (!statusEl) return;
+      
+      statusEl.style.display = 'block';
+      statusEl.className = 'alert alert-info';
+      statusEl.textContent = 'Testing X connection...';
+      
+      try {
+        const response = await fetchWithAuth(`/api/admin/bots/${botId}/platforms/x/test`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          statusEl.className = 'alert alert-success';
+          statusEl.textContent = data.message || 'Connection successful!';
+        } else {
+          throw new Error(data.error || 'Test failed');
+        }
+      } catch (err) {
+        statusEl.className = 'alert alert-danger';
+        statusEl.textContent = 'Test failed: ' + err.message;
+      }
+    }
+
+    // Bot actions
+    async function toggleBotEnabled(enabled) {
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ enabled })
+        });
+        showToast(`Bot ${enabled ? 'started' : 'paused'}`, 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to update bot: ' + err.message, 'error');
+      }
+    }
+
+    async function saveDetails() {
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: document.getElementById('editBotName').value,
+            description: document.getElementById('editBotDescription').value
+          })
+        });
+        showToast('Bot details saved', 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to save details: ' + err.message, 'error');
+      }
+    }
+
+    async function saveConfig() {
+      try {
+        const config = {
+          defaultModel: document.getElementById('configModelName').value,
+          temperature: parseFloat(document.getElementById('configTemperature').value),
+          maxTokens: parseInt(document.getElementById('configMaxTokens').value),
+          features: {
+            breeding: document.getElementById('featureBreeding').checked,
+            combat: document.getElementById('featureCombat').checked,
+            itemCreation: document.getElementById('featureItemCreation').checked,
+            moderation: document.getElementById('featureModeration').checked
+          },
+          rateLimit: {
+            messages: parseInt(document.getElementById('rateLimitMessages').value),
+            interval: parseInt(document.getElementById('rateLimitInterval').value)
+          }
+        };
+
+        await fetchWithAuth(`/api/admin/bots/${botId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ config })
+        });
+
+        showToast('Configuration saved', 'success');
+        loadBot();
+      } catch (err) {
+        showToast('Failed to save configuration: ' + err.message, 'error');
+      }
+    }
+
+    // Secrets actions
+    function toggleAddSecretForm() {
+      const form = document.getElementById('addSecretForm');
+      form.style.display = form.style.display === 'none' ? 'grid' : 'none';
+    }
+
+    async function addSecret() {
+      const key = document.getElementById('newSecretKey').value.trim();
+      const value = document.getElementById('newSecretValue').value;
+      const platform = document.getElementById('newSecretPlatform').value;
+
+      if (!key || !value) {
+        showToast('Key and value are required', 'error');
+        return;
+      }
+
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/secrets`, {
+          method: 'POST',
+          body: JSON.stringify({ key, value, platform: platform || undefined })
+        });
+
+        showToast('Secret added', 'success');
+        document.getElementById('newSecretKey').value = '';
+        document.getElementById('newSecretValue').value = '';
+        document.getElementById('newSecretPlatform').value = '';
+        toggleAddSecretForm();
+        loadSecrets();
+      } catch (err) {
+        showToast('Failed to add secret: ' + err.message, 'error');
+      }
+    }
+
+    async function deleteSecret(key, platform) {
+      if (!confirm(`Delete secret "${key}"?`)) return;
+
+      try {
+        const url = platform 
+          ? `/api/admin/bots/${botId}/secrets/${encodeURIComponent(key)}?platform=${platform}`
+          : `/api/admin/bots/${botId}/secrets/${encodeURIComponent(key)}`;
+        await fetchWithAuth(url, { method: 'DELETE' });
+        showToast('Secret deleted', 'success');
+        loadSecrets();
+      } catch (err) {
+        showToast('Failed to delete secret: ' + err.message, 'error');
+      }
+    }
+
+    // Edit secret - open form with existing values
+    function editSecret(key) {
+      // For now, just show the add form - in the future this could pre-populate
+      toggleAddSecretForm();
+      document.getElementById('newSecretKey').value = key;
+      showToast('Edit the value and save', 'info');
+    }
+
+    // Avatar actions
+    function openAvatarPicker() {
+      // TODO: Implement avatar picker modal
+      showToast('Avatar picker coming soon', 'info');
+    }
+
+    async function removeAvatar(avatarId) {
+      if (!confirm('Remove this avatar from the bot?')) return;
+
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/avatars/${avatarId}`, { method: 'DELETE' });
+        showToast('Avatar removed', 'success');
+        loadAvatars();
+      } catch (err) {
+        showToast('Failed to remove avatar: ' + err.message, 'error');
+      }
+    }
+
+    // Config actions
+    function resetConfig() {
+      document.getElementById('configTemperature').value = 0.7;
+      document.getElementById('temperatureValue').textContent = '0.7';
+      document.getElementById('configMaxTokens').value = 1000;
+      document.getElementById('configSystemPrompt').value = '';
+      showToast('Config reset to defaults', 'info');
+    }
+
+    async function restartBot() {
+      if (!confirm('Restart this bot? This will temporarily disconnect it from all platforms.')) return;
+      try {
+        await fetchWithAuth(`/api/admin/bots/${botId}/restart`, { method: 'POST' });
+        showToast('Bot restart initiated', 'success');
+        setTimeout(() => loadBot(), 2000);
+      } catch (err) {
+        showToast('Failed to restart: ' + err.message, 'error');
+      }
+    }
+
+    // Tab switching
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `panel-${tabName}`);
+      });
+      if (tabName === 'secrets') loadSecrets();
+      if (tabName === 'avatars') loadAvatars();
+    }
+
+    // Helper functions
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return 'Never';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Tab handling
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        
+        tab.classList.add('active');
+        const panel = document.getElementById(`panel-${tab.dataset.tab}`);
+        if (panel) panel.classList.add('active');
+
+        // Load tab-specific data
+        if (tab.dataset.tab === 'secrets') loadSecrets();
+        if (tab.dataset.tab === 'avatars') loadAvatars();
+      });
+    });
+
+    // Temperature slider
+    document.getElementById('configTemperature').addEventListener('input', (e) => {
+      document.getElementById('temperatureValue').textContent = e.target.value;
+    });
+
+    // Event listeners
+    document.getElementById('saveDetailsBtn').addEventListener('click', saveDetails);
+
+    // Expose functions to global scope for onclick handlers
+    window.syncPlatformConfigs = syncPlatformConfigs;
+    window.savePlatformConfig = savePlatformConfig;
+    window.testXConnection = testXConnection;
+    window.toggleAddSecretForm = toggleAddSecretForm;
+    window.addSecret = addSecret;
+    window.editSecret = editSecret;
+    window.deleteSecret = deleteSecret;
+    window.openAvatarPicker = openAvatarPicker;
+    window.removeAvatar = removeAvatar;
+    window.toggleBotEnabled = toggleBotEnabled;
+    window.saveConfig = saveConfig;
+    window.resetConfig = resetConfig;
+    window.restartBot = restartBot;
+    window.togglePlatform = togglePlatform;
+    window.saveDetails = saveDetails;
+    window.showTab = showTab;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadBot();
+      loadSecrets();
+      loadAvatars();
+    });
+  </script>
+</body>
+</html>

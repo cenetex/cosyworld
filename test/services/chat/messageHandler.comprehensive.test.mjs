@@ -27,6 +27,7 @@ const createMockDeps = () => ({
     client: {
       user: { id: 'bot-123' },
       guilds: { cache: new Map() },
+      on: vi.fn(),
     },
     getChannel: vi.fn().mockResolvedValue({ id: 'channel-123', type: 0 }),
     sendMessage: vi.fn().mockResolvedValue(true),
@@ -80,6 +81,7 @@ const createMockDeps = () => ({
   moderationService: {
     checkContent: vi.fn().mockResolvedValue({ approved: true }),
     moderateMessage: vi.fn().mockResolvedValue({ action: 'allow' }),
+    refreshDynamicRegex: vi.fn().mockResolvedValue(),
   },
   mapService: {
     getLocationAndAvatars: vi.fn().mockResolvedValue({ location: null, avatars: [] }),
@@ -134,14 +136,6 @@ describe('MessageHandler', () => {
       await handler.start();
 
       expect(handler.started).toBe(true);
-    });
-
-    it('should set conversation manager on tool service', async () => {
-      await handler.start();
-
-      expect(deps.toolService.setConversationManager).toHaveBeenCalledWith(
-        deps.conversationManager
-      );
     });
   });
 

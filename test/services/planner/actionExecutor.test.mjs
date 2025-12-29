@@ -335,7 +335,7 @@ describe('ActionExecutorRegistry', () => {
     const actions = registry.getSupportedActions();
     expect(actions).toContain('generate_image');
     expect(actions).toContain('post_tweet');
-    expect(actions.length).toBe(11);
+    expect(actions.length).toBe(13);
   });
 
   it('allows registering custom executors', () => {

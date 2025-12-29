@@ -805,7 +805,15 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            const db = await services.databaseService.getDatabase();
+            
+            let db;
+            try {
+                db = await services.databaseService.getDatabase();
+            } catch (dbErr) {
+                logger?.warn?.('[xauth][admin/profile] Database unavailable:', dbErr.message);
+                return res.json({ authorized: false, error: 'Database unavailable' });
+            }
+            
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth?.accessToken) return res.json({ authorized: false });
 
@@ -819,19 +827,36 @@ export default function xauthRoutes(services) {
             if (!accessToken) {
                 return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
             }
-            const client = new TwitterApi({ accessToken: accessToken.trim() });
+            
+            let client;
+            try {
+                client = new TwitterApi({ accessToken: accessToken.trim() });
+            } catch (clientErr) {
+                logger?.warn?.('[xauth][admin/profile] TwitterApi client creation failed:', clientErr.message);
+                return res.json({ authorized: false, error: 'Failed to create Twitter client', requiresReauth: true });
+            }
+            
             let profile = null;
             try {
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });
                 profile = me?.data || null;
             } catch (apiErr) {
-                const code = apiErr?.code || apiErr?.status;
+                const code = apiErr?.code || apiErr?.status || apiErr?.statusCode;
+                // Handle rate limiting
                 if (code === 429) {
-                    // Store rate limit stamp and return cached profile instead of 500
                     try {
                         await db.collection('x_auth').updateOne({ avatarId }, { $set: { profileRateLimitedAt: new Date() } });
                     } catch {}
                     return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
+                }
+                // Handle auth errors (401, 403) - token may be expired/revoked
+                if (code === 401 || code === 403) {
+                    return res.json({ authorized: false, error: 'Token expired or revoked', requiresReauth: true, cached: true, profile: auth.profile || null });
+                }
+                // Log other errors but return cached profile if available
+                logger?.warn?.('[xauth][admin/profile] Twitter API error:', apiErr.message);
+                if (auth.profile) {
+                    return res.json({ authorized: true, cached: true, profile: auth.profile, expiresAt: auth.expiresAt, apiError: apiErr.message });
                 }
                 throw apiErr;
             }

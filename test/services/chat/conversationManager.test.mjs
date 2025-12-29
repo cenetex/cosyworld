@@ -41,6 +41,7 @@ const createMockDeps = () => {
     },
     aiService: {
       chat: vi.fn().mockResolvedValue('AI response'),
+      selectRandomModel: vi.fn().mockResolvedValue('gpt-4o-mini'),
     },
     unifiedAIService: {
       chat: vi.fn().mockResolvedValue({ text: 'AI response' }),
@@ -54,15 +55,19 @@ const createMockDeps = () => {
       getAvatarById: vi.fn().mockResolvedValue({ _id: 'av1', name: 'TestAvatar' }),
       getAvatarsByChannelId: vi.fn().mockResolvedValue([]),
       findByName: vi.fn().mockResolvedValue(null),
+      updateAvatar: vi.fn().mockResolvedValue(true),
     },
     memoryService: {
       getMemories: vi.fn().mockResolvedValue([]),
       createMemory: vi.fn().mockResolvedValue(true),
       getLastNarrative: vi.fn().mockResolvedValue(null),
       storeNarrative: vi.fn().mockResolvedValue(true),
+      updateNarrativeHistory: vi.fn().mockImplementation((avatar) => Promise.resolve(avatar)),
     },
     promptService: {
       buildSystemPrompt: vi.fn().mockReturnValue('System prompt'),
+      getNarrativeChatMessages: vi.fn().mockResolvedValue([]),
+      getFullSystemPrompt: vi.fn().mockResolvedValue('Full system prompt'),
     },
     configService: {
       get: vi.fn().mockReturnValue(null),
@@ -70,6 +75,8 @@ const createMockDeps = () => {
     },
     knowledgeService: {
       getKnowledge: vi.fn().mockResolvedValue([]),
+      queryKnowledgeGraph: vi.fn().mockResolvedValue(''),
+      updateKnowledgeGraph: vi.fn().mockResolvedValue(true),
     },
     mapService: {
       getLocation: vi.fn().mockResolvedValue(null),
@@ -232,29 +239,32 @@ describe('ConversationManager', () => {
   describe('checkChannelPermissions', () => {
     it('should check for required permissions', async () => {
       const mockChannel = {
+        id: 'channel-123',
         permissionsFor: vi.fn().mockReturnValue({
           has: vi.fn().mockReturnValue(true),
         }),
-        guild: { members: { me: { id: 'bot-123' } } },
+        guild: { members: { cache: { get: vi.fn().mockReturnValue({ id: 'bot-123' }) } } },
       };
 
       const result = await manager.checkChannelPermissions(mockChannel);
 
-      expect(result.hasPermissions).toBe(true);
+      // checkChannelPermissions returns a boolean
+      expect(result).toBe(true);
     });
 
     it('should return missing permissions', async () => {
       const mockChannel = {
+        id: 'channel-123',
         permissionsFor: vi.fn().mockReturnValue({
           has: vi.fn().mockReturnValue(false),
         }),
-        guild: { members: { me: { id: 'bot-123' } } },
+        guild: { members: { cache: { get: vi.fn().mockReturnValue({ id: 'bot-123' }) } } },
       };
 
       const result = await manager.checkChannelPermissions(mockChannel);
 
-      expect(result.hasPermissions).toBe(false);
-      expect(result.missing).toBeDefined();
+      // checkChannelPermissions returns false when permissions missing
+      expect(result).toBe(false);
     });
   });
 
@@ -340,15 +350,18 @@ describe('ConversationManager - ensureAvatarModel', () => {
 
     const result = await manager.ensureAvatarModel(avatar);
 
-    expect(result.model).toBe('gpt-4');
+    // ensureAvatarModel returns the model string, not the avatar object
+    expect(result).toBe('gpt-4');
   });
 
   it('should assign model if avatar has none', async () => {
     const avatar = { _id: 'av-123', name: 'TestAvatar', model: null };
+    deps.aiService.selectRandomModel.mockResolvedValue('gpt-4o-mini');
 
     const result = await manager.ensureAvatarModel(avatar);
 
-    expect(result.model).toBeDefined();
+    // ensureAvatarModel returns the model string
+    expect(result).toBeDefined();
   });
 });
 
@@ -378,10 +391,11 @@ describe('ConversationManager - Narrative Generation', () => {
     const originalTime = manager.lastGlobalNarrativeTime;
     manager.lastGlobalNarrativeTime = 0; // Allow generation
 
-    const avatar = { _id: 'av-123', name: 'TestAvatar' };
+    const avatar = { _id: 'av-123', name: 'TestAvatar', model: 'gpt-4' };
 
-    // Mock AI response
+    // Mock AI response and model selection
     deps.aiService.chat.mockResolvedValue('Generated narrative');
+    deps.aiService.selectRandomModel = vi.fn().mockResolvedValue('gpt-4o-mini');
 
     await manager.generateNarrative(avatar);
 
@@ -438,21 +452,21 @@ describe('ConversationManager - Handle Avatar Mentions', () => {
   it('should detect avatar mentions in text', async () => {
     const mockChannel = {
       id: 'channel-123',
+      guild: { id: 'guild-123' },
       send: vi.fn().mockResolvedValue({}),
     };
     const speakingAvatar = { _id: 'av-123', name: 'Aria' };
-    const text = 'Hey @Luna, how are you?';
+    const text = 'Hey Luna, how are you?';
 
-    // Mock finding mentioned avatar
-    deps.avatarService.findByName.mockResolvedValue({
-      _id: 'av-456',
-      name: 'Luna',
-    });
+    // Mock finding avatars in channel
+    deps.avatarService.getAvatarsInChannel = vi.fn().mockResolvedValue([
+      { _id: 'av-456', name: 'Luna' },
+    ]);
 
     await manager.handleAvatarMentions(mockChannel, speakingAvatar, text);
 
-    // Should have tried to find mentioned avatar
-    expect(deps.avatarService.findByName).toHaveBeenCalled();
+    // Should have tried to get avatars in channel
+    expect(deps.avatarService.getAvatarsInChannel).toHaveBeenCalled();
   });
 
   it('should limit cascade depth', async () => {

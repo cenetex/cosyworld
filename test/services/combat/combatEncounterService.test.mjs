@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CombatEncounterService } from '../../../src/services/combat/combatEncounterService.mjs';
+import { CombatEncounterService } from '../../../src/services/battle/combatEncounterService.mjs';
 
 const createMockDeps = () => ({
   logger: {

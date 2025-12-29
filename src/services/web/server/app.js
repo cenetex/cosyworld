@@ -225,6 +225,12 @@ async function initializeApp(services) {
       logger,
     };
 
+    const adminBotsRouteServices = {
+      botService: services.botService,
+      secretsService: services.secretsService,
+      logger,
+    };
+
     const inviteRouteServices = {
       xService: services.xService,
     };
@@ -331,6 +337,7 @@ async function initializeApp(services) {
   app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, adminUsersRouteServices));
   app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db, adminCollectionsRouteServices));
   app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(adminReplicateRouteServices));
+  app.use('/api/admin/bots', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.bots.js')).default(db, adminBotsRouteServices));
   
   // Public Invite Route
   app.use('/api/invite', (await import('./routes/invite.js')).default(db, inviteRouteServices));
@@ -480,9 +487,9 @@ async function initializeApp(services) {
         return res.redirect('/admin/setup');
       }
     });
-    app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
-      // Consolidated into /admin/settings
-      res.redirect('/admin/settings');
+    app.get(['/admin/guild-settings', '/admin/guild-settings.html'], ensureAdmin, (req, res) => {
+      // Consolidated into /admin/global-settings
+      res.redirect('/admin/global-settings');
     });
     // Backward compat: redirect old Avatar Management to Entity Management
     app.get('/admin/avatar-management', ensureAdmin, (req, res) => {
@@ -493,10 +500,9 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old secrets page to new bot management
+    app.get(['/admin/secrets', '/admin/secrets.html'], ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
     });
     app.get('/admin/collections', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'collections.html'), (err) => {
@@ -508,23 +514,37 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    app.get('/admin/x-accounts', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'x-accounts.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old X accounts page to new bot management
+    app.get(['/admin/x-accounts', '/admin/x-accounts.html'], ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
     });
-    app.get('/admin/settings', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'settings.html'), (err) => {
-        if (err) next(err);
-      });
+    // Redirect old settings page to new global settings
+    app.get(['/admin/settings', '/admin/settings.html'], ensureAdmin, (req, res) => {
+      res.redirect('/admin/global-settings');
     });
     app.get('/admin/users', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'users.html'), (err) => {
         if (err) next(err);
       });
     });
-    app.get('/admin/global-bot', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'global-bot.html'), (err) => {
+    // Redirect old global-bot page to new bots hub
+    app.get(['/admin/global-bot', '/admin/global-bot.html'], ensureAdmin, (req, res) => {
+      res.redirect('/admin/bots/');
+    });
+    // New bots management pages
+    app.get(['/admin/bots', '/admin/bots/', '/admin/bots/index.html'], ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'bots', 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    app.get('/admin/bots/detail.html', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'bots', 'detail.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+    // New global settings page
+    app.get(['/admin/global-settings', '/admin/global-settings.html'], ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'global-settings.html'), (err) => {
         if (err) next(err);
       });
     });

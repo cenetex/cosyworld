@@ -1,67 +1,265 @@
-<!doctype html>
+<!--
+  Copyright (c) 2019-2025 Cenetex Inc.
+  Licensed under the MIT License.
+  
+  Admin Invite - v2 Design System
+-->
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Accept Admin Invite - CosyWorld</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  </head>
-  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Admin Invitation</h1>
-        <p class="mt-2 text-gray-600">You have been invited to become an admin for CosyWorld.</p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accept Admin Invite :: Moonstone Sanctum</title>
+  <link href="/css/admin-v2.css" rel="stylesheet" />
+  <style>
+    /* Invite page - centered card layout (no sidebar) */
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: var(--space-4);
+    }
+
+    .invite-container {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .invite-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .invite-header {
+      text-align: center;
+      margin-bottom: var(--space-6);
+    }
+
+    .invite-title {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--color-text-primary);
+      margin: 0 0 var(--space-2);
+    }
+
+    .invite-subtitle {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+    }
+
+    .invite-brand {
+      text-align: center;
+      margin-bottom: var(--space-6);
+    }
+
+    .invite-brand img {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+    }
+
+    .invite-brand-name {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--color-accent-primary);
+    }
+
+    .invite-brand-tagline {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+    }
+
+    /* State containers */
+    .invite-state {
+      display: none;
+    }
+
+    .invite-state.active {
+      display: block;
+    }
+
+    /* Loading state */
+    .invite-loading {
+      text-align: center;
+      padding: var(--space-6) 0;
+    }
+
+    .invite-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-border-subtle);
+      border-top-color: var(--color-accent-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--space-4);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .invite-loading-text {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+    }
+
+    /* Status icon circles */
+    .invite-status-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto var(--space-4);
+    }
+
+    .invite-status-icon.error {
+      background: var(--color-error-bg);
+    }
+
+    .invite-status-icon.success {
+      background: var(--color-success-bg);
+    }
+
+    .invite-status-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .invite-status-icon.error svg {
+      color: var(--color-error);
+    }
+
+    .invite-status-icon.success svg {
+      color: var(--color-success);
+    }
+
+    .invite-status-title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-2);
+      text-align: center;
+    }
+
+    .invite-status-message {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      text-align: center;
+    }
+
+    /* Valid invite notice */
+    .invite-valid-notice {
+      background: var(--color-info-bg);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-5);
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    .invite-valid-notice .notice-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      color: var(--color-info);
+    }
+
+    .invite-valid-notice .notice-content h3 {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-info);
+      margin-bottom: var(--space-1);
+    }
+
+    .invite-valid-notice .notice-content p {
+      font-size: var(--text-sm);
+      color: var(--color-info);
+      opacity: 0.9;
+    }
+
+    /* Buttons */
+    .invite-action-btn {
+      width: 100%;
+      margin-top: var(--space-4);
+    }
+  </style>
+</head>
+<body class="admin-v2">
+  <div class="invite-container">
+    <!-- Brand -->
+    <div class="invite-brand">
+      <img src="/images/image.png" alt="RATi" onerror="this.style.display='none'" />
+      <div class="invite-brand-name">RATi Admin</div>
+      <div class="invite-brand-tagline">Moonstone Sanctum</div>
+    </div>
+
+    <div class="invite-card">
+      <!-- Header -->
+      <div class="invite-header">
+        <h1 class="invite-title">Admin Invitation</h1>
+        <p class="invite-subtitle">You have been invited to become an admin for CosyWorld.</p>
       </div>
 
-      <div id="loading-state" class="text-center py-4">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-        <p class="mt-2 text-sm text-gray-500">Verifying invite...</p>
-      </div>
-
-      <div id="error-state" class="hidden text-center py-4">
-        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-          <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      <!-- Loading State -->
+      <div id="loading-state" class="invite-state active">
+        <div class="invite-loading">
+          <div class="invite-spinner"></div>
+          <p class="invite-loading-text">Verifying invite...</p>
         </div>
-        <h3 class="mt-2 text-lg font-medium text-gray-900">Invalid Invite</h3>
-        <p id="error-message" class="mt-1 text-sm text-gray-500">The invite link is invalid or has expired.</p>
       </div>
 
-      <div id="action-state" class="hidden">
-        <div class="bg-indigo-50 border border-indigo-100 rounded-md p-4 mb-6">
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg class="h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div class="ml-3">
-              <h3 class="text-sm font-medium text-indigo-800">Valid Invite</h3>
-              <div class="mt-2 text-sm text-indigo-700">
-                <p>Connect your wallet to accept this invitation and gain admin access.</p>
-              </div>
-            </div>
+      <!-- Error State -->
+      <div id="error-state" class="invite-state">
+        <div class="invite-status-icon error">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <h3 class="invite-status-title">Invalid Invite</h3>
+        <p id="error-message" class="invite-status-message">The invite link is invalid or has expired.</p>
+      </div>
+
+      <!-- Action State (Valid Invite) -->
+      <div id="action-state" class="invite-state">
+        <div class="invite-valid-notice">
+          <svg class="notice-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+          </svg>
+          <div class="notice-content">
+            <h3>Valid Invite</h3>
+            <p>Connect your wallet to accept this invitation and gain admin access.</p>
           </div>
         </div>
 
-        <button id="connect-wallet-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        <button id="connect-wallet-btn" class="btn btn-primary invite-action-btn">
           Connect Wallet & Accept
         </button>
       </div>
 
-      <div id="success-state" class="hidden text-center py-4">
-        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-          <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+      <!-- Success State -->
+      <div id="success-state" class="invite-state">
+        <div class="invite-status-icon success">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
         </div>
-        <h3 class="mt-2 text-lg font-medium text-gray-900">Welcome, Admin!</h3>
-        <p class="mt-1 text-sm text-gray-500">Your account has been upgraded.</p>
-        <div class="mt-6">
-          <a href="/admin" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            Go to Admin Dashboard
-          </a>
-        </div>
+        <h3 class="invite-status-title">Welcome, Admin!</h3>
+        <p class="invite-status-message">Your account has been upgraded.</p>
+        <a href="/admin" class="btn btn-primary invite-action-btn">
+          Go to Admin Dashboard
+        </a>
       </div>
     </div>
+  </div>
 
-    <script type="module" src="/js/invite.js"></script>
-  </body>
+  <script type="module" src="/js/invite.js"></script>
+</body>
 </html>

@@ -20,8 +20,16 @@ export default function createSecretsRouter(services) {
     const keys = await secretsService.listKeys({ guildId });
     const items = [];
     for (const k of keys) {
-      const r = await secretsService.getWithSource(k, { guildId });
-      items.push({ key: k, value: r.value ? MASK(r.value) : null, source: r.source });
+      // k is { key, scope, scopeId, platform } - extract the actual key name
+      const keyName = typeof k === 'string' ? k : k.key;
+      const r = await secretsService.getWithSource(keyName, { guildId });
+      items.push({ 
+        key: keyName, 
+        value: r.value ? MASK(r.value) : null, 
+        source: r.source,
+        scope: k.scope || 'global',
+        platform: k.platform || null
+      });
     }
     res.json({ items });
   });
