@@ -72,8 +72,12 @@ export class CreationTool extends BasicTool {
         target = '';
       }
 
+      // If no description provided, generate one based on avatar personality
       if (!description || description.trim().length === 0) {
-        return '-# [ ✨ Please describe what you want to create ]';
+        description = await this.generateCreativeIntent(avatar, message);
+        if (!description) {
+          return '-# [ ✨ The creative energy swirls but finds no form... ]';
+        }
       }
 
       // Generate narrative first
@@ -206,6 +210,52 @@ No text, no UI elements, no watermarks.`;
     }
 
     return imageUrl;
+  }
+
+  /**
+   * Generate a creative intent based on avatar personality when no description is provided
+   */
+  async generateCreativeIntent(avatar, message) {
+    if (!this.aiService) return null;
+
+    try {
+      const characterName = avatar?.name || 'The mystic';
+      const personality = avatar?.personality || avatar?.description || 'a mysterious being';
+      const messageContent = message?.content?.replace(/✨/g, '').trim() || '';
+
+      const intentPrompt = `You are ${characterName}, ${personality}.
+
+You just invoked your creative power (✨). Based on your personality and nature, what do you create or manifest?
+${messageContent ? `Recent context: "${messageContent}"` : ''}
+
+Respond with ONLY a brief phrase (3-8 words) describing what you create. Examples:
+- "a shield of crystalline light"
+- "whispers that reveal hidden truths"
+- "dancing flames of inspiration"
+- "a mirror reflecting inner demons"
+
+Your creation:`;
+
+      const response = await this.aiService.chat([
+        { role: 'user', content: intentPrompt }
+      ], {
+        model: avatar?.model || process.env.STRUCTURED_MODEL,
+        temperature: 0.9
+      });
+
+      let intent = typeof response === 'string' ? response : response?.text || response?.content || '';
+      // Clean up the response
+      intent = intent.trim().replace(/^["']|["']$/g, '').replace(/^(I create |I manifest |I conjure )/i, '');
+      
+      if (intent && intent.length > 3 && intent.length < 200) {
+        this.logger?.debug?.(`[CreationTool] Generated intent for ${characterName}: ${intent}`);
+        return intent;
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[CreationTool] Failed to generate intent: ${e.message}`);
+    }
+
+    return null;
   }
 
   buildPrompt(message, avatar, description, target) {
