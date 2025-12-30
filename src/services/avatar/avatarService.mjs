@@ -1632,8 +1632,62 @@ export class AvatarService {
     return this.schemaService.executePipeline({ prompt, schema });
   }
 
+  /**
+   * Generate an avatar image, optionally using a reference image (e.g., token icon)
+   * @param {string} prompt - The image generation prompt
+   * @param {Object} uploadOptions - Upload options including optional referenceImageUrl
+   * @returns {Promise<string|null>} - The generated image URL or null
+   */
   async generateAvatarImage(prompt, uploadOptions = {}) {
-    return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
+    const { referenceImageUrl, ...cleanUploadOptions } = uploadOptions;
+    
+    // If we have a reference image and aiService supports composition, try that first
+    if (referenceImageUrl && this.aiService?.composeImageWithGemini && this.aiService?.s3Service?.downloadImage) {
+      try {
+        this.logger?.info?.(`[AvatarService] Attempting image composition with reference: ${referenceImageUrl.substring(0, 60)}...`);
+        
+        // Download the reference image
+        const refBuffer = await this.aiService.s3Service.downloadImage(referenceImageUrl);
+        if (refBuffer) {
+          const images = [{
+            data: refBuffer.toString('base64'),
+            mimeType: 'image/png',
+            label: 'token_icon'
+          }];
+          
+          // Build enhanced prompt that incorporates the token icon
+          const compositionPrompt = `Create a unique character avatar inspired by and incorporating visual elements from the attached token icon image. 
+The character should:
+- Reflect the token's visual identity, colors, and themes
+- Be a full character portrait suitable for a profile image
+- Maintain the essence and color palette of the token icon
+- Have a complete character design with face, expression, and personality
+
+Character prompt: ${prompt}
+
+Style: Fantasy character portrait, 1:1 square format, detailed, expressive, suitable for avatar use. 
+The token icon's colors and motifs should be visible in the character's design.`;
+
+          const compositionOptions = {
+            ...cleanUploadOptions,
+            source: cleanUploadOptions.source || 'avatar.wallet.composed',
+            characterReference: false, // Token icon is design inspiration, not a character to replicate
+          };
+          
+          const composedUrl = await this.aiService.composeImageWithGemini(images, compositionPrompt, compositionOptions);
+          
+          if (composedUrl) {
+            this.logger?.info?.(`[AvatarService] Successfully composed avatar with token reference: ${composedUrl.substring(0, 60)}...`);
+            return composedUrl;
+          }
+        }
+      } catch (composeError) {
+        this.logger?.warn?.(`[AvatarService] Image composition with reference failed, falling back to standard generation: ${composeError.message}`);
+      }
+    }
+    
+    // Fall back to standard generation via schemaService
+    return this.schemaService.generateImage(prompt, '1:1', cleanUploadOptions);
   }
 
   _canGenerateAvatarImages() {
@@ -1773,7 +1827,7 @@ export class AvatarService {
     return db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
   }
 
-  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
+  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null, referenceImageUrl = null }) {
     const normalizedGuildId = normalizeGuildId(guildId);
     let details = null;
     try {
@@ -1833,7 +1887,8 @@ export class AvatarService {
           avatarName: details.name,
           avatarEmoji: details.emoji,
           prompt: details.description,
-          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim()
+          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim(),
+          referenceImageUrl: referenceImageUrl || null, // Token icon for visual inspiration
         };
         imageUrl = await this.generateAvatarImage(details.description, uploadOptions);
       } catch (e) {
@@ -2461,14 +2516,15 @@ export class AvatarService {
         
         let appliedUpgrade = false;
         try {
-          // Generate image for existing avatar
+          // Generate image for existing avatar, using token icon as reference if available
           const uploadOptions = {
             source: 'avatar.upgrade',
             avatarName: avatar.name,
             avatarEmoji: avatar.emoji,
             avatarId: avatar._id,
             prompt: avatar.description,
-            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim()
+            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim(),
+            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
           };
           const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
           
@@ -2740,12 +2796,13 @@ export class AvatarService {
   this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, hasBalance: ${hasPositiveBalance}, meetsThreshold: ${meetsFullAvatarThreshold}, fullAvatarEligible: ${isEligibleForFullAvatar})`);
         
   if (isEligibleForFullAvatar) {
-          // Full avatar with image
+          // Full avatar with image, using token icon as reference if available
           avatar = await this.createAvatar({
             prompt,
             summoner: `wallet:${walletAddress}`,
             channelId: context.discordChannelId || context.channelId || null,
-            guildId: context.guildId || null
+            guildId: context.guildId || null,
+            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
           });
         } else {
           // Partial avatar (no image)
