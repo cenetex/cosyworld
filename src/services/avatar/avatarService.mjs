@@ -2565,7 +2565,8 @@ The token icon's colors and motifs should be visible in the character's design.`
       return null;
     }
 
-    const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
+    // Note: effectiveShouldAutoActivate is kept for claimed avatar activation in existing avatar path
+    const _effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
     const effectiveShouldSendIntro = claimedSource ? false : shouldSendIntro;
     
     let upgradeAppliedThisCall = false;
