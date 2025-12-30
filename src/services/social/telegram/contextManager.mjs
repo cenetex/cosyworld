@@ -134,6 +134,62 @@ export class ContextManager {
   }
 
   /**
+   * Get wallet holdings context for an avatar with a wallet address
+   * @param {string} walletAddress - The wallet address to fetch holdings for
+   * @param {Object} options
+   * @param {number} options.limit - Max number of holdings to include (default: 5)
+   * @param {number} options.minUsd - Minimum USD value to include (default: 1)
+   * @returns {Promise<string|null>} Formatted holdings context string
+   */
+  async getWalletHoldingsContext(walletAddress, { limit = 5, minUsd = 1 } = {}) {
+    if (!walletAddress) return null;
+    
+    try {
+      // Access walletInsights through buybotService
+      const walletInsights = this.buybotService?.walletInsights;
+      if (!walletInsights) {
+        this.logger?.debug?.('[ContextManager] WalletInsights not available');
+        return null;
+      }
+      
+      const topTokens = await walletInsights.getWalletTopTokens(walletAddress, { limit, minUsd });
+      
+      if (!topTokens || topTokens.length === 0) {
+        return null;
+      }
+      
+      // Format holdings for the AI context
+      let context = `💰 Your Wallet Holdings (Top ${topTokens.length}):\n`;
+      
+      for (let i = 0; i < topTokens.length; i++) {
+        const token = topTokens[i];
+        const usdFormatted = token.usdValue >= 1000 
+          ? `$${(token.usdValue / 1000).toFixed(1)}k`
+          : `$${token.usdValue.toFixed(2)}`;
+        const amountFormatted = token.amount >= 1000000 
+          ? `${(token.amount / 1000000).toFixed(2)}M`
+          : token.amount >= 1000 
+            ? `${(token.amount / 1000).toFixed(2)}k`
+            : token.amount.toFixed(2);
+        
+        // Include 24h change if available
+        const changeStr = token.change24h !== undefined 
+          ? ` (${token.change24h >= 0 ? '+' : ''}${token.change24h.toFixed(1)}% 24h)`
+          : '';
+        
+        context += `  ${i + 1}. $${token.symbol}: ${usdFormatted} (${amountFormatted} tokens)${changeStr}\n`;
+      }
+      
+      context += `\nYou can reference your holdings naturally in conversation when relevant.`;
+      
+      return context.trim();
+    } catch (error) {
+      this.logger?.error?.('[ContextManager] Failed to get wallet holdings context:', error);
+      return null;
+    }
+  }
+
+  /**
    * Invalidate persona cache
    */
   invalidatePersonaCache() {

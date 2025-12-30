@@ -286,6 +286,12 @@ export class UnifiedChatAgent {
         this.checkMediaLimit(userId, 'tweet'),
       ]);
 
+      // Fetch wallet holdings context if the bot has a wallet address
+      const walletAddress = persona?.bot?.walletAddress;
+      const walletHoldingsContext = walletAddress 
+        ? await this.contextManager.getWalletHoldingsContext(walletAddress, { limit: 5 })
+        : null;
+
       // Fetch RAG context
       let ragContext = [];
       if (this.knowledgeBaseService) {
@@ -319,6 +325,7 @@ export class UnifiedChatAgent {
         plan: await this.planManager.buildPlanContext(channelId, 3),
         media: await this.mediaManager.buildRecentMediaContext(channelId, 5),
         buybot: buybotContext,
+        walletHoldings: walletHoldingsContext,
         isMention,
         triggerType,
         rag: ragContext,
@@ -620,7 +627,8 @@ export class UnifiedChatAgent {
 
       case 'react_to_message': {
         const emoji = step.emoji || '👍';
-        const targetId = step.targetMessageId;
+        // Convert to string to preserve precision for Discord Snowflakes
+        const targetId = step.targetMessageId ? String(step.targetMessageId) : null;
         if (targetId) {
           await adapter.react(emoji, targetId);
         }
