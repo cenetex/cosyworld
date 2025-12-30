@@ -56,6 +56,7 @@ import { MediaIndexService } from '../services/media/mediaIndexService.mjs';
 import { WikiService } from '../services/wiki/wikiService.mjs';
 import { WikiGardenerService } from '../services/wiki/wikiGardenerService.mjs';
 import { ImageGenerationRateLimiter } from '../services/ai/imageGenerationRateLimiter.mjs';
+import { UnifiedChatAgent } from '../services/agent/unifiedChatAgent.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -297,6 +298,38 @@ export async function initializeContainer({ container, logger, configService }) 
       console.warn('[container] Failed to init MediaIndexService:', e.message);
     }
 
+    // Create UnifiedChatAgent for cross-platform AI agent functionality (Telegram + Discord)
+    try {
+      const dbService = container.resolve('databaseService');
+      const aiService = container.registrations.aiService ? container.resolve('aiService') : null;
+      const veoService = container.registrations.veoService ? container.resolve('veoService') : null;
+      const buybotService = container.registrations.buybotService ? container.resolve('buybotService') : null;
+      const xService = container.registrations.xService ? container.resolve('xService') : null;
+      const globalBotService = container.registrations.globalBotService ? container.resolve('globalBotService') : null;
+      const wikiService = container.registrations.wikiService ? container.resolve('wikiService') : null;
+      const mediaIndexSvc = container.registrations.mediaIndexService ? container.resolve('mediaIndexService') : null;
+      
+      const unifiedChatAgent = new UnifiedChatAgent({
+        logger,
+        databaseService: dbService,
+        configService,
+        aiService,
+        globalBotService,
+        googleAIService,
+        veoService,
+        buybotService,
+        xService,
+        mediaGenerationService,
+        mediaIndexService: mediaIndexSvc,
+        wikiService,
+      });
+      
+      container.register({ unifiedChatAgent: asValue(unifiedChatAgent) });
+      logger.info('[container] ✅ UnifiedChatAgent initialized (Telegram + Discord AI agent)');
+    } catch (e) {
+      console.warn('[container] Failed to init UnifiedChatAgent:', e.message);
+    }
+
     // Provide late-binding getters early to break circular deps
     container.register({
       getMapService: asFunction(() => () => container.resolve('mapService')).singleton(),
@@ -309,6 +342,9 @@ export async function initializeContainer({ container, logger, configService }) 
     });
     container.register({
       getCombatEncounterService: asFunction(() => () => container.resolve('combatEncounterService')).singleton(),
+    });
+    container.register({
+      getUnifiedChatAgent: asFunction(() => () => container.resolve('unifiedChatAgent')).singleton(),
     });
 
     // Late-binding unifiedAIService
@@ -366,6 +402,20 @@ export async function initializeContainer({ container, logger, configService }) 
 
     // Parallelize independent service initializations
     const parallelInits = [];
+
+    if (container.registrations.unifiedChatAgent) {
+      parallelInits.push(
+        (async () => {
+          try {
+            const chatAgent = container.resolve('unifiedChatAgent');
+            await chatAgent.initialize();
+            console.log('[container] UnifiedChatAgent initialized (Telegram + Discord AI agent).');
+          } catch (e) {
+            console.warn('[container] Failed to initialize UnifiedChatAgent:', e.message);
+          }
+        })()
+      );
+    }
 
     if (container.registrations.avatarLocationMemory) {
       parallelInits.push(

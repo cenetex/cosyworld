@@ -18,6 +18,7 @@ import { processMessageLinks } from '../../utils/linkProcessor.mjs';
 import { filterContent, stripUrls } from '../../utils/contentFilter.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
 import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
+import { createDiscordAdapter } from '../agent/platformAdapters.mjs';
 
 export class DiscordService {
   constructor(services) {
@@ -32,8 +33,18 @@ export class DiscordService {
     this.getBuybotService = typeof services.getBuybotService === 'function'
       ? services.getBuybotService
       : () => services.buybotService;
+    // Unified Chat Agent for @mention handling (late-binding to avoid circular deps)
+    this.getUnifiedChatAgent = typeof services.getUnifiedChatAgent === 'function'
+      ? services.getUnifiedChatAgent
+      : () => services.unifiedChatAgent;
+    // AI Service for agent responses
+    this.aiService = services.aiService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
+    
+    // Mention handling state
+    this._mentionReplyQueue = new Map(); // channelId -> { message, timestamp }
+    this._mentionReplyDebounceMs = 2000; // Wait 2 seconds for more messages before responding
     
     this.client = new Client({
       intents: [
@@ -326,6 +337,105 @@ export class DiscordService {
           if (message.channel?.isTextBased()) {
             await message.reply('Sorry, I could not start the wallet link flow. Please try again in a minute.');
           }
+        } catch {}
+      }
+    });
+
+    // @mention handler - respond when bot is mentioned using the unified chat agent
+    this.client.on('messageCreate', async (message) => {
+      try {
+        // Ignore bot messages to prevent loops
+        if (message.author.bot) return;
+        
+        // Check if bot was mentioned
+        const botMentioned = message.mentions.has(this.client.user);
+        const isReplyToBot = message.reference?.messageId && 
+          (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === this.client.user.id;
+        
+        if (!botMentioned && !isReplyToBot) return;
+        
+        // Check guild authorization
+        if (message.guild) {
+          const guildId = message.guild.id;
+          const isAuthorized = await this.authorizationCache.check(guildId, async () => {
+            const guildConfig = await this.configService.getGuildConfig(guildId);
+            return guildConfig?.authorized === true || 
+              (await this.configService.get("authorizedGuilds") || []).includes(guildId);
+          });
+          
+          if (!isAuthorized) {
+            this.logger.debug?.(`@mention in unauthorized guild: ${message.guild.name} (${guildId}) - ignoring`);
+            return;
+          }
+        }
+        
+        // Get the unified chat agent
+        const agent = this.getUnifiedChatAgent?.();
+        if (!agent) {
+          this.logger.debug?.('[DiscordService] Unified chat agent not available for @mention response');
+          return;
+        }
+        
+        // Create platform adapter for Discord
+        const adapter = createDiscordAdapter({
+          logger: this.logger,
+          discordService: this,
+          message,
+        });
+        
+        // Build channel ID with discord prefix for uniqueness across platforms
+        const channelId = `discord:${message.channel.id}`;
+        
+        // Clean up the message content (remove the @mention)
+        const cleanContent = message.content
+          .replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '')
+          .trim();
+        
+        // Add to conversation history
+        await agent.addToHistory(channelId, {
+          from: message.author.displayName || message.author.username,
+          text: cleanContent || '[mentioned the bot]',
+          date: Math.floor(message.createdTimestamp / 1000),
+          isBot: false,
+          userId: message.author.id,
+          messageId: message.id,
+        });
+        
+        this.logger.info?.(`[DiscordService] Bot @mentioned by ${message.author.username} in ${message.channel.name || 'DM'}`);
+        
+        // Check content filter
+        const filterResult = await agent.checkContentFilter(cleanContent);
+        if (filterResult.blocked) {
+          this.logger.info?.(`[DiscordService] Blocked @mention (${filterResult.type}): ${filterResult.reason}`);
+          return;
+        }
+        
+        // Normalize message for the agent
+        const normalizedMessage = {
+          text: cleanContent,
+          authorName: message.author.displayName || message.author.username,
+          authorUsername: message.author.username,
+          userId: message.author.id,
+          messageId: message.id,
+          replyTo: message.reference?.messageId ? {
+            message_id: message.reference.messageId,
+          } : null,
+        };
+        
+        // Generate response using the unified agent
+        await agent.generateResponse({
+          channelId,
+          message: normalizedMessage,
+          adapter,
+          isMention: botMentioned,
+          triggerType: botMentioned ? 'mention' : 'reply',
+          messageImage: null, // TODO: Extract images from Discord messages if attached
+        });
+        
+      } catch (error) {
+        this.logger.error?.('[DiscordService] @mention handler error:', error);
+        try {
+          await message.reply("I'm having a bit of trouble right now. 💭");
         } catch {}
       }
     });
