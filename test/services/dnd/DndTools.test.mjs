@@ -296,8 +296,8 @@ describe('PartyTool', () => {
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
         avatar._id,
-        'party_created',
-        expect.any(Object)
+        'party_ready',
+        undefined
       );
     });
   });
@@ -337,7 +337,7 @@ describe('PartyTool', () => {
     });
   });
 
-  describe('execute() - status', () => {
+  describe('execute() - list', () => {
     it('should show party status', async () => {
       const partyId = new ObjectId();
       const sheet = createMockSheet({ partyId });
@@ -353,7 +353,7 @@ describe('PartyTool', () => {
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      const result = await tool.execute(message, ['status'], avatar);
+      const result = await tool.execute(message, ['list'], avatar);
 
       expect(result.embeds).toBeDefined();
       expect(result.embeds[0].title).toContain('Heroes');
