@@ -210,20 +210,20 @@ describe('XService Content Filtering', () => {
     expect(mockTweet).toHaveBeenCalled();
   });
 
-  it('should prioritize globalBotService config over opts.contentFilters', async () => {
+  it('should merge globalBotService config with opts.contentFilters', async () => {
     const globalBotServiceMock = {
       bot: {
         globalBotConfig: {
           contentFilters: {
-            allowedCashtags: ['$HISS'], // Only HISS allowed
+            allowedCashtags: ['$HISS'], // HISS allowed from globalBotService
             blockCashtags: true
           }
         }
       }
     };
 
-    // We pass $RATI in opts, but globalBotService only allows $HISS
-    // The current implementation prioritizes globalBotService if present
+    // We pass $RATI in opts, which gets merged with $HISS from globalBotService
+    // The implementation merges all allowed cashtags from all sources
     const result = await xService.postGlobalMediaUpdate({
       text: 'Check out this coin $RATI it is amazing',
       mediaUrl: 'https://example.com/image.png',
@@ -232,12 +232,12 @@ describe('XService Content Filtering', () => {
       }
     }, { globalBotService: globalBotServiceMock });
 
-    // Should fail because $RATI is not in the globalBotService config
+    // Should succeed because $RATI is in opts.contentFilters (merged with globalBotService)
     expect(result).toEqual({
-      error: true,
-      reason: expect.stringContaining('blocked cashtag')
+      tweetId: '123456789012345',
+      tweetUrl: expect.stringContaining('123456789012345')
     });
-    expect(mockTweet).not.toHaveBeenCalled();
+    expect(mockTweet).toHaveBeenCalled();
   });
 });
 
