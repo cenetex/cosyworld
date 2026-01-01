@@ -216,7 +216,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
    * @param {Object} options - Room entry details
    * @returns {Object} Discord message payload with embed and buttons
    */
-  async narrateRoomEntry({ room, dungeon, party, channelId }) {
+  async narrateRoomEntry({ room, dungeon, _party, _channelId }) {
     const description = await this.generateRoomDescription(room, dungeon);
     
     const fields = [];
@@ -294,7 +294,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
   /**
    * Create action buttons for current room state
    */
-  createRoomActionButtons(room, dungeon) {
+  createRoomActionButtons(room, _dungeon) {
     const rows = [];
     
     if (!room.cleared) {
@@ -375,7 +375,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       // Room cleared - show navigation
       const exits = room.connections || [];
       if (exits.length > 0) {
-        const navButtons = exits.slice(0, 5).map((exitId, i) =>
+        const navButtons = exits.slice(0, 5).map((exitId, _i) =>
           new ButtonBuilder()
             .setCustomId(`dnd_dungeon_move_${exitId}`)
             .setLabel(`Room ${exitId.replace('room_', '')}`)
@@ -407,7 +407,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
   /**
    * Announce combat start with dramatic narration
    */
-  async announceCombatStart({ encounter, channelId }) {
+  async announceCombatStart({ encounter, _channelId }) {
     const narration = this._pickRandom(NARRATIVE_TEMPLATES.combatStart);
     
     // Build initiative order display
@@ -432,7 +432,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
   /**
    * Prompt a player for their turn with action buttons
    */
-  async promptTurn({ avatar, encounter, channelId }) {
+  async promptTurn({ avatar, encounter, _channelId }) {
     const template = this._pickRandom(NARRATIVE_TEMPLATES.turnPrompt);
     const prompt = this._fillTemplate(template, { name: avatar.name });
 
@@ -452,7 +452,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     
     // Get enemies
     const enemies = encounter.participants?.filter(p => p.isMonster && p.stats?.hp > 0) || [];
-    const allies = encounter.participants?.filter(p => !p.isMonster && p.stats?.hp > 0 && String(p._id) !== String(avatar._id)) || [];
+    const _allies = encounter.participants?.filter(p => !p.isMonster && p.stats?.hp > 0 && String(p._id) !== String(avatar._id)) || [];
 
     // Main action row
     const actionRow = new ActionRowBuilder().addComponents(
@@ -528,7 +528,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
   /**
    * Narrate combat victory
    */
-  async narrateVictory({ encounter, channelId }) {
+  async narrateVictory({ encounter, _channelId }) {
     const narration = this._pickRandom(NARRATIVE_TEMPLATES.victory);
     
     const embed = this.createDMEmbed({

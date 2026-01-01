@@ -310,7 +310,7 @@ export class QuestService {
    * Internal step advancement logic
    * @private
    */
-  async _advanceStep(avatarId, quest, progress, triggerId, data = {}) {
+  async _advanceStep(avatarId, quest, progress, triggerId, _data = {}) {
     const currentStep = quest.steps[progress.currentStep];
     if (!currentStep) return null;
 
@@ -463,7 +463,7 @@ export class QuestService {
   /**
    * Format a step message as Discord embed
    */
-  formatStepMessage(quest, step, stepNumber, totalSteps, xpEarned = 0) {
+  formatStepMessage(quest, step, stepNumber, totalSteps, _xpEarned = 0) {
     const progressBar = this._makeProgressBar(stepNumber - 1, totalSteps);
 
     return {

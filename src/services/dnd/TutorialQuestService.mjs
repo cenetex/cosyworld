@@ -287,10 +287,10 @@ export class TutorialQuestService {
    * This allows CharacterTool, PartyTool, etc. to trigger tutorial progress
    * @param {string} avatarId - The avatar ID
    * @param {string} eventName - Event type (character_created, party_created, etc.)
-   * @param {Object} data - Additional event data
+   * @param {Object} _data - Additional event data
    * @returns {Promise<Object|null>} Advancement result or null
    */
-  async onEvent(avatarId, eventName, data = {}) {
+  async onEvent(avatarId, eventName, _data = {}) {
     const progress = await this.getProgress(avatarId);
     if (!progress || progress.completedAt) return null;
 

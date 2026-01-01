@@ -304,7 +304,7 @@ export class DungeonService {
     }
 
     // Fill remaining budget with minions
-    const minionBudget = remaining;
+    const _minionBudget = remaining;
     let minionCount = 0;
     const maxMinions = 6;
 

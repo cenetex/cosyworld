@@ -142,7 +142,7 @@ export function createPartyButtons({ isLeader = false, partyId = null, channelAv
  * @param {Object} options - Dungeon state
  * @returns {ActionRowBuilder[]}
  */
-export function createDungeonButtons({ currentRoom, exits = [], roomCleared = false, hasTreasure = false }) {
+export function createDungeonButtons({ exits = [], roomCleared = false, hasTreasure = false }) {
   const rows = [];
   
   // Main action row
