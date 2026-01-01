@@ -39,6 +39,10 @@ const createMockDeps = () => {
         getSheet: vi.fn().mockResolvedValue({ level: 3 }),
       },
     },
+    characterService: {
+      getSheet: vi.fn().mockResolvedValue({ level: 3 }),
+    },
+    monsterService: null, // Will use static fallback
     discordService: {
       client: {
         channels: {
@@ -110,6 +114,7 @@ describe('DungeonService', () => {
     it('should initialize with required dependencies', () => {
       expect(service.databaseService).toBe(deps.databaseService);
       expect(service.partyService).toBe(deps.partyService);
+      expect(service.characterService).toBe(deps.characterService);
       expect(service.discordService).toBe(deps.discordService);
       expect(service.logger).toBe(deps.logger);
       expect(service.diceService).toBeDefined();
@@ -437,15 +442,18 @@ describe('DungeonService', () => {
       expect(room.threadId).toBeNull();
       expect(room.cleared).toBe(false);
       expect(room.connections).toEqual([]);
-      expect(room.encounter).toBeDefined();
+      // Combat rooms are now marked for async encounter generation
+      expect(room._needsEncounter).toBe(true);
+      expect(room._encounterType).toBe('combat');
     });
 
-    it('should create boss room with stronger encounter', () => {
+    it('should create boss room with encounter marker', () => {
       const room = service._createRoom('boss_room', 'boss', 5);
 
       expect(room.type).toBe('boss');
-      expect(room.encounter).toBeDefined();
-      expect(room.encounter.monsters).toBeDefined();
+      // Boss rooms are marked for async encounter generation
+      expect(room._needsEncounter).toBe(true);
+      expect(room._encounterType).toBe('boss');
     });
 
     it('should override type when specified', () => {
@@ -456,17 +464,18 @@ describe('DungeonService', () => {
   });
 
   describe('_generateEncounter()', () => {
-    it('should generate encounter with monsters', () => {
-      const encounter = service._generateEncounter('combat', 5);
+    it('should generate encounter with monsters', async () => {
+      // _generateEncounter is now async and falls back to static monsters when monsterService is null
+      const encounter = await service._generateEncounter('combat', 5, 'cave');
 
       expect(encounter.monsters).toBeDefined();
       expect(encounter.xpValue).toBeGreaterThanOrEqual(0);
       expect(encounter.defeated).toBe(false);
     });
 
-    it('should generate stronger boss encounters', () => {
-      const normalEncounter = service._generateEncounter('combat', 5);
-      const bossEncounter = service._generateEncounter('boss', 5);
+    it('should generate stronger boss encounters', async () => {
+      const normalEncounter = await service._generateEncounter('combat', 5, 'cave');
+      const bossEncounter = await service._generateEncounter('boss', 5, 'cave');
 
       // Boss should have higher XP value potential
       expect(bossEncounter.xpValue).toBeDefined();
