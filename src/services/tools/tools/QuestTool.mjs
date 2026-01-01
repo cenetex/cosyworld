@@ -117,7 +117,7 @@ export class QuestTool extends BasicTool {
 
       if (active.length > 0) {
         const activeList = active.map(({ quest, progress }) => {
-          const step = quest.steps[progress.currentStep];
+          const _step = quest.steps[progress.currentStep];
           return `${quest.emoji || '📋'} **${quest.title}** - Step ${progress.currentStep + 1}/${quest.steps.length}`;
         }).join('\n');
         fields.push({ name: '⚔️ Active Quests', value: activeList, inline: false });
