@@ -100,6 +100,10 @@ export class CastTool extends BasicTool {
         targetIds
       );
 
+      // Trigger quest progress for casting spells
+      await this.questService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
+      await this.tutorialQuestService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
+
       return this._formatResult(avatar, result);
     } catch (error) {
       this.logger.error('[CastTool] Error:', error);

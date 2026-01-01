@@ -253,6 +253,7 @@ describe('PartyTool', () => {
       partyService: {
         getParty: vi.fn().mockResolvedValue(null),
         getPartyByMember: vi.fn().mockResolvedValue(null),
+        getPartyWithAvatars: vi.fn().mockResolvedValue(null),
         createParty: vi.fn().mockResolvedValue({
           _id: new ObjectId(),
           name: 'Heroes',
@@ -341,11 +342,11 @@ describe('PartyTool', () => {
       const partyId = new ObjectId();
       const sheet = createMockSheet({ partyId });
       deps.characterService.getSheet.mockResolvedValue(sheet);
-      deps.partyService.getParty.mockResolvedValue({
+      deps.partyService.getPartyWithAvatars.mockResolvedValue({
         _id: partyId,
         name: 'Heroes',
         leaderId: new ObjectId('507f1f77bcf86cd799439011'),
-        members: [{ avatarId: new ObjectId('507f1f77bcf86cd799439011'), role: 'tank' }],
+        members: [{ avatarId: new ObjectId('507f1f77bcf86cd799439011'), role: 'tank', avatar: { name: 'Hero' }, sheet: { class: 'fighter', level: 3 } }],
         maxSize: 4,
         sharedGold: 100,
       });
@@ -394,8 +395,9 @@ describe('DungeonTool', () => {
           ],
           currentRoom: 'room_1',
         }),
-        moveToRoom: vi.fn().mockResolvedValue({ room: { id: 'room_2', type: 'combat' } }),
-        flee: vi.fn().mockResolvedValue({ success: true }),
+        enterRoom: vi.fn().mockResolvedValue({ room: { id: 'room_2', type: 'combat', connections: [] } }),
+        abandonDungeon: vi.fn().mockResolvedValue({ success: true }),
+        getRoomEmoji: vi.fn().mockReturnValue('🚪'),
       },
     };
     tool = new DungeonTool(deps);
@@ -416,7 +418,7 @@ describe('DungeonTool', () => {
       const result = await tool.execute(message, ['enter', 'medium'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(result.embeds[0].title).toContain('Dungeon');
+      expect(result.embeds[0].title).toContain('Dark Crypt');
       expect(deps.dungeonService.generateDungeon).toHaveBeenCalled();
     });
 
@@ -427,7 +429,7 @@ describe('DungeonTool', () => {
       await tool.execute(message, ['enter'], avatar);
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
-        avatar._id.toString(),
+        avatar._id,
         'dungeon_entered',
         expect.any(Object)
       );
@@ -472,18 +474,21 @@ describe('DungeonTool', () => {
         ],
         currentRoom: 'room_1',
       });
+      deps.dungeonService.enterRoom.mockResolvedValue({
+        room: { id: 'room_2', type: 'combat', cleared: false, connections: [] }
+      });
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
       const result = await tool.execute(message, ['move', 'room_2'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(deps.dungeonService.moveToRoom).toHaveBeenCalled();
+      expect(deps.dungeonService.enterRoom).toHaveBeenCalled();
     });
   });
 
-  describe('execute() - flee', () => {
-    it('should flee from dungeon', async () => {
+  describe('execute() - abandon', () => {
+    it('should abandon dungeon', async () => {
       deps.dungeonService.getActiveDungeon.mockResolvedValue({
         _id: new ObjectId(),
         name: 'Dark Crypt',
@@ -491,10 +496,10 @@ describe('DungeonTool', () => {
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      const result = await tool.execute(message, ['flee'], avatar);
+      const result = await tool.execute(message, ['abandon'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(deps.dungeonService.flee).toHaveBeenCalled();
+      expect(deps.dungeonService.abandonDungeon).toHaveBeenCalled();
     });
   });
 });
@@ -532,10 +537,11 @@ describe('CastTool', () => {
 
   describe('execute()', () => {
     it('should cast a spell', async () => {
+      deps.avatarService.getAvatarByName.mockResolvedValue({ _id: new ObjectId(), name: 'Goblin' });
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      const result = await tool.execute(message, ['magic_missile'], avatar);
+      const result = await tool.execute(message, ['magic_missile', 'Goblin'], avatar);
 
       expect(result.embeds).toBeDefined();
       expect(result.embeds[0].title).toContain('Magic Missile');
@@ -543,13 +549,14 @@ describe('CastTool', () => {
     });
 
     it('should trigger quest event', async () => {
+      deps.avatarService.getAvatarByName.mockResolvedValue({ _id: new ObjectId(), name: 'Goblin' });
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      await tool.execute(message, ['fire_bolt'], avatar);
+      await tool.execute(message, ['fire_bolt', 'Goblin'], avatar);
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
-        avatar._id.toString(),
+        avatar._id,
         'spell_cast',
         expect.any(Object)
       );
@@ -637,19 +644,20 @@ describe('QuestTool', () => {
       const result = await tool.execute(message, ['list'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(deps.questService.formatQuestList).toHaveBeenCalled();
+      expect(result.embeds[0].title).toContain('Quest Journal');
     });
   });
 
   describe('execute() - start', () => {
     it('should start a quest', async () => {
+      deps.questService.startQuest.mockResolvedValue({ started: true, quest: { title: 'Tutorial' } });
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
       const result = await tool.execute(message, ['start', 'tutorial'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(deps.questService.startQuest).toHaveBeenCalledWith(avatar._id.toString(), 'tutorial');
+      expect(deps.questService.startQuest).toHaveBeenCalledWith(avatar._id, 'tutorial');
     });
   });
 
@@ -695,13 +703,14 @@ describe('QuestTool', () => {
   });
 
   describe('execute() - tutorial shortcut', () => {
-    it('should start tutorial when called with "tutorial"', async () => {
+    it('should show tutorial status when called with "tutorial"', async () => {
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      await tool.execute(message, ['tutorial'], avatar);
+      const result = await tool.execute(message, ['tutorial'], avatar);
 
-      expect(deps.questService.startQuest).toHaveBeenCalledWith(avatar._id.toString(), 'tutorial');
+      // Shows status (which calls getCurrentStep)
+      expect(deps.questService.getCurrentStep).toHaveBeenCalledWith(avatar._id, 'tutorial');
     });
   });
 });
