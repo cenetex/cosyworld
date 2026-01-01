@@ -82,7 +82,63 @@ export class AttackTool extends BasicTool {
       if (avatar?.status === 'knocked_out') return null;
       if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
     } catch {}
+
+    // Check for dungeon context first (for target suggestions)
+    const dungeonService = services?.dungeonService;
+    const characterService = services?.characterService;
+    let dungeonTargets = [];
+    let inDungeon = false;
+    
+    if (dungeonService && characterService) {
+      try {
+        const sheet = await characterService.getSheet(avatar._id);
+        if (sheet?.partyId) {
+          const dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
+          if (dungeon) {
+            inDungeon = true;
+            const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+            if (room?.encounter?.monsters?.length && !room.cleared) {
+              dungeonTargets = room.encounter.monsters.map(m => ({
+                name: m.name || m.id,
+                emoji: m.emoji || '👹',
+                count: m.count || 1
+              }));
+            }
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[AttackTool] Dungeon check failed: ${e.message}`);
+      }
+    }
+
   if (!params || !params[0]) {
+      // Show available targets if in dungeon with monsters
+      if (inDungeon && dungeonTargets.length > 0) {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        const targetButtons = dungeonTargets.slice(0, 5).map(t => 
+          new ButtonBuilder()
+            .setCustomId(`attack_target_${t.name.replace(/\s+/g, '_')}`)
+            .setLabel(`${t.count}x ${t.name}`)
+            .setEmoji(t.emoji)
+            .setStyle(ButtonStyle.Danger)
+        );
+        const row = new ActionRowBuilder().addComponents(targetButtons);
+        
+        return {
+          embeds: [{
+            title: '🎯 Select Target',
+            description: `**${avatar.name}** readies an attack!\nChoose your target:`,
+            color: 0xFF4757,
+            fields: dungeonTargets.map(t => ({
+              name: `${t.emoji} ${t.name}`,
+              value: `HP: ${t.stats?.hp || '?'} | AC: ${t.stats?.ac || '?'}`,
+              inline: true
+            }))
+          }],
+          components: [row]
+        };
+      }
+      
       // Attempt AI intent parse if encounter active
       const encounterService = services?.combatEncounterService;
       if (encounterService) {
@@ -105,7 +161,63 @@ export class AttackTool extends BasicTool {
     const targetText = params.join(' ').trim();
 
     try {
-      // Find defender in location
+      // Check if we're in a dungeon encounter first (via context or dungeonService)
+      
+      if (dungeonService && characterService) {
+        const sheet = await characterService.getSheet(avatar._id);
+        if (sheet?.partyId) {
+          const dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
+          if (dungeon) {
+            // We're in a dungeon! Check for room monsters
+            const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+            if (room?.encounter?.monsters?.length && !room.cleared) {
+              // Match target against dungeon monsters
+              const monsterMatch = room.encounter.monsters.find(m => {
+                const mName = (m.name || m.id || '').toLowerCase();
+                const target = targetText.toLowerCase();
+                return mName.includes(target) || target.includes(mName) || 
+                       mName.split(' ').some(w => target.includes(w));
+              });
+              
+              if (monsterMatch) {
+                // Start or continue dungeon combat
+                const encounterService = services?.combatEncounterService;
+                let dungeonEncounter = encounterService?.getEncounter(message.channel.id);
+                
+                if (!dungeonEncounter || !dungeonEncounter.dungeonContext) {
+                  // Start dungeon combat
+                  dungeonEncounter = await dungeonService.startRoomCombat(
+                    String(dungeon._id), 
+                    dungeon.currentRoom, 
+                    message.channel.id
+                  );
+                  if (!dungeonEncounter) {
+                    return `-# [ ❌ Failed to start dungeon combat. ]`;
+                  }
+                }
+                
+                // Find the monster combatant by name match
+                const monsterCombatant = dungeonEncounter.participants?.find(p => 
+                  p.isMonster && p.name.toLowerCase().includes(targetText.toLowerCase())
+                );
+                
+                if (monsterCombatant) {
+                  // Use battleService to attack the monster
+                  const result = await this.battleService.attack({ 
+                    message, 
+                    attacker: avatar, 
+                    defender: monsterCombatant, 
+                    services 
+                  });
+                  return result.message;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Fall through to normal map-based attack
       const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
       if (!locationResult || !locationResult.location || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;

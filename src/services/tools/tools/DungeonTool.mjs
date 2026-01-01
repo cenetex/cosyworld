@@ -14,7 +14,7 @@ import {
 } from '../dndButtonComponents.mjs';
 
 export class DungeonTool extends BasicTool {
-  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService }) {
+  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService }) {
     super();
     this.logger = logger || console;
     this.dungeonService = dungeonService;
@@ -23,6 +23,8 @@ export class DungeonTool extends BasicTool {
     this.discordService = discordService;
     this.questService = questService;
     this.tutorialQuestService = tutorialQuestService;
+    this.schemaService = schemaService;
+    this.locationService = locationService;
 
     this.name = 'dungeon';
     this.parameters = '<action> [options]';
@@ -61,7 +63,7 @@ export class DungeonTool extends BasicTool {
     try {
       switch (action) {
         case 'enter':
-          return await this._enter(avatar, params);
+          return await this._enter(avatar, params, message);
         case 'map':
           return await this._showMap(avatar);
         case 'move':
@@ -72,8 +74,12 @@ export class DungeonTool extends BasicTool {
           return await this._loot(avatar);
         case 'abandon':
           return await this._abandon(avatar);
+        case 'puzzle':
+        case 'solve':
+        case 'answer':
+          return await this._solvePuzzle(avatar, params.slice(1));
         default:
-          return this._errorEmbed(`Unknown action: ${action}. Use: enter, map, move, clear, loot, abandon`);
+          return this._errorEmbed(`Unknown action: ${action}. Use: enter, map, move, clear, loot, abandon, puzzle`);
       }
     } catch (error) {
       this.logger.error('[DungeonTool] Error:', error);
@@ -91,7 +97,7 @@ export class DungeonTool extends BasicTool {
     };
   }
 
-  async _enter(avatar, params) {
+  async _enter(avatar, params, message) {
     const sheet = await this.characterService.getSheet(avatar._id);
     if (!sheet?.partyId) {
       return this._errorEmbed(`${avatar.name} must be in a party to enter a dungeon.`);
@@ -110,10 +116,60 @@ export class DungeonTool extends BasicTool {
 
     const difficultyColors = { easy: 0x10B981, medium: 0xF59E0B, hard: 0xEF4444, deadly: 0x7C3AED };
 
+    // Generate dungeon entrance image
+    let dungeonImageUrl = null;
+    try {
+      if (this.schemaService?.generateImage) {
+        const imagePrompt = `${dungeon.theme} dungeon entrance, fantasy RPG style, atmospheric lighting, stone architecture, mysterious, ominous`;
+        dungeonImageUrl = await this.schemaService.generateImage(imagePrompt, '16:9', {
+          source: 'dungeon.enter',
+          purpose: 'dungeon',
+          dungeonName: dungeon.name,
+          theme: dungeon.theme
+        });
+      }
+    } catch (e) {
+      this.logger?.warn?.(`[DungeonTool] Failed to generate dungeon image: ${e.message}`);
+    }
+
+    // Create a thread for the dungeon if discordService is available
+    let threadId = null;
+    if (this.discordService?.getOrCreateThread && message?.channel?.id) {
+      try {
+        const threadName = `⚔️ ${dungeon.name}`;
+        threadId = await this.discordService.getOrCreateThread(message.channel.id, threadName);
+        
+        // Post the dungeon entrance in the thread
+        if (threadId && threadId !== message.channel.id) {
+          const channel = await this.discordService.client?.channels?.fetch(threadId);
+          if (channel) {
+            const introEmbed = {
+              title: `🏰 ${dungeon.name}`,
+              description: `*The ancient doors creak open as the party enters a ${dungeon.theme} dungeon...*\n\n**${dungeon.theme.charAt(0).toUpperCase() + dungeon.theme.slice(1)} awaits!**`,
+              color: difficultyColors[difficulty] || 0xF59E0B,
+              fields: [
+                { name: '📊 Difficulty', value: difficulty, inline: true },
+                { name: '🚪 Rooms', value: `${roomCount}`, inline: true },
+                { name: '🎭 Theme', value: dungeon.theme, inline: true }
+              ]
+            };
+            if (dungeonImageUrl) {
+              introEmbed.image = { url: dungeonImageUrl };
+            }
+            await channel.send({ embeds: [introEmbed] });
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonTool] Failed to create dungeon thread: ${e.message}`);
+      }
+    }
+
     const response = {
       embeds: [{
         title: `🏰 ${dungeon.name}`,
-        description: `The party enters a ${dungeon.theme} dungeon...`,
+        description: threadId && threadId !== message?.channel?.id 
+          ? `The party enters a ${dungeon.theme} dungeon... Continue the adventure in <#${threadId}>`
+          : `The party enters a ${dungeon.theme} dungeon...`,
         color: difficultyColors[difficulty] || 0xF59E0B,
         fields: [
           { name: '📊 Difficulty', value: difficulty, inline: true },
@@ -123,6 +179,11 @@ export class DungeonTool extends BasicTool {
         ]
       }]
     };
+
+    // Add dungeon image if generated
+    if (dungeonImageUrl) {
+      response.embeds[0].thumbnail = { url: dungeonImageUrl };
+    }
     
     // Add dungeon action buttons
     const buttons = createDungeonButtons({ 
@@ -387,9 +448,18 @@ export class DungeonTool extends BasicTool {
 
     let desc = descriptions[room.type] || 'A mysterious room.';
 
+    // Show puzzle if entrance room has unsolved puzzle
+    if (room.type === 'entrance' && room.puzzle && !room.puzzle.solved) {
+      desc = `🧩 **Entrance Puzzle!** A riddle blocks your path...\n\n*"${room.puzzle.riddle}"*`;
+      desc += `\n\n💡 Use \`🏰 dungeon solve <answer>\` to attempt the riddle.`;
+      if (room.puzzle.attempts > 0) {
+        desc += `\n⚠️ Attempts remaining: ${room.puzzle.maxAttempts - room.puzzle.attempts}`;
+      }
+    }
+
     if (room.encounter?.monsters && !room.cleared) {
       const monsterList = room.encounter.monsters
-        .map(m => `${m.count}x ${m.id}`)
+        .map(m => `${m.count}x ${m.emoji || '👹'} ${m.name || m.id}`)
         .join(', ');
       desc += `\n👹 **Enemies:** ${monsterList}`;
     }
@@ -403,5 +473,91 @@ export class DungeonTool extends BasicTool {
     }
 
     return desc;
+  }
+
+  async _solvePuzzle(avatar, params) {
+    const sheet = await this.characterService.getSheet(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party.`);
+    }
+
+    const dungeon = await this.dungeonService.getActiveDungeon(sheet.partyId);
+    if (!dungeon) {
+      return this._errorEmbed('No active dungeon. Use 🏰 dungeon enter to start one.');
+    }
+
+    const answer = params.join(' ').trim();
+    if (!answer) {
+      // Show the current puzzle
+      const puzzle = await this.dungeonService.getPuzzle(dungeon._id);
+      if (!puzzle) {
+        return {
+          embeds: [{
+            title: '🧩 No Puzzle',
+            description: 'There is no active puzzle to solve!',
+            color: 0x10B981
+          }]
+        };
+      }
+
+      return {
+        embeds: [{
+          title: '🧩 Entrance Puzzle',
+          description: `*"${puzzle.riddle}"*`,
+          color: 0x3B82F6,
+          fields: [
+            { name: '💡 How to Answer', value: '`🏰 dungeon solve <your answer>`', inline: false },
+            { name: '⏳ Attempts Remaining', value: `${puzzle.attemptsLeft}`, inline: true }
+          ]
+        }]
+      };
+    }
+
+    // Try to solve
+    const result = await this.dungeonService.solvePuzzle(dungeon._id, answer);
+
+    if (result.success) {
+      // Award XP for solving the puzzle
+      if (result.xpAwarded) {
+        await this.questService?.onEvent?.(avatar._id, 'puzzle_solved');
+        await this.tutorialQuestService?.onEvent?.(avatar._id, 'puzzle_solved');
+      }
+
+      const buttons = createActionMenu([
+        { id: 'dnd_dungeon_map', label: 'View Map', emoji: '🗺️' },
+        { id: 'dnd_dungeon_move_room_2', label: 'Proceed', emoji: '🚪' }
+      ]);
+
+      const response = {
+        embeds: [{
+          title: '🎉 Puzzle Solved!',
+          description: result.message,
+          color: 0x10B981,
+          fields: result.xpAwarded ? [{ name: '⭐ XP Earned', value: `${result.xpAwarded}`, inline: true }] : []
+        }]
+      };
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+    }
+
+    // Failed attempt
+    const response = {
+      embeds: [{
+        title: result.failed ? '❌ Puzzle Failed' : '🤔 Wrong Answer',
+        description: result.message,
+        color: result.failed ? 0xEF4444 : 0xF59E0B,
+        fields: result.hint ? [{ name: '💡 Hint', value: result.hint, inline: false }] : []
+      }]
+    };
+
+    if (result.failed) {
+      // Add proceed button even on failure
+      const buttons = createActionMenu([
+        { id: 'dnd_dungeon_map', label: 'View Map', emoji: '🗺️' },
+        { id: 'dnd_dungeon_move_room_2', label: 'Continue Anyway', emoji: '🚪' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+    }
+
+    return response;
   }
 }

@@ -169,6 +169,30 @@ export class DiscordService {
         
         const { customId } = interaction;
         
+        // Handle attack target selection buttons
+        if (customId.startsWith('attack_target_')) {
+          const targetName = customId.replace('attack_target_', '').replace(/_/g, ' ');
+          try {
+            await interaction.deferUpdate();
+            
+            // Post target selection as message to trigger the actual attack
+            const channel = await this.client.channels.fetch(interaction.channel.id);
+            if (channel) {
+              // The attack command will be handled by the bot's message handler
+              await channel.send({
+                content: `🗡️ attack ${targetName}`,
+                allowedMentions: { users: [] }
+              });
+            }
+          } catch (e) {
+            this.logger?.error?.(`[DiscordService] Attack target button error: ${e.message}`);
+            try {
+              await interaction.reply({ content: `❌ Failed to attack: ${e.message}`, flags: 64 });
+            } catch {}
+          }
+          return;
+        }
+        
         // Handle battle video generation button
         if (customId.startsWith('generate_battle_video_')) {
           const channelId = customId.replace('generate_battle_video_', '');

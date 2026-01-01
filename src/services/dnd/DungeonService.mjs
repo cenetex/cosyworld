@@ -41,6 +41,40 @@ const DIFFICULTY_ROOMS = {
   deadly: { min: 9, max: 12 }
 };
 
+// Entrance puzzle definitions
+const ENTRANCE_PUZZLES = {
+  crypt: [
+    { riddle: 'What walks on four legs in the morning, two at noon, and three in the evening?', answer: 'human', hint: 'Think about the ages of life.' },
+    { riddle: 'I am not alive, yet I grow; I don\'t have lungs, but I need air; I don\'t have a mouth, but water kills me. What am I?', answer: 'fire', hint: 'I flicker and dance.' },
+    { riddle: 'The more you take, the more you leave behind. What am I?', answer: 'footsteps', hint: 'Look down as you walk.' }
+  ],
+  cave: [
+    { riddle: 'I can be cracked, made, told, and played. What am I?', answer: 'joke', hint: 'I bring laughter.' },
+    { riddle: 'What has a head and a tail but no body?', answer: 'coin', hint: 'Flip me to decide.' },
+    { riddle: 'I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?', answer: 'map', hint: 'I guide travelers.' }
+  ],
+  castle: [
+    { riddle: 'What can you catch but not throw?', answer: 'cold', hint: 'Achoo!' },
+    { riddle: 'I speak without a mouth and hear without ears. I have no body, but I come alive with the wind. What am I?', answer: 'echo', hint: 'Hello... hello... hello...' },
+    { riddle: 'What has keys but no locks, space but no room, and you can enter but can\'t go inside?', answer: 'keyboard', hint: 'Type your answer.' }
+  ],
+  ruins: [
+    { riddle: 'What gets wetter the more it dries?', answer: 'towel', hint: 'You use me after bathing.' },
+    { riddle: 'What can travel around the world while staying in a corner?', answer: 'stamp', hint: 'I\'m found on letters.' },
+    { riddle: 'I have branches, but no fruit, trunk, or leaves. What am I?', answer: 'bank', hint: 'Money grows on me.' }
+  ],
+  sewers: [
+    { riddle: 'What has an eye but cannot see?', answer: 'needle', hint: 'I help you sew.' },
+    { riddle: 'What comes once in a minute, twice in a moment, but never in a thousand years?', answer: 'm', hint: 'Look at the letters.' },
+    { riddle: 'What can fill a room but takes up no space?', answer: 'light', hint: 'Flip the switch.' }
+  ],
+  forest: [
+    { riddle: 'What has roots that nobody sees, is taller than trees, up it goes yet never grows?', answer: 'mountain', hint: 'I touch the clouds.' },
+    { riddle: 'What belongs to you but others use it more than you do?', answer: 'name', hint: 'Hello, nice to meet you.' },
+    { riddle: 'I can be long or short; I can be grown or bought; I can be painted or left bare; I can be round or square. What am I?', answer: 'nails', hint: 'Found on fingers and in hardware stores.' }
+  ]
+};
+
 export class DungeonService {
   constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, logger }) {
     this.databaseService = databaseService;
@@ -97,8 +131,10 @@ export class DungeonService {
 
     const rooms = [];
 
-    // Entrance room
-    rooms.push(this._createRoom('room_1', 'combat', partyLevel, 'entrance', difficulty));
+    // Entrance room with puzzle
+    const entranceRoom = this._createRoom('room_1', 'entrance', partyLevel, 'entrance', difficulty);
+    entranceRoom.puzzle = this._generateEntrancePuzzle(selectedTheme);
+    rooms.push(entranceRoom);
 
     // Generate middle rooms
     for (let i = 2; i < roomCount; i++) {
@@ -124,6 +160,7 @@ export class DungeonService {
       currentRoom: 'room_1',
       partyId: new ObjectId(partyId),
       status: 'active',
+      entrancePuzzleSolved: false,
       createdAt: new Date(),
       completedAt: null
     };
@@ -321,7 +358,7 @@ export class DungeonService {
       const bossOptions = getMonstersByCR(bossCR);
       if (bossOptions.length > 0) {
         const boss = bossOptions[this.diceService.rollDie(bossOptions.length) - 1];
-        monsters.push({ id: boss.id, count: 1 });
+        monsters.push({ id: boss.id, name: boss.name, emoji: boss.emoji, count: 1 });
         remaining -= boss.xp;
       }
     }
@@ -334,7 +371,7 @@ export class DungeonService {
       const minion = minions[this.diceService.rollDie(minions.length) - 1];
       const count = Math.max(1, Math.floor(remaining / minion.xp));
       if (count > 0) {
-        monsters.push({ id: minion.id, count: Math.min(count, 6) });
+        monsters.push({ id: minion.id, name: minion.name, emoji: minion.emoji, count: Math.min(count, 6) });
       }
     }
 
@@ -657,6 +694,115 @@ export class DungeonService {
     await this.partyService.setDungeon(dungeon.partyId, null);
 
     this.logger?.info?.(`[DungeonService] Dungeon ${dungeonId} abandoned`);
+  }
+
+  /**
+   * Generate an entrance puzzle based on dungeon theme
+   * @private
+   */
+  _generateEntrancePuzzle(theme) {
+    const puzzles = ENTRANCE_PUZZLES[theme] || ENTRANCE_PUZZLES.crypt;
+    const puzzle = puzzles[this.diceService.rollDie(puzzles.length) - 1];
+    return {
+      ...puzzle,
+      solved: false,
+      attempts: 0,
+      maxAttempts: 3
+    };
+  }
+
+  /**
+   * Attempt to solve the entrance puzzle
+   * @param {string} dungeonId - The dungeon ID
+   * @param {string} answer - The player's answer
+   * @returns {Promise<Object>} Result with success, message, and hint
+   */
+  async solvePuzzle(dungeonId, answer) {
+    const dungeon = await this.getDungeon(dungeonId);
+    if (!dungeon) throw new Error('Dungeon not found');
+
+    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
+    if (!entranceRoom?.puzzle) {
+      return { success: true, message: 'No puzzle to solve!' };
+    }
+
+    if (entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+      return { success: true, message: 'The puzzle has already been solved!' };
+    }
+
+    const normalizedAnswer = answer.toLowerCase().trim();
+    const correctAnswer = entranceRoom.puzzle.answer.toLowerCase().trim();
+
+    if (normalizedAnswer === correctAnswer || normalizedAnswer.includes(correctAnswer)) {
+      // Puzzle solved!
+      const col = await this.collection();
+      await col.updateOne(
+        { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+        { 
+          $set: { 
+            'rooms.$.puzzle.solved': true,
+            entrancePuzzleSolved: true
+          } 
+        }
+      );
+
+      this.logger?.info?.(`[DungeonService] Puzzle solved for dungeon ${dungeonId}`);
+      return { 
+        success: true, 
+        message: '✅ Correct! The ancient doors groan open, revealing the path ahead...',
+        xpAwarded: 50
+      };
+    }
+
+    // Wrong answer
+    entranceRoom.puzzle.attempts++;
+    const attemptsLeft = entranceRoom.puzzle.maxAttempts - entranceRoom.puzzle.attempts;
+
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+      { $inc: { 'rooms.$.puzzle.attempts': 1 } }
+    );
+
+    if (attemptsLeft <= 0) {
+      // Out of attempts - reveal answer and let them proceed with penalty
+      return {
+        success: false,
+        failed: true,
+        message: `❌ Too many wrong attempts! The answer was: **${entranceRoom.puzzle.answer}**. The doors open reluctantly...`,
+        hint: null
+      };
+    }
+
+    return {
+      success: false,
+      failed: false,
+      message: `❌ That's not quite right. ${attemptsLeft} attempt(s) remaining.`,
+      hint: entranceRoom.puzzle.hint,
+      attemptsLeft
+    };
+  }
+
+  /**
+   * Get the current puzzle for a dungeon
+   * @param {string} dungeonId - The dungeon ID
+   * @returns {Promise<Object|null>} The puzzle or null if none/solved
+   */
+  async getPuzzle(dungeonId) {
+    const dungeon = await this.getDungeon(dungeonId);
+    if (!dungeon) return null;
+
+    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
+    if (!entranceRoom?.puzzle || entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+      return null;
+    }
+
+    return {
+      riddle: entranceRoom.puzzle.riddle,
+      attempts: entranceRoom.puzzle.attempts,
+      maxAttempts: entranceRoom.puzzle.maxAttempts,
+      attemptsLeft: entranceRoom.puzzle.maxAttempts - entranceRoom.puzzle.attempts
+    };
   }
 
   getRoomEmoji(type) {

@@ -22,6 +22,17 @@ export class QuestTool extends BasicTool {
     this.cooldownMs = 3000;
   }
 
+  /**
+   * Mark a response as ephemeral (user-only visibility)
+   * @private
+   */
+  _makeEphemeral(response) {
+    if (typeof response === 'string') {
+      return { message: response, ephemeral: true };
+    }
+    return { ...response, ephemeral: true };
+  }
+
   getDescription() {
     return 'View and manage your quests';
   }

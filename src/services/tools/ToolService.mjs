@@ -34,16 +34,23 @@ import { CastTool } from './tools/CastTool.mjs';
 import { QuestTool } from './tools/QuestTool.mjs';
 
 function normalizeToolResult(rawResult) {
-  const base = { message: null, notify: true, embeds: null };
+  const base = { message: null, notify: true, embeds: null, components: null, ephemeral: false };
   if (rawResult === undefined || rawResult === null) {
     return { ...base, notify: false };
   }
   if (typeof rawResult === 'object' && !Array.isArray(rawResult)) {
     const notify = rawResult.notify === undefined ? true : Boolean(rawResult.notify);
+    const ephemeral = rawResult.ephemeral === true;
     
-    // Check for embed responses
+    // Check for embed responses with optional components
     if (rawResult.embeds && Array.isArray(rawResult.embeds)) {
-      return { message: null, embeds: rawResult.embeds, notify };
+      return { 
+        message: null, 
+        embeds: rawResult.embeds, 
+        components: rawResult.components || null,
+        notify,
+        ephemeral
+      };
     }
     
     let message = rawResult.message ?? rawResult.result ?? rawResult.text ?? null;
@@ -54,9 +61,9 @@ function normalizeToolResult(rawResult) {
         message = String(message);
       }
     }
-    return { message, embeds: null, notify };
+    return { message, embeds: null, components: rawResult.components || null, notify, ephemeral };
   }
-  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), embeds: null, notify: true };
+  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), embeds: null, components: null, notify: true, ephemeral: false };
 }
 
 export class ToolService {
@@ -512,6 +519,13 @@ export class ToolService {
       }
       if (this.toolServices?.battleMediaService) {
         context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;
+      }
+      // D&D services for dungeon combat integration
+      if (this.toolServices?.dungeonService) {
+        context.dungeonService = context.dungeonService || this.toolServices.dungeonService;
+      }
+      if (this.toolServices?.characterService) {
+        context.characterService = context.characterService || this.toolServices.characterService;
       }
       // Provide discordService for downstream actions (e.g., KO movement)
       if (this.discordService && !context.discordService) context.discordService = this.discordService;

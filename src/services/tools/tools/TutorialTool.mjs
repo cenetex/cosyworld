@@ -28,6 +28,17 @@ export class TutorialTool extends BasicTool {
     this.cooldownMs = 5000;
   }
 
+  /**
+   * Mark a response as ephemeral (user-only visibility)
+   * @private
+   */
+  _makeEphemeral(response) {
+    if (typeof response === 'string') {
+      return { message: response, ephemeral: true };
+    }
+    return { ...response, ephemeral: true };
+  }
+
   getDescription() {
     return 'Begin or continue the D&D tutorial quest';
   }
@@ -63,36 +74,47 @@ export class TutorialTool extends BasicTool {
 
   async execute(message, params, avatar) {
     const subcommand = params[0] || 'status';
+    let response;
 
     switch (subcommand) {
     case 'start':
     case 'begin':
-      return this.startTutorial(avatar);
+      response = await this.startTutorial(avatar);
+      break;
       
     case 'status':
     case 'current':
     case '':
-      return this.showStatus(avatar);
+      response = await this.showStatus(avatar);
+      break;
       
     case 'reset':
-      return this.resetTutorial(avatar);
+      response = await this.resetTutorial(avatar);
+      break;
       
     case 'ready':
-      return this.handleTrigger(avatar, 'ready');
+      response = await this.handleTrigger(avatar, 'ready');
+      break;
 
     case 'solo':
-      return this.handleSolo(avatar);
+      response = await this.handleSolo(avatar);
+      break;
 
     case 'skip':
-      return this.skipCurrentStep(avatar);
+      response = await this.skipCurrentStep(avatar);
+      break;
 
     case 'next':
-      return this.advanceNext(avatar);
+      response = await this.advanceNext(avatar);
+      break;
 
     default:
       // Check if it's a trigger word
-      return this.handleTrigger(avatar, subcommand);
+      response = await this.handleTrigger(avatar, subcommand);
     }
+
+    // Make all tutorial responses ephemeral (user-only)
+    return this._makeEphemeral(response);
   }
 
   /**
