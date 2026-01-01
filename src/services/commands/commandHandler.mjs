@@ -43,9 +43,17 @@ export async function handleCommands(message, services = {
         await services.discordService.reactToMessage(message, tool.emoji);
         const toolResult = await services.toolService.executeTool(command, message, args, avatar, context);
         const resultMessage = toolResult?.message ?? (typeof toolResult === 'string' ? toolResult : null);
+        const resultEmbeds = toolResult?.embeds ?? null;
         const shouldNotify = toolResult?.notify !== false;
-        if (tool.replyNotification && shouldNotify && resultMessage) {
-          await services.discordService.replyToMessage(message, `${avatar.name} used ${tool.name} ${tool.emoji ||''}\n${resultMessage}`);
+        if (tool.replyNotification && shouldNotify) {
+          if (resultEmbeds) {
+            // Send embed response - no "X used Y" text for embeds
+            await services.discordService.replyToMessage(message, { 
+              embeds: resultEmbeds 
+            });
+          } else if (resultMessage) {
+            await services.discordService.replyToMessage(message, `${avatar.name} used ${tool.name} ${tool.emoji ||''}\n${resultMessage}`);
+          }
         }
         await services.discordService.reactToMessage(message, tool.emoji);
       } else {
