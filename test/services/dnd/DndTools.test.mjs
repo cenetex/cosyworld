@@ -150,7 +150,7 @@ describe('CharacterTool', () => {
     });
 
     it('should return error if character already exists', async () => {
-      deps.characterService.getSheet.mockResolvedValue(createMockSheet());
+      deps.characterService.createCharacter.mockRejectedValue(new Error('Character already exists for this avatar'));
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
@@ -184,7 +184,7 @@ describe('CharacterTool', () => {
       await tool.execute(message, ['create', 'elf', 'wizard'], avatar);
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
-        avatar._id.toString(),
+        avatar._id,
         'character_created',
         expect.any(Object)
       );
