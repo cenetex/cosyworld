@@ -1138,6 +1138,25 @@ export class ResponseCoordinator {
             this.logger.warn?.(`[ResponseCoordinator] Could not fetch new channel ${freshAvatar.channelId}, using original`);
           }
         }
+        
+        // Check if this is a partial avatar without an image - hydrate it before speaking
+        if (freshAvatar && !freshAvatar.imageUrl && (freshAvatar.isPartial === true || freshAvatar.model === 'partial')) {
+          this.logger.info?.(`[ResponseCoordinator] Detected partial avatar ${avatar.name} without image, hydrating before speaking`);
+          try {
+            const hydratedAvatar = await this.avatarService.hydratePartialAvatarForSpeaking(
+              freshAvatar,
+              channel.id,
+              { discordService: this.discordService }
+            );
+            if (hydratedAvatar?.imageUrl) {
+              avatar = hydratedAvatar;
+              this.logger.info?.(`[ResponseCoordinator] Successfully hydrated ${avatar.name} with image`);
+            }
+          } catch (hydrateError) {
+            this.logger.warn?.(`[ResponseCoordinator] Failed to hydrate partial avatar: ${hydrateError.message}`);
+            // Continue with original avatar - they can still speak without an image
+          }
+        }
       } catch (e) {
         this.logger.warn?.(`[ResponseCoordinator] Failed to check avatar location: ${e.message}`);
         // Continue with original channel if check fails

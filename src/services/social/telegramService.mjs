@@ -1090,6 +1090,12 @@ class TelegramService {
         this.checkMediaGenerationLimit(null, 'tweet')
       ]);
 
+      // Fetch wallet holdings context if the bot has a wallet address
+      const walletAddress = persona?.bot?.walletAddress;
+      const walletHoldingsContext = walletAddress 
+        ? await this.contextManager.getWalletHoldingsContext(walletAddress, { limit: 5 })
+        : null;
+
       // Fetch RAG context
       let ragContext = [];
       if (this.knowledgeBaseService) {
@@ -1136,6 +1142,7 @@ class TelegramService {
         plan: await this.planManager.buildPlanContext(channelId, 3),
         media: await this.mediaManager.buildRecentMediaContext(channelId, 5),
         buybot: buybotContext,
+        walletHoldings: walletHoldingsContext,
         isMention,
         triggerType: isPrivate ? 'private' : triggerType,
         rag: ragContext,

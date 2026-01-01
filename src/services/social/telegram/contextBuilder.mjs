@@ -15,6 +15,7 @@ import { buildCreditInfo, estimateTokens } from './utils.mjs';
  * @param {Object} params.plan - Current plan context
  * @param {Object} params.media - Recent media context
  * @param {Object} params.buybot - Buybot context
+ * @param {string} params.walletHoldings - Wallet holdings context for wallet avatars
  * @param {boolean} params.isMention - Whether the bot was mentioned (just affects response timing)
  * @param {string} params.triggerType - What triggered this response ('mention', 'reply', 'active_participant', 'gap')
  * @param {Object} params.lastXError - Last X posting error (for AI context, not broadcast)
@@ -28,6 +29,7 @@ export function buildConversationContext({
   plan,
   media,
   buybot,
+  walletHoldings,
   isMention,
   triggerType = 'general',
   rag = [],
@@ -94,6 +96,8 @@ Rule: Only call media generation tools if credits available. If 0, explain natur
 
   const buybotContextStr = buybot ? `\\nToken Tracking (Buybot):\\n${buybot}\\n` : '';
 
+  const walletHoldingsStr = walletHoldings ? `\\n${walletHoldings}\\n` : '';
+
   const ragContextStr = rag.length > 0 
     ? `\\nRelevant Knowledge:\\n${rag.map(r => `- ${r.content} (Source: ${r.source})`).join('\\n')}\\n`
     : '';
@@ -145,7 +149,7 @@ Response patterns:
 - Questions to you → speak with targetMessageId to reply directly
 - Something exciting → react first, then speak
 - Between others → wait (or react silently if genuinely amused/interested)
-${toolCreditContext}${buybotContextStr}${xErrorContextStr}
+${toolCreditContext}${buybotContextStr}${walletHoldingsStr}${xErrorContextStr}
 ${ragContextStr}
 ${plan.summary}
 ${media.summary}${messageIdContext}

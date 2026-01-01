@@ -1632,8 +1632,62 @@ export class AvatarService {
     return this.schemaService.executePipeline({ prompt, schema });
   }
 
+  /**
+   * Generate an avatar image, optionally using a reference image (e.g., token icon)
+   * @param {string} prompt - The image generation prompt
+   * @param {Object} uploadOptions - Upload options including optional referenceImageUrl
+   * @returns {Promise<string|null>} - The generated image URL or null
+   */
   async generateAvatarImage(prompt, uploadOptions = {}) {
-    return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
+    const { referenceImageUrl, ...cleanUploadOptions } = uploadOptions;
+    
+    // If we have a reference image and aiService supports composition, try that first
+    if (referenceImageUrl && this.aiService?.composeImageWithGemini && this.aiService?.s3Service?.downloadImage) {
+      try {
+        this.logger?.info?.(`[AvatarService] Attempting image composition with reference: ${referenceImageUrl.substring(0, 60)}...`);
+        
+        // Download the reference image
+        const refBuffer = await this.aiService.s3Service.downloadImage(referenceImageUrl);
+        if (refBuffer) {
+          const images = [{
+            data: refBuffer.toString('base64'),
+            mimeType: 'image/png',
+            label: 'token_icon'
+          }];
+          
+          // Build enhanced prompt that incorporates the token icon
+          const compositionPrompt = `Create a unique character avatar inspired by and incorporating visual elements from the attached token icon image. 
+The character should:
+- Reflect the token's visual identity, colors, and themes
+- Be a full character portrait suitable for a profile image
+- Maintain the essence and color palette of the token icon
+- Have a complete character design with face, expression, and personality
+
+Character prompt: ${prompt}
+
+Style: Fantasy character portrait, 1:1 square format, detailed, expressive, suitable for avatar use. 
+The token icon's colors and motifs should be visible in the character's design.`;
+
+          const compositionOptions = {
+            ...cleanUploadOptions,
+            source: cleanUploadOptions.source || 'avatar.wallet.composed',
+            characterReference: false, // Token icon is design inspiration, not a character to replicate
+          };
+          
+          const composedUrl = await this.aiService.composeImageWithGemini(images, compositionPrompt, compositionOptions);
+          
+          if (composedUrl) {
+            this.logger?.info?.(`[AvatarService] Successfully composed avatar with token reference: ${composedUrl.substring(0, 60)}...`);
+            return composedUrl;
+          }
+        }
+      } catch (composeError) {
+        this.logger?.warn?.(`[AvatarService] Image composition with reference failed, falling back to standard generation: ${composeError.message}`);
+      }
+    }
+    
+    // Fall back to standard generation via schemaService
+    return this.schemaService.generateImage(prompt, '1:1', cleanUploadOptions);
   }
 
   _canGenerateAvatarImages() {
@@ -1648,10 +1702,11 @@ export class AvatarService {
     }
   }
 
-  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false } = {}) {
+  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false, forceHydratePartial = false, referenceImageUrl = null } = {}) {
     if (!avatar) return null;
     if (!force && avatar.imageUrl) return avatar;
-    if (!force && avatar.isPartial === true) return avatar;
+    // Skip partial avatars unless forceHydratePartial is set (used when avatar speaks)
+    if (!force && !forceHydratePartial && avatar.isPartial === true) return avatar;
     if (!this._canGenerateAvatarImages()) {
       this.logger?.debug?.(`[AvatarService] Skipping image hydration for ${avatar?.name || avatar?._id}: Replicate not configured`);
       return avatar;
@@ -1686,7 +1741,8 @@ export class AvatarService {
         avatarId: cacheKey,
         avatarName: avatar.name,
         avatarEmoji: avatar.emoji,
-        prompt: generationPrompt
+        prompt: generationPrompt,
+        referenceImageUrl: referenceImageUrl || null, // Token icon for wallet avatars
       };
 
       const imageUrl = await this.generateAvatarImage(generationPrompt, uploadOptions);
@@ -1721,6 +1777,88 @@ export class AvatarService {
     }
 
     return avatar;
+  }
+
+  /**
+   * Hydrate a partial avatar when it's selected to speak.
+   * This upgrades the avatar with a generated image and posts an announcement embed.
+   * @param {Object} avatar - The partial avatar to hydrate
+   * @param {string} channelId - Channel where the avatar will speak
+   * @param {Object} options - Additional options
+   * @param {Object} options.discordService - Discord service for posting embeds
+   * @returns {Promise<Object>} - The hydrated avatar with imageUrl
+   */
+  async hydratePartialAvatarForSpeaking(avatar, channelId, options = {}) {
+    if (!avatar) return null;
+    
+    // Skip if already has an image
+    if (avatar.imageUrl) return avatar;
+    
+    // Skip if not a partial avatar (shouldn't happen, but safety check)
+    if (avatar.isPartial !== true && avatar.model !== 'partial') return avatar;
+    
+    this.logger?.info?.(`[AvatarService] Hydrating partial avatar ${avatar.name} for speaking in channel ${channelId}`);
+    
+    // Get token image reference if this is a wallet avatar
+    let referenceImageUrl = null;
+    if (avatar.walletContext?.tokenImage) {
+      referenceImageUrl = avatar.walletContext.tokenImage;
+    } else if (avatar.walletAddress && this.configService?.services?.buybotService) {
+      // Try to find the tracked token for this channel to get its image
+      try {
+        const trackedTokens = await this.configService.services.buybotService.getTrackedTokens(channelId);
+        if (trackedTokens?.length > 0 && trackedTokens[0]?.tokenImage) {
+          referenceImageUrl = trackedTokens[0].tokenImage;
+        }
+      } catch (e) {
+        this.logger?.debug?.(`[AvatarService] Could not fetch token image for hydration: ${e.message}`);
+      }
+    }
+    
+    // Hydrate the avatar image
+    const hydratedAvatar = await this._ensureAvatarImage(avatar, {
+      reason: 'speaking',
+      forceHydratePartial: true,
+      referenceImageUrl,
+    });
+    
+    // Update the model if it was 'partial'
+    if (hydratedAvatar.imageUrl && (hydratedAvatar.model === 'partial' || !hydratedAvatar.model)) {
+      try {
+        const newModel = await this._resolveHydratedModel(hydratedAvatar.model);
+        const db = await this._db();
+        await db.collection(this.AVATARS_COLLECTION).updateOne(
+          { _id: hydratedAvatar._id },
+          { $set: { model: newModel, upgradedAt: new Date() } }
+        );
+        hydratedAvatar.model = newModel;
+        this.logger?.info?.(`[AvatarService] Upgraded ${hydratedAvatar.name} model to ${newModel}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to upgrade model for ${hydratedAvatar.name}: ${e.message}`);
+      }
+    }
+    
+    // Post announcement embed if we successfully generated an image
+    if (hydratedAvatar.imageUrl && options.discordService) {
+      try {
+        const isWalletAvatar = Boolean(hydratedAvatar.walletAddress || hydratedAvatar.summoner?.startsWith('wallet:'));
+        const announceMessage = isWalletAvatar 
+          ? `🎨 New trader avatar ready!`
+          : `🎨 ${hydratedAvatar.name} has emerged!`;
+        
+        await options.discordService.sendMiniAvatarEmbed(
+          hydratedAvatar,
+          channelId,
+          announceMessage
+        );
+        
+        this.logger?.info?.(`[AvatarService] Posted hydration announcement for ${hydratedAvatar.name}`);
+      } catch (embedError) {
+        this.logger?.warn?.(`[AvatarService] Failed to post hydration embed: ${embedError.message}`);
+      }
+    }
+    
+    return hydratedAvatar;
   }
 
   /**
@@ -1773,7 +1911,7 @@ export class AvatarService {
     return db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
   }
 
-  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
+  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null, referenceImageUrl = null }) {
     const normalizedGuildId = normalizeGuildId(guildId);
     let details = null;
     try {
@@ -1833,7 +1971,8 @@ export class AvatarService {
           avatarName: details.name,
           avatarEmoji: details.emoji,
           prompt: details.description,
-          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim()
+          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim(),
+          referenceImageUrl: referenceImageUrl || null, // Token icon for visual inspiration
         };
         imageUrl = await this.generateAvatarImage(details.description, uploadOptions);
       } catch (e) {
@@ -2426,7 +2565,8 @@ export class AvatarService {
       return null;
     }
 
-    const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
+    // Note: effectiveShouldAutoActivate is kept for claimed avatar activation in existing avatar path
+    const _effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
     const effectiveShouldSendIntro = claimedSource ? false : shouldSendIntro;
     
     let upgradeAppliedThisCall = false;
@@ -2461,14 +2601,15 @@ export class AvatarService {
         
         let appliedUpgrade = false;
         try {
-          // Generate image for existing avatar
+          // Generate image for existing avatar, using token icon as reference if available
           const uploadOptions = {
             source: 'avatar.upgrade',
             avatarName: avatar.name,
             avatarEmoji: avatar.emoji,
             avatarId: avatar._id,
             prompt: avatar.description,
-            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim()
+            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim(),
+            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
           };
           const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
           
@@ -2740,12 +2881,13 @@ export class AvatarService {
   this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, hasBalance: ${hasPositiveBalance}, meetsThreshold: ${meetsFullAvatarThreshold}, fullAvatarEligible: ${isEligibleForFullAvatar})`);
         
   if (isEligibleForFullAvatar) {
-          // Full avatar with image
+          // Full avatar with image, using token icon as reference if available
           avatar = await this.createAvatar({
             prompt,
             summoner: `wallet:${walletAddress}`,
             channelId: context.discordChannelId || context.channelId || null,
-            guildId: context.guildId || null
+            guildId: context.guildId || null,
+            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
           });
         } else {
           // Partial avatar (no image)
@@ -2859,10 +3001,11 @@ export class AvatarService {
     
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
-    // Activate in channel and optionally send introduction per token preferences
-  const activationTargetChannel = context.discordChannelId || context.channelId || avatar.channelId || null;
+    // Activate in channel and announce new wallet avatar
+    const activationTargetChannel = context.discordChannelId || context.channelId || avatar.channelId || null;
 
-    if (effectiveShouldAutoActivate && activationTargetChannel) {
+    // ALWAYS activate new wallet avatars in their channel so they can participate
+    if (activationTargetChannel) {
       try {
         // Activate in channel
         await this.activateAvatarInChannel(
@@ -2871,77 +3014,84 @@ export class AvatarService {
         );
         this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${activationTargetChannel}`);
         
-        // Send introduction message (only for new avatars)
-        if (effectiveShouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
-          try {
-            const balanceStr = normalizedBalance
-              ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
-              : `${context.tokenSymbol || 'their token position'}`;
-            
-            // Generate brief introduction (1 sentence, trading-themed)
-            const introPrompt = [
-              { 
-                role: 'system', 
-                content: `You are ${avatar.name}, ${avatar.description}. You're a Solana trader with ${balanceStr}.` 
-              },
-              { 
-                role: 'user', 
-                content: `You just made a ${context.tokenSymbol} trade. Introduce yourself briefly in ONE sentence (max 15 words). Be enthusiastic and trading-focused.` 
-              }
-            ];
-            
-            const intro = await this.aiService.chat(introPrompt, { temperature: 0.9 });
-            const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
-            
-            if (introText && introText.length > 5 && !introText.includes('No response')) {
-              // Send to Discord as webhook (avatar speaks!)
-              await this.configService.services.discordService.sendAsWebhook(
-                activationTargetChannel,
-                `${avatar.emoji} *${introText.trim()}*`,
-                avatar
-              );
-              
-              // Send avatar embed to show their profile
-              setTimeout(async () => {
-                try {
-                  await this.configService.services.discordService.sendMiniAvatarEmbed(
-                    avatar,
-                    activationTargetChannel,
-                    `New trader detected!`
-                  );
-                } catch (embedError) {
-                  this.logger?.warn?.(`[AvatarService] Failed to send avatar embed: ${embedError.message}`);
+        // ALWAYS post embed for new wallet avatars to announce their creation
+        if (!avatar._existing && this.configService?.services?.discordService) {
+          const discordService = this.configService.services.discordService;
+          const balanceStr = normalizedBalance
+            ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
+            : `${context.tokenSymbol || 'their token position'}`;
+          
+          // If token preferences say to send intro, generate an AI introduction first
+          if (effectiveShouldSendIntro) {
+            try {
+              // Generate brief introduction (1 sentence, trading-themed)
+              const introPrompt = [
+                { 
+                  role: 'system', 
+                  content: `You are ${avatar.name}, ${avatar.description}. You're a Solana trader with ${balanceStr}.` 
+                },
+                { 
+                  role: 'user', 
+                  content: `You just made a ${context.tokenSymbol} trade. Introduce yourself briefly in ONE sentence (max 15 words). Be enthusiastic and trading-focused.` 
                 }
-              }, 500);
+              ];
               
-              this.logger?.info?.(`[AvatarService] Sent Discord introduction for wallet avatar ${avatar.name}`);
+              const intro = await this.aiService.chat(introPrompt, { temperature: 0.9 });
+              const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
               
-              // Also send to Telegram channel if configured
-              if (context.telegramChannelId) {
-                try {
-                  const telegramService = this.configService?.services?.telegramService;
-                  if (telegramService) {
-                    const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
-                    const telegramMessage = 
-                      `${avatar.emoji} <b>New Trader: ${avatar.name}</b>\n\n` +
-                      `<i>${introText.trim()}</i>\n\n` +
-                      `🔗 Wallet: <code>${walletSlug}</code>\n` +
-                      `💰 Balance: ${balanceStr}`;
-                    
-                    await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
-                      parse_mode: 'HTML'
-                    });
-                    
-                    this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
+              if (introText && introText.length > 5 && !introText.includes('No response')) {
+                // Send to Discord as webhook (avatar speaks!)
+                await discordService.sendAsWebhook(
+                  activationTargetChannel,
+                  `${avatar.emoji} *${introText.trim()}*`,
+                  avatar
+                );
+                this.logger?.info?.(`[AvatarService] Sent Discord introduction for wallet avatar ${avatar.name}`);
+                
+                // Also send to Telegram channel if configured
+                if (context.telegramChannelId) {
+                  try {
+                    const telegramService = this.configService?.services?.telegramService;
+                    if (telegramService) {
+                      const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
+                      const telegramMessage = 
+                        `${avatar.emoji} <b>New Trader: ${avatar.name}</b>\n\n` +
+                        `<i>${introText.trim()}</i>\n\n` +
+                        `🔗 Wallet: <code>${walletSlug}</code>\n` +
+                        `💰 Balance: ${balanceStr}`;
+                      
+                      await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
+                        parse_mode: 'HTML'
+                      });
+                      
+                      this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
+                    }
+                  } catch (telegramErr) {
+                    this.logger?.warn?.(`[AvatarService] Failed to send Telegram introduction: ${telegramErr.message}`);
                   }
-                } catch (telegramErr) {
-                  this.logger?.warn?.(`[AvatarService] Failed to send Telegram introduction: ${telegramErr.message}`);
                 }
               }
+            } catch (introErr) {
+              this.logger?.warn?.(`[AvatarService] Failed to generate introduction: ${introErr.message}`);
             }
-          } catch (introErr) {
-            this.logger?.warn?.(`[AvatarService] Failed to send introduction: ${introErr.message}`);
           }
+          
+          // Always post avatar embed after a short delay (whether or not we sent an intro)
+          setTimeout(async () => {
+            try {
+              const embedMessage = avatar.imageUrl 
+                ? `🎨 New trader detected!`
+                : `👋 New trader entering the chat!`;
+              await discordService.sendMiniAvatarEmbed(
+                avatar,
+                activationTargetChannel,
+                embedMessage
+              );
+              this.logger?.info?.(`[AvatarService] Posted new wallet avatar embed for ${avatar.name}`);
+            } catch (embedError) {
+              this.logger?.warn?.(`[AvatarService] Failed to send avatar embed: ${embedError.message}`);
+            }
+          }, 500);
         }
       } catch (err) {
         this.logger?.warn?.(`[AvatarService] Failed to activate wallet avatar: ${err.message}`);

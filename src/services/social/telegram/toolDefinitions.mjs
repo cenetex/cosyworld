@@ -118,8 +118,8 @@ TIPS:
                   description: 'For react_to_message: Any single emoji character you want to use as a reaction.'
                 },
                 targetMessageId: {
-                  type: 'number',
-                  description: 'Message ID from [msg:XXX] in recent messages. Required for react_to_message, optional for speak (makes it a reply).'
+                  type: 'string',
+                  description: 'Message ID from [msg:XXX] in recent messages. Required for react_to_message, optional for speak (makes it a reply). Always pass as a string.'
                 },
                 // Media action fields
                 description: {

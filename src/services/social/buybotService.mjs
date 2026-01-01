@@ -722,6 +722,7 @@ export class BuybotService {
             tokenName: tokenInfo.name,
             tokenSymbol: tokenInfo.symbol,
             tokenDecimals: tokenInfo.decimals,
+            tokenImage: tokenInfo.image || null, // Store token icon/logo for wallet avatar generation
             usdPrice: tokenInfo.usdPrice || null, // Store USD price if available
             marketCap: tokenInfo.marketCap || null, // Store market cap if available
             lastPriceUpdate: new Date(), // Track when price was last updated
@@ -735,6 +736,8 @@ export class BuybotService {
             },
             addedAt: new Date(),
             lastEventAt: null,
+            // Set lastSeenAt to now so we only track NEW transactions from this point forward
+            lastSeenAt: new Date(),
             errorCount: 0, // Initialize error counter
             lastErrorAt: null,
             warning: tokenInfo.warning || null, // Store any warnings about the token
@@ -1814,20 +1817,26 @@ export class BuybotService {
       
       // Update token with fresh price and market data
       if (freshTokenInfo && freshTokenInfo.usdPrice) {
+        const updateFields = { 
+          usdPrice: freshTokenInfo.usdPrice,
+          marketCap: freshTokenInfo.marketCap || null,
+          lastPriceUpdate: new Date(),
+        };
+        // Update token image if we got one and don't already have it
+        if (freshTokenInfo.image && !token.tokenImage) {
+          updateFields.tokenImage = freshTokenInfo.image;
+        }
         await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
           { channelId, tokenAddress },
-          { 
-            $set: { 
-              usdPrice: freshTokenInfo.usdPrice,
-              marketCap: freshTokenInfo.marketCap || null,
-              lastPriceUpdate: new Date(),
-            } 
-          }
+          { $set: updateFields }
         );
         
         // Merge fresh data into token object for notifications
         token.usdPrice = freshTokenInfo.usdPrice;
         token.marketCap = freshTokenInfo.marketCap;
+        if (freshTokenInfo.image && !token.tokenImage) {
+          token.tokenImage = freshTokenInfo.image;
+        }
       }
 
       // Build incremental parameters for Solana monitor queries
@@ -2074,8 +2083,19 @@ export class BuybotService {
         return;
       }
 
+      // Maximum age for transactions to process (prevent syncing old history)
+      const MAX_TX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+      const cutoffTime = Date.now() - MAX_TX_AGE_MS;
+
       // Filter for token transfers and swaps
       for (const tx of transactions) {
+        // Skip transactions older than 24 hours to prevent processing historical data
+        const txTimestamp = tx.timestamp * 1000;
+        if (txTimestamp < cutoffTime) {
+          this.logger.debug(`[BuybotService] Skipping old transaction ${tx.signature} (${new Date(txTimestamp).toISOString()})`);
+          continue;
+        }
+
         // Skip if we've already processed this transaction
         const existing = await this.db.collection(this.TOKEN_EVENTS_COLLECTION).findOne({
           signature: tx.signature,
@@ -2626,6 +2646,7 @@ export class BuybotService {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             tokenDecimals,
+            tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
             amount: formattedAmount,
             currentBalance: null,
             usdValue: null,
@@ -2679,6 +2700,7 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 tokenDecimals,
+                tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
                 amount: formattedAmount,
                 currentBalance: null,
                 usdValue: null,
@@ -2726,6 +2748,7 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 tokenDecimals,
+                tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
                 amount: formattedAmount,
                 currentBalance: null,
                 usdValue: null,
@@ -3744,6 +3767,7 @@ export class BuybotService {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             tokenDecimals,
+            tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
             amount: formattedAmount,
             currentBalance: null,
             usdValue: null,
@@ -3761,6 +3785,7 @@ export class BuybotService {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               tokenDecimals,
+              tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
               amount: formattedAmount,
               currentBalance: null,
               usdValue: null,
@@ -3778,6 +3803,7 @@ export class BuybotService {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               tokenDecimals,
+              tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
               amount: formattedAmount,
               currentBalance: null,
               usdValue: null,
