@@ -10,6 +10,7 @@ import { DiceService } from '../battle/diceService.mjs';
 
 // Legacy imports for fallback compatibility
 import { getMonstersByCR, calculateEncounterXP } from '../../data/dnd/monsters.mjs';
+import { rollTreasure } from '../../data/dnd/items.mjs';
 
 const ROOM_WEIGHTS = {
   combat: 40,
@@ -41,11 +42,12 @@ const DIFFICULTY_ROOMS = {
 };
 
 export class DungeonService {
-  constructor({ databaseService, partyService, characterService, monsterService, discordService, logger }) {
+  constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, logger }) {
     this.databaseService = databaseService;
     this.partyService = partyService;
     this.characterService = characterService;
     this.monsterService = monsterService;
+    this.combatEncounterService = combatEncounterService;
     this.discordService = discordService;
     this.diceService = new DiceService();
     this.logger = logger;
@@ -96,16 +98,16 @@ export class DungeonService {
     const rooms = [];
 
     // Entrance room
-    rooms.push(this._createRoom('room_1', 'combat', partyLevel, 'entrance'));
+    rooms.push(this._createRoom('room_1', 'combat', partyLevel, 'entrance', difficulty));
 
     // Generate middle rooms
     for (let i = 2; i < roomCount; i++) {
       const type = this._weightedRandom(ROOM_WEIGHTS);
-      rooms.push(this._createRoom(`room_${i}`, type, partyLevel));
+      rooms.push(this._createRoom(`room_${i}`, type, partyLevel, null, difficulty));
     }
 
     // Boss room
-    rooms.push(this._createRoom(`room_${roomCount}`, 'boss', partyLevel));
+    rooms.push(this._createRoom(`room_${roomCount}`, 'boss', partyLevel, null, difficulty));
 
     // Connect rooms (linear with some branches)
     this._connectRooms(rooms);
@@ -160,7 +162,7 @@ export class DungeonService {
     return 'combat';
   }
 
-  _createRoom(id, type, partyLevel, override = null) {
+  _createRoom(id, type, partyLevel, override = null, difficulty = 'medium') {
     const room = {
       id,
       type: override || type,
@@ -174,7 +176,7 @@ export class DungeonService {
     };
 
     if (type === 'treasure') {
-      room.encounter = this._generateTreasure(partyLevel);
+      room.encounter = this._generateTreasure(partyLevel, difficulty);
     }
 
     return room;
@@ -339,13 +341,20 @@ export class DungeonService {
     return monsters;
   }
 
-  _generateTreasure(partyLevel) {
-    const goldBase = partyLevel * 10;
-    const gold = goldBase + this.diceService.rollDie(goldBase);
+  /**
+   * Generate treasure for a treasure room using the new loot tables
+   * @param {number} partyLevel - Average party level
+   * @param {string} difficulty - Dungeon difficulty (easy, medium, hard, deadly)
+   * @returns {Object} Treasure encounter with gold and items
+   */
+  _generateTreasure(partyLevel, difficulty = 'medium') {
+    // Use the new rollTreasure system with proper loot tables
+    const rollDie = (sides) => this.diceService.rollDie(sides);
+    const treasure = rollTreasure(difficulty, partyLevel, rollDie);
     
     return {
-      gold,
-      items: [],
+      gold: treasure.gold,
+      items: treasure.items,
       collected: false
     };
   }
@@ -402,6 +411,12 @@ export class DungeonService {
       throw new Error('Room not accessible');
     }
 
+    // Check that current room is cleared before moving to next (DS-2 fix)
+    // Allow staying in current room, but require clearing before advancing
+    if (dungeon.currentRoom !== roomId && !currentRoom.cleared) {
+      throw new Error('Must clear current room before advancing');
+    }
+
     const col = await this.collection();
     await col.updateOne(
       { _id: dungeon._id },
@@ -419,6 +434,12 @@ export class DungeonService {
     if (roomIndex === -1) throw new Error('Room not found');
 
     const room = dungeon.rooms[roomIndex];
+    
+    // Already cleared
+    if (room.cleared) {
+      return { room, xpAwarded: 0, dungeonComplete: false, alreadyCleared: true };
+    }
+
     const xpAwarded = room.encounter?.xpValue || 0;
 
     const col = await this.collection();
@@ -439,6 +460,144 @@ export class DungeonService {
     }
 
     return { room, xpAwarded, dungeonComplete: isBoss };
+  }
+
+  /**
+   * Start a combat encounter for a room (DS-1 fix: combat integration)
+   * This integrates with the existing CombatEncounterService
+   * @param {string} dungeonId - The dungeon ID
+   * @param {string} roomId - The room ID
+   * @param {string} channelId - Discord channel ID for the encounter
+   * @returns {Promise<Object>} The created encounter or null if room has no combat
+   */
+  async startRoomCombat(dungeonId, roomId, channelId) {
+    if (!this.combatEncounterService) {
+      this.logger?.warn?.('[DungeonService] CombatEncounterService not available, skipping combat');
+      return null;
+    }
+
+    const dungeon = await this.getDungeon(dungeonId);
+    if (!dungeon) throw new Error('Dungeon not found');
+
+    const room = dungeon.rooms.find(r => r.id === roomId);
+    if (!room) throw new Error('Room not found');
+
+    // Only combat and boss rooms have encounters
+    if (room.type !== 'combat' && room.type !== 'boss' && room.type !== 'entrance') {
+      return null;
+    }
+
+    // Room already cleared
+    if (room.cleared) {
+      return null;
+    }
+
+    // No monsters in encounter
+    if (!room.encounter?.monsters?.length) {
+      return null;
+    }
+
+    // Get party avatars
+    const party = await this.partyService.getPartyWithAvatars(dungeon.partyId);
+    if (!party) throw new Error('Party not found');
+
+    const partyAvatars = party.members.map(m => m.avatar).filter(Boolean);
+    if (partyAvatars.length === 0) {
+      throw new Error('No party members available for combat');
+    }
+
+    // Instantiate monsters as pseudo-avatars for combat
+    const monsterCombatants = this._instantiateMonstersForCombat(room.encounter.monsters);
+
+    // Combine all participants
+    const allParticipants = [...partyAvatars, ...monsterCombatants];
+
+    // Create the encounter
+    const encounter = this.combatEncounterService.createEncounter({
+      channelId,
+      participants: allParticipants,
+      sourceMessage: null
+    });
+
+    // Store encounter context for later resolution
+    encounter.dungeonContext = {
+      dungeonId: String(dungeon._id),
+      roomId,
+      monsters: room.encounter.monsters
+    };
+
+    // Roll initiative and start combat
+    await this.combatEncounterService.rollInitiative(encounter);
+
+    this.logger?.info?.(`[DungeonService] Started combat in room ${roomId} with ${monsterCombatants.length} monsters`);
+    
+    return encounter;
+  }
+
+  /**
+   * Instantiate monsters from encounter data into combat-ready pseudo-avatars
+   * @private
+   */
+  _instantiateMonstersForCombat(monsters) {
+    const combatants = [];
+    
+    for (const monster of monsters) {
+      const count = monster.count || 1;
+      for (let i = 0; i < count; i++) {
+        const instanceId = `monster_${monster.id || monster.monsterId}_${i + 1}_${Date.now()}`;
+        combatants.push({
+          _id: instanceId,
+          id: instanceId,
+          name: count > 1 ? `${monster.name} ${i + 1}` : monster.name,
+          emoji: monster.emoji || '👹',
+          isMonster: true,
+          stats: {
+            hp: monster.stats?.hp || 10,
+            maxHp: monster.stats?.hp || 10,
+            ac: monster.stats?.ac || 10,
+            strength: monster.stats?.str || 10,
+            dexterity: monster.stats?.dex || 10,
+            constitution: monster.stats?.con || 10,
+            intelligence: monster.stats?.int || 10,
+            wisdom: monster.stats?.wis || 10,
+            charisma: monster.stats?.cha || 10
+          },
+          attacks: monster.attacks || [],
+          side: 'enemy'
+        });
+      }
+    }
+    
+    return combatants;
+  }
+
+  /**
+   * Handle combat resolution for a dungeon room
+   * Called when combat ends to properly clear the room and award XP
+   * @param {string} dungeonId - The dungeon ID
+   * @param {string} roomId - The room ID
+   * @param {Object} combatResult - Result from the combat encounter
+   */
+  async resolveCombat(dungeonId, roomId, combatResult) {
+    const dungeon = await this.getDungeon(dungeonId);
+    if (!dungeon) return;
+
+    const room = dungeon.rooms.find(r => r.id === roomId);
+    if (!room || room.cleared) return;
+
+    // Check if party won (any party member still standing)
+    const partyWon = combatResult?.winners?.some(w => !w.isMonster) || 
+                     !combatResult?.winners?.every(w => w.isMonster);
+
+    if (partyWon) {
+      // Clear the room and award XP
+      await this.clearRoom(dungeonId, roomId);
+      this.logger?.info?.(`[DungeonService] Party cleared room ${roomId} after combat victory`);
+    } else {
+      this.logger?.info?.(`[DungeonService] Party defeated in room ${roomId}`);
+    }
+
+    return { partyWon, room };
   }
 
   async collectTreasure(dungeonId, roomId) {

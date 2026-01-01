@@ -300,6 +300,7 @@ export class MonsterService {
     const prompt = this._buildGenerationPrompt(filters);
 
     // Define the monster schema for structured output
+    // All properties must be in 'required' for strict JSON mode
     const schema = {
       name: 'dnd-monster',
       strict: true,
@@ -327,14 +328,14 @@ export class MonsterService {
           damageModifier: { type: 'number', description: 'Damage modifier (1-5)' },
           damageType: { type: 'string', description: 'Damage type (slashing, piercing, bludgeoning, fire, etc.)' },
           trait1: { type: 'string', description: 'First special ability or trait' },
-          trait2: { type: 'string', description: 'Second special ability or trait (optional)' },
+          trait2: { type: 'string', description: 'Second special ability or trait, use empty string if none' },
           immunity: { type: 'string', description: 'Damage immunity if any (poison, fire, etc.) or "none"' },
           vulnerability: { type: 'string', description: 'Damage vulnerability if any or "none"' }
         },
         required: ['name', 'description', 'emoji', 'cr', 'xp', 'hp', 'ac', 'speed',
           'str', 'dex', 'con', 'int', 'wis', 'cha',
           'attackName', 'attackBonus', 'damageDice', 'damageDiceCount', 'damageModifier', 'damageType',
-          'trait1'],
+          'trait1', 'trait2', 'immunity', 'vulnerability'],
         additionalProperties: false
       }
     };
@@ -344,6 +345,8 @@ export class MonsterService {
     let result;
     try {
       result = await this.schemaService.executePipeline({ prompt, schema });
+      // Coerce numeric fields in case AI returns strings
+      result = this._coerceNumericFields(result);
     } catch (err) {
       this.logger?.error?.(`[MonsterService] AI generation failed:`, err);
       // Fallback to a random existing monster or generic creature
@@ -417,7 +420,7 @@ export class MonsterService {
    * @private
    */
   _buildGenerationPrompt(filters) {
-    const parts = ['Generate a unique D&D 5e-style monster'];
+    const parts = ['Generate a unique D&D 5e-style monster in JSON format'];
 
     if (filters.habitats?.length) {
       parts.push(`found in ${filters.habitats.join(' or ')} environments`);
@@ -447,7 +450,7 @@ export class MonsterService {
       parts.push(`appropriate for a level ${filters.targetLevel} party (CR ${crRange.min}-${crRange.max})`);
     }
 
-    parts.push('. Make it creative and memorable, with unique abilities that fit its theme. Balance stats appropriately for the CR.');
+    parts.push('. Make it creative and memorable, with unique abilities that fit its theme. Balance stats appropriately for the CR. All numeric fields must be numbers, not strings.');
 
     return parts.join(' ');
   }
@@ -496,6 +499,30 @@ export class MonsterService {
 
     this.logger?.warn?.('[MonsterService] No image generation service available');
     return null;
+  }
+
+  /**
+   * Coerce numeric fields from strings to numbers
+   * Some AI models return numbers as strings despite schema specification
+   * @private
+   */
+  _coerceNumericFields(result) {
+    const numericFields = [
+      'cr', 'xp', 'hp', 'ac', 'speed',
+      'str', 'dex', 'con', 'int', 'wis', 'cha',
+      'attackBonus', 'damageDice', 'damageDiceCount', 'damageModifier'
+    ];
+
+    const coerced = { ...result };
+    for (const field of numericFields) {
+      if (coerced[field] !== undefined && typeof coerced[field] === 'string') {
+        const parsed = parseFloat(coerced[field]);
+        if (!isNaN(parsed)) {
+          coerced[field] = parsed;
+        }
+      }
+    }
+    return coerced;
   }
 
   /**

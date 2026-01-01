@@ -8,7 +8,7 @@
 import { BasicTool } from '../BasicTool.mjs';
 
 export class PartyTool extends BasicTool {
-  constructor({ logger, partyService, characterService, avatarService, discordService, questService }) {
+  constructor({ logger, partyService, characterService, avatarService, discordService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.partyService = partyService;
@@ -16,6 +16,7 @@ export class PartyTool extends BasicTool {
     this.avatarService = avatarService;
     this.discordService = discordService;
     this.questService = questService;
+    this.tutorialQuestService = tutorialQuestService;
 
     this.name = 'party';
     this.parameters = '<action> [options]';
@@ -91,8 +92,9 @@ export class PartyTool extends BasicTool {
     
     const party = await this.partyService.createParty(avatar._id, name);
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'party_ready');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'party_created');
     
     return {
       embeds: [{

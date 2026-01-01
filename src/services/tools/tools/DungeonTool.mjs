@@ -8,7 +8,7 @@
 import { BasicTool } from '../BasicTool.mjs';
 
 export class DungeonTool extends BasicTool {
-  constructor({ logger, dungeonService, partyService, characterService, discordService, questService }) {
+  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.dungeonService = dungeonService;
@@ -16,6 +16,7 @@ export class DungeonTool extends BasicTool {
     this.characterService = characterService;
     this.discordService = discordService;
     this.questService = questService;
+    this.tutorialQuestService = tutorialQuestService;
 
     this.name = 'dungeon';
     this.parameters = '<action> [options]';
@@ -94,8 +95,9 @@ export class DungeonTool extends BasicTool {
     
     const dungeon = await this.dungeonService.generateDungeon(sheet.partyId, { difficulty });
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'dungeon_entered', { difficulty });
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'dungeon_entered', { difficulty });
 
     const roomCount = dungeon.rooms.length;
     const firstRoom = dungeon.rooms[0];
@@ -130,8 +132,9 @@ export class DungeonTool extends BasicTool {
 
     const map = this.dungeonService.getDungeonMap(dungeon);
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'map_viewed');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'dungeon_map_viewed');
 
     const mapDisplay = map.map(r => {
       const marker = r.current ? '📍' : (r.cleared ? '✅' : r.emoji);
@@ -174,8 +177,9 @@ export class DungeonTool extends BasicTool {
 
     const { room } = await this.dungeonService.enterRoom(dungeon._id, roomId);
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'explored');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_moved');
 
     return {
       embeds: [{
@@ -202,14 +206,16 @@ export class DungeonTool extends BasicTool {
 
     const result = await this.dungeonService.clearRoom(dungeon._id, dungeon.currentRoom);
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'room_cleared');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_cleared');
 
     const fields = [{ name: '⭐ XP Earned', value: `${result.xpAwarded}`, inline: true }];
 
     if (result.dungeonComplete) {
-      // Trigger quest completion for dungeon
+      // Trigger quest completion for dungeon (both quest systems)
       await this.questService?.onEvent?.(avatar._id, 'dungeon_complete');
+      await this.tutorialQuestService?.onEvent?.(avatar._id, 'dungeon_completed');
       
       return {
         embeds: [{

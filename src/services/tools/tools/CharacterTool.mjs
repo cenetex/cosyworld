@@ -10,13 +10,14 @@ import { CLASSES } from '../../../data/dnd/classes.mjs';
 import { RACES, BACKGROUNDS } from '../../../data/dnd/races.mjs';
 
 export class CharacterTool extends BasicTool {
-  constructor({ logger, characterService, avatarService, discordService, questService }) {
+  constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.characterService = characterService;
     this.avatarService = avatarService;
     this.discordService = discordService;
     this.questService = questService;
+    this.tutorialQuestService = tutorialQuestService;
 
     this.name = 'character';
     this.parameters = '<action> [options]';
@@ -101,8 +102,9 @@ export class CharacterTool extends BasicTool {
       background
     });
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'character_created', { race, class: className });
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'character_created', { race, class: className });
 
     const classDef = CLASSES[className];
     const raceDef = RACES[race];
@@ -137,8 +139,9 @@ export class CharacterTool extends BasicTool {
       };
     }
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'sheet_viewed');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'sheet_viewed');
 
     const classDef = CLASSES[sheet.class];
     const raceDef = RACES[sheet.race];
@@ -199,8 +202,9 @@ export class CharacterTool extends BasicTool {
     
     await this.characterService.rest(avatar._id, restType);
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'rested', { restType });
+    await this.tutorialQuestService?.onEvent?.(avatar._id, restType === 'long' ? 'long_rest' : 'short_rest', { restType });
 
     const emoji = restType === 'long' ? '🏕️' : '☕';
     const restored = restType === 'long' 

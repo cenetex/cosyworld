@@ -27,7 +27,26 @@ export class TutorialTool extends BasicTool {
   }
 
   getUsage() {
-    return '📚 tutorial [start|status|skip|reset]';
+    return '📚 tutorial [start|status|skip|next|solo|reset]';
+  }
+
+  getHelp() {
+    return {
+      description: 'Begin or continue the D&D tutorial quest that teaches you the basics.',
+      subcommands: {
+        'start': 'Begin the tutorial (or resume where you left off)',
+        'status': 'Show your current progress',
+        'skip': 'Skip the current step (optional steps only)',
+        'next': 'Move to the next step (optional steps only)',
+        'solo': 'Skip party formation and adventure alone',
+        'reset': 'Reset and start the tutorial over'
+      },
+      examples: [
+        '📚 tutorial start',
+        '📚 tutorial skip',
+        '📚 tutorial solo'
+      ]
+    };
   }
 
   parseArgs(input) {
@@ -56,12 +75,132 @@ export class TutorialTool extends BasicTool {
       return this.handleTrigger(avatar, 'ready');
 
     case 'solo':
-      return this.handleTrigger(avatar, 'party_ready');
+      return this.handleSolo(avatar);
+
+    case 'skip':
+      return this.skipCurrentStep(avatar);
+
+    case 'next':
+      return this.advanceNext(avatar);
 
     default:
       // Check if it's a trigger word
       return this.handleTrigger(avatar, subcommand);
     }
+  }
+
+  /**
+   * Handle solo mode - marks party step as complete for solo adventurers
+   */
+  async handleSolo(avatar) {
+    try {
+      const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+      
+      if (!current || current.completed) {
+        return this.showStatus(avatar);
+      }
+
+      // Only allow solo during party step
+      if (current.step.trigger !== 'party_ready') {
+        return {
+          embeds: [{
+            title: '🎭 Solo Mode',
+            description: 'Solo mode is only available during the party formation step.',
+            color: 0xFBBF24,
+            footer: { text: 'Current step: ' + current.step.title }
+          }]
+        };
+      }
+
+      // Advance past party step
+      const result = await this.tutorialQuestService.advanceStep(avatar._id, 'party_ready');
+      
+      if (!result) {
+        return this._errorEmbed('Failed to activate solo mode');
+      }
+
+      if (result.isQuestComplete) {
+        return this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
+      }
+
+      const nextStepEmbed = this.tutorialQuestService.formatStepMessage(
+        result.nextStep,
+        this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
+        this.tutorialQuestService.getSteps().length
+      );
+
+      nextStepEmbed.embeds[0].author = { name: '🎭 Solo Mode Activated!' };
+      nextStepEmbed.embeds[0].description = 
+        'You\'ve chosen to adventure alone. You can still create or join a party later!\n\n' + 
+        (nextStepEmbed.embeds[0].description || '');
+
+      return nextStepEmbed;
+    } catch (e) {
+      this.logger?.error?.('[TutorialTool] Solo error:', e);
+      return this._errorEmbed(`Failed to enable solo mode: ${e.message}`);
+    }
+  }
+
+  /**
+   * Skip the current tutorial step (for optional steps only)
+   */
+  async skipCurrentStep(avatar) {
+    try {
+      const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+      
+      if (!current || current.completed) {
+        return this.showStatus(avatar);
+      }
+
+      // Only allow skipping optional steps
+      if (!current.step.optional) {
+        return {
+          embeds: [{
+            title: '⚠️ Cannot Skip',
+            description: `**${current.step.title}** is a required step and cannot be skipped.`,
+            color: 0xFBBF24,
+            fields: [{
+              name: '💡 Hint',
+              value: current.step.hint || 'Complete this step to continue.',
+              inline: false
+            }],
+            footer: { text: 'Only optional steps can be skipped' }
+          }]
+        };
+      }
+
+      // Skip by triggering completion
+      const result = await this.tutorialQuestService.advanceStep(avatar._id, current.step.trigger);
+      
+      if (!result) {
+        return this._errorEmbed('Failed to skip step');
+      }
+
+      if (result.isQuestComplete) {
+        return this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
+      }
+
+      const nextStepEmbed = this.tutorialQuestService.formatStepMessage(
+        result.nextStep,
+        this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
+        this.tutorialQuestService.getSteps().length
+      );
+
+      nextStepEmbed.embeds[0].author = { name: `⏭️ Skipped: ${current.step.title}` };
+
+      return nextStepEmbed;
+    } catch (e) {
+      this.logger?.error?.('[TutorialTool] Skip error:', e);
+      return this._errorEmbed(`Failed to skip step: ${e.message}`);
+    }
+  }
+
+  /**
+   * Advance to next step (for optional steps)
+   */
+  async advanceNext(avatar) {
+    // Same as skip for now
+    return this.skipCurrentStep(avatar);
   }
 
   async startTutorial(avatar) {

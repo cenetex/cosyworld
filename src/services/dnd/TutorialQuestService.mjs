@@ -12,7 +12,7 @@ const TUTORIAL_STEPS = [
     id: 'welcome',
     title: 'Welcome, Adventurer!',
     description: 'Welcome to the realm! Let me guide you through becoming a hero.',
-    instruction: 'Say **"ready"** to begin your journey.',
+    instruction: 'Say **"ready"** to begin your journey.\n\n*Use `📚 tutorial skip` at any time to skip optional steps.*',
     trigger: 'ready',
     xpReward: 0
   },
@@ -35,8 +35,8 @@ const TUTORIAL_STEPS = [
   {
     id: 'learn_spells',
     title: 'The Art of Magic',
-    description: 'Spellcasters wield arcane or divine power.',
-    instruction: 'View your available spells:\n🪄 `cast`',
+    description: 'Spellcasters wield arcane or divine power. Non-spellcasters may skip this step.',
+    instruction: 'If you\'re a spellcaster, view your available spells:\n🪄 `cast`\n\n*Non-spellcaster? This step will auto-skip, or use `📚 tutorial skip`*',
     trigger: 'spells_checked',
     optional: true,
     autoSkipCondition: 'not_spellcaster',
@@ -46,8 +46,9 @@ const TUTORIAL_STEPS = [
     id: 'create_party',
     title: 'Strength in Numbers',
     description: 'Dungeons are dangerous. Form a party with fellow adventurers!',
-    instruction: 'Create a party:\n👥 `party create <name>`\n\nOr say **"solo"** to adventure alone.',
+    instruction: 'Create or join a party:\n👥 `party create <name>`\n\n*Going solo? Use `📚 tutorial solo` to continue alone.*',
     trigger: 'party_ready',
+    optional: true,
     xpReward: 25
   },
   {
@@ -78,15 +79,16 @@ const TUTORIAL_STEPS = [
     id: 'explore',
     title: 'Deeper We Go',
     description: 'Move through the dungeon, clearing rooms and collecting treasure.',
-    instruction: 'Move to the next room:\n🏰 `dungeon move <room_id>`\n\nCollect treasure:\n🏰 `dungeon loot`',
+    instruction: 'Move to the next room:\n🏰 `dungeon move <room_id>`\n\nCollect treasure:\n🏰 `dungeon loot`\n\n*Continue exploring or use `📚 tutorial next` when ready to proceed.*',
     trigger: 'explored',
+    optional: true,
     xpReward: 50
   },
   {
     id: 'complete_dungeon',
     title: 'Victory!',
     description: 'You\'ve conquered the Tutorial Crypts! You\'re ready for greater challenges.',
-    instruction: 'Defeat the boss and complete the dungeon!',
+    instruction: 'Defeat the boss and complete the dungeon!\n🏰 `dungeon clear` in the boss room',
     trigger: 'dungeon_complete',
     xpReward: 200
   },
@@ -221,36 +223,52 @@ export class TutorialQuestService {
   async _isConditionMet(avatarId, step) {
     try {
       switch (step.trigger) {
-        case 'character_created':
-        case 'sheet_viewed': {
+        case 'character_created': {
           // Check if character sheet exists
           const sheet = await this.characterService?.getSheet?.(avatarId);
           return !!sheet;
         }
+        case 'sheet_viewed': {
+          // If character exists, they've likely seen it (can't track view explicitly)
+          const sheet = await this.characterService?.getSheet?.(avatarId);
+          return !!sheet;
+        }
         case 'party_ready': {
-          // Check if in a party
+          // Check if in a party (or solo mode accepted)
           const sheet = await this.characterService?.getSheet?.(avatarId);
           return !!sheet?.partyId;
         }
         case 'dungeon_entered':
-        case 'map_viewed':
-        case 'room_cleared':
-        case 'explored':
-        case 'dungeon_complete': {
+        case 'map_viewed': {
           // Check if active dungeon exists
           const sheet = await this.characterService?.getSheet?.(avatarId);
           if (!sheet?.partyId) return false;
           const dungeon = await this.dungeonService?.getActiveDungeon?.(sheet.partyId);
-          if (step.trigger === 'dungeon_entered' || step.trigger === 'map_viewed') {
-            return !!dungeon;
-          }
-          return false; // Other dungeon triggers require active action
+          return !!dungeon;
+        }
+        case 'room_cleared': {
+          // Check if any room in active dungeon is cleared
+          const sheet = await this.characterService?.getSheet?.(avatarId);
+          if (!sheet?.partyId) return false;
+          const dungeon = await this.dungeonService?.getActiveDungeon?.(sheet.partyId);
+          return dungeon?.rooms?.some(r => r.cleared) || false;
+        }
+        case 'explored': {
+          // Check if player has moved past first room
+          const sheet = await this.characterService?.getSheet?.(avatarId);
+          if (!sheet?.partyId) return false;
+          const dungeon = await this.dungeonService?.getActiveDungeon?.(sheet.partyId);
+          return dungeon?.currentRoom !== 'room_1' || false;
+        }
+        case 'dungeon_complete': {
+          // Would need to check dungeon history - for now require explicit trigger
+          return false;
         }
         case 'spells_checked': {
-          // Auto-skip for non-spellcasters
+          // Auto-skip ONLY for non-spellcasters (those without spellcasting ability)
           const sheet = await this.characterService?.getSheet?.(avatarId);
           if (!sheet) return false;
-          // If no spellcasting, auto-skip this step
+          // If they don't have spellcasting, auto-complete this optional step
           return !sheet.spellcasting;
         }
         case 'rested':
@@ -262,6 +280,49 @@ export class TutorialQuestService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Handle events from other tools/services to advance tutorial
+   * This allows CharacterTool, PartyTool, etc. to trigger tutorial progress
+   * @param {string} avatarId - The avatar ID
+   * @param {string} eventName - Event type (character_created, party_created, etc.)
+   * @param {Object} data - Additional event data
+   * @returns {Promise<Object|null>} Advancement result or null
+   */
+  async onEvent(avatarId, eventName, data = {}) {
+    const progress = await this.getProgress(avatarId);
+    if (!progress || progress.completedAt) return null;
+
+    // Map event names to tutorial triggers
+    const eventToTrigger = {
+      'character_created': 'character_created',
+      'sheet_viewed': 'sheet_viewed',
+      'spells_viewed': 'spells_checked',
+      'party_created': 'party_ready',
+      'party_joined': 'party_ready',
+      'dungeon_entered': 'dungeon_entered',
+      'dungeon_map_viewed': 'map_viewed',
+      'room_cleared': 'room_cleared',
+      'room_moved': 'explored',
+      'treasure_collected': 'explored',
+      'dungeon_completed': 'dungeon_complete',
+      'rested': 'rested',
+      'long_rest': 'rested',
+      'short_rest': 'rested'
+    };
+
+    const trigger = eventToTrigger[eventName];
+    if (!trigger) return null;
+
+    // Try to advance with this trigger
+    const result = await this.advanceStep(avatarId, trigger);
+    
+    if (result) {
+      this.logger?.info?.(`[TutorialQuestService] Event ${eventName} advanced tutorial for ${avatarId}`);
+    }
+    
+    return result;
   }
 
   async advanceStep(avatarId, triggerId) {

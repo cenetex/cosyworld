@@ -14,6 +14,7 @@ export class PartyService {
     this.avatarService = avatarService;
     this.logger = logger;
     this._collection = null;
+    this._inviteCollection = null;
   }
 
   async collection() {
@@ -25,6 +26,15 @@ export class PartyService {
     return this._collection;
   }
 
+  async inviteCollection() {
+    if (!this._inviteCollection) {
+      const db = await this.databaseService.getDatabase();
+      this._inviteCollection = db.collection('party_invites');
+      await this._ensureInviteIndexes();
+    }
+    return this._inviteCollection;
+  }
+
   async _ensureIndexes() {
     try {
       await this._collection.createIndex({ leaderId: 1 });
@@ -32,6 +42,17 @@ export class PartyService {
       await this._collection.createIndex({ campaignId: 1 });
     } catch (e) {
       this.logger?.warn?.('[PartyService] Index creation:', e.message);
+    }
+  }
+
+  async _ensureInviteIndexes() {
+    try {
+      await this._inviteCollection.createIndex({ partyId: 1 });
+      await this._inviteCollection.createIndex({ avatarId: 1 });
+      await this._inviteCollection.createIndex({ status: 1 });
+      await this._inviteCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-cleanup
+    } catch (e) {
+      this.logger?.warn?.('[PartyService] Invite index creation:', e.message);
     }
   }
 
@@ -76,20 +97,84 @@ export class PartyService {
     return { ...party, _id: result.insertedId };
   }
 
-  async invite(partyId, avatarId) {
+  /**
+   * Send a party invitation to an avatar (PS-1 fix: proper invitation system)
+   * @param {string} partyId - The party to invite to
+   * @param {string} avatarId - The avatar to invite
+   * @param {string} inviterId - The avatar sending the invitation
+   * @returns {Promise<Object>} The created invite
+   */
+  async sendInvite(partyId, avatarId, inviterId) {
     const party = await this.getParty(partyId);
     if (!party) throw new Error('Party not found');
     if (party.members.length >= party.maxSize) throw new Error('Party is full');
 
+    // Verify inviter is party leader or member
+    const isLeader = party.leaderId.equals(new ObjectId(inviterId));
+    const isMember = party.members.some(m => m.avatarId.equals(new ObjectId(inviterId)));
+    if (!isLeader && !isMember) throw new Error('Only party members can send invites');
+
     const sheet = await this.characterService.getSheet(avatarId);
-    if (!sheet) throw new Error('No character sheet');
-    if (sheet.partyId) throw new Error('Already in a party');
+    if (!sheet) throw new Error('Target has no character sheet');
+    if (sheet.partyId) throw new Error('Target is already in a party');
 
     // Check not already a member
     if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
       throw new Error('Already in this party');
     }
 
+    // Check for existing pending invite
+    const inviteCol = await this.inviteCollection();
+    const existingInvite = await inviteCol.findOne({
+      partyId: new ObjectId(partyId),
+      avatarId: new ObjectId(avatarId),
+      status: 'pending'
+    });
+    if (existingInvite) throw new Error('Invite already pending');
+
+    // Create the invitation (expires in 24 hours)
+    const invite = {
+      partyId: new ObjectId(partyId),
+      partyName: party.name,
+      avatarId: new ObjectId(avatarId),
+      inviterId: new ObjectId(inviterId),
+      status: 'pending',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    };
+
+    const result = await inviteCol.insertOne(invite);
+    
+    this.logger?.info?.(`[PartyService] Invite sent from ${inviterId} to ${avatarId} for party ${partyId}`);
+    return { ...invite, _id: result.insertedId };
+  }
+
+  /**
+   * Accept a party invitation
+   * @param {string} avatarId - The avatar accepting the invite
+   * @param {string} partyId - The party to join
+   * @returns {Promise<Object>} The updated party
+   */
+  async acceptInvite(avatarId, partyId) {
+    const inviteCol = await this.inviteCollection();
+    const invite = await inviteCol.findOne({
+      partyId: new ObjectId(partyId),
+      avatarId: new ObjectId(avatarId),
+      status: 'pending'
+    });
+
+    if (!invite) throw new Error('No pending invite found');
+    if (invite.expiresAt < new Date()) throw new Error('Invite has expired');
+
+    // Verify party still has room
+    const party = await this.getParty(partyId);
+    if (!party) throw new Error('Party no longer exists');
+    if (party.members.length >= party.maxSize) throw new Error('Party is now full');
+
+    const sheet = await this.characterService.getSheet(avatarId);
+    if (sheet.partyId) throw new Error('You joined another party');
+
+    // Add member to party
     const col = await this.collection();
     await col.updateOne(
       { _id: party._id },
@@ -107,7 +192,94 @@ export class PartyService {
 
     await this.characterService.setParty(avatarId, partyId);
 
-    this.logger?.info?.(`[PartyService] ${avatarId} joined party ${partyId}`);
+    // Mark invite as accepted
+    await inviteCol.updateOne(
+      { _id: invite._id },
+      { $set: { status: 'accepted', respondedAt: new Date() } }
+    );
+
+    this.logger?.info?.(`[PartyService] ${avatarId} accepted invite and joined party ${partyId}`);
+    return this.getParty(partyId);
+  }
+
+  /**
+   * Decline a party invitation
+   * @param {string} avatarId - The avatar declining the invite
+   * @param {string} partyId - The party invitation to decline
+   */
+  async declineInvite(avatarId, partyId) {
+    const inviteCol = await this.inviteCollection();
+    const result = await inviteCol.updateOne(
+      { 
+        partyId: new ObjectId(partyId), 
+        avatarId: new ObjectId(avatarId),
+        status: 'pending'
+      },
+      { $set: { status: 'declined', respondedAt: new Date() } }
+    );
+
+    if (result.matchedCount === 0) throw new Error('No pending invite found');
+    
+    this.logger?.info?.(`[PartyService] ${avatarId} declined invite for party ${partyId}`);
+  }
+
+  /**
+   * Get all pending invites for an avatar
+   * @param {string} avatarId - The avatar to check
+   * @returns {Promise<Array>} List of pending invites
+   */
+  async getPendingInvites(avatarId) {
+    const inviteCol = await this.inviteCollection();
+    return inviteCol.find({
+      avatarId: new ObjectId(avatarId),
+      status: 'pending',
+      expiresAt: { $gt: new Date() }
+    }).toArray();
+  }
+
+  /**
+   * Legacy invite method - now uses the invitation system
+   * For backwards compatibility, this immediately adds if inviter is the target (self-join)
+   * @deprecated Use sendInvite + acceptInvite instead
+   */
+  async invite(partyId, avatarId, inviterId = null) {
+    // If no inviter specified or inviter is the avatar themselves, use legacy direct add
+    if (!inviterId || inviterId === avatarId || String(inviterId) === String(avatarId)) {
+      // Legacy behavior for backward compatibility - direct join
+      const party = await this.getParty(partyId);
+      if (!party) throw new Error('Party not found');
+      if (party.members.length >= party.maxSize) throw new Error('Party is full');
+
+      const sheet = await this.characterService.getSheet(avatarId);
+      if (!sheet) throw new Error('No character sheet');
+      if (sheet.partyId) throw new Error('Already in a party');
+
+      if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
+        throw new Error('Already in this party');
+      }
+
+      const col = await this.collection();
+      await col.updateOne(
+        { _id: party._id },
+        {
+          $push: {
+            members: {
+              avatarId: new ObjectId(avatarId),
+              sheetId: sheet._id,
+              role: 'dps',
+              joinedAt: new Date()
+            }
+          }
+        }
+      );
+
+      await this.characterService.setParty(avatarId, partyId);
+      this.logger?.info?.(`[PartyService] ${avatarId} joined party ${partyId} (direct)`);
+      return;
+    }
+
+    // Use new invitation system
+    await this.sendInvite(partyId, avatarId, inviterId);
   }
 
   async leave(avatarId) {

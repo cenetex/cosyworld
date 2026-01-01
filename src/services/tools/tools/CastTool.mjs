@@ -9,7 +9,7 @@ import { BasicTool } from '../BasicTool.mjs';
 import { SPELLS } from '../../../data/dnd/spells.mjs';
 
 export class CastTool extends BasicTool {
-  constructor({ logger, spellService, characterService, avatarService, discordService, questService }) {
+  constructor({ logger, spellService, characterService, avatarService, discordService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.spellService = spellService;
@@ -17,6 +17,7 @@ export class CastTool extends BasicTool {
     this.avatarService = avatarService;
     this.discordService = discordService;
     this.questService = questService;
+    this.tutorialQuestService = tutorialQuestService;
 
     this.name = 'cast';
     this.parameters = '<spell> [target] [slot]';
@@ -115,8 +116,9 @@ export class CastTool extends BasicTool {
       return this._errorEmbed(`${avatar.name} is not a spellcaster.`);
     }
 
-    // Trigger quest progress
+    // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'spells_checked');
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'spells_viewed');
 
     const cantrips = (sheet.spellcasting.cantrips || [])
       .map(id => SPELLS[id]?.name || id)
