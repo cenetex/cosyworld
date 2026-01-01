@@ -113,8 +113,7 @@ export class TutorialTool extends BasicTool {
       response = await this.handleTrigger(avatar, subcommand);
     }
 
-    // Make all tutorial responses ephemeral (user-only)
-    return this._makeEphemeral(response);
+    return response;
   }
 
   /**

@@ -2247,39 +2247,98 @@ Message: ${messageContent}`;
 
   /** Initiative embed intentionally removed */
 
-  /** Post an embed for each new turn */
-  async _announceTurn(_encounter) {
-    // DISABLED: Turn announcements are now disabled to reduce spam
-    // Only combat start and combat summary embeds are shown
-    return;
-    
-    /* Original implementation kept for reference
+  /** Post an embed for each new turn with DM narration and action buttons */
+  async _announceTurn(encounter) {
     if (!this.discordService?.client) return;
     const channel = this._getChannel(encounter);
     if (!channel?.send) return;
     if (encounter.state !== 'active') return;
     
-    // Skip turn announcements for round 1 - they're redundant and spammy
-    if (encounter.round === 1) {
-      this.logger.debug?.(`[CombatEncounter] skipping round 1 turn announcement`);
-      return;
-    }
-    
     const currentId = this.getCurrentTurnAvatarId(encounter);
     const current = this.getCombatant(encounter, currentId);
     if (!current) return;
-    const status = encounter.combatants.map(c => `${this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' '} ${c.name}: ${c.currentHp}/${c.maxHp} HP${c.isDefending ? ' 🛡️' : ''}`).join('\n');
-    const mode = this._getCombatModeFor(current);
-    // Try pull location name for flavor
+    
+    // Skip round 1 turn announcements (combat start embed handles this)
+    if (encounter.round === 1 && encounter.currentTurnIndex === 0) {
+      this.logger.debug?.(`[CombatEncounter] skipping round 1 first turn announcement`);
+      return;
+    }
+    
+    // Build status display
+    const status = encounter.combatants.map(c => {
+      const indicator = this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' ';
+      const defending = c.isDefending ? ' 🛡️' : '';
+      const emoji = c.isMonster ? '👹' : '⚔️';
+      return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}`;
+    }).join('\n');
+    
+    // Get enemies for target selection
+    const enemies = encounter.combatants.filter(c => 
+      c.isMonster && c.currentHp > 0
+    ) || [];
+    
+    // Check if current combatant is a human-controlled avatar (not a monster)
+    const isHumanControlled = !current.isMonster;
+    
+    // Create action buttons for human players
+    const rows = [];
+    if (isHumanControlled) {
+      // Main action row
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_attack')
+          .setLabel('Attack')
+          .setEmoji('⚔️')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_cast')
+          .setLabel('Cast Spell')
+          .setEmoji('🪄')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_defend')
+          .setLabel('Defend')
+          .setEmoji('🛡️')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_flee')
+          .setLabel('Flee')
+          .setEmoji('🏃')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      rows.push(actionRow);
+      
+      // Target selection row if enemies exist
+      if (enemies.length > 0) {
+        const targetButtons = enemies.slice(0, 5).map(enemy =>
+          new ButtonBuilder()
+            .setCustomId(`dnd_target_${this._normalizeId(enemy.avatarId)}`)
+            .setLabel(`${enemy.name} (${enemy.currentHp}HP)`)
+            .setEmoji(enemy.emoji || '👹')
+            .setStyle(ButtonStyle.Danger)
+        );
+        rows.push(new ActionRowBuilder().addComponents(targetButtons));
+      }
+    }
+    
     const embed = {
+      author: { name: '🎲 The Dungeon Master' },
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: `${current.isDefending ? '🛡️ Currently defending' : (mode === 'manual' ? 'Choose an action: Attack or Defend.' : 'Acting...')}`,
-      fields: [ { name: 'Status', value: status.slice(0, 1024) } ],
-      color: 0x00AD2F,
-      footer: { text: '30s turn timer • act with narrative or commands' }
+      description: isHumanControlled 
+        ? `*"${current.name}, the battlefield awaits your command. What do you do?"*`
+        : `*${current.name} considers their options...*`,
+      fields: [ 
+        { name: '📊 Combatants', value: status.slice(0, 1024) }
+      ],
+      color: 0x7C3AED, // DM purple
+      footer: { text: `⏱️ 30 second turn timer${isHumanControlled ? ' • Click a button or type a command' : ''}` }
     };
-    try { await channel.send({ embeds: [embed] }); } catch (e) { this.logger.warn?.(`[CombatEncounter] send turn embed failed: ${e.message}`); }
-    */
+    
+    try { 
+      await channel.send({ embeds: [embed], components: rows }); 
+    } catch (e) { 
+      this.logger.warn?.(`[CombatEncounter] send turn embed failed: ${e.message}`); 
+    }
   }
 
   /** Generate a short in-character commentary line between actions */

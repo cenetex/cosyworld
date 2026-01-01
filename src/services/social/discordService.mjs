@@ -193,6 +193,80 @@ export class DiscordService {
           return;
         }
         
+        // Handle D&D button interactions (dnd_*)
+        if (customId.startsWith('dnd_')) {
+          try {
+            await interaction.deferUpdate();
+            const channel = await this.client.channels.fetch(interaction.channel.id);
+            if (!channel) return;
+            
+            // Parse the dnd_ button action
+            if (customId === 'dnd_combat_start') {
+              await channel.send({ content: '🏰 dungeon fight', allowedMentions: { users: [] } });
+            } else if (customId.startsWith('dnd_dungeon_move_')) {
+              const roomId = customId.replace('dnd_dungeon_move_', '');
+              await channel.send({ content: `🏰 dungeon move ${roomId}`, allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_dungeon_map') {
+              await channel.send({ content: '🏰 dungeon map', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_dungeon_loot') {
+              await channel.send({ content: '🏰 dungeon loot', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_dungeon_abandon') {
+              await channel.send({ content: '🏰 dungeon abandon', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_combat_attack') {
+              await channel.send({ content: '🗡️ attack', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_combat_defend') {
+              await channel.send({ content: '🛡️ defend', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_combat_flee') {
+              await channel.send({ content: '🏰 dungeon flee', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_combat_cast') {
+              await channel.send({ content: '🪄 cast', allowedMentions: { users: [] } });
+            } else if (customId.startsWith('dnd_target_')) {
+              const targetId = customId.replace('dnd_target_', '');
+              await channel.send({ content: `🗡️ attack ${targetId}`, allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_character_sheet') {
+              await channel.send({ content: '📜 character stats', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_character_short_rest') {
+              await channel.send({ content: '📜 character rest short', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_character_long_rest') {
+              await channel.send({ content: '📜 character rest long', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_puzzle_hint') {
+              await channel.send({ content: '🏰 dungeon puzzle hint', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_puzzle_answer') {
+              // For puzzle answers, we need a modal - for now, prompt with a hint
+              await interaction.followUp({ 
+                content: '💡 **Answer the riddle by typing:**\n`🏰 dungeon solve <your answer>`', 
+                flags: 64 
+              });
+            } else if (customId.startsWith('dnd_dungeon_enter_')) {
+              const dungeonId = customId.replace('dnd_dungeon_enter_', '');
+              await channel.send({ content: `🏰 dungeon enter ${dungeonId}`, allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_start') {
+              await channel.send({ content: '📚 tutorial start', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_party_create') {
+              await channel.send({ content: '👥 party create', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_party_invite') {
+              await interaction.followUp({ 
+                content: '💡 **Invite someone to your party by typing:**\n`👥 party invite @username`', 
+                flags: 64 
+              });
+            } else if (customId === 'dnd_quest_accept') {
+              await channel.send({ content: '📜 quest accept', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_quest_complete') {
+              await channel.send({ content: '📜 quest complete', allowedMentions: { users: [] } });
+            } else {
+              this.logger?.warn?.(`[DiscordService] Unknown D&D button: ${customId}`);
+            }
+          } catch (e) {
+            this.logger?.error?.(`[DiscordService] D&D button error: ${e.message}`);
+            try {
+              if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: `❌ Action failed: ${e.message}`, flags: 64 });
+              }
+            } catch {}
+          }
+          return;
+        }
+        
         // Handle battle video generation button
         if (customId.startsWith('generate_battle_video_')) {
           const channelId = customId.replace('generate_battle_video_', '');
