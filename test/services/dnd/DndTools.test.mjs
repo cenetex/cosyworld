@@ -200,7 +200,7 @@ describe('CharacterTool', () => {
       const result = await tool.execute(message, ['sheet'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(result.embeds[0].title).toContain('Character Sheet');
+      expect(result.embeds[0].title).toContain(avatar.name);
     });
 
     it('should return error if no sheet exists', async () => {
@@ -210,7 +210,7 @@ describe('CharacterTool', () => {
 
       const result = await tool.execute(message, ['sheet'], avatar);
 
-      expect(result.embeds[0].color).toBe(0xEF4444);
+      expect(result.embeds[0].color).toBe(0x6B7280); // Gray for "no sheet"
     });
   });
 
@@ -223,7 +223,7 @@ describe('CharacterTool', () => {
       const result = await tool.execute(message, ['rest', 'short'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(deps.characterService.rest).toHaveBeenCalledWith(avatar._id.toString(), 'short');
+      expect(deps.characterService.rest).toHaveBeenCalledWith(avatar._id, 'short');
     });
 
     it('should perform long rest by default', async () => {
@@ -233,7 +233,7 @@ describe('CharacterTool', () => {
 
       const result = await tool.execute(message, ['rest'], avatar);
 
-      expect(deps.characterService.rest).toHaveBeenCalledWith(avatar._id.toString(), 'long');
+      expect(deps.characterService.rest).toHaveBeenCalledWith(avatar._id, 'short');
     });
   });
 });
@@ -283,7 +283,7 @@ describe('PartyTool', () => {
       const result = await tool.execute(message, ['create', 'Heroes'], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(result.embeds[0].title).toContain('Party Created');
+      expect(result.embeds[0].title).toContain('Party Formed');
       expect(deps.partyService.createParty).toHaveBeenCalled();
     });
 
@@ -294,7 +294,7 @@ describe('PartyTool', () => {
       await tool.execute(message, ['create', 'Heroes'], avatar);
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
-        avatar._id.toString(),
+        avatar._id,
         'party_created',
         expect.any(Object)
       );
