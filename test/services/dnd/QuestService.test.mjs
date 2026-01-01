@@ -669,11 +669,11 @@ describe('QuestService', () => {
 
     describe('_getQuestColor()', () => {
       it.each([
-        ['tutorial', 0x7C3AED],
-        ['story', 0xEF4444],
-        ['side', 0x3B82F6],
-        ['daily', 0x10B981],
-        ['achievement', 0xF59E0B],
+        ['tutorial', 0x7C3AED],  // Purple
+        ['story', 0x3B82F6],     // Blue
+        ['side', 0x10B981],      // Green
+        ['daily', 0xF59E0B],     // Amber
+        ['achievement', 0xEF4444], // Red
       ])('should return correct color for %s type', (type, expectedColor) => {
         const color = service._getQuestColor(type);
         expect(color).toBe(expectedColor);

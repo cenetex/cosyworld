@@ -6,6 +6,12 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import { 
+  createPartyButtons, 
+  addComponentsToResponse, 
+  addEmbedTextSummary,
+  createActionMenu
+} from '../dndButtonComponents.mjs';
 
 export class PartyTool extends BasicTool {
   constructor({ logger, partyService, characterService, avatarService, discordService, questService, tutorialQuestService }) {
@@ -88,7 +94,10 @@ export class PartyTool extends BasicTool {
   }
 
   async _create(avatar, params) {
-    const name = params[1] || params.name || `${avatar.name}'s Party`;
+    // Join all params after action for multi-word party names
+    const name = (Array.isArray(params) && params.length > 1) 
+      ? params.slice(1).join(' ') 
+      : (params.name || `${avatar.name}'s Party`);
     
     const party = await this.partyService.createParty(avatar._id, name);
 
@@ -96,7 +105,7 @@ export class PartyTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'party_ready');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'party_created');
     
-    return {
+    const response = {
       embeds: [{
         title: '👥 Party Formed!',
         description: `**${name}** has been created!`,
@@ -105,13 +114,25 @@ export class PartyTool extends BasicTool {
           { name: '👑 Leader', value: avatar.name, inline: true },
           { name: '📊 Size', value: `1/${party.maxSize}`, inline: true }
         ],
-        footer: { text: 'Use 👥 party invite <name> to add members' }
+        footer: { text: 'Invite members or enter a dungeon!' }
       }]
     };
+    
+    // Add action buttons
+    const buttons = createActionMenu([
+      { id: `dnd_party_list_${party._id}`, label: 'View Party', emoji: '👥' },
+      { id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰' }
+    ]);
+    
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _invite(avatar, params, message) {
-    const targetName = params[1] || params.target;
+    // Join all params after action for multi-word avatar names
+    const targetName = (Array.isArray(params) && params.length > 1) 
+      ? params.slice(1).join(' ') 
+      : params.target;
+      
     if (!targetName) {
       return this._errorEmbed('Specify who to invite: 👥 party invite <name>');
     }
@@ -134,7 +155,7 @@ export class PartyTool extends BasicTool {
 
     await this.partyService.invite(sheet.partyId, target._id);
 
-    return {
+    const response = {
       embeds: [{
         title: '✅ Member Joined!',
         description: `**${target.name}** joined **${party.name}**!`,
@@ -144,33 +165,46 @@ export class PartyTool extends BasicTool {
         ]
       }]
     };
+    
+    return addEmbedTextSummary(response);
   }
 
   async _leave(avatar) {
     const result = await this.partyService.leave(avatar._id);
 
     if (result.dissolved) {
-      return {
+      return addEmbedTextSummary({
         embeds: [{
           title: '👥 Party Disbanded',
           description: `**${avatar.name}** disbanded the party.`,
           color: 0x6B7280 // Gray
         }]
-      };
+      });
     }
-    return {
+    return addEmbedTextSummary({
       embeds: [{
         title: '👋 Left Party',
         description: `**${avatar.name}** left the party.`,
         color: 0x6B7280 // Gray
       }]
-    };
+    });
   }
 
   async _list(avatar) {
     const sheet = await this.characterService.getSheet(avatar._id);
     if (!sheet?.partyId) {
-      return this._errorEmbed(`${avatar.name} is not in a party.`);
+      // Not in party - show create button
+      const response = {
+        embeds: [{
+          title: '👥 No Party',
+          description: `${avatar.name} is not in a party.`,
+          color: 0x6B7280
+        }]
+      };
+      const buttons = createActionMenu([
+        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
 
     const party = await this.partyService.getPartyWithAvatars(sheet.partyId);
@@ -179,16 +213,17 @@ export class PartyTool extends BasicTool {
     }
 
     const roleEmojis = { tank: '🛡️', healer: '💚', dps: '⚔️', support: '✨' };
+    const isLeader = party.leaderId.equals(avatar._id);
     
     const memberList = party.members.map(m => {
-      const isLeader = party.leaderId.equals(m.avatarId) ? '👑 ' : '';
+      const leaderMark = party.leaderId.equals(m.avatarId) ? '👑 ' : '';
       const roleEmoji = roleEmojis[m.role] || '❓';
       const className = m.sheet?.class || 'Unknown';
       const level = m.sheet?.level || 1;
-      return `${isLeader}${roleEmoji} **${m.avatar?.name || 'Unknown'}** - L${level} ${className}`;
+      return `${leaderMark}${roleEmoji} **${m.avatar?.name || 'Unknown'}** - L${level} ${className}`;
     }).join('\n');
 
-    return {
+    const response = {
       embeds: [{
         title: `👥 ${party.name}`,
         color: 0x3B82F6, // Blue
@@ -199,6 +234,21 @@ export class PartyTool extends BasicTool {
         ]
       }]
     };
+    
+    // Add contextual buttons
+    const actions = [];
+    if (isLeader) {
+      actions.push({ id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰' });
+    }
+    actions.push(
+      { id: `dnd_party_role_tank`, label: 'Set Tank', emoji: '🛡️' },
+      { id: `dnd_party_role_healer`, label: 'Set Healer', emoji: '💚' },
+      { id: `dnd_party_role_dps`, label: 'Set DPS', emoji: '⚔️' },
+      { id: 'dnd_party_leave', label: 'Leave', emoji: '🚪', style: 2 } // Secondary
+    );
+    
+    const buttons = createActionMenu(actions);
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _setRole(avatar, params) {
@@ -215,12 +265,12 @@ export class PartyTool extends BasicTool {
     await this.partyService.setRole(sheet.partyId, avatar._id, role);
 
     const roleEmojis = { tank: '🛡️', healer: '💚', dps: '⚔️', support: '✨' };
-    return {
+    return addEmbedTextSummary({
       embeds: [{
         title: `${roleEmojis[role]} Role Assigned`,
         description: `**${avatar.name}** is now the party **${role}**!`,
         color: 0x3B82F6 // Blue
       }]
-    };
+    });
   }
 }

@@ -8,6 +8,12 @@
 import { BasicTool } from '../BasicTool.mjs';
 import { CLASSES } from '../../../data/dnd/classes.mjs';
 import { RACES, BACKGROUNDS } from '../../../data/dnd/races.mjs';
+import { 
+  createCharacterButtons, 
+  addComponentsToResponse, 
+  addEmbedTextSummary,
+  createActionMenu
+} from '../dndButtonComponents.mjs';
 
 export class CharacterTool extends BasicTool {
   constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService }) {
@@ -109,7 +115,7 @@ export class CharacterTool extends BasicTool {
     const classDef = CLASSES[className];
     const raceDef = RACES[race];
 
-    return {
+    const response = {
       embeds: [{
         title: `✨ Character Created!`,
         description: `**${avatar.name}** is now a Level 1 ${raceDef.name} ${classDef.name}!`,
@@ -121,22 +127,33 @@ export class CharacterTool extends BasicTool {
             value: sheet.spellcasting ? sheet.spellcasting.ability : 'Martial class', 
             inline: true }
         ],
-        footer: { text: 'Use 📜 character sheet to view full details' }
+        footer: { text: 'Ready to adventure!' }
       }]
     };
+    
+    // Add action buttons
+    const buttons = createActionMenu([
+      { id: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜' },
+      { id: 'dnd_party_create', label: 'Form Party', emoji: '👥' },
+      { id: 'dnd_tutorial_status', label: 'Tutorial', emoji: '📚' }
+    ]);
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _showSheet(avatar) {
     const sheet = await this.characterService.getSheet(avatar._id);
     if (!sheet) {
-      return {
+      const response = {
         embeds: [{
           title: '📜 No Character Sheet',
           description: `${avatar.name} has no character sheet yet.`,
-          color: 0x6B7280,
-          footer: { text: 'Use 📜 character create <race> <class> to create one' }
+          color: 0x6B7280
         }]
       };
+      const buttons = createActionMenu([
+        { id: 'dnd_character_create', label: 'Create Character', emoji: '📜' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
 
     // Trigger quest progress (both quest systems)
@@ -186,7 +203,7 @@ export class CharacterTool extends BasicTool {
       fields.splice(5, 0, { name: '✨ Spell Slots', value: spellInfo, inline: false });
     }
 
-    return {
+    const response = {
       embeds: [{
         title: `📜 ${avatar.name}`,
         description: `Level ${sheet.level} ${raceDef.name} ${classDef.name}`,
@@ -195,6 +212,13 @@ export class CharacterTool extends BasicTool {
         thumbnail: avatar.imageUrl ? { url: avatar.imageUrl } : undefined
       }]
     };
+    
+    // Add character action buttons
+    const buttons = createCharacterButtons({ 
+      hasSpells: !!sheet.spellcasting, 
+      canRest: true 
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _rest(avatar, params) {
@@ -211,7 +235,7 @@ export class CharacterTool extends BasicTool {
       ? 'All spell slots, hit dice, and features restored!'
       : 'Short rest features restored!';
 
-    return {
+    const response = {
       embeds: [{
         title: `${emoji} ${restType === 'long' ? 'Long' : 'Short'} Rest`,
         description: `**${avatar.name}** takes a ${restType} rest.`,
@@ -219,6 +243,13 @@ export class CharacterTool extends BasicTool {
         fields: [{ name: '✨ Restored', value: restored, inline: false }]
       }]
     };
+    
+    // Add action buttons
+    const buttons = createActionMenu([
+      { id: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜' },
+      { id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰' }
+    ]);
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   _createBar(current, max, length = 10) {

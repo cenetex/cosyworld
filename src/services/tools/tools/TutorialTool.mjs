@@ -6,6 +6,12 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import { 
+  createTutorialButtons, 
+  addComponentsToResponse, 
+  addEmbedTextSummary,
+  createActionMenu
+} from '../dndButtonComponents.mjs';
 
 export class TutorialTool extends BasicTool {
   constructor({ tutorialQuestService, characterService, discordService, logger }) {
@@ -277,18 +283,22 @@ export class TutorialTool extends BasicTool {
       const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
 
       if (!current) {
-        return {
+        const response = {
           embeds: [{
             title: '📚 Tutorial Quest',
             description: 'You haven\'t started the tutorial yet!',
             color: 0x6B7280, // Gray
             fields: [{
               name: '🚀 Get Started',
-              value: 'Type `📚 tutorial start` to begin your adventure!',
+              value: 'Click the button below or type `📚 tutorial start` to begin!',
               inline: false
             }]
           }]
         };
+        const buttons = createActionMenu([
+          { id: 'dnd_tutorial_start', label: 'Start Tutorial', emoji: '📚' }
+        ]);
+        return addEmbedTextSummary(addComponentsToResponse(response, buttons));
       }
 
       if (current.completed) {
@@ -302,13 +312,15 @@ export class TutorialTool extends BasicTool {
               value: `${current.progress.totalXpEarned} XP`,
               inline: true
             }],
-            footer: { text: 'Use 📚 tutorial reset to replay' }
+            footer: { text: 'Ready for adventure!' }
           }]
         };
         if (current.autoAdvanced) {
           completedEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
         }
-        return completedEmbed;
+        // Add post-tutorial action buttons
+        const buttons = createTutorialButtons({ isComplete: true });
+        return addEmbedTextSummary(addComponentsToResponse(completedEmbed, buttons));
       }
 
       const stepEmbed = this.tutorialQuestService.formatStepMessage(
@@ -322,8 +334,13 @@ export class TutorialTool extends BasicTool {
 
       // Add XP info to footer
       stepEmbed.embeds[0].footer.text += ` • ⭐ ${current.progress.totalXpEarned} XP earned`;
-
-      return stepEmbed;
+      
+      // Add contextual buttons
+      const buttons = createTutorialButtons({ 
+        canSkip: current.step.optional, 
+        stepTrigger: current.step.trigger 
+      });
+      return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
       this.logger?.error?.('[TutorialTool] Status error:', e);
       return this._errorEmbed(`Failed to get status: ${e.message}`);
@@ -340,7 +357,10 @@ export class TutorialTool extends BasicTool {
       }
 
       if (result.isQuestComplete) {
-        return this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
+        const completionEmbed = this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
+        // Add post-tutorial action buttons
+        const buttons = createTutorialButtons({ isComplete: true });
+        return addEmbedTextSummary(addComponentsToResponse(completionEmbed, buttons));
       }
 
       const nextStepEmbed = this.tutorialQuestService.formatStepMessage(
@@ -355,8 +375,13 @@ export class TutorialTool extends BasicTool {
           name: `✨ Step complete! +${result.xpEarned} XP`
         };
       }
-
-      return nextStepEmbed;
+      
+      // Add contextual buttons for next step
+      const buttons = createTutorialButtons({ 
+        canSkip: result.nextStep.optional, 
+        stepTrigger: result.nextStep.trigger 
+      });
+      return addEmbedTextSummary(addComponentsToResponse(nextStepEmbed, buttons));
     } catch (e) {
       this.logger?.error?.('[TutorialTool] Trigger error:', e);
       return this.showStatus(avatar);
@@ -373,7 +398,12 @@ export class TutorialTool extends BasicTool {
       stepEmbed.embeds[0].author = { name: '🔄 Tutorial Reset!' };
       stepEmbed.embeds[0].description = 'Starting fresh...\n\n' + (stepEmbed.embeds[0].description || '');
       
-      return stepEmbed;
+      // Add button for first step
+      const buttons = createTutorialButtons({ 
+        canSkip: result.step.optional, 
+        stepTrigger: result.step.trigger 
+      });
+      return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
       this.logger?.error?.('[TutorialTool] Reset error:', e);
       return this._errorEmbed(`Failed to reset: ${e.message}`);

@@ -352,25 +352,49 @@ export class ToolService {
     const emojis = Array.from(this.toolEmojis.keys()).map(e => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     if (emojis.length === 0) return { commands: [], cleanText: text, commandLines: [] };
 
-    // Define the regex pattern to match commands and their parameters
-    const pattern = new RegExp(`(^|\\s)(${emojis.join('|')})(?:\\s+((?:(?!${emojis.join('|')}).)*))?`, 'g');
-
-    let match;
+    // Build emoji pattern
+    const emojiPattern = emojis.join('|');
+    
+    // Split text by emoji patterns, preserving the emojis
+    // Find all positions where emojis appear
+    const emojiRegex = new RegExp(`(${emojiPattern})`, 'g');
     const commands = [];
     const commandLines = [];
     let cleanText = text;
-
-    // Iterate through all matches in the text
-    while ((match = pattern.exec(text)) !== null) {
-      const emoji = match[2];
-      const paramsString = match[3] || '';
-      const params = paramsString.trim().split(/\s+/).filter(Boolean);
-      const toolName = this.toolEmojis.get(emoji);
-      const fullMatch = match[0];
-      commands.push({ command: toolName, emoji, params });
-      commandLines.push(fullMatch.trim());
-      // Remove the matched command from cleanText
-      cleanText = cleanText.replace(fullMatch, '').trim();
+    
+    // Find all emoji matches with their positions
+    const emojiMatches = [];
+    let emojiMatch;
+    while ((emojiMatch = emojiRegex.exec(text)) !== null) {
+      emojiMatches.push({
+        emoji: emojiMatch[1],
+        index: emojiMatch.index,
+        endIndex: emojiMatch.index + emojiMatch[1].length
+      });
+    }
+    
+    // For each emoji, extract its parameters (text until next emoji or end)
+    for (let i = 0; i < emojiMatches.length; i++) {
+      const current = emojiMatches[i];
+      const next = emojiMatches[i + 1];
+      
+      // Parameters are everything from after this emoji to before next emoji (or end)
+      const paramsStart = current.endIndex;
+      const paramsEnd = next ? next.index : text.length;
+      const paramsString = text.slice(paramsStart, paramsEnd).trim();
+      const params = paramsString.split(/\s+/).filter(Boolean);
+      
+      const toolName = this.toolEmojis.get(current.emoji);
+      if (toolName) {
+        const fullMatch = text.slice(
+          Math.max(0, current.index - 1), // Include preceding space if any
+          paramsEnd
+        ).trim();
+        
+        commands.push({ command: toolName, emoji: current.emoji, params });
+        commandLines.push(fullMatch);
+        cleanText = cleanText.replace(fullMatch, '').trim();
+      }
     }
 
     return { commands, cleanText, commandLines };

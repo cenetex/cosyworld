@@ -6,6 +6,12 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import { 
+  createDungeonButtons, 
+  addComponentsToResponse, 
+  addEmbedTextSummary,
+  createActionMenu
+} from '../dndButtonComponents.mjs';
 
 export class DungeonTool extends BasicTool {
   constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService }) {
@@ -104,7 +110,7 @@ export class DungeonTool extends BasicTool {
 
     const difficultyColors = { easy: 0x10B981, medium: 0xF59E0B, hard: 0xEF4444, deadly: 0x7C3AED };
 
-    return {
+    const response = {
       embeds: [{
         title: `🏰 ${dungeon.name}`,
         description: `The party enters a ${dungeon.theme} dungeon...`,
@@ -117,6 +123,14 @@ export class DungeonTool extends BasicTool {
         ]
       }]
     };
+    
+    // Add dungeon action buttons
+    const buttons = createDungeonButtons({ 
+      currentRoom: firstRoom.id, 
+      exits: [], 
+      roomCleared: false 
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _showMap(avatar) {
@@ -142,21 +156,31 @@ export class DungeonTool extends BasicTool {
     }).join('\n');
 
     const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
-    const exits = currentRoom.connections.map(c => {
+    const exitRooms = currentRoom.connections.map(c => {
       const room = dungeon.rooms.find(r => r.id === c);
-      return `${this.dungeonService.getRoomEmoji(room.type)} ${c}`;
-    }).join(', ');
+      return { id: c, name: c.replace('room_', 'R'), emoji: this.dungeonService.getRoomEmoji(room.type) };
+    });
+    const exitsText = exitRooms.map(e => `${e.emoji} ${e.name}`).join(', ');
 
-    return {
+    const response = {
       embeds: [{
         title: `🗺️ ${dungeon.name}`,
         color: 0x3B82F6, // Blue
         fields: [
           { name: '📍 Map', value: mapDisplay || 'Empty', inline: false },
-          { name: '🚪 Exits', value: exits || 'None', inline: false }
+          { name: '🚪 Exits', value: exitsText || 'None', inline: false }
         ]
       }]
     };
+    
+    // Add navigation buttons
+    const buttons = createDungeonButtons({ 
+      currentRoom: currentRoom.id, 
+      exits: exitRooms, 
+      roomCleared: currentRoom.cleared,
+      hasTreasure: currentRoom.encounter?.gold && !currentRoom.encounter?.collected
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _move(avatar, params) {
@@ -181,7 +205,12 @@ export class DungeonTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'explored');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_moved');
 
-    return {
+    const exitRooms = room.connections?.map(c => {
+      const nextRoom = dungeon.rooms.find(r => r.id === c);
+      return { id: c, name: c.replace('room_', 'R'), emoji: this.dungeonService.getRoomEmoji(nextRoom?.type) };
+    }) || [];
+
+    const response = {
       embeds: [{
         title: `🚶 Moving to ${roomId}`,
         description: `The party moves forward...`,
@@ -191,6 +220,15 @@ export class DungeonTool extends BasicTool {
         ]
       }]
     };
+    
+    // Add buttons based on room state
+    const buttons = createDungeonButtons({ 
+      currentRoom: room.id, 
+      exits: exitRooms, 
+      roomCleared: room.cleared,
+      hasTreasure: room.encounter?.gold && !room.encounter?.collected
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _clear(avatar) {
@@ -217,7 +255,7 @@ export class DungeonTool extends BasicTool {
       await this.questService?.onEvent?.(avatar._id, 'dungeon_complete');
       await this.tutorialQuestService?.onEvent?.(avatar._id, 'dungeon_completed');
       
-      return {
+      const response = {
         embeds: [{
           title: '🎉 DUNGEON COMPLETE!',
           description: 'The party emerges victorious!',
@@ -225,17 +263,26 @@ export class DungeonTool extends BasicTool {
           fields
         }]
       };
+      
+      // Post-dungeon action buttons
+      const buttons = createActionMenu([
+        { id: 'dnd_dungeon_enter', label: 'New Dungeon', emoji: '🏰' },
+        { id: 'dnd_character_long_rest', label: 'Long Rest', emoji: '🏕️' },
+        { id: 'dnd_party_list', label: 'View Party', emoji: '👥' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
 
     const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
-    const exits = room.connections.map(c => {
+    const exitRooms = room.connections.map(c => {
       const nextRoom = dungeon.rooms.find(r => r.id === c);
-      return `${this.dungeonService.getRoomEmoji(nextRoom.type)} ${c}`;
-    }).join(', ');
+      return { id: c, name: c.replace('room_', 'R'), emoji: this.dungeonService.getRoomEmoji(nextRoom.type) };
+    });
+    const exitsText = exitRooms.map(e => `${e.emoji} ${e.name}`).join(', ');
     
-    fields.push({ name: '🚪 Exits', value: exits || 'None', inline: false });
+    fields.push({ name: '🚪 Exits', value: exitsText || 'None', inline: false });
 
-    return {
+    const response = {
       embeds: [{
         title: '✅ Room Cleared!',
         description: 'The enemies have been defeated!',
@@ -243,6 +290,15 @@ export class DungeonTool extends BasicTool {
         fields
       }]
     };
+    
+    // Add navigation buttons
+    const buttons = createDungeonButtons({ 
+      currentRoom: room.id, 
+      exits: exitRooms, 
+      roomCleared: true,
+      hasTreasure: room.encounter?.gold && !room.encounter?.collected
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _loot(avatar) {
@@ -257,8 +313,17 @@ export class DungeonTool extends BasicTool {
     }
 
     const result = await this.dungeonService.collectTreasure(dungeon._id, dungeon.currentRoom);
+    
+    // Trigger quest event for treasure
+    await this.tutorialQuestService?.onEvent?.(avatar._id, 'treasure_collected');
 
-    return {
+    const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+    const exitRooms = room?.connections?.map(c => {
+      const nextRoom = dungeon.rooms.find(r => r.id === c);
+      return { id: c, name: c.replace('room_', 'R'), emoji: this.dungeonService.getRoomEmoji(nextRoom?.type) };
+    }) || [];
+
+    const response = {
       embeds: [{
         title: '💰 Treasure Collected!',
         color: 0xF59E0B, // Gold
@@ -268,6 +333,15 @@ export class DungeonTool extends BasicTool {
         ]
       }]
     };
+    
+    // Add navigation buttons
+    const buttons = createDungeonButtons({ 
+      currentRoom: room?.id, 
+      exits: exitRooms, 
+      roomCleared: true,
+      hasTreasure: false
+    });
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _abandon(avatar) {
@@ -283,13 +357,20 @@ export class DungeonTool extends BasicTool {
 
     await this.dungeonService.abandonDungeon(dungeon._id);
 
-    return {
+    const response = {
       embeds: [{
         title: '🏃 Dungeon Abandoned',
         description: `The party flees from **${dungeon.name}**...`,
         color: 0x6B7280 // Gray
       }]
     };
+    
+    // Post-abandon action buttons
+    const buttons = createActionMenu([
+      { id: 'dnd_dungeon_enter', label: 'Try Again', emoji: '🏰' },
+      { id: 'dnd_character_short_rest', label: 'Short Rest', emoji: '☕' }
+    ]);
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   _describeRoom(room) {
