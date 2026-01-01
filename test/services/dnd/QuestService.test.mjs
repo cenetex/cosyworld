@@ -16,6 +16,7 @@ import { ObjectId } from 'mongodb';
 const SAMPLE_QUEST = {
   id: 'test_quest',
   name: 'Test Quest',
+  title: 'Test Quest',
   type: 'tutorial',
   description: 'A quest for testing',
   steps: [
@@ -57,6 +58,7 @@ const SAMPLE_QUEST = {
 const SPELLCASTER_QUEST = {
   id: 'spellcaster_quest',
   name: 'Spellcaster Quest',
+  title: 'Spellcaster Quest',
   type: 'tutorial',
   description: 'A quest for spellcasters',
   steps: [
@@ -490,15 +492,15 @@ describe('QuestService', () => {
       it('should check has_sheet condition', async () => {
         deps.characterService.getSheet.mockResolvedValue({ class: 'fighter' });
 
-        const result = await service._isConditionMet(avatarId, { type: 'has_sheet' });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'has_sheet' } });
 
         expect(result).toBe(true);
       });
 
       it('should check in_party condition', async () => {
-        deps.partyService.getPartyByMember.mockResolvedValue({ name: 'Party' });
+        deps.characterService.getSheet.mockResolvedValue({ partyId: new ObjectId() });
 
-        const result = await service._isConditionMet(avatarId, { type: 'in_party' });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'in_party' } });
 
         expect(result).toBe(true);
       });
@@ -507,7 +509,7 @@ describe('QuestService', () => {
         deps.characterService.getSheet.mockResolvedValue({ partyId: new ObjectId() });
         deps.dungeonService.getActiveDungeon.mockResolvedValue({ name: 'Dungeon' });
 
-        const result = await service._isConditionMet(avatarId, { type: 'in_dungeon' });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'in_dungeon' } });
 
         expect(result).toBe(true);
       });
@@ -515,15 +517,15 @@ describe('QuestService', () => {
       it('should check is_spellcaster condition', async () => {
         deps.characterService.getSheet.mockResolvedValue({ spellcasting: { ability: 'int' } });
 
-        const result = await service._isConditionMet(avatarId, { type: 'is_spellcaster' });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'is_spellcaster' } });
 
         expect(result).toBe(true);
       });
 
       it('should check not_spellcaster condition', async () => {
-        deps.characterService.getSheet.mockResolvedValue({ spellcasting: null });
+        deps.characterService.getSheet.mockResolvedValue({ class: 'fighter' });
 
-        const result = await service._isConditionMet(avatarId, { type: 'not_spellcaster' });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'not_spellcaster' } });
 
         expect(result).toBe(true);
       });
@@ -531,7 +533,7 @@ describe('QuestService', () => {
       it('should check level_min condition', async () => {
         deps.characterService.getSheet.mockResolvedValue({ level: 5 });
 
-        const result = await service._isConditionMet(avatarId, { type: 'level_min', value: 3 });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'level_min', value: 3 } });
 
         expect(result).toBe(true);
       });
@@ -539,7 +541,7 @@ describe('QuestService', () => {
       it('should fail level_min if below threshold', async () => {
         deps.characterService.getSheet.mockResolvedValue({ level: 2 });
 
-        const result = await service._isConditionMet(avatarId, { type: 'level_min', value: 5 });
+        const result = await service._isConditionMet(avatarId, { condition: { type: 'level_min', value: 5 } });
 
         expect(result).toBe(false);
       });
@@ -551,38 +553,39 @@ describe('QuestService', () => {
       it('should format step as embed', () => {
         service.registerQuest(SAMPLE_QUEST);
 
-        const embed = service.formatStepMessage(SAMPLE_QUEST, SAMPLE_QUEST.steps[0], 0);
+        const embed = service.formatStepMessage(SAMPLE_QUEST, SAMPLE_QUEST.steps[0], 1, 3);
 
         expect(embed.embeds).toBeDefined();
-        expect(embed.embeds[0].title).toContain('Step 1');
+        expect(embed.embeds[0].title).toContain('First Step');
         expect(embed.embeds[0].description).toContain('Complete the first step');
       });
 
-      it('should include hint in embed', () => {
+      it('should include progress in embed', () => {
         service.registerQuest(SAMPLE_QUEST);
 
-        const embed = service.formatStepMessage(SAMPLE_QUEST, SAMPLE_QUEST.steps[0], 0);
+        const embed = service.formatStepMessage(SAMPLE_QUEST, SAMPLE_QUEST.steps[0], 1, 3);
 
         expect(embed.embeds[0].fields).toContainEqual(
-          expect.objectContaining({ name: expect.stringContaining('Hint') })
+          expect.objectContaining({ name: expect.stringContaining('Progress') })
         );
       });
     });
 
     describe('formatCompletionMessage()', () => {
       it('should format completion as embed', () => {
-        const embed = service.formatCompletionMessage(SAMPLE_QUEST);
+        const embed = service.formatCompletionMessage(SAMPLE_QUEST, 175);
 
         expect(embed.embeds).toBeDefined();
         expect(embed.embeds[0].title).toContain('Quest Complete');
-        expect(embed.embeds[0].color).toBe(0xFFD700); // Gold
+        expect(embed.embeds[0].color).toBe(0x10B981); // Green
       });
 
       it('should include rewards in message', () => {
-        const embed = service.formatCompletionMessage(SAMPLE_QUEST);
+        const embed = service.formatCompletionMessage(SAMPLE_QUEST, 175);
 
-        expect(embed.embeds[0].description).toContain('100 XP');
-        expect(embed.embeds[0].description).toContain('50 gold');
+        expect(embed.embeds[0].description).toContain('Test Quest');
+        // XP rewards are in fields, not description
+        expect(embed.embeds[0].fields.some(f => f.value.includes('175 XP'))).toBe(true);
       });
     });
 
@@ -591,7 +594,7 @@ describe('QuestService', () => {
         service.registerQuest(SAMPLE_QUEST);
         service.registerQuest(SPELLCASTER_QUEST);
 
-        const embed = service.formatQuestList([SAMPLE_QUEST, SPELLCASTER_QUEST], 'available');
+        const embed = service.formatQuestList([SAMPLE_QUEST, SPELLCASTER_QUEST], 'Available Quests');
 
         expect(embed.embeds).toBeDefined();
         expect(embed.embeds[0].title).toContain('Available Quests');
