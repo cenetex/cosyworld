@@ -91,6 +91,8 @@ export class SpellService {
         if (result.hit && spell.damage) {
           result.damage = this._rollDamage(spell, upcastLevels, result.critical, stats.casterLevel);
           result.damageType = spell.damage.type;
+          // Apply damage to target
+          await this._applyDamage(targetId, result.damage, result.damageType);
         }
       }
 
@@ -99,6 +101,8 @@ export class SpellService {
         result.hit = true;
         result.damage = this._rollDamage(spell, upcastLevels, false, stats.casterLevel);
         result.damageType = spell.damage.type;
+        // Apply damage to target
+        await this._applyDamage(targetId, result.damage, result.damageType);
       }
 
       // Save spells
@@ -115,16 +119,26 @@ export class SpellService {
           if (result.saved) damage = Math.floor(damage / 2);
           result.damage = damage;
           result.damageType = spell.damage.type;
+          // Apply damage to target (even on save, half damage was already calculated)
+          if (damage > 0) {
+            await this._applyDamage(targetId, damage, result.damageType);
+          }
         }
 
         if (spell.effect && !result.saved) {
           result.effectApplied = spell.effect;
+          // Apply status effect if we have the service
+          if (this.statusEffectService) {
+            await this.statusEffectService.applyEffect?.(targetId, spell.effect);
+          }
         }
       }
 
       // Healing spells
       if (spell.healing) {
         result.healing = this._rollHealing(spell, upcastLevels, stats.abilityMod);
+        // Apply healing to target
+        await this._applyHealing(targetId, result.healing);
       }
 
       // Buff effects
@@ -183,6 +197,59 @@ export class SpellService {
     if (healing.addMod) total += abilityMod;
 
     return Math.max(1, total);
+  }
+
+  /**
+   * Apply damage to a target avatar
+   * @param {string} targetId - Avatar ID
+   * @param {number} damage - Amount of damage
+   * @param {string} damageType - Type of damage (fire, cold, etc.)
+   */
+  async _applyDamage(targetId, damage, damageType) {
+    try {
+      const target = await this.avatarService.getAvatarById(targetId);
+      if (!target) return;
+
+      const currentHp = target.stats?.hp ?? 10;
+      const newHp = Math.max(0, currentHp - damage);
+
+      await this.avatarService.updateAvatar(targetId, {
+        'stats.hp': newHp
+      });
+
+      this.logger?.debug?.(`[SpellService] Applied ${damage} ${damageType} damage to ${target.name} (${currentHp} -> ${newHp})`);
+
+      // Check for unconscious/death
+      if (newHp === 0) {
+        this.logger?.info?.(`[SpellService] ${target.name} has fallen unconscious!`);
+      }
+    } catch (error) {
+      this.logger?.error?.(`[SpellService] Failed to apply damage: ${error.message}`);
+    }
+  }
+
+  /**
+   * Apply healing to a target avatar
+   * @param {string} targetId - Avatar ID
+   * @param {number} healing - Amount of healing
+   */
+  async _applyHealing(targetId, healing) {
+    try {
+      const target = await this.avatarService.getAvatarById(targetId);
+      if (!target) return;
+
+      const currentHp = target.stats?.hp ?? 10;
+      const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
+      const newHp = Math.min(maxHp, currentHp + healing);
+
+      await this.avatarService.updateAvatar(targetId, {
+        'stats.hp': newHp
+      });
+
+      this.logger?.debug?.(`[SpellService] Applied ${healing} healing to ${target.name} (${currentHp} -> ${newHp})`);
+    } catch (error) {
+      this.logger?.error?.(`[SpellService] Failed to apply healing: ${error.message}`);
+    }
   }
 
   getSpellsForClass(className, maxLevel = 9) {

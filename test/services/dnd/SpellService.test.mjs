@@ -241,7 +241,8 @@ describe('SpellService', () => {
     it('should handle saving throw spells', async () => {
       const result = await service.castSpell(casterId, 'fireball', 3, [targetId]);
 
-      expect(result.results[0]).toHaveProperty('save');
+      expect(result.results[0]).toHaveProperty('saved');
+      expect(result.results[0]).toHaveProperty('saveDC');
       expect(result.results[0]).toHaveProperty('damage');
     });
   });
@@ -268,7 +269,8 @@ describe('SpellService', () => {
 
       const result = await service.castSpell(casterId, 'fireball', 3, [targetId]);
 
-      expect(result.results[0]).toHaveProperty('dc');
+      expect(result.results[0]).toHaveProperty('saveDC');
+      expect(result.results[0].saveDC).toBe(15);
     });
 
     it('should scale cantrip damage with level', async () => {

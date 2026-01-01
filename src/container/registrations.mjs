@@ -14,6 +14,7 @@ import { CharacterService } from '../services/dnd/CharacterService.mjs';
 import { SpellService } from '../services/dnd/SpellService.mjs';
 import { PartyService } from '../services/dnd/PartyService.mjs';
 import { DungeonService } from '../services/dnd/DungeonService.mjs';
+import { MonsterService } from '../services/dnd/MonsterService.mjs';
 import { QuestService } from '../services/quests/QuestService.mjs';
 import { TUTORIAL_QUEST } from '../data/quests/tutorial.mjs';
 
@@ -36,6 +37,7 @@ export function registerPreReady({ container }) {
     spellService: asClass(SpellService).singleton(),
     partyService: asClass(PartyService).singleton(),
     dungeonService: asClass(DungeonService).singleton(),
+    monsterService: asClass(MonsterService).singleton(),
     questService: asFunction(({ databaseService, characterService, partyService, dungeonService, discordService, logger }) => {
       const service = new QuestService({ databaseService, characterService, partyService, dungeonService, discordService, logger });
       // Register built-in quests
