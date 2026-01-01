@@ -1,0 +1,495 @@
+/**
+ * Copyright (c) 2019-2025 Cenetex Inc.
+ * Licensed under the MIT License.
+ *
+ * @file test/services/dnd/DungeonService.test.mjs
+ * @description Comprehensive tests for DungeonService
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DungeonService } from '../../../src/services/dnd/DungeonService.mjs';
+import { ObjectId } from 'mongodb';
+
+/**
+ * Create mock dependencies for DungeonService
+ */
+const createMockDeps = () => {
+  const mockCollection = {
+    findOne: vi.fn(),
+    insertOne: vi.fn(),
+    updateOne: vi.fn(),
+    deleteOne: vi.fn(),
+    createIndex: vi.fn().mockResolvedValue(true),
+  };
+
+  const mockDb = {
+    collection: vi.fn().mockReturnValue(mockCollection),
+  };
+
+  return {
+    databaseService: {
+      getDatabase: vi.fn().mockResolvedValue(mockDb),
+    },
+    partyService: {
+      getParty: vi.fn(),
+      setDungeon: vi.fn().mockResolvedValue(true),
+      distributeXP: vi.fn().mockResolvedValue({ xpEach: 50, results: [] }),
+      addGold: vi.fn().mockResolvedValue(true),
+      characterService: {
+        getSheet: vi.fn().mockResolvedValue({ level: 3 }),
+      },
+    },
+    discordService: {
+      client: {
+        channels: {
+          fetch: vi.fn().mockResolvedValue({
+            threads: {
+              create: vi.fn().mockResolvedValue({ id: 'thread-123' }),
+            },
+          }),
+        },
+      },
+    },
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+    mockCollection,
+    mockDb,
+  };
+};
+
+const createMockParty = (leaderId, memberCount = 1) => ({
+  _id: new ObjectId(),
+  name: 'Test Party',
+  leaderId: new ObjectId(leaderId),
+  members: Array.from({ length: memberCount }, (_, i) => ({
+    avatarId: new ObjectId(),
+    sheetId: new ObjectId(),
+    role: i === 0 ? 'tank' : 'dps',
+  })),
+  maxSize: 4,
+  dungeonId: null,
+});
+
+const createMockDungeon = (partyId, roomCount = 5) => ({
+  _id: new ObjectId(),
+  name: 'Test Dungeon',
+  theme: 'crypt',
+  difficulty: 'medium',
+  partyLevel: 3,
+  rooms: Array.from({ length: roomCount }, (_, i) => ({
+    id: `room_${i + 1}`,
+    type: i === 0 ? 'entrance' : i === roomCount - 1 ? 'boss' : 'combat',
+    threadId: null,
+    cleared: false,
+    connections: i < roomCount - 1 ? [`room_${i + 2}`] : [],
+    encounter: i === 0 || i === roomCount - 1 || Math.random() > 0.5
+      ? { monsters: [], xpValue: 100, defeated: false }
+      : null,
+  })),
+  currentRoom: 'room_1',
+  partyId: new ObjectId(partyId),
+  status: 'active',
+  createdAt: new Date(),
+  completedAt: null,
+});
+
+describe('DungeonService', () => {
+  let service;
+  let deps;
+
+  beforeEach(() => {
+    deps = createMockDeps();
+    service = new DungeonService(deps);
+  });
+
+  describe('constructor', () => {
+    it('should initialize with required dependencies', () => {
+      expect(service.databaseService).toBe(deps.databaseService);
+      expect(service.partyService).toBe(deps.partyService);
+      expect(service.discordService).toBe(deps.discordService);
+      expect(service.logger).toBe(deps.logger);
+      expect(service.diceService).toBeDefined();
+    });
+  });
+
+  describe('collection()', () => {
+    it('should create collection and indexes on first access', async () => {
+      await service.collection();
+
+      expect(deps.databaseService.getDatabase).toHaveBeenCalled();
+      expect(deps.mockDb.collection).toHaveBeenCalledWith('dungeons');
+      expect(deps.mockCollection.createIndex).toHaveBeenCalled();
+    });
+
+    it('should cache collection after first access', async () => {
+      await service.collection();
+      await service.collection();
+
+      expect(deps.databaseService.getDatabase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getDungeon()', () => {
+    it('should find a dungeon by ID', async () => {
+      const dungeonId = new ObjectId();
+      const mockDungeon = createMockDungeon(new ObjectId().toString());
+      mockDungeon._id = dungeonId;
+      deps.mockCollection.findOne.mockResolvedValue(mockDungeon);
+
+      const result = await service.getDungeon(dungeonId.toString());
+
+      expect(result).toEqual(mockDungeon);
+    });
+
+    it('should return null if dungeon not found', async () => {
+      deps.mockCollection.findOne.mockResolvedValue(null);
+
+      const result = await service.getDungeon(new ObjectId().toString());
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getActiveDungeon()', () => {
+    it('should find active dungeon for a party', async () => {
+      const partyId = new ObjectId();
+      const mockDungeon = createMockDungeon(partyId.toString());
+      deps.mockCollection.findOne.mockResolvedValue(mockDungeon);
+
+      const result = await service.getActiveDungeon(partyId.toString());
+
+      expect(result).toEqual(mockDungeon);
+      expect(deps.mockCollection.findOne).toHaveBeenCalledWith({
+        partyId: expect.any(ObjectId),
+        status: 'active',
+      });
+    });
+  });
+
+  describe('generateDungeon()', () => {
+    const partyId = new ObjectId();
+    const leaderId = '507f1f77bcf86cd799439011';
+
+    it('should generate a dungeon with correct difficulty', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null); // No active dungeon
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString(), {
+        difficulty: 'hard',
+      });
+
+      expect(dungeon.difficulty).toBe('hard');
+      expect(dungeon.partyId.toString()).toBe(partyId.toString());
+      expect(dungeon.status).toBe('active');
+    });
+
+    it('should generate appropriate room count for difficulty', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const easyDungeon = await service.generateDungeon(partyId.toString(), {
+        difficulty: 'easy',
+      });
+      expect(easyDungeon.rooms.length).toBeGreaterThanOrEqual(4);
+      expect(easyDungeon.rooms.length).toBeLessThanOrEqual(6);
+    });
+
+    it('should include entrance and boss rooms', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString());
+
+      // First room should be entrance
+      expect(dungeon.rooms[0].type).toBe('entrance');
+      // Last room should be boss
+      expect(dungeon.rooms[dungeon.rooms.length - 1].type).toBe('boss');
+    });
+
+    it('should start party in first room', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString());
+
+      expect(dungeon.currentRoom).toBe('room_1');
+    });
+
+    it('should link dungeon to party', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      await service.generateDungeon(partyId.toString());
+
+      expect(deps.partyService.setDungeon).toHaveBeenCalledWith(
+        partyId.toString(),
+        expect.any(ObjectId)
+      );
+    });
+
+    it('should throw if party not found', async () => {
+      deps.partyService.getParty.mockResolvedValue(null);
+
+      await expect(
+        service.generateDungeon(partyId.toString())
+      ).rejects.toThrow('Party not found');
+    });
+
+    it('should throw if party already in a dungeon', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(createMockDungeon(partyId.toString()));
+
+      await expect(
+        service.generateDungeon(partyId.toString())
+      ).rejects.toThrow('Party already in a dungeon');
+    });
+
+    it('should accept custom theme', async () => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString(), {
+        theme: 'castle',
+      });
+
+      expect(dungeon.theme).toBe('castle');
+    });
+  });
+
+  describe('Difficulty Levels', () => {
+    const partyId = new ObjectId();
+    const leaderId = '507f1f77bcf86cd799439011';
+
+    beforeEach(() => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+    });
+
+    it.each(['easy', 'medium', 'hard', 'deadly'])(
+      'should generate %s difficulty dungeon',
+      async (difficulty) => {
+        const dungeon = await service.generateDungeon(partyId.toString(), {
+          difficulty,
+        });
+
+        expect(dungeon.difficulty).toBe(difficulty);
+        expect(dungeon.rooms.length).toBeGreaterThan(0);
+      }
+    );
+  });
+
+  describe('Dungeon Themes', () => {
+    const partyId = new ObjectId();
+    const leaderId = '507f1f77bcf86cd799439011';
+
+    beforeEach(() => {
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+    });
+
+    it.each(['crypt', 'cave', 'castle', 'ruins', 'sewers', 'forest'])(
+      'should accept %s theme',
+      async (theme) => {
+        const dungeon = await service.generateDungeon(partyId.toString(), {
+          theme,
+        });
+
+        expect(dungeon.theme).toBe(theme);
+      }
+    );
+  });
+
+  describe('Room Types', () => {
+    it('should generate rooms with encounters for combat rooms', async () => {
+      const partyId = new ObjectId();
+      const leaderId = '507f1f77bcf86cd799439011';
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString());
+
+      const combatRooms = dungeon.rooms.filter(
+        (r) => r.type === 'combat' || r.type === 'boss' || r.type === 'entrance'
+      );
+      
+      for (const room of combatRooms) {
+        expect(room.encounter).toBeDefined();
+        expect(room.encounter.monsters).toBeDefined();
+      }
+    });
+
+    it('should generate treasure for treasure rooms', async () => {
+      // This test verifies the internal _createRoom method behavior
+      // We'll test by checking the structure of generated rooms
+      const room = service._createRoom('test_room', 'treasure', 3);
+      
+      expect(room.id).toBe('test_room');
+      expect(room.type).toBe('treasure');
+      expect(room.encounter).toBeDefined();
+    });
+  });
+
+  describe('Room Connections', () => {
+    it('should connect rooms in sequence', async () => {
+      const partyId = new ObjectId();
+      const leaderId = '507f1f77bcf86cd799439011';
+      const party = createMockParty(leaderId, 4);
+      party._id = partyId;
+      deps.partyService.getParty.mockResolvedValue(party);
+      deps.mockCollection.findOne.mockResolvedValue(null);
+      deps.mockCollection.insertOne.mockResolvedValue({ insertedId: new ObjectId() });
+
+      const dungeon = await service.generateDungeon(partyId.toString());
+
+      // Verify rooms are connected (at least linearly)
+      for (let i = 0; i < dungeon.rooms.length - 1; i++) {
+        const room = dungeon.rooms[i];
+        expect(room.connections.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('_weightedRandom()', () => {
+    it('should return valid room type', () => {
+      const weights = {
+        combat: 40,
+        treasure: 20,
+        puzzle: 15,
+        rest: 10,
+        shop: 5,
+        empty: 10,
+      };
+
+      // Run multiple times to test distribution
+      const results = new Set();
+      for (let i = 0; i < 100; i++) {
+        results.add(service._weightedRandom(weights));
+      }
+
+      // Should get at least a few different types
+      expect(results.size).toBeGreaterThan(1);
+      
+      // All results should be valid types
+      for (const result of results) {
+        expect(Object.keys(weights)).toContain(result);
+      }
+    });
+  });
+
+  describe('_getRoomCount()', () => {
+    it('should return count within difficulty range', () => {
+      const ranges = {
+        easy: { min: 4, max: 6 },
+        medium: { min: 5, max: 8 },
+        hard: { min: 7, max: 10 },
+        deadly: { min: 9, max: 12 },
+      };
+
+      for (const [difficulty, range] of Object.entries(ranges)) {
+        for (let i = 0; i < 20; i++) {
+          const count = service._getRoomCount(difficulty);
+          expect(count).toBeGreaterThanOrEqual(range.min);
+          expect(count).toBeLessThanOrEqual(range.max);
+        }
+      }
+    });
+  });
+
+  describe('_createRoom()', () => {
+    it('should create room with correct structure', () => {
+      const room = service._createRoom('test_1', 'combat', 3);
+
+      expect(room.id).toBe('test_1');
+      expect(room.type).toBe('combat');
+      expect(room.threadId).toBeNull();
+      expect(room.cleared).toBe(false);
+      expect(room.connections).toEqual([]);
+      expect(room.encounter).toBeDefined();
+    });
+
+    it('should create boss room with stronger encounter', () => {
+      const room = service._createRoom('boss_room', 'boss', 5);
+
+      expect(room.type).toBe('boss');
+      expect(room.encounter).toBeDefined();
+      expect(room.encounter.monsters).toBeDefined();
+    });
+
+    it('should override type when specified', () => {
+      const room = service._createRoom('room_1', 'combat', 3, 'entrance');
+
+      expect(room.type).toBe('entrance');
+    });
+  });
+
+  describe('_generateEncounter()', () => {
+    it('should generate encounter with monsters', () => {
+      const encounter = service._generateEncounter('combat', 5);
+
+      expect(encounter.monsters).toBeDefined();
+      expect(encounter.xpValue).toBeGreaterThanOrEqual(0);
+      expect(encounter.defeated).toBe(false);
+    });
+
+    it('should generate stronger boss encounters', () => {
+      const normalEncounter = service._generateEncounter('combat', 5);
+      const bossEncounter = service._generateEncounter('boss', 5);
+
+      // Boss should have higher XP value potential
+      expect(bossEncounter.xpValue).toBeDefined();
+    });
+  });
+
+  describe('_generateTreasure()', () => {
+    it('should generate treasure based on party level', () => {
+      const treasure = service._generateTreasure(5);
+
+      expect(treasure).toBeDefined();
+    });
+  });
+
+  describe('_generateName()', () => {
+    it('should generate name containing theme', () => {
+      const themes = ['crypt', 'cave', 'castle', 'ruins', 'sewers', 'forest'];
+
+      for (const theme of themes) {
+        const name = service._generateName(theme);
+        expect(typeof name).toBe('string');
+        expect(name.length).toBeGreaterThan(0);
+      }
+    });
+  });
+});

@@ -26,13 +26,26 @@ import { FleeTool } from './tools/FleeTool.mjs';
 import { PotionTool } from './tools/PotionTool.mjs';
 import { WikiTool } from './tools/WikiTool.mjs';
 
+// D&D Tools
+import { CharacterTool } from './tools/CharacterTool.mjs';
+import { PartyTool } from './tools/PartyTool.mjs';
+import { DungeonTool } from './tools/DungeonTool.mjs';
+import { CastTool } from './tools/CastTool.mjs';
+import { QuestTool } from './tools/QuestTool.mjs';
+
 function normalizeToolResult(rawResult) {
-  const base = { message: null, notify: true };
+  const base = { message: null, notify: true, embeds: null };
   if (rawResult === undefined || rawResult === null) {
     return { ...base, notify: false };
   }
   if (typeof rawResult === 'object' && !Array.isArray(rawResult)) {
     const notify = rawResult.notify === undefined ? true : Boolean(rawResult.notify);
+    
+    // Check for embed responses
+    if (rawResult.embeds && Array.isArray(rawResult.embeds)) {
+      return { message: null, embeds: rawResult.embeds, notify };
+    }
+    
     let message = rawResult.message ?? rawResult.result ?? rawResult.text ?? null;
     if (message !== null && message !== undefined && typeof message !== 'string') {
       try {
@@ -41,9 +54,9 @@ function normalizeToolResult(rawResult) {
         message = String(message);
       }
     }
-    return { message, notify };
+    return { message, embeds: null, notify };
   }
-  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), notify: true };
+  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), embeds: null, notify: true };
 }
 
 export class ToolService {
@@ -82,7 +95,13 @@ export class ToolService {
     videoJobService,
     presenceService,
     conversationThreadService,
-    wikiService
+    wikiService,
+    // D&D Services
+    characterService,
+    spellService,
+    partyService,
+    dungeonService,
+    questService
   }) {
     this.toolServices = {
       logger,
@@ -119,7 +138,13 @@ export class ToolService {
       videoJobService,
       presenceService,
       conversationThreadService,
-      wikiService
+      wikiService,
+      // D&D Services
+      characterService,
+      spellService,
+      partyService,
+      dungeonService,
+      questService
     }
 
     this.logger = logger || console;
@@ -168,7 +193,13 @@ export class ToolService {
       camera: SceneCameraTool,
       'video camera': VideoCameraTool,
       devil: DevilTool,
-      wiki: WikiTool
+      wiki: WikiTool,
+      // D&D Tools
+      character: CharacterTool,
+      party: PartyTool,
+      dungeon: DungeonTool,
+      cast: CastTool,
+      quest: QuestTool
     };
 
   Object.entries(toolClasses).forEach(([name, ToolClass]) => {
@@ -195,6 +226,11 @@ export class ToolService {
   this.toolEmojis.set('🕸️', 'search');
   // Wiki tool emoji
   this.toolEmojis.set('📖', 'wiki');
+  // D&D tool emojis
+  this.toolEmojis.set('📜', 'character');
+  this.toolEmojis.set('👥', 'party');
+  this.toolEmojis.set('🏰', 'dungeon');
+  this.toolEmojis.set('🪄', 'cast');
   }
 
   registerTool(tool) {
@@ -408,6 +444,12 @@ export class ToolService {
       return `Tool '${toolName}' not found.`;
     }
 
+    // Check if this is a D&D tool and send welcome message if first time
+    const dndTools = ['character', 'party', 'dungeon', 'cast', 'tutorial'];
+    if (dndTools.includes(toolName)) {
+      await this._sendDndWelcomeIfNeeded(message);
+    }
+
     const cooldownMs = tool.cooldownMs ?? this.defaultCooldownMs;
     const remaining = this.cooldownService.getRemainingCooldown(toolName, avatar._id, cooldownMs);
     if (remaining > 0) {
@@ -479,5 +521,37 @@ export class ToolService {
     }
 
     return normalized;
+  }
+
+  /**
+   * Send a D&D welcome DM to first-time users
+   * @private
+   */
+  async _sendDndWelcomeIfNeeded(message) {
+    try {
+      const questService = this.toolServices?.questService;
+      if (!questService) return;
+
+      const discordUserId = message.author?.id;
+      if (!discordUserId) return;
+
+      // Check if already seen
+      const hasSeen = await questService.hasSeenWelcome?.(discordUserId);
+      if (hasSeen) return;
+
+      // Send welcome DM as embed
+      const welcomeEmbed = questService.getWelcomeEmbed?.();
+      if (welcomeEmbed) {
+        await message.author.send(welcomeEmbed);
+      }
+      
+      // Mark as seen
+      await questService.markWelcomeSeen?.(discordUserId);
+      
+      this.logger?.info?.(`[ToolService] Sent D&D welcome DM to user ${discordUserId}`);
+    } catch (err) {
+      // User may have DMs disabled - that's fine
+      this.logger?.debug?.(`[ToolService] Could not send D&D welcome DM: ${err.message}`);
+    }
   }
 }

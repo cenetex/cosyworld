@@ -925,11 +925,21 @@ export class DiscordService {
         message = this.client.channels.cache.get(message.channel.id).messages.cache.get(message.id);
         if (!message) throw new Error('Message not found');
       }
-      if (!message || !replyContent || typeof replyContent !== 'string') {
+      if (!message || !replyContent) {
         this.logger.error('Invalid message or reply content');
         return;
       }
-      await message.reply(replyContent);
+      
+      // Handle object replies (embeds, components, etc.)
+      if (typeof replyContent === 'object') {
+        await message.reply(replyContent);
+      } else if (typeof replyContent === 'string') {
+        await message.reply(replyContent);
+      } else {
+        this.logger.error('Invalid reply content type');
+        return;
+      }
+      
       this.logger.info(`Replied to message ${message.id}`);
     } catch (error) {
       this.logger.error(`Failed to reply to message ${message?.id}: ${error.message}`);

@@ -9,6 +9,14 @@ import { CombatNarrativeService } from '../services/combat/CombatNarrativeServic
 import { NftMetadataService } from '../services/nft/nftMetadataService.mjs';
 import { PromptAssembler } from '../services/ai/promptAssembler.mjs';
 
+// D&D Services
+import { CharacterService } from '../services/dnd/CharacterService.mjs';
+import { SpellService } from '../services/dnd/SpellService.mjs';
+import { PartyService } from '../services/dnd/PartyService.mjs';
+import { DungeonService } from '../services/dnd/DungeonService.mjs';
+import { QuestService } from '../services/quests/QuestService.mjs';
+import { TUTORIAL_QUEST } from '../data/quests/tutorial.mjs';
+
 export function registerPreReady({ container }) {
   container.register({
     eventPublisher: asFunction(() => ({ publishEvent })).singleton(),
@@ -20,6 +28,20 @@ export function registerPreReady({ container }) {
 
   container.register({
     nftMetadataService: asClass(NftMetadataService).singleton(),
+  });
+
+  // D&D Services
+  container.register({
+    characterService: asClass(CharacterService).singleton(),
+    spellService: asClass(SpellService).singleton(),
+    partyService: asClass(PartyService).singleton(),
+    dungeonService: asClass(DungeonService).singleton(),
+    questService: asFunction(({ databaseService, characterService, partyService, dungeonService, discordService, logger }) => {
+      const service = new QuestService({ databaseService, characterService, partyService, dungeonService, discordService, logger });
+      // Register built-in quests
+      service.registerQuest(TUTORIAL_QUEST);
+      return service;
+    }).singleton(),
   });
 
   // Make container itself injectable as 'services' for late-binding/plugin use.
