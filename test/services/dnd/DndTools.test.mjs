@@ -296,8 +296,7 @@ describe('PartyTool', () => {
 
       expect(deps.questService.onEvent).toHaveBeenCalledWith(
         avatar._id,
-        'party_ready',
-        undefined
+        'party_ready'
       );
     });
   });
