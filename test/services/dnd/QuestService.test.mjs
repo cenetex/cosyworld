@@ -274,18 +274,20 @@ describe('QuestService', () => {
 
         const result = await service.startQuest(avatarId, 'test_quest');
 
-        expect(result.questId).toBe('test_quest');
-        expect(result.currentStep).toBe(0);
-        expect(result.status).toBe('active');
+        expect(result.started).toBe(true);
+        expect(result.progress.questId).toBe('test_quest');
+        expect(result.progress.currentStep).toBe(0);
+        expect(result.progress.status).toBe('active');
       });
 
-      it('should throw if quest not found', async () => {
-        await expect(service.startQuest(avatarId, 'unknown')).rejects.toThrow(
-          'Quest not found: unknown'
-        );
+      it('should return error if quest not found', async () => {
+        const result = await service.startQuest(avatarId, 'unknown');
+
+        expect(result.started).toBe(false);
+        expect(result.error).toBe('Quest not found');
       });
 
-      it('should throw if quest already started', async () => {
+      it('should return error if quest already started', async () => {
         service.registerQuest(SAMPLE_QUEST);
         deps.mockCollection.findOne.mockResolvedValue({
           avatarId: new ObjectId(avatarId),
@@ -293,38 +295,39 @@ describe('QuestService', () => {
           status: 'active',
         });
 
-        await expect(service.startQuest(avatarId, 'test_quest')).rejects.toThrow(
-          'Quest already started'
-        );
+        const result = await service.startQuest(avatarId, 'test_quest');
+
+        expect(result.started).toBe(false);
+        expect(result.error).toBe('Quest already active');
       });
     });
 
     describe('resetQuest()', () => {
       it('should reset quest progress', async () => {
-        deps.mockCollection.updateOne.mockResolvedValue({ modifiedCount: 1 });
+        service.registerQuest(SAMPLE_QUEST);
+        deps.mockCollection.deleteOne.mockResolvedValue({ deletedCount: 1 });
+        deps.mockCollection.insertOne.mockResolvedValue({ insertedId: 'new' });
 
-        await service.resetQuest(avatarId, 'test_quest');
+        const result = await service.resetQuest(avatarId, 'test_quest');
 
-        expect(deps.mockCollection.updateOne).toHaveBeenCalledWith(
-          { avatarId: expect.any(ObjectId), questId: 'test_quest' },
-          expect.objectContaining({
-            $set: expect.objectContaining({
-              currentStep: 0,
-              status: 'active',
-            }),
-          })
+        expect(deps.mockCollection.deleteOne).toHaveBeenCalledWith(
+          { avatarId: expect.any(ObjectId), questId: 'test_quest' }
         );
+        expect(result.started).toBe(true);
       });
     });
 
     describe('abandonQuest()', () => {
       it('should mark quest as abandoned', async () => {
+        // Register a non-tutorial quest (tutorials can't be abandoned)
+        service.registerQuest({ ...SAMPLE_QUEST, id: 'story_quest', type: 'story' });
         deps.mockCollection.updateOne.mockResolvedValue({ modifiedCount: 1 });
 
-        await service.abandonQuest(avatarId, 'test_quest');
+        const result = await service.abandonQuest(avatarId, 'story_quest');
 
+        expect(result.abandoned).toBe(true);
         expect(deps.mockCollection.updateOne).toHaveBeenCalledWith(
-          { avatarId: expect.any(ObjectId), questId: 'test_quest' },
+          { avatarId: expect.any(ObjectId), questId: 'story_quest' },
           expect.objectContaining({
             $set: expect.objectContaining({
               status: 'abandoned',
@@ -363,7 +366,7 @@ describe('QuestService', () => {
         expect(step).toBeNull();
       });
 
-      it('should return null if quest completed', async () => {
+      it('should return completed status if quest completed', async () => {
         service.registerQuest(SAMPLE_QUEST);
         deps.mockCollection.findOne.mockResolvedValue({
           avatarId: new ObjectId(avatarId),
@@ -374,7 +377,7 @@ describe('QuestService', () => {
 
         const step = await service.getCurrentStep(avatarId, 'test_quest');
 
-        expect(step).toBeNull();
+        expect(step.completed).toBe(true);
       });
     });
 
@@ -386,13 +389,14 @@ describe('QuestService', () => {
           questId: 'test_quest',
           currentStep: 0,
           status: 'active',
+          totalXpEarned: 25,
         });
         deps.mockCollection.updateOne.mockResolvedValue({ modifiedCount: 1 });
 
-        const result = await service.advanceStep(avatarId, 'test_quest');
+        const result = await service.advanceStep(avatarId, 'test_quest', 'character_created');
 
-        expect(result.advanced).toBe(true);
-        expect(result.newStep).toBe(1);
+        expect(result.completed.id).toBe('step_1');
+        expect(result.isQuestComplete).toBe(false);
       });
 
       it('should complete quest on last step', async () => {
@@ -402,12 +406,13 @@ describe('QuestService', () => {
           questId: 'test_quest',
           currentStep: 2, // Last step
           status: 'active',
+          totalXpEarned: 175,
         });
         deps.mockCollection.updateOne.mockResolvedValue({ modifiedCount: 1 });
 
-        const result = await service.advanceStep(avatarId, 'test_quest');
+        const result = await service.advanceStep(avatarId, 'test_quest', 'dungeon_entered');
 
-        expect(result.completed).toBe(true);
+        expect(result.isQuestComplete).toBe(true);
       });
 
       it('should award XP on advancement', async () => {
@@ -417,12 +422,13 @@ describe('QuestService', () => {
           questId: 'test_quest',
           currentStep: 0,
           status: 'active',
+          totalXpEarned: 25,
         });
         deps.mockCollection.updateOne.mockResolvedValue({ modifiedCount: 1 });
 
-        const result = await service.advanceStep(avatarId, 'test_quest');
+        const result = await service.advanceStep(avatarId, 'test_quest', 'character_created');
 
-        expect(result.xpAwarded).toBe(25);
+        expect(result.xpEarned).toBe(25);
         expect(deps.characterService.awardXP).toHaveBeenCalledWith(avatarId, 25);
       });
     });
