@@ -2762,13 +2762,22 @@ The token icon's colors and motifs should be visible in the character's design.`
         }));
       }
       
+      // NOTE: Do NOT update the avatar's channelId for existing wallet avatars.
+      // Wallet avatars are global and their presence in channels should be managed
+      // through channel_avatar_presence (via activateAvatarInChannel), not by
+      // changing the avatar's stored channelId. Updating channelId would cause
+      // avatars to "move" to random channels when the same wallet trades in
+      // different channels tracking different tokens.
+      // 
+      // Only update channelId if the avatar doesn't have one yet (first-time setup)
       const nextChannelId = context.discordChannelId || context.channelId || null;
-      if (nextChannelId && nextChannelId !== avatar.channelId) {
+      if (nextChannelId && !avatar.channelId) {
         updateData.channelId = nextChannelId;
       }
 
+      // Similarly for guildId - only set if not already set
       const nextGuildId = context.guildId || context.discordGuildId || null;
-      if (nextGuildId && nextGuildId !== avatar.guildId) {
+      if (nextGuildId && !avatar.guildId) {
         updateData.guildId = nextGuildId;
       }
 
