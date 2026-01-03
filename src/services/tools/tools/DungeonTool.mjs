@@ -235,11 +235,11 @@ export class DungeonTool extends BasicTool {
    */
   async _showStatus(avatar, channelId, activeDungeon, _message) {
     if (activeDungeon) {
-      // Active dungeon exists - just show link to thread
       const threadId = activeDungeon.threadId;
+      const isInDungeonThread = channelId === threadId;
       
-      if (threadId) {
-        // Simple redirect to thread
+      // If NOT in the dungeon thread, redirect them there
+      if (threadId && !isInDungeonThread) {
         return {
           embeds: [{
             author: { name: '🎲 The Dungeon Master' },
@@ -250,7 +250,7 @@ export class DungeonTool extends BasicTool {
         };
       }
       
-      // No thread yet (shouldn't happen, but fallback)
+      // In the dungeon thread (or no thread) - show full room status
       const currentRoom = activeDungeon.rooms.find(r => r.id === activeDungeon.currentRoom);
       const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
       const totalRooms = activeDungeon.rooms.length;
@@ -258,23 +258,77 @@ export class DungeonTool extends BasicTool {
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
         title: `⚔️ ${activeDungeon.name}`,
-        description: `*Your party explores the ${activeDungeon.theme} dungeon...*`,
-        color: 0x7C3AED,
+        description: this._generateRoomNarrative(currentRoom, activeDungeon.theme),
+        color: this._getRoomColor(currentRoom?.type),
         fields: [
-          { name: '📍 Location', value: `Room ${activeDungeon.currentRoom.replace('room_', '')} of ${totalRooms}`, inline: true },
+          { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${activeDungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
           { name: '✅ Progress', value: `${clearedCount}/${totalRooms} rooms cleared`, inline: true }
         ]
       };
 
+      // Show room-specific content
       if (currentRoom) {
-        embed.fields.push({
-          name: `${this._getRoomEmoji(currentRoom.type)} Current Room`,
-          value: this._describeRoomBrief(currentRoom),
-          inline: false
-        });
+        if (currentRoom.puzzle && !currentRoom.puzzle.solved) {
+          // Unsolved puzzle - show riddle with answer button
+          embed.fields.push({
+            name: '🧩 A Riddle Blocks Your Path',
+            value: `*"${currentRoom.puzzle.riddle}"*`,
+            inline: false
+          });
+          
+          return {
+            embeds: [embed],
+            components: [
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId('dnd_puzzle_answer')
+                  .setLabel('Answer Riddle')
+                  .setEmoji('🧩')
+                  .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                  .setCustomId('dnd_puzzle_hint')
+                  .setLabel('Get Hint')
+                  .setEmoji('💡')
+                  .setStyle(ButtonStyle.Primary)
+              )
+            ]
+          };
+        } else if (currentRoom.type === 'combat' && currentRoom.encounter?.monsters?.length && !currentRoom.cleared) {
+          // Combat room - show enemies
+          embed.fields.push({
+            name: '⚔️ Enemies',
+            value: currentRoom.encounter.monsters.map(m => m.name || m.id).join(', '),
+            inline: false
+          });
+          return {
+            embeds: [embed],
+            components: this._createRoomButtons(currentRoom)
+          };
+        } else if (currentRoom.type === 'treasure' && !currentRoom.cleared) {
+          // Treasure room
+          embed.fields.push({
+            name: '💰 Treasure',
+            value: 'Riches await collection!',
+            inline: false
+          });
+          return {
+            embeds: [embed],
+            components: this._createRoomButtons(currentRoom)
+          };
+        } else {
+          // Other room types or cleared rooms
+          embed.fields.push({
+            name: `${this._getRoomEmoji(currentRoom.type)} Status`,
+            value: this._describeRoomBrief(currentRoom),
+            inline: false
+          });
+        }
       }
 
-      return { embeds: [embed] };
+      return { 
+        embeds: [embed],
+        components: this._createNavigationButtons(currentRoom, activeDungeon)
+      };
     }
 
     // No active dungeon - prompt to start one
