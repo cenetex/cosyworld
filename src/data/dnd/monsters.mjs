@@ -5,7 +5,9 @@
  * The MonsterService seeds these into the database on startup.
  */
 
-import monsterData from './monsters.json' with { type: 'json' };
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const monsterData = require('./monsters.json');
 
 export const MONSTERS = monsterData.monsters;
 export const MONSTER_TRAITS = monsterData.traits;
