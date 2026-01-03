@@ -319,6 +319,36 @@ export class PartyService {
     return { dissolved: false };
   }
 
+  /**
+   * Kick a member from the party (leader only)
+   * @param {string} partyId - The party ID
+   * @param {string} avatarId - The avatar to kick
+   */
+  async kickMember(partyId, avatarId) {
+    const party = await this.getParty(partyId);
+    if (!party) throw new Error('Party not found');
+
+    // Verify not kicking the leader
+    if (party.leaderId.equals(new ObjectId(avatarId))) {
+      throw new Error('Cannot kick the party leader');
+    }
+
+    // Verify member is in party
+    const isMember = party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)));
+    if (!isMember) {
+      throw new Error('Avatar is not in this party');
+    }
+
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: party._id },
+      { $pull: { members: { avatarId: new ObjectId(avatarId) } } }
+    );
+
+    await this.characterService.setParty(avatarId, null);
+    this.logger?.info?.(`[PartyService] ${avatarId} was kicked from party ${partyId}`);
+  }
+
   async setRole(partyId, avatarId, role) {
     const validRoles = ['tank', 'healer', 'dps', 'support'];
     if (!validRoles.includes(role)) throw new Error('Invalid role');

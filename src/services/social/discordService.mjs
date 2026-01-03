@@ -1165,6 +1165,10 @@ export class DiscordService {
       // Party buttons
       'dnd_party_menu': { tool: 'party', params: [] },
       'dnd_party_create': { tool: 'party', params: ['create'] },
+      'dnd_party_invite': { tool: 'party', params: ['invite'] },
+      'dnd_party_kick': { tool: 'party', params: ['kick'] },
+      'dnd_party_rename': { tool: 'party', params: ['rename'] },
+      'dnd_party_roles': { tool: 'party', params: ['role'] },
       'dnd_party_leave': { tool: 'party', params: ['leave'] },
       
       // Dungeon buttons
@@ -1230,9 +1234,20 @@ export class DiscordService {
       return { toolName: 'attack', params: [targetId] };
     }
     
+    // Party dynamic buttons
+    if (customId.startsWith('dnd_party_add_')) {
+      const avatarId = customId.replace('dnd_party_add_', '');
+      return { toolName: 'party', params: ['add', avatarId] };
+    }
+    
+    if (customId.startsWith('dnd_party_remove_')) {
+      const avatarId = customId.replace('dnd_party_remove_', '');
+      return { toolName: 'party', params: ['remove', avatarId] };
+    }
+    
     if (customId.startsWith('dnd_party_invite_')) {
       const avatarId = customId.replace('dnd_party_invite_', '');
-      return { toolName: 'party', params: ['invite', avatarId] };
+      return { toolName: 'party', params: ['add', avatarId] };
     }
     
     if (customId.startsWith('dnd_party_role_')) {

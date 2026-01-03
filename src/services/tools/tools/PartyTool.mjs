@@ -22,6 +22,9 @@ const COLORS = {
   MUTED: 0x6B7280
 };
 
+// Safe fallback emoji for buttons
+const DEFAULT_AVATAR_EMOJI = '👤';
+
 export class PartyTool extends BasicTool {
   constructor({ logger, partyService, characterService, avatarService, databaseService, discordService, questService, tutorialQuestService }) {
     super();
@@ -112,9 +115,9 @@ export class PartyTool extends BasicTool {
   }
 
   /**
-   * Show party menu with current status and actions
+   * Show party menu with current status and action buttons
    */
-  async _showMenu(avatar) {
+  async _showMenu(avatar, _message) {
     const sheet = await this.characterService?.getSheet?.(avatar._id);
     
     if (!sheet?.partyId) {
@@ -123,24 +126,23 @@ export class PartyTool extends BasicTool {
         embeds: [{
           title: '👥 Party',
           description: `**${avatar.name}** is not in a party yet.`,
-          color: 0x6B7280,
+          color: COLORS.MUTED,
           fields: [{
             name: '🚀 Get Started',
-            value: 'Create a party to adventure with others, or go solo!',
+            value: 'Create a party to adventure with others!',
             inline: false
           }]
         }]
       };
       
       const buttons = createActionMenu([
-        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: 'Success' },
-        { id: 'dnd_tutorial_solo', label: 'Go Solo', emoji: '🎭', style: 'Secondary' }
+        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: 'Success' }
       ]);
       
       return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
     
-    // In a party - show party info
+    // In a party - show party info with management buttons
     return await this._list(avatar);
   }
 
@@ -149,20 +151,19 @@ export class PartyTool extends BasicTool {
       embeds: [{
         title: '👥 Party Error',
         description: message,
-        color: 0xEF4444 // Red
+        color: COLORS.ERROR
       }]
     };
   }
 
   async _create(avatar, params) {
-    // Join all params after action for multi-word party names
     const name = (Array.isArray(params) && params.length > 1) 
       ? params.slice(1).join(' ') 
       : (params.name || `${avatar.name}'s Party`);
     
     const party = await this.partyService.createParty(avatar._id, name);
 
-    // Trigger quest progress (both quest systems)
+    // Trigger quest progress
     await this.questService?.onEvent?.(avatar._id, 'party_ready');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'party_created');
     
@@ -170,7 +171,7 @@ export class PartyTool extends BasicTool {
       embeds: [{
         title: '👥 Party Formed!',
         description: `**${name}** has been created!`,
-        color: 0x10B981, // Green
+        color: COLORS.SUCCESS,
         fields: [
           { name: '👑 Leader', value: avatar.name, inline: true },
           { name: '📊 Size', value: `1/${party.maxSize}`, inline: true }
@@ -179,28 +180,127 @@ export class PartyTool extends BasicTool {
       }]
     };
     
-    // Add action buttons
     const buttons = createActionMenu([
-      { id: `dnd_party_list_${party._id}`, label: 'View Party', emoji: '👥' },
-      { id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰' }
+      { id: 'dnd_party_invite', label: 'Invite Member', emoji: '➕', style: 'Primary' },
+      { id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: 'Success' }
     ]);
     
     return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
-  async _invite(avatar, params, message) {
-    // Join all params after action for multi-word avatar names
-    const targetName = (Array.isArray(params) && params.length > 1) 
-      ? params.slice(1).join(' ') 
-      : params.target;
-      
-    if (!targetName) {
-      return this._errorEmbed('Specify who to invite: 👥 party invite <name>');
+  /**
+   * Show invite menu with recently active avatars in the channel
+   */
+  async _showInviteMenu(avatar, message) {
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party. Create one first!`);
     }
 
-    const sheet = await this.characterService.getSheet(avatar._id);
+    const party = await this.partyService.getParty(sheet.partyId);
+    if (!party) {
+      return this._errorEmbed('Party not found.');
+    }
+
+    if (!party.leaderId.equals(avatar._id)) {
+      return this._errorEmbed('Only the party leader can invite members.');
+    }
+
+    if (party.members.length >= party.maxSize) {
+      return this._errorEmbed('Party is full!');
+    }
+
+    // Get recently active avatars in this channel
+    const db = await this.databaseService.getDatabase();
+    const recentAvatars = await db.collection('avatars').find({
+      status: 'alive',
+      channelId: message.channelId,
+      _id: { $nin: party.members.map(m => m.avatarId) } // Exclude current members
+    }).sort({ lastActiveAt: -1 }).limit(10).toArray();
+
+    // Filter out avatars already in ANY party
+    const availableAvatars = [];
+    for (const av of recentAvatars) {
+      const avSheet = await this.characterService?.getSheet?.(av._id);
+      if (!avSheet?.partyId) {
+        availableAvatars.push(av);
+      }
+    }
+
+    if (availableAvatars.length === 0) {
+      const response = {
+        embeds: [{
+          title: '👥 Invite Member',
+          description: 'No available avatars found in this channel.\n\nAvatars must be active in this channel and not already in a party.',
+          color: COLORS.WARNING
+        }]
+      };
+      const buttons = createActionMenu([
+        { id: 'dnd_party_menu', label: 'Back', emoji: '◀️', style: 'Secondary' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+    }
+
+    // Create buttons for each available avatar (max 5 per row, max 4 rows = 20)
+    const rows = [];
+    const maxAvatars = Math.min(availableAvatars.length, 20);
+    
+    for (let i = 0; i < maxAvatars; i += 5) {
+      const row = new ActionRowBuilder();
+      const chunk = availableAvatars.slice(i, i + 5);
+      
+      for (const av of chunk) {
+        // Use default emoji - avatar emojis are often invalid for Discord buttons
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dnd_party_add_${av._id}`)
+            .setLabel(av.name.substring(0, 25))
+            .setEmoji(DEFAULT_AVATAR_EMOJI)
+            .setStyle(ButtonStyle.Primary)
+        );
+      }
+      rows.push(row);
+    }
+
+    // Add back button
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('dnd_party_menu')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    ));
+
+    const response = {
+      embeds: [{
+        title: '👥 Invite Member',
+        description: `Select an avatar to invite to **${party.name}**:`,
+        color: COLORS.INFO,
+        fields: [{
+          name: '📊 Party Size',
+          value: `${party.members.length}/${party.maxSize}`,
+          inline: true
+        }],
+        footer: { text: 'Only avatars not in a party can be invited' }
+      }],
+      components: rows
+    };
+
+    return addEmbedTextSummary(response);
+  }
+
+  /**
+   * Add a member directly by avatar ID (from button click)
+   */
+  async _addMember(avatar, params, _message) {
+    const targetId = params[1];
+    if (!targetId) {
+      return this._errorEmbed('No avatar specified.');
+    }
+
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
     if (!sheet?.partyId) {
-      return this._errorEmbed(`${avatar.name} is not in a party. Create one first with 👥 party create`);
+      return this._errorEmbed(`${avatar.name} is not in a party.`);
     }
 
     const party = await this.partyService.getParty(sheet.partyId);
@@ -208,26 +308,197 @@ export class PartyTool extends BasicTool {
       return this._errorEmbed('Only the party leader can invite members.');
     }
 
-    // Find target avatar
-    const target = await this.avatarService.getAvatarByName(targetName, { guildId: message.guildId });
+    // Get target avatar
+    const { ObjectId } = await import('mongodb');
+    const db = await this.databaseService.getDatabase();
+    const target = await db.collection('avatars').findOne({ _id: new ObjectId(targetId) });
+    
     if (!target) {
-      return this._errorEmbed(`Could not find avatar: ${targetName}`);
+      return this._errorEmbed('Avatar not found.');
     }
 
+    // Check target is not in a party
+    const targetSheet = await this.characterService?.getSheet?.(target._id);
+    if (targetSheet?.partyId) {
+      return this._errorEmbed(`${target.name} is already in a party.`);
+    }
+
+    // Add to party
     await this.partyService.invite(sheet.partyId, target._id);
 
     const response = {
       embeds: [{
         title: '✅ Member Joined!',
         description: `**${target.name}** joined **${party.name}**!`,
-        color: 0x10B981, // Green
+        color: COLORS.SUCCESS,
         fields: [
           { name: '📊 Party Size', value: `${party.members.length + 1}/${party.maxSize}`, inline: true }
         ]
       }]
     };
     
+    const buttons = createActionMenu([
+      { id: 'dnd_party_invite', label: 'Invite More', emoji: '➕', style: 'Primary' },
+      { id: 'dnd_party_menu', label: 'Party Menu', emoji: '👥', style: 'Secondary' }
+    ]);
+    
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+  }
+
+  /**
+   * Add member by name (from command)
+   */
+  async _addMemberByName(avatar, params, message) {
+    const targetName = params.join(' ');
+    
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party. Create one first!`);
+    }
+
+    const party = await this.partyService.getParty(sheet.partyId);
+    if (!party.leaderId.equals(avatar._id)) {
+      return this._errorEmbed('Only the party leader can invite members.');
+    }
+
+    const target = await this.avatarService.getAvatarByName(targetName, { guildId: message.guildId });
+    if (!target) {
+      return this._errorEmbed(`Could not find avatar: ${targetName}`);
+    }
+
+    const targetSheet = await this.characterService?.getSheet?.(target._id);
+    if (targetSheet?.partyId) {
+      return this._errorEmbed(`${target.name} is already in a party.`);
+    }
+
+    await this.partyService.invite(sheet.partyId, target._id);
+
+    return {
+      embeds: [{
+        title: '✅ Member Joined!',
+        description: `**${target.name}** joined **${party.name}**!`,
+        color: COLORS.SUCCESS
+      }]
+    };
+  }
+
+  /**
+   * Show kick/remove menu with current party members
+   */
+  async _showKickMenu(avatar) {
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party.`);
+    }
+
+    const party = await this.partyService.getPartyWithAvatars(sheet.partyId);
+    if (!party) {
+      return this._errorEmbed('Party not found.');
+    }
+
+    if (!party.leaderId.equals(avatar._id)) {
+      return this._errorEmbed('Only the party leader can remove members.');
+    }
+
+    // Filter out the leader (can't kick yourself)
+    const kickableMembers = party.members.filter(m => !m.avatarId.equals(avatar._id));
+
+    if (kickableMembers.length === 0) {
+      const response = {
+        embeds: [{
+          title: '👥 Remove Member',
+          description: 'No other members in the party to remove.',
+          color: COLORS.WARNING
+        }]
+      };
+      const buttons = createActionMenu([
+        { id: 'dnd_party_menu', label: 'Back', emoji: '◀️', style: 'Secondary' }
+      ]);
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+    }
+
+    // Create buttons for each kickable member
+    const rows = [];
+    const maxMembers = Math.min(kickableMembers.length, 20);
+    
+    for (let i = 0; i < maxMembers; i += 5) {
+      const row = new ActionRowBuilder();
+      const chunk = kickableMembers.slice(i, i + 5);
+      
+      for (const m of chunk) {
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dnd_party_remove_${m.avatarId}`)
+            .setLabel((m.avatar?.name || 'Unknown').substring(0, 25))
+            .setEmoji('🚫')
+            .setStyle(ButtonStyle.Danger)
+        );
+      }
+      rows.push(row);
+    }
+
+    // Add back button
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('dnd_party_menu')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    ));
+
+    const response = {
+      embeds: [{
+        title: '👥 Remove Member',
+        description: `Select a member to remove from **${party.name}**:`,
+        color: COLORS.WARNING
+      }],
+      components: rows
+    };
+
     return addEmbedTextSummary(response);
+  }
+
+  /**
+   * Remove a member by avatar ID (from button click)
+   */
+  async _removeMember(avatar, params) {
+    const targetId = params[1];
+    if (!targetId) {
+      return this._errorEmbed('No member specified.');
+    }
+
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party.`);
+    }
+
+    const party = await this.partyService.getParty(sheet.partyId);
+    if (!party.leaderId.equals(avatar._id)) {
+      return this._errorEmbed('Only the party leader can remove members.');
+    }
+
+    // Get target avatar name before removing
+    const { ObjectId } = await import('mongodb');
+    const db = await this.databaseService.getDatabase();
+    const target = await db.collection('avatars').findOne({ _id: new ObjectId(targetId) });
+    const targetName = target?.name || 'Unknown';
+
+    // Remove from party
+    await this.partyService.kickMember(sheet.partyId, targetId);
+
+    const response = {
+      embeds: [{
+        title: '👋 Member Removed',
+        description: `**${targetName}** was removed from the party.`,
+        color: COLORS.MUTED
+      }]
+    };
+    
+    const buttons = createActionMenu([
+      { id: 'dnd_party_menu', label: 'Party Menu', emoji: '👥', style: 'Secondary' }
+    ]);
+    
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _leave(avatar) {
@@ -238,7 +509,7 @@ export class PartyTool extends BasicTool {
         embeds: [{
           title: '👥 Party Disbanded',
           description: `**${avatar.name}** disbanded the party.`,
-          color: 0x6B7280 // Gray
+          color: COLORS.MUTED
         }]
       });
     }
@@ -246,24 +517,23 @@ export class PartyTool extends BasicTool {
       embeds: [{
         title: '👋 Left Party',
         description: `**${avatar.name}** left the party.`,
-        color: 0x6B7280 // Gray
+        color: COLORS.MUTED
       }]
     });
   }
 
   async _list(avatar) {
-    const sheet = await this.characterService.getSheet(avatar._id);
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
     if (!sheet?.partyId) {
-      // Not in party - show create button
       const response = {
         embeds: [{
           title: '👥 No Party',
           description: `${avatar.name} is not in a party.`,
-          color: 0x6B7280
+          color: COLORS.MUTED
         }]
       };
       const buttons = createActionMenu([
-        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥' }
+        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: 'Success' }
       ]);
       return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
@@ -287,7 +557,7 @@ export class PartyTool extends BasicTool {
     const response = {
       embeds: [{
         title: `👥 ${party.name}`,
-        color: 0x3B82F6, // Blue
+        color: COLORS.INFO,
         fields: [
           { name: '📊 Members', value: `${party.members.length}/${party.maxSize}`, inline: true },
           { name: '💰 Shared Gold', value: `${party.sharedGold}`, inline: true },
@@ -296,29 +566,107 @@ export class PartyTool extends BasicTool {
       }]
     };
     
-    // Add contextual buttons
+    // Build action buttons based on role
     const actions = [];
+    
     if (isLeader) {
-      actions.push({ id: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰' });
+      // Leader gets management buttons
+      if (party.members.length < party.maxSize) {
+        actions.push({ id: 'dnd_party_invite', label: 'Invite', emoji: '➕', style: 'Primary' });
+      }
+      if (party.members.length > 1) {
+        actions.push({ id: 'dnd_party_kick', label: 'Remove', emoji: '🚫', style: 'Danger' });
+      }
+      actions.push({ id: 'dnd_party_rename', label: 'Rename', emoji: '✏️', style: 'Secondary' });
+      actions.push({ id: 'dnd_dungeon_enter', label: 'Dungeon', emoji: '🏰', style: 'Success' });
     }
-    actions.push(
-      { id: `dnd_party_role_tank`, label: 'Set Tank', emoji: '🛡️' },
-      { id: `dnd_party_role_healer`, label: 'Set Healer', emoji: '💚' },
-      { id: `dnd_party_role_dps`, label: 'Set DPS', emoji: '⚔️' },
-      { id: 'dnd_party_leave', label: 'Leave', emoji: '🚪', style: 2 } // Secondary
-    );
+    
+    // Everyone can set their role or leave
+    actions.push({ id: 'dnd_party_roles', label: 'Set Role', emoji: '🎭', style: 'Secondary' });
+    actions.push({ id: 'dnd_party_leave', label: 'Leave', emoji: '🚪', style: 'Danger' });
     
     const buttons = createActionMenu(actions);
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+  }
+
+  async _rename(avatar, params) {
+    const newName = (Array.isArray(params) && params.length > 1) 
+      ? params.slice(1).join(' ') 
+      : null;
+
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    if (!sheet?.partyId) {
+      return this._errorEmbed(`${avatar.name} is not in a party.`);
+    }
+
+    const party = await this.partyService.getParty(sheet.partyId);
+    if (!party.leaderId.equals(avatar._id)) {
+      return this._errorEmbed('Only the party leader can rename the party.');
+    }
+
+    if (!newName) {
+      return {
+        embeds: [{
+          title: '✏️ Rename Party',
+          description: `Current name: **${party.name}**\n\nTo rename, use:\n\`👥 party rename New Party Name\``,
+          color: COLORS.INFO
+        }]
+      };
+    }
+
+    // Update party name
+    const { ObjectId } = await import('mongodb');
+    const db = await this.databaseService.getDatabase();
+    await db.collection('parties').updateOne(
+      { _id: new ObjectId(sheet.partyId) },
+      { $set: { name: newName } }
+    );
+
+    const response = {
+      embeds: [{
+        title: '✅ Party Renamed',
+        description: `Party renamed to **${newName}**!`,
+        color: COLORS.SUCCESS
+      }]
+    };
+    
+    const buttons = createActionMenu([
+      { id: 'dnd_party_menu', label: 'Party Menu', emoji: '👥', style: 'Secondary' }
+    ]);
+    
     return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   async _setRole(avatar, params) {
     const role = params[1] || params.role;
     if (!['tank', 'healer', 'dps', 'support'].includes(role)) {
-      return this._errorEmbed('Valid roles: tank, healer, dps, support');
+      // Show role selection menu
+      const response = {
+        embeds: [{
+          title: '🎭 Select Role',
+          description: 'Choose your role in the party:',
+          color: COLORS.INFO,
+          fields: [
+            { name: '🛡️ Tank', value: 'Protect allies, draw enemy attention', inline: true },
+            { name: '💚 Healer', value: 'Restore HP, remove debuffs', inline: true },
+            { name: '⚔️ DPS', value: 'Deal damage, defeat enemies', inline: true },
+            { name: '✨ Support', value: 'Buff allies, debuff enemies', inline: true }
+          ]
+        }]
+      };
+      
+      const buttons = createActionMenu([
+        { id: 'dnd_party_role_tank', label: 'Tank', emoji: '🛡️' },
+        { id: 'dnd_party_role_healer', label: 'Healer', emoji: '💚' },
+        { id: 'dnd_party_role_dps', label: 'DPS', emoji: '⚔️' },
+        { id: 'dnd_party_role_support', label: 'Support', emoji: '✨' },
+        { id: 'dnd_party_menu', label: 'Back', emoji: '◀️', style: 'Secondary' }
+      ]);
+      
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
     }
 
-    const sheet = await this.characterService.getSheet(avatar._id);
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
     if (!sheet?.partyId) {
       return this._errorEmbed(`${avatar.name} is not in a party.`);
     }
@@ -326,12 +674,18 @@ export class PartyTool extends BasicTool {
     await this.partyService.setRole(sheet.partyId, avatar._id, role);
 
     const roleEmojis = { tank: '🛡️', healer: '💚', dps: '⚔️', support: '✨' };
-    return addEmbedTextSummary({
+    const response = {
       embeds: [{
         title: `${roleEmojis[role]} Role Assigned`,
         description: `**${avatar.name}** is now the party **${role}**!`,
-        color: 0x3B82F6 // Blue
+        color: COLORS.SUCCESS
       }]
-    });
+    };
+    
+    const buttons = createActionMenu([
+      { id: 'dnd_party_menu', label: 'Party Menu', emoji: '👥', style: 'Secondary' }
+    ]);
+    
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 }
