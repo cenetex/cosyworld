@@ -871,13 +871,14 @@ export class DungeonService {
     const correctAnswer = entranceRoom.puzzle.answer.toLowerCase().trim();
 
     if (normalizedAnswer === correctAnswer || normalizedAnswer.includes(correctAnswer)) {
-      // Puzzle solved!
+      // Puzzle solved! Mark room as cleared so player can advance
       const col = await this.collection();
       await col.updateOne(
         { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
         { 
           $set: { 
             'rooms.$.puzzle.solved': true,
+            'rooms.$.cleared': true,
             entrancePuzzleSolved: true
           } 
         }
@@ -903,6 +904,18 @@ export class DungeonService {
 
     if (attemptsLeft <= 0) {
       // Out of attempts - reveal answer and let them proceed with penalty
+      // Still mark room as cleared so they can advance
+      const col2 = await this.collection();
+      await col2.updateOne(
+        { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+        { 
+          $set: { 
+            'rooms.$.cleared': true,
+            entrancePuzzleSolved: true
+          } 
+        }
+      );
+      
       return {
         success: false,
         failed: true,

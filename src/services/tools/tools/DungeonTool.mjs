@@ -1008,11 +1008,16 @@ export class DungeonTool extends BasicTool {
     if (room.puzzle && !room.puzzle.solved) {
       return '🧩 A riddle blocks the way';
     }
+    // Handle entrance with solved puzzle
+    if (room.type === 'entrance' && room.puzzle?.solved) {
+      return '🚪 The path forward is open';
+    }
     const descs = {
       treasure: '💰 Treasure awaits',
       rest: '🏕️ A safe place to rest',
       shop: '🛒 A merchant offers wares',
-      empty: '🚪 An empty chamber'
+      empty: '🚪 An empty chamber',
+      entrance: '🚪 Dungeon entrance'
     };
     return descs[room.type] || '❓ Unknown';
   }
