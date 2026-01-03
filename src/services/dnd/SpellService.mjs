@@ -9,12 +9,31 @@ import { SPELLS, getCantripDamage } from '../../data/dnd/spells.mjs';
 import { DiceService } from '../battle/diceService.mjs';
 
 export class SpellService {
-  constructor({ characterService, avatarService, statusEffectService, logger }) {
+  constructor({ characterService, avatarService, statusEffectService, getCombatEncounterService, logger }) {
     this.characterService = characterService;
     this.avatarService = avatarService;
     this.statusEffectService = statusEffectService;
+    this.getCombatEncounterService = getCombatEncounterService;
     this.diceService = new DiceService();
     this.logger = logger;
+  }
+
+  /**
+   * Get status effect service (with late-binding fallback)
+   * @private
+   */
+  _getStatusEffectService() {
+    if (this.statusEffectService) return this.statusEffectService;
+    // Late-binding: get from CombatEncounterService if available
+    if (this.getCombatEncounterService) {
+      try {
+        const ces = this.getCombatEncounterService();
+        return ces?.getStatusEffectService?.();
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   getSpell(spellId) {
@@ -46,6 +65,17 @@ export class SpellService {
       await this.characterService.consumeSpellSlot(casterId, slotLevel);
     }
 
+    // H-2: Handle concentration spells
+    let brokenConcentration = null;
+    if (spell.concentration) {
+      // Setting new concentration will automatically break existing concentration
+      brokenConcentration = await this.characterService.setConcentration(
+        casterId, 
+        spellId, 
+        spell.duration
+      );
+    }
+
     // Calculate spell stats
     const caster = await this.avatarService.getAvatarById(casterId);
     const spellAbility = sheet.spellcasting.ability;
@@ -63,7 +93,13 @@ export class SpellService {
     });
 
     this.logger?.info?.(`[SpellService] ${caster.name} cast ${spell.name}`);
-    return { spell, slotLevel, results };
+    return { 
+      spell, 
+      slotLevel, 
+      results,
+      concentration: spell.concentration || false,
+      brokenConcentration 
+    };
   }
 
   async _resolveSpell(spell, slotLevel, targetIds, stats) {
@@ -127,9 +163,10 @@ export class SpellService {
 
         if (spell.effect && !result.saved) {
           result.effectApplied = spell.effect;
-          // Apply status effect if we have the service
-          if (this.statusEffectService) {
-            await this.statusEffectService.applyEffect?.(targetId, spell.effect);
+          // Apply status effect if we have the service (C-4 fix: use getter for late-binding)
+          const statusSvc = this._getStatusEffectService();
+          if (statusSvc) {
+            await statusSvc.applyEffect?.(targetId, spell.effect);
           }
         }
       }
@@ -204,11 +241,12 @@ export class SpellService {
    * @param {string} targetId - Avatar ID
    * @param {number} damage - Amount of damage
    * @param {string} damageType - Type of damage (fire, cold, etc.)
+   * @returns {object} { newHp, concentrationSave } Result of damage application
    */
   async _applyDamage(targetId, damage, damageType) {
     try {
       const target = await this.avatarService.getAvatarById(targetId);
-      if (!target) return;
+      if (!target) return { newHp: null, concentrationSave: null };
 
       const currentHp = target.stats?.hp ?? 10;
       const newHp = Math.max(0, currentHp - damage);
@@ -219,12 +257,27 @@ export class SpellService {
 
       this.logger?.debug?.(`[SpellService] Applied ${damage} ${damageType} damage to ${target.name} (${currentHp} -> ${newHp})`);
 
+      // H-2: Trigger concentration save when taking damage
+      let concentrationSave = null;
+      if (damage > 0) {
+        const conMod = Math.floor(((target.stats?.constitution || 10) - 10) / 2);
+        concentrationSave = await this.characterService.concentrationSave(targetId, damage, conMod);
+        if (concentrationSave.brokenSpell) {
+          this.logger?.info?.(`[SpellService] ${target.name} lost concentration on ${concentrationSave.brokenSpell.spellId}!`);
+        }
+      }
+
       // Check for unconscious/death
       if (newHp === 0) {
         this.logger?.info?.(`[SpellService] ${target.name} has fallen unconscious!`);
+        // Breaking concentration when reduced to 0 HP
+        await this.characterService.breakConcentration(targetId);
       }
+
+      return { newHp, concentrationSave };
     } catch (error) {
       this.logger?.error?.(`[SpellService] Failed to apply damage: ${error.message}`);
+      return { newHp: null, concentrationSave: null };
     }
   }
 

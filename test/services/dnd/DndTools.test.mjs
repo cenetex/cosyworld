@@ -483,7 +483,7 @@ describe('DungeonTool', () => {
       const result = await tool.execute(message, ['enter'], avatar);
 
       expect(result.embeds[0].title).toContain('Dark Crypt');
-      expect(result.embeds[0].description).toContain('already exploring');
+      expect(result.embeds[0].description).toContain('already on an adventure');
     });
   });
 
@@ -674,7 +674,7 @@ describe('QuestTool', () => {
   describe('constructor', () => {
     it('should initialize with correct properties', () => {
       expect(tool.name).toBe('quest');
-      expect(tool.emoji).toBe('📚');
+      expect(tool.emoji).toBe('📋');
     });
   });
 

@@ -110,6 +110,7 @@ export class CharacterService {
       spellcasting,
       features,
       proficiencies,
+      concentration: null, // H-2: Track active concentration spell { spellId, startedAt, duration }
       partyId: null,
       campaignId: null,
       createdAt: new Date(),
@@ -119,10 +120,21 @@ export class CharacterService {
     const col = await this.collection();
     await col.insertOne(sheet);
 
-    // Update avatar stats with racial bonuses
-    await this.avatarService.updateAvatar(avatarId, { stats: newStats });
+    // H-5 fix: Calculate initial HP based on class hit dice + constitution modifier
+    const conMod = Math.floor(((newStats.constitution || 10) - 10) / 2);
+    const initialMaxHp = classDef.hitDice + conMod; // Level 1: max hit die + CON mod
+    const finalMaxHp = Math.max(1, initialMaxHp); // Ensure at least 1 HP
+    
+    // Update avatar stats with racial bonuses AND initial HP
+    await this.avatarService.updateAvatar(avatarId, { 
+      stats: {
+        ...newStats,
+        hp: finalMaxHp,
+        maxHp: finalMaxHp
+      }
+    });
 
-    this.logger?.info?.(`[CharacterService] Created ${race} ${className} for avatar ${avatarId}`);
+    this.logger?.info?.(`[CharacterService] Created ${race} ${className} for avatar ${avatarId} with ${finalMaxHp} HP`);
     return sheet;
   }
 
@@ -319,6 +331,99 @@ export class CharacterService {
     }
 
     return feature;
+  }
+
+  /**
+   * H-2: Set concentration on a spell
+   * @param {string} avatarId - Avatar ID
+   * @param {string} spellId - Spell ID being concentrated on
+   * @param {number} duration - Duration in seconds (or null for indefinite)
+   * @returns {object} Previous concentration if broken, null otherwise
+   */
+  async setConcentration(avatarId, spellId, duration = null) {
+    const sheet = await this.getSheet(avatarId);
+    if (!sheet) throw new Error('No character sheet found');
+    
+    const previousConcentration = sheet.concentration;
+    
+    const col = await this.collection();
+    await col.updateOne(
+      { avatarId: new ObjectId(avatarId) },
+      { 
+        $set: { 
+          concentration: { 
+            spellId, 
+            startedAt: new Date(),
+            duration 
+          },
+          updatedAt: new Date() 
+        } 
+      }
+    );
+    
+    if (previousConcentration) {
+      this.logger?.info?.(`[CharacterService] Avatar ${avatarId} broke concentration on ${previousConcentration.spellId} to concentrate on ${spellId}`);
+    } else {
+      this.logger?.info?.(`[CharacterService] Avatar ${avatarId} concentrating on ${spellId}`);
+    }
+    
+    return previousConcentration;
+  }
+
+  /**
+   * H-2: Break concentration (e.g., from damage or casting another concentration spell)
+   * @param {string} avatarId - Avatar ID
+   * @returns {object} The broken concentration spell, or null if not concentrating
+   */
+  async breakConcentration(avatarId) {
+    const sheet = await this.getSheet(avatarId);
+    if (!sheet) throw new Error('No character sheet found');
+    
+    const brokenConcentration = sheet.concentration;
+    if (!brokenConcentration) return null;
+    
+    const col = await this.collection();
+    await col.updateOne(
+      { avatarId: new ObjectId(avatarId) },
+      { $set: { concentration: null, updatedAt: new Date() } }
+    );
+    
+    this.logger?.info?.(`[CharacterService] Avatar ${avatarId} broke concentration on ${brokenConcentration.spellId}`);
+    return brokenConcentration;
+  }
+
+  /**
+   * H-2: Get current concentration spell
+   * @param {string} avatarId - Avatar ID
+   * @returns {object|null} Current concentration or null
+   */
+  async getConcentration(avatarId) {
+    const sheet = await this.getSheet(avatarId);
+    return sheet?.concentration || null;
+  }
+
+  /**
+   * H-2: Make a concentration save after taking damage (DC 10 or half damage, whichever is higher)
+   * @param {string} avatarId - Avatar ID
+   * @param {number} damageTaken - Amount of damage taken
+   * @param {number} constitutionMod - Constitution modifier for the save
+   * @returns {object} { success, roll, dc, brokenSpell }
+   */
+  async concentrationSave(avatarId, damageTaken, constitutionMod = 0) {
+    const concentration = await this.getConcentration(avatarId);
+    if (!concentration) return { success: true, roll: null, dc: null, brokenSpell: null };
+    
+    const dc = Math.max(10, Math.floor(damageTaken / 2));
+    const roll = Math.floor(Math.random() * 20) + 1 + constitutionMod;
+    const success = roll >= dc;
+    
+    let brokenSpell = null;
+    if (!success) {
+      brokenSpell = await this.breakConcentration(avatarId);
+    }
+    
+    this.logger?.info?.(`[CharacterService] Concentration save: roll ${roll} vs DC ${dc} - ${success ? 'maintained' : 'broken'}`);
+    return { success, roll, dc, brokenSpell };
   }
 
   async deleteCharacter(avatarId) {

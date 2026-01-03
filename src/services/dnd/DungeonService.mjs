@@ -568,7 +568,16 @@ export class DungeonService {
     return { room, dungeon };
   }
 
-  async clearRoom(dungeonId, roomId) {
+  /**
+   * Clear a room after it's been completed
+   * C-3 fix: Combat/boss rooms can only be cleared through combat resolution
+   * @param {string} dungeonId - The dungeon ID
+   * @param {string} roomId - The room ID
+   * @param {Object} [options] - Options
+   * @param {boolean} [options.combatVictory] - True if called from combat resolution
+   * @param {boolean} [options.force] - Force clear (for admin/debug)
+   */
+  async clearRoom(dungeonId, roomId, options = {}) {
     const dungeon = await this.getDungeon(dungeonId);
     if (!dungeon) throw new Error('Dungeon not found');
 
@@ -580,6 +589,12 @@ export class DungeonService {
     // Already cleared
     if (room.cleared) {
       return { room, xpAwarded: 0, dungeonComplete: false, alreadyCleared: true };
+    }
+
+    // C-3 fix: Combat/boss rooms require combat victory to clear
+    const isCombatRoom = room.type === 'combat' || room.type === 'boss';
+    if (isCombatRoom && room.encounter?.monsters?.length && !options.combatVictory && !options.force) {
+      throw new Error('Combat rooms must be cleared through combat. Use the Fight button to start combat.');
     }
 
     const xpAwarded = room.encounter?.xpValue || 0;
@@ -732,8 +747,8 @@ export class DungeonService {
                      !combatResult?.winners?.every(w => w.isMonster);
 
     if (partyWon) {
-      // Clear the room and award XP
-      await this.clearRoom(dungeonId, roomId);
+      // Clear the room and award XP (C-3: pass combatVictory flag)
+      await this.clearRoom(dungeonId, roomId, { combatVictory: true });
       this.logger?.info?.(`[DungeonService] Party cleared room ${roomId} after combat victory`);
     } else {
       this.logger?.info?.(`[DungeonService] Party defeated in room ${roomId}`);

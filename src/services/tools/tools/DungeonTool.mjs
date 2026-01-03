@@ -482,8 +482,45 @@ export class DungeonTool extends BasicTool {
           });
           threadId = thread.id;
 
+          // Post immediate loading feedback to thread (C-5 fix)
+          const loadingEmbed = await thread.send({
+            embeds: [{
+              author: { name: '🎲 The Dungeon Master' },
+              title: '🏰 Preparing Your Adventure...',
+              description: `*The ancient stones shift and groan as reality bends to reveal the dungeon...*\n\n⏳ **Generating location...**\n⏳ **Populating monsters...**\n⏳ **Placing treasure...**\n⏳ **Creating atmosphere...**`,
+              color: 0x7C3AED,
+              footer: { text: 'The dungeon materializes before you...' }
+            }]
+          });
+
           // Save thread ID to dungeon
           await this.dungeonService.setThreadId(dungeon._id, threadId);
+
+          // Generate entrance image (can take time)
+          let threadImageUrl = imageUrl;
+          if (!threadImageUrl && this.schemaService?.generateImage) {
+            try {
+              // Update loading message with progress
+              await loadingEmbed.edit({
+                embeds: [{
+                  author: { name: '🎲 The Dungeon Master' },
+                  title: '🏰 Preparing Your Adventure...',
+                  description: `*The ancient stones shift and groan as reality bends to reveal the dungeon...*\n\n✅ **Location generated**\n✅ **Monsters populated**\n✅ **Treasure placed**\n⏳ **Generating entrance artwork...**`,
+                  color: 0x7C3AED,
+                  footer: { text: 'Almost ready...' }
+                }]
+              });
+            } catch {
+              // Ignore edit failures
+            }
+          }
+
+          // Delete loading message now that we're ready
+          try {
+            await loadingEmbed.delete();
+          } catch {
+            // Ignore delete failures
+          }
 
           // Post the grand entrance in the thread
           const firstRoom = dungeon.rooms[0];
@@ -706,8 +743,9 @@ export class DungeonTool extends BasicTool {
 
   /**
    * Start combat in current room
+   * C-1/C-2 fix: Actually integrates with DungeonService.startRoomCombat
    */
-  async _startCombat(avatar, dungeon, _message) {
+  async _startCombat(avatar, dungeon, message) {
     if (!dungeon) {
       return this._narrateError('No active dungeon');
     }
@@ -723,15 +761,49 @@ export class DungeonTool extends BasicTool {
       };
     }
 
-    // Combat would be started here via combatEncounterService
-    // For now, mark room as having combat initiated
+    // Get the channel ID for combat (prefer thread, fall back to message channel)
+    const combatChannelId = dungeon.threadId || message?.channel?.id;
+
+    // C-1/C-2 fix: Actually start combat via DungeonService integration
+    try {
+      const encounter = await this.dungeonService.startRoomCombat(
+        dungeon._id,
+        room.id,
+        combatChannelId
+      );
+
+      if (encounter) {
+        // Combat started successfully - CombatEncounterService is now managing it
+        const monsterList = room.encounter.monsters
+          .map(m => `${m.emoji || '👹'} **${m.name || m.id}** ×${m.count || 1}`)
+          .join('\n');
+
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: '⚔️ COMBAT BEGINS!',
+            description: `*Steel clashes against steel as battle erupts!*\n\n**Enemies:**\n${monsterList}\n\n*Initiative has been rolled. The battle is managed by the combat system.*`,
+            color: 0xEF4444,
+            fields: [
+              { name: '💡 Combat Controls', value: 'Use `🗡️ attack` or `🪄 cast` to act on your turn', inline: false }
+            ],
+            footer: { text: 'May fortune favor the bold!' }
+          }]
+        };
+      }
+    } catch (combatError) {
+      this.logger?.warn?.(`[DungeonTool] Failed to start combat via service: ${combatError.message}`);
+      // Fall through to manual combat UI if service fails
+    }
+
+    // Fallback: Show combat UI if CombatEncounterService not available or failed
     return {
       embeds: [{
         author: { name: '🎲 The Dungeon Master' },
         title: '⚔️ COMBAT BEGINS!',
         description: `*Steel clashes against steel as battle erupts!*\n\nThe party faces **${room.encounter.monsters.map(m => m.name || m.id).join(', ')}**!`,
         color: 0xEF4444,
-        footer: { text: 'Use 🗡️ attack to strike!' }
+        footer: { text: 'Use the buttons below or 🗡️ attack to strike!' }
       }],
       components: [
         new ActionRowBuilder().addComponents(
