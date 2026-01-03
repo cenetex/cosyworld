@@ -1143,18 +1143,49 @@ export class ResponseCoordinator {
         if (freshAvatar && !freshAvatar.imageUrl && (freshAvatar.isPartial === true || freshAvatar.model === 'partial')) {
           this.logger.info?.(`[ResponseCoordinator] Detected partial avatar ${avatar.name} without image, hydrating before speaking`);
           try {
-            const hydratedAvatar = await this.avatarService.hydratePartialAvatarForSpeaking(
+            const hydrationResult = await this.avatarService.hydratePartialAvatarForSpeaking(
               freshAvatar,
               channel.id,
               { discordService: this.discordService }
             );
+            
+            // Handle new return format: { avatar, redirectChannelId }
+            const hydratedAvatar = hydrationResult?.avatar ?? hydrationResult;
+            const redirectChannelId = hydrationResult?.redirectChannelId;
+            
+            // If hydration returned null avatar, the avatar should not speak
+            if (!hydratedAvatar) {
+              this.logger.warn?.(`[ResponseCoordinator] Hydration blocked for ${avatar.name} - unhydrated avatars cannot speak`);
+              return null;
+            }
+            
             if (hydratedAvatar?.imageUrl) {
               avatar = hydratedAvatar;
               this.logger.info?.(`[ResponseCoordinator] Successfully hydrated ${avatar.name} with image`);
+              
+              // If redirected to a different channel, fetch that channel
+              if (redirectChannelId && String(redirectChannelId) !== String(channel.id)) {
+                this.logger.info?.(`[ResponseCoordinator] Wallet avatar ${avatar.name} redirected to CA channel ${redirectChannelId}`);
+                try {
+                  const redirectedChannel = await this.discordService.client.channels.fetch(redirectChannelId);
+                  if (redirectedChannel) {
+                    channel = redirectedChannel;
+                    this.logger.info?.(`[ResponseCoordinator] Switched to redirected channel ${redirectChannelId} for ${avatar.name}`);
+                  }
+                } catch (fetchError) {
+                  this.logger.warn?.(`[ResponseCoordinator] Could not fetch redirected channel ${redirectChannelId}: ${fetchError.message}`);
+                  return null; // Can't speak if we can't access the correct channel
+                }
+              }
+            } else {
+              // Partial avatar that couldn't be hydrated should not speak
+              this.logger.warn?.(`[ResponseCoordinator] Avatar ${avatar.name} could not be hydrated - blocking speech`);
+              return null;
             }
           } catch (hydrateError) {
             this.logger.warn?.(`[ResponseCoordinator] Failed to hydrate partial avatar: ${hydrateError.message}`);
-            // Continue with original avatar - they can still speak without an image
+            // Unhydrated avatars should not speak
+            return null;
           }
         }
       } catch (e) {
