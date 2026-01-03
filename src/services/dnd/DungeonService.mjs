@@ -7,6 +7,7 @@
 
 import { ObjectId } from 'mongodb';
 import { DiceService } from '../battle/diceService.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 // Legacy imports for fallback compatibility
 import { getMonstersByCR, calculateEncounterXP } from '../../data/dnd/monsters.mjs';
@@ -186,6 +187,37 @@ export class DungeonService {
     this.diceService = new DiceService();
     this.logger = logger;
     this._collection = null;
+    
+    // Listen for combat end events to resolve dungeon encounters (H-1)
+    this._setupCombatListener();
+  }
+  
+  /**
+   * Set up listener for combat end events
+   * @private
+   */
+  _setupCombatListener() {
+    eventBus.on('combat.dungeon.ended', async (data) => {
+      try {
+        const { dungeonId, roomId, winners, combatants } = data;
+        if (!dungeonId || !roomId) return;
+        
+        this.logger?.info?.(`[DungeonService] Received combat.dungeon.ended for dungeon ${dungeonId}, room ${roomId}`);
+        
+        // Build combat result from event data
+        const combatResult = {
+          winners: (winners || []).map(w => ({
+            name: w.name,
+            isMonster: w.isMonster || false
+          })),
+          combatants
+        };
+        
+        await this.resolveCombat(dungeonId, roomId, combatResult);
+      } catch (e) {
+        this.logger?.error?.(`[DungeonService] combat.dungeon.ended handler error: ${e.message}`);
+      }
+    });
   }
 
   async collection() {

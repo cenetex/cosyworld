@@ -769,8 +769,8 @@ export class OpenRouterAIService {
       }
 
       if (!response.choices || response.choices.length === 0) {
-  this.logger.error('Unexpected response format from OpenRouter:', response);
-  this.logger.info('Response:', JSON.stringify(response, null, 2));
+  this.logger.error('Unexpected response format from OpenRouter:', sanitizeForLogging(response));
+  this.logger.info('Response:', JSON.stringify(sanitizeForLogging(response), null, 2));
   return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
       
@@ -806,11 +806,11 @@ export class OpenRouterAIService {
           imagesCount: result.images?.length || 0,
           keys: Object.keys(result)
         })}`);
-        // Log first 500 chars of content for debugging
+        // Log first 500 chars of content for debugging (sanitized to avoid base64 data)
         if (result.content) {
           const preview = typeof result.content === 'string' 
-            ? result.content.slice(0, 500)
-            : JSON.stringify(result.content).slice(0, 500);
+            ? sanitizeForLogging(result.content, 500)
+            : JSON.stringify(sanitizeForLogging(result.content), null, 0).slice(0, 500);
           this.logger.debug?.(`[OpenRouter][Chat] Image model content preview: ${preview}`);
         }
       }

@@ -5,6 +5,7 @@ import eventBus from '../../utils/eventBus.mjs';
 import { CombatAIService } from './combatAIService.mjs';
 import { CombatMessagingService } from './combatMessagingService.mjs';
 import { StatusEffectService } from './statusEffectService.mjs';
+import { CombatLogService } from './combatLogService.mjs';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability
@@ -186,6 +187,12 @@ export class CombatEncounterService {
       logger: this.logger,
       diceService: this.diceService
     });
+    
+    // Combat log persistence
+    this.combatLogService = databaseService ? new CombatLogService({
+      databaseService,
+      logger: this.logger
+    }) : null;
 
     // channelId -> encounter object (active encounters)
     this.encounters = new Map();
@@ -599,6 +606,12 @@ export class CombatEncounterService {
     encounter.chatter = encounter.chatter || { spokenThisRound: new Set(), lastSpeakerId: null };
     encounter.chatter.spokenThisRound = new Set();
     encounter.chatter.lastSpeakerId = null;
+    
+    // Log encounter start to database
+    if (this.combatLogService) {
+      this.combatLogService.logEncounterStart(encounter).catch(() => {});
+    }
+    
     // Wait for fight poster phase (if any) before initiative narrative for clean ordering
     try { await encounter.posterBlocker?.promise; } catch {}
     
@@ -674,6 +687,11 @@ export class CombatEncounterService {
       
       // 4. Post to Discord via CombatMessagingService
       await this.combatMessagingService.postCombatAction(encounter, combatant, action, result, dialogue);
+      
+      // 4b. Log to database for replay/analytics
+      if (this.combatLogService) {
+        this.combatLogService.logAction({ encounter, combatant, action, result, dialogue }).catch(() => {});
+      }
       
       // 5. Capture for video
       if (action.type === 'attack' && action.target && result) {
@@ -1316,11 +1334,24 @@ One-liner (no quotes):`;
     encounter.state = 'ended';
     encounter.endedAt = Date.now();
     encounter.endReason = reason || 'unspecified';
+    
+    // Determine winners (combatants with HP > 0)
+    const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
+    const winners = alive;
+    const winner = alive.length === 1 ? alive[0].name : null;
+    
     try {
-      const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
-      const winner = alive.length === 1 ? alive[0].name : null;
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ended: reason=${encounter.endReason}${winner ? ` winner=${winner}` : ''}`);
     } catch {}
+    
+    // Log encounter end to database
+    if (this.combatLogService) {
+      this.combatLogService.logEncounterEnd(encounter, {
+        outcome: encounter.endReason,
+        winners,
+        xpAwarded: encounter.dungeonContext?.xpAwarded || 0
+      }).catch(() => {});
+    }
     
     // Store completed encounter for video generation (24 hours retention)
     // Only store if we have battle recap data
@@ -1333,6 +1364,18 @@ One-liner (no quotes):`;
         endReason: encounter.endReason
       });
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Saved to completedEncounters for video generation`);
+    }
+    
+    // Emit event for dungeon combat resolution (H-1: wire XP awards)
+    if (encounter.dungeonContext) {
+      eventBus.emit('combat.dungeon.ended', {
+        dungeonId: encounter.dungeonContext.dungeonId,
+        roomId: encounter.dungeonContext.roomId,
+        channelId: encounter.channelId,
+        winners,
+        reason: encounter.endReason,
+        combatants: encounter.combatants
+      });
     }
     
     // Mark for cleanup by removing from encounters map (age list will be cleaned up later)
