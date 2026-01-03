@@ -1240,6 +1240,49 @@ export class DiscordService {
         return;
       }
 
+      // Handle combat auto mode specially
+      if (toolName === 'combat_auto') {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (!combatService) {
+          await interaction.reply({ content: '⚠️ Combat service not available.', flags: 64 });
+          return;
+        }
+        
+        const encounter = combatService.getEncounterByChannelId(interaction.channelId);
+        if (!encounter || encounter.state !== 'active') {
+          await interaction.reply({ content: '⚠️ No active combat in this channel.', flags: 64 });
+          return;
+        }
+        
+        // Find the combatant for this player's avatar
+        const combatant = encounter.combatants.find(c => 
+          combatService._normalizeId(c.avatarId) === combatService._normalizeId(avatar._id?.toString?.() || avatar._id)
+        );
+        
+        if (!combatant || !combatant.isPlayerControlled) {
+          await interaction.reply({ content: '⚠️ You don\'t have a character in this combat.', flags: 64 });
+          return;
+        }
+        
+        // Enable auto mode and acknowledge
+        combatant.autoMode = true;
+        combatant.awaitingAction = false;
+        
+        await interaction.reply({ 
+          content: `🤖 **${combatant.name}** is now on auto-pilot! The AI will control them for the rest of combat.`,
+          flags: 64 
+        });
+        
+        // If this combatant was awaiting their turn, execute it now
+        const currentId = combatService.getCurrentTurnAvatarId(encounter);
+        if (combatService._normalizeId(currentId) === combatService._normalizeId(combatant.avatarId)) {
+          combatService._executeTurn(encounter, combatant).catch(e => {
+            this.logger?.error?.(`[DiscordService] Auto turn execution failed: ${e.message}`);
+          });
+        }
+        return;
+      }
+
       // Defer reply for potentially slow operations
       await interaction.deferReply({ flags: 64 }); // ephemeral
 
@@ -1361,6 +1404,7 @@ export class DiscordService {
       'dnd_combat_defend': { tool: 'defend', params: [] },
       'dnd_combat_flee': { tool: 'dungeon', params: ['flee'] },
       'dnd_combat_cast': { tool: 'cast', params: [] },
+      'dnd_combat_auto': { tool: 'combat_auto', params: [] },
       
       // Cast/spell button
       'dnd_cast_list': { tool: 'cast', params: [] },

@@ -775,12 +775,16 @@ export class DungeonTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'explored');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_moved');
 
+    const description = dungeon.threadId 
+      ? `*The party moves deeper into the ${dungeon.theme} dungeon...*\n\n**Continue in** <#${dungeon.threadId}>`
+      : `*The party moves deeper into the ${dungeon.theme} dungeon...*`;
+
     return {
       embeds: [{
         author: { name: '🎲 The Dungeon Master' },
-        description: `*The party moves deeper into the ${dungeon.theme} dungeon...*`,
+        description,
         color: 0x3B82F6,
-        footer: { text: dungeon.threadId ? `Continue in <#${dungeon.threadId}>` : 'The adventure continues...' }
+        footer: { text: 'The adventure continues...' }
       }]
     };
   }

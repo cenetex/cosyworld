@@ -552,6 +552,14 @@ export class ToolService {
   }
 
   /**
+   * Get the combat encounter service instance
+   * @returns {Object|null} Combat encounter service or null
+   */
+  getCombatService() {
+    return this.toolServices?.combatEncounterService || null;
+  }
+
+  /**
    * Send a D&D welcome DM to first-time users
    * @private
    */

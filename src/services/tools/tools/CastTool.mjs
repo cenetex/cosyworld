@@ -64,7 +64,7 @@ export class CastTool extends BasicTool {
     };
   }
 
-  async execute(message, params, avatar) {
+  async execute(message, params, avatar, services) {
     try {
       const spellId = params[0] || params.spell;
       if (!spellId) {
@@ -74,6 +74,17 @@ export class CastTool extends BasicTool {
       const spell = SPELLS[spellId];
       if (!spell) {
         return this._errorEmbed(`Unknown spell: \`${spellId}\`. Use 🪄 cast to see available spells.`);
+      }
+
+      // Check if in combat and enforce turn order
+      const ces = services?.combatEncounterService;
+      let encounter = null;
+      try { encounter = ces?.getEncounter?.(message.channel.id); } catch {}
+      if (encounter?.state === 'active') {
+        const avatarId = avatar._id || avatar.id;
+        if (!ces.isTurn(encounter, avatarId)) {
+          return null; // Silent out-of-turn
+        }
       }
 
       // Get target(s)
@@ -109,6 +120,16 @@ export class CastTool extends BasicTool {
       // Trigger quest progress for casting spells
       await this.questService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
       await this.tutorialQuestService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
+
+      // Complete player action and advance turn if in combat
+      if (encounter?.state === 'active' && ces?.completePlayerAction) {
+        const targetId = targetIds[0];
+        const damage = result.results?.[0]?.damage;
+        await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id, {
+          damage,
+          targetId
+        });
+      }
 
       return this._formatResult(avatar, result);
     } catch (error) {

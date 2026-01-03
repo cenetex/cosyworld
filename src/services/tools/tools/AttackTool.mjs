@@ -396,6 +396,20 @@ export class AttackTool extends BasicTool {
   const result = await this.battleService.attack({ message, attacker: avatar, defender, services });
   // No per-action media generation; proceed
       try { resolveBlocker && resolveBlocker(); } catch {}
+      
+      // Notify combat service that player action is complete (advances turn for player-controlled avatars)
+      try {
+        const ces = services?.combatEncounterService;
+        if (ces?.completePlayerAction) {
+          await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id, {
+            damage: result?.damage,
+            targetId: defender?._id || defender?.id
+          });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[AttackTool] completePlayerAction failed: ${e.message}`);
+      }
+      
       return result.message;
     } catch (error) {
       this.logger.error(`Attack error: ${error.message}`);

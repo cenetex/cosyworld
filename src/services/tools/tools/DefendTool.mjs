@@ -28,10 +28,11 @@ export class DefendTool extends BasicTool {
     this.cooldownMs = 30 * 1000; // 30 seconds cooldown
   }
 
-  async execute(message, params, avatar) {
+  async execute(message, params, avatar, services) {
     try {
       // If in an active encounter, enforce turn order and advance turn after defending
-      const ces = (this.conversationManager?.toolService?.toolServices?.combatEncounterService) || null;
+      const ces = services?.combatEncounterService || 
+                  (this.conversationManager?.toolService?.toolServices?.combatEncounterService) || null;
       let inEncounter = null;
       try { inEncounter = ces?.getEncounter?.(message.channel.id) || null; } catch {}
       if (inEncounter && inEncounter.state === 'active') {
@@ -44,7 +45,12 @@ export class DefendTool extends BasicTool {
             if (c) c.isDefending = true;
             inEncounter.lastActionAt = Date.now();
           } catch {}
-          await ces.nextTurn(inEncounter);
+          // Use completePlayerAction for consistency with player control
+          if (ces.completePlayerAction) {
+            await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id);
+          } else {
+            await ces.nextTurn(inEncounter);
+          }
           return msg;
         } catch (e) {
           return `-# [ ❌ Error: Failed to defend: ${e.message} ]`;

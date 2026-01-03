@@ -463,6 +463,9 @@ export class CombatEncounterService {
     const combatants = Array.from(unique.entries()).map(([aid, a]) => {
       // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
       const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
+      // Determine if player-controlled (summoner starts with 'user:') or monster
+      const isMonster = a.isMonster === true;
+      const isPlayerControlled = !isMonster && String(a.summoner || '').startsWith('user:');
       return {
         avatarId: aid,
         name: a.name,
@@ -474,7 +477,11 @@ export class CombatEncounterService {
         hasActed: false,
         isDefending: false,
         conditions: [],
-        side: 'neutral'
+        side: isMonster ? 'enemy' : 'neutral',
+        isMonster,
+        isPlayerControlled,
+        autoMode: !isPlayerControlled, // Non-player avatars auto-act; players wait for input
+        awaitingAction: false // Set to true when waiting for player input
       };
     });
 
@@ -1082,8 +1089,9 @@ One-liner (no quotes):`;
 
   /** Schedule start of turn with pacing and optional commentary */
   /**
-   * Start the current turn - autonomous AI agent combat
-   * Immediately triggers the AI agent to act
+   * Start the current turn
+   * For player-controlled avatars: waits for button input
+   * For AI/monsters: triggers AI agent to act immediately
    */
   _scheduleTurnStart(encounter) {
     if (!encounter || encounter.state !== 'active') return;
@@ -1107,7 +1115,18 @@ One-liner (no quotes):`;
     // Start turn timeout (fallback)
     this._scheduleTurnTimeout(encounter);
     
-    // Execute turn immediately (AI agent acts autonomously)
+    // Check if this is a player-controlled avatar awaiting manual input
+    if (current.isPlayerControlled && !current.autoMode) {
+      // Announce turn with action buttons and WAIT for player input
+      current.awaitingAction = true;
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - awaiting player input`);
+      this._announceTurn(encounter, current).catch(e => {
+        this.logger?.error?.(`[CombatEncounter] Turn announcement failed: ${e.message}`);
+      });
+      return; // Don't auto-execute - wait for button click
+    }
+    
+    // Execute turn immediately (AI/monster acts autonomously)
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - executing action`);
     this._executeTurn(encounter, current).catch(e => {
       this.logger?.error?.(`[CombatEncounter] Turn execution failed: ${e.message}`);
@@ -1118,6 +1137,58 @@ One-liner (no quotes):`;
   /** Marks a hostile action (attack) to prevent idle end */
   markHostile(encounter) {
     encounter.lastHostileAt = Date.now();
+  }
+
+  /**
+   * Complete a player-initiated action and advance to the next turn
+   * Call this from tools (AttackTool, DefendTool, etc.) after a player action completes
+   * @param {string} channelId - The channel ID where combat is taking place
+   * @param {string} avatarId - The avatar ID that took the action
+   * @param {Object} actionResult - Optional result from the action (damage, etc.)
+   */
+  async completePlayerAction(channelId, avatarId, actionResult = {}) {
+    try {
+      const encounter = this.getEncounterByChannelId(channelId);
+      if (!encounter || encounter.state !== 'active') {
+        this.logger?.debug?.('[CombatEncounter] completePlayerAction: no active encounter');
+        return;
+      }
+      
+      const currentId = this.getCurrentTurnAvatarId(encounter);
+      const combatant = this.getCombatant(encounter, avatarId);
+      
+      // Only process if it's actually this avatar's turn
+      if (this._normalizeId(currentId) !== this._normalizeId(avatarId)) {
+        this.logger?.debug?.(`[CombatEncounter] completePlayerAction: not ${combatant?.name}'s turn`);
+        return;
+      }
+      
+      // Check if combatant was awaiting action
+      if (!combatant || !combatant.awaitingAction) {
+        this.logger?.debug?.('[CombatEncounter] completePlayerAction: combatant not awaiting action');
+        return;
+      }
+      
+      // Mark action completed
+      combatant.awaitingAction = false;
+      combatant.hasActed = true;
+      
+      // Apply damage if provided
+      if (actionResult.damage && actionResult.targetId) {
+        this.applyDamage(encounter, actionResult.targetId, actionResult.damage);
+        this.markHostile(encounter);
+      }
+      
+      // Check end conditions
+      if (this.evaluateEnd(encounter)) return;
+      
+      // Advance to next turn
+      this.logger?.info?.(`[CombatEncounter] ${combatant.name} completed action, advancing turn`);
+      await this.nextTurn(encounter);
+      
+    } catch (e) {
+      this.logger?.error?.(`[CombatEncounter] completePlayerAction error: ${e.message}`);
+    }
   }
 
   /** Called after each action to see if combat should end (e.g., one side remains, idle) */
@@ -2268,8 +2339,9 @@ Message: ${messageContent}`;
     const status = encounter.combatants.map(c => {
       const indicator = this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' ';
       const defending = c.isDefending ? ' 🛡️' : '';
-      const emoji = c.isMonster ? '👹' : '⚔️';
-      return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}`;
+      const emoji = c.isMonster ? '👹' : (c.isPlayerControlled ? '🧙' : '⚔️');
+      const autoLabel = c.isPlayerControlled && c.autoMode ? ' [AUTO]' : '';
+      return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}${autoLabel}`;
     }).join('\n');
     
     // Get enemies for target selection
@@ -2277,12 +2349,12 @@ Message: ${messageContent}`;
       c.isMonster && c.currentHp > 0
     ) || [];
     
-    // Check if current combatant is a human-controlled avatar (not a monster)
-    const isHumanControlled = !current.isMonster;
+    // Only show buttons for player-controlled avatars who are awaiting input
+    const showButtons = current.isPlayerControlled && current.awaitingAction;
     
     // Create action buttons for human players
     const rows = [];
-    if (isHumanControlled) {
+    if (showButtons) {
       // Main action row
       const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -2304,7 +2376,12 @@ Message: ${messageContent}`;
           .setCustomId('dnd_combat_flee')
           .setLabel('Flee')
           .setEmoji('🏃')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_auto')
+          .setLabel('Auto')
+          .setEmoji('🤖')
+          .setStyle(ButtonStyle.Success)
       );
       rows.push(actionRow);
       
@@ -2324,14 +2401,14 @@ Message: ${messageContent}`;
     const embed = {
       author: { name: '🎲 The Dungeon Master' },
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: isHumanControlled 
-        ? `*"${current.name}, the battlefield awaits your command. What do you do?"*`
+      description: showButtons 
+        ? `*"${current.name}, the battlefield awaits your command. Choose your action!"*`
         : `*${current.name} considers their options...*`,
       fields: [ 
         { name: '📊 Combatants', value: status.slice(0, 1024) }
       ],
       color: 0x7C3AED, // DM purple
-      footer: { text: `⏱️ 30 second turn timer${isHumanControlled ? ' • Click a button or type a command' : ''}` }
+      footer: { text: showButtons ? '⏱️ 30s • Click a button to act, or Auto for AI control' : `⏱️ ${current.name} is acting...` }
     };
     
     try { 
