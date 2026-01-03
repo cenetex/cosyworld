@@ -553,9 +553,10 @@ export class DungeonService {
       throw new Error('Room not accessible');
     }
 
-    // Check that current room is cleared before moving to next (DS-2 fix)
-    // Allow staying in current room, but require clearing before advancing
-    if (dungeon.currentRoom !== roomId && !currentRoom.cleared) {
+    // Only combat/boss rooms require clearing before advancing
+    // Other rooms (rest, treasure, puzzle, empty, shop) can be left freely
+    const requiresClearing = ['combat', 'boss'].includes(currentRoom.type);
+    if (dungeon.currentRoom !== roomId && !currentRoom.cleared && requiresClearing) {
       throw new Error('Must clear current room before advancing');
     }
 
