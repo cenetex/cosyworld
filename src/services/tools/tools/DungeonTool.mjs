@@ -10,6 +10,7 @@
 
 import { BasicTool } from '../BasicTool.mjs';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { roomImageCache } from '../../dnd/DungeonService.mjs';
 
 export class DungeonTool extends BasicTool {
   constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService, dungeonMasterService }) {
@@ -723,16 +724,23 @@ export class DungeonTool extends BasicTool {
     }
     const room = result.room;
 
-    // Generate room image
+    // Generate room image using cache for cost savings
     let imageUrl = null;
     try {
       if (this.schemaService?.generateImage) {
-        const prompt = this._getRoomImagePrompt(room, dungeon.theme);
-        imageUrl = await this.schemaService.generateImage(prompt, '16:9', {
-          source: 'dungeon.room',
-          purpose: 'dungeon_room',
-          roomType: room.type
-        });
+        // Use room image cache with declining probability
+        imageUrl = await roomImageCache.getOrGenerate(
+          dungeon.theme,
+          room.type,
+          async () => {
+            const prompt = this._getRoomImagePrompt(room, dungeon.theme);
+            return await this.schemaService.generateImage(prompt, '16:9', {
+              source: 'dungeon.room',
+              purpose: 'dungeon_room',
+              roomType: room.type
+            });
+          }
+        );
       }
     } catch (e) {
       this.logger?.warn?.(`[DungeonTool] Room image failed: ${e.message}`);

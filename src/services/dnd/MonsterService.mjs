@@ -515,6 +515,40 @@ export class MonsterService {
   }
 
   /**
+   * Get or generate an image for a monster
+   * If the monster already has an imageUrl, return it
+   * Otherwise generate a new image and persist it to the database
+   * @param {Object} monster - The monster document
+   * @returns {Promise<string|null>} The image URL
+   */
+  async getOrGenerateImage(monster) {
+    // Already has an image
+    if (monster.imageUrl) {
+      return monster.imageUrl;
+    }
+
+    // Generate new image
+    this.logger?.debug?.(`[MonsterService] Generating image for ${monster.name}`);
+    const imageUrl = await this._generateMonsterImage(monster);
+
+    if (imageUrl && monster._id) {
+      // Persist to database
+      try {
+        const col = await this.collection();
+        await col.updateOne(
+          { _id: monster._id },
+          { $set: { imageUrl, updatedAt: new Date() } }
+        );
+        this.logger?.debug?.(`[MonsterService] Persisted image for ${monster.name}`);
+      } catch (err) {
+        this.logger?.warn?.(`[MonsterService] Failed to persist image for ${monster.name}:`, err.message);
+      }
+    }
+
+    return imageUrl;
+  }
+
+  /**
    * Coerce numeric fields from strings to numbers
    * Some AI models return numbers as strings despite schema specification
    * @private

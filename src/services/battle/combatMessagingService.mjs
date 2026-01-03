@@ -17,14 +17,14 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 const MESSAGE_TEMPLATES = {
   turnAnnouncement: (name, emoji) => `-# ⚔️ [ ${emoji || ''}${name}'s turn! ]`,
   
-  attackHit: (attacker, defender, damage, roll, ac) => 
-    `-# ⚔️ [ ${attacker} attacks ${defender} (HIT: ${roll} vs AC ${ac}) for ${damage} damage! ]`,
+  attackHit: (attacker, defender, damage, roll, ac, currentHp, maxHp) => 
+    `-# ⚔️ [ ${attacker} attacks ${defender} (HIT: ${roll} vs AC ${ac}) for ${damage} damage! | HP: ${currentHp}/${maxHp} ]`,
   
   attackMiss: (attacker, defender, roll, ac) => 
     `-# 🛡️ [ ${attacker}'s attack misses ${defender}! (${roll} vs AC ${ac}) ]`,
   
-  attackCritical: (attacker, defender, damage) => 
-    `-# 💥 [ CRITICAL HIT! ${attacker} devastates ${defender} for ${damage} damage! ]`,
+  attackCritical: (attacker, defender, damage, currentHp, maxHp) => 
+    `-# 💥 [ CRITICAL HIT! ${attacker} devastates ${defender} for ${damage} damage! | HP: ${currentHp}/${maxHp} ]`,
   
   defend: (name) => 
     `-# 🛡️ [ ${name} takes a defensive stance! AC +2 until next turn. ]`,
@@ -143,27 +143,35 @@ export class CombatMessagingService {
       if (action.type === 'attack' && action.target) {
         const isHit = result?.result === 'hit' || result?.result === 'knockout' || result?.result === 'dead';
         const isCritical = result?.critical;
+        
+        // Get HP from result (enriched by combatEncounterService) or fallback to target combatant
+        const currentHp = result?.currentHp ?? action.target.currentHp ?? '?';
+        const maxHp = result?.maxHp ?? action.target.maxHp ?? '?';
 
         if (isCritical) {
           actionMessage = MESSAGE_TEMPLATES.attackCritical(
             combatant.name, 
             action.target.name, 
-            result.damage
+            result.damage,
+            currentHp,
+            maxHp
           );
         } else if (isHit) {
           actionMessage = MESSAGE_TEMPLATES.attackHit(
             combatant.name,
             action.target.name,
             result.damage || 0,
-            result.attackRoll || '?',
-            result.armorClass || '?'
+            result.attackRoll ?? '?',
+            result.armorClass ?? '?',
+            currentHp,
+            maxHp
           );
         } else {
           actionMessage = MESSAGE_TEMPLATES.attackMiss(
             combatant.name,
             action.target.name,
-            result.attackRoll || '?',
-            result.armorClass || '?'
+            result.attackRoll ?? '?',
+            result.armorClass ?? '?'
           );
         }
       } else if (action.type === 'defend') {

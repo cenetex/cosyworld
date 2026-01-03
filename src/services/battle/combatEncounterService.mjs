@@ -718,6 +718,12 @@ export class CombatEncounterService {
           this.applyDamage(encounter, action.target.avatarId, attackResult.damage);
           this.markHostile(encounter);
         }
+        // Enrich result with correct HP from encounter tracking
+        const targetCombatant = this.getCombatant(encounter, action.target.avatarId);
+        if (targetCombatant) {
+          attackResult.currentHp = targetCombatant.currentHp;
+          attackResult.maxHp = targetCombatant.maxHp;
+        }
         return attackResult;
       
       case 'defend':
@@ -2352,7 +2358,12 @@ Message: ${messageContent}`;
     // Only show buttons for player-controlled avatars who are awaiting input
     const showButtons = current.isPlayerControlled && current.awaitingAction;
     
-    // Create action buttons for human players
+    // Extract player's Discord user ID from summoner field (format: "user:123456789")
+    const discordUserId = showButtons && current.ref?.summoner 
+      ? String(current.ref.summoner).replace(/^user:/, '')
+      : null;
+    
+    // Create action buttons for player (sent via DM)
     const rows = [];
     if (showButtons) {
       // Main action row
@@ -2398,21 +2409,55 @@ Message: ${messageContent}`;
       }
     }
     
+    // Public embed (no buttons - buttons go via DM)
+    // Include monster image as thumbnail if available
+    const thumbnailUrl = current.ref?.imageUrl || current.imageUrl || null;
+    
     const embed = {
       author: { name: '🎲 The Dungeon Master' },
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
       description: showButtons 
-        ? `*"${current.name}, the battlefield awaits your command. Choose your action!"*`
+        ? `*"${current.name}, the battlefield awaits your command!"*`
         : `*${current.name} considers their options...*`,
       fields: [ 
         { name: '📊 Combatants', value: status.slice(0, 1024) }
       ],
       color: 0x7C3AED, // DM purple
-      footer: { text: showButtons ? '⏱️ 30s • Click a button to act, or Auto for AI control' : `⏱️ ${current.name} is acting...` }
+      footer: { text: showButtons ? `⏱️ 30s • Awaiting ${current.name}'s action...` : `⏱️ ${current.name} is acting...` },
+      ...(thumbnailUrl && { thumbnail: { url: thumbnailUrl } })
     };
     
     try { 
-      await channel.send({ embeds: [embed], components: rows }); 
+      // Post public announcement (no buttons)
+      await channel.send({ embeds: [embed] }); 
+      
+      // Send action buttons via DM to the controlling player
+      if (showButtons && discordUserId) {
+        try {
+          const user = await this.discordService.client.users.fetch(discordUserId);
+          if (user) {
+            const dmEmbed = {
+              author: { name: '⚔️ Your Turn!' },
+              title: current.name,
+              description: `It's your turn in combat!\n\n**Channel:** <#${encounter.channelId}>\n**Round:** ${encounter.round}\n\nChoose your action below:`,
+              fields: [
+                { name: '📊 Status', value: status.slice(0, 1024) }
+              ],
+              color: 0xEF4444, // Red for urgency
+              footer: { text: '⏱️ 30 second turn timer' }
+            };
+            await user.send({ embeds: [dmEmbed], components: rows });
+            this.logger?.debug?.(`[CombatEncounter] Sent combat buttons via DM to ${user.username}`);
+          }
+        } catch (dmError) {
+          // User may have DMs disabled - fallback to posting in channel with mention
+          this.logger?.warn?.(`[CombatEncounter] DM failed, posting buttons in channel: ${dmError.message}`);
+          await channel.send({ 
+            content: `<@${discordUserId}> - Your turn!`, 
+            components: rows 
+          });
+        }
+      }
     } catch (e) { 
       this.logger.warn?.(`[CombatEncounter] send turn embed failed: ${e.message}`); 
     }

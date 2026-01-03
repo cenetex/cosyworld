@@ -12,6 +12,102 @@ import { DiceService } from '../battle/diceService.mjs';
 import { getMonstersByCR, calculateEncounterXP } from '../../data/dnd/monsters.mjs';
 import { rollTreasure } from '../../data/dnd/items.mjs';
 
+/**
+ * RoomImageCache - Caches room images to avoid regenerating for same room types
+ * Uses declining probability algorithm similar to MonsterService
+ */
+class RoomImageCache {
+  constructor() {
+    this.cache = new Map(); // key: "theme:roomType" → { images: [...], usageCount: number }
+    this.maxImagesPerType = 5;
+    this.minGenerateProbability = 0.1; // Floor at 10% for variety
+  }
+  
+  getCacheKey(theme, roomType) {
+    return `${theme}:${roomType}`;
+  }
+  
+  /**
+   * Get or generate room image using declining probability
+   * P(generate) = max(0.1, 1 / (n + 1)) where n = cached images
+   * @param {string} theme - Dungeon theme
+   * @param {string} roomType - Room type
+   * @param {Function} generateFn - Async function to generate image
+   * @returns {Promise<string|null>} Image URL
+   */
+  async getOrGenerate(theme, roomType, generateFn) {
+    const key = this.getCacheKey(theme, roomType);
+    let entry = this.cache.get(key);
+    
+    if (!entry) {
+      entry = { images: [], totalUsage: 0 };
+      this.cache.set(key, entry);
+    }
+    
+    const n = entry.images.length;
+    const probGenerate = Math.max(this.minGenerateProbability, 1 / (n + 1));
+    const roll = Math.random();
+    
+    // Generate new image if roll says so OR no cached images
+    if (roll < probGenerate || n === 0) {
+      try {
+        const newImage = await generateFn();
+        if (newImage && entry.images.length < this.maxImagesPerType) {
+          entry.images.push({ url: newImage, usageCount: 1 });
+        }
+        return newImage;
+      } catch {
+        // Fall through to cached if generation fails
+      }
+    }
+    
+    // Select from cache (weighted by inverse usage for variety)
+    if (entry.images.length > 0) {
+      return this._selectWeighted(entry.images);
+    }
+    
+    return null;
+  }
+  
+  _selectWeighted(images) {
+    if (images.length === 1) {
+      images[0].usageCount++;
+      return images[0].url;
+    }
+    
+    const weights = images.map(img => 1 / (img.usageCount + 1));
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let roll = Math.random() * totalWeight;
+    
+    for (let i = 0; i < images.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) {
+        images[i].usageCount++;
+        return images[i].url;
+      }
+    }
+    images[0].usageCount++;
+    return images[0].url;
+  }
+  
+  /**
+   * Get cache statistics for debugging
+   */
+  getStats() {
+    const stats = {};
+    for (const [key, entry] of this.cache.entries()) {
+      stats[key] = {
+        imageCount: entry.images.length,
+        totalUsage: entry.images.reduce((sum, img) => sum + img.usageCount, 0)
+      };
+    }
+    return stats;
+  }
+}
+
+// Singleton instance for room image caching
+const roomImageCache = new RoomImageCache();
+
 const ROOM_WEIGHTS = {
   combat: 40,
   treasure: 20,
@@ -74,6 +170,9 @@ const ENTRANCE_PUZZLES = {
     { riddle: 'I can be long or short; I can be grown or bought; I can be painted or left bare; I can be round or square. What am I?', answer: 'nails', hint: 'Found on fingers and in hardware stores.' }
   ]
 };
+
+// Export room image cache for use by DungeonTool
+export { roomImageCache };
 
 export class DungeonService {
   constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, locationService, logger }) {
@@ -393,6 +492,9 @@ export class DungeonService {
       });
 
       if (bossMonster) {
+        // Ensure monster has an image (generate and persist if missing)
+        const imageUrl = await this.monsterService.getOrGenerateImage(bossMonster);
+        
         monsters.push({
           monsterId: bossMonster.monsterId,
           id: bossMonster.monsterId, // Backwards compatibility
@@ -402,6 +504,7 @@ export class DungeonService {
           attacks: bossMonster.attacks,
           cr: bossMonster.cr,
           xp: bossMonster.xp,
+          imageUrl,
           count: 1
         });
         remaining -= bossMonster.xp;
@@ -429,6 +532,9 @@ export class DungeonService {
       if (existing) {
         existing.count++;
       } else {
+        // Ensure monster has an image (generate and persist if missing)
+        const imageUrl = await this.monsterService.getOrGenerateImage(minion);
+        
         monsters.push({
           monsterId: minion.monsterId,
           id: minion.monsterId,
@@ -438,6 +544,7 @@ export class DungeonService {
           attacks: minion.attacks,
           cr: minion.cr,
           xp: minion.xp,
+          imageUrl,
           count: 1
         });
       }
@@ -708,6 +815,7 @@ export class DungeonService {
           id: instanceId,
           name: count > 1 ? `${monster.name} ${i + 1}` : monster.name,
           emoji: monster.emoji || '👹',
+          imageUrl: monster.imageUrl || null,
           isMonster: true,
           stats: {
             hp: monster.stats?.hp || 10,
