@@ -109,7 +109,8 @@ export class ToolService {
     spellService,
     partyService,
     dungeonService,
-    questService
+    questService,
+    tutorialQuestService
   }) {
     this.toolServices = {
       logger,
@@ -152,7 +153,8 @@ export class ToolService {
       spellService,
       partyService,
       dungeonService,
-      questService
+      questService,
+      tutorialQuestService
     }
 
     this.logger = logger || console;
