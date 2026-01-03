@@ -1702,6 +1702,40 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
   }
 
+  /**
+   * Extract token mint addresses from a wallet avatar's token balances and wallet context
+   * @param {Object} avatar - The wallet avatar
+   * @returns {string[]} Array of token mint addresses
+   */
+  _getWalletAvatarTokenMints(avatar) {
+    const mints = new Set();
+    
+    // Check tokenBalances for mint addresses
+    if (avatar.tokenBalances && typeof avatar.tokenBalances === 'object') {
+      for (const [, balanceData] of Object.entries(avatar.tokenBalances)) {
+        if (balanceData?.mint) {
+          mints.add(balanceData.mint);
+        }
+      }
+    }
+    
+    // Check walletTopTokens for mint addresses
+    if (Array.isArray(avatar.walletTopTokens)) {
+      for (const token of avatar.walletTopTokens) {
+        if (token?.mint) {
+          mints.add(token.mint);
+        }
+      }
+    }
+    
+    // Check walletContext for token address if available
+    if (avatar.walletContext?.tokenAddress) {
+      mints.add(avatar.walletContext.tokenAddress);
+    }
+    
+    return [...mints].filter(Boolean);
+  }
+
   async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false, forceHydratePartial = false, referenceImageUrl = null } = {}) {
     if (!avatar) return null;
     if (!force && avatar.imageUrl) return avatar;
@@ -1796,6 +1830,57 @@ The token icon's colors and motifs should be visible in the character's design.`
     
     // Skip if not a partial avatar (shouldn't happen, but safety check)
     if (avatar.isPartial !== true && avatar.model !== 'partial') return avatar;
+    
+    // For wallet avatars, validate that the channel tracks their associated CA
+    // Wallet avatars should only be hydrated in channels where their token is tracked
+    const isWalletAvatar = Boolean(avatar.walletAddress || avatar.summoner?.startsWith('wallet:'));
+    if (isWalletAvatar && this.configService?.services?.buybotService) {
+      const buybotService = this.configService.services.buybotService;
+      
+      // Get the wallet avatar's primary token mint address
+      const walletTokenMints = this._getWalletAvatarTokenMints(avatar);
+      
+      if (walletTokenMints.length > 0) {
+        // Check if any of the wallet's tokens are tracked in this channel
+        let hasTrackedToken = false;
+        for (const mint of walletTokenMints) {
+          try {
+            const isTracked = await buybotService.isTokenTrackedInChannel(channelId, mint);
+            if (isTracked) {
+              hasTrackedToken = true;
+              break;
+            }
+          } catch (e) {
+            this.logger?.debug?.(`[AvatarService] Error checking token tracking: ${e.message}`);
+          }
+        }
+        
+        if (!hasTrackedToken) {
+          // Find where the token IS tracked
+          let correctChannelInfo = null;
+          for (const mint of walletTokenMints) {
+            try {
+              const trackingChannels = await buybotService.getChannelsTrackingToken(mint, 'discord');
+              if (trackingChannels?.length > 0) {
+                correctChannelInfo = trackingChannels[0];
+                break;
+              }
+            } catch (e) {
+              this.logger?.debug?.(`[AvatarService] Error finding tracking channel: ${e.message}`);
+            }
+          }
+          
+          if (correctChannelInfo) {
+            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated in channel ${channelId} - their CA is tracked in channel ${correctChannelInfo.channelId} (${correctChannelInfo.tokenSymbol || 'unknown token'})`);
+          } else {
+            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated in channel ${channelId} - no channel is tracking their CA`);
+          }
+          
+          // Return the avatar without hydrating - they can still speak as a partial avatar
+          return avatar;
+        }
+      }
+    }
     
     this.logger?.info?.(`[AvatarService] Hydrating partial avatar ${avatar.name} for speaking in channel ${channelId}`);
     
