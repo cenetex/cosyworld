@@ -129,7 +129,11 @@ export async function initializeContainer({ container, logger, configService }) 
       toolDecisionService: asClass(ToolDecisionService).singleton(),
       agentContinuationService: asClass(AgentContinuationService).singleton(),
       toolExecutor: asClass(ToolExecutor).singleton(),
-      discordService: asClass(DiscordService).singleton(),
+      discordService: asClass(DiscordService)
+        .singleton()
+        .inject(() => ({
+          getToolService: () => container.resolve('toolService'),
+        })),
       buybotService: asClass(BuybotService)
         .singleton()
         .inject(() => ({
