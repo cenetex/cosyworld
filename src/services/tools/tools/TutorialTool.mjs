@@ -172,6 +172,12 @@ export class TutorialTool extends BasicTool {
       }
 
       const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+      
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = result.nextStep.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(result.nextStep, avatar, {
         stepNumber: this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
         totalSteps: this.tutorialQuestService.getSteps().length,
@@ -179,7 +185,8 @@ export class TutorialTool extends BasicTool {
         headerText: 'Solo Mode Activated!',
         subText: 'Adventuring alone. You can still form a party later!',
         xpEarned: result.xpEarned,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
@@ -244,12 +251,19 @@ export class TutorialTool extends BasicTool {
       }
 
       const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+      
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = result.nextStep.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(result.nextStep, avatar, {
         stepNumber: this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
         totalSteps: this.tutorialQuestService.getSteps().length,
         headerIcon: '⏭️',
         headerText: `Skipped: ${current.step.title}`,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
@@ -314,12 +328,19 @@ export class TutorialTool extends BasicTool {
       }
 
       const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+      
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = result.nextStep.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(result.nextStep, avatar, {
         stepNumber: this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
         totalSteps: this.tutorialQuestService.getSteps().length,
         headerIcon: '✅',
         headerText: result.xpEarned > 0 ? `+${result.xpEarned} XP earned!` : 'Step complete!',
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
@@ -442,6 +463,11 @@ export class TutorialTool extends BasicTool {
         }, buttons);
       }
 
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = current.step.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(current.step, avatar, {
         stepNumber: current.stepNumber,
         totalSteps: current.totalSteps,
@@ -449,7 +475,8 @@ export class TutorialTool extends BasicTool {
         headerText: result.started ? `Welcome, ${avatar.name}!` : 'Resuming Tutorial',
         subText: result.started ? 'Begin your journey to become a hero.' : null,
         isConditionMet: current.isConditionMet,
-        totalXpEarned: current.progress.totalXpEarned
+        totalXpEarned: current.progress.totalXpEarned,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
@@ -515,11 +542,17 @@ export class TutorialTool extends BasicTool {
       }
 
       // In progress - show current step
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = current.step.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(current.step, avatar, {
         stepNumber: current.stepNumber,
         totalSteps: current.totalSteps,
         isConditionMet: current.isConditionMet,
-        totalXpEarned: current.progress.totalXpEarned
+        totalXpEarned: current.progress.totalXpEarned,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
@@ -563,12 +596,19 @@ export class TutorialTool extends BasicTool {
       }
 
       const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+      
+      // Get dungeon thread ID for dungeon-context steps
+      const dungeonThreadId = result.nextStep.context === 'dungeon' 
+        ? await this._getDungeonThreadId(avatar._id) 
+        : null;
+
       const stepEmbed = this._buildStepEmbed(result.nextStep, avatar, {
         stepNumber: this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
         totalSteps: this.tutorialQuestService.getSteps().length,
         headerIcon: '✨',
         headerText: result.xpEarned > 0 ? `+${result.xpEarned} XP earned!` : 'Step complete!',
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        dungeonThreadId
       });
 
       const buttons = createTutorialButtons({ 
