@@ -44,12 +44,14 @@ export async function handleCommands(message, services = {
         const toolResult = await services.toolService.executeTool(command, message, args, avatar, context);
         const resultMessage = toolResult?.message ?? (typeof toolResult === 'string' ? toolResult : null);
         const resultEmbeds = toolResult?.embeds ?? null;
+        const resultComponents = toolResult?.components ?? null;
         const shouldNotify = toolResult?.notify !== false;
         if (tool.replyNotification && shouldNotify) {
           if (resultEmbeds) {
-            // Send embed response - no "X used Y" text for embeds
+            // Send embed response with optional button components
             await services.discordService.replyToMessage(message, { 
-              embeds: resultEmbeds 
+              embeds: resultEmbeds,
+              components: resultComponents
             });
           } else if (resultMessage) {
             await services.discordService.replyToMessage(message, `${avatar.name} used ${tool.name} ${tool.emoji ||''}\n${resultMessage}`);
