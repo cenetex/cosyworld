@@ -52,8 +52,17 @@ export class DungeonTool extends BasicTool {
     const action = (params[0] || '').toLowerCase();
 
     try {
-      // Check for active dungeon in this channel first
-      const activeDungeon = await this.dungeonService.getActiveDungeonByChannel(channelId);
+      // Check for active dungeon in this channel/thread first
+      let activeDungeon = await this.dungeonService.getActiveDungeonByChannel(channelId);
+      
+      // If not found by channel, check if the avatar's party has an active dungeon
+      // This handles the case where we're in a different channel but party is in a dungeon
+      if (!activeDungeon) {
+        const sheet = await this.characterService?.getSheet(avatar._id);
+        if (sheet?.partyId) {
+          activeDungeon = await this.dungeonService.getActiveDungeon(sheet.partyId);
+        }
+      }
 
       // No action specified - show status or prompt to enter
       if (!action || action === 'status') {
@@ -355,6 +364,25 @@ export class DungeonTool extends BasicTool {
       difficulty = diffParam;
     }
 
+    // Send loading message first
+    let loadingMessage = null;
+    if (this.discordService?.client && message?.channel?.id) {
+      try {
+        const channel = await this.discordService.client.channels.fetch(message.channel.id);
+        loadingMessage = await channel.send({
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: '🏰 Generating Dungeon...',
+            description: `*The ancient stones shift and groan as the dungeon materializes from the void...*\n\n**Difficulty:** ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`,
+            color: 0x7C3AED,
+            footer: { text: 'Preparing your adventure...' }
+          }]
+        });
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonTool] Failed to send loading message: ${e.message}`);
+      }
+    }
+
     // Generate the dungeon
     const dungeon = await this.dungeonService.generateDungeon(sheet.partyId, { 
       difficulty, 
@@ -432,19 +460,30 @@ export class DungeonTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'dungeon_entered', { difficulty });
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'dungeon_entered', { difficulty });
 
-    // Response in original channel - link to thread
-    return {
-      embeds: [{
-        author: { name: '🎲 The Dungeon Master' },
-        title: `⚔️ ${dungeon.name}`,
-        description: threadId
-          ? `*The ancient doors creak open, revealing darkness beyond...*\n\n**Your adventure awaits in** <#${threadId}>`
-          : `*The party ventures into a ${dungeon.theme} dungeon...*`,
-        color: this._getDifficultyColor(difficulty),
-        thumbnail: imageUrl ? { url: imageUrl } : undefined,
-        footer: { text: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} difficulty • ${dungeon.rooms.length} rooms` }
-      }]
+    // Build the final response
+    const finalEmbed = {
+      author: { name: '🎲 The Dungeon Master' },
+      title: `⚔️ ${dungeon.name}`,
+      description: threadId
+        ? `*The ancient doors creak open, revealing darkness beyond...*\n\n**Your adventure awaits in** <#${threadId}>`
+        : `*The party ventures into a ${dungeon.theme} dungeon...*`,
+      color: this._getDifficultyColor(difficulty),
+      thumbnail: imageUrl ? { url: imageUrl } : undefined,
+      footer: { text: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} difficulty • ${dungeon.rooms.length} rooms` }
     };
+
+    // Edit loading message if we have one, otherwise return the response
+    if (loadingMessage) {
+      try {
+        await loadingMessage.edit({ embeds: [finalEmbed] });
+        // Return null to indicate we've already sent the response
+        return { _handled: true };
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonTool] Failed to edit loading message: ${e.message}`);
+      }
+    }
+
+    return { embeds: [finalEmbed] };
   }
 
   /**

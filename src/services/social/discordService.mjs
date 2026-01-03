@@ -1108,6 +1108,13 @@ export class DiscordService {
       // Execute the tool
       const result = await toolService.executeTool(toolName, mockMessage, params, avatar, {});
 
+      // If tool handled the response itself (e.g., editing a loading message), skip replying
+      if (result?._handled) {
+        // Still need to acknowledge the interaction
+        await interaction.editReply({ content: '✅' }).catch(() => {});
+        return;
+      }
+
       // Format and send the response
       if (result?.embeds) {
         await interaction.editReply({
