@@ -1816,20 +1816,25 @@ The token icon's colors and motifs should be visible in the character's design.`
   /**
    * Hydrate a partial avatar when it's selected to speak.
    * This upgrades the avatar with a generated image and posts an announcement embed.
+   * For wallet avatars, validates they are in the correct CA-tracked channel and redirects if needed.
    * @param {Object} avatar - The partial avatar to hydrate
    * @param {string} channelId - Channel where the avatar will speak
    * @param {Object} options - Additional options
    * @param {Object} options.discordService - Discord service for posting embeds
-   * @returns {Promise<Object>} - The hydrated avatar with imageUrl
+   * @param {string} [options.redirectChannelId] - If set, indicates we're already redirecting
+   * @returns {Promise<{avatar: Object|null, redirectChannelId: string|null}>} - The hydrated avatar and redirect channel if applicable
    */
   async hydratePartialAvatarForSpeaking(avatar, channelId, options = {}) {
-    if (!avatar) return null;
+    if (!avatar) return { avatar: null, redirectChannelId: null };
+    
+    // Track if we've been redirected to a different channel
+    const redirectChannelId = options.redirectChannelId || null;
     
     // Skip if already has an image
-    if (avatar.imageUrl) return avatar;
+    if (avatar.imageUrl) return { avatar, redirectChannelId };
     
     // Skip if not a partial avatar (shouldn't happen, but safety check)
-    if (avatar.isPartial !== true && avatar.model !== 'partial') return avatar;
+    if (avatar.isPartial !== true && avatar.model !== 'partial') return { avatar, redirectChannelId: null };
     
     // For wallet avatars, validate that the channel tracks their associated CA
     // Wallet avatars should only be hydrated in channels where their token is tracked
@@ -1856,7 +1861,7 @@ The token icon's colors and motifs should be visible in the character's design.`
         }
         
         if (!hasTrackedToken) {
-          // Find where the token IS tracked
+          // Find where the token IS tracked - redirect avatar there
           let correctChannelInfo = null;
           for (const mint of walletTokenMints) {
             try {
@@ -1871,13 +1876,18 @@ The token icon's colors and motifs should be visible in the character's design.`
           }
           
           if (correctChannelInfo) {
-            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated in channel ${channelId} - their CA is tracked in channel ${correctChannelInfo.channelId} (${correctChannelInfo.tokenSymbol || 'unknown token'})`);
+            this.logger?.info?.(`[AvatarService] Wallet avatar ${avatar.name} redirecting from channel ${channelId} to CA-tracked channel ${correctChannelInfo.channelId} (${correctChannelInfo.tokenSymbol || 'unknown token'})`);
+            
+            // Recursively call hydration with the correct channel
+            return this.hydratePartialAvatarForSpeaking(avatar, correctChannelInfo.channelId, {
+              ...options,
+              redirectChannelId: correctChannelInfo.channelId
+            });
           } else {
-            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated in channel ${channelId} - no channel is tracking their CA`);
+            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated - no channel is tracking their CA. Avatar will not speak.`);
+            // Return null to indicate avatar should not speak
+            return { avatar: null, redirectChannelId: null };
           }
-          
-          // Return the avatar without hydrating - they can still speak as a partial avatar
-          return avatar;
         }
       }
     }
@@ -1943,7 +1953,28 @@ The token icon's colors and motifs should be visible in the character's design.`
       }
     }
     
-    return hydratedAvatar;
+    // If hydration failed (no image), partial avatars should not speak
+    if (!hydratedAvatar.imageUrl) {
+      this.logger?.warn?.(`[AvatarService] Hydration failed for ${avatar.name} - avatar will not speak`);
+      return { avatar: null, redirectChannelId };
+    }
+    
+    // Update avatar's channelId if we redirected them
+    if (redirectChannelId && String(hydratedAvatar.channelId) !== String(channelId)) {
+      try {
+        const db = await this._db();
+        await db.collection(this.AVATARS_COLLECTION).updateOne(
+          { _id: hydratedAvatar._id },
+          { $set: { channelId, lastActivityAt: new Date() } }
+        );
+        hydratedAvatar.channelId = channelId;
+        this.logger?.info?.(`[AvatarService] Moved wallet avatar ${hydratedAvatar.name} to channel ${channelId}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to update avatar channelId: ${e.message}`);
+      }
+    }
+    
+    return { avatar: hydratedAvatar, redirectChannelId };
   }
 
   /**
