@@ -253,7 +253,8 @@ export class CombatEncounterService {
   
   /** Helper: compute DEX modifier from stats, defaulting to 10 */
   _dexModFromStats(stats) {
-    const dex = Number(stats?.dexterity ?? COMBAT_CONSTANTS.DEFAULT_DEX);
+    // Support both avatar stats (dexterity) and monster stats (dex)
+    const dex = Number(stats?.dexterity ?? stats?.dex ?? COMBAT_CONSTANTS.DEFAULT_DEX);
     return Math.floor((dex - COMBAT_CONSTANTS.DEFAULT_DEX) / 2);
   }
 
@@ -558,13 +559,18 @@ export class CombatEncounterService {
   /** Rolls initiative for all combatants (d20 + DEX mod if stats available) */
   async rollInitiative(encounter) {
     // Fetch all stats in parallel for better performance
-    const statsPromises = encounter.combatants.map(c => 
-      this.avatarService.getOrCreateStats(c.ref)
+    // Skip avatarService lookup for monsters - they have inline stats
+    const statsPromises = encounter.combatants.map(c => {
+      // Monsters have inline stats, no need to fetch from avatarService
+      if (c.isMonster && c.ref?.stats) {
+        return Promise.resolve(c.ref.stats);
+      }
+      return this.avatarService.getOrCreateStats(c.ref)
         .catch(e => {
           this.logger.warn?.(`[CombatEncounter] Failed stats for ${c.name}: ${e.message}`);
           return null;
-        })
-    );
+        });
+    });
     
     const allStats = await Promise.all(statsPromises);
     

@@ -1371,8 +1371,10 @@ export class OpenRouterAIService {
       return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
     }
     
-    this.logger?.warn?.(`[OpenRouter] Model '${model}' is not image-capable. Use an image model like google/gemini-2.5-flash-image or openai/gpt-5-image.`);
-    return null;
+    // Fallback to default image model instead of failing
+    const defaultImageModel = 'google/gemini-2.5-flash-image';
+    this.logger?.debug?.(`[OpenRouter] Model '${model}' is not image-capable, using default: ${defaultImageModel}`);
+    return await this.generateImageViaOpenRouter(prompt, images, { ...options, model: defaultImageModel });
   }
 
   /**
