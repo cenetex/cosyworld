@@ -1118,7 +1118,8 @@ export class DiscordService {
         }
 
         // Get dungeon tool and solve puzzle
-        const dungeonTool = this.toolService?.getTool?.('dungeon');
+        const toolService = this.getToolService?.();
+        const dungeonTool = toolService?.getTool?.('dungeon');
         if (!dungeonTool) {
           await interaction.editReply({ content: '❌ Dungeon system unavailable.' });
           return;
