@@ -936,9 +936,49 @@ export class DungeonService {
 
     return {
       riddle: entranceRoom.puzzle.riddle,
+      hint: entranceRoom.puzzle.hint,
       attempts: entranceRoom.puzzle.attempts,
       maxAttempts: entranceRoom.puzzle.maxAttempts,
       attemptsLeft: entranceRoom.puzzle.maxAttempts - entranceRoom.puzzle.attempts
+    };
+  }
+
+  /**
+   * Skip the puzzle without solving it
+   * @param {string} dungeonId - The dungeon ID
+   * @returns {Promise<Object>} Result
+   */
+  async skipPuzzle(dungeonId) {
+    const dungeon = await this.getDungeon(dungeonId);
+    if (!dungeon) throw new Error('Dungeon not found');
+
+    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
+    if (!entranceRoom?.puzzle) {
+      return { success: true, message: 'No puzzle to skip!' };
+    }
+
+    if (entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+      return { success: true, message: 'The puzzle has already been solved!' };
+    }
+
+    // Mark puzzle as skipped (solved but bypassed)
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+      { 
+        $set: { 
+          'rooms.$.puzzle.solved': true,
+          'rooms.$.puzzle.skipped': true,
+          entrancePuzzleSolved: true
+        } 
+      }
+    );
+
+    this.logger?.info?.(`[DungeonService] Puzzle skipped for dungeon ${dungeonId}`);
+    return { 
+      success: true, 
+      message: 'You bypassed the puzzle through determination alone.',
+      skipped: true
     };
   }
 

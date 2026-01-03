@@ -1187,7 +1187,6 @@ export class DiscordService {
       'dnd_dungeon_clear': { tool: 'dungeon', params: ['fight'] },
       'dnd_combat_start': { tool: 'dungeon', params: ['fight'] },
       'dnd_puzzle_hint': { tool: 'dungeon', params: ['puzzle', 'hint'] },
-      'dnd_puzzle_skip': { tool: 'dungeon', params: ['puzzle', 'skip'] },
       
       // Combat buttons
       'dnd_combat_attack': { tool: 'attack', params: [] },

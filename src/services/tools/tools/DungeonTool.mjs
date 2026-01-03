@@ -258,11 +258,20 @@ export class DungeonTool extends BasicTool {
 
       // Show current room description
       if (currentRoom) {
-        embed.fields.push({
-          name: `${this._getRoomEmoji(currentRoom.type)} Current Room`,
-          value: this._describeRoomBrief(currentRoom),
-          inline: false
-        });
+        // If there's an unsolved puzzle, show the riddle
+        if (currentRoom.puzzle && !currentRoom.puzzle.solved) {
+          embed.fields.push({
+            name: '🧩 A Riddle Blocks Your Path',
+            value: `*"${currentRoom.puzzle.riddle}"*\n\n💬 **Reply in the dungeon thread with your answer!**`,
+            inline: false
+          });
+        } else {
+          embed.fields.push({
+            name: `${this._getRoomEmoji(currentRoom.type)} Current Room`,
+            value: this._describeRoomBrief(currentRoom),
+            inline: false
+          });
+        }
       }
 
       const buttons = this._createStatusButtons(currentRoom, threadId);
@@ -513,12 +522,7 @@ export class DungeonTool extends BasicTool {
             .setCustomId('dnd_puzzle_hint')
             .setLabel('Get Hint')
             .setEmoji('💡')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('dnd_puzzle_skip')
-            .setLabel('Skip Puzzle')
-            .setEmoji('⏭️')
-            .setStyle(ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Primary)
         )
       ]
     });
@@ -785,10 +789,41 @@ export class DungeonTool extends BasicTool {
       return this._narrateError('No active dungeon');
     }
 
+    const puzzle = await this.dungeonService.getPuzzle(dungeon._id);
+    
+    // Handle special commands: hint, skip
+    const firstParam = params[0]?.toLowerCase();
+    
+    if (firstParam === 'hint') {
+      if (!puzzle || puzzle.solved) {
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            description: '*No riddle blocks your path. The way forward is clear.*',
+            color: 0x10B981
+          }]
+        };
+      }
+      
+      const hint = puzzle.hint || 'The ancient magic offers no further guidance...';
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          title: '💡 A Hint From the Ancients',
+          description: `*Mystical energy swirls, revealing a clue...*\n\n**${hint}**`,
+          color: 0x8B5CF6,
+          fields: [
+            { name: '🧩 The Riddle', value: `"${puzzle.riddle}"`, inline: false },
+            { name: '⏳ Attempts Remaining', value: `${puzzle.attemptsLeft}`, inline: true }
+          ],
+          footer: { text: 'Reply with your answer in this thread!' }
+        }]
+      };
+    }
+
     const answer = params.join(' ').trim();
     
     if (!answer) {
-      const puzzle = await this.dungeonService.getPuzzle(dungeon._id);
       if (!puzzle || puzzle.solved) {
         return {
           embeds: [{
@@ -808,7 +843,7 @@ export class DungeonTool extends BasicTool {
           fields: [
             { name: '⏳ Attempts Remaining', value: `${puzzle.attemptsLeft}`, inline: true }
           ],
-          footer: { text: 'Type: 🏰 dungeon solve <your answer>' }
+          footer: { text: 'Reply with your answer in this thread!' }
         }]
       };
     }
@@ -947,8 +982,19 @@ export class DungeonTool extends BasicTool {
   _createStatusButtons(currentRoom, threadId) {
     const buttons = [];
     
+    // If there's an unsolved puzzle, show hint button
+    if (currentRoom?.puzzle && !currentRoom.puzzle.solved) {
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId('dnd_puzzle_hint')
+          .setLabel('Get Hint')
+          .setEmoji('💡')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    
     if (threadId) {
-      // Just show a map button since thread link is in embed
+      // Show map button since thread link is in embed
       buttons.push(
         new ButtonBuilder()
           .setCustomId('dnd_dungeon_map')
