@@ -1059,12 +1059,13 @@ export class DiscordService {
     const userId = interaction.user.id;
     
     try {
-      // Get user's avatar
-      if (!this.avatarService) {
-        throw new Error('Avatar service not available');
-      }
+      // Get user's avatar by querying for summoner field
+      const db = await this.databaseService.getDatabase();
+      const avatar = await db.collection('avatars').findOne({ 
+        summoner: `user:${userId}`, 
+        status: 'alive' 
+      });
       
-      const avatar = await this.avatarService.getAvatarByDiscordId(userId);
       if (!avatar) {
         await interaction.reply({ 
           content: '❌ You don\'t have an avatar yet. Create one to use D&D features!', 

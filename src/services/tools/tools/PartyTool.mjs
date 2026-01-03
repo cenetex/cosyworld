@@ -11,21 +11,32 @@ import {
   addEmbedTextSummary,
   createActionMenu
 } from '../dndButtonComponents.mjs';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+
+// Consistent color palette
+const COLORS = {
+  SUCCESS: 0x10B981,
+  ERROR: 0xEF4444,
+  INFO: 0x3B82F6,
+  WARNING: 0xF59E0B,
+  MUTED: 0x6B7280
+};
 
 export class PartyTool extends BasicTool {
-  constructor({ logger, partyService, characterService, avatarService, discordService, questService, tutorialQuestService }) {
+  constructor({ logger, partyService, characterService, avatarService, databaseService, discordService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.partyService = partyService;
     this.characterService = characterService;
     this.avatarService = avatarService;
+    this.databaseService = databaseService;
     this.discordService = discordService;
     this.questService = questService;
     this.tutorialQuestService = tutorialQuestService;
 
     this.name = 'party';
     this.parameters = '<action> [options]';
-    this.description = 'Manage D&D party: create, invite, leave, list';
+    this.description = 'Manage D&D party: create, invite, kick, rename';
     this.emoji = '👥';
     this.isDndTool = true;
     this.replyNotification = true;
@@ -38,16 +49,16 @@ export class PartyTool extends BasicTool {
       properties: {
         action: {
           type: 'string',
-          enum: ['create', 'invite', 'leave', 'list', 'role'],
+          enum: ['create', 'invite', 'kick', 'leave', 'list', 'role', 'rename'],
           description: 'Action to perform'
         },
         name: {
           type: 'string',
-          description: 'Party name (for create)'
+          description: 'Party name (for create/rename)'
         },
         target: {
           type: 'string',
-          description: 'Target avatar name (for invite)'
+          description: 'Target avatar name (for invite/kick)'
         },
         role: {
           type: 'string',
@@ -67,23 +78,32 @@ export class PartyTool extends BasicTool {
         case 'create':
           return await this._create(avatar, params);
         case 'invite':
-          return await this._invite(avatar, params, message);
+          return await this._showInviteMenu(avatar, message);
+        case 'kick':
+          return await this._showKickMenu(avatar);
         case 'leave':
           return await this._leave(avatar);
         case 'list':
           return await this._list(avatar);
         case 'role':
           return await this._setRole(avatar, params);
+        case 'rename':
+          return await this._rename(avatar, params);
+        case 'add':
+          // Direct add by avatar ID (from button)
+          return await this._addMember(avatar, params, message);
+        case 'remove':
+          // Direct remove by avatar ID (from button)
+          return await this._removeMember(avatar, params);
         case undefined:
         case '':
-          // No action - show party menu
-          return await this._showMenu(avatar);
+          return await this._showMenu(avatar, message);
         default:
           // Check if it's an avatar name to invite
           if (action) {
-            return await this._invite(avatar, ['invite', ...params], message);
+            return await this._addMemberByName(avatar, params, message);
           }
-          return await this._showMenu(avatar);
+          return await this._showMenu(avatar, message);
       }
     } catch (error) {
       this.logger.error('[PartyTool] Error:', error);
