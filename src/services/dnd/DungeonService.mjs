@@ -76,13 +76,14 @@ const ENTRANCE_PUZZLES = {
 };
 
 export class DungeonService {
-  constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, logger }) {
+  constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, locationService, logger }) {
     this.databaseService = databaseService;
     this.partyService = partyService;
     this.characterService = characterService;
     this.monsterService = monsterService;
     this.combatEncounterService = combatEncounterService;
     this.discordService = discordService;
+    this.locationService = locationService;
     this.diceService = new DiceService();
     this.logger = logger;
     this._collection = null;
@@ -125,7 +126,22 @@ export class DungeonService {
   async getActiveDungeonByChannel(channelId) {
     if (!channelId) return null;
     const col = await this.collection();
-    return col.findOne({ channelId, status: 'active' });
+    // Check both channelId and threadId - a dungeon thread IS its location
+    return col.findOne({ 
+      $or: [{ channelId }, { threadId: channelId }], 
+      status: 'active' 
+    });
+  }
+
+  /**
+   * Get dungeon by its location ID
+   * @param {ObjectId} locationId - Location ID
+   * @returns {Promise<Object|null>} Dungeon or null
+   */
+  async getDungeonByLocationId(locationId) {
+    if (!locationId) return null;
+    const col = await this.collection();
+    return col.findOne({ locationId: new ObjectId(locationId) });
   }
 
   /**
@@ -142,15 +158,61 @@ export class DungeonService {
   }
 
   /**
-   * Set the thread ID for a dungeon
+   * Set the thread ID for a dungeon and create/link location record
    * @param {ObjectId} dungeonId - Dungeon ID
    * @param {string} threadId - Discord thread ID
    */
   async setThreadId(dungeonId, threadId) {
     const col = await this.collection();
+    const dungeon = await col.findOne({ _id: new ObjectId(dungeonId) });
+    
+    // Create a location record for this dungeon thread
+    let locationId = null;
+    if (threadId && this.locationService) {
+      try {
+        const db = await this.databaseService.getDatabase();
+        const locationsCol = db.collection('locations');
+        
+        // Check if location already exists for this thread
+        const existingLocation = await locationsCol.findOne({ channelId: threadId });
+        
+        if (existingLocation) {
+          locationId = existingLocation._id;
+          // Update it to be marked as dungeon type
+          await locationsCol.updateOne(
+            { _id: existingLocation._id },
+            { $set: { 
+              type: 'dungeon',
+              dungeonId: new ObjectId(dungeonId),
+              updatedAt: new Date().toISOString()
+            }}
+          );
+        } else {
+          // Create new location for the dungeon
+          const locationDoc = {
+            name: dungeon?.name || 'Dungeon',
+            description: `A ${dungeon?.theme || 'mysterious'} dungeon - ${dungeon?.difficulty || 'unknown'} difficulty.`,
+            channelId: threadId,
+            type: 'dungeon',
+            dungeonId: new ObjectId(dungeonId),
+            parentId: dungeon?.channelId || null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            version: '1.0.0'
+          };
+          const result = await locationsCol.insertOne(locationDoc);
+          locationId = result.insertedId;
+        }
+        
+        this.logger?.info?.(`[DungeonService] Linked dungeon ${dungeonId} to location ${locationId}`);
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonService] Failed to create location for dungeon: ${e.message}`);
+      }
+    }
+    
     await col.updateOne(
       { _id: new ObjectId(dungeonId) },
-      { $set: { threadId } }
+      { $set: { threadId, locationId } }
     );
   }
 
@@ -189,8 +251,10 @@ export class DungeonService {
     // Populate encounters asynchronously (uses MonsterService with bonding curve)
     await this._populateEncounters(rooms, partyLevel, selectedTheme);
 
+    const dungeonName = this._generateName(selectedTheme);
+    
     const dungeon = {
-      name: this._generateName(selectedTheme),
+      name: dungeonName,
       theme: selectedTheme,
       difficulty,
       partyLevel,
@@ -199,6 +263,7 @@ export class DungeonService {
       partyId: new ObjectId(partyId),
       channelId: channelId || null,
       threadId: null,
+      locationId: null, // Will be set when thread is created
       status: 'active',
       entrancePuzzleSolved: false,
       createdAt: new Date(),
@@ -712,27 +777,59 @@ export class DungeonService {
 
   async completeDungeon(dungeonId) {
     const col = await this.collection();
+    const dungeon = await this.getDungeon(dungeonId);
+    
     await col.updateOne(
       { _id: new ObjectId(dungeonId) },
       { $set: { status: 'completed', completedAt: new Date() } }
     );
 
-    const dungeon = await this.getDungeon(dungeonId);
-    await this.partyService.setDungeon(dungeon.partyId, null);
+    // Update location status if linked
+    if (dungeon?.locationId) {
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('locations').updateOne(
+          { _id: new ObjectId(dungeon.locationId) },
+          { $set: { 
+            dungeonStatus: 'completed',
+            updatedAt: new Date().toISOString()
+          }}
+        );
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonService] Failed to update location status: ${e.message}`);
+      }
+    }
 
+    await this.partyService.setDungeon(dungeon.partyId, null);
     this.logger?.info?.(`[DungeonService] Dungeon ${dungeonId} completed`);
   }
 
   async abandonDungeon(dungeonId) {
     const col = await this.collection();
+    const dungeon = await this.getDungeon(dungeonId);
+    
     await col.updateOne(
       { _id: new ObjectId(dungeonId) },
       { $set: { status: 'abandoned', completedAt: new Date() } }
     );
 
-    const dungeon = await this.getDungeon(dungeonId);
-    await this.partyService.setDungeon(dungeon.partyId, null);
+    // Update location status if linked
+    if (dungeon?.locationId) {
+      try {
+        const db = await this.databaseService.getDatabase();
+        await db.collection('locations').updateOne(
+          { _id: new ObjectId(dungeon.locationId) },
+          { $set: { 
+            dungeonStatus: 'abandoned',
+            updatedAt: new Date().toISOString()
+          }}
+        );
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonService] Failed to update location status: ${e.message}`);
+      }
+    }
 
+    await this.partyService.setDungeon(dungeon.partyId, null);
     this.logger?.info?.(`[DungeonService] Dungeon ${dungeonId} abandoned`);
   }
 
