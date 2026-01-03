@@ -54,7 +54,7 @@ export function createButtonRow(buttons) {
  * @param {Object} options - Current tutorial state
  * @returns {ActionRowBuilder[]}
  */
-export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null, hasCharacter = false }) {
+export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null, hasCharacter = false, isConditionMet = false }) {
   const buttons = [];
   
   if (isComplete) {
@@ -65,59 +65,62 @@ export function createTutorialButtons({ canSkip = false, isComplete = false, ste
       );
     }
     buttons.push(
-      createButton({ customId: 'dnd_party_create', label: 'Form Party', emoji: '👥', style: ButtonStyle.Primary }),
-      createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success }),
-      createButton({ customId: 'dnd_tutorial_reset', label: 'Replay Tutorial', emoji: '🔄', style: ButtonStyle.Secondary })
+      createButton({ customId: 'dnd_party_menu', label: 'Party', emoji: '👥', style: ButtonStyle.Primary }),
+      createButton({ customId: 'dnd_dungeon_menu', label: 'Dungeons', emoji: '🏰', style: ButtonStyle.Success }),
+      createButton({ customId: 'dnd_tutorial_reset', label: 'Replay', emoji: '🔄', style: ButtonStyle.Secondary })
     );
   } else {
     // In-progress tutorial
-    if (canSkip) {
+    
+    // If condition is already met, show "Complete Step" button prominently
+    if (isConditionMet) {
+      buttons.push(
+        createButton({ customId: 'dnd_tutorial_complete_step', label: 'Complete Step', emoji: '✅', style: ButtonStyle.Success })
+      );
+    }
+    
+    if (canSkip && !isConditionMet) {
       buttons.push(
         createButton({ customId: 'dnd_tutorial_skip', label: 'Skip Step', emoji: '⏭️', style: ButtonStyle.Secondary })
       );
     }
     
-    // Add action button based on step trigger
-    if (stepTrigger === 'ready') {
-      buttons.push(
-        createButton({ customId: 'dnd_tutorial_ready', label: 'Ready!', emoji: '✨', style: ButtonStyle.Success })
-      );
-    } else if (stepTrigger === 'character_created') {
-      if (hasCharacter) {
-        // Already has character - show "Continue" instead
+    // Add action button based on step trigger (only if condition not yet met)
+    if (!isConditionMet) {
+      if (stepTrigger === 'ready') {
         buttons.push(
-          createButton({ customId: 'dnd_tutorial_next', label: 'Continue', emoji: '➡️', style: ButtonStyle.Success })
+          createButton({ customId: 'dnd_tutorial_ready', label: 'Ready!', emoji: '✨', style: ButtonStyle.Success })
         );
-      } else {
+      } else if (stepTrigger === 'character_created') {
         buttons.push(
           createButton({ customId: 'dnd_character_menu', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary })
         );
+      } else if (stepTrigger === 'sheet_viewed') {
+        buttons.push(
+          createButton({ customId: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜', style: ButtonStyle.Primary })
+        );
+      } else if (stepTrigger === 'spells_checked') {
+        buttons.push(
+          createButton({ customId: 'dnd_cast_list', label: 'View Spells', emoji: '🔮', style: ButtonStyle.Primary })
+        );
+      } else if (stepTrigger === 'party_ready') {
+        buttons.push(
+          createButton({ customId: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: ButtonStyle.Primary }),
+          createButton({ customId: 'dnd_tutorial_solo', label: 'Go Solo', emoji: '🎭', style: ButtonStyle.Secondary })
+        );
+      } else if (stepTrigger === 'dungeon_entered') {
+        buttons.push(
+          createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success })
+        );
+      } else if (stepTrigger === 'map_viewed') {
+        buttons.push(
+          createButton({ customId: 'dnd_dungeon_map', label: 'View Map', emoji: '🗺️', style: ButtonStyle.Primary })
+        );
+      } else if (stepTrigger === 'rested') {
+        buttons.push(
+          createButton({ customId: 'dnd_character_rest', label: 'Rest', emoji: '🛏️', style: ButtonStyle.Primary })
+        );
       }
-    } else if (stepTrigger === 'sheet_viewed') {
-      buttons.push(
-        createButton({ customId: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜', style: ButtonStyle.Primary })
-      );
-    } else if (stepTrigger === 'spells_checked') {
-      buttons.push(
-        createButton({ customId: 'dnd_cast_list', label: 'View Spells', emoji: '🔮', style: ButtonStyle.Primary })
-      );
-    } else if (stepTrigger === 'party_ready') {
-      buttons.push(
-        createButton({ customId: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: ButtonStyle.Primary }),
-        createButton({ customId: 'dnd_tutorial_solo', label: 'Go Solo', emoji: '🎭', style: ButtonStyle.Secondary })
-      );
-    } else if (stepTrigger === 'dungeon_entered') {
-      buttons.push(
-        createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success })
-      );
-    } else if (stepTrigger === 'map_viewed') {
-      buttons.push(
-        createButton({ customId: 'dnd_dungeon_map', label: 'View Map', emoji: '🗺️', style: ButtonStyle.Primary })
-      );
-    } else if (stepTrigger === 'rested') {
-      buttons.push(
-        createButton({ customId: 'dnd_character_rest', label: 'Rest', emoji: '🛏️', style: ButtonStyle.Primary })
-      );
     }
     
     buttons.push(
@@ -402,4 +405,54 @@ export function addEmbedTextSummary(embedResponse) {
     ...embedResponse,
     content: embedResponse.content || `📋 ${summary}`
   };
+}
+
+/**
+ * Create main D&D action menu
+ * @param {Object} options - Player state
+ * @returns {ActionRowBuilder[]}
+ */
+export function createMainDndMenu({ hasCharacter = false, hasParty = false, inDungeon = false }) {
+  const row1 = [];
+  const row2 = [];
+  
+  if (!hasCharacter) {
+    row1.push(
+      createButton({ customId: 'dnd_character_menu', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary })
+    );
+  } else {
+    row1.push(
+      createButton({ customId: 'dnd_character_sheet', label: 'Character', emoji: '📜', style: ButtonStyle.Primary })
+    );
+  }
+  
+  row1.push(
+    createButton({ customId: 'dnd_party_menu', label: 'Party', emoji: '👥', style: ButtonStyle.Primary })
+  );
+  
+  if (inDungeon) {
+    row1.push(
+      createButton({ customId: 'dnd_dungeon_menu', label: 'Dungeon', emoji: '🏰', style: ButtonStyle.Danger })
+    );
+  } else if (hasParty || hasCharacter) {
+    row1.push(
+      createButton({ customId: 'dnd_dungeon_menu', label: 'Dungeons', emoji: '🏰', style: ButtonStyle.Success })
+    );
+  }
+  
+  row2.push(
+    createButton({ customId: 'dnd_quest_menu', label: 'Quests', emoji: '📋', style: ButtonStyle.Secondary }),
+    createButton({ customId: 'dnd_tutorial_start', label: 'Tutorial', emoji: '🎓', style: ButtonStyle.Secondary })
+  );
+  
+  if (hasCharacter) {
+    row2.push(
+      createButton({ customId: 'dnd_cast_list', label: 'Spells', emoji: '🪄', style: ButtonStyle.Primary })
+    );
+  }
+  
+  const rows = [createButtonRow(row1)];
+  if (row2.length > 0) rows.push(createButtonRow(row2));
+  
+  return rows;
 }

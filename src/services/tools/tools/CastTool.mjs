@@ -7,6 +7,11 @@
 
 import { BasicTool } from '../BasicTool.mjs';
 import { SPELLS } from '../../../data/dnd/spells.mjs';
+import { 
+  addComponentsToResponse, 
+  addEmbedTextSummary,
+  createActionMenu
+} from '../dndButtonComponents.mjs';
 
 export class CastTool extends BasicTool {
   constructor({ logger, spellService, characterService, avatarService, discordService, questService, tutorialQuestService }) {
@@ -139,7 +144,22 @@ export class CastTool extends BasicTool {
       .map(([lvl, s]) => `L${lvl}: ${s.current}/${s.max}`)
       .join(' | ') || 'None';
 
-    return {
+    // Build spell buttons (up to 10 spells - 2 rows of 5)
+    const spellButtons = [];
+    const allSpells = [...(sheet.spellcasting.cantrips || []), ...(sheet.spellcasting.known || [])];
+    for (const spellId of allSpells.slice(0, 10)) {
+      const spell = SPELLS[spellId];
+      if (spell) {
+        spellButtons.push({
+          id: `dnd_cast_${spellId}`,
+          label: spell.name.substring(0, 15),
+          emoji: spell.damage ? '💥' : spell.healing ? '💚' : '✨',
+          style: spell.damage ? 'Danger' : spell.healing ? 'Success' : 'Primary'
+        });
+      }
+    }
+
+    const response = {
       embeds: [{
         title: `🪄 ${avatar.name}'s Spells`,
         color: 0x8B5CF6, // Purple
@@ -148,9 +168,12 @@ export class CastTool extends BasicTool {
           { name: '📖 Known Spells', value: known, inline: false },
           { name: '⚡ Spell Slots', value: slots, inline: false }
         ],
-        footer: { text: 'Use: 🪄 cast <spell_id> <target> [slot]' }
+        footer: { text: 'Select a spell to cast' }
       }]
     };
+
+    const buttons = spellButtons.length > 0 ? createActionMenu(spellButtons) : [];
+    return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }
 
   _formatResult(caster, { spell, slotLevel, results }) {

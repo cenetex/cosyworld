@@ -16,7 +16,7 @@ export class QuestTool extends BasicTool {
     this.logger = logger;
 
     this.name = 'quest';
-    this.emoji = '📚';
+    this.emoji = '�';
     this.description = 'View and manage quests';
     this.replyNotification = true;
     this.cooldownMs = 3000;
@@ -38,11 +38,11 @@ export class QuestTool extends BasicTool {
   }
 
   getUsage() {
-    return '📚 quest [list|start|status|reset] [quest_id]';
+    return '� quest [list|active|available|completed]';
   }
 
   async execute(message, params, avatar) {
-    const subcommand = params[0]?.toLowerCase() || 'list';
+    const subcommand = params[0]?.toLowerCase();
     const questId = params[1]?.toLowerCase();
 
     switch (subcommand) {
@@ -90,6 +90,11 @@ export class QuestTool extends BasicTool {
 
     case 'solo':
       return this.handleTrigger(avatar, 'tutorial', 'party_ready');
+
+    case undefined:
+    case '':
+      // No action - show quest menu
+      return this.listQuests(avatar);
 
     default:
       // Check if subcommand is a quest ID

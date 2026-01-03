@@ -73,13 +73,54 @@ export class PartyTool extends BasicTool {
           return await this._list(avatar);
         case 'role':
           return await this._setRole(avatar, params);
+        case undefined:
+        case '':
+          // No action - show party menu
+          return await this._showMenu(avatar);
         default:
-          return this._errorEmbed(`Unknown action: ${action}. Use: create, invite, leave, list, role`);
+          // Check if it's an avatar name to invite
+          if (action) {
+            return await this._invite(avatar, ['invite', ...params], message);
+          }
+          return await this._showMenu(avatar);
       }
     } catch (error) {
       this.logger.error('[PartyTool] Error:', error);
       return this._errorEmbed(error.message);
     }
+  }
+
+  /**
+   * Show party menu with current status and actions
+   */
+  async _showMenu(avatar) {
+    const sheet = await this.characterService?.getSheet?.(avatar._id);
+    
+    if (!sheet?.partyId) {
+      // Not in a party - show create option
+      const response = {
+        embeds: [{
+          title: '👥 Party',
+          description: `**${avatar.name}** is not in a party yet.`,
+          color: 0x6B7280,
+          fields: [{
+            name: '🚀 Get Started',
+            value: 'Create a party to adventure with others, or go solo!',
+            inline: false
+          }]
+        }]
+      };
+      
+      const buttons = createActionMenu([
+        { id: 'dnd_party_create', label: 'Create Party', emoji: '👥', style: 'Success' },
+        { id: 'dnd_tutorial_solo', label: 'Go Solo', emoji: '🎭', style: 'Secondary' }
+      ]);
+      
+      return addEmbedTextSummary(addComponentsToResponse(response, buttons));
+    }
+    
+    // In a party - show party info
+    return await this._list(avatar);
   }
 
   _errorEmbed(message) {

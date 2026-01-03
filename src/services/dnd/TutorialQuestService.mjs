@@ -12,7 +12,7 @@ const TUTORIAL_STEPS = [
     id: 'welcome',
     title: 'Welcome, Adventurer!',
     description: 'Welcome to the realm! Let me guide you through becoming a hero.',
-    instruction: 'Say **"ready"** to begin your journey.\n\n*Use `📚 tutorial skip` at any time to skip optional steps.*',
+    instruction: 'Click **Ready** below to begin your journey.',
     trigger: 'ready',
     xpReward: 0
   },
@@ -20,7 +20,7 @@ const TUTORIAL_STEPS = [
     id: 'create_character',
     title: 'Choose Your Path',
     description: 'Every hero needs a race and class. Your choices shape your destiny.',
-    instruction: 'Create your character with:\n📜 `character create <race> <class>`\n\n**Races:** human, elf, dwarf, halfling\n**Classes:** fighter, wizard, rogue, cleric, ranger, bard',
+    instruction: 'Click **Create Character** below to choose your race and class.',
     trigger: 'character_created',
     xpReward: 50
   },
@@ -28,7 +28,7 @@ const TUTORIAL_STEPS = [
     id: 'view_sheet',
     title: 'Know Thyself',
     description: 'Your character sheet shows your abilities, spells, and features.',
-    instruction: 'View your character sheet:\n📜 `character sheet`',
+    instruction: 'Click **View Sheet** to see your character.',
     trigger: 'sheet_viewed',
     xpReward: 25
   },
@@ -36,7 +36,7 @@ const TUTORIAL_STEPS = [
     id: 'learn_spells',
     title: 'The Art of Magic',
     description: 'Spellcasters wield arcane or divine power. Non-spellcasters may skip this step.',
-    instruction: 'If you\'re a spellcaster, view your available spells:\n🪄 `cast`\n\n*Non-spellcaster? This step will auto-skip, or use `📚 tutorial skip`*',
+    instruction: 'Click **View Spells** to see your magical abilities.\n\n*Non-spellcaster? Click **Skip Step** to continue.*',
     trigger: 'spells_checked',
     optional: true,
     autoSkipCondition: 'not_spellcaster',
@@ -46,7 +46,7 @@ const TUTORIAL_STEPS = [
     id: 'create_party',
     title: 'Strength in Numbers',
     description: 'Dungeons are dangerous. Form a party with fellow adventurers!',
-    instruction: 'Create or join a party:\n👥 `party create <name>`\n\n*Going solo? Use `📚 tutorial solo` to continue alone.*',
+    instruction: 'Click **Create Party** to form a group.\n\n*Going solo? Click **Go Solo** to continue alone.*',
     trigger: 'party_ready',
     optional: true,
     xpReward: 25
@@ -55,7 +55,7 @@ const TUTORIAL_STEPS = [
     id: 'enter_dungeon',
     title: 'Into the Depths',
     description: 'The Tutorial Crypts await. A simple dungeon to test your mettle.',
-    instruction: 'Enter the tutorial dungeon:\n🏰 `dungeon enter easy`',
+    instruction: 'Click **Enter Dungeon** to begin your adventure.',
     trigger: 'dungeon_entered',
     xpReward: 50
   },
@@ -63,7 +63,7 @@ const TUTORIAL_STEPS = [
     id: 'view_map',
     title: 'Know Your Surroundings',
     description: 'The dungeon map shows rooms, exits, and your position.',
-    instruction: 'View the dungeon map:\n🏰 `dungeon map`',
+    instruction: 'Click **View Map** to see the dungeon layout.',
     trigger: 'map_viewed',
     xpReward: 25
   },
@@ -71,7 +71,7 @@ const TUTORIAL_STEPS = [
     id: 'first_combat',
     title: 'Steel and Spell',
     description: 'Enemies block your path! Use attacks or spells to defeat them.',
-    instruction: 'Fight the enemies in this room:\n🗡️ `attack <enemy>` or 🪄 `cast <spell> <enemy>`\n\nWhen victorious:\n🏰 `dungeon clear`',
+    instruction: 'Use the **Attack** or **Cast** buttons to fight enemies.\n\nWhen victorious, click **Clear Room**.',
     trigger: 'room_cleared',
     xpReward: 100
   },
@@ -79,7 +79,7 @@ const TUTORIAL_STEPS = [
     id: 'explore',
     title: 'Deeper We Go',
     description: 'Move through the dungeon, clearing rooms and collecting treasure.',
-    instruction: 'Move to the next room:\n🏰 `dungeon move <room_id>`\n\nCollect treasure:\n🏰 `dungeon loot`\n\n*Continue exploring or use `📚 tutorial next` when ready to proceed.*',
+    instruction: 'Use the **Move** button to explore.\nUse the **Loot** button to collect treasure.\n\n*Click **Skip Step** when ready to proceed.*',
     trigger: 'explored',
     optional: true,
     xpReward: 50
@@ -88,7 +88,7 @@ const TUTORIAL_STEPS = [
     id: 'complete_dungeon',
     title: 'Victory!',
     description: 'You\'ve conquered the Tutorial Crypts! You\'re ready for greater challenges.',
-    instruction: 'Defeat the boss and complete the dungeon!\n🏰 `dungeon clear` in the boss room',
+    instruction: 'Defeat the boss and click **Clear Room** to complete the dungeon!',
     trigger: 'dungeon_complete',
     xpReward: 200
   },
@@ -96,7 +96,7 @@ const TUTORIAL_STEPS = [
     id: 'rest',
     title: 'Rest and Recovery',
     description: 'After battle, rest to restore your abilities.',
-    instruction: 'Take a long rest:\n📜 `character rest long`',
+    instruction: 'Click **Rest** to restore your health and abilities.',
     trigger: 'rested',
     xpReward: 25
   }
@@ -162,45 +162,8 @@ export class TutorialQuestService {
     if (!progress) return null;
     if (progress.completedAt) return { completed: true, progress };
     
-    // Auto-advance through already-completed conditions
-    let currentStepIndex = progress.currentStep;
-    let autoAdvanced = false;
+    const currentStepIndex = progress.currentStep;
     
-    while (currentStepIndex < TUTORIAL_STEPS.length) {
-      const step = TUTORIAL_STEPS[currentStepIndex];
-      const isMet = await this._isConditionMet(avatarId, step);
-      
-      if (isMet) {
-        // Condition already met, advance silently
-        const xpEarned = step.xpReward || 0;
-        currentStepIndex++;
-        autoAdvanced = true;
-        
-        // Update progress in DB
-        const col = await this.collection();
-        await col.updateOne(
-          { avatarId: new ObjectId(avatarId) },
-          { 
-            $set: { currentStep: currentStepIndex },
-            $push: { completedSteps: step.id },
-            $inc: { totalXpEarned: xpEarned }
-          }
-        );
-        
-        // Award XP if character exists
-        if (xpEarned > 0) {
-          try {
-            await this.characterService?.awardXP?.(avatarId, xpEarned);
-          } catch { /* ignore */ }
-        }
-        
-        this.logger?.info?.(`[TutorialQuestService] Auto-advanced past ${step.id} for avatar ${avatarId}`);
-      } else {
-        break;
-      }
-    }
-    
-    // Check if auto-advance completed the tutorial
     if (currentStepIndex >= TUTORIAL_STEPS.length) {
       const col = await this.collection();
       await col.updateOne(
@@ -208,12 +171,21 @@ export class TutorialQuestService {
         { $set: { completedAt: new Date() } }
       );
       const updatedProgress = await this.getProgress(avatarId);
-      return { completed: true, progress: updatedProgress, autoAdvanced };
+      return { completed: true, progress: updatedProgress };
     }
     
     const step = TUTORIAL_STEPS[currentStepIndex];
-    const updatedProgress = autoAdvanced ? await this.getProgress(avatarId) : progress;
-    return { step, progress: updatedProgress, stepNumber: currentStepIndex + 1, totalSteps: TUTORIAL_STEPS.length, autoAdvanced };
+    
+    // Check if the current step's condition is already met
+    const isConditionMet = await this._isConditionMet(avatarId, step);
+    
+    return { 
+      step, 
+      progress, 
+      stepNumber: currentStepIndex + 1, 
+      totalSteps: TUTORIAL_STEPS.length,
+      isConditionMet // Let the UI show a "Complete" button
+    };
   }
 
   /**
@@ -370,59 +342,14 @@ export class TutorialQuestService {
       }
     }
 
-    // Auto-advance through any steps whose conditions are already met
-    let finalStepIndex = nextStepIndex;
-    let totalXpFromAutoAdvance = 0;
-    let autoAdvancedSteps = [];
-    
-    while (finalStepIndex < TUTORIAL_STEPS.length) {
-      const step = TUTORIAL_STEPS[finalStepIndex];
-      const isMet = await this._isConditionMet(avatarId, step);
-      
-      if (isMet) {
-        const stepXp = step.xpReward || 0;
-        totalXpFromAutoAdvance += stepXp;
-        autoAdvancedSteps.push(step.id);
-        
-        // Award XP for auto-advanced step
-        if (stepXp > 0) {
-          try {
-            await this.characterService?.awardXP?.(avatarId, stepXp);
-          } catch { /* ignore */ }
-        }
-        
-        this.logger?.info?.(`[TutorialQuestService] Auto-advanced past ${step.id} for avatar ${avatarId}`);
-        finalStepIndex++;
-      } else {
-        break;
-      }
-    }
-    
-    // Update DB if we auto-advanced
-    if (autoAdvancedSteps.length > 0) {
-      const isFinalComplete = finalStepIndex >= TUTORIAL_STEPS.length;
-      await col.updateOne(
-        { avatarId: new ObjectId(avatarId) },
-        { 
-          $set: { currentStep: finalStepIndex, ...(isFinalComplete ? { completedAt: new Date() } : {}) },
-          $push: { completedSteps: { $each: autoAdvancedSteps } },
-          $inc: { totalXpEarned: totalXpFromAutoAdvance }
-        }
-      );
-    }
-
-    const isFinalComplete = finalStepIndex >= TUTORIAL_STEPS.length;
-    const nextStep = isFinalComplete ? null : TUTORIAL_STEPS[finalStepIndex];
-    const totalEarned = progress.totalXpEarned + xpEarned + totalXpFromAutoAdvance;
+    const nextStep = isComplete ? null : TUTORIAL_STEPS[nextStepIndex];
 
     return {
       completed: currentStep,
-      xpEarned: xpEarned + totalXpFromAutoAdvance,
-      isQuestComplete: isFinalComplete,
+      xpEarned,
+      isQuestComplete: isComplete,
       nextStep,
-      totalXpEarned: totalEarned,
-      autoAdvanced: autoAdvancedSteps.length > 0,
-      autoAdvancedSteps
+      totalXpEarned: progress.totalXpEarned + xpEarned
     };
   }
 

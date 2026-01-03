@@ -216,8 +216,8 @@ export class CharacterTool extends BasicTool {
     // Add action buttons
     const buttons = createActionMenu([
       { id: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜' },
-      { id: 'dnd_party_create', label: 'Form Party', emoji: '👥' },
-      { id: 'dnd_tutorial_status', label: 'Tutorial', emoji: '📚' }
+      { id: 'dnd_party_menu', label: 'Party', emoji: '👥' },
+      { id: 'dnd_tutorial_status', label: 'Tutorial', emoji: '🎓' }
     ]);
     return addEmbedTextSummary(addComponentsToResponse(response, buttons));
   }

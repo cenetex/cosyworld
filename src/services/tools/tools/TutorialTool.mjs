@@ -22,7 +22,7 @@ export class TutorialTool extends BasicTool {
     this.logger = logger;
 
     this.name = 'tutorial';
-    this.emoji = '📚';
+    this.emoji = '🎓';
     this.description = 'Begin or continue the D&D tutorial quest';
     this.replyNotification = true;
     this.cooldownMs = 5000;
@@ -106,6 +106,10 @@ export class TutorialTool extends BasicTool {
 
     case 'next':
       response = await this.advanceNext(avatar);
+      break;
+
+    case 'complete':
+      response = await this.completeCurrentStep(avatar);
       break;
 
     default:
@@ -223,6 +227,83 @@ export class TutorialTool extends BasicTool {
   }
 
   /**
+   * Complete the current step when its condition is already met
+   */
+  async completeCurrentStep(avatar) {
+    try {
+      const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+      
+      if (!current || current.completed) {
+        return this.showStatus(avatar);
+      }
+
+      // Verify condition is met
+      if (!current.isConditionMet) {
+        return {
+          embeds: [{
+            title: '⚠️ Step Not Complete',
+            description: `**${current.step.title}** requirements haven't been met yet.`,
+            color: 0xFBBF24,
+            fields: [{
+              name: '📋 What to do',
+              value: current.step.instruction,
+              inline: false
+            }],
+            footer: { text: 'Complete the step requirements first' }
+          }]
+        };
+      }
+
+      // Advance by triggering completion
+      const result = await this.tutorialQuestService.advanceStep(avatar._id, current.step.trigger);
+      
+      if (!result) {
+        return this._errorEmbed('Failed to complete step');
+      }
+
+      // Check if user already has a character sheet
+      const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
+
+      if (result.isQuestComplete) {
+        const completionEmbed = this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
+        const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
+        return addEmbedTextSummary(addComponentsToResponse(completionEmbed, buttons));
+      }
+
+      const nextStepEmbed = this.tutorialQuestService.formatStepMessage(
+        result.nextStep,
+        this.tutorialQuestService.getSteps().indexOf(result.nextStep) + 1,
+        this.tutorialQuestService.getSteps().length
+      );
+
+      // Check if the next step's condition is already met
+      const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+
+      nextStepEmbed.embeds[0].author = { 
+        name: result.xpEarned > 0 
+          ? `✅ Step complete! +${result.xpEarned} XP` 
+          : '✅ Step complete!'
+      };
+
+      // If next step is also already complete, indicate that
+      if (nextStepConditionMet) {
+        nextStepEmbed.embeds[0].color = 0x10B981;
+      }
+
+      const buttons = createTutorialButtons({ 
+        canSkip: result.nextStep.optional, 
+        stepTrigger: result.nextStep.trigger,
+        hasCharacter,
+        isConditionMet: nextStepConditionMet
+      });
+      return addEmbedTextSummary(addComponentsToResponse(nextStepEmbed, buttons));
+    } catch (e) {
+      this.logger?.error?.('[TutorialTool] Complete step error:', e);
+      return this._errorEmbed(`Failed to complete step: ${e.message}`);
+    }
+  }
+
+  /**
    * Advance to next step (for optional steps)
    */
   async advanceNext(avatar) {
@@ -235,46 +316,57 @@ export class TutorialTool extends BasicTool {
       const result = await this.tutorialQuestService.startTutorial(avatar._id);
 
       if (!result.started) {
-        // Tutorial already exists, get current step (which will auto-advance)
+        // Tutorial already exists, get current step
         const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+        const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
+        
         if (current.completed) {
           const completedEmbed = {
             embeds: [{
               title: '✅ Tutorial Already Complete!',
               description: 'You\'ve already completed the tutorial.',
               color: 0x10B981,
-              footer: { text: 'Use 📚 tutorial reset to start over' }
+              footer: { text: 'Click Replay Tutorial to start over' }
             }]
           };
-          if (current.autoAdvanced) {
-            completedEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
-          }
-          return completedEmbed;
+          const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
+          return addEmbedTextSummary(addComponentsToResponse(completedEmbed, buttons));
         }
         
         const stepEmbed = this.tutorialQuestService.formatStepMessage(
           current.step, current.stepNumber, current.totalSteps
         );
-        if (current.autoAdvanced) {
-          stepEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
+        
+        if (current.isConditionMet) {
+          stepEmbed.embeds[0].author = { name: '✅ Step already complete! Click Complete Step to continue.' };
+          stepEmbed.embeds[0].color = 0x10B981;
         }
-        return stepEmbed;
+        
+        const buttons = createTutorialButtons({ 
+          canSkip: current.step.optional, 
+          stepTrigger: current.step.trigger,
+          hasCharacter,
+          isConditionMet: current.isConditionMet
+        });
+        return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
       }
 
-      // New tutorial started - also check for auto-advancement
+      // New tutorial started - check current step
       const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+      const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
       
       if (current.completed) {
-        return {
+        const completedEmbed = {
           embeds: [{
             title: '✅ Tutorial Complete!',
             description: 'You\'ve already done everything! Great job!',
             color: 0x10B981,
-            author: { name: '✨ Progress detected! All steps already complete.' },
             fields: [{ name: '⭐ XP Earned', value: `${current.progress.totalXpEarned} XP`, inline: true }],
-            footer: { text: 'Use 📚 tutorial reset to replay' }
+            footer: { text: 'Click Replay Tutorial to start over' }
           }]
         };
+        const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
+        return addEmbedTextSummary(addComponentsToResponse(completedEmbed, buttons));
       }
 
       const stepEmbed = this.tutorialQuestService.formatStepMessage(
@@ -282,8 +374,9 @@ export class TutorialTool extends BasicTool {
       );
       
       // Add welcome header to the embed
-      if (current.autoAdvanced) {
-        stepEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
+      if (current.isConditionMet) {
+        stepEmbed.embeds[0].author = { name: '✅ Step already complete! Click Complete Step to continue.' };
+        stepEmbed.embeds[0].color = 0x10B981;
       } else {
         stepEmbed.embeds[0].author = { name: `⚔️ The Adventurer's Tutorial Quest` };
         stepEmbed.embeds[0].description = `Welcome, **${avatar.name}**!\n\n` +
@@ -292,7 +385,13 @@ export class TutorialTool extends BasicTool {
           `---\n\n` + (stepEmbed.embeds[0].description || '');
       }
       
-      return stepEmbed;
+      const buttons = createTutorialButtons({ 
+        canSkip: current.step.optional, 
+        stepTrigger: current.step.trigger,
+        hasCharacter,
+        isConditionMet: current.isConditionMet
+      });
+      return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
       this.logger?.error?.('[TutorialTool] Start error:', e);
       return this._errorEmbed(`Failed to start tutorial: ${e.message}`);
@@ -314,7 +413,7 @@ export class TutorialTool extends BasicTool {
             color: 0x6B7280, // Gray
             fields: [{
               name: '🚀 Get Started',
-              value: 'Click the button below or type `📚 tutorial start` to begin!',
+              value: 'Click **Start Tutorial** below to begin your adventure!',
               inline: false
             }]
           }]
@@ -329,7 +428,7 @@ export class TutorialTool extends BasicTool {
         const completedEmbed = {
           embeds: [{
             title: '✅ Tutorial Complete!',
-            description: `You finished the tutorial${current.autoAdvanced ? ' (auto-detected progress)' : ''}.`,
+            description: 'You finished the tutorial.',
             color: 0x10B981, // Green
             fields: [{
               name: '⭐ Total XP Earned',
@@ -339,9 +438,6 @@ export class TutorialTool extends BasicTool {
             footer: { text: 'Ready for adventure!' }
           }]
         };
-        if (current.autoAdvanced) {
-          completedEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
-        }
         // Add post-tutorial action buttons
         const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
         return addEmbedTextSummary(addComponentsToResponse(completedEmbed, buttons));
@@ -351,9 +447,10 @@ export class TutorialTool extends BasicTool {
         current.step, current.stepNumber, current.totalSteps
       );
 
-      // Add auto-advance notification if applicable
-      if (current.autoAdvanced) {
-        stepEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
+      // Add notification if step condition is already met
+      if (current.isConditionMet) {
+        stepEmbed.embeds[0].author = { name: '✅ Step already complete! Click Complete Step to continue.' };
+        stepEmbed.embeds[0].color = 0x10B981; // Green
       }
 
       // Add XP info to footer
@@ -363,7 +460,8 @@ export class TutorialTool extends BasicTool {
       const buttons = createTutorialButtons({ 
         canSkip: current.step.optional, 
         stepTrigger: current.step.trigger,
-        hasCharacter
+        hasCharacter,
+        isConditionMet: current.isConditionMet
       });
       return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
@@ -397,25 +495,32 @@ export class TutorialTool extends BasicTool {
         this.tutorialQuestService.getSteps().length
       );
 
-      // Add celebration if XP was earned (and note auto-advanced steps)
+      // Check if the next step's condition is already met
+      const nextStepConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.nextStep);
+
+      // Add celebration if XP was earned
       if (result.xpEarned > 0) {
-        const autoNote = result.autoAdvanced 
-          ? ` (skipped ${result.autoAdvancedSteps.length} completed step${result.autoAdvancedSteps.length > 1 ? 's' : ''})` 
-          : '';
         nextStepEmbed.embeds[0].author = {
-          name: `✨ Step complete! +${result.xpEarned} XP${autoNote}`
+          name: `✨ Step complete! +${result.xpEarned} XP`
         };
-      } else if (result.autoAdvanced) {
-        nextStepEmbed.embeds[0].author = {
-          name: `✨ Skipped ${result.autoAdvancedSteps.length} completed step${result.autoAdvancedSteps.length > 1 ? 's' : ''}!`
+      }
+      
+      // If next step is already complete, show that
+      if (nextStepConditionMet) {
+        nextStepEmbed.embeds[0].author = { 
+          name: result.xpEarned > 0 
+            ? `✨ +${result.xpEarned} XP • Next step already complete!`
+            : '✅ Step already complete! Click Complete Step to continue.'
         };
+        nextStepEmbed.embeds[0].color = 0x10B981;
       }
       
       // Add contextual buttons for next step
       const buttons = createTutorialButtons({ 
         canSkip: result.nextStep.optional, 
         stepTrigger: result.nextStep.trigger,
-        hasCharacter
+        hasCharacter,
+        isConditionMet: nextStepConditionMet
       });
       return addEmbedTextSummary(addComponentsToResponse(nextStepEmbed, buttons));
     } catch (e) {
@@ -427,17 +532,28 @@ export class TutorialTool extends BasicTool {
   async resetTutorial(avatar) {
     try {
       const result = await this.tutorialQuestService.resetTutorial(avatar._id);
+      const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
+      
       const stepEmbed = this.tutorialQuestService.formatStepMessage(
         result.step, 1, this.tutorialQuestService.getSteps().length
       );
       
+      // Check if first step's condition is already met (e.g., has character)
+      const isConditionMet = await this.tutorialQuestService._isConditionMet(avatar._id, result.step);
+      
       stepEmbed.embeds[0].author = { name: '🔄 Tutorial Reset!' };
       stepEmbed.embeds[0].description = 'Starting fresh...\n\n' + (stepEmbed.embeds[0].description || '');
+      
+      if (isConditionMet) {
+        stepEmbed.embeds[0].color = 0x10B981;
+      }
       
       // Add button for first step
       const buttons = createTutorialButtons({ 
         canSkip: result.step.optional, 
-        stepTrigger: result.step.trigger 
+        stepTrigger: result.step.trigger,
+        hasCharacter,
+        isConditionMet
       });
       return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
