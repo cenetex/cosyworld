@@ -12,6 +12,27 @@ import { Blob } from 'buffer';
 import { parseWithRetries } from '../../utils/jsonParse.mjs';
 import { CircuitBreaker } from '../../utils/circuitBreaker.mjs';
 
+/**
+ * Sanitize error messages that may contain base64 image data.
+ * Truncates any base64-like strings to avoid log bloat.
+ * @param {string} message - The error message to sanitize
+ * @returns {string} - Sanitized message safe for logging
+ */
+function sanitizeErrorMessage(message) {
+  if (!message || typeof message !== 'string') return message || '';
+  // Truncate base64 data URIs
+  let sanitized = message.replace(/data:[^;]+;base64,[A-Za-z0-9+/=]{100,}/g, 
+    (match) => `data:...;base64,[${match.length - 50} chars truncated]`);
+  // Truncate raw base64 strings (100+ chars of base64 alphabet)
+  sanitized = sanitized.replace(/[A-Za-z0-9+/=]{200,}/g, 
+    (match) => `[base64: ${match.length} chars truncated]`);
+  // Truncate very long strings in general
+  if (sanitized.length > 500) {
+    sanitized = sanitized.slice(0, 500) + `... [${message.length - 500} more chars]`;
+  }
+  return sanitized;
+}
+
 export class GoogleAIService {
   constructor({
     configService,
@@ -269,10 +290,10 @@ export class GoogleAIService {
           continue;
         }
         if (retryInfo.isQuotaError) {
-          console.warn(`[GoogleAIService] Quota exceeded: ${error.message}`);
+          console.warn(`[GoogleAIService] Quota exceeded: ${sanitizeErrorMessage(error.message)}`);
             return options.returnEnvelope ? { text: null, raw: null, model: modelId, provider: 'google', error: { code: 'QUOTA', message: 'Google AI quota exceeded. Please try again later.' } } : null;
         }
-        console.error(`[${new Date().toISOString()}] Completion error:`, error.message);
+        console.error(`[${new Date().toISOString()}] Completion error:`, sanitizeErrorMessage(error.message));
         throw error;
       }
     }
