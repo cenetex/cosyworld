@@ -193,7 +193,8 @@ export class TutorialTool extends BasicTool {
         canSkip: result.nextStep.optional, 
         stepTrigger: result.nextStep.trigger,
         hasCharacter,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -270,7 +271,8 @@ export class TutorialTool extends BasicTool {
         canSkip: result.nextStep.optional, 
         stepTrigger: result.nextStep.trigger,
         hasCharacter,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -347,7 +349,8 @@ export class TutorialTool extends BasicTool {
         canSkip: result.nextStep.optional, 
         stepTrigger: result.nextStep.trigger,
         hasCharacter,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -381,36 +384,82 @@ export class TutorialTool extends BasicTool {
 
     const progressBar = this._buildProgressBar(stepNumber, totalSteps);
     
+    // Handle dungeon-context steps - show different content based on state
+    if (step.context === 'dungeon' && !isConditionMet) {
+      if (!dungeonThreadId) {
+        // No active dungeon - show "enter dungeon" prompt instead of step content
+        return {
+          embeds: [{
+            title: '🏰 Enter a Dungeon',
+            description: 'This tutorial step takes place inside a dungeon. Start a dungeon run to continue!',
+            color: COLORS.PRIMARY,
+            fields: [{
+              name: '📝 Next Step',
+              value: `Once inside, you'll learn: **${step.title}**`,
+              inline: false
+            }],
+            footer: { 
+              text: `Step ${stepNumber}/${totalSteps} ${progressBar} • ${step.xpReward} XP${totalXpEarned > 0 ? ` • Total: ${totalXpEarned} XP` : ''}`
+            }
+          }],
+          needsDungeonEntry: true
+        };
+      } else {
+        // Has dungeon but not in the thread - show link
+        return {
+          embeds: [{
+            title: `🏰 Continue in Dungeon`,
+            description: `Head to your active dungeon to continue the tutorial.`,
+            color: COLORS.PRIMARY,
+            fields: [
+              {
+                name: '👉 Your Dungeon',
+                value: `<#${dungeonThreadId}>`,
+                inline: false
+              },
+              {
+                name: '📝 Next Step',
+                value: `**${step.title}** - ${step.description}`,
+                inline: false
+              }
+            ],
+            footer: { 
+              text: `Step ${stepNumber}/${totalSteps} ${progressBar} • ${step.xpReward} XP${totalXpEarned > 0 ? ` • Total: ${totalXpEarned} XP` : ''}`
+            }
+          }],
+          needsDungeonEntry: false
+        };
+      }
+    }
+
+    // Normal step display
     let description = step.description;
     if (subText) {
       description = `*${subText}*\n\n${description}`;
-    }
-
-    // Add dungeon thread link for dungeon-context steps
-    let instruction = step.instruction;
-    if (step.context === 'dungeon' && dungeonThreadId) {
-      instruction = `👉 **Continue in the dungeon thread:** <#${dungeonThreadId}>\n\n${instruction}`;
     }
 
     const embed = {
       title: `${step.optional ? '○' : '●'} ${step.title}`,
       description,
       color: isConditionMet ? COLORS.SUCCESS : COLORS.PRIMARY,
-      fields: [{
-        name: isConditionMet ? '✅ Ready to complete' : '📝 Instructions',
-        value: isConditionMet ? 'Click **Complete Step** to continue!' : instruction,
-        inline: false
-      }],
+      fields: [],
       footer: { 
         text: `Step ${stepNumber}/${totalSteps} ${progressBar} • ${step.xpReward} XP${totalXpEarned > 0 ? ` • Total: ${totalXpEarned} XP` : ''}`
       }
     };
 
+    // Add instructions/completion field
+    embed.fields.push({
+      name: isConditionMet ? '✅ Ready to complete' : '📝 Instructions',
+      value: isConditionMet ? 'Click **Complete Step** to continue!' : step.instruction,
+      inline: false
+    });
+
     if (headerText) {
       embed.author = { name: `${headerIcon} ${headerText}` };
     }
 
-    return { embeds: [embed] };
+    return { embeds: [embed], needsDungeonEntry: false };
   }
 
   /**
@@ -483,7 +532,8 @@ export class TutorialTool extends BasicTool {
         canSkip: current.step.optional, 
         stepTrigger: current.step.trigger,
         hasCharacter,
-        isConditionMet: current.isConditionMet
+        isConditionMet: current.isConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -559,7 +609,8 @@ export class TutorialTool extends BasicTool {
         canSkip: current.step.optional, 
         stepTrigger: current.step.trigger,
         hasCharacter,
-        isConditionMet: current.isConditionMet
+        isConditionMet: current.isConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -615,7 +666,8 @@ export class TutorialTool extends BasicTool {
         canSkip: result.nextStep.optional, 
         stepTrigger: result.nextStep.trigger,
         hasCharacter,
-        isConditionMet: nextStepConditionMet
+        isConditionMet: nextStepConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {
@@ -643,7 +695,8 @@ export class TutorialTool extends BasicTool {
         canSkip: result.step.optional, 
         stepTrigger: result.step.trigger,
         hasCharacter,
-        isConditionMet
+        isConditionMet,
+        needsDungeonEntry: stepEmbed.needsDungeonEntry
       });
       return addComponentsToResponse(stepEmbed, buttons);
     } catch (e) {

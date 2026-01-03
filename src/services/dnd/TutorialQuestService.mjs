@@ -63,16 +63,16 @@ const TUTORIAL_STEPS = [
     id: 'view_map',
     title: 'Know Your Surroundings',
     description: 'The dungeon map shows rooms, exits, and your position.',
-    instruction: '⚠️ **Go to the dungeon thread** to continue!\n\nOnce there, use `🏰 dungeon map` or click the **Map** button to see the layout.',
+    instruction: 'Use `🏰 dungeon map` or click the **Map** button to see the layout.',
     trigger: 'map_viewed',
-    context: 'dungeon', // Indicates this step should be done in dungeon thread
+    context: 'dungeon',
     xpReward: 25
   },
   {
     id: 'first_combat',
     title: 'Steel and Spell',
     description: 'Enemies block your path! Use attacks or spells to defeat them.',
-    instruction: '⚠️ **In the dungeon thread:**\n\n• Use `🗡️ attack` to strike enemies\n• Use `🪄 cast <spell>` for magic\n• Click **Fight** or **Attack** buttons\n\nDefeat all enemies to clear the room!',
+    instruction: '• Use `🗡️ attack` to strike enemies\n• Use `🪄 cast <spell>` for magic\n• Click **Fight** or **Attack** buttons\n\nDefeat all enemies to clear the room!',
     trigger: 'room_cleared',
     context: 'dungeon',
     xpReward: 100
@@ -81,7 +81,7 @@ const TUTORIAL_STEPS = [
     id: 'explore',
     title: 'Deeper We Go',
     description: 'Move through the dungeon, clearing rooms and collecting treasure.',
-    instruction: '⚠️ **In the dungeon thread:**\n\n• Use `🏰 dungeon move <room>` to explore\n• Use `🏰 dungeon loot` to collect treasure\n• Check the map for available exits\n\n*Click **Skip** when ready to proceed.*',
+    instruction: '• Use `🏰 dungeon move <room>` to explore\n• Use `🏰 dungeon loot` to collect treasure\n• Check the map for available exits\n\n*Click **Skip** when ready to proceed.*',
     trigger: 'explored',
     context: 'dungeon',
     optional: true,
@@ -91,7 +91,7 @@ const TUTORIAL_STEPS = [
     id: 'complete_dungeon',
     title: 'Victory!',
     description: 'You\'ve conquered the Tutorial Crypts! You\'re ready for greater challenges.',
-    instruction: '⚠️ **In the dungeon thread:**\n\nFind and defeat the boss! Clear all rooms or reach the final chamber to complete your first dungeon.',
+    instruction: 'Find and defeat the boss! Clear all rooms or reach the final chamber to complete your first dungeon.',
     trigger: 'dungeon_complete',
     context: 'dungeon',
     xpReward: 200

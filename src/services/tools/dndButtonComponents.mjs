@@ -54,7 +54,7 @@ export function createButtonRow(buttons) {
  * @param {Object} options - Current tutorial state
  * @returns {ActionRowBuilder[]}
  */
-export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null, hasCharacter = false, isConditionMet = false }) {
+export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null, hasCharacter = false, isConditionMet = false, needsDungeonEntry = false }) {
   const buttons = [];
   
   if (isComplete) {
@@ -71,6 +71,17 @@ export function createTutorialButtons({ canSkip = false, isComplete = false, ste
     );
   } else {
     // In-progress tutorial
+    
+    // If user needs to enter a dungeon first (for dungeon-context steps without active dungeon)
+    if (needsDungeonEntry) {
+      buttons.push(
+        createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success })
+      );
+      buttons.push(
+        createButton({ customId: 'dnd_tutorial_status', label: 'View Progress', emoji: '📊', style: ButtonStyle.Secondary })
+      );
+      return [createButtonRow(buttons)];
+    }
     
     // If condition is already met, show "Complete Step" button prominently
     if (isConditionMet) {
