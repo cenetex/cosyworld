@@ -235,8 +235,22 @@ export class DungeonTool extends BasicTool {
    */
   async _showStatus(avatar, channelId, activeDungeon, _message) {
     if (activeDungeon) {
-      // Active dungeon exists - show link to thread
+      // Active dungeon exists - just show link to thread
       const threadId = activeDungeon.threadId;
+      
+      if (threadId) {
+        // Simple redirect to thread
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: `⚔️ ${activeDungeon.name}`,
+            description: `*Your adventure awaits...*\n\n**Continue in** <#${threadId}>`,
+            color: 0x7C3AED
+          }]
+        };
+      }
+      
+      // No thread yet (shouldn't happen, but fallback)
       const currentRoom = activeDungeon.rooms.find(r => r.id === activeDungeon.currentRoom);
       const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
       const totalRooms = activeDungeon.rooms.length;
@@ -244,38 +258,23 @@ export class DungeonTool extends BasicTool {
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
         title: `⚔️ ${activeDungeon.name}`,
-        description: threadId 
-          ? `*Your adventure continues in the depths...*\n\n**Continue in** <#${threadId}>`
-          : `*Your party explores the ${activeDungeon.theme} dungeon...*`,
+        description: `*Your party explores the ${activeDungeon.theme} dungeon...*`,
         color: 0x7C3AED,
         fields: [
           { name: '📍 Location', value: `Room ${activeDungeon.currentRoom.replace('room_', '')} of ${totalRooms}`, inline: true },
-          { name: '✅ Progress', value: `${clearedCount}/${totalRooms} rooms cleared`, inline: true },
-          { name: '🎭 Theme', value: activeDungeon.theme, inline: true }
-        ],
-        footer: { text: 'The dungeon awaits your next move...' }
+          { name: '✅ Progress', value: `${clearedCount}/${totalRooms} rooms cleared`, inline: true }
+        ]
       };
 
-      // Show current room description
       if (currentRoom) {
-        // If there's an unsolved puzzle, show the riddle
-        if (currentRoom.puzzle && !currentRoom.puzzle.solved) {
-          embed.fields.push({
-            name: '🧩 A Riddle Blocks Your Path',
-            value: `*"${currentRoom.puzzle.riddle}"*\n\n💬 **Reply in the dungeon thread with your answer!**`,
-            inline: false
-          });
-        } else {
-          embed.fields.push({
-            name: `${this._getRoomEmoji(currentRoom.type)} Current Room`,
-            value: this._describeRoomBrief(currentRoom),
-            inline: false
-          });
-        }
+        embed.fields.push({
+          name: `${this._getRoomEmoji(currentRoom.type)} Current Room`,
+          value: this._describeRoomBrief(currentRoom),
+          inline: false
+        });
       }
 
-      const buttons = this._createStatusButtons(currentRoom, threadId);
-      return { embeds: [embed], components: buttons };
+      return { embeds: [embed] };
     }
 
     // No active dungeon - prompt to start one
@@ -507,7 +506,7 @@ export class DungeonTool extends BasicTool {
       fields: [
         { 
           name: '📝 How to Answer', 
-          value: 'Reply in chat with your answer (just the word, no command needed)\n\nOr type: `🏰 dungeon solve <answer>`', 
+          value: 'Click **Answer Riddle** below to submit your answer', 
           inline: false 
         }
       ],
@@ -518,6 +517,11 @@ export class DungeonTool extends BasicTool {
       embeds: [puzzleEmbed],
       components: [
         new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('dnd_puzzle_answer')
+            .setLabel('Answer Riddle')
+            .setEmoji('🧩')
+            .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId('dnd_puzzle_hint')
             .setLabel('Get Hint')
@@ -977,42 +981,6 @@ export class DungeonTool extends BasicTool {
   _getDifficultyColor(difficulty) {
     const colors = { easy: 0x10B981, medium: 0xF59E0B, hard: 0xEF4444, deadly: 0x7C3AED };
     return colors[difficulty] || 0xF59E0B;
-  }
-
-  _createStatusButtons(currentRoom, threadId) {
-    const buttons = [];
-    
-    // If there's an unsolved puzzle, show hint button
-    if (currentRoom?.puzzle && !currentRoom.puzzle.solved) {
-      buttons.push(
-        new ButtonBuilder()
-          .setCustomId('dnd_puzzle_hint')
-          .setLabel('Get Hint')
-          .setEmoji('💡')
-          .setStyle(ButtonStyle.Primary)
-      );
-    }
-    
-    if (threadId) {
-      // Show map button since thread link is in embed
-      buttons.push(
-        new ButtonBuilder()
-          .setCustomId('dnd_dungeon_map')
-          .setLabel('View Map')
-          .setEmoji('🗺️')
-          .setStyle(ButtonStyle.Secondary)
-      );
-    }
-    
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId('dnd_dungeon_abandon')
-        .setLabel('Abandon')
-        .setEmoji('🏃')
-        .setStyle(ButtonStyle.Secondary)
-    );
-
-    return buttons.length > 0 ? [new ActionRowBuilder().addComponents(buttons)] : [];
   }
 
   _createRoomButtons(room) {

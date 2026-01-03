@@ -8,6 +8,10 @@ import {
   Client,
   GatewayIntentBits,
   Partials,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
 } from 'discord.js';
 import { WebhookManager } from '../../utils/WebhookManager.mjs';
 import { RateLimitHandler } from '../../utils/RateLimitHandler.mjs';
@@ -154,7 +158,20 @@ export class DiscordService {
     this.client.on('interactionCreate', async interaction => {
       try {
         this.db = await this.databaseService.getDatabase();
+        
+        // Handle modal submissions
+        if (interaction.isModalSubmit()) {
+          await this._handleModalSubmit(interaction);
+          return;
+        }
+        
         if (!interaction.isButton()) return;
+        
+        // Handle puzzle answer button - show modal
+        if (interaction.customId === 'dnd_puzzle_answer') {
+          await this._showPuzzleAnswerModal(interaction);
+          return;
+        }
         
         // Check guild authorization for interactions using the authorization cache
         if (interaction.guild) {
@@ -1050,6 +1067,89 @@ export class DiscordService {
 
   /**
    * Handle D&D button interactions by directly invoking tools
+   * This enables ephemeral responses and cleaner UX
+   * @param {ButtonInteraction} interaction - Discord button interaction
+   * @returns {Promise<void>}
+   */
+  async _showPuzzleAnswerModal(interaction) {
+    const modal = new ModalBuilder()
+      .setCustomId('puzzle_answer_modal')
+      .setTitle('🧩 Answer the Riddle');
+
+    const answerInput = new TextInputBuilder()
+      .setCustomId('puzzle_answer_input')
+      .setLabel('Your Answer')
+      .setPlaceholder('Enter your answer here...')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(100);
+
+    const actionRow = new ActionRowBuilder().addComponents(answerInput);
+    modal.addComponents(actionRow);
+
+    await interaction.showModal(modal);
+  }
+
+  /**
+   * Handle modal submissions
+   * @param {ModalSubmitInteraction} interaction - Discord modal submit interaction
+   * @returns {Promise<void>}
+   */
+  async _handleModalSubmit(interaction) {
+    const { customId } = interaction;
+
+    if (customId === 'puzzle_answer_modal') {
+      const answer = interaction.fields.getTextInputValue('puzzle_answer_input');
+      
+      // Defer reply as ephemeral while we process
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        // Get user's avatar
+        const db = await this.databaseService.getDatabase();
+        const avatar = await db.collection('avatars').findOne({ 
+          summoner: interaction.user.id,
+          personality: { $exists: true }
+        });
+
+        if (!avatar) {
+          await interaction.editReply({ content: '❌ You need an avatar to answer puzzles. Use the 🎭 button to create one!' });
+          return;
+        }
+
+        // Get dungeon tool and solve puzzle
+        const dungeonTool = this.toolService?.getTool?.('dungeon');
+        if (!dungeonTool) {
+          await interaction.editReply({ content: '❌ Dungeon system unavailable.' });
+          return;
+        }
+
+        // Get active dungeon
+        const channelId = interaction.channel.id;
+        const activeDungeon = await dungeonTool.dungeonService?.getActiveDungeonByChannel(channelId);
+
+        if (!activeDungeon) {
+          await interaction.editReply({ content: '❌ No active dungeon found.' });
+          return;
+        }
+
+        // Solve the puzzle
+        const result = await dungeonTool._solvePuzzle(avatar, [answer], activeDungeon);
+
+        // Send the result
+        await interaction.editReply(result);
+      } catch (error) {
+        this.logger?.error?.(`[DiscordService] Modal submit error: ${error.message}`);
+        try {
+          await interaction.editReply({ content: `❌ Error: ${error.message}` });
+        } catch { /* ignore */ }
+      }
+      return;
+    }
+  }
+
+  /**
+   * Handle D&D button interactions with ephemeral responses
    * This enables ephemeral responses and cleaner UX
    * @param {ButtonInteraction} interaction - Discord button interaction
    * @returns {Promise<void>}
