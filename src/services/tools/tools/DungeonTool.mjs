@@ -29,6 +29,7 @@ export class DungeonTool extends BasicTool {
     this.parameters = '[action]';
     this.description = 'Enter or continue a dungeon adventure';
     this.emoji = '🏰';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 3000;
   }

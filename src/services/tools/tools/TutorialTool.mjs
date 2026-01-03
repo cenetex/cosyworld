@@ -24,6 +24,7 @@ export class TutorialTool extends BasicTool {
     this.name = 'tutorial';
     this.emoji = '🎓';
     this.description = 'Begin or continue the D&D tutorial quest';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 5000;
   }

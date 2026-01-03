@@ -1426,6 +1426,7 @@ export class ConversationManager  {
         }
       }
       this.channelLastMessage.set(channel.id, Date.now());
+      if (!this.channelResponders.has(channel.id)) this.channelResponders.set(channel.id, new Set());
       this.channelResponders.get(channel.id).add(avatar._id);
       setTimeout(() => this.channelResponders.set(channel.id, new Set()), this.CHANNEL_COOLDOWN);
       return response;

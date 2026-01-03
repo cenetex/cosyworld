@@ -31,6 +31,7 @@ export class CharacterTool extends BasicTool {
     this.parameters = '<action> [options]';
     this.description = 'Manage D&D character: create, sheet, rest';
     this.emoji = '📜';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 5000;
   }

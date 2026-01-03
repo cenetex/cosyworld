@@ -32,6 +32,7 @@ import { PartyTool } from './tools/PartyTool.mjs';
 import { DungeonTool } from './tools/DungeonTool.mjs';
 import { CastTool } from './tools/CastTool.mjs';
 import { QuestTool } from './tools/QuestTool.mjs';
+import { TutorialTool } from './tools/TutorialTool.mjs';
 
 function normalizeToolResult(rawResult) {
   const base = { message: null, notify: true, embeds: null, components: null, ephemeral: false };
@@ -178,66 +179,54 @@ export class ToolService {
     this.defaultCooldownMs = 60 * 60 * 1000; // 1 hour cooldown
     this.cooldownService = this.cooldownService || new CooldownService();
 
-    // Initialize tools
-    const toolClasses = {
-      summon: SummonTool,
-      breed: BreedTool,
-      // Keep AttackTool for explicit attack command, but move ⚔️ to 'challenge'
-      attack: AttackTool,
-      challenge: ChallengeTool,
-  hide: HideTool,
-      defend: DefendTool,
-  flee: FleeTool,
-      move: MoveTool,
-      remember: RememberTool,
-      create: CreationTool,
-      x: XSocialTool,
-      item: ItemTool,
-      potion: PotionTool,
-      respond: ThinkTool,
-      search: WebSearchTool,
-      selfie: SelfieTool,
-      camera: SceneCameraTool,
-      'video camera': VideoCameraTool,
-      devil: DevilTool,
-      wiki: WikiTool,
+    // Initialize tools - each tool defines its own name and emoji
+    const toolClasses = [
+      SummonTool,
+      BreedTool,
+      AttackTool,
+      ChallengeTool,
+      HideTool,
+      DefendTool,
+      FleeTool,
+      MoveTool,
+      RememberTool,
+      CreationTool,
+      XSocialTool,
+      ItemTool,
+      PotionTool,
+      ThinkTool,
+      WebSearchTool,
+      SelfieTool,
+      SceneCameraTool,
+      VideoCameraTool,
+      DevilTool,
+      WikiTool,
       // D&D Tools
-      character: CharacterTool,
-      party: PartyTool,
-      dungeon: DungeonTool,
-      cast: CastTool,
-      quest: QuestTool
-    };
+      CharacterTool,
+      PartyTool,
+      DungeonTool,
+      CastTool,
+      QuestTool,
+      TutorialTool
+    ];
 
-  Object.entries(toolClasses).forEach(([name, ToolClass]) => {
+    // Instantiate and register all tools - names and emojis are inferred from tool instances
+    toolClasses.forEach(ToolClass => {
       const tool = new ToolClass(this.toolServices);
-      this.tools.set(name, tool);
-      if (tool.emoji) this.toolEmojis.set(tool.emoji, name);
+      if (tool.name) {
+        this.tools.set(tool.name, tool);
+        if (tool.emoji) this.toolEmojis.set(tool.emoji, tool.name);
+      }
     });
 
-    // Load emoji mappings from config
-  const configEmojis = this.configService.get('toolEmojis') || {};
+    // Load emoji mappings from config (allows runtime overrides)
+    const configEmojis = this.configService.get('toolEmojis') || {};
     Object.entries(configEmojis).forEach(([emoji, toolName]) => {
       this.toolEmojis.set(emoji, toolName);
     });
 
-  // Ensure ⚔️ maps to 'challenge' by default for neutral initiation
-  this.toolEmojis.set('⚔️', 'challenge');
-  // Map 🧪 to the new potion tool
-  this.toolEmojis.set('🧪', 'potion');
-  // Camera tools emojis
-  this.toolEmojis.set('🤳', 'selfie');
-  this.toolEmojis.set('📷', 'camera');
-  this.toolEmojis.set('🎥', 'video camera');
-  // Legacy spiderweb emoji now maps to web search tool
-  this.toolEmojis.set('🕸️', 'search');
-  // Wiki tool emoji
-  this.toolEmojis.set('📖', 'wiki');
-  // D&D tool emojis
-  this.toolEmojis.set('📜', 'character');
-  this.toolEmojis.set('👥', 'party');
-  this.toolEmojis.set('🏰', 'dungeon');
-  this.toolEmojis.set('🪄', 'cast');
+    // Override: ⚔️ maps to 'challenge' for neutral initiation (not 'attack')
+    this.toolEmojis.set('⚔️', 'challenge');
   }
 
   registerTool(tool) {
@@ -476,8 +465,7 @@ export class ToolService {
     }
 
     // Check if this is a D&D tool and send welcome message if first time
-    const dndTools = ['character', 'party', 'dungeon', 'cast', 'tutorial'];
-    if (dndTools.includes(toolName)) {
+    if (tool.isDndTool) {
       await this._sendDndWelcomeIfNeeded(message);
     }
 

@@ -27,6 +27,7 @@ export class PartyTool extends BasicTool {
     this.parameters = '<action> [options]';
     this.description = 'Manage D&D party: create, invite, leave, list';
     this.emoji = '👥';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 5000;
   }

@@ -28,6 +28,7 @@ export class CastTool extends BasicTool {
     this.parameters = '<spell> [target] [slot]';
     this.description = 'Cast a spell on a target';
     this.emoji = '🪄';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 3000;
   }

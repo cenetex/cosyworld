@@ -16,8 +16,9 @@ export class QuestTool extends BasicTool {
     this.logger = logger;
 
     this.name = 'quest';
-    this.emoji = '�';
+    this.emoji = '📋';
     this.description = 'View and manage quests';
+    this.isDndTool = true;
     this.replyNotification = true;
     this.cooldownMs = 3000;
   }
