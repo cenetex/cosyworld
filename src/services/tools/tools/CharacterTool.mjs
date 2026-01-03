@@ -12,7 +12,9 @@ import {
   createCharacterButtons, 
   addComponentsToResponse, 
   addEmbedTextSummary,
-  createActionMenu
+  createActionMenu,
+  createCharacterCreationButtons,
+  createClassSelectionButtons
 } from '../dndButtonComponents.mjs';
 
 export class CharacterTool extends BasicTool {
@@ -84,17 +86,97 @@ export class CharacterTool extends BasicTool {
       switch (action) {
         case 'create':
           return await this._create(avatar, params);
+        case 'race':
+          // User selected a race, show class selection
+          return await this._showClassSelection(avatar, params[1]);
         case 'sheet':
+        case 'stats':
           return await this._showSheet(avatar);
         case 'rest':
           return await this._rest(avatar, params);
+        case undefined:
+        case '':
+          // No action - show race selection menu (interactive character creation)
+          return await this._showRaceSelection(avatar);
         default:
+          // Check if it might be a race name
+          if (RACES[action]) {
+            return await this._showClassSelection(avatar, action);
+          }
           return this._errorEmbed(`Unknown action: ${action}. Use: create, sheet, rest`);
       }
     } catch (error) {
       this.logger.error('[CharacterTool] Error:', error);
       return this._errorEmbed(error.message);
     }
+  }
+
+  /**
+   * Show race selection menu
+   */
+  async _showRaceSelection(avatar) {
+    // Check if already has a character
+    const existing = await this.characterService.getSheet(avatar._id);
+    if (existing) {
+      return {
+        embeds: [{
+          title: '📜 Character Exists',
+          description: `**${avatar.name}** already has a character!\n\nUse \`📜 character sheet\` to view your character.`,
+          color: 0xFBBF24,
+          footer: { text: 'One character per avatar' }
+        }],
+        components: createActionMenu([
+          { id: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜' },
+          { id: 'dnd_tutorial_next', label: 'Continue', emoji: '➡️' }
+        ])
+      };
+    }
+
+    return {
+      embeds: [{
+        title: '⚔️ Choose Your Race',
+        description: `Select a race for **${avatar.name}**:`,
+        color: 0x7C3AED,
+        fields: [
+          { name: '👤 Human', value: '+1 to all ability scores', inline: true },
+          { name: '🧝 Elf', value: '+2 Dexterity, Darkvision', inline: true },
+          { name: '🧔 Dwarf', value: '+2 Constitution, Resilience', inline: true },
+          { name: '🧒 Halfling', value: '+2 Dexterity, Lucky', inline: true }
+        ],
+        footer: { text: 'Click a button to select your race' }
+      }],
+      components: createCharacterCreationButtons()
+    };
+  }
+
+  /**
+   * Show class selection after race is chosen
+   */
+  async _showClassSelection(avatar, selectedRace) {
+    const race = selectedRace?.toLowerCase() || 'human';
+    const raceDef = RACES[race];
+    
+    if (!raceDef) {
+      return this._errorEmbed(`Unknown race: ${race}. Available: human, elf, dwarf, halfling`);
+    }
+
+    return {
+      embeds: [{
+        title: `🎭 Choose Your Class`,
+        description: `**${avatar.name}** the **${raceDef.name}**\n\nNow select a class:`,
+        color: 0x7C3AED,
+        fields: [
+          { name: '⚔️ Fighter', value: 'Master of martial combat', inline: true },
+          { name: '🧙 Wizard', value: 'Arcane spellcaster', inline: true },
+          { name: '🗡️ Rogue', value: 'Stealthy & cunning', inline: true },
+          { name: '✝️ Cleric', value: 'Divine healer & warrior', inline: true },
+          { name: '🏹 Ranger', value: 'Wilderness hunter', inline: true },
+          { name: '🎵 Bard', value: 'Inspiring performer', inline: true }
+        ],
+        footer: { text: 'Click a button to complete character creation' }
+      }],
+      components: createClassSelectionButtons(race)
+    };
   }
 
   async _create(avatar, params) {

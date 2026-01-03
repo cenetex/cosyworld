@@ -242,6 +242,37 @@ export class DiscordService {
               await channel.send({ content: `🏰 dungeon enter ${dungeonId}`, allowedMentions: { users: [] } });
             } else if (customId === 'dnd_tutorial_start') {
               await channel.send({ content: '📚 tutorial start', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_ready') {
+              await channel.send({ content: '📚 tutorial ready', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_skip') {
+              await channel.send({ content: '📚 tutorial skip', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_next') {
+              await channel.send({ content: '📚 tutorial next', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_solo') {
+              await channel.send({ content: '📚 tutorial solo', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_status') {
+              await channel.send({ content: '📚 tutorial status', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_tutorial_reset') {
+              await channel.send({ content: '📚 tutorial reset', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_character_menu') {
+              // Show race selection
+              await channel.send({ content: '📜 character create', allowedMentions: { users: [] } });
+            } else if (customId.startsWith('dnd_race_')) {
+              // User selected a race, show class selection
+              const race = customId.replace('dnd_race_', '');
+              await channel.send({ content: `📜 character race ${race}`, allowedMentions: { users: [] } });
+            } else if (customId.startsWith('dnd_class_')) {
+              // User selected race and class: dnd_class_<race>_<class>
+              const parts = customId.replace('dnd_class_', '').split('_');
+              const race = parts[0];
+              const className = parts[1];
+              await channel.send({ content: `📜 character create ${race} ${className}`, allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_character_rest') {
+              await channel.send({ content: '📜 character rest', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_cast_list') {
+              await channel.send({ content: '🔮 cast', allowedMentions: { users: [] } });
+            } else if (customId === 'dnd_dungeon_enter') {
+              await channel.send({ content: '🏰 dungeon', allowedMentions: { users: [] } });
             } else if (customId === 'dnd_party_create') {
               await channel.send({ content: '👥 party create', allowedMentions: { users: [] } });
             } else if (customId === 'dnd_party_invite') {

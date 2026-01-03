@@ -54,13 +54,17 @@ export function createButtonRow(buttons) {
  * @param {Object} options - Current tutorial state
  * @returns {ActionRowBuilder[]}
  */
-export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null }) {
+export function createTutorialButtons({ canSkip = false, isComplete = false, stepTrigger = null, hasCharacter = false }) {
   const buttons = [];
   
   if (isComplete) {
     // Post-completion menu
+    if (!hasCharacter) {
+      buttons.push(
+        createButton({ customId: 'dnd_character_menu', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary })
+      );
+    }
     buttons.push(
-      createButton({ customId: 'dnd_character_create', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary }),
       createButton({ customId: 'dnd_party_create', label: 'Form Party', emoji: '👥', style: ButtonStyle.Primary }),
       createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success }),
       createButton({ customId: 'dnd_tutorial_reset', label: 'Replay Tutorial', emoji: '🔄', style: ButtonStyle.Secondary })
@@ -74,9 +78,28 @@ export function createTutorialButtons({ canSkip = false, isComplete = false, ste
     }
     
     // Add action button based on step trigger
-    if (stepTrigger === 'character_created') {
+    if (stepTrigger === 'ready') {
       buttons.push(
-        createButton({ customId: 'dnd_character_create', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary })
+        createButton({ customId: 'dnd_tutorial_ready', label: 'Ready!', emoji: '✨', style: ButtonStyle.Success })
+      );
+    } else if (stepTrigger === 'character_created') {
+      if (hasCharacter) {
+        // Already has character - show "Continue" instead
+        buttons.push(
+          createButton({ customId: 'dnd_tutorial_next', label: 'Continue', emoji: '➡️', style: ButtonStyle.Success })
+        );
+      } else {
+        buttons.push(
+          createButton({ customId: 'dnd_character_menu', label: 'Create Character', emoji: '📜', style: ButtonStyle.Primary })
+        );
+      }
+    } else if (stepTrigger === 'sheet_viewed') {
+      buttons.push(
+        createButton({ customId: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜', style: ButtonStyle.Primary })
+      );
+    } else if (stepTrigger === 'spells_checked') {
+      buttons.push(
+        createButton({ customId: 'dnd_cast_list', label: 'View Spells', emoji: '🔮', style: ButtonStyle.Primary })
       );
     } else if (stepTrigger === 'party_ready') {
       buttons.push(
@@ -87,6 +110,14 @@ export function createTutorialButtons({ canSkip = false, isComplete = false, ste
       buttons.push(
         createButton({ customId: 'dnd_dungeon_enter', label: 'Enter Dungeon', emoji: '🏰', style: ButtonStyle.Success })
       );
+    } else if (stepTrigger === 'map_viewed') {
+      buttons.push(
+        createButton({ customId: 'dnd_dungeon_map', label: 'View Map', emoji: '🗺️', style: ButtonStyle.Primary })
+      );
+    } else if (stepTrigger === 'rested') {
+      buttons.push(
+        createButton({ customId: 'dnd_character_rest', label: 'Rest', emoji: '🛏️', style: ButtonStyle.Primary })
+      );
     }
     
     buttons.push(
@@ -95,6 +126,42 @@ export function createTutorialButtons({ canSkip = false, isComplete = false, ste
   }
   
   return buttons.length > 0 ? [createButtonRow(buttons)] : [];
+}
+
+/**
+ * Create character creation menu with race/class select buttons
+ * @returns {ActionRowBuilder[]}
+ */
+export function createCharacterCreationButtons() {
+  const raceRow = new ActionRowBuilder().addComponents(
+    createButton({ customId: 'dnd_race_human', label: 'Human', emoji: '👤', style: ButtonStyle.Primary }),
+    createButton({ customId: 'dnd_race_elf', label: 'Elf', emoji: '🧝', style: ButtonStyle.Primary }),
+    createButton({ customId: 'dnd_race_dwarf', label: 'Dwarf', emoji: '🧔', style: ButtonStyle.Primary }),
+    createButton({ customId: 'dnd_race_halfling', label: 'Halfling', emoji: '🧒', style: ButtonStyle.Primary })
+  );
+  
+  return [raceRow];
+}
+
+/**
+ * Create class selection buttons (shown after race selection)
+ * @param {string} selectedRace - The selected race
+ * @returns {ActionRowBuilder[]}
+ */
+export function createClassSelectionButtons(selectedRace) {
+  const classRow1 = new ActionRowBuilder().addComponents(
+    createButton({ customId: `dnd_class_${selectedRace}_fighter`, label: 'Fighter', emoji: '⚔️', style: ButtonStyle.Danger }),
+    createButton({ customId: `dnd_class_${selectedRace}_wizard`, label: 'Wizard', emoji: '🧙', style: ButtonStyle.Primary }),
+    createButton({ customId: `dnd_class_${selectedRace}_rogue`, label: 'Rogue', emoji: '🗡️', style: ButtonStyle.Secondary })
+  );
+  
+  const classRow2 = new ActionRowBuilder().addComponents(
+    createButton({ customId: `dnd_class_${selectedRace}_cleric`, label: 'Cleric', emoji: '✝️', style: ButtonStyle.Success }),
+    createButton({ customId: `dnd_class_${selectedRace}_ranger`, label: 'Ranger', emoji: '🏹', style: ButtonStyle.Success }),
+    createButton({ customId: `dnd_class_${selectedRace}_bard`, label: 'Bard', emoji: '🎵', style: ButtonStyle.Primary })
+  );
+  
+  return [classRow1, classRow2];
 }
 
 /**

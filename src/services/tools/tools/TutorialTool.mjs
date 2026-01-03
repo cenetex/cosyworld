@@ -302,6 +302,9 @@ export class TutorialTool extends BasicTool {
   async showStatus(avatar) {
     try {
       const current = await this.tutorialQuestService.getCurrentStep(avatar._id);
+      
+      // Check if user already has a character sheet
+      const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
 
       if (!current) {
         const response = {
@@ -340,7 +343,7 @@ export class TutorialTool extends BasicTool {
           completedEmbed.embeds[0].author = { name: '✨ Progress detected! Skipped completed steps.' };
         }
         // Add post-tutorial action buttons
-        const buttons = createTutorialButtons({ isComplete: true });
+        const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
         return addEmbedTextSummary(addComponentsToResponse(completedEmbed, buttons));
       }
 
@@ -359,7 +362,8 @@ export class TutorialTool extends BasicTool {
       // Add contextual buttons
       const buttons = createTutorialButtons({ 
         canSkip: current.step.optional, 
-        stepTrigger: current.step.trigger 
+        stepTrigger: current.step.trigger,
+        hasCharacter
       });
       return addEmbedTextSummary(addComponentsToResponse(stepEmbed, buttons));
     } catch (e) {
@@ -377,10 +381,13 @@ export class TutorialTool extends BasicTool {
         return this.showStatus(avatar);
       }
 
+      // Check if user already has a character sheet
+      const hasCharacter = !!(await this.characterService?.getSheet?.(avatar._id));
+
       if (result.isQuestComplete) {
         const completionEmbed = this.tutorialQuestService.formatCompletionMessage(result.totalXpEarned);
         // Add post-tutorial action buttons
-        const buttons = createTutorialButtons({ isComplete: true });
+        const buttons = createTutorialButtons({ isComplete: true, hasCharacter });
         return addEmbedTextSummary(addComponentsToResponse(completionEmbed, buttons));
       }
 
@@ -400,7 +407,8 @@ export class TutorialTool extends BasicTool {
       // Add contextual buttons for next step
       const buttons = createTutorialButtons({ 
         canSkip: result.nextStep.optional, 
-        stepTrigger: result.nextStep.trigger 
+        stepTrigger: result.nextStep.trigger,
+        hasCharacter
       });
       return addEmbedTextSummary(addComponentsToResponse(nextStepEmbed, buttons));
     } catch (e) {
