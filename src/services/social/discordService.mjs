@@ -12,6 +12,9 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
 } from 'discord.js';
 import { WebhookManager } from '../../utils/WebhookManager.mjs';
 import { RateLimitHandler } from '../../utils/RateLimitHandler.mjs';
@@ -1166,6 +1169,26 @@ export class DiscordService {
     const userId = interaction.user.id;
     
     try {
+      // Handle summon help button (doesn't require avatar)
+      if (customId === 'dnd_show_summon_help') {
+        const helpEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🔮 How to Summon Your Avatar' })
+          .setDescription('**Summoning is easy!** Just type the summon emoji followed by any concept.\n\n' +
+            '**Examples:**\n' +
+            '• `🔮 a fierce elven ranger`\n' +
+            '• `🔮 ancient dwarf blacksmith`\n' +
+            '• `🔮 mysterious tiefling warlock`\n\n' +
+            'Your avatar will be created with unique stats, appearance, and personality based on your description!')
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'Your avatar will be bound to you and can join D&D adventures!' });
+        
+        await interaction.reply({ 
+          embeds: [helpEmbed],
+          flags: 64 // ephemeral
+        });
+        return;
+      }
+
       // Get user's avatar by querying for summoner field
       const db = await this.databaseService.getDatabase();
       const avatar = await db.collection('avatars').findOne({ 
@@ -1174,8 +1197,24 @@ export class DiscordService {
       });
       
       if (!avatar) {
+        // Show helpful embed with summon button instead of error
+        const embed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 Adventure Awaits!' })
+          .setDescription('*You need an avatar to embark on D&D adventures.*\n\nSummon your first avatar by typing a concept in the channel, or click below to get started!')
+          .setColor(0x7C3AED) // DM purple
+          .setFooter({ text: 'Use 🔮 <concept> to summon any character you imagine' });
+        
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('dnd_show_summon_help')
+            .setLabel('How to Summon')
+            .setEmoji('🔮')
+            .setStyle(ButtonStyle.Primary)
+        );
+        
         await interaction.reply({ 
-          content: '❌ You don\'t have an avatar yet. Create one to use D&D features!', 
+          embeds: [embed],
+          components: [actionRow],
           flags: 64 // ephemeral
         });
         return;
@@ -1192,7 +1231,12 @@ export class DiscordService {
       
       if (!toolName) {
         this.logger?.warn?.(`[DiscordService] Unknown D&D button: ${customId}`);
-        await interaction.reply({ content: '❌ Unknown action', flags: 64 });
+        const unknownEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 The Dungeon Master' })
+          .setDescription('*The magical runes on this button have faded with time...*')
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'Try using a command directly instead' });
+        await interaction.reply({ embeds: [unknownEmbed], flags: 64 });
         return;
       }
 
@@ -1239,11 +1283,26 @@ export class DiscordService {
       this.logger?.error?.(`[DiscordService] D&D button handler error: ${error.message}`);
       
       try {
-        const errorMessage = `❌ ${error.message || 'Action failed'}`;
+        // Create atmospheric error embed instead of plain text error
+        const errorEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 The Dungeon Master' })
+          .setDescription('*The magical energies dissipate unexpectedly...*\n\nSomething went wrong with your action. Try again or use a command directly.')
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'If this persists, try refreshing your adventure' });
+        
+        // Add a retry button for the dungeon status
+        const retryRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('dnd_dungeon_map')
+            .setLabel('View Map')
+            .setEmoji('🗺️')
+            .setStyle(ButtonStyle.Primary)
+        );
+        
         if (interaction.deferred) {
-          await interaction.editReply({ content: errorMessage });
+          await interaction.editReply({ embeds: [errorEmbed], components: [retryRow] });
         } else if (!interaction.replied) {
-          await interaction.reply({ content: errorMessage, flags: 64 });
+          await interaction.reply({ embeds: [errorEmbed], components: [retryRow], flags: 64 });
         }
       } catch (replyError) {
         this.logger?.error?.(`[DiscordService] Failed to send error reply: ${replyError.message}`);
@@ -1288,6 +1347,8 @@ export class DiscordService {
       // Dungeon buttons
       'dnd_dungeon_menu': { tool: 'dungeon', params: [] },
       'dnd_dungeon_enter': { tool: 'dungeon', params: [] },
+      'dnd_dungeon_start': { tool: 'dungeon', params: ['start'] },
+      'dnd_dungeon_status': { tool: 'dungeon', params: ['status'] },
       'dnd_dungeon_map': { tool: 'dungeon', params: ['map'] },
       'dnd_dungeon_loot': { tool: 'dungeon', params: ['loot'] },
       'dnd_dungeon_abandon': { tool: 'dungeon', params: ['abandon'] },

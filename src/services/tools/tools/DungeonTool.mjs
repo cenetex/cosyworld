@@ -148,34 +148,72 @@ export class DungeonTool extends BasicTool {
   }
 
   /**
-   * Create an atmospheric error message instead of technical error
+   * Create an atmospheric message with actionable buttons instead of technical error
    */
   _narrateError(message) {
-    // Convert technical errors to atmospheric messages
-    const errorNarratives = {
-      'Party not found': '*The dungeon gates remain sealed. You must gather a party before venturing forth...*',
-      'Party already in a dungeon': '*Your party is already exploring the depths. Complete your current adventure first.*',
-      'No active dungeon': '*The ancient stones lie dormant. No dungeon awaits your exploration here.*',
-      'not in a party': '*A lone adventurer cannot face these depths alone. Seek companions with* `👥 party create`'
+    // Map errors to narratives and action buttons
+    const errorMappings = {
+      'Party not found': {
+        narrative: '*The dungeon gates remain sealed. You must gather a party before venturing forth...*',
+        button: { id: 'dnd_party_create', label: 'Create Party', emoji: '👥' }
+      },
+      'Party already in a dungeon': {
+        narrative: '*Your party is already exploring the depths. Continue your current adventure!*',
+        button: { id: 'dnd_dungeon_status', label: 'View Adventure', emoji: '🗺️' }
+      },
+      'No active dungeon': {
+        narrative: '*The ancient stones lie dormant. Begin a new adventure to explore the depths!*',
+        button: { id: 'dnd_dungeon_start', label: 'Start Adventure', emoji: '⚔️' }
+      },
+      'not in a party': {
+        narrative: '*A lone adventurer cannot face these depths alone. Gather companions for your journey!*',
+        button: { id: 'dnd_party_create', label: 'Create Party', emoji: '👥' }
+      },
+      'Must clear current room': {
+        narrative: '*The path forward is blocked! You must deal with the current challenge before advancing...*',
+        button: { id: 'dnd_combat_start', label: 'Fight!', emoji: '⚔️' }
+      },
+      'Combat rooms must be cleared': {
+        narrative: '*Enemies block your path! You cannot flee from this battle...*',
+        button: { id: 'dnd_combat_start', label: 'Fight!', emoji: '⚔️' }
+      }
     };
 
-    // Find matching narrative or use generic
-    let narrative = '*The shadows whisper of an unknown obstacle...*';
-    for (const [key, value] of Object.entries(errorNarratives)) {
+    // Find matching mapping or use generic
+    let mapping = { 
+      narrative: '*The shadows whisper of an unknown obstacle...*',
+      button: null 
+    };
+    for (const [key, value] of Object.entries(errorMappings)) {
       if (message.toLowerCase().includes(key.toLowerCase())) {
-        narrative = value;
+        mapping = value;
         break;
       }
     }
 
-    return {
+    const response = {
       embeds: [{
         author: { name: '🎲 The Dungeon Master' },
-        description: narrative,
+        description: mapping.narrative,
         color: 0x7C3AED, // DM purple
-        footer: { text: 'The path forward is unclear...' }
+        footer: { text: mapping.button ? 'Click below to continue your journey' : 'The path forward is unclear...' }
       }]
     };
+
+    // Add action button if available
+    if (mapping.button) {
+      response.components = [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(mapping.button.id)
+            .setLabel(mapping.button.label)
+            .setEmoji(mapping.button.emoji)
+            .setStyle(ButtonStyle.Primary)
+        )
+      ];
+    }
+
+    return response;
   }
 
   /**
@@ -676,7 +714,13 @@ export class DungeonTool extends BasicTool {
     // Normalize room ID (allow "2" or "room_2")
     const targetRoom = roomId.startsWith('room_') ? roomId : `room_${roomId}`;
 
-    const result = await this.dungeonService.enterRoom(dungeon._id, targetRoom);
+    let result;
+    try {
+      result = await this.dungeonService.enterRoom(dungeon._id, targetRoom);
+    } catch (e) {
+      // Convert room entry errors to atmospheric messages
+      return this._narrateError(e.message);
+    }
     const room = result.room;
 
     // Generate room image
@@ -1133,6 +1177,14 @@ export class DungeonTool extends BasicTool {
       );
     }
     
+    // Rest room: offer short and long rest options
+    if (room.type === 'rest') {
+      buttons.push(
+        new ButtonBuilder().setCustomId('dnd_character_short_rest').setLabel('Short Rest').setEmoji('☕').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('dnd_character_long_rest').setLabel('Long Rest').setEmoji('🏕️').setStyle(ButtonStyle.Success)
+      );
+    }
+    
     if (room.puzzle && !room.puzzle.solved) {
       buttons.push(
         new ButtonBuilder().setCustomId('dnd_puzzle_hint').setLabel('Hint').setEmoji('💡').setStyle(ButtonStyle.Primary)
@@ -1142,6 +1194,24 @@ export class DungeonTool extends BasicTool {
     buttons.push(
       new ButtonBuilder().setCustomId('dnd_dungeon_map').setLabel('Map').setEmoji('🗺️').setStyle(ButtonStyle.Secondary)
     );
+
+    // For non-combat/boss rooms, also show navigation if available
+    if (room.type !== 'combat' && room.type !== 'boss' && room.connections?.length > 0) {
+      const rows = [];
+      rows.push(new ActionRowBuilder().addComponents(buttons.slice(0, 5)));
+      
+      // Add navigation buttons in a second row
+      const navButtons = room.connections.slice(0, 5).map(exitId =>
+        new ButtonBuilder()
+          .setCustomId(`dnd_dungeon_move_${exitId}`)
+          .setLabel(`Room ${exitId.replace('room_', '')}`)
+          .setEmoji('🚪')
+          .setStyle(ButtonStyle.Primary)
+      );
+      rows.push(new ActionRowBuilder().addComponents(navButtons));
+      
+      return rows;
+    }
 
     return buttons.length > 0 ? [new ActionRowBuilder().addComponents(buttons.slice(0, 5))] : [];
   }
