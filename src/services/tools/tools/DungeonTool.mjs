@@ -170,6 +170,58 @@ export class DungeonTool extends BasicTool {
   }
 
   /**
+   * Build response for when party already has an active dungeon
+   * Creates thread if missing (fixes corrupted state)
+   */
+  async _buildActiveDungeonResponse(dungeon, message, avatar) {
+    let threadId = dungeon.threadId;
+    
+    // If no thread exists, create one to fix corrupted state
+    if (!threadId && this.discordService?.client && message?.channel?.id) {
+      try {
+        const channel = await this.discordService.client.channels.fetch(message.channel.id);
+        if (channel?.threads?.create) {
+          const thread = await channel.threads.create({
+            name: `⚔️ ${dungeon.name}`,
+            autoArchiveDuration: 1440,
+            reason: `Recovering dungeon thread for ${avatar?.name || 'party'}'s adventure`
+          });
+          threadId = thread.id;
+          await this.dungeonService.setThreadId(dungeon._id, threadId);
+          this.logger?.info?.(`[DungeonTool] Created missing thread for dungeon ${dungeon._id}`);
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonTool] Failed to create recovery thread: ${e.message}`);
+      }
+    }
+
+    const fields = [{
+      name: '👉 Continue Your Adventure',
+      value: threadId ? `<#${threadId}>` : '*Thread unavailable - use abandon to restart*',
+      inline: false
+    }];
+
+    // Add abandon button
+    const abandonButton = new ButtonBuilder()
+      .setCustomId('dnd_dungeon_abandon')
+      .setLabel('Abandon Dungeon')
+      .setEmoji('🚪')
+      .setStyle(ButtonStyle.Danger);
+
+    return {
+      embeds: [{
+        author: { name: '🎲 The Dungeon Master' },
+        title: `⚔️ ${dungeon.name}`,
+        description: `*Your party is already on an adventure...*`,
+        color: 0x7C3AED,
+        fields,
+        footer: { text: 'Complete or abandon your current dungeon to start a new one' }
+      }],
+      components: [new ActionRowBuilder().addComponents(abandonButton)]
+    };
+  }
+
+  /**
    * Show current dungeon status or prompt to start
    */
   async _showStatus(avatar, channelId, activeDungeon, _message) {
@@ -282,24 +334,18 @@ export class DungeonTool extends BasicTool {
   async _enter(avatar, params, message, channelId, existingDungeon) {
     // Check if dungeon already active in this channel
     if (existingDungeon) {
-      const threadLink = existingDungeon.threadId 
-        ? `\n\n👉 **Continue your adventure:** <#${existingDungeon.threadId}>`
-        : '';
-      return {
-        embeds: [{
-          author: { name: '🎲 The Dungeon Master' },
-          title: `⚔️ ${existingDungeon.name}`,
-          description: `*Your party is already exploring the depths...*\n\nComplete or abandon your current adventure in **${existingDungeon.name}** first.${threadLink}`,
-          color: 0x7C3AED,
-          footer: { text: 'The dungeon awaits your return...' }
-        }],
-        components: existingDungeon.threadId ? [] : this._createStatusButtons(null, null)
-      };
+      return await this._buildActiveDungeonResponse(existingDungeon, message, avatar);
     }
 
     const sheet = await this.characterService?.getSheet(avatar._id);
     if (!sheet?.partyId) {
       return this._narrateError('not in a party');
+    }
+
+    // Check if party has an active dungeon (might be in a different channel)
+    const partyDungeon = await this.dungeonService.getActiveDungeon(sheet.partyId);
+    if (partyDungeon) {
+      return await this._buildActiveDungeonResponse(partyDungeon, message, avatar);
     }
 
     // Parse difficulty from params or button ID
