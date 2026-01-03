@@ -382,19 +382,22 @@ describe('DungeonTool', () => {
       },
       dungeonService: {
         getActiveDungeon: vi.fn().mockResolvedValue(null),
+        getActiveDungeonByChannel: vi.fn().mockResolvedValue(null),
         generateDungeon: vi.fn().mockResolvedValue({
           _id: new ObjectId(),
           name: 'Dark Crypt',
           theme: 'crypt',
           difficulty: 'medium',
           rooms: [
-            { id: 'room_1', type: 'entrance', cleared: false },
-            { id: 'room_2', type: 'combat', cleared: false },
-            { id: 'room_3', type: 'boss', cleared: false },
+            { id: 'room_1', type: 'entrance', cleared: false, connections: ['room_2'] },
+            { id: 'room_2', type: 'combat', cleared: false, connections: ['room_1', 'room_3'] },
+            { id: 'room_3', type: 'boss', cleared: false, connections: ['room_2'] },
           ],
           currentRoom: 'room_1',
         }),
-        enterRoom: vi.fn().mockResolvedValue({ room: { id: 'room_2', type: 'combat', connections: [] } }),
+        setChannelId: vi.fn().mockResolvedValue(true),
+        setThreadId: vi.fn().mockResolvedValue(true),
+        enterRoom: vi.fn().mockResolvedValue({ room: { id: 'room_2', type: 'combat', connections: ['room_1', 'room_3'] } }),
         abandonDungeon: vi.fn().mockResolvedValue({ success: true }),
         getRoomEmoji: vi.fn().mockReturnValue('🚪'),
       },
@@ -409,47 +412,23 @@ describe('DungeonTool', () => {
     });
   });
 
-  describe('execute() - enter', () => {
-    it('should enter a dungeon', async () => {
+  describe('execute() - status', () => {
+    it('should show dungeon prompt when no active dungeon', async () => {
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
-      const result = await tool.execute(message, ['enter', 'medium'], avatar);
+      const result = await tool.execute(message, [], avatar);
 
       expect(result.embeds).toBeDefined();
-      expect(result.embeds[0].title).toContain('Dark Crypt');
-      expect(deps.dungeonService.generateDungeon).toHaveBeenCalled();
+      expect(result.embeds[0].author.name).toBe('🎲 The Dungeon Master');
     });
 
-    it('should trigger quest event', async () => {
-      const avatar = createMockAvatar();
-      const message = createMockMessage();
-
-      await tool.execute(message, ['enter'], avatar);
-
-      expect(deps.questService.onEvent).toHaveBeenCalledWith(
-        avatar._id,
-        'dungeon_entered',
-        expect.any(Object)
-      );
-    });
-
-    it('should return error if not in party', async () => {
-      deps.characterService.getSheet.mockResolvedValue(createMockSheet({ partyId: null }));
-      const avatar = createMockAvatar();
-      const message = createMockMessage();
-
-      const result = await tool.execute(message, ['enter'], avatar);
-
-      expect(result.embeds[0].color).toBe(0xEF4444);
-    });
-  });
-
-  describe('execute() - status', () => {
-    it('should show dungeon status', async () => {
-      deps.dungeonService.getActiveDungeon.mockResolvedValue({
+    it('should show active dungeon status with thread link', async () => {
+      deps.dungeonService.getActiveDungeonByChannel.mockResolvedValue({
         _id: new ObjectId(),
         name: 'Dark Crypt',
+        theme: 'crypt',
+        threadId: 'thread-123',
         rooms: [{ id: 'room_1', type: 'entrance', cleared: true }],
         currentRoom: 'room_1',
       });
@@ -459,38 +438,92 @@ describe('DungeonTool', () => {
       const result = await tool.execute(message, ['status'], avatar);
 
       expect(result.embeds).toBeDefined();
+      expect(result.embeds[0].title).toContain('Dark Crypt');
+      expect(result.embeds[0].description).toContain('<#thread-123>');
+    });
+  });
+
+  describe('execute() - enter', () => {
+    it('should show difficulty selection when calling status with no dungeon and in party', async () => {
+      const avatar = createMockAvatar();
+      const message = createMockMessage();
+
+      // Empty params shows status which includes difficulty buttons
+      const result = await tool.execute(message, [], avatar);
+
+      expect(result.embeds).toBeDefined();
+      expect(result.embeds[0].author.name).toBe('🎲 The Dungeon Master');
+      expect(result.components).toBeDefined();
+    });
+
+    it('should show atmospheric error if not in party', async () => {
+      deps.characterService.getSheet.mockResolvedValue(createMockSheet({ partyId: null }));
+      const avatar = createMockAvatar();
+      const message = createMockMessage();
+
+      const result = await tool.execute(message, ['enter'], avatar);
+
+      // Atmospheric messages use purple color, not red
+      expect(result.embeds[0].color).toBe(0x7C3AED);
+      expect(result.embeds[0].author.name).toBe('🎲 The Dungeon Master');
+    });
+
+    it('should show existing dungeon info if already in dungeon', async () => {
+      deps.dungeonService.getActiveDungeonByChannel.mockResolvedValue({
+        _id: new ObjectId(),
+        name: 'Dark Crypt',
+        theme: 'crypt',
+        threadId: 'thread-456',
+        rooms: [{ id: 'room_1', type: 'entrance', cleared: false }],
+        currentRoom: 'room_1',
+      });
+      const avatar = createMockAvatar();
+      const message = createMockMessage();
+
+      const result = await tool.execute(message, ['enter'], avatar);
+
+      expect(result.embeds[0].title).toContain('Dark Crypt');
+      expect(result.embeds[0].description).toContain('already exploring');
     });
   });
 
   describe('execute() - move', () => {
-    it('should move to next room', async () => {
-      deps.dungeonService.getActiveDungeon.mockResolvedValue({
+    it('should show map when no room specified', async () => {
+      deps.dungeonService.getActiveDungeonByChannel.mockResolvedValue({
         _id: new ObjectId(),
         name: 'Dark Crypt',
         rooms: [
           { id: 'room_1', type: 'entrance', cleared: true, connections: ['room_2'] },
-          { id: 'room_2', type: 'combat', cleared: false },
+          { id: 'room_2', type: 'combat', cleared: false, connections: ['room_1'] },
         ],
         currentRoom: 'room_1',
       });
-      deps.dungeonService.enterRoom.mockResolvedValue({
-        room: { id: 'room_2', type: 'combat', cleared: false, connections: [] }
-      });
+      const avatar = createMockAvatar();
+      const message = createMockMessage();
+
+      const result = await tool.execute(message, ['move'], avatar);
+
+      expect(result.embeds).toBeDefined();
+      expect(result.embeds[0].author.name).toBe('🎲 The Dungeon Master');
+    });
+
+    it('should show error when no active dungeon', async () => {
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
       const result = await tool.execute(message, ['move', 'room_2'], avatar);
 
-      expect(result.embeds).toBeDefined();
-      expect(deps.dungeonService.enterRoom).toHaveBeenCalled();
+      expect(result.embeds[0].color).toBe(0x7C3AED);
+      expect(result.embeds[0].description).toContain('No dungeon');
     });
   });
 
   describe('execute() - abandon', () => {
-    it('should abandon dungeon', async () => {
-      deps.dungeonService.getActiveDungeon.mockResolvedValue({
+    it('should abandon dungeon with atmospheric message', async () => {
+      deps.dungeonService.getActiveDungeonByChannel.mockResolvedValue({
         _id: new ObjectId(),
         name: 'Dark Crypt',
+        threadId: 'thread-123',
       });
       const avatar = createMockAvatar();
       const message = createMockMessage();
@@ -498,7 +531,17 @@ describe('DungeonTool', () => {
       const result = await tool.execute(message, ['abandon'], avatar);
 
       expect(result.embeds).toBeDefined();
+      expect(result.embeds[0].author.name).toBe('🎲 The Dungeon Master');
       expect(deps.dungeonService.abandonDungeon).toHaveBeenCalled();
+    });
+
+    it('should show error when no dungeon to abandon', async () => {
+      const avatar = createMockAvatar();
+      const message = createMockMessage();
+
+      const result = await tool.execute(message, ['abandon'], avatar);
+
+      expect(result.embeds[0].color).toBe(0x7C3AED);
     });
   });
 });

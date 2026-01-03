@@ -101,6 +101,7 @@ export class DungeonService {
     try {
       await this._collection.createIndex({ partyId: 1 });
       await this._collection.createIndex({ status: 1, createdAt: -1 });
+      await this._collection.createIndex({ channelId: 1, status: 1 });
     } catch (e) {
       this.logger?.warn?.('[DungeonService] Index creation:', e.message);
     }
@@ -116,7 +117,44 @@ export class DungeonService {
     return col.findOne({ partyId: new ObjectId(partyId), status: 'active' });
   }
 
-  async generateDungeon(partyId, { difficulty = 'medium', theme = null } = {}) {
+  /**
+   * Get active dungeon by channel ID (one dungeon per channel)
+   * @param {string} channelId - Discord channel ID
+   * @returns {Promise<Object|null>} Active dungeon or null
+   */
+  async getActiveDungeonByChannel(channelId) {
+    if (!channelId) return null;
+    const col = await this.collection();
+    return col.findOne({ channelId, status: 'active' });
+  }
+
+  /**
+   * Set the channel ID for a dungeon
+   * @param {ObjectId} dungeonId - Dungeon ID
+   * @param {string} channelId - Discord channel ID
+   */
+  async setChannelId(dungeonId, channelId) {
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(dungeonId) },
+      { $set: { channelId } }
+    );
+  }
+
+  /**
+   * Set the thread ID for a dungeon
+   * @param {ObjectId} dungeonId - Dungeon ID
+   * @param {string} threadId - Discord thread ID
+   */
+  async setThreadId(dungeonId, threadId) {
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(dungeonId) },
+      { $set: { threadId } }
+    );
+  }
+
+  async generateDungeon(partyId, { difficulty = 'medium', theme = null, channelId = null } = {}) {
     const party = await this.partyService.getParty(partyId);
     if (!party) throw new Error('Party not found');
 
@@ -159,6 +197,8 @@ export class DungeonService {
       rooms,
       currentRoom: 'room_1',
       partyId: new ObjectId(partyId),
+      channelId: channelId || null,
+      threadId: null,
       status: 'active',
       entrancePuzzleSolved: false,
       createdAt: new Date(),

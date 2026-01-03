@@ -346,8 +346,9 @@ describe('DungeonService', () => {
 
       const dungeon = await service.generateDungeon(partyId.toString());
 
+      // Combat and boss rooms should have encounters, entrance rooms have puzzles instead
       const combatRooms = dungeon.rooms.filter(
-        (r) => r.type === 'combat' || r.type === 'boss' || r.type === 'entrance'
+        (r) => r.type === 'combat' || r.type === 'boss'
       );
       
       for (const room of combatRooms) {
