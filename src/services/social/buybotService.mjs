@@ -825,6 +825,66 @@ export class BuybotService {
   }
 
   /**
+   * Get channels that track a specific token address
+   * Used to validate wallet avatars are only hydrated in the correct channel
+   * @param {string} tokenAddress - Token mint address to search for
+   * @param {string} [platform] - Optional platform filter ('discord', 'telegram')
+   * @returns {Promise<Array<{channelId: string, tokenSymbol: string, tokenName: string}>>}
+   */
+  async getChannelsTrackingToken(tokenAddress, platform = null) {
+    try {
+      if (!tokenAddress) return [];
+      
+      const normalizedAddress = tokenAddress.toLowerCase();
+      const query = { 
+        tokenAddress: { $regex: new RegExp(`^${normalizedAddress}$`, 'i') },
+        active: true 
+      };
+      
+      if (platform) {
+        query.platform = platform;
+      }
+      
+      const results = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .find(query)
+        .project({ channelId: 1, tokenSymbol: 1, tokenName: 1, platform: 1 })
+        .toArray();
+      
+      return results;
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get channels tracking token:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a specific channel tracks a given token address
+   * @param {string} channelId - Channel ID to check
+   * @param {string} tokenAddress - Token mint address to search for
+   * @returns {Promise<boolean>}
+   */
+  async isTokenTrackedInChannel(channelId, tokenAddress) {
+    try {
+      if (!channelId || !tokenAddress) return false;
+      
+      const normalizedAddress = tokenAddress.toLowerCase();
+      const result = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .findOne({ 
+          channelId,
+          tokenAddress: { $regex: new RegExp(`^${normalizedAddress}$`, 'i') },
+          active: true 
+        });
+      
+      return Boolean(result);
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to check if token is tracked in channel:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get all unique tracked tokens across all channels
    * Returns unique addresses and symbols for content filter allowlists
    * @returns {Promise<{addresses: string[], symbols: string[]}>}
