@@ -370,14 +370,59 @@ export class TutorialQuestService {
       }
     }
 
-    const nextStep = isComplete ? null : TUTORIAL_STEPS[nextStepIndex];
+    // Auto-advance through any steps whose conditions are already met
+    let finalStepIndex = nextStepIndex;
+    let totalXpFromAutoAdvance = 0;
+    let autoAdvancedSteps = [];
+    
+    while (finalStepIndex < TUTORIAL_STEPS.length) {
+      const step = TUTORIAL_STEPS[finalStepIndex];
+      const isMet = await this._isConditionMet(avatarId, step);
+      
+      if (isMet) {
+        const stepXp = step.xpReward || 0;
+        totalXpFromAutoAdvance += stepXp;
+        autoAdvancedSteps.push(step.id);
+        
+        // Award XP for auto-advanced step
+        if (stepXp > 0) {
+          try {
+            await this.characterService?.awardXP?.(avatarId, stepXp);
+          } catch { /* ignore */ }
+        }
+        
+        this.logger?.info?.(`[TutorialQuestService] Auto-advanced past ${step.id} for avatar ${avatarId}`);
+        finalStepIndex++;
+      } else {
+        break;
+      }
+    }
+    
+    // Update DB if we auto-advanced
+    if (autoAdvancedSteps.length > 0) {
+      const isFinalComplete = finalStepIndex >= TUTORIAL_STEPS.length;
+      await col.updateOne(
+        { avatarId: new ObjectId(avatarId) },
+        { 
+          $set: { currentStep: finalStepIndex, ...(isFinalComplete ? { completedAt: new Date() } : {}) },
+          $push: { completedSteps: { $each: autoAdvancedSteps } },
+          $inc: { totalXpEarned: totalXpFromAutoAdvance }
+        }
+      );
+    }
+
+    const isFinalComplete = finalStepIndex >= TUTORIAL_STEPS.length;
+    const nextStep = isFinalComplete ? null : TUTORIAL_STEPS[finalStepIndex];
+    const totalEarned = progress.totalXpEarned + xpEarned + totalXpFromAutoAdvance;
 
     return {
       completed: currentStep,
-      xpEarned,
-      isQuestComplete: isComplete,
+      xpEarned: xpEarned + totalXpFromAutoAdvance,
+      isQuestComplete: isFinalComplete,
       nextStep,
-      totalXpEarned: progress.totalXpEarned + xpEarned
+      totalXpEarned: totalEarned,
+      autoAdvanced: autoAdvancedSteps.length > 0,
+      autoAdvancedSteps
     };
   }
 

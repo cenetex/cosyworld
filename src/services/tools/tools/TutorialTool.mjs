@@ -397,10 +397,17 @@ export class TutorialTool extends BasicTool {
         this.tutorialQuestService.getSteps().length
       );
 
-      // Add celebration if XP was earned
+      // Add celebration if XP was earned (and note auto-advanced steps)
       if (result.xpEarned > 0) {
+        const autoNote = result.autoAdvanced 
+          ? ` (skipped ${result.autoAdvancedSteps.length} completed step${result.autoAdvancedSteps.length > 1 ? 's' : ''})` 
+          : '';
         nextStepEmbed.embeds[0].author = {
-          name: `✨ Step complete! +${result.xpEarned} XP`
+          name: `✨ Step complete! +${result.xpEarned} XP${autoNote}`
+        };
+      } else if (result.autoAdvanced) {
+        nextStepEmbed.embeds[0].author = {
+          name: `✨ Skipped ${result.autoAdvancedSteps.length} completed step${result.autoAdvancedSteps.length > 1 ? 's' : ''}!`
         };
       }
       
