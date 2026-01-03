@@ -55,7 +55,7 @@ const TUTORIAL_STEPS = [
     id: 'enter_dungeon',
     title: 'Into the Depths',
     description: 'The Tutorial Crypts await. A simple dungeon to test your mettle.',
-    instruction: 'Click **Enter Dungeon** to begin your adventure.',
+    instruction: 'Click **Enter Dungeon** below to begin your adventure!\n\n*A new thread will be created for your dungeon run.*',
     trigger: 'dungeon_entered',
     xpReward: 50
   },
@@ -63,24 +63,27 @@ const TUTORIAL_STEPS = [
     id: 'view_map',
     title: 'Know Your Surroundings',
     description: 'The dungeon map shows rooms, exits, and your position.',
-    instruction: 'Click **View Map** to see the dungeon layout.',
+    instruction: '⚠️ **Go to the dungeon thread** to continue!\n\nOnce there, use `🏰 dungeon map` or click the **Map** button to see the layout.',
     trigger: 'map_viewed',
+    context: 'dungeon', // Indicates this step should be done in dungeon thread
     xpReward: 25
   },
   {
     id: 'first_combat',
     title: 'Steel and Spell',
     description: 'Enemies block your path! Use attacks or spells to defeat them.',
-    instruction: 'Use the **Attack** or **Cast** buttons to fight enemies.\n\nWhen victorious, click **Clear Room**.',
+    instruction: '⚠️ **In the dungeon thread:**\n\n• Use `🗡️ attack` to strike enemies\n• Use `🪄 cast <spell>` for magic\n• Click **Fight** or **Attack** buttons\n\nDefeat all enemies to clear the room!',
     trigger: 'room_cleared',
+    context: 'dungeon',
     xpReward: 100
   },
   {
     id: 'explore',
     title: 'Deeper We Go',
     description: 'Move through the dungeon, clearing rooms and collecting treasure.',
-    instruction: 'Use the **Move** button to explore.\nUse the **Loot** button to collect treasure.\n\n*Click **Skip Step** when ready to proceed.*',
+    instruction: '⚠️ **In the dungeon thread:**\n\n• Use `🏰 dungeon move <room>` to explore\n• Use `🏰 dungeon loot` to collect treasure\n• Check the map for available exits\n\n*Click **Skip** when ready to proceed.*',
     trigger: 'explored',
+    context: 'dungeon',
     optional: true,
     xpReward: 50
   },
@@ -88,15 +91,16 @@ const TUTORIAL_STEPS = [
     id: 'complete_dungeon',
     title: 'Victory!',
     description: 'You\'ve conquered the Tutorial Crypts! You\'re ready for greater challenges.',
-    instruction: 'Defeat the boss and click **Clear Room** to complete the dungeon!',
+    instruction: '⚠️ **In the dungeon thread:**\n\nFind and defeat the boss! Clear all rooms or reach the final chamber to complete your first dungeon.',
     trigger: 'dungeon_complete',
+    context: 'dungeon',
     xpReward: 200
   },
   {
     id: 'rest',
     title: 'Rest and Recovery',
     description: 'After battle, rest to restore your abilities.',
-    instruction: 'Click **Rest** to restore your health and abilities.',
+    instruction: 'Use `📜 character rest long` or click **Rest** to restore your health and spell slots.',
     trigger: 'rested',
     xpReward: 25
   }

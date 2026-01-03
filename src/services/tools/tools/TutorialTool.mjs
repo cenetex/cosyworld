@@ -25,10 +25,12 @@ const COLORS = {
 };
 
 export class TutorialTool extends BasicTool {
-  constructor({ tutorialQuestService, characterService, discordService, logger }) {
+  constructor({ tutorialQuestService, characterService, partyService, dungeonService, discordService, logger }) {
     super();
     this.tutorialQuestService = tutorialQuestService;
     this.characterService = characterService;
+    this.partyService = partyService;
+    this.dungeonService = dungeonService;
     this.discordService = discordService;
     this.logger = logger;
 
@@ -352,7 +354,8 @@ export class TutorialTool extends BasicTool {
       headerText = null,
       subText = null,
       isConditionMet = false,
-      totalXpEarned = 0
+      totalXpEarned = 0,
+      dungeonThreadId = null
     } = options;
 
     const progressBar = this._buildProgressBar(stepNumber, totalSteps);
@@ -362,13 +365,19 @@ export class TutorialTool extends BasicTool {
       description = `*${subText}*\n\n${description}`;
     }
 
+    // Add dungeon thread link for dungeon-context steps
+    let instruction = step.instruction;
+    if (step.context === 'dungeon' && dungeonThreadId) {
+      instruction = `👉 **Continue in the dungeon thread:** <#${dungeonThreadId}>\n\n${instruction}`;
+    }
+
     const embed = {
       title: `${step.optional ? '○' : '●'} ${step.title}`,
       description,
       color: isConditionMet ? COLORS.SUCCESS : COLORS.PRIMARY,
       fields: [{
         name: isConditionMet ? '✅ Ready to complete' : '📝 Instructions',
-        value: isConditionMet ? 'Click **Complete Step** to continue!' : step.instruction,
+        value: isConditionMet ? 'Click **Complete Step** to continue!' : instruction,
         inline: false
       }],
       footer: { 
@@ -391,6 +400,22 @@ export class TutorialTool extends BasicTool {
     const filled = Math.round((current / total) * 5);
     const empty = 5 - filled;
     return '▓'.repeat(filled) + '░'.repeat(empty);
+  }
+
+  /**
+   * Get the active dungeon thread ID for an avatar
+   * @private
+   */
+  async _getDungeonThreadId(avatarId) {
+    try {
+      const sheet = await this.characterService?.getSheet?.(avatarId);
+      if (!sheet?.partyId) return null;
+      
+      const dungeon = await this.dungeonService?.getActiveDungeon?.(sheet.partyId);
+      return dungeon?.threadId || null;
+    } catch {
+      return null;
+    }
   }
 
   async startTutorial(avatar) {
