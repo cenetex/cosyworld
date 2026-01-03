@@ -40,12 +40,25 @@ const STATIC_MONSTER_TAGS = {
   skeleton: { habitats: ['crypt', 'ruins', 'castle'], type: 'undead', role: 'minion' },
   zombie: { habitats: ['crypt', 'ruins', 'sewers'], type: 'undead', role: 'brute' },
   wolf: { habitats: ['forest', 'mountain', 'cave'], type: 'beast', role: 'skirmisher' },
+  giant_rat: { habitats: ['sewers', 'cave', 'ruins'], type: 'beast', role: 'minion' },
+  kobold: { habitats: ['cave', 'ruins', 'mountain'], type: 'humanoid', role: 'minion' },
   orc: { habitats: ['cave', 'mountain', 'ruins'], type: 'humanoid', role: 'brute' },
+  hobgoblin: { habitats: ['cave', 'ruins', 'castle'], type: 'humanoid', role: 'skirmisher' },
+  gnoll: { habitats: ['desert', 'ruins', 'forest'], type: 'humanoid', role: 'brute' },
   giant_spider: { habitats: ['cave', 'forest', 'sewers'], type: 'beast', role: 'controller' },
   bugbear: { habitats: ['cave', 'forest', 'ruins'], type: 'humanoid', role: 'brute' },
+  harpy: { habitats: ['mountain', 'ruins', 'forest'], type: 'monstrosity', role: 'controller' },
+  ghoul: { habitats: ['crypt', 'ruins', 'sewers'], type: 'undead', role: 'skirmisher' },
   ogre: { habitats: ['cave', 'swamp', 'mountain'], type: 'giant', role: 'brute' },
+  gargoyle: { habitats: ['castle', 'ruins', 'mountain'], type: 'elemental', role: 'brute' },
+  werewolf: { habitats: ['forest', 'ruins', 'cave'], type: 'monstrosity', role: 'elite' },
   minotaur: { habitats: ['ruins', 'cave'], type: 'monstrosity', role: 'elite' },
-  troll: { habitats: ['swamp', 'cave', 'mountain'], type: 'giant', role: 'elite' }
+  basilisk: { habitats: ['cave', 'ruins', 'desert'], type: 'monstrosity', role: 'controller' },
+  owlbear: { habitats: ['forest', 'cave'], type: 'monstrosity', role: 'brute' },
+  ettin: { habitats: ['mountain', 'cave', 'ruins'], type: 'giant', role: 'elite' },
+  troll: { habitats: ['swamp', 'cave', 'mountain'], type: 'giant', role: 'elite' },
+  wraith: { habitats: ['crypt', 'ruins', 'castle'], type: 'undead', role: 'elite' },
+  young_dragon: { habitats: ['mountain', 'cave', 'ruins'], type: 'dragon', role: 'boss' }
 };
 
 export class MonsterService {

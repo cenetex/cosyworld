@@ -1,0 +1,257 @@
+{
+  "monsters": {
+    "goblin": {
+      "name": "Goblin",
+      "cr": 0.25,
+      "xp": 50,
+      "stats": { "hp": 7, "ac": 15, "speed": 30, "str": 8, "dex": 14, "con": 10, "int": 10, "wis": 8, "cha": 8 },
+      "attacks": [{ "name": "Scimitar", "bonus": 4, "damage": { "dice": 6, "count": 1, "modifier": 2, "type": "slashing" } }],
+      "traits": ["nimble_escape"],
+      "emoji": "👺"
+    },
+    "skeleton": {
+      "name": "Skeleton",
+      "cr": 0.25,
+      "xp": 50,
+      "stats": { "hp": 13, "ac": 13, "speed": 30, "str": 10, "dex": 14, "con": 15, "int": 6, "wis": 8, "cha": 5 },
+      "attacks": [{ "name": "Shortsword", "bonus": 4, "damage": { "dice": 6, "count": 1, "modifier": 2, "type": "piercing" } }],
+      "immunities": ["poison"],
+      "vulnerabilities": ["bludgeoning"],
+      "emoji": "💀"
+    },
+    "zombie": {
+      "name": "Zombie",
+      "cr": 0.25,
+      "xp": 50,
+      "stats": { "hp": 22, "ac": 8, "speed": 20, "str": 13, "dex": 6, "con": 16, "int": 3, "wis": 6, "cha": 5 },
+      "attacks": [{ "name": "Slam", "bonus": 3, "damage": { "dice": 6, "count": 1, "modifier": 1, "type": "bludgeoning" } }],
+      "traits": ["undead_fortitude"],
+      "immunities": ["poison"],
+      "emoji": "🧟"
+    },
+    "wolf": {
+      "name": "Wolf",
+      "cr": 0.25,
+      "xp": 50,
+      "stats": { "hp": 11, "ac": 13, "speed": 40, "str": 12, "dex": 15, "con": 12, "int": 3, "wis": 12, "cha": 6 },
+      "attacks": [{ "name": "Bite", "bonus": 4, "damage": { "dice": 4, "count": 2, "modifier": 2, "type": "piercing" }, "effect": "knockdown" }],
+      "traits": ["pack_tactics", "keen_hearing_smell"],
+      "emoji": "🐺"
+    },
+    "giant_rat": {
+      "name": "Giant Rat",
+      "cr": 0.125,
+      "xp": 25,
+      "stats": { "hp": 7, "ac": 12, "speed": 30, "str": 7, "dex": 15, "con": 11, "int": 2, "wis": 10, "cha": 4 },
+      "attacks": [{ "name": "Bite", "bonus": 4, "damage": { "dice": 4, "count": 1, "modifier": 2, "type": "piercing" } }],
+      "traits": ["pack_tactics", "keen_smell"],
+      "emoji": "🐀"
+    },
+    "kobold": {
+      "name": "Kobold",
+      "cr": 0.125,
+      "xp": 25,
+      "stats": { "hp": 5, "ac": 12, "speed": 30, "str": 7, "dex": 15, "con": 9, "int": 8, "wis": 7, "cha": 8 },
+      "attacks": [{ "name": "Dagger", "bonus": 4, "damage": { "dice": 4, "count": 1, "modifier": 2, "type": "piercing" } }],
+      "traits": ["pack_tactics", "sunlight_sensitivity"],
+      "emoji": "🦎"
+    },
+    "orc": {
+      "name": "Orc",
+      "cr": 0.5,
+      "xp": 100,
+      "stats": { "hp": 15, "ac": 13, "speed": 30, "str": 16, "dex": 12, "con": 16, "int": 7, "wis": 11, "cha": 10 },
+      "attacks": [{ "name": "Greataxe", "bonus": 5, "damage": { "dice": 12, "count": 1, "modifier": 3, "type": "slashing" } }],
+      "traits": ["aggressive"],
+      "emoji": "👹"
+    },
+    "hobgoblin": {
+      "name": "Hobgoblin",
+      "cr": 0.5,
+      "xp": 100,
+      "stats": { "hp": 11, "ac": 18, "speed": 30, "str": 13, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 9 },
+      "attacks": [{ "name": "Longsword", "bonus": 3, "damage": { "dice": 8, "count": 1, "modifier": 1, "type": "slashing" } }],
+      "traits": ["martial_advantage"],
+      "emoji": "⚔️"
+    },
+    "gnoll": {
+      "name": "Gnoll",
+      "cr": 0.5,
+      "xp": 100,
+      "stats": { "hp": 22, "ac": 15, "speed": 30, "str": 14, "dex": 12, "con": 11, "int": 6, "wis": 10, "cha": 7 },
+      "attacks": [{ "name": "Spear", "bonus": 4, "damage": { "dice": 6, "count": 1, "modifier": 2, "type": "piercing" } }],
+      "traits": ["rampage"],
+      "emoji": "🐺"
+    },
+    "giant_spider": {
+      "name": "Giant Spider",
+      "cr": 1,
+      "xp": 200,
+      "stats": { "hp": 26, "ac": 14, "speed": 30, "str": 14, "dex": 16, "con": 12, "int": 2, "wis": 11, "cha": 4 },
+      "attacks": [{ "name": "Bite", "bonus": 5, "damage": { "dice": 8, "count": 1, "modifier": 3, "type": "piercing" }, "effect": "poison_2d8" }],
+      "traits": ["spider_climb", "web_sense"],
+      "emoji": "🕷️"
+    },
+    "bugbear": {
+      "name": "Bugbear",
+      "cr": 1,
+      "xp": 200,
+      "stats": { "hp": 27, "ac": 16, "speed": 30, "str": 15, "dex": 14, "con": 13, "int": 8, "wis": 11, "cha": 9 },
+      "attacks": [{ "name": "Morningstar", "bonus": 4, "damage": { "dice": 8, "count": 2, "modifier": 2, "type": "piercing" } }],
+      "traits": ["brute", "surprise_attack"],
+      "emoji": "🐻"
+    },
+    "harpy": {
+      "name": "Harpy",
+      "cr": 1,
+      "xp": 200,
+      "stats": { "hp": 38, "ac": 11, "speed": 20, "str": 12, "dex": 13, "con": 12, "int": 7, "wis": 10, "cha": 13 },
+      "attacks": [{ "name": "Claws", "bonus": 3, "damage": { "dice": 6, "count": 2, "modifier": 1, "type": "slashing" } }],
+      "traits": ["luring_song"],
+      "emoji": "🦅"
+    },
+    "ghoul": {
+      "name": "Ghoul",
+      "cr": 1,
+      "xp": 200,
+      "stats": { "hp": 22, "ac": 12, "speed": 30, "str": 13, "dex": 15, "con": 10, "int": 7, "wis": 10, "cha": 6 },
+      "attacks": [{ "name": "Claws", "bonus": 4, "damage": { "dice": 4, "count": 2, "modifier": 2, "type": "slashing" }, "effect": "paralysis" }],
+      "traits": [],
+      "immunities": ["poison"],
+      "emoji": "👻"
+    },
+    "ogre": {
+      "name": "Ogre",
+      "cr": 2,
+      "xp": 450,
+      "stats": { "hp": 59, "ac": 11, "speed": 40, "str": 19, "dex": 8, "con": 16, "int": 5, "wis": 7, "cha": 7 },
+      "attacks": [{ "name": "Greatclub", "bonus": 6, "damage": { "dice": 8, "count": 2, "modifier": 4, "type": "bludgeoning" } }],
+      "emoji": "👤"
+    },
+    "gargoyle": {
+      "name": "Gargoyle",
+      "cr": 2,
+      "xp": 450,
+      "stats": { "hp": 52, "ac": 15, "speed": 30, "str": 15, "dex": 11, "con": 16, "int": 6, "wis": 11, "cha": 7 },
+      "attacks": [{ "name": "Claws", "bonus": 4, "damage": { "dice": 6, "count": 2, "modifier": 2, "type": "slashing" } }],
+      "traits": ["false_appearance"],
+      "resistances": ["nonmagical_physical"],
+      "emoji": "🗿"
+    },
+    "werewolf": {
+      "name": "Werewolf",
+      "cr": 3,
+      "xp": 700,
+      "stats": { "hp": 58, "ac": 12, "speed": 40, "str": 15, "dex": 13, "con": 14, "int": 10, "wis": 11, "cha": 10 },
+      "attacks": [{ "name": "Bite", "bonus": 4, "damage": { "dice": 8, "count": 1, "modifier": 2, "type": "piercing" }, "effect": "lycanthropy" }],
+      "traits": ["shapechanger", "keen_hearing_smell"],
+      "immunities": ["nonmagical_physical"],
+      "emoji": "🐺"
+    },
+    "minotaur": {
+      "name": "Minotaur",
+      "cr": 3,
+      "xp": 700,
+      "stats": { "hp": 76, "ac": 14, "speed": 40, "str": 18, "dex": 11, "con": 16, "int": 6, "wis": 16, "cha": 9 },
+      "attacks": [{ "name": "Greataxe", "bonus": 6, "damage": { "dice": 12, "count": 2, "modifier": 4, "type": "slashing" } }],
+      "traits": ["charge", "labyrinthine_recall"],
+      "emoji": "🐂"
+    },
+    "basilisk": {
+      "name": "Basilisk",
+      "cr": 3,
+      "xp": 700,
+      "stats": { "hp": 52, "ac": 15, "speed": 20, "str": 16, "dex": 8, "con": 15, "int": 2, "wis": 8, "cha": 7 },
+      "attacks": [{ "name": "Bite", "bonus": 5, "damage": { "dice": 10, "count": 1, "modifier": 3, "type": "piercing" } }],
+      "traits": ["petrifying_gaze"],
+      "emoji": "🦎"
+    },
+    "owlbear": {
+      "name": "Owlbear",
+      "cr": 3,
+      "xp": 700,
+      "stats": { "hp": 59, "ac": 13, "speed": 40, "str": 20, "dex": 12, "con": 17, "int": 3, "wis": 12, "cha": 7 },
+      "attacks": [
+        { "name": "Beak", "bonus": 7, "damage": { "dice": 10, "count": 1, "modifier": 5, "type": "piercing" } },
+        { "name": "Claws", "bonus": 7, "damage": { "dice": 8, "count": 2, "modifier": 5, "type": "slashing" } }
+      ],
+      "traits": ["keen_sight_smell"],
+      "emoji": "🦉"
+    },
+    "ettin": {
+      "name": "Ettin",
+      "cr": 4,
+      "xp": 1100,
+      "stats": { "hp": 85, "ac": 12, "speed": 40, "str": 21, "dex": 8, "con": 17, "int": 6, "wis": 10, "cha": 8 },
+      "attacks": [
+        { "name": "Battleaxe", "bonus": 7, "damage": { "dice": 8, "count": 2, "modifier": 5, "type": "slashing" } },
+        { "name": "Morningstar", "bonus": 7, "damage": { "dice": 8, "count": 2, "modifier": 5, "type": "piercing" } }
+      ],
+      "traits": ["two_heads", "wakeful"],
+      "emoji": "👹"
+    },
+    "troll": {
+      "name": "Troll",
+      "cr": 5,
+      "xp": 1800,
+      "stats": { "hp": 84, "ac": 15, "speed": 30, "str": 18, "dex": 13, "con": 20, "int": 7, "wis": 9, "cha": 7 },
+      "attacks": [
+        { "name": "Claw", "bonus": 7, "damage": { "dice": 6, "count": 2, "modifier": 4, "type": "slashing" } },
+        { "name": "Bite", "bonus": 7, "damage": { "dice": 6, "count": 1, "modifier": 4, "type": "piercing" } }
+      ],
+      "traits": ["regeneration", "keen_smell"],
+      "emoji": "🧌"
+    },
+    "wraith": {
+      "name": "Wraith",
+      "cr": 5,
+      "xp": 1800,
+      "stats": { "hp": 67, "ac": 13, "speed": 60, "str": 6, "dex": 16, "con": 16, "int": 12, "wis": 14, "cha": 15 },
+      "attacks": [{ "name": "Life Drain", "bonus": 6, "damage": { "dice": 8, "count": 4, "modifier": 3, "type": "necrotic" }, "effect": "max_hp_reduction" }],
+      "traits": ["incorporeal", "sunlight_sensitivity"],
+      "immunities": ["necrotic", "poison"],
+      "resistances": ["nonmagical_physical"],
+      "emoji": "👤"
+    },
+    "young_dragon": {
+      "name": "Young Dragon",
+      "cr": 7,
+      "xp": 2900,
+      "stats": { "hp": 136, "ac": 18, "speed": 40, "str": 19, "dex": 10, "con": 17, "int": 12, "wis": 11, "cha": 15 },
+      "attacks": [
+        { "name": "Bite", "bonus": 7, "damage": { "dice": 10, "count": 2, "modifier": 4, "type": "piercing" } },
+        { "name": "Claw", "bonus": 7, "damage": { "dice": 6, "count": 2, "modifier": 4, "type": "slashing" } }
+      ],
+      "traits": ["breath_weapon", "frightful_presence"],
+      "emoji": "🐉"
+    }
+  },
+  "traits": {
+    "nimble_escape": { "name": "Nimble Escape", "description": "Disengage or Hide as bonus action" },
+    "undead_fortitude": { "name": "Undead Fortitude", "description": "On 0 HP, CON save to drop to 1 HP instead" },
+    "pack_tactics": { "name": "Pack Tactics", "description": "Advantage when ally within 5 ft of target" },
+    "aggressive": { "name": "Aggressive", "description": "Bonus action to move toward hostile creature" },
+    "regeneration": { "name": "Regeneration", "description": "Regain 10 HP at start of turn unless fire/acid damage" },
+    "charge": { "name": "Charge", "description": "Extra 2d8 damage on hit after 10 ft move" },
+    "keen_hearing_smell": { "name": "Keen Hearing and Smell", "description": "Advantage on Perception checks using hearing or smell" },
+    "keen_smell": { "name": "Keen Smell", "description": "Advantage on Perception checks using smell" },
+    "keen_sight_smell": { "name": "Keen Sight and Smell", "description": "Advantage on Perception checks using sight or smell" },
+    "spider_climb": { "name": "Spider Climb", "description": "Can climb difficult surfaces including ceilings" },
+    "web_sense": { "name": "Web Sense", "description": "Knows exact location of any creature touching its web" },
+    "brute": { "name": "Brute", "description": "Extra damage die on melee weapon attacks" },
+    "surprise_attack": { "name": "Surprise Attack", "description": "Extra 2d6 damage on first attack against surprised creature" },
+    "sunlight_sensitivity": { "name": "Sunlight Sensitivity", "description": "Disadvantage on attacks and Perception in sunlight" },
+    "martial_advantage": { "name": "Martial Advantage", "description": "Extra 2d6 damage when ally is within 5 ft of target" },
+    "rampage": { "name": "Rampage", "description": "Move and bite after reducing creature to 0 HP" },
+    "luring_song": { "name": "Luring Song", "description": "Charming song forces WIS save or be charmed" },
+    "false_appearance": { "name": "False Appearance", "description": "Indistinguishable from inanimate statue while motionless" },
+    "shapechanger": { "name": "Shapechanger", "description": "Can transform between humanoid and wolf forms" },
+    "labyrinthine_recall": { "name": "Labyrinthine Recall", "description": "Perfect recall of any path traveled" },
+    "petrifying_gaze": { "name": "Petrifying Gaze", "description": "CON save or be petrified" },
+    "two_heads": { "name": "Two Heads", "description": "Advantage on Perception and saves against effects" },
+    "wakeful": { "name": "Wakeful", "description": "One head always awake" },
+    "incorporeal": { "name": "Incorporeal Movement", "description": "Can move through creatures and objects" },
+    "breath_weapon": { "name": "Breath Weapon", "description": "Powerful elemental breath attack (recharge 5-6)" },
+    "frightful_presence": { "name": "Frightful Presence", "description": "Creatures within 120 ft must save or be frightened" }
+  }
+}
