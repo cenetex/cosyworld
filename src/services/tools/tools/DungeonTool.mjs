@@ -496,9 +496,13 @@ export class DungeonTool extends BasicTool {
       description: `*Ancient runes glow as a voice echoes through the chamber...*\n\n**"${puzzle.riddle}"**`,
       color: 0x3B82F6,
       fields: [
-        { name: '💡 How to Answer', value: 'Type your answer: `🏰 dungeon solve <answer>`', inline: false }
+        { 
+          name: '📝 How to Answer', 
+          value: 'Reply in chat with your answer (just the word, no command needed)\n\nOr type: `🏰 dungeon solve <answer>`', 
+          inline: false 
+        }
       ],
-      footer: { text: `${puzzle.maxAttempts} attempts allowed` }
+      footer: { text: `${puzzle.maxAttempts} attempts remaining • Wrong answers lose an attempt` }
     };
 
     await thread.send({ 
@@ -509,6 +513,11 @@ export class DungeonTool extends BasicTool {
             .setCustomId('dnd_puzzle_hint')
             .setLabel('Get Hint')
             .setEmoji('💡')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('dnd_puzzle_skip')
+            .setLabel('Skip Puzzle')
+            .setEmoji('⏭️')
             .setStyle(ButtonStyle.Secondary)
         )
       ]
