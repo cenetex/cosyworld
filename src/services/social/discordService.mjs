@@ -1117,11 +1117,17 @@ export class DiscordService {
           return;
         }
 
-        // Get dungeon tool and solve puzzle
+        // Get tool service
         const toolService = this.getToolService?.();
-        const dungeonTool = toolService?.getTool?.('dungeon');
+        if (!toolService) {
+          await interaction.editReply({ content: '❌ Tool service unavailable.' });
+          return;
+        }
+        
+        // Get dungeon tool from the tools Map
+        const dungeonTool = toolService.tools?.get('dungeon');
         if (!dungeonTool) {
-          await interaction.editReply({ content: '❌ Dungeon system unavailable.' });
+          await interaction.editReply({ content: '❌ Dungeon tool not found.' });
           return;
         }
 
@@ -1130,7 +1136,7 @@ export class DiscordService {
         const activeDungeon = await dungeonTool.dungeonService?.getActiveDungeonByChannel(channelId);
 
         if (!activeDungeon) {
-          await interaction.editReply({ content: '❌ No active dungeon found.' });
+          await interaction.editReply({ content: '❌ No active dungeon found in this channel.' });
           return;
         }
 
