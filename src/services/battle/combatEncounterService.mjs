@@ -1240,20 +1240,225 @@ One-liner (no quotes):`;
       encounter.timers.turn = null;
     }
     
-    // Execute turn immediately (AI/monster acts autonomously)
-    this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - executing action`);
-    this._executeTurn(encounter, current)
+    // BATCH MONSTER TURNS: Execute all consecutive monster turns at once with single DM narration
+    // This speeds up combat by not generating individual dialogue for each monster
+    this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - checking for batch execution`);
+    this._executeBatchedMonsterTurns(encounter)
       .then(() => {
-        this.turnLock.release(channelId, 'turn_complete');
+        this.turnLock.release(channelId, 'batch_complete');
       })
       .catch(e => {
-        this.logger?.error?.(`[CombatEncounter] Turn execution failed: ${e.message}`);
-        this.turnLock.release(channelId, 'turn_error');
+        this.logger?.error?.(`[CombatEncounter] Batch execution failed: ${e.message}`);
+        this.turnLock.release(channelId, 'batch_error');
         this.nextTurn(encounter); // Fallback: advance turn on error
       });
   }
 
-  /** Marks a hostile action (attack) to prevent idle end */
+  /**
+   * Execute all consecutive monster/AI turns in a batch with single DM narration
+   * This significantly speeds up combat by avoiding individual dialogue generation
+   * @private
+   */
+  async _executeBatchedMonsterTurns(encounter) {
+    const batchedActions = [];
+    let continueLoop = true;
+    
+    while (continueLoop && encounter.state === 'active') {
+      const currentId = this.getCurrentTurnAvatarId(encounter);
+      const current = this.getCombatant(encounter, currentId);
+      
+      // Stop if we hit a player-controlled avatar or invalid state
+      if (!current || (current.isPlayerControlled && !current.autoMode)) {
+        continueLoop = false;
+        break;
+      }
+      
+      // Skip knocked out combatants
+      if (this._isKnockedOut(current)) {
+        this.logger?.debug?.(`[CombatEncounter] Batch: skipping KO'd ${current.name}`);
+        if (this.evaluateEnd(encounter)) return;
+        this._advanceTurnIndex(encounter);
+        continue;
+      }
+      
+      // Process status effects
+      const statusResult = this.statusEffectService.processTurnStart(current, encounter.round);
+      if (statusResult.skipTurn) {
+        this.logger?.debug?.(`[CombatEncounter] Batch: ${current.name} turn skipped by status`);
+        this._advanceTurnIndex(encounter);
+        continue;
+      }
+      
+      if (current.currentHp <= 0) {
+        if (this.evaluateEnd(encounter)) return;
+        this._advanceTurnIndex(encounter);
+        continue;
+      }
+      
+      // Select and execute action
+      const action = await this.combatAIService.selectCombatAction(encounter, current);
+      if (!action) {
+        this.logger?.warn?.(`[CombatEncounter] Batch: no action for ${current.name}`);
+        this._advanceTurnIndex(encounter);
+        continue;
+      }
+      
+      const result = await this._executeCombatAction(action, current, encounter);
+      
+      // Collect action for batched narration
+      batchedActions.push({
+        combatant: current,
+        action,
+        result,
+        targetName: action.target?.name
+      });
+      
+      // Log to database
+      if (this.combatLogService) {
+        this.combatLogService.logAction({ encounter, combatant: current, action, result }).catch(() => {});
+      }
+      
+      // Capture for video
+      if (action.type === 'attack' && action.target && result) {
+        this._captureBattleMoment(encounter, {
+          attacker: current,
+          defender: action.target,
+          result
+        });
+      }
+      
+      // Check end conditions after each action
+      if (this.evaluateEnd(encounter)) return;
+      
+      // Advance to next turn index (without full nextTurn processing)
+      this._advanceTurnIndex(encounter);
+      
+      // Check if next combatant is player-controlled
+      const nextId = this.getCurrentTurnAvatarId(encounter);
+      const next = this.getCombatant(encounter, nextId);
+      if (next && next.isPlayerControlled && !next.autoMode) {
+        continueLoop = false;
+      }
+    }
+    
+    // Post batched DM narration for all monster actions
+    if (batchedActions.length > 0) {
+      await this._postBatchedMonsterNarration(encounter, batchedActions);
+    }
+    
+    // Now start the next turn (which should be a player turn or end of round)
+    if (encounter.state === 'active') {
+      this._scheduleTurnStart(encounter);
+    }
+  }
+
+  /**
+   * Advance turn index without full nextTurn processing
+   * Used during batched monster turns
+   * @private
+   */
+  _advanceTurnIndex(encounter) {
+    const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+    if (order.length === 0) return;
+    
+    const prevIdx = encounter.currentTurnIndex || 0;
+    const nextIdx = (prevIdx + 1) % order.length;
+    
+    if (nextIdx === 0) {
+      // New round
+      encounter.round = (encounter.round || 1) + 1;
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Batch: advancing to round ${encounter.round}`);
+      
+      eventBus.emit('combat.round.advanced', {
+        channelId: encounter.channelId,
+        round: encounter.round
+      });
+      
+      // Reset chatter for new round
+      if (encounter.chatter) {
+        encounter.chatter.spokenThisRound = new Set();
+        encounter.chatter.lastSpeakerId = null;
+      }
+    }
+    
+    encounter.currentTurnIndex = nextIdx;
+  }
+
+  /**
+   * Post a single DM narration summarizing all batched monster actions
+   * @private
+   */
+  async _postBatchedMonsterNarration(encounter, actions) {
+    const channel = this._getChannel(encounter);
+    if (!channel) return;
+    
+    try {
+      // Build a summary of all monster actions
+      const actionSummaries = actions.map(a => {
+        const attackerName = a.combatant.name;
+        const targetName = a.targetName || 'unknown';
+        const damage = a.result?.damage || 0;
+        const hit = a.result?.hit !== false;
+        
+        if (a.action.type === 'attack') {
+          if (hit && damage > 0) {
+            return `${attackerName} strikes ${targetName} for ${damage} damage`;
+          } else if (!hit) {
+            return `${attackerName} swings at ${targetName} but misses`;
+          }
+        } else if (a.action.type === 'defend') {
+          return `${attackerName} takes a defensive stance`;
+        }
+        return `${attackerName} acts`;
+      });
+      
+      // Generate DM narration via AI if available
+      let dmNarration = null;
+      if (this.dmNarratorService && actions.length > 0) {
+        try {
+          dmNarration = await this.dmNarratorService.narrateBatchedActions?.({
+            actions,
+            encounter
+          });
+        } catch (e) {
+          this.logger?.debug?.(`[CombatEncounter] Batched DM narration failed: ${e.message}`);
+        }
+      }
+      
+      // Build embed for monster actions
+      const embed = {
+        author: { name: '🎲 The Dungeon Master' },
+        title: `⚔️ Enemy Actions`,
+        description: dmNarration || `*The monsters strike!*\n\n${actionSummaries.join('\n')}`,
+        color: 0x8B0000, // Dark red for enemy actions
+        footer: { text: `${actions.length} monster action${actions.length > 1 ? 's' : ''} this round` }
+      };
+      
+      // Add damage summary field
+      const totalDamage = actions.reduce((sum, a) => sum + (a.result?.damage || 0), 0);
+      if (totalDamage > 0) {
+        embed.fields = [
+          { name: '💥 Total Damage Dealt', value: `${totalDamage} HP`, inline: true }
+        ];
+      }
+      
+      await channel.send({ embeds: [embed] });
+      this.logger?.info?.(`[CombatEncounter] Posted batched narration for ${actions.length} monster actions`);
+      
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] Failed to post batched narration: ${e.message}`);
+      
+      // Fallback: post simple text summary
+      try {
+        const simple = actions.map(a => 
+          `**${a.combatant.name}** ${a.action.type === 'attack' ? 'attacks' : 'defends'}`
+        ).join(' | ');
+        await channel.send({ content: `-# ${simple}` });
+      } catch {
+        // Ignore fallback failure
+      }
+    }
+  }
   markHostile(encounter) {
     encounter.lastHostileAt = Date.now();
   }
