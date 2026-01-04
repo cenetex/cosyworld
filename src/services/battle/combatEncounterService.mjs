@@ -1190,11 +1190,15 @@ One-liner (no quotes):`;
     if (current) current.isDefending = false;
     encounter.lastTurnStartAt = Date.now();
     
-    // Start turn timeout (fallback)
-    this._scheduleTurnTimeout(encounter);
-    
     // Check if this is a player-controlled avatar awaiting manual input
     if (current.isPlayerControlled && !current.autoMode) {
+      // NO turn timeout for human players - wait indefinitely for their action
+      // This gives humans unlimited time to think and act
+      if (encounter.timers?.turn) {
+        clearTimeout(encounter.timers.turn);
+        encounter.timers.turn = null;
+      }
+      
       // Transition to awaiting input state
       this.turnLock.transition(channelId, TURN_STATES.AWAITING_INPUT, {
         combatantId: currentId,
@@ -1203,7 +1207,7 @@ One-liner (no quotes):`;
       
       // Announce turn with action buttons and WAIT for player input
       current.awaitingAction = true;
-      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - awaiting player input`);
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - awaiting player input (no timeout)`);
       this._announceTurn(encounter, current).catch(e => {
         this.logger?.error?.(`[CombatEncounter] Turn announcement failed: ${e.message}`);
         this.turnLock.release(channelId, 'announcement_failed');
@@ -1216,6 +1220,12 @@ One-liner (no quotes):`;
       combatantId: currentId,
       combatantName: current?.name
     });
+    
+    // Clear turn timeout for AI/monsters - they act instantly, no fallback needed
+    if (encounter.timers?.turn) {
+      clearTimeout(encounter.timers.turn);
+      encounter.timers.turn = null;
+    }
     
     // Execute turn immediately (AI/monster acts autonomously)
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - executing action`);
@@ -2587,7 +2597,7 @@ Message: ${messageContent}`;
         { name: '📊 Combatants', value: status.slice(0, 1024) }
       ],
       color: 0x7C3AED, // DM purple
-      footer: { text: showTakeActionButton ? `⏱️ 30s • Awaiting ${current.name}'s action...` : `⏱️ ${current.name} is acting...` },
+      footer: { text: showTakeActionButton ? `Awaiting ${current.name}'s action...` : `${current.name} is acting...` },
       ...(thumbnailUrl && { thumbnail: { url: thumbnailUrl } })
     };
     
@@ -2729,7 +2739,7 @@ Message: ${messageContent}`;
           { name: '📊 Combat Status', value: status.slice(0, 1024) }
         ],
         color: 0xEF4444, // Red for urgency
-        footer: { text: '⏱️ 30 second turn timer' }
+        footer: { text: 'Take your time - the battle pauses for you' }
       },
       components: rows,
       ephemeral: true

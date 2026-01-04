@@ -128,7 +128,7 @@ export class AttackTool extends BasicTool {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
         const targetButtons = dungeonTargets.slice(0, 5).map(t => 
           new ButtonBuilder()
-            .setCustomId(`attack_target_${t.name.replace(/\s+/g, '_')}`)
+            .setCustomId(`dnd_target_${t.name.replace(/\s+/g, '_')}`)
             .setLabel(`${t.count}x ${t.name}`)
             .setEmoji(t.emoji)
             .setStyle(ButtonStyle.Danger)

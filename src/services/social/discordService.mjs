@@ -1537,10 +1537,10 @@ export class DiscordService {
     if (msg.includes('timeout') || msg.includes('expired')) {
       return {
         category: 'TIMEOUT',
-        title: '⌛ Action Timed Out',
-        description: '*The moment has passed...*\n\nYour turn timed out before you could act. The battle continues without you.',
+        title: '⌛ Session Expired',
+        description: '*The moment has passed...*\n\nYour combat session may have expired. Try starting combat again with the Fight button.',
         color: 0x9B59B6,
-        footer: 'Act faster next time - you have 30 seconds per turn'
+        footer: 'Combat waits for you - no rush!'
       };
     }
     
