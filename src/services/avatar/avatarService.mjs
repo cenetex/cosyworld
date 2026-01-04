@@ -2495,7 +2495,7 @@ The token icon's colors and motifs should be visible in the character's design.`
   async getAvatarByUserId(discordUserId, guildId = null) {
     const db = await this._db();
     // Query for alive avatars, but also accept avatars without explicit status (default to alive)
-    const query = { 
+    const baseQuery = { 
       summoner: `user:${discordUserId}`, 
       $or: [
         { status: 'alive' },
@@ -2503,10 +2503,18 @@ The token icon's colors and motifs should be visible in the character's design.`
         { status: null }
       ]
     };
+    
+    // If guildId provided, try guild-specific first, then fall back to any matching avatar
     if (guildId) {
-      query.guildId = guildId;
+      const guildAvatar = await db.collection(this.AVATARS_COLLECTION).findOne({
+        ...baseQuery,
+        guildId
+      });
+      if (guildAvatar) return guildAvatar;
     }
-    return db.collection(this.AVATARS_COLLECTION).findOne(query);
+    
+    // Fall back to any avatar for this user (handles avatars without guildId)
+    return db.collection(this.AVATARS_COLLECTION).findOne(baseQuery);
   }
 
   async summonUserAvatar(message, customPrompt = null) {
