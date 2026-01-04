@@ -148,7 +148,7 @@ export class EntityResolver {
             targets.push({ type: 'avatar', entity: a });
           }
         }
-      } catch (_e) {
+      } catch {
         // Ignore
       }
     }
@@ -206,7 +206,7 @@ export class EntityResolver {
         const mName = (m.name || '').toLowerCase();
         return mName === searchLower || mName.includes(searchLower) || searchLower.includes(mName);
       }) || null;
-    } catch (_e) {
+    } catch {
       return null;
     }
   }

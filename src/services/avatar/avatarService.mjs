@@ -330,7 +330,7 @@ export class AvatarService {
       return (
         stats || { hp: 100, attack: 10, defense: 5, avatarId: objectId }
       );
-    } catch (_e) {
+    } catch {
       this.logger.debug?.(`[AvatarService] getAvatarStats: invalid ID ${avatarId}, returning null`);
       return null;
     }

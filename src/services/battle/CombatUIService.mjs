@@ -343,7 +343,7 @@ export class CombatUIService {
     try {
       return this.discordService?.client?.channels?.cache?.get(channelId) ||
              await this.discordService?.client?.channels?.fetch(channelId).catch(() => null);
-    } catch (_e) {
+    } catch {
       return null;
     }
   }

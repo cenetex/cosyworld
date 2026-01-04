@@ -886,10 +886,10 @@ export class MessageHandler  {
       }
 
       // Try to delete the original message (optional - continues even if can't delete)
-      let messageDeleted = false;
+      let _messageDeleted = false;
       try {
         await message.delete();
-        messageDeleted = true;
+        _messageDeleted = true;
         this.logger.debug(`[MessageHandler] Deleted human message ${message.id} for proxy`);
       } catch (deleteError) {
         // Can't delete (maybe missing permissions) - continue anyway, just log it
