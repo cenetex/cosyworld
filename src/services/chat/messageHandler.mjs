@@ -246,8 +246,11 @@ export class MessageHandler  {
       const guildConfig = await this.configService.getGuildConfig(message.guild.id);
       const avatarProxyEnabled = guildConfig?.features?.avatarProxy === true;
       
+      this.logger.info(`[MessageHandler] Avatar proxy check - guild: ${message.guild.id}, enabled: ${avatarProxyEnabled}`);
+      
       if (avatarProxyEnabled) {
         const proxyResult = await this._proxyHumanMessageThroughAvatar(message);
+        this.logger.info(`[MessageHandler] Proxy result: ${JSON.stringify(proxyResult)}`);
         if (proxyResult?.handled) {
           // Message was proxied through avatar - original deleted, stop further processing
           this.logger.debug(`[MessageHandler] Message proxied through avatar for user ${message.author.id}`);
@@ -854,11 +857,13 @@ export class MessageHandler  {
       // Skip empty messages, commands, or certain prefixes
       const content = message.content?.trim();
       if (!content) {
+        this.logger.info(`[MessageHandler] Proxy skipped: empty content`);
         return { handled: false };
       }
 
       // Skip commands (messages starting with common command prefixes)
       if (content.match(/^[!/🔮⚔️🏰🎲]/)) {
+        this.logger.info(`[MessageHandler] Proxy skipped: command prefix detected`);
         return { handled: false };
       }
 
@@ -866,13 +871,17 @@ export class MessageHandler  {
       const userId = message.author.id;
       const avatar = await this.avatarService.getAvatarByUserId(userId, message.guild?.id);
       
+      this.logger.info(`[MessageHandler] Proxy: user ${userId}, avatar: ${avatar?.name || 'none'}`);
+      
       if (!avatar) {
         // User doesn't have an avatar - let them speak normally
+        this.logger.info(`[MessageHandler] Proxy skipped: no avatar for user`);
         return { handled: false };
       }
 
       // Check if avatar is alive
       if (avatar.status === 'dead') {
+        this.logger.info(`[MessageHandler] Proxy skipped: avatar is dead`);
         return { handled: false };
       }
 
