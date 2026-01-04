@@ -364,18 +364,18 @@ export class DungeonService {
     const rooms = [];
 
     // Entrance room with puzzle
-    const entranceRoom = this._createRoom('room_1', 'entrance', partyLevel, 'entrance', difficulty);
+    const entranceRoom = this._createRoom('room_1', 'entrance', partyLevel, 'entrance', difficulty, selectedTheme);
     entranceRoom.puzzle = this._generateEntrancePuzzle(selectedTheme);
     rooms.push(entranceRoom);
 
     // Generate middle rooms
     for (let i = 2; i < roomCount; i++) {
       const type = this._weightedRandom(ROOM_WEIGHTS);
-      rooms.push(this._createRoom(`room_${i}`, type, partyLevel, null, difficulty));
+      rooms.push(this._createRoom(`room_${i}`, type, partyLevel, null, difficulty, selectedTheme));
     }
 
     // Boss room
-    rooms.push(this._createRoom(`room_${roomCount}`, 'boss', partyLevel, null, difficulty));
+    rooms.push(this._createRoom(`room_${roomCount}`, 'boss', partyLevel, null, difficulty, selectedTheme));
 
     // Connect rooms (linear with some branches)
     this._connectRooms(rooms);
@@ -436,12 +436,17 @@ export class DungeonService {
     return 'combat';
   }
 
-  _createRoom(id, type, partyLevel, override = null, difficulty = 'medium') {
+  _createRoom(id, type, partyLevel, override = null, difficulty = 'medium', theme = 'crypt') {
+    const effectiveType = override || type;
+    
+    // Rooms that don't require any action to clear
+    const autoCleared = ['rest', 'shop', 'empty'].includes(effectiveType);
+    
     const room = {
       id,
-      type: override || type,
+      type: effectiveType,
       threadId: null,
-      cleared: false,
+      cleared: autoCleared, // Auto-clear passive rooms
       connections: [],
       encounter: null,
       // Mark rooms that need async encounter generation
@@ -451,6 +456,11 @@ export class DungeonService {
 
     if (type === 'treasure') {
       room.encounter = this._generateTreasure(partyLevel, difficulty);
+    }
+
+    // Generate puzzle for puzzle-type rooms (non-entrance puzzles)
+    if (type === 'puzzle') {
+      room.puzzle = this._generateEntrancePuzzle(theme);
     }
 
     return room;
@@ -694,7 +704,7 @@ export class DungeonService {
     }
 
     // Rooms that block advancement until cleared/solved
-    const requiresClearing = ['combat', 'boss'].includes(currentRoom.type);
+    const requiresClearing = ['combat', 'boss', 'puzzle'].includes(currentRoom.type);
     const hasUnsolvedPuzzle = currentRoom.puzzle && !currentRoom.puzzle.solved;
     
     if (dungeon.currentRoom !== roomId && !currentRoom.cleared) {
@@ -1028,53 +1038,69 @@ export class DungeonService {
    * Attempt to solve the entrance puzzle
    * @param {string} dungeonId - The dungeon ID
    * @param {string} answer - The player's answer
+   * @param {string} [roomId] - Optional room ID (defaults to current room or entrance)
    * @returns {Promise<Object>} Result with success, message, and hint
    */
-  async solvePuzzle(dungeonId, answer) {
+  async solvePuzzle(dungeonId, answer, roomId = null) {
     const dungeon = await this.getDungeon(dungeonId);
     if (!dungeon) throw new Error('Dungeon not found');
 
-    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
-    if (!entranceRoom?.puzzle) {
+    // Find the room with the puzzle - check specified room, current room, or entrance
+    let puzzleRoom = null;
+    if (roomId) {
+      puzzleRoom = dungeon.rooms.find(r => r.id === roomId);
+    } else {
+      // Check current room first, then entrance
+      const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+      if (currentRoom?.puzzle && !currentRoom.puzzle.solved) {
+        puzzleRoom = currentRoom;
+      } else {
+        puzzleRoom = dungeon.rooms.find(r => r.type === 'entrance');
+      }
+    }
+
+    if (!puzzleRoom?.puzzle) {
       return { success: true, message: 'No puzzle to solve!' };
     }
 
-    if (entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+    if (puzzleRoom.puzzle.solved) {
       return { success: true, message: 'The puzzle has already been solved!' };
     }
 
     const normalizedAnswer = answer.toLowerCase().trim();
-    const correctAnswer = entranceRoom.puzzle.answer.toLowerCase().trim();
+    const correctAnswer = puzzleRoom.puzzle.answer.toLowerCase().trim();
 
     if (normalizedAnswer === correctAnswer || normalizedAnswer.includes(correctAnswer)) {
       // Puzzle solved! Mark room as cleared so player can advance
       const col = await this.collection();
       await col.updateOne(
-        { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+        { _id: new ObjectId(dungeonId), 'rooms.id': puzzleRoom.id },
         { 
           $set: { 
             'rooms.$.puzzle.solved': true,
             'rooms.$.cleared': true,
-            entrancePuzzleSolved: true
+            ...(puzzleRoom.type === 'entrance' ? { entrancePuzzleSolved: true } : {})
           } 
         }
       );
 
-      this.logger?.info?.(`[DungeonService] Puzzle solved for dungeon ${dungeonId}`);
+      this.logger?.info?.(`[DungeonService] Puzzle solved for dungeon ${dungeonId}, room ${puzzleRoom.id}`);
       return { 
         success: true, 
-        message: '✅ Correct! The ancient doors groan open, revealing the path ahead...',
+        message: puzzleRoom.type === 'entrance' 
+          ? '✅ Correct! The ancient doors groan open, revealing the path ahead...'
+          : '✅ Correct! The puzzle mechanism clicks into place, and the way forward is clear!',
         xpAwarded: 50
       };
     }
 
     // Wrong answer
-    entranceRoom.puzzle.attempts++;
-    const attemptsLeft = entranceRoom.puzzle.maxAttempts - entranceRoom.puzzle.attempts;
+    puzzleRoom.puzzle.attempts++;
+    const attemptsLeft = puzzleRoom.puzzle.maxAttempts - puzzleRoom.puzzle.attempts;
 
     const col = await this.collection();
     await col.updateOne(
-      { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+      { _id: new ObjectId(dungeonId), 'rooms.id': puzzleRoom.id },
       { $inc: { 'rooms.$.puzzle.attempts': 1 } }
     );
 
@@ -1083,11 +1109,11 @@ export class DungeonService {
       // Still mark room as cleared so they can advance
       const col2 = await this.collection();
       await col2.updateOne(
-        { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+        { _id: new ObjectId(dungeonId), 'rooms.id': puzzleRoom.id },
         { 
           $set: { 
             'rooms.$.cleared': true,
-            entrancePuzzleSolved: true
+            ...(puzzleRoom.type === 'entrance' ? { entrancePuzzleSolved: true } : {})
           } 
         }
       );
@@ -1095,7 +1121,7 @@ export class DungeonService {
       return {
         success: false,
         failed: true,
-        message: `❌ Too many wrong attempts! The answer was: **${entranceRoom.puzzle.answer}**. The doors open reluctantly...`,
+        message: `❌ Too many wrong attempts! The answer was: **${puzzleRoom.puzzle.answer}**. ${puzzleRoom.type === 'entrance' ? 'The doors open reluctantly...' : 'The puzzle deactivates...'}`,
         hint: null
       };
     }
@@ -1104,7 +1130,7 @@ export class DungeonService {
       success: false,
       failed: false,
       message: `❌ That's not quite right. ${attemptsLeft} attempt(s) remaining.`,
-      hint: entranceRoom.puzzle.hint,
+      hint: puzzleRoom.puzzle.hint,
       attemptsLeft
     };
   }
@@ -1112,58 +1138,88 @@ export class DungeonService {
   /**
    * Get the current puzzle for a dungeon
    * @param {string} dungeonId - The dungeon ID
+   * @param {string} [roomId] - Optional room ID (defaults to current room or entrance)
    * @returns {Promise<Object|null>} The puzzle or null if none/solved
    */
-  async getPuzzle(dungeonId) {
+  async getPuzzle(dungeonId, roomId = null) {
     const dungeon = await this.getDungeon(dungeonId);
     if (!dungeon) return null;
 
-    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
-    if (!entranceRoom?.puzzle || entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+    // Find the room with the puzzle - check specified room, current room, or entrance
+    let puzzleRoom = null;
+    if (roomId) {
+      puzzleRoom = dungeon.rooms.find(r => r.id === roomId);
+    } else {
+      // Check current room first, then entrance
+      const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+      if (currentRoom?.puzzle && !currentRoom.puzzle.solved) {
+        puzzleRoom = currentRoom;
+      } else {
+        puzzleRoom = dungeon.rooms.find(r => r.type === 'entrance');
+      }
+    }
+
+    if (!puzzleRoom?.puzzle || puzzleRoom.puzzle.solved) {
       return null;
     }
 
     return {
-      riddle: entranceRoom.puzzle.riddle,
-      hint: entranceRoom.puzzle.hint,
-      attempts: entranceRoom.puzzle.attempts,
-      maxAttempts: entranceRoom.puzzle.maxAttempts,
-      attemptsLeft: entranceRoom.puzzle.maxAttempts - entranceRoom.puzzle.attempts
+      roomId: puzzleRoom.id,
+      roomType: puzzleRoom.type,
+      riddle: puzzleRoom.puzzle.riddle,
+      hint: puzzleRoom.puzzle.hint,
+      attempts: puzzleRoom.puzzle.attempts,
+      maxAttempts: puzzleRoom.puzzle.maxAttempts,
+      attemptsLeft: puzzleRoom.puzzle.maxAttempts - puzzleRoom.puzzle.attempts
     };
   }
 
   /**
    * Skip the puzzle without solving it
    * @param {string} dungeonId - The dungeon ID
+   * @param {string} [roomId] - Optional room ID (defaults to current room or entrance)
    * @returns {Promise<Object>} Result
    */
-  async skipPuzzle(dungeonId) {
+  async skipPuzzle(dungeonId, roomId = null) {
     const dungeon = await this.getDungeon(dungeonId);
     if (!dungeon) throw new Error('Dungeon not found');
 
-    const entranceRoom = dungeon.rooms.find(r => r.type === 'entrance');
-    if (!entranceRoom?.puzzle) {
+    // Find the room with the puzzle
+    let puzzleRoom = null;
+    if (roomId) {
+      puzzleRoom = dungeon.rooms.find(r => r.id === roomId);
+    } else {
+      const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+      if (currentRoom?.puzzle && !currentRoom.puzzle.solved) {
+        puzzleRoom = currentRoom;
+      } else {
+        puzzleRoom = dungeon.rooms.find(r => r.type === 'entrance');
+      }
+    }
+
+    if (!puzzleRoom?.puzzle) {
       return { success: true, message: 'No puzzle to skip!' };
     }
 
-    if (entranceRoom.puzzle.solved || dungeon.entrancePuzzleSolved) {
+    if (puzzleRoom.puzzle.solved) {
       return { success: true, message: 'The puzzle has already been solved!' };
     }
 
-    // Mark puzzle as skipped (solved but bypassed)
+    // Mark puzzle as skipped (solved but bypassed) and clear the room
     const col = await this.collection();
     await col.updateOne(
-      { _id: new ObjectId(dungeonId), 'rooms.type': 'entrance' },
+      { _id: new ObjectId(dungeonId), 'rooms.id': puzzleRoom.id },
       { 
         $set: { 
           'rooms.$.puzzle.solved': true,
           'rooms.$.puzzle.skipped': true,
-          entrancePuzzleSolved: true
+          'rooms.$.cleared': true,
+          ...(puzzleRoom.type === 'entrance' ? { entrancePuzzleSolved: true } : {})
         } 
       }
     );
 
-    this.logger?.info?.(`[DungeonService] Puzzle skipped for dungeon ${dungeonId}`);
+    this.logger?.info?.(`[DungeonService] Puzzle skipped for dungeon ${dungeonId}, room ${puzzleRoom.id}`);
     return { 
       success: true, 
       message: 'You bypassed the puzzle through determination alone.',
