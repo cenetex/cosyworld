@@ -728,7 +728,6 @@
         const response = await fetchWithAuth('/api/admin/config');
         // Config may be nested in response.config OR be the response itself
         settings = response.config || response;
-        console.log('[Global Settings] Loaded features:', settings.features);
         await applySettings();
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -792,14 +791,12 @@
 
       // Features
       const features = settings.features || {};
-      console.log('[Global Settings] Applying features:', features, 'avatarProxy value:', features.avatarProxy);
       document.getElementById('featureBreeding').checked = features.breeding !== false;
       document.getElementById('featureCombat').checked = features.combat !== false;
       document.getElementById('featureItemCreation').checked = features.itemCreation !== false;
       document.getElementById('featureStory').checked = features.story !== false;
       document.getElementById('featurePayments').checked = features.payments || false;
       document.getElementById('featureAvatarProxy').checked = features.avatarProxy === true;
-      console.log('[Global Settings] Avatar proxy checkbox set to:', document.getElementById('featureAvatarProxy').checked);
 
       // Advanced
       document.getElementById('debugMode').checked = settings.debugMode || false;

@@ -53,6 +53,9 @@ const DEFAULT_BOT_CONFIG = {
   features: {
     combat: true,
     breeding: true,
+    itemCreation: true,
+    moderation: true,
+    avatarProxy: false,
     x402Payments: false,
     autoPost: true,
   },

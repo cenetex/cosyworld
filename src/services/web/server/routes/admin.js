@@ -743,7 +743,6 @@ function createRouter(db, services) {
       ];
 
   const config = await loadConfig(services);
-  console.log('[admin/config] Loaded config features:', config?.features);
 
       res.json({
         success: true,

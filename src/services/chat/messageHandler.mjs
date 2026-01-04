@@ -245,7 +245,6 @@ export class MessageHandler  {
     try {
       const guildConfig = await this.configService.getGuildConfig(message.guild.id);
       const avatarProxyEnabled = guildConfig?.features?.avatarProxy === true;
-      this.logger.debug(`[MessageHandler] Avatar proxy check - guildId: ${message.guild.id}, enabled: ${avatarProxyEnabled}, features: ${JSON.stringify(guildConfig?.features)}`);
       
       if (avatarProxyEnabled) {
         const proxyResult = await this._proxyHumanMessageThroughAvatar(message);
