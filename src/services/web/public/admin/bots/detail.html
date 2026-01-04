@@ -1203,7 +1203,7 @@
 
         await fetchWithAuth(`/api/admin/bots/${botId}/platforms/${platform}`, {
           method: 'PUT',
-          body: JSON.stringify(config)
+          body: config  // Pass object, apiFetch will stringify it
         });
 
         showToast(`${platform} configuration saved`, 'success');
@@ -1249,7 +1249,7 @@
       try {
         await fetchWithAuth(`/api/admin/bots/${botId}`, {
           method: 'PUT',
-          body: JSON.stringify({ enabled })
+          body: { enabled }  // Pass object, apiFetch will stringify it
         });
         showToast(`Bot ${enabled ? 'started' : 'paused'}`, 'success');
         loadBot();
@@ -1262,10 +1262,10 @@
       try {
         await fetchWithAuth(`/api/admin/bots/${botId}`, {
           method: 'PUT',
-          body: JSON.stringify({
+          body: {
             name: document.getElementById('editBotName').value,
             description: document.getElementById('editBotDescription').value
-          })
+          }  // Pass object, apiFetch will stringify it
         });
         showToast('Bot details saved', 'success');
         loadBot();
@@ -1295,7 +1295,7 @@
 
         await fetchWithAuth(`/api/admin/bots/${botId}`, {
           method: 'PUT',
-          body: JSON.stringify({ config })
+          body: { config }  // Pass object, apiFetch will stringify it
         });
 
         showToast('Configuration saved', 'success');
@@ -1324,7 +1324,7 @@
       try {
         await fetchWithAuth(`/api/admin/bots/${botId}/secrets`, {
           method: 'POST',
-          body: JSON.stringify({ key, value, platform: platform || undefined })
+          body: { key, value, platform: platform || undefined }  // Pass object, apiFetch will stringify it
         });
 
         showToast('Secret added', 'success');

@@ -270,7 +270,7 @@ export class BotService {
     );
 
     this.logger.info(`[BotService] Synced platform configs for bot: ${botId}`);
-    return this._transformBot(result);
+    return this._transformBot(this._extractDoc(result));
   }
 
   /**
@@ -278,6 +278,20 @@ export class BotService {
    */
   _generateBotId() {
     return `bot_${crypto.randomBytes(8).toString('hex')}`;
+  }
+
+  /**
+   * Extract document from findOneAndUpdate result
+   * MongoDB driver 5.x+ returns document directly, earlier versions returned { value: <doc> }
+   * @param {Object} result - Result from findOneAndUpdate
+   * @returns {Object|null} The document or null
+   */
+  _extractDoc(result) {
+    if (!result) return null;
+    // Check if it's the old format with .value property
+    if (result.value !== undefined) return result.value;
+    // New format returns document directly
+    return result;
   }
 
   /**
@@ -429,14 +443,18 @@ export class BotService {
     const result = await this.collection.findOneAndUpdate(
       { _id: botId },
       { $set: updates },
-      { returnDocument: 'after' }
+      { returnDocument: 'after', upsert: false }
     );
 
-    if (result) {
+    const doc = this._extractDoc(result);
+
+    if (doc) {
       this.logger.info(`[BotService] Updated bot: ${botId}`);
+    } else {
+      this.logger.warn(`[BotService] Bot not found for update: ${botId}`);
     }
 
-    return this._transformBot(result);
+    return this._transformBot(doc);
   }
 
   /**
@@ -480,7 +498,7 @@ export class BotService {
       { $set: updates },
       { returnDocument: 'after' }
     );
-    return this._transformBot(result);
+    return this._transformBot(this._extractDoc(result));
   }
 
   /**
@@ -501,7 +519,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
-    return this._transformBot(result);
+    return this._transformBot(this._extractDoc(result));
   }
 
   /**
@@ -520,7 +538,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
-    return this._transformBot(result);
+    return this._transformBot(this._extractDoc(result));
   }
 
   /**
@@ -539,7 +557,7 @@ export class BotService {
       },
       { returnDocument: 'after' }
     );
-    return this._transformBot(result);
+    return this._transformBot(this._extractDoc(result));
   }
 
   /**
