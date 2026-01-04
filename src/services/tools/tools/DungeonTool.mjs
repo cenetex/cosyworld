@@ -287,19 +287,16 @@ export class DungeonTool extends BasicTool {
                 async () => {
                   const prompt = this._getRoomImagePrompt(currentRoom, dungeon.theme);
                   return await this.schemaService.generateImage(prompt, '16:9', {
-                    source: 'dungeon.recovery',
-                    purpose: 'dungeon_room',
-                    roomType: currentRoom?.type
-                  });
-                }
-              );
-            }
-          } catch (e) {
-            this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
-          }
-          
-          const recoveryEmbed = {
-            author: { name: '🎲 The Dungeon Master' },
+                        purpose: 'dungeon_room',
+                        category: 'dungeon',
+                        tags: [dungeon.theme, currentRoom?.type || 'combat', 'dungeon', 'room'],
+                        metadata: { 
+                          theme: dungeon.theme, 
+                          roomType: currentRoom?.type,
+                          dungeonId: dungeon._id?.toString()
+                        },
+                        useCache: true,
+                        cacheChance: 0.7 // 70% chance to reuse cached image
             title: `⚔️ ${dungeon.name}`,
             description: `*Your adventure continues...*\n\n${this._generateRoomNarrative(currentRoom, dungeon.theme)}`,
             color: this._getRoomColor(currentRoom?.type),
@@ -455,9 +452,16 @@ export class DungeonTool extends BasicTool {
                     async () => {
                       const prompt = this._getRoomImagePrompt(currentRoom, activeDungeon.theme);
                       return await this.schemaService.generateImage(prompt, '16:9', {
-                        source: 'dungeon.recovery',
                         purpose: 'dungeon_room',
-                        roomType: currentRoom?.type
+                        category: 'dungeon',
+                        tags: [activeDungeon.theme, currentRoom?.type || 'combat', 'dungeon', 'room'],
+                        metadata: { 
+                          theme: activeDungeon.theme, 
+                          roomType: currentRoom?.type,
+                          dungeonId: activeDungeon._id?.toString()
+                        },
+                        useCache: true,
+                        cacheChance: 0.7 // 70% chance to reuse cached image
                       });
                     }
                   );
@@ -773,9 +777,16 @@ export class DungeonTool extends BasicTool {
           async () => {
             const prompt = `${dungeon.theme} dungeon entrance, ancient stone doorway, fantasy RPG art, atmospheric mist, torchlight, mysterious and ominous, detailed architecture`;
             return await this.schemaService.generateImage(prompt, '16:9', {
-              source: 'dungeon.enter',
-              purpose: 'dungeon_entrance',
-              theme: dungeon.theme
+              purpose: 'dungeon_room',
+              category: 'dungeon',
+              tags: [dungeon.theme, 'entrance', 'dungeon', 'room'],
+              metadata: { 
+                theme: dungeon.theme, 
+                roomType: 'entrance',
+                dungeonId: dungeon._id?.toString()
+              },
+              useCache: true,
+              cacheChance: 0.7 // 70% chance to reuse cached image
             });
           }
         );
@@ -1034,9 +1045,16 @@ export class DungeonTool extends BasicTool {
           async () => {
             const prompt = this._getRoomImagePrompt(room, dungeon.theme);
             return await this.schemaService.generateImage(prompt, '16:9', {
-              source: 'dungeon.room',
               purpose: 'dungeon_room',
-              roomType: room.type
+              category: 'dungeon',
+              tags: [dungeon.theme, room.type, 'dungeon', 'room'],
+              metadata: { 
+                theme: dungeon.theme, 
+                roomType: room.type,
+                dungeonId: dungeon._id?.toString()
+              },
+              useCache: true,
+              cacheChance: 0.7 // 70% chance to reuse cached image
             });
           }
         );
