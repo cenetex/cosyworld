@@ -287,16 +287,26 @@ export class DungeonTool extends BasicTool {
                 async () => {
                   const prompt = this._getRoomImagePrompt(currentRoom, dungeon.theme);
                   return await this.schemaService.generateImage(prompt, '16:9', {
-                        purpose: 'dungeon_room',
-                        category: 'dungeon',
-                        tags: [dungeon.theme, currentRoom?.type || 'combat', 'dungeon', 'room'],
-                        metadata: { 
-                          theme: dungeon.theme, 
-                          roomType: currentRoom?.type,
-                          dungeonId: dungeon._id?.toString()
-                        },
-                        useCache: true,
-                        cacheChance: 0.7 // 70% chance to reuse cached image
+                    purpose: 'dungeon_room',
+                    category: 'dungeon',
+                    tags: [dungeon.theme, currentRoom?.type || 'combat', 'dungeon', 'room'],
+                    metadata: { 
+                      theme: dungeon.theme, 
+                      roomType: currentRoom?.type,
+                      dungeonId: dungeon._id?.toString()
+                    },
+                    useCache: true,
+                    cacheChance: 0.7 // 70% chance to reuse cached image
+                  });
+                }
+              );
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
+          }
+          
+          const recoveryEmbed = {
+            author: { name: '🎲 The Dungeon Master' },
             title: `⚔️ ${dungeon.name}`,
             description: `*Your adventure continues...*\n\n${this._generateRoomNarrative(currentRoom, dungeon.theme)}`,
             color: this._getRoomColor(currentRoom?.type),

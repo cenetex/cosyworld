@@ -68,7 +68,12 @@ export class ItemService {
 
   /*──────────────────────  Generation helpers  ─────────────────────*/
   async #generateImage(name, desc) {
-    return this.schemaService.generateImage(`${name}: ${desc}`, '1:1');
+    return this.schemaService.generateImage(`${name}: ${desc}`, '1:1', {
+      purpose: 'item',
+      category: 'game',
+      tags: ['item', name?.toLowerCase()].filter(Boolean),
+      metadata: { itemName: name }
+    });
   }
 
   async #executePipeline(prompt, schema) {
@@ -100,7 +105,17 @@ export class ItemService {
 
     const cleanName = this.#cleanName(data.name);
     const imageUrl = await this.schemaService.generateImage(
-      `${cleanName}: ${data.description}`, '1:1'
+      `${cleanName}: ${data.description}`, '1:1', {
+        purpose: 'item',
+        category: 'game',
+        tags: ['item', data.type, data.rarity, cleanName?.toLowerCase()].filter(Boolean),
+        metadata: { 
+          itemName: cleanName,
+          itemType: data.type,
+          rarity: data.rarity,
+          locationId
+        }
+      }
     );
 
     const now = new Date();

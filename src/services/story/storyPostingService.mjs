@@ -306,7 +306,18 @@ export class StoryPostingService {
           }
           if (location?.imageUrl) imageUrls.unshift(location.imageUrl);
           const promptForSchema = typeof beat.visualPrompt === 'string' ? beat.visualPrompt : compositePrompt;
-          return await this.schemaService.generateImage(promptForSchema, '1:1', { images: imageUrls, ...metadata });
+          const storyMetadata = {
+            images: imageUrls,
+            purpose: 'story',
+            category: 'narrative',
+            tags: ['story', 'beat', location?.name?.toLowerCase()].filter(Boolean),
+            metadata: {
+              locationName: location?.name,
+              avatarCount: avatars.length,
+              ...metadata
+            }
+          };
+          return await this.schemaService.generateImage(promptForSchema, '1:1', storyMetadata);
         } catch (e) {
           this.logger.warn('[StoryPosting] schemaService.generateImage failed: ' + (e?.message || e));
           return null;

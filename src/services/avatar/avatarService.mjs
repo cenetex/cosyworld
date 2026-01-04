@@ -1713,7 +1713,16 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
     
     // Fall back to standard generation via schemaService
-    return this.schemaService.generateImage(prompt, '1:1', cleanUploadOptions);
+    const avatarUploadOptions = {
+      ...cleanUploadOptions,
+      purpose: 'avatar',
+      category: 'character',
+      tags: ['avatar', 'character', 'portrait'].filter(Boolean),
+      metadata: {
+        source: cleanUploadOptions.source || 'avatar.generate'
+      }
+    };
+    return this.schemaService.generateImage(prompt, '1:1', avatarUploadOptions);
   }
 
   _canGenerateAvatarImages() {

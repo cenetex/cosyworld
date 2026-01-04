@@ -49,7 +49,7 @@ export class SchemaService {
         await this._imageCollection.createIndex({ category: 1 });
         await this._imageCollection.createIndex({ createdAt: -1 });
         await this._imageCollection.createIndex({ 'metadata.theme': 1, 'metadata.roomType': 1 });
-      } catch (e) {
+      } catch {
         // Indexes may already exist
       }
     }

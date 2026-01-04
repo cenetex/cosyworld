@@ -502,7 +502,19 @@ export class MonsterService {
 
     // Try schemaService first, fallback to aiService
     if (this.schemaService?.generateImage) {
-      return await this.schemaService.generateImage(imagePrompt);
+      return await this.schemaService.generateImage(imagePrompt, '1:1', {
+        purpose: 'monster',
+        category: 'dungeon',
+        tags: ['monster', monster.tags?.type || 'creature', monster.name?.toLowerCase()].filter(Boolean),
+        metadata: { 
+          monsterId: monster._id?.toString(),
+          monsterName: monster.name,
+          monsterType: monster.tags?.type,
+          cr: monster.challengeRating
+        },
+        useCache: true,
+        cacheChance: 0.5 // 50% chance to reuse - monsters should be more varied
+      });
     }
 
     if (this.aiService?.generateImageViaOpenRouter) {

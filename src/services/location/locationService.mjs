@@ -146,12 +146,14 @@ export class LocationService  {
   async generateLocationImage(locationName, description, metadata = {}) {
     // Pass metadata through to the upload service so social media posts have context
     const uploadOptions = {
-      source: 'location.create',
       purpose: 'location',
-      locationName: locationName,
-      locationDescription: description,
-      context: `New location discovered: ${locationName}. ${description}`,
-      ...metadata
+      category: 'world',
+      tags: ['location', locationName?.toLowerCase()].filter(Boolean),
+      metadata: {
+        locationName: locationName,
+        locationDescription: description,
+        ...metadata
+      }
     };
     
     return await this.schemaService.generateImage(
