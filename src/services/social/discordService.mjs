@@ -199,19 +199,38 @@ export class DiscordService {
           try {
             await interaction.deferUpdate();
             
-            // Post target selection as message to trigger the actual attack
-            const channel = await this.client.channels.fetch(interaction.channel.id);
-            if (channel) {
-              // The attack command will be handled by the bot's message handler
-              await channel.send({
-                content: `🗡️ attack ${targetName}`,
-                allowedMentions: { users: [] }
-              });
+            // Get avatar for the user who clicked
+            const avatar = await this._getAvatarForInteraction(interaction);
+            if (!avatar) {
+              await interaction.followUp({ content: '❌ You need an avatar to attack!', flags: 64 });
+              return;
+            }
+            
+            // Execute attack directly via tool service
+            const toolService = this.container?.resolve?.('toolService');
+            if (toolService) {
+              const result = await toolService.executeTool('attack', interaction.message, [targetName], avatar);
+              if (result && typeof result === 'object' && (result.embeds || result.content)) {
+                const channel = await this.client.channels.fetch(interaction.channel.id);
+                if (channel) await channel.send(result);
+              } else if (result && typeof result === 'string') {
+                const channel = await this.client.channels.fetch(interaction.channel.id);
+                if (channel) await channel.send(result);
+              }
+            } else {
+              // Fallback: post message that will be handled by message handler
+              const channel = await this.client.channels.fetch(interaction.channel.id);
+              if (channel) {
+                await channel.send({
+                  content: `🗡️ attack ${targetName}`,
+                  allowedMentions: { users: [] }
+                });
+              }
             }
           } catch (e) {
             this.logger?.error?.(`[DiscordService] Attack target button error: ${e.message}`);
             try {
-              await interaction.reply({ content: `❌ Failed to attack: ${e.message}`, flags: 64 });
+              await interaction.followUp({ content: `❌ Failed to attack: ${e.message}`, flags: 64 });
             } catch {}
           }
           return;
@@ -1065,6 +1084,27 @@ export class DiscordService {
     } catch (e) {
       this.logger?.warn?.(`getOrCreateThread failed for ${channelId}/${threadName}: ${e.message}`);
       return channelId; // fallback to base
+    }
+  }
+
+  /**
+   * Get avatar for a button interaction user
+   * @param {ButtonInteraction} interaction - Discord button interaction
+   * @returns {Promise<Object|null>} Avatar object or null
+   */
+  async _getAvatarForInteraction(interaction) {
+    try {
+      const avatarService = this.container?.resolve?.('avatarService');
+      if (!avatarService) return null;
+      
+      const userId = interaction.user?.id;
+      const guildId = interaction.guild?.id;
+      if (!userId) return null;
+      
+      return await avatarService.getAvatarByUserId(userId, guildId);
+    } catch (e) {
+      this.logger?.warn?.(`[DiscordService] Failed to get avatar for interaction: ${e.message}`);
+      return null;
     }
   }
 

@@ -98,11 +98,22 @@ export class AttackTool extends BasicTool {
             inDungeon = true;
             const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
             if (room?.encounter?.monsters?.length && !room.cleared) {
-              dungeonTargets = room.encounter.monsters.map(m => ({
-                name: m.name || m.id,
-                emoji: m.emoji || '👹',
-                count: m.count || 1
-              }));
+              // Deduplicate monsters by name, combining counts
+              const monsterMap = new Map();
+              for (const m of room.encounter.monsters) {
+                const name = m.name || m.id;
+                if (monsterMap.has(name)) {
+                  monsterMap.get(name).count += (m.count || 1);
+                } else {
+                  monsterMap.set(name, {
+                    name,
+                    emoji: m.emoji || '👹',
+                    count: m.count || 1,
+                    stats: m.stats
+                  });
+                }
+              }
+              dungeonTargets = Array.from(monsterMap.values());
             }
           }
         }

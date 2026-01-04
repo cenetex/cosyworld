@@ -244,6 +244,57 @@ export class DungeonTool extends BasicTool {
           threadId = thread.id;
           await this.dungeonService.setThreadId(dungeon._id, threadId);
           this.logger?.info?.(`[DungeonTool] Created missing thread for dungeon ${dungeon._id}`);
+          
+          // Post initial content to the new thread
+          const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+          const clearedCount = dungeon.rooms.filter(r => r.cleared).length;
+          const totalRooms = dungeon.rooms.length;
+          
+          // Try to generate a room image
+          let roomImageUrl = null;
+          try {
+            if (this.schemaService?.generateImage) {
+              const prompt = this._getRoomImagePrompt(currentRoom, dungeon.theme);
+              roomImageUrl = await this.schemaService.generateImage(prompt, '16:9', {
+                source: 'dungeon.recovery',
+                purpose: 'dungeon_room',
+                roomType: currentRoom?.type
+              });
+            }
+          } catch {
+            // Image generation is optional
+          }
+          
+          const recoveryEmbed = {
+            author: { name: '🎲 The Dungeon Master' },
+            title: `⚔️ ${dungeon.name}`,
+            description: `*Your adventure continues...*\n\n${this._generateRoomNarrative(currentRoom, dungeon.theme)}`,
+            color: this._getRoomColor(currentRoom?.type),
+            fields: [
+              { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${dungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
+              { name: '✅ Progress', value: `${clearedCount}/${totalRooms} rooms cleared`, inline: true }
+            ],
+            footer: { text: 'Adventure thread restored' }
+          };
+          
+          if (roomImageUrl) {
+            recoveryEmbed.image = { url: roomImageUrl };
+          }
+          
+          // Add enemy info if present
+          if (currentRoom?.encounter?.monsters?.length && !currentRoom.cleared) {
+            recoveryEmbed.fields.push({
+              name: '⚔️ Enemies Present',
+              value: currentRoom.encounter.monsters.map(m => `${m.emoji || '👹'} ${m.name || m.id}`).join(', '),
+              inline: false
+            });
+          }
+          
+          // Post to thread
+          await thread.send({ 
+            embeds: [recoveryEmbed], 
+            components: this._createRoomButtons(currentRoom) 
+          });
         }
       } catch (e) {
         this.logger?.warn?.(`[DungeonTool] Failed to create recovery thread: ${e.message}`);
@@ -312,6 +363,57 @@ export class DungeonTool extends BasicTool {
               });
               await this.dungeonService.setThreadId(activeDungeon._id, thread.id);
               this.logger?.info?.(`[DungeonTool] Created recovery thread ${thread.id} for dungeon ${activeDungeon._id}`);
+              
+              // Post initial dungeon status to the new thread
+              const currentRoom = activeDungeon.rooms.find(r => r.id === activeDungeon.currentRoom);
+              const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
+              const totalRooms = activeDungeon.rooms.length;
+              
+              // Try to generate or retrieve a room image
+              let roomImageUrl = null;
+              try {
+                if (this.schemaService?.generateImage) {
+                  const prompt = this._getRoomImagePrompt(currentRoom, activeDungeon.theme);
+                  roomImageUrl = await this.schemaService.generateImage(prompt, '16:9', {
+                    source: 'dungeon.recovery',
+                    purpose: 'dungeon_room',
+                    roomType: currentRoom?.type
+                  });
+                }
+              } catch {
+                // Image generation is optional
+              }
+              
+              const recoveryEmbed = {
+                author: { name: '🎲 The Dungeon Master' },
+                title: `⚔️ ${activeDungeon.name}`,
+                description: `*The ancient passages reveal themselves once more...*\n\n${this._generateRoomNarrative(currentRoom, activeDungeon.theme)}`,
+                color: this._getRoomColor(currentRoom?.type),
+                fields: [
+                  { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${activeDungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
+                  { name: '✅ Progress', value: `${clearedCount}/${totalRooms} rooms cleared`, inline: true }
+                ],
+                footer: { text: 'Adventure thread restored • Your journey continues...' }
+              };
+              
+              if (roomImageUrl) {
+                recoveryEmbed.image = { url: roomImageUrl };
+              }
+              
+              // Add room-specific info
+              if (currentRoom?.encounter?.monsters?.length && !currentRoom.cleared) {
+                recoveryEmbed.fields.push({
+                  name: '⚔️ Enemies Present',
+                  value: currentRoom.encounter.monsters.map(m => `${m.emoji || '👹'} ${m.name || m.id}`).join(', '),
+                  inline: false
+                });
+              }
+              
+              // Post to thread with action buttons
+              await thread.send({ 
+                embeds: [recoveryEmbed], 
+                components: this._createRoomButtons(currentRoom) 
+              });
               
               return {
                 embeds: [{
@@ -404,11 +506,11 @@ export class DungeonTool extends BasicTool {
               )
             ]
           };
-        } else if (currentRoom.type === 'combat' && currentRoom.encounter?.monsters?.length && !currentRoom.cleared) {
-          // Combat room - show enemies
+        } else if ((currentRoom.type === 'combat' || currentRoom.type === 'boss') && currentRoom.encounter?.monsters?.length && !currentRoom.cleared) {
+          // Combat or boss room - show enemies with Fight button
           embed.fields.push({
-            name: '⚔️ Enemies',
-            value: currentRoom.encounter.monsters.map(m => m.name || m.id).join(', '),
+            name: currentRoom.type === 'boss' ? '💀 Boss' : '⚔️ Enemies',
+            value: currentRoom.encounter.monsters.map(m => `${m.emoji || '👹'} ${m.name || m.id}`).join(', '),
             inline: false
           });
           return {
