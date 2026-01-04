@@ -1686,6 +1686,21 @@ export class DiscordService {
       return { toolName: 'party', params: ['list'] };
     }
 
+    if (customId.startsWith('dnd_loot_need_')) {
+      const rollId = customId.replace('dnd_loot_need_', '');
+      return { toolName: 'dungeon', params: ['loot', 'need', rollId] };
+    }
+
+    if (customId.startsWith('dnd_loot_greed_')) {
+      const rollId = customId.replace('dnd_loot_greed_', '');
+      return { toolName: 'dungeon', params: ['loot', 'greed', rollId] };
+    }
+
+    if (customId.startsWith('dnd_loot_pass_')) {
+      const rollId = customId.replace('dnd_loot_pass_', '');
+      return { toolName: 'dungeon', params: ['loot', 'pass', rollId] };
+    }
+
     return { toolName: null, params: [] };
   }
 }

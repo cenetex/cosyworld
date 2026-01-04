@@ -483,7 +483,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     if (enemies.length > 0) {
       const targetButtons = enemies.slice(0, 5).map(enemy =>
         new ButtonBuilder()
-          .setCustomId(`dnd_target_${String(enemy._id || enemy.id)}`)
+          .setCustomId(`dnd_target_${encodeURIComponent(enemy.name)}`)
           .setLabel(`${enemy.name} (${enemy.stats?.hp}HP)`)
           .setEmoji(enemy.emoji || '👹')
           .setStyle(ButtonStyle.Danger)

@@ -13,7 +13,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { roomImageCache } from '../../dnd/DungeonService.mjs';
 
 export class DungeonTool extends BasicTool {
-  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService, dungeonMasterService }) {
+  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService, dungeonMasterService, itemService }) {
     super();
     this.logger = logger || console;
     this.dungeonService = dungeonService;
@@ -25,6 +25,7 @@ export class DungeonTool extends BasicTool {
     this.schemaService = schemaService;
     this.locationService = locationService;
     this.dungeonMasterService = dungeonMasterService;
+    this.itemService = itemService;
 
     this.name = 'dungeon';
     this.parameters = '[action]';
@@ -89,7 +90,7 @@ export class DungeonTool extends BasicTool {
           return await this._startCombat(avatar, activeDungeon, message);
         case 'loot':
         case 'treasure':
-          return await this._loot(avatar, activeDungeon);
+          return await this._loot(avatar, params.slice(1), activeDungeon, message);
         case 'abandon':
         case 'flee':
         case 'leave':
@@ -305,10 +306,11 @@ export class DungeonTool extends BasicTool {
             this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
           }
           
+          const roomNarrative = await this._getRoomNarrative(currentRoom, dungeon);
           const recoveryEmbed = {
             author: { name: '🎲 The Dungeon Master' },
             title: `⚔️ ${dungeon.name}`,
-            description: `*Your adventure continues...*\n\n${this._generateRoomNarrative(currentRoom, dungeon.theme)}`,
+            description: `*Your adventure continues...*\n\n${roomNarrative}`,
             color: this._getRoomColor(currentRoom?.type),
             fields: [
               { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${dungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
@@ -480,10 +482,11 @@ export class DungeonTool extends BasicTool {
                 this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
               }
               
+              const roomNarrative = await this._getRoomNarrative(currentRoom, activeDungeon);
               const recoveryEmbed = {
                 author: { name: '🎲 The Dungeon Master' },
                 title: `⚔️ ${activeDungeon.name}`,
-                description: `*The ancient passages reveal themselves once more...*\n\n${this._generateRoomNarrative(currentRoom, activeDungeon.theme)}`,
+                description: `*The ancient passages reveal themselves once more...*\n\n${roomNarrative}`,
                 color: this._getRoomColor(currentRoom?.type),
                 fields: [
                   { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${activeDungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
@@ -578,10 +581,11 @@ export class DungeonTool extends BasicTool {
       const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
       const totalRooms = activeDungeon.rooms.length;
 
+      const roomNarrative = await this._getRoomNarrative(currentRoom, activeDungeon);
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
         title: `⚔️ ${activeDungeon.name}`,
-        description: this._generateRoomNarrative(currentRoom, activeDungeon.theme),
+        description: roomNarrative,
         color: this._getRoomColor(currentRoom?.type),
         fields: [
           { name: '📍 Location', value: `${this._getRoomTitle(currentRoom?.type)} (${activeDungeon.currentRoom.replace('room_', '')}/${totalRooms})`, inline: true },
@@ -871,10 +875,11 @@ export class DungeonTool extends BasicTool {
 
           // Post the grand entrance in the thread
           const firstRoom = dungeon.rooms[0];
+          const entranceNarrative = await this._getRoomNarrative(firstRoom, dungeon);
           const introEmbed = {
             author: { name: '🎲 The Dungeon Master' },
             title: `🏰 ${dungeon.name}`,
-            description: this._generateEntranceNarrative(dungeon),
+            description: entranceNarrative,
             color: this._getDifficultyColor(difficulty),
             fields: [
               { name: '📊 Difficulty', value: difficulty.charAt(0).toUpperCase() + difficulty.slice(1), inline: true },
@@ -1073,6 +1078,8 @@ export class DungeonTool extends BasicTool {
       this.logger?.warn?.(`[DungeonTool] Room image failed: ${e.message}`);
     }
 
+    const roomNarrative = await this._getRoomNarrative(room, dungeon);
+
     // Post to dungeon thread if available
     if (dungeon.threadId && this.discordService?.client) {
       try {
@@ -1081,7 +1088,7 @@ export class DungeonTool extends BasicTool {
           const roomEmbed = {
             author: { name: '🎲 The Dungeon Master' },
             title: `${this._getRoomEmoji(room.type)} ${this._getRoomTitle(room.type)}`,
-            description: this._generateRoomNarrative(room, dungeon.theme),
+            description: roomNarrative,
             color: this._getRoomColor(room.type)
           };
           
@@ -1115,7 +1122,7 @@ export class DungeonTool extends BasicTool {
       const roomEmbed = {
         author: { name: '🎲 The Dungeon Master' },
         title: `${this._getRoomEmoji(room.type)} ${this._getRoomTitle(room.type)}`,
-        description: this._generateRoomNarrative(room, dungeon.theme),
+        description: roomNarrative,
         color: this._getRoomColor(room.type)
       };
       
@@ -1277,11 +1284,17 @@ export class DungeonTool extends BasicTool {
   }
 
   /**
-   * Collect treasure in current room
+   * Collect treasure in current room or handle loot roll decisions
    */
-  async _loot(avatar, dungeon) {
+  async _loot(avatar, params, dungeon, message) {
     if (!dungeon) {
       return this._narrateError('No active dungeon');
+    }
+
+    const subAction = (params?.[0] || '').toLowerCase();
+    if (['need', 'greed', 'pass'].includes(subAction)) {
+      const rollId = params?.[1];
+      return this._handleLootChoice(avatar, dungeon, subAction, rollId, message);
     }
 
     const result = await this.dungeonService.collectTreasure(dungeon._id, dungeon.currentRoom);
@@ -1298,7 +1311,7 @@ export class DungeonTool extends BasicTool {
         }).join('\n') 
       : 'nothing but dust';
 
-    return {
+    const response = {
       embeds: [{
         author: { name: '🎲 The Dungeon Master' },
         title: '💰 Treasure Claimed!',
@@ -1309,6 +1322,128 @@ export class DungeonTool extends BasicTool {
         dungeon.rooms.find(r => r.id === dungeon.currentRoom),
         dungeon
       )
+    };
+
+    if (result?.storedItemIds?.length && this.partyService?.createLootRoll) {
+      await this._startLootRolls(result.storedItemIds, dungeon, avatar, message);
+    }
+
+    return response;
+  }
+
+  async _startLootRolls(itemIds, dungeon, avatar, message) {
+    if (!this.discordService?.client || !this.partyService) return;
+    const channelId = dungeon.threadId || message?.channel?.id;
+    if (!channelId) return;
+
+    let channel;
+    try {
+      channel = await this.discordService.client.channels.fetch(channelId);
+    } catch (e) {
+      this.logger?.warn?.(`[DungeonTool] Failed to fetch loot channel: ${e.message}`);
+      return;
+    }
+
+    for (const itemId of itemIds) {
+      try {
+        const item = await this.itemService?.getItem?.(itemId);
+        const roll = await this.partyService.createLootRoll({
+          partyId: dungeon.partyId,
+          itemId,
+          channelId,
+          createdBy: avatar._id
+        });
+
+        const { embed, components } = this._buildLootRollMessage(item, roll);
+        const rollMessage = await channel.send({ embeds: [embed], components });
+        await this.partyService.setLootRollMessage(roll._id, rollMessage.id);
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonTool] Failed to start loot roll: ${e.message}`);
+      }
+    }
+  }
+
+  async _handleLootChoice(avatar, dungeon, choice, rollId, message) {
+    if (!rollId) {
+      return this._narrateError('No loot roll found');
+    }
+
+    let roll = null;
+    try {
+      roll = await this.partyService.getLootRoll(rollId);
+    } catch {
+      roll = null;
+    }
+
+    if (!roll) {
+      return this._narrateError('No loot roll found');
+    }
+
+    const party = await this.partyService.getParty(roll.partyId);
+    const isMember = party?.members?.some(m => String(m.avatarId) === String(avatar._id));
+    if (!isMember) {
+      return this._narrateError('Party not found');
+    }
+
+    const now = Date.now();
+    const expired = roll.expiresAt && new Date(roll.expiresAt).getTime() <= now;
+
+    if (expired && roll.status === 'pending') {
+      const resolved = await this.partyService.resolveLootRoll(roll, { resolvedBy: avatar._id });
+      await this._updateLootRollMessage(resolved);
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          title: '⏳ Loot Roll Closed',
+          description: '*The moment has passed. The treasure is claimed as fate decides...*',
+          color: 0x6B7280
+        }]
+      };
+    }
+
+    const result = await this.partyService.submitLootChoice(rollId, avatar._id, choice);
+    if (result.alreadyResolved) {
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          title: '✅ Loot Already Resolved',
+          description: '*This treasure has already been claimed.*',
+          color: 0x6B7280
+        }]
+      };
+    }
+    if (result.alreadySubmitted) {
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          title: '📝 Choice Already Made',
+          description: '*You have already declared your intent for this treasure.*',
+          color: 0x6B7280
+        }]
+      };
+    }
+
+    roll = result.roll || roll;
+    const totalMembers = party?.members?.length || 0;
+    const choiceCount = roll.choices?.length || 0;
+    const shouldResolve = totalMembers > 0 && choiceCount >= totalMembers;
+
+    if (shouldResolve) {
+      const resolved = await this.partyService.resolveLootRoll(roll, { resolvedBy: avatar._id });
+      await this._updateLootRollMessage(resolved);
+    }
+
+    const rollText = typeof result.rollValue === 'number'
+      ? `Roll: **${result.rollValue}**`
+      : 'You passed on this item.';
+
+    return {
+      embeds: [{
+        author: { name: '🎲 The Dungeon Master' },
+        title: '🎲 Loot Roll Recorded',
+        description: `*Your decision is sealed.*\n\n**Choice:** ${choice.toUpperCase()}\n${rollText}`,
+        color: 0x7C3AED
+      }]
     };
   }
 
@@ -1482,19 +1617,23 @@ export class DungeonTool extends BasicTool {
 
   // ==================== Helper Methods ====================
 
-  _generateEntranceNarrative(dungeon) {
-    const narratives = {
-      crypt: '*Dusty cobwebs part as the ancient crypt doors grind open. The stench of death lingers in the cold air, and distant echoes hint at things best left undisturbed...*',
-      cave: '*Water drips from stalactites as you enter the yawning cave mouth. Bioluminescent fungi cast an eerie glow on the wet stone walls...*',
-      castle: '*Tattered banners flutter in an unfelt wind as you cross the threshold of the ruined castle. Suits of armor line the halls, their hollow eyes watching...*',
-      ruins: '*Ancient stones crumble beneath your feet as you descend into the forgotten ruins. Once-great statues stand broken, their faces worn by time...*',
-      sewers: '*The iron grate clangs shut behind you. Fetid water sloshes around your boots as you venture into the labyrinthine sewers below the city...*',
-      forest: '*Gnarled roots form the entrance to this underground realm. The scent of earth and decay fills your nostrils as you descend into the fairy-haunted depths...*'
-    };
-    return narratives[dungeon.theme] || `*The party ventures into the mysterious ${dungeon.theme} dungeon...*`;
+  async _getRoomNarrative(room, dungeon) {
+    if (!room) {
+      return '*The air is still as the party advances...*';
+    }
+
+    if (this.dungeonMasterService?.generateRoomDescription) {
+      try {
+        return await this.dungeonMasterService.generateRoomDescription(room, dungeon);
+      } catch (e) {
+        this.logger?.debug?.(`[DungeonTool] DM narration failed: ${e.message}`);
+      }
+    }
+
+    return this._getFallbackRoomNarrative(room, dungeon?.theme);
   }
 
-  _generateRoomNarrative(room, _theme) {
+  _getFallbackRoomNarrative(room, theme) {
     const baseNarratives = {
       combat: '*Shadows shift in the darkness. You are not alone...*',
       boss: '*An overwhelming presence fills the chamber. Something ancient and powerful awaits...*',
@@ -1505,7 +1644,111 @@ export class DungeonTool extends BasicTool {
       empty: '*Dust and silence. This chamber holds nothing but memories...*',
       entrance: '*Ancient doors mark the boundary between the world above and the depths below...*'
     };
-    return baseNarratives[room.type] || '*The party enters a mysterious chamber...*';
+    return baseNarratives[room.type] || `*The party ventures deeper into the ${theme || 'mysterious'} dungeon...*`;
+  }
+
+  _buildLootRollMessage(item, roll) {
+    const itemName = item?.name || 'Mysterious Loot';
+    const itemEmoji = item?.emoji || '🎁';
+    const timeLeftMs = roll?.expiresAt ? new Date(roll.expiresAt).getTime() - Date.now() : null;
+    const timeLeft = timeLeftMs && timeLeftMs > 0 ? Math.ceil(timeLeftMs / 1000) : null;
+    const timerText = timeLeft ? `⏳ ${timeLeft}s remaining` : '⏳ Limited time';
+
+    const embed = {
+      author: { name: '🎲 The Dungeon Master' },
+      title: `🎲 Loot Roll: ${itemEmoji} ${itemName}`,
+      description: `*A treasure glints in the torchlight...*\n\nChoose your intent: **Need**, **Greed**, or **Pass**.\n\n${timerText}`,
+      color: 0x7C3AED,
+      footer: { text: 'Highest roll wins (Need over Greed)' }
+    };
+
+    const rollId = roll._id?.toString?.() || String(roll._id);
+    const components = [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`dnd_loot_need_${rollId}`)
+          .setLabel('Need')
+          .setEmoji('🎲')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`dnd_loot_greed_${rollId}`)
+          .setLabel('Greed')
+          .setEmoji('💰')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`dnd_loot_pass_${rollId}`)
+          .setLabel('Pass')
+          .setEmoji('❌')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    ];
+
+    return { embed, components };
+  }
+
+  async _updateLootRollMessage(roll) {
+    if (!roll?.messageId || !roll?.channelId || !this.discordService?.client) return;
+
+    try {
+      const channel = await this.discordService.client.channels.fetch(roll.channelId);
+      const msg = await channel.messages.fetch(roll.messageId);
+      const item = await this.itemService?.getItem?.(roll.itemId);
+      const embed = await this._buildLootRollResultEmbed(roll, item);
+      await msg.edit({ embeds: [embed], components: [] });
+    } catch (e) {
+      this.logger?.warn?.(`[DungeonTool] Failed to update loot roll message: ${e.message}`);
+    }
+  }
+
+  async _buildLootRollResultEmbed(roll, item) {
+    const itemName = item?.name || 'Mysterious Loot';
+    const itemEmoji = item?.emoji || '🎁';
+    const resultLines = await this._formatLootRollResults(roll);
+    const winnerName = await this._resolveLootWinnerName(roll);
+
+    const outcome = roll?.winner
+      ? `🏆 **Winner:** ${winnerName} (${roll.winner.choice.toUpperCase()} ${roll.winner.roll})`
+      : 'No one claimed the item. It remains in shared inventory.';
+
+    return {
+      author: { name: '🎲 The Dungeon Master' },
+      title: `✅ Loot Roll Resolved: ${itemEmoji} ${itemName}`,
+      description: `${outcome}\n\n${resultLines}`,
+      color: 0x10B981
+    };
+  }
+
+  async _formatLootRollResults(roll) {
+    const party = await this.partyService.getPartyWithAvatars(roll.partyId);
+    const nameById = new Map(
+      (party?.members || []).map(m => [String(m.avatarId), m.avatar?.name || 'Adventurer'])
+    );
+
+    const choices = roll.choices || [];
+    if (choices.length === 0) {
+      return '*No responses recorded.*';
+    }
+
+    const lines = choices.map(choice => {
+      const name = nameById.get(String(choice.avatarId)) || 'Adventurer';
+      if (choice.choice === 'pass') {
+        return `- ${name}: PASS`;
+      }
+      return `- ${name}: ${choice.choice.toUpperCase()} (${choice.roll})`;
+    });
+
+    return lines.join('\n');
+  }
+
+  async _resolveLootWinnerName(roll) {
+    if (!roll?.winner?.avatarId) return 'Unknown Adventurer';
+    try {
+      const party = await this.partyService.getPartyWithAvatars(roll.partyId);
+      const member = party?.members?.find(m => String(m.avatarId) === String(roll.winner.avatarId));
+      return member?.avatar?.name || 'Adventurer';
+    } catch {
+      return 'Adventurer';
+    }
   }
 
   _getRoomImagePrompt(room, theme) {

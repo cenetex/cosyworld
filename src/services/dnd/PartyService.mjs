@@ -6,15 +6,19 @@
  */
 
 import { ObjectId } from 'mongodb';
+import { DiceService } from '../battle/diceService.mjs';
 
 export class PartyService {
-  constructor({ databaseService, characterService, avatarService, logger }) {
+  constructor({ databaseService, characterService, avatarService, itemService, logger }) {
     this.databaseService = databaseService;
     this.characterService = characterService;
     this.avatarService = avatarService;
+    this.itemService = itemService;
     this.logger = logger;
     this._collection = null;
     this._inviteCollection = null;
+    this._lootRollCollection = null;
+    this.diceService = new DiceService();
   }
 
   async collection() {
@@ -35,6 +39,15 @@ export class PartyService {
     return this._inviteCollection;
   }
 
+  async lootRollCollection() {
+    if (!this._lootRollCollection) {
+      const db = await this.databaseService.getDatabase();
+      this._lootRollCollection = db.collection('party_loot_rolls');
+      await this._ensureLootRollIndexes();
+    }
+    return this._lootRollCollection;
+  }
+
   async _ensureIndexes() {
     try {
       await this._collection.createIndex({ leaderId: 1 });
@@ -53,6 +66,16 @@ export class PartyService {
       await this._inviteCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-cleanup
     } catch (e) {
       this.logger?.warn?.('[PartyService] Invite index creation:', e.message);
+    }
+  }
+
+  async _ensureLootRollIndexes() {
+    try {
+      await this._lootRollCollection.createIndex({ partyId: 1, status: 1 });
+      await this._lootRollCollection.createIndex({ itemId: 1 }, { unique: true });
+      await this._lootRollCollection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    } catch (e) {
+      this.logger?.warn?.('[PartyService] Loot roll index creation:', e.message);
     }
   }
 
@@ -395,6 +418,14 @@ export class PartyService {
     );
   }
 
+  async removeFromInventory(partyId, itemId) {
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(partyId) },
+      { $pull: { sharedInventory: new ObjectId(itemId) } }
+    );
+  }
+
   async setDungeon(partyId, dungeonId) {
     const col = await this.collection();
     await col.updateOne(
@@ -430,5 +461,124 @@ export class PartyService {
     );
 
     return { ...party, members: avatars };
+  }
+
+  async createLootRoll({
+    partyId,
+    itemId,
+    channelId,
+    messageId = null,
+    createdBy = null,
+    durationMs = 2 * 60 * 1000
+  }) {
+    const col = await this.lootRollCollection();
+    const now = new Date();
+    const rollDoc = {
+      partyId: new ObjectId(partyId),
+      itemId: new ObjectId(itemId),
+      channelId,
+      messageId,
+      status: 'pending',
+      choices: [],
+      createdBy: createdBy ? new ObjectId(createdBy) : null,
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + durationMs),
+      resolvedAt: null,
+      winner: null
+    };
+
+    const result = await col.insertOne(rollDoc);
+    return { ...rollDoc, _id: result.insertedId };
+  }
+
+  async setLootRollMessage(rollId, messageId) {
+    const col = await this.lootRollCollection();
+    await col.updateOne(
+      { _id: new ObjectId(rollId) },
+      { $set: { messageId } }
+    );
+  }
+
+  async getLootRoll(rollId) {
+    const col = await this.lootRollCollection();
+    return col.findOne({ _id: new ObjectId(rollId) });
+  }
+
+  async submitLootChoice(rollId, avatarId, choice) {
+    const normalizedChoice = String(choice || '').toLowerCase();
+    if (!['need', 'greed', 'pass'].includes(normalizedChoice)) {
+      throw new Error('Invalid loot choice');
+    }
+
+    const col = await this.lootRollCollection();
+    const roll = await col.findOne({ _id: new ObjectId(rollId) });
+    if (!roll) throw new Error('Loot roll not found');
+    if (roll.status !== 'pending') return { roll, alreadyResolved: true };
+
+    const avatarObjectId = new ObjectId(avatarId);
+    const existing = (roll.choices || []).find(c => String(c.avatarId) === String(avatarObjectId));
+    if (existing) {
+      return { roll, alreadySubmitted: true, existing };
+    }
+
+    const rollValue = normalizedChoice === 'pass' ? null : this.diceService.rollDie(20);
+    const entry = {
+      avatarId: avatarObjectId,
+      choice: normalizedChoice,
+      roll: rollValue,
+      submittedAt: new Date()
+    };
+
+    await col.updateOne(
+      { _id: roll._id },
+      { $push: { choices: entry } }
+    );
+
+    const updated = await col.findOne({ _id: roll._id });
+    return { roll: updated, rollValue };
+  }
+
+  async resolveLootRoll(rollDoc, { resolvedBy = null } = {}) {
+    const col = await this.lootRollCollection();
+    const roll = typeof rollDoc === 'string' ? await this.getLootRoll(rollDoc) : rollDoc;
+    if (!roll) throw new Error('Loot roll not found');
+    if (roll.status === 'resolved') return roll;
+
+    const choices = roll.choices || [];
+    const needers = choices.filter(c => c.choice === 'need' && typeof c.roll === 'number');
+    const greeders = choices.filter(c => c.choice === 'greed' && typeof c.roll === 'number');
+    const candidates = needers.length > 0 ? needers : greeders;
+
+    let winner = null;
+    if (candidates.length > 0) {
+      const maxRoll = Math.max(...candidates.map(c => c.roll));
+      const top = candidates.filter(c => c.roll === maxRoll);
+      winner = top.length === 1 ? top[0] : top[Math.floor(Math.random() * top.length)];
+    }
+
+    let item = null;
+    if (winner && this.itemService) {
+      try {
+        item = await this.itemService.getItem(roll.itemId);
+        if (item) {
+          await this.itemService.assignItemToAvatar(winner.avatarId, item);
+          await this.removeFromInventory(roll.partyId, roll.itemId);
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[PartyService] Failed to assign loot item: ${e.message}`);
+      }
+    }
+
+    const update = {
+      status: 'resolved',
+      resolvedAt: new Date(),
+      winner: winner
+        ? { avatarId: winner.avatarId, roll: winner.roll, choice: winner.choice }
+        : null,
+      resolvedBy: resolvedBy ? new ObjectId(resolvedBy) : null
+    };
+
+    await col.updateOne({ _id: roll._id }, { $set: update });
+    return { ...roll, ...update, item };
   }
 }

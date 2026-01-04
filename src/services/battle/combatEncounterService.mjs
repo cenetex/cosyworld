@@ -491,10 +491,16 @@ export class CombatEncounterService {
         !!a.discordUserId ||
         !!a.isPlayerCharacter
       );
+      
+      // Extract discordUserId for turn validation
+      // Priority: direct field > nested in avatar data
+      const discordUserId = a.discordUserId || null;
+      
       return {
         avatarId: aid,
         name: a.name,
         ref: a,
+        discordUserId, // Store at combatant level for turn validation
         initiative: null,
         currentHp: maxHp, // Start at full HP for new encounter
         maxHp: maxHp,
@@ -2660,9 +2666,24 @@ Message: ${messageContent}`;
     }
     
     // Check if this user controls the current turn's avatar
-    const expectedUserId = current.ref?.summoner 
-      ? String(current.ref.summoner).replace(/^user:/, '')
-      : null;
+    // Support multiple ways a user can be linked to an avatar:
+    // 1. summoner field starting with 'user:' (classic avatars)
+    // 2. discordUserId field (party members in dungeons)
+    // 3. ref.discordUserId (nested in original avatar data)
+    let expectedUserId = null;
+    
+    // Check summoner field first
+    if (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')) {
+      expectedUserId = String(current.ref.summoner).replace(/^user:/, '');
+    }
+    // Check discordUserId on the combatant itself
+    else if (current.discordUserId) {
+      expectedUserId = String(current.discordUserId);
+    }
+    // Check discordUserId nested in ref
+    else if (current.ref?.discordUserId) {
+      expectedUserId = String(current.ref.discordUserId);
+    }
     
     if (expectedUserId !== userId) {
       // Not this user's turn - show ephemeral "not your turn" message
@@ -2728,7 +2749,7 @@ Message: ${messageContent}`;
     if (enemies.length > 0) {
       const targetButtons = enemies.slice(0, 5).map(enemy =>
         new ButtonBuilder()
-          .setCustomId(`dnd_target_${this._normalizeId(enemy.avatarId)}`)
+          .setCustomId(`dnd_target_${encodeURIComponent(enemy.name)}`)
           .setLabel(`${enemy.name} (${enemy.currentHp}HP)`)
           .setEmoji(enemy.emoji || '👹')
           .setStyle(ButtonStyle.Danger)
@@ -2773,9 +2794,24 @@ Message: ${messageContent}`;
     }
     
     // Check if this user controls the current turn's avatar
-    const expectedUserId = current.ref?.summoner 
-      ? String(current.ref.summoner).replace(/^user:/, '')
-      : null;
+    // Support multiple ways a user can be linked to an avatar:
+    // 1. summoner field starting with 'user:' (classic avatars)
+    // 2. discordUserId field (party members in dungeons)
+    // 3. ref.discordUserId (nested in original avatar data)
+    let expectedUserId = null;
+    
+    // Check summoner field first
+    if (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')) {
+      expectedUserId = String(current.ref.summoner).replace(/^user:/, '');
+    }
+    // Check discordUserId on the combatant itself
+    else if (current.discordUserId) {
+      expectedUserId = String(current.discordUserId);
+    }
+    // Check discordUserId nested in ref
+    else if (current.ref?.discordUserId) {
+      expectedUserId = String(current.ref.discordUserId);
+    }
     
     if (!expectedUserId || expectedUserId !== discordUserId) {
       return { 

@@ -35,6 +35,7 @@ const createMockDeps = () => {
       setDungeon: vi.fn().mockResolvedValue(true),
       distributeXP: vi.fn().mockResolvedValue({ xpEach: 50, results: [] }),
       addGold: vi.fn().mockResolvedValue(true),
+      addToInventory: vi.fn().mockResolvedValue(true),
       characterService: {
         getSheet: vi.fn().mockResolvedValue({ level: 3 }),
       },
@@ -53,6 +54,10 @@ const createMockDeps = () => {
           }),
         },
       },
+    },
+    itemService: {
+      createDndItemFromDefinition: vi.fn().mockResolvedValue({ _id: new ObjectId() }),
+      getItem: vi.fn()
     },
     logger: {
       info: vi.fn(),
@@ -488,6 +493,107 @@ describe('DungeonService', () => {
       const treasure = service._generateTreasure(5);
 
       expect(treasure).toBeDefined();
+    });
+  });
+
+  describe('collectTreasure()', () => {
+    it('should persist loot items and add them to party inventory', async () => {
+      const dungeonId = new ObjectId();
+      const partyId = new ObjectId();
+      const room = {
+        id: 'room_2',
+        type: 'treasure',
+        cleared: false,
+        encounter: {
+          gold: 120,
+          items: [{ id: 'dagger', name: 'Dagger', count: 2, rarity: 'common', emoji: '🗡️' }],
+          collected: false
+        }
+      };
+      const dungeon = {
+        _id: dungeonId,
+        partyId,
+        rooms: [room],
+        currentRoom: 'room_2'
+      };
+
+      const createdIds = [new ObjectId(), new ObjectId()];
+      deps.itemService.createDndItemFromDefinition
+        .mockResolvedValueOnce({ _id: createdIds[0] })
+        .mockResolvedValueOnce({ _id: createdIds[1] });
+
+      deps.mockCollection.findOne.mockResolvedValue(dungeon);
+      deps.mockCollection.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+      const result = await service.collectTreasure(dungeonId.toString(), 'room_2');
+
+      expect(deps.partyService.addGold).toHaveBeenCalledWith(partyId, 120);
+      expect(deps.itemService.createDndItemFromDefinition).toHaveBeenCalledTimes(2);
+      expect(deps.partyService.addToInventory).toHaveBeenCalledWith(partyId, createdIds[0]);
+      expect(deps.partyService.addToInventory).toHaveBeenCalledWith(partyId, createdIds[1]);
+      expect(result.storedItemIds).toHaveLength(2);
+    });
+  });
+
+  describe('solvePuzzle()', () => {
+    it('should award XP when puzzle is solved', async () => {
+      const dungeonId = new ObjectId();
+      const partyId = new ObjectId();
+      const room = {
+        id: 'room_1',
+        type: 'entrance',
+        cleared: false,
+        puzzle: {
+          riddle: 'What am I?',
+          answer: 'fire',
+          hint: 'I flicker',
+          solved: false,
+          attempts: 0,
+          maxAttempts: 3
+        }
+      };
+      const dungeon = {
+        _id: dungeonId,
+        partyId,
+        rooms: [room],
+        currentRoom: 'room_1'
+      };
+
+      deps.mockCollection.findOne.mockResolvedValue(dungeon);
+      deps.mockCollection.updateOne.mockResolvedValue({ matchedCount: 1 });
+
+      await service.solvePuzzle(dungeonId.toString(), 'fire');
+
+      expect(deps.partyService.distributeXP).toHaveBeenCalledWith(partyId, 50);
+    });
+  });
+
+  describe('resolveCombat()', () => {
+    it('should apply TPK gold penalty based on sharedGold', async () => {
+      const dungeonId = new ObjectId();
+      const partyId = new ObjectId();
+      const room = {
+        id: 'room_1',
+        type: 'combat',
+        cleared: false,
+        encounter: { monsters: [{ id: 'goblin' }], xpValue: 50 }
+      };
+      const dungeon = {
+        _id: dungeonId,
+        partyId,
+        difficulty: 'medium',
+        rooms: [room],
+        currentRoom: 'room_1',
+        threadId: null
+      };
+
+      deps.mockCollection.findOne.mockResolvedValue(dungeon);
+      deps.mockCollection.updateOne.mockResolvedValue({ matchedCount: 1 });
+      deps.partyService.getParty.mockResolvedValue({ _id: partyId, sharedGold: 200 });
+
+      await service.resolveCombat(dungeonId.toString(), 'room_1', { reason: 'tpk', winners: [] });
+
+      expect(deps.partyService.addGold).toHaveBeenCalledWith(partyId, -30);
     });
   });
 
