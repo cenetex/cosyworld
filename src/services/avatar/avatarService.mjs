@@ -2494,9 +2494,14 @@ The token icon's colors and motifs should be visible in the character's design.`
    */
   async getAvatarByUserId(discordUserId, guildId = null) {
     const db = await this._db();
+    // Query for alive avatars, but also accept avatars without explicit status (default to alive)
     const query = { 
       summoner: `user:${discordUserId}`, 
-      status: 'alive' 
+      $or: [
+        { status: 'alive' },
+        { status: { $exists: false } },
+        { status: null }
+      ]
     };
     if (guildId) {
       query.guildId = guildId;

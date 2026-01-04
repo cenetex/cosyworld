@@ -67,9 +67,10 @@ export class CombatTargetRegistry {
 
     // Priority 0: Exact ID match (for button-generated target IDs)
     // This handles cases like "monster_mortar_mite_6idl_2_1767503059096"
+    // Use case-insensitive comparison since searchLower is lowercased
     let match = candidates.find(c => {
-      const cId = this._normalize(c.avatarId);
-      const cIdAlt = this._normalize(c._id || c.id);
+      const cId = (this._normalize(c.avatarId) || '').toLowerCase();
+      const cIdAlt = (this._normalize(c._id || c.id) || '').toLowerCase();
       return cId === searchLower || cIdAlt === searchLower;
     });
     if (match) {

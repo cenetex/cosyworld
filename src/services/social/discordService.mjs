@@ -1231,9 +1231,14 @@ export class DiscordService {
 
       // Get user's avatar by querying for summoner field
       const db = await this.databaseService.getDatabase();
+      // Query for alive avatars, but also accept avatars without explicit status (default to alive)
       const avatar = await db.collection('avatars').findOne({ 
         summoner: `user:${userId}`, 
-        status: 'alive' 
+        $or: [
+          { status: 'alive' },
+          { status: { $exists: false } },
+          { status: null }
+        ]
       });
       
       if (!avatar) {
