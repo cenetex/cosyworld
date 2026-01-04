@@ -2883,17 +2883,34 @@ Message: ${messageContent}`;
     // Include avatar image as thumbnail if available
     const thumbnailUrl = current.ref?.imageUrl || current.imageUrl || null;
     
-    // Get enemies for targeting
+    // Get enemies for targeting (monsters only, not party members)
     const enemies = encounter.combatants.filter(c => c.isMonster && c.currentHp > 0);
     const enemyList = enemies.length > 0 
       ? enemies.map(e => `• **${e.name}** (${e.currentHp}/${e.maxHp} HP)`).join('\n')
       : '*No enemies remain*';
     
+    // Get party allies (non-monsters, non-self) for status display
+    const currentAvatarId = this._normalizeId(current.avatarId);
+    const allies = encounter.combatants.filter(c => 
+      !c.isMonster && 
+      c.currentHp > 0 && 
+      this._normalizeId(c.avatarId) !== currentAvatarId
+    );
+    const allyList = allies.length > 0
+      ? allies.map(a => `• ${a.name} (${a.currentHp}/${a.maxHp} HP)`).join('\n')
+      : '';
+    
+    // Build description with enemies and optionally allies
+    let description = `*"${current.name}, what is your command?"*\n\n**Enemies:**\n${enemyList}`;
+    if (allyList) {
+      description += `\n\n**Allies:**\n${allyList}`;
+    }
+    
     // Simplified embed - just show whose turn and targets, not full turn order
     const embed = {
       author: { name: '🎲 The Dungeon Master' },
       title: `⚔️ ${current.name}'s Turn`,
-      description: `*"${current.name}, what is your command?"*\n\n**Enemies:**\n${enemyList}`,
+      description,
       color: 0x3B82F6, // Blue for player turn
       footer: { text: `Round ${encounter.round} • ${current.currentHp}/${current.maxHp} HP` },
       ...(thumbnailUrl && { thumbnail: { url: thumbnailUrl } })

@@ -241,6 +241,8 @@ const ENTRANCE_PUZZLES = {
 export { roomImageCache };
 
 export class DungeonService {
+  static _combatEndedListener = null;
+
   constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, locationService, itemService, logger }) {
     this.databaseService = databaseService;
     this.partyService = partyService;
@@ -263,7 +265,15 @@ export class DungeonService {
    * @private
    */
   _setupCombatListener() {
-    eventBus.on('combat.dungeon.ended', async (data) => {
+    if (DungeonService._combatEndedListener) {
+      if (eventBus.off) {
+        eventBus.off('combat.dungeon.ended', DungeonService._combatEndedListener);
+      } else if (eventBus.removeListener) {
+        eventBus.removeListener('combat.dungeon.ended', DungeonService._combatEndedListener);
+      }
+    }
+
+    DungeonService._combatEndedListener = async (data) => {
       try {
         const { dungeonId, roomId, winners, combatants, reason } = data;
         if (!dungeonId || !roomId) return;
@@ -284,7 +294,9 @@ export class DungeonService {
       } catch (e) {
         this.logger?.error?.(`[DungeonService] combat.dungeon.ended handler error: ${e.message}`);
       }
-    });
+    };
+
+    eventBus.on('combat.dungeon.ended', DungeonService._combatEndedListener);
   }
 
   async collection() {
@@ -881,14 +893,22 @@ export class DungeonService {
     const party = await this.partyService.getPartyWithAvatars(dungeon.partyId);
     if (!party) throw new Error('Party not found');
 
-    // Mark party avatars as player-controlled for turn management
+    // Mark party avatars appropriately:
+    // - Party leader: isPlayerControlled (waits for human input)
+    // - Other members: AI-controlled allies (auto-act)
+    const leaderId = String(party.leaderId);
     const partyAvatars = party.members.map(m => {
       if (!m.avatar) return null;
+      const avatarId = String(m.avatarId || m.avatar._id);
+      const isLeader = avatarId === leaderId;
       return {
         ...m.avatar,
-        isPlayerCharacter: true, // Flag for player-controlled detection
-        partyMemberId: String(m.avatarId), // Additional flag for detection
-        discordUserId: m.discordUserId || m.avatar.discordUserId || null
+        isPlayerCharacter: true, // All party members are "player characters" (not enemies)
+        isPartyLeader: isLeader, // Only leader waits for human input
+        partyMemberId: avatarId,
+        discordUserId: m.discordUserId || m.avatar.discordUserId || null,
+        // Mark leader with summoner-like flag so combatEncounterService recognizes them
+        summoner: isLeader ? `user:${m.discordUserId || m.avatar.discordUserId || 'leader'}` : null
       };
     }).filter(Boolean);
     if (partyAvatars.length === 0) {
