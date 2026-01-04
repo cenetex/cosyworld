@@ -1363,7 +1363,7 @@ export class DungeonTool extends BasicTool {
     }
   }
 
-  async _handleLootChoice(avatar, dungeon, choice, rollId, message) {
+  async _handleLootChoice(avatar, dungeon, choice, rollId, _message) {
     if (!rollId) {
       return this._narrateError('No loot roll found');
     }

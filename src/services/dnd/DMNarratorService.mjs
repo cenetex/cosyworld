@@ -342,6 +342,99 @@ Do NOT start with "I" or speak in first person.`;
     }
     return result;
   }
+
+  /**
+   * Generate narrative for multiple batched monster/AI actions
+   * Called when consecutive monster turns are executed together for speed
+   * @param {Object} options
+   * @param {Array} options.actions - Array of {combatant, action, result, targetName}
+   * @param {Object} options.encounter - The current encounter state (reserved for future use)
+   * @returns {Promise<string>} Combined narrative description
+   */
+  async narrateBatchedActions({ actions, encounter: _encounter }) {
+    if (!this.enabled || !actions?.length) {
+      return this._getFallbackBatchedNarrative(actions);
+    }
+
+    if (!this.unifiedAIService?.chat) {
+      return this._getFallbackBatchedNarrative(actions);
+    }
+
+    try {
+      // Build action summary for the AI
+      const actionDescriptions = actions.map((a, i) => {
+        const attacker = a.combatant?.name || 'Unknown';
+        const target = a.targetName || 'their target';
+        const damage = a.result?.damage || 0;
+        const hit = a.result?.hit !== false && damage > 0;
+        const critical = a.result?.critical;
+        
+        if (a.action?.type === 'attack') {
+          if (critical && hit) {
+            return `${i + 1}. ${attacker} lands a CRITICAL HIT on ${target} for ${damage} damage!`;
+          } else if (hit) {
+            return `${i + 1}. ${attacker} hits ${target} for ${damage} damage.`;
+          } else {
+            return `${i + 1}. ${attacker} swings at ${target} but misses.`;
+          }
+        } else if (a.action?.type === 'defend') {
+          return `${i + 1}. ${attacker} takes a defensive stance.`;
+        }
+        return `${i + 1}. ${attacker} acts.`;
+      }).join('\n');
+
+      const prompt = `Multiple enemies attack in rapid succession:
+
+${actionDescriptions}
+
+Write 2-3 vivid sentences describing this flurry of monster attacks as a unified dramatic moment.
+Keep it exciting and concise. Focus on the chaos and danger. Do not use character dialogue.`;
+
+      const response = await this.unifiedAIService.chat([
+        { role: 'system', content: this._getDMSystemPrompt() },
+        { role: 'user', content: prompt }
+      ], {
+        model: this.narrativeModel,
+        temperature: 0.85,
+        max_tokens: 200
+      });
+
+      const narrative = (response?.text || '').trim();
+      if (narrative && narrative.length > 20) {
+        this.logger?.debug?.(`[DMNarrator] Batched: "${narrative.slice(0, 100)}..."`);
+        // Ensure italics formatting
+        return `*${narrative.replace(/^\*|\*$/g, '')}*`;
+      }
+    } catch (e) {
+      this.logger?.warn?.(`[DMNarrator] Batched AI narration failed: ${e.message}`);
+    }
+
+    return this._getFallbackBatchedNarrative(actions);
+  }
+
+  /**
+   * Get fallback narrative for batched actions
+   * @private
+   */
+  _getFallbackBatchedNarrative(actions) {
+    if (!actions?.length) {
+      return '*The monsters act...*';
+    }
+
+    const hits = actions.filter(a => a.result?.hit !== false && a.result?.damage > 0);
+    const misses = actions.filter(a => a.result?.hit === false || !a.result?.damage);
+    const totalDamage = hits.reduce((sum, a) => sum + (a.result?.damage || 0), 0);
+
+    if (hits.length === 0) {
+      return '*The monsters strike wildly, but their attacks find no purchase!*';
+    }
+
+    if (misses.length === 0) {
+      return `*The monsters attack in a coordinated assault, dealing ${totalDamage} damage to the party!*`;
+    }
+
+    return `*The monsters unleash a barrage of attacks! ${hits.length} hit${hits.length > 1 ? 's' : ''} land for ${totalDamage} total damage, while ${misses.length} miss${misses.length > 1 ? '' : 'es'} wide.*`;
+  }
 }
 
 export default DMNarratorService;
