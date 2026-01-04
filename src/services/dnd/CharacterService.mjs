@@ -9,13 +9,36 @@ import { ObjectId } from 'mongodb';
 import { CLASSES, getLevelFromXP, getProficiencyBonus } from '../../data/dnd/classes.mjs';
 import { RACES, BACKGROUNDS } from '../../data/dnd/races.mjs';
 import { getSpellSlots } from '../../data/dnd/spells.mjs';
+import eventBus from '../../utils/eventBus.mjs';
 
 export class CharacterService {
-  constructor({ databaseService, avatarService, logger }) {
+  constructor({ databaseService, avatarService, unifiedAIService, logger }) {
     this.databaseService = databaseService;
     this.avatarService = avatarService;
+    this.aiService = unifiedAIService;
     this.logger = logger;
     this._collection = null;
+
+    // Listen for new avatar creation to auto-generate character sheets
+    this._setupEventListeners();
+  }
+
+  /**
+   * Setup event listeners for auto-generating character sheets
+   */
+  _setupEventListeners() {
+    eventBus.on('AVATAR.CREATED', async (event) => {
+      try {
+        const avatarId = event.avatarId?.toString?.() || event.avatarId;
+        if (!avatarId) return;
+
+        // Auto-generate character sheet for new avatars
+        this.logger?.info?.(`[CharacterService] Auto-generating character sheet for new avatar ${event.name || avatarId}`);
+        await this.generateCharacterForAvatar(avatarId);
+      } catch (e) {
+        this.logger?.warn?.(`[CharacterService] Failed to auto-generate character sheet: ${e.message}`);
+      }
+    });
   }
 
   async collection() {
@@ -430,5 +453,99 @@ export class CharacterService {
     const col = await this.collection();
     await col.deleteOne({ avatarId: new ObjectId(avatarId) });
     this.logger?.info?.(`[CharacterService] Deleted character for avatar ${avatarId}`);
+  }
+
+  /**
+   * Generate a character sheet for an avatar using AI to determine appropriate class/race/background
+   * based on the avatar's personality and description.
+   * @param {string} avatarId - Avatar ID
+   * @returns {Promise<Object>} The created character sheet
+   */
+  async generateCharacterForAvatar(avatarId) {
+    // Check if already has a sheet
+    const existing = await this.getSheet(avatarId);
+    if (existing) {
+      this.logger?.debug?.(`[CharacterService] Avatar ${avatarId} already has character sheet`);
+      return existing;
+    }
+
+    const avatar = await this.avatarService.getAvatarById(avatarId);
+    if (!avatar) throw new Error('Avatar not found');
+
+    // Get available options
+    const classOptions = Object.keys(CLASSES);
+    const raceOptions = Object.keys(RACES);
+    const backgroundOptions = Object.keys(BACKGROUNDS);
+
+    // Build prompt for AI to select appropriate options
+    const prompt = `Based on this character's personality and description, select the most fitting D&D 5e class, race, and background.
+
+Character: ${avatar.name}
+Description: ${avatar.description || 'No description'}
+Personality: ${avatar.personality || 'Unknown'}
+Emoji: ${avatar.emoji || ''}
+
+Available Classes: ${classOptions.join(', ')}
+Available Races: ${raceOptions.join(', ')}
+Available Backgrounds: ${backgroundOptions.join(', ')}
+
+Respond with ONLY a JSON object in this exact format (no markdown, no explanation):
+{"class": "classname", "race": "racename", "background": "backgroundname"}`;
+
+    let className = 'fighter';
+    let race = 'human';
+    let background = 'soldier';
+
+    if (this.aiService) {
+      try {
+        const response = await this.aiService.chat([
+          { role: 'system', content: 'You are a D&D character creation assistant. You analyze character descriptions and select appropriate class, race, and background. Respond only with valid JSON.' },
+          { role: 'user', content: prompt }
+        ], { 
+          temperature: 0.7,
+          model: process.env.STRUCTURED_MODEL 
+        });
+
+        const text = typeof response === 'string' ? response : response?.text || response?.content || '';
+        
+        // Parse JSON from response (handle potential markdown wrapping)
+        const jsonMatch = text.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          
+          // Validate selections
+          if (classOptions.includes(parsed.class?.toLowerCase())) {
+            className = parsed.class.toLowerCase();
+          }
+          if (raceOptions.includes(parsed.race?.toLowerCase())) {
+            race = parsed.race.toLowerCase();
+          }
+          if (backgroundOptions.includes(parsed.background?.toLowerCase())) {
+            background = parsed.background.toLowerCase();
+          }
+          
+          this.logger?.info?.(`[CharacterService] AI selected ${race} ${className} (${background}) for ${avatar.name}`);
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[CharacterService] AI character generation failed, using defaults: ${e.message}`);
+      }
+    }
+
+    // Create the character with selected options
+    const sheet = await this.createCharacter(avatarId, { className, race, background });
+    this.logger?.info?.(`[CharacterService] Generated character sheet for ${avatar.name}: ${race} ${className}`);
+    return sheet;
+  }
+
+  /**
+   * Get or create a character sheet for an avatar.
+   * If no sheet exists, generates one using AI.
+   * @param {string} avatarId - Avatar ID
+   * @returns {Promise<Object>} The character sheet
+   */
+  async getOrCreateSheet(avatarId) {
+    const existing = await this.getSheet(avatarId);
+    if (existing) return existing;
+    return await this.generateCharacterForAvatar(avatarId);
   }
 }

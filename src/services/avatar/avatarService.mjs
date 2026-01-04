@@ -2202,6 +2202,21 @@ The token icon's colors and motifs should be visible in the character's design.`
       return createdAvatar;
     }
 
+    // Emit event for new avatar creation (used by CharacterService for auto-sheet generation)
+    try {
+      eventBus.emit('AVATAR.CREATED', {
+        avatarId: createdAvatar._id,
+        name: createdAvatar.name,
+        description: createdAvatar.description,
+        personality: createdAvatar.personality,
+        emoji: createdAvatar.emoji,
+        guildId: normalizedGuildId,
+        createdAt: new Date()
+      });
+    } catch (e) {
+      this.logger?.debug?.(`[AvatarService] Failed to emit AVATAR.CREATED: ${e.message}`);
+    }
+
     if (!createdAvatar.imageUrl) {
       await this._ensureAvatarImage(createdAvatar, { reason: 'post-create', force: true });
     }

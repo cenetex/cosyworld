@@ -686,7 +686,18 @@ export class DungeonTool extends BasicTool {
     let threadId = null;
     if (this.discordService?.client && message?.channel?.id) {
       try {
-        const channel = await this.discordService.client.channels.fetch(message.channel.id);
+        let channel = await this.discordService.client.channels.fetch(message.channel.id);
+        
+        // If we're already in a thread, get the parent channel to create a new thread there
+        // This handles the case where a dungeon was cleared and user starts a new one from the old thread
+        if (channel?.isThread?.()) {
+          const parentChannel = channel.parent;
+          if (parentChannel) {
+            this.logger?.info?.(`[DungeonTool] In thread ${channel.id}, creating new dungeon thread in parent ${parentChannel.id}`);
+            channel = parentChannel;
+          }
+        }
+        
         if (channel?.threads?.create) {
           const thread = await channel.threads.create({
             name: `⚔️ ${dungeon.name}`,

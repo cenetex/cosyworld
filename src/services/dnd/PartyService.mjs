@@ -67,8 +67,9 @@ export class PartyService {
   }
 
   async createParty(leaderId, name) {
-    const sheet = await this.characterService.getSheet(leaderId);
-    if (!sheet) throw new Error('Leader has no character sheet');
+    // Get or create character sheet for leader (auto-generates if missing)
+    const sheet = await this.characterService.getOrCreateSheet(leaderId);
+    if (!sheet) throw new Error('Failed to create character sheet for leader');
     if (sheet.partyId) throw new Error('Already in a party');
 
     const party = {
@@ -114,8 +115,9 @@ export class PartyService {
     const isMember = party.members.some(m => m.avatarId.equals(new ObjectId(inviterId)));
     if (!isLeader && !isMember) throw new Error('Only party members can send invites');
 
-    const sheet = await this.characterService.getSheet(avatarId);
-    if (!sheet) throw new Error('Target has no character sheet');
+    // Get or create character sheet for target avatar (auto-generates if missing)
+    const sheet = await this.characterService.getOrCreateSheet(avatarId);
+    if (!sheet) throw new Error('Failed to create character sheet for target');
     if (sheet.partyId) throw new Error('Target is already in a party');
 
     // Check not already a member
@@ -250,8 +252,9 @@ export class PartyService {
       if (!party) throw new Error('Party not found');
       if (party.members.length >= party.maxSize) throw new Error('Party is full');
 
-      const sheet = await this.characterService.getSheet(avatarId);
-      if (!sheet) throw new Error('No character sheet');
+      // Get or create character sheet (auto-generates if missing)
+      const sheet = await this.characterService.getOrCreateSheet(avatarId);
+      if (!sheet) throw new Error('Failed to create character sheet');
       if (sheet.partyId) throw new Error('Already in a party');
 
       if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
