@@ -1084,6 +1084,131 @@ One-liner (no quotes):`;
   }
 
   /**
+   * Post between-round dialogue from 1-2 combatants
+   * Adds flavor and immersion during combat
+   * @private
+   * @param {Object} encounter - Combat encounter
+   * @param {number} completedRound - The round that just ended
+   * @param {Array} roundActions - Actions that occurred this round
+   */
+  async _postBetweenRoundDialogue(encounter, completedRound, roundActions = []) {
+    try {
+      if (!this.unifiedAIService?.chat) {
+        return;
+      }
+
+      const channel = this._getChannel(encounter);
+      if (!channel) return;
+
+      // Get alive combatants who haven't spoken this round
+      const aliveCombatants = encounter.combatants.filter(c => 
+        (c.currentHp || 0) > 0 && 
+        !encounter.chatter?.spokenThisRound?.has(c.avatarId)
+      );
+
+      if (aliveCombatants.length === 0) return;
+
+      // Pick 1-2 random speakers (weighted toward those who took damage or dealt damage this round)
+      const involvedIds = new Set();
+      for (const action of roundActions) {
+        if (action.combatant?.avatarId) involvedIds.add(action.combatant.avatarId);
+        if (action.action?.target?.avatarId) involvedIds.add(action.action.target.avatarId);
+      }
+
+      // Prioritize involved combatants, then random
+      const prioritized = aliveCombatants.filter(c => involvedIds.has(c.avatarId));
+      const others = aliveCombatants.filter(c => !involvedIds.has(c.avatarId));
+      const pool = [...prioritized, ...others];
+
+      // Pick 1-2 speakers randomly from priority pool
+      const speakerCount = Math.min(pool.length, Math.random() < 0.5 ? 1 : 2);
+      const shuffled = pool.sort(() => Math.random() - 0.5);
+      const speakers = shuffled.slice(0, speakerCount);
+
+      // Build battle context summary
+      const partyHp = encounter.combatants
+        .filter(c => !c.isMonster && (c.currentHp || 0) > 0)
+        .map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`)
+        .join(', ');
+      const enemyHp = encounter.combatants
+        .filter(c => c.isMonster && (c.currentHp || 0) > 0)
+        .map(c => `${c.name}: ${c.currentHp}/${c.maxHp} HP`)
+        .join(', ');
+      const roundSummary = roundActions.slice(0, 5).map(a => {
+        const actor = a.combatant?.name || 'Someone';
+        const target = a.targetName || a.action?.target?.name || 'someone';
+        const damage = a.result?.damage || 0;
+        return damage > 0 ? `${actor} hit ${target} for ${damage}` : `${actor} attacked ${target}`;
+      }).join('; ');
+
+      for (const speaker of speakers) {
+        try {
+          const avatar = speaker.ref;
+          const model = avatar?.model || 'google/gemini-2.0-flash-001';
+          const personality = avatar?.personality || 'bold warrior';
+          const description = avatar?.description || '';
+          const emoji = avatar?.emoji || '';
+          const name = speaker.name;
+          const hpPercent = Math.round((speaker.currentHp / speaker.maxHp) * 100);
+
+          // Context based on situation
+          let situation = 'The battle rages on.';
+          if (hpPercent < 25) {
+            situation = 'You are badly wounded!';
+          } else if (hpPercent < 50) {
+            situation = 'You are taking a beating but still fighting.';
+          } else if (hpPercent > 90) {
+            situation = 'You are fresh and ready for more.';
+          }
+
+          // Build system prompt
+          let systemContent;
+          if (avatar?.prompt) {
+            systemContent = `${avatar.prompt}\n\nCOMBAT MODE: Generate a SHORT battle cry, taunt, or comment (max 15 words). Be fierce and in-character. Return ONLY the dialogue, no quotes.`;
+          } else {
+            systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT battle cry, taunt, or comment (max 15 words). Be fierce and in-character. Return ONLY the dialogue, no quotes.`;
+          }
+
+          const messages = [
+            { role: 'system', content: systemContent },
+            { 
+              role: 'user', 
+              content: `Round ${completedRound} just ended. ${situation}\n\nBattle status:\n- Party: ${partyHp || 'Unknown'}\n- Enemies: ${enemyHp || 'Unknown'}\n- Recent: ${roundSummary || 'Fighting continues'}\n\nSay something appropriate to the moment - a battle cry, taunt, encouragement, or reaction.` 
+            }
+          ];
+
+          const response = await this.unifiedAIService.chat(messages, {
+            model,
+            temperature: 0.95
+          });
+
+          const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
+          
+          if (dialogue && dialogue.length > 2) {
+            this.logger?.info?.(`[CombatEncounter] Between-round dialogue for ${speaker.name}: "${dialogue}"`);
+            await this._postAsWebhook(encounter, speaker.ref, dialogue);
+            
+            // Track that this combatant spoke
+            if (encounter.chatter) {
+              encounter.chatter.spokenThisRound.add(speaker.avatarId);
+              encounter.chatter.lastSpeakerId = speaker.avatarId;
+            }
+            
+            // Small delay between speakers
+            if (speakers.indexOf(speaker) < speakers.length - 1) {
+              await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+        } catch (e) {
+          this.logger?.warn?.(`[CombatEncounter] Between-round dialogue failed for ${speaker.name}: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] Between-round dialogue error: ${e.message}`);
+    }
+  }
+
+  /**
    * Post combat action to Discord
    */
   async _postCombatAction(encounter, combatant, action, result, dialogue) {
@@ -1354,6 +1479,10 @@ One-liner (no quotes):`;
       // Post narration at the end of each round
       if (newRound && roundActions.length > 0) {
         await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+        
+        // Post between-round dialogue from 1-2 combatants for flavor
+        await this._postBetweenRoundDialogue(encounter, lastRound, roundActions);
+        
         roundActions = []; // Reset for next round
         lastRound = encounter.round;
         

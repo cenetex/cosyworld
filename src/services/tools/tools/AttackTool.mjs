@@ -128,23 +128,39 @@ export class AttackTool extends BasicTool {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
         // Use the monster name directly - CombatTargetRegistry handles matching
         // Encode name to handle special chars but preserve underscores as a space marker
-        const targetButtons = dungeonTargets.slice(0, 5).map(t => 
-          new ButtonBuilder()
-            .setCustomId(`dnd_target_${encodeURIComponent(t.name)}`)
-            .setLabel(`${t.count}x ${t.name}`.slice(0, 80)) // Discord button label limit
-            .setEmoji(t.emoji)
-            .setStyle(ButtonStyle.Danger)
-        );
+        // Get targets from active combat encounter for proper IDs
+        const encounterService = services?.combatEncounterService;
+        const encounter = encounterService?.getEncounterByChannelId?.(message.channel.id);
+        const combatTargets = encounter?.combatants?.filter(c => c.isMonster && (c.currentHp || 0) > 0) || [];
+        
+        // Use combat encounter targets if available (has proper avatarId), otherwise fall back to dungeon targets
+        const buttonsSource = combatTargets.length > 0 ? combatTargets : dungeonTargets;
+        
+        const targetButtons = buttonsSource.slice(0, 5).map(t => {
+          // Use avatarId for combat targets, id/name for dungeon targets
+          const targetId = t.avatarId || t.id || t.monsterId || t.name;
+          const displayName = t.name || 'Unknown';
+          const count = t.count || 1;
+          const hp = t.currentHp ?? t.stats?.hp ?? '?';
+          return new ButtonBuilder()
+            .setCustomId(`dnd_target_${encodeURIComponent(String(targetId))}`)
+            .setLabel(`${count > 1 ? count + 'x ' : ''}${displayName} (${hp}HP)`.slice(0, 80))
+            .setEmoji(t.emoji || '👹')
+            .setStyle(ButtonStyle.Danger);
+        });
         const row = new ActionRowBuilder().addComponents(targetButtons);
+        
+        // Use the same source for fields display
+        const fieldsSource = combatTargets.length > 0 ? combatTargets : dungeonTargets;
         
         return {
           embeds: [{
             title: '🎯 Select Target',
             description: `**${avatar.name}** readies an attack!\nChoose your target:`,
             color: 0xFF4757,
-            fields: dungeonTargets.map(t => ({
-              name: `${t.emoji} ${t.name}`,
-              value: `HP: ${t.stats?.hp || '?'} | AC: ${t.stats?.ac || '?'}`,
+            fields: fieldsSource.slice(0, 5).map(t => ({
+              name: `${t.emoji || '👹'} ${t.name || 'Unknown'}`,
+              value: `HP: ${t.currentHp ?? t.stats?.hp ?? '?'} | AC: ${t.armorClass ?? t.stats?.ac ?? '?'}`,
               inline: true
             }))
           }],

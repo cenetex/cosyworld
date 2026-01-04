@@ -481,13 +481,15 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
 
     // Target selection row (if enemies exist)
     if (enemies.length > 0) {
-      const targetButtons = enemies.slice(0, 5).map(enemy =>
-        new ButtonBuilder()
-          .setCustomId(`dnd_target_${encodeURIComponent(enemy.name)}`)
-          .setLabel(`${enemy.name} (${enemy.stats?.hp}HP)`)
+      const targetButtons = enemies.slice(0, 5).map(enemy => {
+        // Use avatarId or _id or id for stable target selection
+        const targetId = enemy.avatarId || enemy._id || enemy.id || enemy.name;
+        return new ButtonBuilder()
+          .setCustomId(`dnd_target_${encodeURIComponent(String(targetId))}`)
+          .setLabel(`${enemy.name} (${enemy.stats?.hp}HP)`.slice(0, 80))
           .setEmoji(enemy.emoji || '👹')
-          .setStyle(ButtonStyle.Danger)
-      );
+          .setStyle(ButtonStyle.Danger);
+      });
       rows.push(new ActionRowBuilder().addComponents(targetButtons));
     }
 
