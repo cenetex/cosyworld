@@ -38,7 +38,7 @@ export class DefendTool extends BasicTool {
       if (inEncounter && inEncounter.state === 'active') {
         try {
           if (!ces.isTurn(inEncounter, avatar.id || avatar._id)) return null; // silent out-of-turn
-          const msg = await this.battleService.defend({ avatar });
+          await this.battleService.defend({ avatar });
           // Reflect in encounter state
           try {
             const c = ces.getCombatant(inEncounter, avatar.id || avatar._id);
@@ -46,12 +46,17 @@ export class DefendTool extends BasicTool {
             inEncounter.lastActionAt = Date.now();
           } catch {}
           // Use completePlayerAction for consistency with player control
+          // V4: Pass actionType for DM narration embed
           if (ces.completePlayerAction) {
-            await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id);
+            await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id, {
+              actionType: 'defend',
+              attacker: avatar
+            });
           } else {
             await ces.nextTurn(inEncounter);
           }
-          return msg;
+          // V4: Return null since DM narration embed is now posted by combatMessagingService
+          return null;
         } catch (e) {
           return `-# [ ❌ Error: Failed to defend: ${e.message} ]`;
         }

@@ -481,16 +481,14 @@ export class CombatEncounterService {
     const combatants = Array.from(unique.entries()).map(([aid, a]) => {
       // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
       const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
-      // Determine if player-controlled:
+      // Determine if player-controlled (waiting for human input):
+      // ONLY the player's directly summoned avatar is player-controlled
+      // Party members with discordUserId are still AI-controlled (auto-act)
       // - Not a monster AND
-      // - Either summoner starts with 'user:' OR has partyMemberId OR has discordUserId
+      // - summoner starts with 'user:' (the player's own avatar)
       const isMonster = a.isMonster === true;
-      const isPlayerControlled = !isMonster && (
-        String(a.summoner || '').startsWith('user:') ||
-        !!a.partyMemberId ||
-        !!a.discordUserId ||
-        !!a.isPlayerCharacter
-      );
+      const hasSummoner = String(a.summoner || '').startsWith('user:');
+      const isPlayerControlled = !isMonster && hasSummoner;
       
       // Extract discordUserId for turn validation
       // Priority: direct field > nested in avatar data
@@ -2879,32 +2877,25 @@ Message: ${messageContent}`;
       return;
     }
     
-    // Build status display
-    const status = encounter.combatants.map(c => {
-      const indicator = this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' ';
-      const defending = c.isDefending ? ' 🛡️' : '';
-      const emoji = c.isMonster ? '👹' : (c.isPlayerControlled ? '🧙' : '⚔️');
-      const autoLabel = c.isPlayerControlled && c.autoMode ? ' [AUTO]' : '';
-      return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}${autoLabel}`;
-    }).join('\n');
-    
     // Only show buttons for player-controlled avatars who are awaiting input
     const showTakeActionButton = current.isPlayerControlled && current.awaitingAction;
     
-    // Include monster image as thumbnail if available
+    // Include avatar image as thumbnail if available
     const thumbnailUrl = current.ref?.imageUrl || current.imageUrl || null;
     
+    // Get enemies for targeting
+    const enemies = encounter.combatants.filter(c => c.isMonster && c.currentHp > 0);
+    const enemyList = enemies.length > 0 
+      ? enemies.map(e => `• **${e.name}** (${e.currentHp}/${e.maxHp} HP)`).join('\n')
+      : '*No enemies remain*';
+    
+    // Simplified embed - just show whose turn and targets, not full turn order
     const embed = {
       author: { name: '🎲 The Dungeon Master' },
-      title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: showTakeActionButton 
-        ? `*"${current.name}, the battlefield awaits your command!"*\n\n**Click the button below to take your action!**`
-        : `*${current.name} considers their options...*`,
-      fields: [ 
-        { name: '📊 Combatants', value: status.slice(0, 1024) }
-      ],
-      color: 0x7C3AED, // DM purple
-      footer: { text: showTakeActionButton ? `Awaiting ${current.name}'s action...` : `${current.name} is acting...` },
+      title: `⚔️ ${current.name}'s Turn`,
+      description: `*"${current.name}, what is your command?"*\n\n**Enemies:**\n${enemyList}`,
+      color: 0x3B82F6, // Blue for player turn
+      footer: { text: `Round ${encounter.round} • ${current.currentHp}/${current.maxHp} HP` },
       ...(thumbnailUrl && { thumbnail: { url: thumbnailUrl } })
     };
     
