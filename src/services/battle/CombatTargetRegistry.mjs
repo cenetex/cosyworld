@@ -44,12 +44,15 @@ export class CombatTargetRegistry {
     }
 
     const { excludeAvatarIds = [], includeDead = false } = options;
-    const searchLower = (targetName || '').toLowerCase().trim();
+    let searchLower = (targetName || '').toLowerCase().trim();
     
     if (!searchLower) {
       this.logger?.debug?.('[CombatTargetRegistry] Empty search term');
       return null;
     }
+    
+    // Handle underscore-to-space conversion for legacy button format
+    const searchWithSpaces = searchLower.replace(/_/g, ' ');
 
     // Filter to valid candidates
     const excludeSet = new Set(excludeAvatarIds.map(id => this._normalize(id)));
@@ -78,10 +81,11 @@ export class CombatTargetRegistry {
       return match;
     }
 
-    // Priority 1: Exact name match (case-insensitive)
-    match = candidates.find(c => 
-      (c.name || '').toLowerCase() === searchLower
-    );
+    // Priority 1: Exact name match (case-insensitive) - try both original and space-converted
+    match = candidates.find(c => {
+      const cName = (c.name || '').toLowerCase();
+      return cName === searchLower || cName === searchWithSpaces;
+    });
     if (match) {
       this.logger?.debug?.(`[CombatTargetRegistry] Exact match: ${match.name}`);
       return match;

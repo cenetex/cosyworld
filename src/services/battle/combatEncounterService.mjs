@@ -481,9 +481,16 @@ export class CombatEncounterService {
     const combatants = Array.from(unique.entries()).map(([aid, a]) => {
       // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
       const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
-      // Determine if player-controlled (summoner starts with 'user:') or monster
+      // Determine if player-controlled:
+      // - Not a monster AND
+      // - Either summoner starts with 'user:' OR has partyMemberId OR has discordUserId
       const isMonster = a.isMonster === true;
-      const isPlayerControlled = !isMonster && String(a.summoner || '').startsWith('user:');
+      const isPlayerControlled = !isMonster && (
+        String(a.summoner || '').startsWith('user:') ||
+        !!a.partyMemberId ||
+        !!a.discordUserId ||
+        !!a.isPlayerCharacter
+      );
       return {
         avatarId: aid,
         name: a.name,

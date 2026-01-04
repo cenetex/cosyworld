@@ -1651,7 +1651,14 @@ export class DiscordService {
     
     if (customId.startsWith('dnd_target_')) {
       const targetId = customId.replace('dnd_target_', '');
-      return { toolName: 'attack', params: [targetId] };
+      // Decode URL-encoded target name (handles spaces and special chars)
+      try {
+        const decodedTarget = decodeURIComponent(targetId);
+        return { toolName: 'attack', params: [decodedTarget] };
+      } catch {
+        // Fallback: replace underscores with spaces for legacy buttons
+        return { toolName: 'attack', params: [targetId.replace(/_/g, ' ')] };
+      }
     }
     
     // Party dynamic buttons

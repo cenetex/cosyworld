@@ -126,10 +126,12 @@ export class AttackTool extends BasicTool {
       // Show available targets if in dungeon with monsters
       if (inDungeon && dungeonTargets.length > 0) {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+        // Use the monster name directly - CombatTargetRegistry handles matching
+        // Encode name to handle special chars but preserve underscores as a space marker
         const targetButtons = dungeonTargets.slice(0, 5).map(t => 
           new ButtonBuilder()
-            .setCustomId(`dnd_target_${t.name.replace(/\s+/g, '_')}`)
-            .setLabel(`${t.count}x ${t.name}`)
+            .setCustomId(`dnd_target_${encodeURIComponent(t.name)}`)
+            .setLabel(`${t.count}x ${t.name}`.slice(0, 80)) // Discord button label limit
             .setEmoji(t.emoji)
             .setStyle(ButtonStyle.Danger)
         );

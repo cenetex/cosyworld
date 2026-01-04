@@ -16,12 +16,19 @@ import { rollTreasure } from '../../data/dnd/items.mjs';
 /**
  * RoomImageCache - Caches room images to avoid regenerating for same room types
  * Uses declining probability algorithm similar to MonsterService
+ * Includes LRU eviction to prevent unbounded memory growth
  */
 class RoomImageCache {
   constructor() {
-    this.cache = new Map(); // key: "theme:roomType" → { images: [...], usageCount: number }
+    this.cache = new Map(); // key: "theme:roomType" → { images: [...], usageCount: number, lastAccessedAt: number }
     this.maxImagesPerType = 5;
     this.minGenerateProbability = 0.1; // Floor at 10% for variety
+    this.maxCacheSize = 50; // Max number of theme:roomType combinations to cache
+    this.maxAgeMs = 24 * 60 * 60 * 1000; // Evict entries older than 24 hours
+    
+    // Schedule periodic cleanup every hour
+    this._cleanupInterval = setInterval(() => this._evictStale(), 60 * 60 * 1000);
+    if (this._cleanupInterval.unref) this._cleanupInterval.unref();
   }
   
   getCacheKey(theme, roomType) {
@@ -41,9 +48,16 @@ class RoomImageCache {
     let entry = this.cache.get(key);
     
     if (!entry) {
-      entry = { images: [], totalUsage: 0 };
+      // Evict oldest entry if at capacity
+      if (this.cache.size >= this.maxCacheSize) {
+        this._evictOldest();
+      }
+      entry = { images: [], totalUsage: 0, lastAccessedAt: Date.now() };
       this.cache.set(key, entry);
     }
+    
+    // Update access time
+    entry.lastAccessedAt = Date.now();
     
     const n = entry.images.length;
     const probGenerate = Math.max(this.minGenerateProbability, 1 / (n + 1));
@@ -92,14 +106,65 @@ class RoomImageCache {
   }
   
   /**
+   * Evict the oldest (least recently accessed) cache entry
+   * @private
+   */
+  _evictOldest() {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.lastAccessedAt < oldestTime) {
+        oldestTime = entry.lastAccessedAt;
+        oldestKey = key;
+      }
+    }
+    
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+    }
+  }
+  
+  /**
+   * Evict entries older than maxAgeMs
+   * @private
+   */
+  _evictStale() {
+    const now = Date.now();
+    const keysToDelete = [];
+    
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.lastAccessedAt > this.maxAgeMs) {
+        keysToDelete.push(key);
+      }
+    }
+    
+    for (const key of keysToDelete) {
+      this.cache.delete(key);
+    }
+  }
+  
+  /**
+   * Clear all cached images
+   */
+  clear() {
+    this.cache.clear();
+  }
+  
+  /**
    * Get cache statistics for debugging
    */
   getStats() {
-    const stats = {};
+    const stats = {
+      totalEntries: this.cache.size,
+      maxSize: this.maxCacheSize,
+      entries: {}
+    };
     for (const [key, entry] of this.cache.entries()) {
-      stats[key] = {
+      stats.entries[key] = {
         imageCount: entry.images.length,
-        totalUsage: entry.images.reduce((sum, img) => sum + img.usageCount, 0)
+        totalUsage: entry.images.reduce((sum, img) => sum + img.usageCount, 0),
+        ageMinutes: Math.round((Date.now() - entry.lastAccessedAt) / 60000)
       };
     }
     return stats;
@@ -815,7 +880,16 @@ export class DungeonService {
     const party = await this.partyService.getPartyWithAvatars(dungeon.partyId);
     if (!party) throw new Error('Party not found');
 
-    const partyAvatars = party.members.map(m => m.avatar).filter(Boolean);
+    // Mark party avatars as player-controlled for turn management
+    const partyAvatars = party.members.map(m => {
+      if (!m.avatar) return null;
+      return {
+        ...m.avatar,
+        isPlayerCharacter: true, // Flag for player-controlled detection
+        partyMemberId: String(m.avatarId), // Additional flag for detection
+        discordUserId: m.discordUserId || m.avatar.discordUserId || null
+      };
+    }).filter(Boolean);
     if (partyAvatars.length === 0) {
       throw new Error('No party members available for combat');
     }
@@ -922,10 +996,89 @@ export class DungeonService {
       this.logger?.info?.(`[DungeonService] Party cleared room ${roomId} after combat victory`);
     } else {
       this.logger?.info?.(`[DungeonService] Party defeated in room ${roomId} (${reason || 'unknown'})`);
-      // TODO: Handle TPK - maybe mark dungeon as failed, respawn party, etc.
+      // Handle TPK - reset party to dungeon entrance with penalties
+      await this._handleTotalPartyKill(dungeon, room, reason);
     }
 
     return { partyWon, room };
+  }
+  
+  /**
+   * Handle Total Party Kill (TPK) - party loses combat
+   * Respawns party at dungeon entrance with gold penalty
+   * @param {Object} dungeon - The dungeon object
+   * @param {Object} room - The room where TPK occurred
+   * @param {string} reason - Reason for combat end
+   * @private
+   */
+  async _handleTotalPartyKill(dungeon, room, reason) {
+    const dungeonId = String(dungeon._id);
+    
+    // Calculate gold penalty (lose 10-25% based on difficulty)
+    const penaltyPercent = {
+      easy: 0.10,
+      medium: 0.15,
+      hard: 0.20,
+      deadly: 0.25
+    }[dungeon.difficulty] || 0.15;
+    
+    // Apply gold penalty to party
+    try {
+      const party = await this.partyService.getParty(dungeon.partyId);
+      if (party?.gold > 0) {
+        const goldLost = Math.floor(party.gold * penaltyPercent);
+        if (goldLost > 0) {
+          await this.partyService.addGold(dungeon.partyId, -goldLost);
+          this.logger?.info?.(`[DungeonService] TPK gold penalty: ${goldLost} gold lost`);
+        }
+      }
+    } catch (e) {
+      this.logger?.warn?.(`[DungeonService] Failed to apply TPK gold penalty: ${e.message}`);
+    }
+    
+    // Reset party to entrance room (room_1)
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(dungeonId) },
+      { $set: { 
+        currentRoom: 'room_1',
+        tpkCount: (dungeon.tpkCount || 0) + 1,
+        lastTpkAt: new Date(),
+        lastTpkRoom: room.id,
+        lastTpkReason: reason
+      }}
+    );
+    
+    // Emit TPK event for UI handling
+    eventBus.emit('dungeon.tpk', {
+      dungeonId,
+      roomId: room.id,
+      partyId: String(dungeon.partyId),
+      reason,
+      goldPenaltyPercent: penaltyPercent
+    });
+    
+    // Post TPK message to dungeon thread if available
+    if (dungeon.threadId && this.discordService?.client) {
+      try {
+        const thread = await this.discordService.client.channels.fetch(dungeon.threadId);
+        if (thread) {
+          await thread.send({
+            embeds: [{
+              author: { name: '🎲 The Dungeon Master' },
+              title: '💀 Total Party Kill',
+              description: `*The darkness claims your party...*\n\nYou awaken at the dungeon entrance, battered but alive. The monsters have reset, and some of your gold has been scattered in your retreat.\n\n**Gold Lost:** ${Math.round(penaltyPercent * 100)}%\n**Current Room:** Entrance`,
+              color: 0x7C3AED,
+              footer: { text: 'Dust yourself off and try again, adventurer...' }
+            }]
+          });
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[DungeonService] Failed to post TPK message: ${e.message}`);
+      }
+    }
+    
+    this.logger?.info?.(`[DungeonService] TPK handled - party reset to entrance in dungeon ${dungeonId}`);
   }
 
   async collectTreasure(dungeonId, roomId) {
