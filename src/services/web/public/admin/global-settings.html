@@ -691,6 +691,7 @@
 
   <script type="module">
     import { initTwoPartSelector, getRarityStyle } from '/js/admin/model-selector.js';
+    import { signWriteHeaders, initializeWallet } from '/js/services/wallet.js';
     
     // State
     let settings = {};
@@ -699,7 +700,20 @@
 
     // API helpers
     async function fetchWithAuth(url, options = {}) {
-      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      const method = (options.method || 'GET').toUpperCase();
+      let headers = { 'Content-Type': 'application/json', ...options.headers };
+      
+      // Add signed wallet headers for write operations
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        try {
+          const signedHeaders = await signWriteHeaders();
+          headers = { ...headers, ...signedHeaders };
+        } catch (e) {
+          console.warn('Wallet signing failed, trying without signature:', e.message);
+          // Continue without signature - let server decide if it's required
+        }
+      }
+      
       const res = await fetch(url, { ...options, headers, credentials: 'include' });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ error: res.statusText }));
@@ -1003,7 +1017,14 @@
     window.exportConfig = exportConfig;
 
     // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Initialize wallet for signed write operations
+      try {
+        await initializeWallet();
+      } catch (e) {
+        console.warn('Wallet initialization failed:', e.message);
+      }
+      
       loadSettings();
       loadGlobalSecrets();
     });
