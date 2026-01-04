@@ -239,6 +239,25 @@ export class MessageHandler  {
       return;
     }
 
+    // === HUMAN MESSAGE PROXY FEATURE ===
+    // If enabled for this guild, human messages are deleted and resent through their avatar
+    // This makes humans "speak through" their avatars rather than directly
+    try {
+      const guildConfig = await this.configService.getGuildConfig(message.guild.id);
+      const avatarProxyEnabled = guildConfig?.features?.avatarProxy === true;
+      
+      if (avatarProxyEnabled) {
+        const proxyResult = await this._proxyHumanMessageThroughAvatar(message);
+        if (proxyResult?.handled) {
+          // Message was proxied through avatar - original deleted, stop further processing
+          this.logger.debug(`[MessageHandler] Message proxied through avatar for user ${message.author.id}`);
+          return;
+        }
+      }
+    } catch (e) {
+      this.logger.warn?.(`[MessageHandler] Avatar proxy check failed: ${e.message}`);
+    }
+
     // Check for buybot commands first (!ca, !ca-remove, !ca-list)
     const content = message.content.trim();
     if (content.match(/^[!/]ca(-remove|-list)?(\s|$)/i)) {
@@ -820,6 +839,128 @@ export class MessageHandler  {
     } catch (error) {
       this.logger.error(`Error processing channel ${channelId}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Proxy a human user's message through their avatar.
+   * Deletes the original message, reinterprets it via LLM, and sends through avatar.
+   * 
+   * @param {Object} message - The Discord message object
+   * @returns {Promise<{ handled: boolean, error?: string }>}
+   */
+  async _proxyHumanMessageThroughAvatar(message) {
+    try {
+      // Skip empty messages, commands, or certain prefixes
+      const content = message.content?.trim();
+      if (!content) {
+        return { handled: false };
+      }
+
+      // Skip commands (messages starting with common command prefixes)
+      if (content.match(/^[!/🔮⚔️🏰🎲]/)) {
+        return { handled: false };
+      }
+
+      // Get the user's avatar
+      const userId = message.author.id;
+      const avatar = await this.avatarService.getAvatarByUserId(userId, message.guild?.id);
+      
+      if (!avatar) {
+        // User doesn't have an avatar - let them speak normally
+        return { handled: false };
+      }
+
+      // Check if avatar is alive
+      if (avatar.status === 'dead') {
+        return { handled: false };
+      }
+
+      // Delete the original message
+      try {
+        await message.delete();
+        this.logger.debug(`[MessageHandler] Deleted human message ${message.id} for proxy`);
+      } catch (deleteError) {
+        // Can't delete (maybe missing permissions) - fallback to normal handling
+        this.logger.warn?.(`[MessageHandler] Failed to delete message for proxy: ${deleteError.message}`);
+        return { handled: false };
+      }
+
+      // Reinterpret the message through the avatar's personality using AI
+      const reinterpretedContent = await this._reinterpretAsAvatar(content, avatar, message);
+      
+      if (!reinterpretedContent) {
+        this.logger.warn?.(`[MessageHandler] Failed to reinterpret message for avatar ${avatar.name}`);
+        return { handled: false };
+      }
+
+      // Send the reinterpreted message as the avatar via webhook
+      if (this.discordService?.sendAsWebhook) {
+        await this.discordService.sendAsWebhook(message.channel.id, reinterpretedContent, avatar);
+        this.logger.info(`[MessageHandler] Proxied message through avatar ${avatar.name}`);
+        return { handled: true };
+      }
+
+      return { handled: false };
+    } catch (error) {
+      this.logger.error(`[MessageHandler] Avatar proxy error: ${error.message}`);
+      return { handled: false, error: error.message };
+    }
+  }
+
+  /**
+   * Reinterpret a human's message through an avatar's personality using AI.
+   * 
+   * @param {string} humanMessage - The original message content
+   * @param {Object} avatar - The avatar to speak as
+   * @param {Object} _message - The Discord message for context (reserved for future use)
+   * @returns {Promise<string|null>} The reinterpreted message or null
+   */
+  async _reinterpretAsAvatar(humanMessage, avatar, _message) {
+    try {
+      // Get AI service
+      const aiService = this.toolService?.aiService;
+      if (!aiService?.chat) {
+        // Fallback: just return the original message if no AI
+        return humanMessage;
+      }
+
+      // Build the avatar's persona
+      const persona = avatar.prompt || avatar.personality || avatar.description || 'a mysterious adventurer';
+      const name = avatar.name || 'Unknown';
+      const emoji = avatar.emoji || '';
+
+      const systemPrompt = `You are ${emoji}${name}. ${persona}
+
+Your job is to reinterpret a message from your player (who controls you) and express it in your own voice and character.
+- Keep the core meaning and intent of the message
+- Add your personality, speaking style, and mannerisms
+- Stay in character at all times
+- Keep responses concise (similar length to original unless expansion is natural)
+- If the message is a simple greeting, respond with an in-character greeting
+- If it's a statement or question, rephrase it as you would naturally say it
+
+Return ONLY the reinterpreted message, nothing else.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Reinterpret this message in your voice:\n\n"${humanMessage}"` }
+      ];
+
+      const response = await aiService.chat(messages, {
+        model: avatar.model || 'google/gemini-2.0-flash-001',
+        temperature: 0.7,
+        maxTokens: 500
+      });
+
+      const result = response?.text?.trim();
+      
+      // If AI returned something, use it; otherwise fallback to original
+      return result || humanMessage;
+    } catch (error) {
+      this.logger.warn?.(`[MessageHandler] Reinterpret failed: ${error.message}`);
+      // Fallback: return original message
+      return humanMessage;
     }
   }
 }

@@ -2385,12 +2385,51 @@ The token icon's colors and motifs should be visible in the character's design.`
   /*  UNIQUE‑FOR‑USER SUMMONING                          */
   /* -------------------------------------------------- */
 
+  /**
+   * Get or create a unique avatar for a user.
+   * Handles the case where a user's previous avatar died and they need a new one.
+   * @param {string} summonerId - The summoner ID in format "user:discordId"
+   * @param {string} summonPrompt - The prompt to use when creating a new avatar
+   * @param {string} channelId - The channel ID where the avatar is being summoned
+   * @returns {Promise<{ avatar: Object|null, new: boolean, previouslyDead?: boolean }>}
+   */
   async getOrCreateUniqueAvatarForUser(summonerId, summonPrompt, channelId) {
     const db = await this._db();
+    
+    // First, check for an existing ALIVE avatar
     const existing = await db.collection(this.AVATARS_COLLECTION)
       .findOne({ summoner: summonerId, status: 'alive' });
     if (existing) return { avatar: existing, new: false };
 
+    // Check if there's a dead avatar for this user that needs to be properly disconnected
+    const deadAvatar = await db.collection(this.AVATARS_COLLECTION)
+      .findOne({ summoner: summonerId, status: 'dead' });
+    
+    if (deadAvatar) {
+      // Properly disconnect the dead avatar by clearing the summoner field
+      // This ensures the old dead avatar doesn't interfere with the new one
+      this.logger?.info?.(`[AvatarService] Disconnecting dead avatar ${deadAvatar.name} (${deadAvatar._id}) from user ${summonerId}`);
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: deadAvatar._id },
+        { 
+          $set: { 
+            previousSummoner: summonerId, // Keep a record of who owned this avatar
+            summoner: `deceased:${summonerId}`, // Mark as disconnected from the user
+            updatedAt: new Date()
+          }
+        }
+      );
+      
+      // Also delete any character sheet associated with the dead avatar
+      try {
+        await db.collection('character_sheets').deleteOne({ avatarId: deadAvatar._id });
+        this.logger?.info?.(`[AvatarService] Deleted character sheet for dead avatar ${deadAvatar._id}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to delete character sheet for dead avatar: ${e.message}`);
+      }
+    }
+
+    // Create new avatar for the user
     const stats = this.statService.generateStatsFromDate(new Date());
     const prompt = `Stats: ${JSON.stringify(stats)}\n\n${summonPrompt}`;
     const avatar = await this.createAvatar({ prompt, summoner: summonerId, channelId });
@@ -2402,7 +2441,26 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
     
     avatar.stats = stats;
-    return { avatar, new: true };
+    this.logger?.info?.(`[AvatarService] Created new avatar ${avatar.name} for user ${summonerId}${deadAvatar ? ' (replacing dead avatar)' : ''}`);
+    return { avatar, new: true, previouslyDead: !!deadAvatar };
+  }
+
+  /**
+   * Get an avatar by Discord user ID
+   * @param {string} discordUserId - Discord user ID
+   * @param {string} [guildId] - Optional guild ID for scope
+   * @returns {Promise<Object|null>} Avatar or null
+   */
+  async getAvatarByUserId(discordUserId, guildId = null) {
+    const db = await this._db();
+    const query = { 
+      summoner: `user:${discordUserId}`, 
+      status: 'alive' 
+    };
+    if (guildId) {
+      query.guildId = guildId;
+    }
+    return db.collection(this.AVATARS_COLLECTION).findOne(query);
   }
 
   async summonUserAvatar(message, customPrompt = null) {
@@ -2412,7 +2470,8 @@ The token icon's colors and motifs should be visible in the character's design.`
     const { id: userId, username } = message.author;
     const channelId = message.channel.id;
     const prompt = customPrompt || `Create an avatar that represents ${username}.`;
-    const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(userId, prompt, channelId);
+    const summoner = `user:${userId}`;
+    const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(summoner, prompt, channelId);
 
     if (!avatar) {
       this.logger?.error?.('[AvatarService] summonUserAvatar failed - avatar is null');
