@@ -2373,7 +2373,7 @@ Message: ${messageContent}`;
 
   /** Initiative embed intentionally removed */
 
-  /** Post an embed for each new turn with DM narration and action buttons */
+  /** Post an embed for each new turn with a "Take Your Turn" button that shows ephemeral combat options */
   async _announceTurn(encounter) {
     if (!this.discordService?.client) return;
     const channel = this._getChannel(encounter);
@@ -2399,117 +2399,204 @@ Message: ${messageContent}`;
       return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}${autoLabel}`;
     }).join('\n');
     
-    // Get enemies for target selection
-    const enemies = encounter.combatants.filter(c => 
-      c.isMonster && c.currentHp > 0
-    ) || [];
-    
     // Only show buttons for player-controlled avatars who are awaiting input
-    const showButtons = current.isPlayerControlled && current.awaitingAction;
+    const showTakeActionButton = current.isPlayerControlled && current.awaitingAction;
     
-    // Extract player's Discord user ID from summoner field (format: "user:123456789")
-    const discordUserId = showButtons && current.ref?.summoner 
-      ? String(current.ref.summoner).replace(/^user:/, '')
-      : null;
-    
-    // Create action buttons for player (sent via DM)
-    const rows = [];
-    if (showButtons) {
-      // Main action row
-      const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('dnd_combat_attack')
-          .setLabel('Attack')
-          .setEmoji('⚔️')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('dnd_combat_cast')
-          .setLabel('Cast Spell')
-          .setEmoji('🪄')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('dnd_combat_defend')
-          .setLabel('Defend')
-          .setEmoji('🛡️')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId('dnd_combat_flee')
-          .setLabel('Flee')
-          .setEmoji('🏃')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId('dnd_combat_auto')
-          .setLabel('Auto')
-          .setEmoji('🤖')
-          .setStyle(ButtonStyle.Success)
-      );
-      rows.push(actionRow);
-      
-      // Target selection row if enemies exist
-      if (enemies.length > 0) {
-        const targetButtons = enemies.slice(0, 5).map(enemy =>
-          new ButtonBuilder()
-            .setCustomId(`dnd_target_${this._normalizeId(enemy.avatarId)}`)
-            .setLabel(`${enemy.name} (${enemy.currentHp}HP)`)
-            .setEmoji(enemy.emoji || '👹')
-            .setStyle(ButtonStyle.Danger)
-        );
-        rows.push(new ActionRowBuilder().addComponents(targetButtons));
-      }
-    }
-    
-    // Public embed (no buttons - buttons go via DM)
     // Include monster image as thumbnail if available
     const thumbnailUrl = current.ref?.imageUrl || current.imageUrl || null;
     
     const embed = {
       author: { name: '🎲 The Dungeon Master' },
       title: `Round ${encounter.round} • ${current.name}'s Turn`,
-      description: showButtons 
-        ? `*"${current.name}, the battlefield awaits your command!"*`
+      description: showTakeActionButton 
+        ? `*"${current.name}, the battlefield awaits your command!"*\n\n**Click the button below to take your action!**`
         : `*${current.name} considers their options...*`,
       fields: [ 
         { name: '📊 Combatants', value: status.slice(0, 1024) }
       ],
       color: 0x7C3AED, // DM purple
-      footer: { text: showButtons ? `⏱️ 30s • Awaiting ${current.name}'s action...` : `⏱️ ${current.name} is acting...` },
+      footer: { text: showTakeActionButton ? `⏱️ 30s • Awaiting ${current.name}'s action...` : `⏱️ ${current.name} is acting...` },
       ...(thumbnailUrl && { thumbnail: { url: thumbnailUrl } })
     };
     
+    // Create a single "Take Your Turn" button that shows ephemeral options when clicked
+    const rows = [];
+    if (showTakeActionButton) {
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('dnd_combat_take_turn')
+          .setLabel('Take Your Turn')
+          .setEmoji('⚔️')
+          .setStyle(ButtonStyle.Primary)
+      );
+      rows.push(actionRow);
+    }
+    
     try { 
-      // Post public announcement (no buttons)
-      await channel.send({ embeds: [embed] }); 
-      
-      // Send action buttons via DM to the controlling player
-      if (showButtons && discordUserId) {
-        try {
-          const user = await this.discordService.client.users.fetch(discordUserId);
-          if (user) {
-            const dmEmbed = {
-              author: { name: '⚔️ Your Turn!' },
-              title: current.name,
-              description: `It's your turn in combat!\n\n**Channel:** <#${encounter.channelId}>\n**Round:** ${encounter.round}\n\nChoose your action below:`,
-              fields: [
-                { name: '📊 Status', value: status.slice(0, 1024) }
-              ],
-              color: 0xEF4444, // Red for urgency
-              footer: { text: '⏱️ 30 second turn timer' }
-            };
-            await user.send({ embeds: [dmEmbed], components: rows });
-            this.logger?.debug?.(`[CombatEncounter] Sent combat buttons via DM to ${user.username}`);
-          }
-        } catch (dmError) {
-          // User may have DMs disabled - fallback to posting in channel with mention
-          this.logger?.warn?.(`[CombatEncounter] DM failed, posting buttons in channel: ${dmError.message}`);
-          await channel.send({ 
-            content: `<@${discordUserId}> - Your turn!`, 
-            components: rows 
-          });
-        }
-      }
+      // Post public announcement with single "Take Your Turn" button
+      await channel.send({ embeds: [embed], components: rows }); 
+      this.logger?.debug?.(`[CombatEncounter] Posted turn announcement for ${current.name} with ephemeral action button`);
     } catch (e) { 
       this.logger.warn?.(`[CombatEncounter] send turn embed failed: ${e.message}`); 
     }
+  }
+
+  /**
+   * Handle the "Take Your Turn" button - validates turn ownership and shows ephemeral combat options
+   * @param {Object} interaction - Discord button interaction
+   * @returns {Promise<Object>} Response data for the interaction
+   */
+  async handleTakeTurnButton(interaction) {
+    const userId = interaction.user.id;
+    const channelId = interaction.channelId;
+    
+    const encounter = this.getEncounterByChannelId(channelId);
+    if (!encounter || encounter.state !== 'active') {
+      return { 
+        error: true, 
+        content: '*The sounds of battle have faded... No active combat here.*',
+        ephemeral: true 
+      };
+    }
+    
+    const currentId = this.getCurrentTurnAvatarId(encounter);
+    const current = this.getCombatant(encounter, currentId);
+    
+    if (!current) {
+      return { 
+        error: true, 
+        content: '*Something went wrong... The battlefield is in chaos.*',
+        ephemeral: true 
+      };
+    }
+    
+    // Check if this user controls the current turn's avatar
+    const expectedUserId = current.ref?.summoner 
+      ? String(current.ref.summoner).replace(/^user:/, '')
+      : null;
+    
+    if (expectedUserId !== userId) {
+      // Not this user's turn - show ephemeral "not your turn" message
+      return {
+        error: true,
+        embed: {
+          author: { name: '🎲 The Dungeon Master' },
+          description: `*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${current.name}\n\n*Wait for your moment in the initiative order.*`,
+          color: 0x95A5A6, // Gray
+          footer: { text: 'Patience is a virtue in combat...' }
+        },
+        ephemeral: true
+      };
+    }
+    
+    // It IS this user's turn - show ephemeral combat options
+    const status = encounter.combatants.map(c => {
+      const indicator = this._normalizeId(c.avatarId) === this._normalizeId(currentId) ? '➡️' : ' ';
+      const defending = c.isDefending ? ' 🛡️' : '';
+      const emoji = c.isMonster ? '👹' : (c.isPlayerControlled ? '🧙' : '⚔️');
+      return `${indicator} ${emoji} ${c.name}: ${c.currentHp}/${c.maxHp} HP${defending}`;
+    }).join('\n');
+    
+    // Get enemies for target selection
+    const enemies = encounter.combatants.filter(c => 
+      c.isMonster && c.currentHp > 0
+    ) || [];
+    
+    // Build action buttons
+    const rows = [];
+    
+    // Main action row
+    const actionRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('dnd_combat_attack')
+        .setLabel('Attack')
+        .setEmoji('⚔️')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('dnd_combat_cast')
+        .setLabel('Cast Spell')
+        .setEmoji('🪄')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('dnd_combat_defend')
+        .setLabel('Defend')
+        .setEmoji('🛡️')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('dnd_combat_flee')
+        .setLabel('Flee')
+        .setEmoji('🏃')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('dnd_combat_auto')
+        .setLabel('Auto')
+        .setEmoji('🤖')
+        .setStyle(ButtonStyle.Success)
+    );
+    rows.push(actionRow);
+    
+    // Target selection row if enemies exist
+    if (enemies.length > 0) {
+      const targetButtons = enemies.slice(0, 5).map(enemy =>
+        new ButtonBuilder()
+          .setCustomId(`dnd_target_${this._normalizeId(enemy.avatarId)}`)
+          .setLabel(`${enemy.name} (${enemy.currentHp}HP)`)
+          .setEmoji(enemy.emoji || '👹')
+          .setStyle(ButtonStyle.Danger)
+      );
+      rows.push(new ActionRowBuilder().addComponents(targetButtons));
+    }
+    
+    return {
+      error: false,
+      embed: {
+        author: { name: '⚔️ Your Turn!' },
+        title: current.name,
+        description: `**Choose your action, brave adventurer!**\n\n*The battlefield awaits your command...*`,
+        fields: [
+          { name: '📊 Combat Status', value: status.slice(0, 1024) }
+        ],
+        color: 0xEF4444, // Red for urgency
+        footer: { text: '⏱️ 30 second turn timer' }
+      },
+      components: rows,
+      ephemeral: true
+    };
+  }
+
+  /**
+   * Validate if a user can take a combat action (it's their turn)
+   * @param {string} channelId - Channel ID
+   * @param {string} discordUserId - Discord user ID
+   * @returns {{ valid: boolean, error?: string, encounter?: Object, combatant?: Object }}
+   */
+  validateUserCombatAction(channelId, discordUserId) {
+    const encounter = this.getEncounterByChannelId(channelId);
+    if (!encounter || encounter.state !== 'active') {
+      return { valid: false, error: 'No active combat in this channel.' };
+    }
+    
+    const currentId = this.getCurrentTurnAvatarId(encounter);
+    const current = this.getCombatant(encounter, currentId);
+    
+    if (!current) {
+      return { valid: false, error: 'Combat state error.' };
+    }
+    
+    // Check if this user controls the current turn's avatar
+    const expectedUserId = current.ref?.summoner 
+      ? String(current.ref.summoner).replace(/^user:/, '')
+      : null;
+    
+    if (!expectedUserId || expectedUserId !== discordUserId) {
+      return { 
+        valid: false, 
+        error: `It's not your turn! Current turn: ${current.name}`,
+        currentTurnName: current.name
+      };
+    }
+    
+    return { valid: true, encounter, combatant: current };
   }
 
   /** Generate a short in-character commentary line between actions */

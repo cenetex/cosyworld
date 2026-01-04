@@ -1227,6 +1227,48 @@ export class DiscordService {
       }
 
       // Parse button ID to determine tool and action
+      // Handle "Take Your Turn" button - shows ephemeral combat options or "not your turn"
+      if (customId === 'dnd_combat_take_turn') {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (!combatService) {
+          await interaction.reply({ content: '⚠️ Combat service not available.', flags: 64 });
+          return;
+        }
+        
+        const result = await combatService.handleTakeTurnButton(interaction);
+        
+        if (result.error && result.content) {
+          await interaction.reply({ content: result.content, flags: 64 });
+        } else if (result.error && result.embed) {
+          await interaction.reply({ embeds: [result.embed], flags: 64 });
+        } else {
+          await interaction.reply({ 
+            embeds: [result.embed], 
+            components: result.components || [],
+            flags: 64 
+          });
+        }
+        return;
+      }
+
+      // Handle combat action buttons - validate it's the user's turn first
+      const combatActionButtons = ['dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast'];
+      if (combatActionButtons.includes(customId) || customId.startsWith('dnd_target_')) {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (combatService) {
+          const validation = combatService.validateUserCombatAction(interaction.channelId, userId);
+          if (!validation.valid) {
+            const notYourTurnEmbed = new EmbedBuilder()
+              .setAuthor({ name: '🎲 The Dungeon Master' })
+              .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*Wait for your moment in the initiative order.*`)
+              .setColor(0x95A5A6) // Gray
+              .setFooter({ text: 'Patience is a virtue in combat...' });
+            await interaction.reply({ embeds: [notYourTurnEmbed], flags: 64 });
+            return;
+          }
+        }
+      }
+
       const { toolName, params } = this._parseDndButtonId(customId);
       
       if (!toolName) {
@@ -1245,6 +1287,18 @@ export class DiscordService {
         const combatService = toolService.getCombatService?.() || this.getCombatService?.();
         if (!combatService) {
           await interaction.reply({ content: '⚠️ Combat service not available.', flags: 64 });
+          return;
+        }
+        
+        // Validate it's the user's turn for auto mode too
+        const validation = combatService.validateUserCombatAction(interaction.channelId, userId);
+        if (!validation.valid) {
+          const notYourTurnEmbed = new EmbedBuilder()
+            .setAuthor({ name: '🎲 The Dungeon Master' })
+            .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*You can only enable auto-mode on your turn.*`)
+            .setColor(0x95A5A6)
+            .setFooter({ text: 'Wait for your turn to enable auto-pilot...' });
+          await interaction.reply({ embeds: [notYourTurnEmbed], flags: 64 });
           return;
         }
         
@@ -1278,6 +1332,7 @@ export class DiscordService {
         if (combatService._normalizeId(currentId) === combatService._normalizeId(combatant.avatarId)) {
           combatService._executeTurn(encounter, combatant).catch(e => {
             this.logger?.error?.(`[DiscordService] Auto turn execution failed: ${e.message}`);
+
           });
         }
         return;
