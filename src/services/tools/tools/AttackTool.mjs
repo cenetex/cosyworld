@@ -219,18 +219,28 @@ export class AttackTool extends BasicTool {
             try { resolveBlocker?.(); } catch {}
             
             // Notify combat service that player action is complete
+            // V4: Pass full result and target info for DM narration embed
             try {
               if (encounterService.completePlayerAction) {
                 await encounterService.completePlayerAction(message.channel.id, attackerId, {
+                  actionType: 'attack',
                   damage: result?.damage,
-                  targetId: target.avatarId || target._id
+                  targetId: target.avatarId || target._id,
+                  target: target,
+                  attacker: avatar,
+                  result: result,
+                  attackRoll: result?.attackRoll,
+                  armorClass: result?.armorClass,
+                  critical: result?.critical
                 });
               }
             } catch (e) {
               this.logger?.warn?.(`[AttackTool] completePlayerAction failed: ${e.message}`);
             }
             
-            return result.message;
+            // V4: Return null since the DM narration embed is now posted by combatMessagingService
+            // This prevents duplicate messaging (ephemeral + embed)
+            return null;
           } else {
             // Target not found in combat - show valid targets to help player
             const validTargets = combatTargetRegistry.getValidTargets(message.channel.id, avatar._id);
@@ -482,19 +492,28 @@ export class AttackTool extends BasicTool {
       try { resolveBlocker && resolveBlocker(); } catch {}
       
       // Notify combat service that player action is complete (advances turn for player-controlled avatars)
+      // V4: Pass full result and target info for DM narration embed
       try {
         const ces = services?.combatEncounterService;
         if (ces?.completePlayerAction) {
           await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id, {
+            actionType: 'attack',
             damage: result?.damage,
-            targetId: defender?._id || defender?.id
+            targetId: defender?._id || defender?.id,
+            target: defender,
+            attacker: avatar,
+            result: result,
+            attackRoll: result?.attackRoll,
+            armorClass: result?.armorClass,
+            critical: result?.critical
           });
         }
       } catch (e) {
         this.logger?.warn?.(`[AttackTool] completePlayerAction failed: ${e.message}`);
       }
       
-      return result.message;
+      // V4: Return null since DM narration embed is now posted by combatMessagingService
+      return null;
     } catch (error) {
       this.logger.error(`Attack error: ${error.message}`);
       return `-# [ ❌ Error: Attack failed. Please try again later. ]`;
