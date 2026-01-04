@@ -1095,13 +1095,23 @@ export class DiscordService {
   async _getAvatarForInteraction(interaction) {
     try {
       const avatarService = this.container?.resolve?.('avatarService');
-      if (!avatarService) return null;
+      if (!avatarService) {
+        this.logger?.warn?.('[DiscordService] Avatar service not available');
+        return null;
+      }
       
       const userId = interaction.user?.id;
       const guildId = interaction.guild?.id;
-      if (!userId) return null;
+      if (!userId) {
+        this.logger?.warn?.('[DiscordService] No user ID in interaction');
+        return null;
+      }
       
-      return await avatarService.getAvatarByUserId(userId, guildId);
+      const avatar = await avatarService.getAvatarByUserId(userId, guildId);
+      if (!avatar) {
+        this.logger?.debug?.(`[DiscordService] No avatar found for user ${userId} in guild ${guildId}`);
+      }
+      return avatar;
     } catch (e) {
       this.logger?.warn?.(`[DiscordService] Failed to get avatar for interaction: ${e.message}`);
       return null;
@@ -1229,17 +1239,8 @@ export class DiscordService {
         return;
       }
 
-      // Get user's avatar by querying for summoner field
-      const db = await this.databaseService.getDatabase();
-      // Query for alive avatars, but also accept avatars without explicit status (default to alive)
-      const avatar = await db.collection('avatars').findOne({ 
-        summoner: `user:${userId}`, 
-        $or: [
-          { status: 'alive' },
-          { status: { $exists: false } },
-          { status: null }
-        ]
-      });
+      // Get user's avatar using the centralized lookup
+      const avatar = await this._getAvatarForInteraction(interaction);
       
       if (!avatar) {
         // Show helpful embed with summon button instead of error

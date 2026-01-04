@@ -1260,15 +1260,21 @@ export class DungeonTool extends BasicTool {
     
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'treasure_collected');
 
+    // Format items properly - items are objects with { id, name, count, emoji, rarity }
     const itemList = result.items.length > 0 
-      ? result.items.join(', ') 
+      ? result.items.map(item => {
+          const emoji = item.emoji || '📦';
+          const name = item.name || item.id || 'Unknown Item';
+          const count = item.count > 1 ? ` x${item.count}` : '';
+          return `${emoji} ${name}${count}`;
+        }).join('\n') 
       : 'nothing but dust';
 
     return {
       embeds: [{
         author: { name: '🎲 The Dungeon Master' },
         title: '💰 Treasure Claimed!',
-        description: `*${avatar.name} searches the room and discovers...*\n\n🪙 **${result.gold} gold pieces**\n📦 **${itemList}**`,
+        description: `*${avatar.name} searches the room and discovers...*\n\n🪙 **${result.gold} gold pieces**\n\n${itemList}`,
         color: 0xF59E0B
       }],
       components: this._createNavigationButtons(
