@@ -2,6 +2,7 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.mjs';
 import { isModelRosterAvatar } from './helpers/isModelRosterAvatar.mjs';
 import { isCollectionAvatar, isOnChainAvatar } from './helpers/walletAvatarClassifiers.mjs';
+import { getAvatarModeFlags } from './helpers/avatarModeFlags.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -269,14 +270,7 @@ export class AvatarService {
       return [];
     }
 
-    const modes = guildConfig?.avatarModes || {};
-    
-    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
-    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
-    const allowFree = modes.free !== false;
-    const allowPureModel = modes.pureModel !== false;
+    const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildConfig?.avatarModes);
 
     // If all modes enabled, no filtering needed
     if (allowFree && allowOnChain && allowCollection && allowPureModel) {
@@ -2667,11 +2661,9 @@ The token icon's colors and motifs should be visible in the character's design.`
       try {
         const guildConfig = await this.configService.getGuildConfig(guildIdForWallet);
         const guildAvatarModes = guildConfig?.avatarModes || {};
-        
-        // Backwards compatibility: if old 'wallet' setting exists, use it; otherwise check new split modes
-        const hasLegacyWallet = guildAvatarModes.wallet !== undefined;
-        const onChainDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.onChain === false;
-        const collectionDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.collection === false;
+        const { allowOnChain, allowCollection } = getAvatarModeFlags(guildAvatarModes);
+        const onChainDisabled = !allowOnChain;
+        const collectionDisabled = !allowCollection;
         
         // Block only if both on-chain and collection modes are disabled
         if (onChainDisabled && collectionDisabled) {

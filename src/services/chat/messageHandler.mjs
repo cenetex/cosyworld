@@ -2,6 +2,7 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
 import { isCollectionAvatar, isOnChainAvatar } from '../avatar/helpers/walletAvatarClassifiers.mjs';
 import { extractMessageLinks, fetchMessageContext, buildContextSummary } from '../discord/messageLinksHelper.mjs';
+import { getAvatarModeFlags, isPureModelOnlyAvatarModes } from '../avatar/helpers/avatarModeFlags.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -76,16 +77,7 @@ export class MessageHandler  {
   }
 
   _isPureModelOnlyGuild(guildConfig) {
-    const modes = guildConfig?.avatarModes || {};
-    const allowModelSummons = modes.pureModel !== false;
-    
-    // Backwards compat: if legacy 'wallet' exists, use it instead of split modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    if (hasLegacyWallet) {
-      return Boolean(allowModelSummons && modes.free === false && modes.wallet === false);
-    }
-    
-    return Boolean(allowModelSummons && modes.free === false && modes.onChain === false && modes.collection === false);
+    return isPureModelOnlyAvatarModes(guildConfig?.avatarModes);
   }
 
   _filterAvatarsByGuildModes(avatars = [], guildConfig = null) {
@@ -93,14 +85,7 @@ export class MessageHandler  {
       return [];
     }
 
-    const modes = guildConfig?.avatarModes || {};
-    
-    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
-    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
-    const allowFree = modes.free !== false;
-    const allowPureModel = modes.pureModel !== false;
+    const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildConfig?.avatarModes);
 
     // If all modes enabled, no filtering needed
     if (allowFree && allowOnChain && allowCollection && allowPureModel) {

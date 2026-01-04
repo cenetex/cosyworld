@@ -8,6 +8,7 @@ import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQu
 import { aiModelService } from '../../ai/aiModelService.mjs';
 import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
 import { isModelRosterAvatar } from '../../avatar/helpers/isModelRosterAvatar.mjs';
+import { getAvatarModeFlags, isPureModelOnlyAvatarModes } from '../../avatar/helpers/avatarModeFlags.mjs';
 
 const levenshteinDistance = (a = '', b = '') => {
   const s = a.toLowerCase();
@@ -1090,15 +1091,12 @@ export class SummonTool extends BasicTool {
       
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
       const guildAvatarModes = guildConfig?.avatarModes || {};
-      
-      // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
-      const hasLegacyWallet = guildAvatarModes.wallet !== undefined;
-      const onChainDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.onChain === false;
-      const collectionDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.collection === false;
-      
-      const freeSummonsDisabled = Boolean(guildId) && guildAvatarModes.free === false;
-      const allowModelSummons = guildAvatarModes.pureModel !== false;
-      const pureModelOnly = allowModelSummons && guildAvatarModes.free === false && onChainDisabled && collectionDisabled;
+      const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildAvatarModes);
+      const onChainDisabled = !allowOnChain;
+      const collectionDisabled = !allowCollection;
+      const freeSummonsDisabled = Boolean(guildId) && !allowFree;
+      const allowModelSummons = allowPureModel;
+      const pureModelOnly = isPureModelOnlyAvatarModes(guildAvatarModes);
 
       // Always check for existing avatar by name FIRST, before trying to resolve to a catalog model
       let existingAvatar = null;
@@ -1227,7 +1225,7 @@ export class SummonTool extends BasicTool {
         return { message: '-# [ Summon disabled: server configuration blocks free-form avatars. ]', notify: false };
       }
 
-      if (!freeSummonsDisabled && (pureModelOnly || guildAvatarModes.free === false)) {
+      if (!freeSummonsDisabled && (pureModelOnly || !allowFree)) {
         let fallbackModel = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
         if (!fallbackModel && avatarName) {
           const catalogModelId = resolveCatalogModelId(avatarName);
