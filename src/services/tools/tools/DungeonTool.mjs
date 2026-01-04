@@ -1240,9 +1240,6 @@ export class DungeonTool extends BasicTool {
             title: '⚔️ COMBAT BEGINS!',
             description: `*Steel clashes against steel as battle erupts!*\n\n**Enemies:**\n${monsterList}\n\n*Initiative has been rolled. The battle is managed by the combat system.*`,
             color: 0xEF4444,
-            fields: [
-              { name: '💡 Combat Controls', value: 'Use `🗡️ attack` or `🪄 cast` to act on your turn', inline: false }
-            ],
             footer: { text: 'May fortune favor the bold!' }
           }]
         };
