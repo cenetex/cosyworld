@@ -776,6 +776,29 @@ function createRouter(db, services) {
 
       await saveUserConfig(config);
 
+      // Also sync to MongoDB global_settings for configService to pick up
+      try {
+        const updateDoc = {};
+        if (features) updateDoc['config.features'] = features;
+        if (rateLimit) updateDoc['config.rateLimit'] = rateLimit;
+        if (prompts) updateDoc['config.prompts'] = prompts;
+        if (adminRoles) updateDoc['config.adminRoles'] = adminRoles;
+        updateDoc.updatedAt = new Date();
+        
+        await db.collection('global_settings').updateOne(
+          { _id: 'guild_defaults' },
+          { $set: updateDoc },
+          { upsert: true }
+        );
+        
+        // Clear configService cache so changes take effect immediately
+        services?.configService?.clearGlobalDefaultsCache?.();
+        services?.configService?.clearCache?.();
+      } catch (dbError) {
+        console.warn('[admin/settings] Failed to sync to MongoDB:', dbError.message);
+        // Continue anyway - file save succeeded
+      }
+
       res.json({
         success: true,
         message: 'Settings saved successfully'

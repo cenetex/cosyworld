@@ -96,13 +96,13 @@ export default function(db, routeServices = {}) {
    * PUT /api/admin/bots/:botId
    * Update a bot's configuration
    */
-  router.put('/:botId', asyncHandler(async (req, res) => {
+  router.put('/:botId', express.json(), asyncHandler(async (req, res) => {
     if (!botService) {
       return res.status(503).json({ error: 'Bot service not available' });
     }
 
     const { botId } = req.params;
-    const updates = req.body;
+    const updates = req.body || {};
 
     // Prevent updating immutable fields
     delete updates._id;
