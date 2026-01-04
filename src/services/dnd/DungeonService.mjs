@@ -323,6 +323,46 @@ export class DungeonService {
     return col.findOne({ _id: new ObjectId(dungeonId) });
   }
 
+  /**
+   * Repair a dungeon by repopulating missing encounters
+   * Used when combat rooms have no monsters due to MonsterService failures
+   * @param {ObjectId} dungeonId - Dungeon ID
+   * @returns {Promise<Object>} Updated dungeon
+   */
+  async repairDungeonEncounters(dungeonId) {
+    const col = await this.collection();
+    const dungeon = await col.findOne({ _id: new ObjectId(dungeonId) });
+    if (!dungeon) return null;
+
+    let modified = false;
+    for (const room of dungeon.rooms) {
+      // Check if room should have an encounter but doesn't
+      const needsEncounter = ['combat', 'boss'].includes(room.type);
+      const hasNoMonsters = !room.encounter?.monsters?.length;
+      const notCleared = !room.cleared;
+
+      if (needsEncounter && hasNoMonsters && notCleared) {
+        this.logger?.info?.(`[DungeonService] Repairing empty encounter in room ${room.id} (${room.type})`);
+        room.encounter = await this._generateEncounter(
+          room.type === 'boss' ? 'boss' : 'regular',
+          dungeon.partyLevel,
+          dungeon.theme
+        );
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      await col.updateOne(
+        { _id: new ObjectId(dungeonId) },
+        { $set: { rooms: dungeon.rooms } }
+      );
+      this.logger?.info?.(`[DungeonService] Repaired encounters for dungeon ${dungeonId}`);
+    }
+
+    return col.findOne({ _id: new ObjectId(dungeonId) });
+  }
+
   async getActiveDungeon(partyId) {
     const col = await this.collection();
     return col.findOne({ partyId: new ObjectId(partyId), status: 'active' });
@@ -672,6 +712,12 @@ export class DungeonService {
 
       remaining -= minion.xp;
       minionCount++;
+    }
+
+    // If MonsterService returned no monsters, fall back to static selection
+    if (monsters.length === 0) {
+      this.logger?.warn?.(`[DungeonService] MonsterService returned no monsters for ${theme}, falling back to static`);
+      return this._selectMonstersStatic(budget, partyLevel, isBoss);
     }
 
     return monsters;

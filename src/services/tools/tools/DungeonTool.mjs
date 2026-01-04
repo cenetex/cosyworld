@@ -1206,7 +1206,22 @@ export class DungeonTool extends BasicTool {
       };
     }
 
-    const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+    let room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+    
+    // Check if room needs encounter repair (combat room with no monsters)
+    const needsEncounter = ['combat', 'boss'].includes(room?.type);
+    const hasNoMonsters = !room?.encounter?.monsters?.length;
+    
+    if (needsEncounter && hasNoMonsters && !room?.cleared) {
+      // Auto-repair: regenerate the missing encounter
+      this.logger?.info?.(`[DungeonTool] Repairing empty encounter in ${room.type} room`);
+      const repairedDungeon = await this.dungeonService.repairDungeonEncounters(dungeon._id);
+      if (repairedDungeon) {
+        dungeon = repairedDungeon;
+        room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+      }
+    }
+    
     if (!room?.encounter?.monsters?.length || room.cleared) {
       return {
         embeds: [{

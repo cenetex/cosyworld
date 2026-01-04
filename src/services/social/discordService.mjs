@@ -1411,6 +1411,13 @@ export class DiscordService {
         return;
       }
 
+      // If result is null/undefined, the tool posted directly to the channel (e.g., combat action)
+      // Delete the ephemeral reply to avoid duplicates
+      if (result === null || result === undefined) {
+        await interaction.deleteReply().catch(() => {});
+        return;
+      }
+
       // Format and send the response
       if (result?.embeds) {
         await interaction.editReply({
