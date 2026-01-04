@@ -139,7 +139,7 @@ export class CombatMessagingService {
     if (!channel) return;
 
     try {
-      let actionMessage = '';
+      let actionEmbed = null;
 
       if (action.type === 'attack' && action.target) {
         const isHit = result?.result === 'hit' || result?.result === 'knockout' || result?.result === 'dead';
@@ -150,43 +150,39 @@ export class CombatMessagingService {
         const maxHp = result?.maxHp ?? action.target.maxHp ?? '?';
 
         if (isCritical) {
-          actionMessage = MESSAGE_TEMPLATES.attackCritical(
-            combatant.name, 
-            action.target.name, 
-            result.damage,
-            currentHp,
-            maxHp
-          );
+          actionEmbed = {
+            description: `💥 **CRITICAL HIT!** ${combatant.name} devastates ${action.target.name} for **${result.damage}** damage!`,
+            color: 0xFF0000,
+            footer: { text: `${action.target.name}: ${currentHp}/${maxHp} HP` }
+          };
         } else if (isHit) {
-          actionMessage = MESSAGE_TEMPLATES.attackHit(
-            combatant.name,
-            action.target.name,
-            result.damage || 0,
-            result.attackRoll ?? '?',
-            result.armorClass ?? '?',
-            currentHp,
-            maxHp
-          );
+          actionEmbed = {
+            description: `⚔️ **${combatant.name}** hits **${action.target.name}** for **${result.damage || 0}** damage! *(${result.attackRoll ?? '?'} vs AC ${result.armorClass ?? '?'})*`,
+            color: EMBED_COLORS.attack,
+            footer: { text: `${action.target.name}: ${currentHp}/${maxHp} HP` }
+          };
         } else {
-          actionMessage = MESSAGE_TEMPLATES.attackMiss(
-            combatant.name,
-            action.target.name,
-            result.attackRoll ?? '?',
-            result.armorClass ?? '?'
-          );
+          actionEmbed = {
+            description: `🛡️ **${combatant.name}**'s attack misses **${action.target.name}**! *(${result.attackRoll ?? '?'} vs AC ${result.armorClass ?? '?'})*`,
+            color: 0x95A5A6,
+            footer: { text: 'The attack fails to connect' }
+          };
         }
       } else if (action.type === 'defend') {
-        actionMessage = MESSAGE_TEMPLATES.defend(combatant.name);
+        actionEmbed = {
+          description: `🛡️ **${combatant.name}** takes a defensive stance! *AC +2 until next turn*`,
+          color: EMBED_COLORS.defend,
+          footer: { text: 'Bracing for impact...' }
+        };
       }
 
-      // Post action message (mechanical result)
-      if (actionMessage) {
-        await channel.send({ content: actionMessage });
-      }
-      
-      // Post DM narration (third-person cinematic description)
-      if (dmNarration) {
-        await channel.send({ content: `*${dmNarration}*` });
+      // Post action as mini embed (mechanical result)
+      if (actionEmbed) {
+        // Add DM narration to the embed if available
+        if (dmNarration) {
+          actionEmbed.description += `\n\n*${dmNarration.replace(/^\*|\*$/g, '')}*`;
+        }
+        await channel.send({ embeds: [actionEmbed] });
       }
 
       // Post dialogue as webhook (character's one-liner)
