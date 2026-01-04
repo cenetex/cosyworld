@@ -828,15 +828,16 @@ export class DungeonService {
     }
 
     // Rooms that block advancement until cleared/solved
-    const requiresClearing = ['combat', 'boss', 'puzzle'].includes(currentRoom.type);
+    const requiresClearing = ['combat', 'boss'].includes(currentRoom.type);
     const hasUnsolvedPuzzle = currentRoom.puzzle && !currentRoom.puzzle.solved;
     
     if (dungeon.currentRoom !== roomId && !currentRoom.cleared) {
-      if (requiresClearing) {
-        throw new Error('Must clear current room before advancing');
-      }
+      // Check puzzle first - puzzle rooms may not be combat/boss type but still block
       if (hasUnsolvedPuzzle) {
         throw new Error('Must solve the puzzle before advancing');
+      }
+      if (requiresClearing) {
+        throw new Error('Must clear current room before advancing');
       }
     }
 

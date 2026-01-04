@@ -1548,8 +1548,13 @@ export class DungeonTool extends BasicTool {
             { name: '🧩 The Riddle', value: `"${puzzle.riddle}"`, inline: false },
             { name: '⏳ Attempts Remaining', value: `${puzzle.attemptsLeft}`, inline: true }
           ],
-          footer: { text: 'Reply with your answer in this thread!' }
-        }]
+          footer: { text: 'Click Answer Riddle below to submit your answer' }
+        }],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('dnd_puzzle_answer').setLabel('Answer Riddle').setEmoji('🧩').setStyle(ButtonStyle.Success)
+          )
+        ]
       };
     }
 
@@ -1575,8 +1580,13 @@ export class DungeonTool extends BasicTool {
           fields: [
             { name: '⏳ Attempts Remaining', value: `${puzzle.attemptsLeft}`, inline: true }
           ],
-          footer: { text: 'Reply with your answer in this thread!' }
-        }]
+          footer: { text: 'Click Answer Riddle below to submit your answer' }
+        }],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('dnd_puzzle_answer').setLabel('Answer Riddle').setEmoji('🧩').setStyle(ButtonStyle.Success)
+          )
+        ]
       };
     }
 
@@ -1851,8 +1861,10 @@ export class DungeonTool extends BasicTool {
       );
     }
     
+    // Puzzle rooms: add Answer Riddle button (opens modal) and Hint button
     if (room.puzzle && !room.puzzle.solved) {
       buttons.push(
+        new ButtonBuilder().setCustomId('dnd_puzzle_answer').setLabel('Answer Riddle').setEmoji('🧩').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('dnd_puzzle_hint').setLabel('Hint').setEmoji('💡').setStyle(ButtonStyle.Primary)
       );
     }
