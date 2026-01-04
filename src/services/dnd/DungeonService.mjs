@@ -11,7 +11,7 @@ import eventBus from '../../utils/eventBus.mjs';
 
 // Legacy imports for fallback compatibility
 import { getMonstersByCR, calculateEncounterXP } from '../../data/dnd/monsters.mjs';
-import { rollTreasure } from '../../data/dnd/items.mjs';
+import { rollTreasure, getItem as getDndItem } from '../../data/dnd/items.mjs';
 
 /**
  * RoomImageCache - Caches room images to avoid regenerating for same room types
@@ -241,7 +241,7 @@ const ENTRANCE_PUZZLES = {
 export { roomImageCache };
 
 export class DungeonService {
-  constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, locationService, logger }) {
+  constructor({ databaseService, partyService, characterService, monsterService, combatEncounterService, discordService, locationService, itemService, logger }) {
     this.databaseService = databaseService;
     this.partyService = partyService;
     this.characterService = characterService;
@@ -249,6 +249,7 @@ export class DungeonService {
     this.combatEncounterService = combatEncounterService;
     this.discordService = discordService;
     this.locationService = locationService;
+    this.itemService = itemService;
     this.diceService = new DiceService();
     this.logger = logger;
     this._collection = null;
@@ -1025,8 +1026,8 @@ export class DungeonService {
     // Apply gold penalty to party
     try {
       const party = await this.partyService.getParty(dungeon.partyId);
-      if (party?.gold > 0) {
-        const goldLost = Math.floor(party.gold * penaltyPercent);
+      if (party?.sharedGold > 0) {
+        const goldLost = Math.floor(party.sharedGold * penaltyPercent);
         if (goldLost > 0) {
           await this.partyService.addGold(dungeon.partyId, -goldLost);
           this.logger?.info?.(`[DungeonService] TPK gold penalty: ${goldLost} gold lost`);
@@ -1097,6 +1098,8 @@ export class DungeonService {
     }
 
     const gold = room.encounter.gold;
+    const items = room.encounter.items || [];
+    const storedItemIds = [];
 
     const col = await this.collection();
     await col.updateOne(
@@ -1111,7 +1114,31 @@ export class DungeonService {
 
     await this.partyService.addGold(dungeon.partyId, gold);
 
-    return { gold, items: room.encounter.items };
+    if (items.length > 0 && this.itemService?.createDndItemFromDefinition) {
+      for (const item of items) {
+        const count = Math.max(1, Number(item.count || 1));
+        const definition = getDndItem(item.id);
+        if (!definition) continue;
+
+        for (let i = 0; i < count; i++) {
+          try {
+            const created = await this.itemService.createDndItemFromDefinition(item.id, definition, {
+              source: 'dungeon.loot',
+              rarity: item.rarity,
+              emoji: item.emoji
+            });
+            if (created?._id) {
+              storedItemIds.push(created._id);
+              await this.partyService.addToInventory(dungeon.partyId, created._id);
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonService] Failed to persist loot item ${item.id}: ${e.message}`);
+          }
+        }
+      }
+    }
+
+    return { gold, items, storedItemIds };
   }
 
   async completeDungeon(dungeonId) {
@@ -1224,6 +1251,7 @@ export class DungeonService {
     const correctAnswer = puzzleRoom.puzzle.answer.toLowerCase().trim();
 
     if (normalizedAnswer === correctAnswer || normalizedAnswer.includes(correctAnswer)) {
+      const xpAwarded = 50;
       // Puzzle solved! Mark room as cleared so player can advance
       const col = await this.collection();
       await col.updateOne(
@@ -1237,13 +1265,21 @@ export class DungeonService {
         }
       );
 
+      if (xpAwarded > 0 && this.partyService?.distributeXP) {
+        try {
+          await this.partyService.distributeXP(dungeon.partyId, xpAwarded);
+        } catch (e) {
+          this.logger?.warn?.(`[DungeonService] Failed to award puzzle XP: ${e.message}`);
+        }
+      }
+
       this.logger?.info?.(`[DungeonService] Puzzle solved for dungeon ${dungeonId}, room ${puzzleRoom.id}`);
       return { 
         success: true, 
         message: puzzleRoom.type === 'entrance' 
           ? '✅ Correct! The ancient doors groan open, revealing the path ahead...'
           : '✅ Correct! The puzzle mechanism clicks into place, and the way forward is clear!',
-        xpAwarded: 50
+        xpAwarded
       };
     }
 

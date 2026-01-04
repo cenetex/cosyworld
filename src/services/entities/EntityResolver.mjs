@@ -196,12 +196,14 @@ export class EntityResolver {
     if (!this.dungeonService) return null;
 
     try {
-      const dungeonState = await this.dungeonService.getDungeonByChannelId?.(channelId);
-      if (!dungeonState?.currentRoom?.monsters) return null;
+      const dungeonState = await this.dungeonService.getActiveDungeonByChannel?.(channelId);
+      const room = dungeonState?.rooms?.find(r => r.id === dungeonState?.currentRoom);
+      const monsters = room?.encounter?.monsters || room?.monsters;
+      if (!monsters?.length) return null;
 
       const searchLower = (name || '').toLowerCase().trim();
       
-      return dungeonState.currentRoom.monsters.find(m => {
+      return monsters.find(m => {
         if (excludeIds.includes(String(m.id || m._id))) return false;
         const mName = (m.name || '').toLowerCase();
         return mName === searchLower || mName.includes(searchLower) || searchLower.includes(mName);
