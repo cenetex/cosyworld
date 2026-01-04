@@ -41,6 +41,10 @@ const createMockDeps = () => {
         name: 'TestAvatar',
       }),
     },
+    itemService: {
+      assignItemToAvatar: vi.fn().mockResolvedValue(true),
+      getItem: vi.fn()
+    },
     logger: {
       info: vi.fn(),
       warn: vi.fn(),

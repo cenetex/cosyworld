@@ -1464,14 +1464,100 @@ One-liner (no quotes):`;
   }
 
   /**
+   * Post DM narration embed for a player action (same format as AI turns)
+   * This provides consistent narrative presentation for both player and AI actions.
+   * 
+   * @param {Object} encounter - The active combat encounter
+   * @param {Object} combatant - The player combatant who acted
+   * @param {Object} actionResult - Result from the action containing:
+   *   - actionType: 'attack' | 'defend'
+   *   - result: Full battle result object
+   *   - target: Target combatant
+   *   - attacker: Attacker avatar reference
+   */
+  async _postPlayerActionNarration(encounter, combatant, actionResult = {}) {
+    // Skip if no messaging service or missing action info
+    if (!this.combatMessagingService) return;
+    if (!actionResult.actionType) return;
+    
+    try {
+      // Build action object in same format as AI turns
+      const action = {
+        type: actionResult.actionType,
+        target: actionResult.target || null
+      };
+      
+      // Get the result object (from battleService)
+      const result = actionResult.result || {
+        result: actionResult.damage ? 'hit' : 'miss',
+        damage: actionResult.damage || 0,
+        currentHp: actionResult.target?.currentHp,
+        maxHp: actionResult.target?.maxHp,
+        attackRoll: actionResult.attackRoll,
+        armorClass: actionResult.armorClass,
+        critical: actionResult.critical
+      };
+      
+      // Enrich result with target HP for proper display
+      if (actionResult.target) {
+        const targetCombatant = this.getCombatant(encounter, actionResult.targetId || actionResult.target._id);
+        if (targetCombatant) {
+          result.currentHp = targetCombatant.currentHp;
+          result.maxHp = targetCombatant.maxHp;
+        }
+      }
+      
+      // Generate DM narration (third-person cinematic description)
+      let dmNarration = null;
+      if (this.dmNarratorService && action.type === 'attack' && action.target && result) {
+        try {
+          dmNarration = await this.dmNarratorService.narrateAction({
+            action,
+            attacker: combatant.ref || actionResult.attacker,
+            defender: action.target.ref || action.target,
+            result,
+            encounter
+          });
+        } catch (e) {
+          this.logger?.debug?.(`[CombatEncounter] Player action DM narration failed: ${e.message}`);
+        }
+      }
+      
+      // For defend action, no AI narration needed - just post the embed
+      // Post to Discord via CombatMessagingService (same as AI turns)
+      await this.combatMessagingService.postCombatAction(
+        encounter,
+        combatant,
+        action,
+        result,
+        null, // No dialogue for player actions (player types their own)
+        dmNarration
+      );
+      
+      this.logger?.info?.(`[CombatEncounter] Posted DM narration for ${combatant.name}'s ${action.type}`);
+      
+    } catch (e) {
+      this.logger?.warn?.(`[CombatEncounter] Failed to post player action narration: ${e.message}`);
+      // Non-fatal - action still completes
+    }
+  }
+
+  /**
    * Complete a player-initiated action and advance to the next turn
    * Call this from tools (AttackTool, DefendTool, etc.) after a player action completes
    * 
    * V3 FIX: Uses TurnLock to manage state transitions
+   * V4 FIX: Posts DM narration as embed for player actions (same as AI turns)
    * 
    * @param {string} channelId - The channel ID where combat is taking place
    * @param {string} avatarId - The avatar ID that took the action
-   * @param {Object} actionResult - Optional result from the action (damage, etc.)
+   * @param {Object} actionResult - Result from the action including:
+   *   - damage: {number} damage dealt
+   *   - targetId: {string} target avatar ID
+   *   - actionType: {string} 'attack' | 'defend'
+   *   - result: {Object} full battle result from battleService
+   *   - target: {Object} target combatant reference
+   *   - attacker: {Object} attacker avatar reference
    */
   async completePlayerAction(channelId, avatarId, actionResult = {}) {
     try {
@@ -1528,6 +1614,9 @@ One-liner (no quotes):`;
           newHp: this.getCombatant(encounter, actionResult.targetId)?.currentHp
         });
       }
+      
+      // V4: Post DM narration embed for player actions (same as AI turns)
+      await this._postPlayerActionNarration(encounter, combatant, actionResult);
       
       // V3: Emit action completed event for UI sync
       eventBus.emit('combat.action.completed', {
