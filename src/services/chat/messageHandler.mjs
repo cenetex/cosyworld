@@ -430,10 +430,10 @@ export class MessageHandler  {
       } catch {}
 
       // Analyze each image URL if analyzer available, otherwise provide a generic caption
-      if (this.toolService.aiService?.analyzeImage && imageUrls.length) {
+      if (this.toolService?.toolServices?.aiService?.analyzeImage && imageUrls.length) {
         for (const url of imageUrls) {
           try {
-            const caption = await this.toolService.aiService.analyzeImage(
+            const caption = await this.toolService.toolServices.aiService.analyzeImage(
               url,
               undefined,
               'Write a concise, neutral caption (<=120 chars) that describes this image for context.'
@@ -867,9 +867,9 @@ export class MessageHandler  {
         return { handled: false };
       }
 
-      // Get the user's avatar
+      // Get the user's avatar (don't filter by guildId - avatar works across servers)
       const userId = message.author.id;
-      const avatar = await this.avatarService.getAvatarByUserId(userId, message.guild?.id);
+      const avatar = await this.avatarService.getAvatarByUserId(userId);
       
       this.logger.info(`[MessageHandler] Proxy: user ${userId}, avatar: ${avatar?.name || 'none'}`);
       
@@ -885,14 +885,22 @@ export class MessageHandler  {
         return { handled: false };
       }
 
-      // Delete the original message
+      // Try to delete the original message (optional - continues even if can't delete)
+      let messageDeleted = false;
       try {
         await message.delete();
+        messageDeleted = true;
         this.logger.debug(`[MessageHandler] Deleted human message ${message.id} for proxy`);
       } catch (deleteError) {
-        // Can't delete (maybe missing permissions) - fallback to normal handling
-        this.logger.warn?.(`[MessageHandler] Failed to delete message for proxy: ${deleteError.message}`);
-        return { handled: false };
+        // Can't delete (maybe missing permissions) - continue anyway, just log it
+        this.logger.warn?.(`[MessageHandler] Could not delete message for proxy (missing permissions): ${deleteError.message}`);
+      }
+
+      // Show typing indicator while generating the reinterpreted message
+      try {
+        await message.channel.sendTyping();
+      } catch (typingError) {
+        this.logger.debug?.(`[MessageHandler] Could not send typing indicator: ${typingError.message}`);
       }
 
       // Reinterpret the message through the avatar's personality using AI
@@ -927,10 +935,13 @@ export class MessageHandler  {
    */
   async _reinterpretAsAvatar(humanMessage, avatar, _message) {
     try {
-      // Get AI service
-      const aiService = this.toolService?.aiService;
+      // Get AI service - it's in toolServices, not directly on toolService
+      const aiService = this.toolService?.toolServices?.aiService;
+      this.logger.info(`[MessageHandler] Reinterpret: aiService=${!!aiService}, hasChat=${!!aiService?.chat}`);
+      
       if (!aiService?.chat) {
         // Fallback: just return the original message if no AI
+        this.logger.warn(`[MessageHandler] No AI service for reinterpret, returning original`);
         return humanMessage;
       }
 
@@ -939,35 +950,79 @@ export class MessageHandler  {
       const name = avatar.name || 'Unknown';
       const emoji = avatar.emoji || '';
 
-      const systemPrompt = `You are ${emoji}${name}. ${persona}
+      const systemPrompt = `You are a voice translator. A player controls a character named ${emoji}${name}.
+Character description: ${persona}
 
-Your job is to reinterpret a message from your player (who controls you) and express it in your own voice and character.
-- Keep the core meaning and intent of the message
-- Add your personality, speaking style, and mannerisms
-- Stay in character at all times
-- Keep responses concise (similar length to original unless expansion is natural)
-- If the message is a simple greeting, respond with an in-character greeting
-- If it's a statement or question, rephrase it as you would naturally say it
+The player typed a message. Your ONLY job is to rephrase what the PLAYER said, as if the CHARACTER were saying it.
+DO NOT respond to the message. DO NOT answer questions. DO NOT have a conversation.
+Simply translate the player's words into the character's voice and mannerisms.
 
-Return ONLY the reinterpreted message, nothing else.`;
+Example:
+- Player types: "Hello everyone, what's going on?"
+- You output: "Greetings, travelers. What transpires here?" (rephrased in character voice)
+
+Keep it brief and similar in length to the original. Output ONLY the rephrased message.`;
 
       const messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Reinterpret this message in your voice:\n\n"${humanMessage}"` }
+        { role: 'user', content: `Rephrase this in ${name}'s voice (DO NOT respond to it, just rephrase it):\n\n"${humanMessage}"` }
       ];
 
+      // Use avatar's model, but fallback to FAST_MODEL if degraded
+      const fastModel = process.env.FAST_MODEL || 'meta-llama/llama-4-maverick';
+      const avatarModel = avatar.model || fastModel;
+      const modelCatalog = this.toolService?.toolServices?.openrouterModelCatalogService;
+      
+      // Check if avatar's model is degraded
+      const isDegraded = modelCatalog?.isModelDegraded?.(avatarModel);
+      const selectedModel = isDegraded ? fastModel : avatarModel;
+      
+      if (isDegraded) {
+        this.logger.info(`[MessageHandler] Avatar model ${avatarModel} is degraded, using fallback ${fastModel}`);
+      }
+      
+      this.logger.info(`[MessageHandler] Calling AI to reinterpret: "${humanMessage.substring(0, 50)}..." using ${selectedModel}`);
+
       const response = await aiService.chat(messages, {
-        model: avatar.model || 'google/gemini-2.0-flash-001',
+        model: selectedModel,
         temperature: 0.7,
         maxTokens: 500
       });
 
-      const result = response?.text?.trim();
+      // Response can be a string directly, or { text: ... } object
+      let result = typeof response === 'string' 
+        ? response.trim() 
+        : (response?.text?.trim() || response?.content?.trim());
       
-      // If AI returned something, use it; otherwise fallback to original
-      return result || humanMessage;
+      // Strip surrounding quotes (AI often wraps responses in quotes)
+      if (result && /^["'"'`]/.test(result) && /["'"'`]$/.test(result)) {
+        result = result.slice(1, -1).trim();
+      }
+      
+      this.logger.info(`[MessageHandler] Reinterpret result: "${result?.substring(0, 50)}..."`);
+      
+      // Check if response is empty or bad - mark model as degraded
+      if (!result || result.length < 2) {
+        this.logger.warn(`[MessageHandler] Model ${selectedModel} returned empty/bad response, marking as degraded`);
+        modelCatalog?.markModelAsDegraded?.(selectedModel, 'empty response in proxy');
+        // Return original message as fallback
+        return humanMessage;
+      }
+      
+      // Model worked - clear any degraded status
+      if (selectedModel === avatarModel) {
+        modelCatalog?.clearDegradedStatus?.(avatarModel);
+      }
+      
+      return result;
     } catch (error) {
-      this.logger.warn?.(`[MessageHandler] Reinterpret failed: ${error.message}`);
+      this.logger.error?.(`[MessageHandler] Reinterpret failed: ${error.message}`);
+      // Mark model as degraded on error
+      const modelCatalog = this.toolService?.toolServices?.openrouterModelCatalogService;
+      const avatarModel = avatar.model;
+      if (avatarModel) {
+        modelCatalog?.markModelAsDegraded?.(avatarModel, `error: ${error.message}`);
+      }
       // Fallback: return original message
       return humanMessage;
     }

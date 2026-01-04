@@ -56,6 +56,9 @@ const CAPABILITY_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Cooldown for failed model probes (5 minutes) - allows re-probing after cooldown
 const FAILED_PROBE_COOLDOWN_MS = 5 * 60 * 1000;
 
+// TTL for degraded model status (15 minutes) - will retry after this
+const DEGRADED_MODEL_TTL_MS = 15 * 60 * 1000;
+
 export class OpenrouterModelCatalogService {
   constructor({ logger, aiModelService, databaseService } = {}) {
     this.logger = logger || console;
@@ -66,6 +69,7 @@ export class OpenrouterModelCatalogService {
     this._imageCapableModels = new Set(); // models with image output modality
     this._imageOnlyModels = new Set(); // models that ONLY output images (no text)
     this._modelCapabilitiesCache = new Map(); // cache for dynamic endpoint lookups
+    this._degradedModels = new Map(); // modelId -> { markedAt, reason } for models returning empty/bad responses
     this._dbCacheLoaded = false; // whether we've loaded from DB
     this._lastRefreshAt = 0;
     this._lastRefreshOk = false;
@@ -518,6 +522,86 @@ export class OpenrouterModelCatalogService {
     if (isImageCapable) this._imageCapableModels.add(id);
     
     this.logger?.debug?.(`[OpenrouterModelCatalog] Marked model as valid: ${id}`);
+  }
+
+  /**
+   * Mark a model as degraded (returning empty/bad responses).
+   * Will be reconsidered after DEGRADED_MODEL_TTL_MS.
+   * @param {string} modelId 
+   * @param {string} reason - Why it was marked degraded
+   */
+  markModelAsDegraded(modelId, reason = 'empty response') {
+    const id = normalizeId(modelId);
+    if (!id) return;
+    
+    this._degradedModels.set(id, {
+      markedAt: Date.now(),
+      reason
+    });
+    
+    this.logger?.warn?.(`[OpenrouterModelCatalog] Marked model as degraded: ${id} (${reason})`);
+  }
+
+  /**
+   * Check if a model is currently marked as degraded.
+   * Expired entries are automatically cleared.
+   * @param {string} modelId 
+   * @returns {boolean}
+   */
+  isModelDegraded(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return false;
+    
+    const entry = this._degradedModels.get(id);
+    if (!entry) return false;
+    
+    const age = Date.now() - entry.markedAt;
+    if (age > DEGRADED_MODEL_TTL_MS) {
+      // TTL expired - clear and allow retry
+      this._degradedModels.delete(id);
+      this.logger?.info?.(`[OpenrouterModelCatalog] Degraded status expired for model: ${id}`);
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Get info about a degraded model, or null if not degraded.
+   * @param {string} modelId 
+   * @returns {{ markedAt: number, reason: string, ttlRemainingMs: number } | null}
+   */
+  getDegradedInfo(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return null;
+    
+    const entry = this._degradedModels.get(id);
+    if (!entry) return null;
+    
+    const age = Date.now() - entry.markedAt;
+    if (age > DEGRADED_MODEL_TTL_MS) {
+      this._degradedModels.delete(id);
+      return null;
+    }
+    
+    return {
+      ...entry,
+      ttlRemainingMs: DEGRADED_MODEL_TTL_MS - age
+    };
+  }
+
+  /**
+   * Clear degraded status for a model (e.g., after successful response).
+   * @param {string} modelId 
+   */
+  clearDegradedStatus(modelId) {
+    const id = normalizeId(modelId);
+    if (!id) return;
+    
+    if (this._degradedModels.has(id)) {
+      this._degradedModels.delete(id);
+      this.logger?.info?.(`[OpenrouterModelCatalog] Cleared degraded status for model: ${id}`);
+    }
   }
 
   async assertModelExists(modelId) {
