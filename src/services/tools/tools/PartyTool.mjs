@@ -81,6 +81,9 @@ export class PartyTool extends BasicTool {
         case 'create':
           return await this._create(avatar, params);
         case 'invite':
+          if (params.length > 1) {
+            return await this._addMemberByName(avatar, params.slice(1), message);
+          }
           return await this._showInviteMenu(avatar, message);
         case 'kick':
           return await this._showKickMenu(avatar);

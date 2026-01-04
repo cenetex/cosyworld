@@ -167,7 +167,7 @@ export class DungeonTool extends BasicTool {
         button: { id: 'dnd_dungeon_status', label: 'View Adventure', emoji: '🗺️' }
       },
       'No active dungeon': {
-        narrative: '*The ancient stones lie dormant. Begin a new adventure to explore the depths!*',
+        narrative: '*No dungeon lies active. The ancient stones lie dormant. Begin a new adventure to explore the depths!*',
         button: { id: 'dnd_dungeon_start', label: 'Start Adventure', emoji: '⚔️' }
       },
       'not in a party': {
@@ -395,7 +395,7 @@ export class DungeonTool extends BasicTool {
       // Never show full dungeon status/buttons in a main channel
       if (!isThread) {
         // Validate existing thread is still accessible before redirecting
-        if (threadId && this.discordService?.client) {
+        if (threadId && this.discordService?.client?.channels?.fetch) {
           try {
             const existingThread = await this.discordService.client.channels.fetch(threadId);
             if (!existingThread || existingThread.archived) {

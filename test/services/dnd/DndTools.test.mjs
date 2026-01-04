@@ -304,7 +304,13 @@ describe('PartyTool', () => {
   describe('execute() - invite', () => {
     it('should invite a member', async () => {
       const sheet = createMockSheet({ partyId: new ObjectId() });
-      deps.characterService.getSheet.mockResolvedValue(sheet);
+      const targetId = new ObjectId();
+      deps.characterService.getSheet.mockImplementation((id) => {
+        if (String(id) === String(sheet.avatarId)) {
+          return sheet;
+        }
+        return createMockSheet({ avatarId: targetId, partyId: null });
+      });
       deps.partyService.getParty.mockResolvedValue({
         _id: sheet.partyId,
         name: 'Heroes',
@@ -312,6 +318,7 @@ describe('PartyTool', () => {
         members: [{ avatarId: new ObjectId('507f1f77bcf86cd799439011') }],
         maxSize: 4,
       });
+      deps.avatarService.getAvatarByName.mockResolvedValue({ _id: targetId, name: 'OtherAvatar' });
       const avatar = createMockAvatar();
       const message = createMockMessage();
 

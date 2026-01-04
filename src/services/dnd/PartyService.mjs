@@ -79,6 +79,16 @@ export class PartyService {
     }
   }
 
+  async _getSheetForParty(avatarId) {
+    if (this.characterService?.getOrCreateSheet) {
+      return this.characterService.getOrCreateSheet(avatarId);
+    }
+    if (this.characterService?.getSheet) {
+      return this.characterService.getSheet(avatarId);
+    }
+    return null;
+  }
+
   async getParty(partyId) {
     const col = await this.collection();
     return col.findOne({ _id: new ObjectId(partyId) });
@@ -91,8 +101,8 @@ export class PartyService {
 
   async createParty(leaderId, name) {
     // Get or create character sheet for leader (auto-generates if missing)
-    const sheet = await this.characterService.getOrCreateSheet(leaderId);
-    if (!sheet) throw new Error('Failed to create character sheet for leader');
+    const sheet = await this._getSheetForParty(leaderId);
+    if (!sheet) throw new Error('Leader has no character sheet');
     if (sheet.partyId) throw new Error('Already in a party');
 
     const party = {
@@ -139,8 +149,8 @@ export class PartyService {
     if (!isLeader && !isMember) throw new Error('Only party members can send invites');
 
     // Get or create character sheet for target avatar (auto-generates if missing)
-    const sheet = await this.characterService.getOrCreateSheet(avatarId);
-    if (!sheet) throw new Error('Failed to create character sheet for target');
+    const sheet = await this._getSheetForParty(avatarId);
+    if (!sheet) throw new Error('No character sheet');
     if (sheet.partyId) throw new Error('Target is already in a party');
 
     // Check not already a member
@@ -276,8 +286,8 @@ export class PartyService {
       if (party.members.length >= party.maxSize) throw new Error('Party is full');
 
       // Get or create character sheet (auto-generates if missing)
-      const sheet = await this.characterService.getOrCreateSheet(avatarId);
-      if (!sheet) throw new Error('Failed to create character sheet');
+      const sheet = await this._getSheetForParty(avatarId);
+      if (!sheet) throw new Error('No character sheet');
       if (sheet.partyId) throw new Error('Already in a party');
 
       if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
