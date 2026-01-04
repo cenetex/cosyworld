@@ -231,6 +231,22 @@ export class DungeonTool extends BasicTool {
   async _buildActiveDungeonResponse(dungeon, message, avatar) {
     let threadId = dungeon.threadId;
     
+    // Validate existing thread is still accessible
+    if (threadId && this.discordService?.client) {
+      try {
+        const existingThread = await this.discordService.client.channels.fetch(threadId);
+        if (!existingThread || existingThread.archived) {
+          this.logger?.info?.(`[DungeonTool] Thread ${threadId} is archived/deleted, will create new one`);
+          threadId = null;
+          await this.dungeonService.setThreadId(dungeon._id, null);
+        }
+      } catch (e) {
+        this.logger?.info?.(`[DungeonTool] Thread ${threadId} not accessible: ${e.message}`);
+        threadId = null;
+        await this.dungeonService.setThreadId(dungeon._id, null).catch(() => {});
+      }
+    }
+    
     // If no thread exists, create one to fix corrupted state
     if (!threadId && this.discordService?.client && message?.channel?.id) {
       try {
@@ -245,24 +261,41 @@ export class DungeonTool extends BasicTool {
           await this.dungeonService.setThreadId(dungeon._id, threadId);
           this.logger?.info?.(`[DungeonTool] Created missing thread for dungeon ${dungeon._id}`);
           
+          // Post immediate loading message so thread isn't empty
+          const loadingMsg = await thread.send({
+            embeds: [{
+              author: { name: '🎲 The Dungeon Master' },
+              title: '🏰 Restoring Your Adventure...',
+              description: '*The ancient passages reveal themselves once more...*',
+              color: 0x7C3AED,
+              footer: { text: 'Loading dungeon state...' }
+            }]
+          });
+          
           // Post initial content to the new thread
           const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
           const clearedCount = dungeon.rooms.filter(r => r.cleared).length;
           const totalRooms = dungeon.rooms.length;
           
-          // Try to generate a room image
+          // Try to get cached room image first, then generate if needed
           let roomImageUrl = null;
           try {
             if (this.schemaService?.generateImage) {
-              const prompt = this._getRoomImagePrompt(currentRoom, dungeon.theme);
-              roomImageUrl = await this.schemaService.generateImage(prompt, '16:9', {
-                source: 'dungeon.recovery',
-                purpose: 'dungeon_room',
-                roomType: currentRoom?.type
-              });
+              roomImageUrl = await roomImageCache.getOrGenerate(
+                dungeon.theme,
+                currentRoom?.type || 'combat',
+                async () => {
+                  const prompt = this._getRoomImagePrompt(currentRoom, dungeon.theme);
+                  return await this.schemaService.generateImage(prompt, '16:9', {
+                    source: 'dungeon.recovery',
+                    purpose: 'dungeon_room',
+                    roomType: currentRoom?.type
+                  });
+                }
+              );
             }
-          } catch {
-            // Image generation is optional
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
           }
           
           const recoveryEmbed = {
@@ -290,11 +323,25 @@ export class DungeonTool extends BasicTool {
             });
           }
           
-          // Post to thread
-          await thread.send({ 
-            embeds: [recoveryEmbed], 
-            components: this._createRoomButtons(currentRoom) 
-          });
+          // Delete loading message and post actual status
+          try {
+            await loadingMsg.delete();
+          } catch {
+            // Ignore delete failures
+          }
+          
+          // Post to thread with proper error handling
+          try {
+            await thread.send({ 
+              embeds: [recoveryEmbed], 
+              components: this._createRoomButtons(currentRoom) 
+            });
+            this.logger?.info?.(`[DungeonTool] Posted recovery status to thread ${thread.id}`);
+          } catch (sendErr) {
+            this.logger?.error?.(`[DungeonTool] Failed to post recovery status: ${sendErr.message}`);
+            // Try a simpler message as fallback
+            await thread.send(`🏰 **${dungeon.name}** - Your adventure continues in ${this._getRoomTitle(currentRoom?.type)}`).catch(() => {});
+          }
         }
       } catch (e) {
         this.logger?.warn?.(`[DungeonTool] Failed to create recovery thread: ${e.message}`);
@@ -332,13 +379,31 @@ export class DungeonTool extends BasicTool {
    */
   async _showStatus(avatar, channelId, activeDungeon, message, isThread = false) {
     if (activeDungeon) {
-      const threadId = activeDungeon.threadId;
+      let threadId = activeDungeon.threadId;
       const isInDungeonThread = threadId && channelId === threadId;
       
       // THREAD ENFORCEMENT: If we're NOT in a thread at all, always redirect
       // Never show full dungeon status/buttons in a main channel
       if (!isThread) {
-        // If dungeon has a thread, redirect there
+        // Validate existing thread is still accessible before redirecting
+        if (threadId && this.discordService?.client) {
+          try {
+            const existingThread = await this.discordService.client.channels.fetch(threadId);
+            if (!existingThread || existingThread.archived) {
+              this.logger?.info?.(`[DungeonTool] Thread ${threadId} is archived/deleted, will create new one`);
+              threadId = null;
+              // Clear invalid threadId from dungeon
+              await this.dungeonService.setThreadId(activeDungeon._id, null);
+            }
+          } catch (e) {
+            // Thread doesn't exist or can't be accessed
+            this.logger?.info?.(`[DungeonTool] Thread ${threadId} not accessible: ${e.message}`);
+            threadId = null;
+            await this.dungeonService.setThreadId(activeDungeon._id, null).catch(() => {});
+          }
+        }
+        
+        // If dungeon has a valid thread, redirect there
         if (threadId) {
           return {
             embeds: [{
@@ -364,24 +429,41 @@ export class DungeonTool extends BasicTool {
               await this.dungeonService.setThreadId(activeDungeon._id, thread.id);
               this.logger?.info?.(`[DungeonTool] Created recovery thread ${thread.id} for dungeon ${activeDungeon._id}`);
               
+              // Post initial loading message IMMEDIATELY so thread isn't empty
+              const loadingMsg = await thread.send({
+                embeds: [{
+                  author: { name: '🎲 The Dungeon Master' },
+                  title: '🏰 Restoring Your Adventure...',
+                  description: '*The ancient passages reveal themselves once more...*',
+                  color: 0x7C3AED,
+                  footer: { text: 'Loading dungeon state...' }
+                }]
+              });
+              
               // Post initial dungeon status to the new thread
               const currentRoom = activeDungeon.rooms.find(r => r.id === activeDungeon.currentRoom);
               const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
               const totalRooms = activeDungeon.rooms.length;
               
-              // Try to generate or retrieve a room image
+              // Try to get cached room image first, then generate if needed
               let roomImageUrl = null;
               try {
                 if (this.schemaService?.generateImage) {
-                  const prompt = this._getRoomImagePrompt(currentRoom, activeDungeon.theme);
-                  roomImageUrl = await this.schemaService.generateImage(prompt, '16:9', {
-                    source: 'dungeon.recovery',
-                    purpose: 'dungeon_room',
-                    roomType: currentRoom?.type
-                  });
+                  roomImageUrl = await roomImageCache.getOrGenerate(
+                    activeDungeon.theme,
+                    currentRoom?.type || 'combat',
+                    async () => {
+                      const prompt = this._getRoomImagePrompt(currentRoom, activeDungeon.theme);
+                      return await this.schemaService.generateImage(prompt, '16:9', {
+                        source: 'dungeon.recovery',
+                        purpose: 'dungeon_room',
+                        roomType: currentRoom?.type
+                      });
+                    }
+                  );
                 }
-              } catch {
-                // Image generation is optional
+              } catch (e) {
+                this.logger?.warn?.(`[DungeonTool] Room image generation failed: ${e.message}`);
               }
               
               const recoveryEmbed = {
@@ -409,11 +491,25 @@ export class DungeonTool extends BasicTool {
                 });
               }
               
+              // Delete loading message and post full status
+              try {
+                await loadingMsg.delete();
+              } catch {
+                // Ignore delete failures
+              }
+              
               // Post to thread with action buttons
-              await thread.send({ 
-                embeds: [recoveryEmbed], 
-                components: this._createRoomButtons(currentRoom) 
-              });
+              try {
+                await thread.send({ 
+                  embeds: [recoveryEmbed], 
+                  components: this._createRoomButtons(currentRoom) 
+                });
+                this.logger?.info?.(`[DungeonTool] Posted recovery status to thread ${thread.id}`);
+              } catch (sendErr) {
+                this.logger?.error?.(`[DungeonTool] Failed to post recovery status: ${sendErr.message}`);
+                // Try a simpler message as fallback
+                await thread.send(`🏰 **${activeDungeon.name}** - Your adventure continues in ${this._getRoomTitle(currentRoom?.type)}`).catch(() => {});
+              }
               
               return {
                 embeds: [{
@@ -667,16 +763,22 @@ export class DungeonTool extends BasicTool {
     // Update dungeon with channelId
     await this.dungeonService.setChannelId(dungeon._id, channelId);
 
-    // Generate atmospheric entrance image
+    // Generate atmospheric entrance image using cache for reuse
     let imageUrl = null;
     try {
       if (this.schemaService?.generateImage) {
-        const prompt = `${dungeon.theme} dungeon entrance, ancient stone doorway, fantasy RPG art, atmospheric mist, torchlight, mysterious and ominous, detailed architecture`;
-        imageUrl = await this.schemaService.generateImage(prompt, '16:9', {
-          source: 'dungeon.enter',
-          purpose: 'dungeon_entrance',
-          theme: dungeon.theme
-        });
+        imageUrl = await roomImageCache.getOrGenerate(
+          dungeon.theme,
+          'entrance',
+          async () => {
+            const prompt = `${dungeon.theme} dungeon entrance, ancient stone doorway, fantasy RPG art, atmospheric mist, torchlight, mysterious and ominous, detailed architecture`;
+            return await this.schemaService.generateImage(prompt, '16:9', {
+              source: 'dungeon.enter',
+              purpose: 'dungeon_entrance',
+              theme: dungeon.theme
+            });
+          }
+        );
       }
     } catch (e) {
       this.logger?.warn?.(`[DungeonTool] Image generation failed: ${e.message}`);
