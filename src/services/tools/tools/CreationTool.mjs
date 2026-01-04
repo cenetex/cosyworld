@@ -37,6 +37,42 @@ export class CreationTool extends BasicTool {
     this.description = 'Create custom narrative effects and abilities with visual imagery';
     this.replyNotification = true;
     this.cooldownMs = 30 * 1000; // 30 second cooldown
+    
+    // Rate limiting: 1 creation per day per user
+    this._userCreationTimestamps = new Map(); // Map<userId, timestamp>
+    this._dailyLimitMs = 24 * 60 * 60 * 1000; // 24 hours
+  }
+
+  /**
+   * Check if user is rate limited (1 creation per day).
+   * @param {string} userId 
+   * @returns {{ allowed: boolean, waitMs?: number, reason?: string }}
+   */
+  _checkUserRateLimit(userId) {
+    if (!userId) return { allowed: true };
+    
+    const now = Date.now();
+    const lastCreation = this._userCreationTimestamps.get(userId);
+    
+    if (lastCreation) {
+      const elapsed = now - lastCreation;
+      if (elapsed < this._dailyLimitMs) {
+        const waitMs = this._dailyLimitMs - elapsed;
+        return { allowed: false, waitMs, reason: 'daily_limit' };
+      }
+    }
+    
+    return { allowed: true };
+  }
+
+  /**
+   * Record a successful creation for rate limiting.
+   * @param {string} userId 
+   */
+  _recordUserCreation(userId) {
+    if (userId) {
+      this._userCreationTimestamps.set(userId, Date.now());
+    }
   }
 
   /**
@@ -61,6 +97,14 @@ export class CreationTool extends BasicTool {
 
   async execute(message, params, avatar) {
     try {
+      // Check rate limit (1 per day per user)
+      const userId = message?.author?.id || message?.user?.id;
+      const rateLimitCheck = this._checkUserRateLimit(userId);
+      if (!rateLimitCheck.allowed) {
+        const hoursRemaining = Math.ceil(rateLimitCheck.waitMs / (60 * 60 * 1000));
+        return `-# [ ✨ Your creative power is recharging... try again in ~${hoursRemaining} hour${hoursRemaining !== 1 ? 's' : ''} ]`;
+      }
+
       // Handle both array params and structured params
       let description, target;
       if (typeof params === 'object' && !Array.isArray(params)) {
@@ -99,6 +143,9 @@ export class CreationTool extends BasicTool {
       } else {
         result = `-# [ ✨ ${narrative} ]`;
       }
+      
+      // Record successful creation for rate limiting
+      this._recordUserCreation(userId);
       
       return result;
     } catch (error) {
