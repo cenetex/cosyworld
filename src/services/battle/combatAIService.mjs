@@ -343,15 +343,31 @@ export class CombatAIService {
   }
 
   /**
-   * Get all alive opponents
+   * Get all alive opponents (enemies only, not allies)
    * @private
    */
   _getAliveOpponents(encounter, combatant) {
-    return (encounter.combatants || []).filter(c => 
-      c.avatarId !== combatant.avatarId && 
-      (c.currentHp || 0) > 0 &&
-      !c.conditions?.includes('unconscious')
-    );
+    // Determine if this combatant is a monster or player
+    const isMonster = combatant.isMonster === true;
+    
+    return (encounter.combatants || []).filter(c => {
+      // Exclude self
+      if (c.avatarId === combatant.avatarId) return false;
+      
+      // Must be alive
+      if ((c.currentHp || 0) <= 0) return false;
+      if (c.conditions?.includes('unconscious')) return false;
+      
+      // Monsters target non-monsters, non-monsters target monsters
+      // This prevents party members from attacking each other
+      if (isMonster) {
+        // Monster targets non-monsters (players/party members)
+        return c.isMonster !== true;
+      } else {
+        // Player/party member targets monsters
+        return c.isMonster === true;
+      }
+    });
   }
 
   /**

@@ -894,20 +894,28 @@ export class DungeonService {
     if (!party) throw new Error('Party not found');
 
     // Mark party avatars appropriately:
-    // - Avatars with discordUserId: human-controlled (waits for their input)
+    // - Avatars with discordUserId (from summoner or direct): human-controlled (waits for their input)
     // - Avatars without discordUserId: AI-controlled allies (auto-act)
     const partyAvatars = party.members.map(m => {
       if (!m.avatar) return null;
       const avatarId = String(m.avatarId || m.avatar._id);
-      const discordUserId = m.discordUserId || m.avatar.discordUserId || null;
+      
+      // Extract discordUserId from multiple sources:
+      // 1. Direct discordUserId field on member or avatar
+      // 2. Summoner field in format 'user:discordId'
+      let discordUserId = m.discordUserId || m.avatar.discordUserId || null;
+      if (!discordUserId && m.avatar.summoner && String(m.avatar.summoner).startsWith('user:')) {
+        discordUserId = String(m.avatar.summoner).replace(/^user:/, '');
+      }
+      
       const isHumanControlled = !!discordUserId;
       return {
         ...m.avatar,
         isPlayerCharacter: true, // All party members are "player characters" (not enemies)
         partyMemberId: avatarId,
         discordUserId,
-        // Mark human-controlled avatars with summoner so combatEncounterService recognizes them
-        summoner: isHumanControlled ? `user:${discordUserId}` : null
+        // Preserve or set summoner for human-controlled avatars
+        summoner: isHumanControlled ? `user:${discordUserId}` : (m.avatar.summoner || null)
       };
     }).filter(Boolean);
     if (partyAvatars.length === 0) {

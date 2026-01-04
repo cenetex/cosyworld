@@ -1261,8 +1261,9 @@ One-liner (no quotes):`;
    * @private
    */
   async _executeBatchedMonsterTurns(encounter) {
-    const batchedActions = [];
+    let roundActions = []; // Actions for current round
     let continueLoop = true;
+    let lastRound = encounter.round || 1;
     
     while (continueLoop && encounter.state === 'active') {
       const currentId = this.getCurrentTurnAvatarId(encounter);
@@ -1277,7 +1278,13 @@ One-liner (no quotes):`;
       // Skip knocked out combatants
       if (this._isKnockedOut(current)) {
         this.logger?.debug?.(`[CombatEncounter] Batch: skipping KO'd ${current.name}`);
-        if (this.evaluateEnd(encounter)) return;
+        if (this.evaluateEnd(encounter)) {
+          // Post final narration before ending
+          if (roundActions.length > 0) {
+            await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+          }
+          return;
+        }
         this._advanceTurnIndex(encounter);
         continue;
       }
@@ -1291,7 +1298,12 @@ One-liner (no quotes):`;
       }
       
       if (current.currentHp <= 0) {
-        if (this.evaluateEnd(encounter)) return;
+        if (this.evaluateEnd(encounter)) {
+          if (roundActions.length > 0) {
+            await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+          }
+          return;
+        }
         this._advanceTurnIndex(encounter);
         continue;
       }
@@ -1306,8 +1318,8 @@ One-liner (no quotes):`;
       
       const result = await this._executeCombatAction(action, current, encounter);
       
-      // Collect action for batched narration
-      batchedActions.push({
+      // Collect action for round narration
+      roundActions.push({
         combatant: current,
         action,
         result,
@@ -1329,10 +1341,25 @@ One-liner (no quotes):`;
       }
       
       // Check end conditions after each action
-      if (this.evaluateEnd(encounter)) return;
+      if (this.evaluateEnd(encounter)) {
+        if (roundActions.length > 0) {
+          await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+        }
+        return;
+      }
       
       // Advance to next turn index (without full nextTurn processing)
-      this._advanceTurnIndex(encounter);
+      const newRound = this._advanceTurnIndex(encounter);
+      
+      // Post narration at the end of each round
+      if (newRound && roundActions.length > 0) {
+        await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+        roundActions = []; // Reset for next round
+        lastRound = encounter.round;
+        
+        // Small delay between rounds for readability
+        await new Promise(r => setTimeout(r, 1500));
+      }
       
       // Check if next combatant is player-controlled
       const nextId = this.getCurrentTurnAvatarId(encounter);
@@ -1342,10 +1369,18 @@ One-liner (no quotes):`;
       }
     }
     
-    // Post batched DM narration for all monster actions
-    if (batchedActions.length > 0) {
-      await this._postBatchedMonsterNarration(encounter, batchedActions);
+    // Post remaining actions from partial round
+    if (roundActions.length > 0) {
+      await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
     }
+    
+    // Release lock before starting next turn
+    this.turnLock.release(encounter.channelId, 'batch_complete_before_player');
+    
+    // Check who's next
+    const nextId = this.getCurrentTurnAvatarId(encounter);
+    const nextCombatant = this.getCombatant(encounter, nextId);
+    this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Batch complete: next up is ${nextCombatant?.name || 'unknown'} (isPlayerControlled=${nextCombatant?.isPlayerControlled}, autoMode=${nextCombatant?.autoMode})`);
     
     // Now start the next turn (which should be a player turn or end of round)
     if (encounter.state === 'active') {
@@ -1357,16 +1392,19 @@ One-liner (no quotes):`;
    * Advance turn index without full nextTurn processing
    * Used during batched monster turns
    * @private
+   * @returns {boolean} True if a new round started
    */
   _advanceTurnIndex(encounter) {
     const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
-    if (order.length === 0) return;
+    if (order.length === 0) return false;
     
     const prevIdx = encounter.currentTurnIndex || 0;
     const nextIdx = (prevIdx + 1) % order.length;
     
+    let newRound = false;
     if (nextIdx === 0) {
       // New round
+      newRound = true;
       encounter.round = (encounter.round || 1) + 1;
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Batch: advancing to round ${encounter.round}`);
       
@@ -1383,13 +1421,17 @@ One-liner (no quotes):`;
     }
     
     encounter.currentTurnIndex = nextIdx;
+    return newRound;
   }
 
   /**
-   * Post a single DM narration summarizing all batched monster actions
+   * Post a single DM narration summarizing all batched actions for a round
    * @private
+   * @param {Object} encounter - The combat encounter
+   * @param {Array} actions - Array of action objects
+   * @param {number} round - The round number these actions occurred in
    */
-  async _postBatchedMonsterNarration(encounter, actions) {
+  async _postBatchedMonsterNarration(encounter, actions, round = null) {
     const channel = this._getChannel(encounter);
     if (!channel) return;
     
@@ -1426,13 +1468,26 @@ One-liner (no quotes):`;
         }
       }
       
-      // Build embed for monster actions
+      // Determine title based on who acted
+      const hasMonsterActions = actions.some(a => a.combatant.isMonster);
+      const hasPlayerActions = actions.some(a => !a.combatant.isMonster);
+      let title = '⚔️ Combat Actions';
+      if (hasMonsterActions && !hasPlayerActions) {
+        title = '⚔️ Enemy Actions';
+      } else if (!hasMonsterActions && hasPlayerActions) {
+        title = '⚔️ Party Actions';
+      }
+      if (round) {
+        title = `Round ${round} • ${title}`;
+      }
+      
+      // Build embed for round actions
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
-        title: `⚔️ Enemy Actions`,
-        description: dmNarration || `*The monsters strike!*\n\n${actionSummaries.join('\n')}`,
-        color: 0x8B0000, // Dark red for enemy actions
-        footer: { text: `${actions.length} monster action${actions.length > 1 ? 's' : ''} this round` }
+        title,
+        description: dmNarration || `*Steel clashes in the chaos of battle!*\n\n${actionSummaries.join('\n')}`,
+        color: hasMonsterActions ? 0x8B0000 : 0x3B82F6, // Dark red for enemy, blue for party
+        footer: { text: `${actions.length} action${actions.length > 1 ? 's' : ''} this round` }
       };
       
       // Add damage summary field

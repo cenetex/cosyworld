@@ -207,7 +207,7 @@ export class DiscordService {
             }
             
             // Execute attack directly via tool service
-            const toolService = this.getToolService?.() || this.container?.resolve?.('toolService');
+            const toolService = this.getToolService?.();
             if (toolService) {
               const result = await toolService.executeTool('attack', interaction.message, [targetName], avatar);
               if (result && typeof result === 'object' && (result.embeds || result.content)) {
@@ -1094,8 +1094,8 @@ export class DiscordService {
    */
   async _getAvatarForInteraction(interaction) {
     try {
-      // Use the avatarService instance directly, or try to resolve from container
-      const avatarService = this.avatarService || this.container?.resolve?.('avatarService');
+      // Use the injected avatar service if available
+      const avatarService = this.avatarService;
       if (!avatarService) {
         this.logger?.warn?.('[DiscordService] Avatar service not available');
         return null;
