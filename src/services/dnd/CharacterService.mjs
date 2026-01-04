@@ -12,6 +12,8 @@ import { getSpellSlots } from '../../data/dnd/spells.mjs';
 import eventBus from '../../utils/eventBus.mjs';
 
 export class CharacterService {
+  static _avatarCreatedListener = null;
+
   constructor({ databaseService, avatarService, unifiedAIService, logger }) {
     this.databaseService = databaseService;
     this.avatarService = avatarService;
@@ -27,7 +29,15 @@ export class CharacterService {
    * Setup event listeners for auto-generating character sheets
    */
   _setupEventListeners() {
-    eventBus.on('AVATAR.CREATED', async (event) => {
+    if (CharacterService._avatarCreatedListener) {
+      if (eventBus.off) {
+        eventBus.off('AVATAR.CREATED', CharacterService._avatarCreatedListener);
+      } else if (eventBus.removeListener) {
+        eventBus.removeListener('AVATAR.CREATED', CharacterService._avatarCreatedListener);
+      }
+    }
+
+    CharacterService._avatarCreatedListener = async (event) => {
       try {
         const avatarId = event.avatarId?.toString?.() || event.avatarId;
         if (!avatarId) return;
@@ -38,7 +48,9 @@ export class CharacterService {
       } catch (e) {
         this.logger?.warn?.(`[CharacterService] Failed to auto-generate character sheet: ${e.message}`);
       }
-    });
+    };
+
+    eventBus.on('AVATAR.CREATED', CharacterService._avatarCreatedListener);
   }
 
   async collection() {
