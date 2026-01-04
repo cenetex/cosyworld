@@ -6,6 +6,7 @@ import { CombatAIService } from './combatAIService.mjs';
 import { CombatMessagingService } from './combatMessagingService.mjs';
 import { StatusEffectService } from './statusEffectService.mjs';
 import { CombatLogService } from './combatLogService.mjs';
+import { TurnLock, TURN_STATES } from './TurnLock.mjs';
 
 /**
  * Combat system constants - extracted from magic numbers for maintainability
@@ -154,7 +155,7 @@ class CombatRateLimiter {
  * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
-  constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager, veoService }) {
+  constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager, veoService, dmNarratorService }) {
   this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
@@ -169,6 +170,7 @@ export class CombatEncounterService {
   this.promptAssembler = promptAssembler || null;
   this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
     this.veoService = veoService || null; // For battle recap videos
+    this.dmNarratorService = dmNarratorService || null; // For AI DM third-person narration
 
     // Initialize modular combat services
     this.combatAIService = new CombatAIService({
@@ -193,6 +195,9 @@ export class CombatEncounterService {
       databaseService,
       logger: this.logger
     }) : null;
+
+    // Turn lock state machine (V3 fix for race conditions)
+    this.turnLock = new TurnLock({ logger: this.logger });
 
     // channelId -> encounter object (active encounters)
     this.encounters = new Map();
@@ -448,6 +453,11 @@ export class CombatEncounterService {
     return this.encounters.get(channelId) || null;
   }
 
+  /** Alias for getEncounter - used by some services/tools */
+  getEncounterByChannelId(channelId) {
+    return this.getEncounter(channelId);
+  }
+
   /** Creates a new encounter for channel with given participants (array of avatar objects). */
   createEncounter({ channelId, participants, sourceMessage }) {
     if (this.encounters.has(channelId)) {
@@ -612,15 +622,21 @@ export class CombatEncounterService {
       this.combatLogService.logEncounterStart(encounter).catch(() => {});
     }
     
+    // V3: Emit combat started event for UI sync
+    eventBus.emit('combat.started', {
+      channelId: encounter.channelId,
+      encounterId: encounter.encounterId,
+      combatants: encounter.combatants?.map(c => ({ name: c.name, avatarId: c.avatarId, isMonster: c.isMonster })),
+      round: 1
+    });
+    
     // Wait for fight poster phase (if any) before initiative narrative for clean ordering
     try { await encounter.posterBlocker?.promise; } catch {}
     
     // Pre-combat dialogue: let each combatant say something before the fight starts
     await this._postPreCombatDialogue(encounter);
     
-    // Announce first turn immediately for clarity (disabled - see _announceTurn)
-    try { await this._announceTurn(encounter); } catch {}
-    // Start first turn
+    // Start first turn - _scheduleTurnStart handles turn announcement
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] started: round=1, order=${encounter.initiativeOrder.join('>')}`);
     this._scheduleTurnStart(encounter);
     return encounter;
@@ -680,13 +696,29 @@ export class CombatEncounterService {
       // 2. Execute action via BattleService
       const result = await this._executeCombatAction(action, combatant, encounter);
       
+      // 2b. Generate DM narration (third-person cinematic description)
+      let dmNarration = null;
+      try {
+        if (this.dmNarratorService && action.type === 'attack' && action.target && result) {
+          dmNarration = await this.dmNarratorService.narrateAction({
+            action,
+            attacker: combatant.ref,
+            defender: action.target.ref,
+            result,
+            encounter
+          });
+        }
+      } catch (e) {
+        this.logger?.debug?.(`[CombatEncounter] DM narration failed: ${e.message}`);
+      }
+      
       // 3. Generate combat dialogue (AI one-liner via CombatAIService)
       this.logger?.info?.(`[CombatEncounter] Generating dialogue for ${combatant.name} (action: ${action.type})`);
       const dialogue = await this.combatAIService.generateCombatDialogue(combatant, action, result);
       this.logger?.info?.(`[CombatEncounter] Dialogue generated: "${dialogue}"`);
       
       // 4. Post to Discord via CombatMessagingService
-      await this.combatMessagingService.postCombatAction(encounter, combatant, action, result, dialogue);
+      await this.combatMessagingService.postCombatAction(encounter, combatant, action, result, dialogue, dmNarration);
       
       // 4b. Log to database for replay/analytics
       if (this.combatLogService) {
@@ -1122,9 +1154,19 @@ One-liner (no quotes):`;
    * Start the current turn
    * For player-controlled avatars: waits for button input
    * For AI/monsters: triggers AI agent to act immediately
+   * 
+   * V3 FIX: Uses TurnLock to prevent race conditions
    */
   _scheduleTurnStart(encounter) {
     if (!encounter || encounter.state !== 'active') return;
+    
+    const channelId = encounter.channelId;
+    
+    // V3 FIX: Acquire turn lock before proceeding
+    if (this.turnLock.isLocked(channelId)) {
+      this.logger?.debug?.(`[CombatEncounter] Turn blocked: lock already held for ${channelId}`);
+      return;
+    }
     
     // Skip turns for knocked-out combatants
     const currentId = this.getCurrentTurnAvatarId(encounter);
@@ -1138,6 +1180,12 @@ One-liner (no quotes):`;
       return;
     }
     
+    // Acquire lock for turn start
+    this.turnLock.acquire(channelId, TURN_STATES.ANNOUNCING, {
+      combatantId: currentId,
+      combatantName: current?.name
+    });
+    
     // Reset defending state at the start of their new turn
     if (current) current.isDefending = false;
     encounter.lastTurnStartAt = Date.now();
@@ -1147,21 +1195,39 @@ One-liner (no quotes):`;
     
     // Check if this is a player-controlled avatar awaiting manual input
     if (current.isPlayerControlled && !current.autoMode) {
+      // Transition to awaiting input state
+      this.turnLock.transition(channelId, TURN_STATES.AWAITING_INPUT, {
+        combatantId: currentId,
+        combatantName: current?.name
+      });
+      
       // Announce turn with action buttons and WAIT for player input
       current.awaitingAction = true;
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - awaiting player input`);
       this._announceTurn(encounter, current).catch(e => {
         this.logger?.error?.(`[CombatEncounter] Turn announcement failed: ${e.message}`);
+        this.turnLock.release(channelId, 'announcement_failed');
       });
       return; // Don't auto-execute - wait for button click
     }
     
+    // Transition to executing state for AI/monster
+    this.turnLock.transition(channelId, TURN_STATES.EXECUTING, {
+      combatantId: currentId,
+      combatantName: current?.name
+    });
+    
     // Execute turn immediately (AI/monster acts autonomously)
     this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] ${current?.name}'s turn - executing action`);
-    this._executeTurn(encounter, current).catch(e => {
-      this.logger?.error?.(`[CombatEncounter] Turn execution failed: ${e.message}`);
-      this.nextTurn(encounter); // Fallback: advance turn on error
-    });
+    this._executeTurn(encounter, current)
+      .then(() => {
+        this.turnLock.release(channelId, 'turn_complete');
+      })
+      .catch(e => {
+        this.logger?.error?.(`[CombatEncounter] Turn execution failed: ${e.message}`);
+        this.turnLock.release(channelId, 'turn_error');
+        this.nextTurn(encounter); // Fallback: advance turn on error
+      });
   }
 
   /** Marks a hostile action (attack) to prevent idle end */
@@ -1172,15 +1238,26 @@ One-liner (no quotes):`;
   /**
    * Complete a player-initiated action and advance to the next turn
    * Call this from tools (AttackTool, DefendTool, etc.) after a player action completes
+   * 
+   * V3 FIX: Uses TurnLock to manage state transitions
+   * 
    * @param {string} channelId - The channel ID where combat is taking place
    * @param {string} avatarId - The avatar ID that took the action
    * @param {Object} actionResult - Optional result from the action (damage, etc.)
    */
   async completePlayerAction(channelId, avatarId, actionResult = {}) {
     try {
+      // V3 FIX: Validate lock state
+      const lockState = this.turnLock.getState(channelId);
+      if (lockState !== TURN_STATES.AWAITING_INPUT && lockState !== TURN_STATES.EXECUTING) {
+        this.logger?.debug?.(`[CombatEncounter] completePlayerAction: wrong lock state (${lockState})`);
+        // Don't return - allow action to complete if encounter is valid
+      }
+
       const encounter = this.getEncounterByChannelId(channelId);
       if (!encounter || encounter.state !== 'active') {
         this.logger?.debug?.('[CombatEncounter] completePlayerAction: no active encounter');
+        this.turnLock.release(channelId, 'no_encounter');
         return;
       }
       
@@ -1199,6 +1276,13 @@ One-liner (no quotes):`;
         return;
       }
       
+      // V3 FIX: Transition to completing state
+      this.turnLock.transition(channelId, TURN_STATES.COMPLETING, {
+        combatantId: avatarId,
+        combatantName: combatant?.name,
+        reason: 'action_complete'
+      });
+      
       // Mark action completed
       combatant.awaitingAction = false;
       combatant.hasActed = true;
@@ -1207,17 +1291,47 @@ One-liner (no quotes):`;
       if (actionResult.damage && actionResult.targetId) {
         this.applyDamage(encounter, actionResult.targetId, actionResult.damage);
         this.markHostile(encounter);
+        
+        // V3: Emit HP changed event for UI sync
+        eventBus.emit('combat.hp.changed', {
+          channelId: encounter.channelId,
+          targetId: actionResult.targetId,
+          damage: actionResult.damage,
+          newHp: this.getCombatant(encounter, actionResult.targetId)?.currentHp
+        });
       }
       
+      // V3: Emit action completed event for UI sync
+      eventBus.emit('combat.action.completed', {
+        channelId: encounter.channelId,
+        actorId: avatarId,
+        actorName: combatant.name,
+        actionType: actionResult.actionType || 'action',
+        targetId: actionResult.targetId,
+        damage: actionResult.damage
+      });
+      
       // Check end conditions
-      if (this.evaluateEnd(encounter)) return;
+      if (this.evaluateEnd(encounter)) {
+        this.turnLock.end(channelId);
+        return;
+      }
+      
+      // V3 FIX: Transition to advancing state
+      this.turnLock.transition(channelId, TURN_STATES.ADVANCING, {
+        reason: 'next_turn'
+      });
       
       // Advance to next turn
       this.logger?.info?.(`[CombatEncounter] ${combatant.name} completed action, advancing turn`);
       await this.nextTurn(encounter);
       
+      // Release lock after turn advance (next turn will acquire its own)
+      this.turnLock.release(channelId, 'turn_advanced');
+      
     } catch (e) {
       this.logger?.error?.(`[CombatEncounter] completePlayerAction error: ${e.message}`);
+      this.turnLock.forceRelease(channelId);
     }
   }
 
@@ -1330,7 +1444,12 @@ One-liner (no quotes):`;
 
   /** Ends encounter and clears timers */
   endEncounter(encounter, { reason } = {}) {
-  this._clearTimers(encounter);
+    // V3 FIX: Release turn lock when encounter ends
+    if (encounter?.channelId) {
+      this.turnLock.end(encounter.channelId);
+    }
+    
+    this._clearTimers(encounter);
     encounter.state = 'ended';
     encounter.endedAt = Date.now();
     encounter.endReason = reason || 'unspecified';
@@ -1377,6 +1496,14 @@ One-liner (no quotes):`;
         combatants: encounter.combatants
       });
     }
+    
+    // V3: Emit combat ended event for UI cleanup
+    eventBus.emit('combat.ended', {
+      channelId: encounter.channelId,
+      encounterId: encounter.encounterId,
+      reason: encounter.endReason,
+      winners: winners.map(w => ({ name: w.name, avatarId: w.avatarId }))
+    });
     
     // Mark for cleanup by removing from encounters map (age list will be cleaned up later)
     // We don't remove from age list immediately to avoid O(n) search during combat
@@ -2384,9 +2511,27 @@ Message: ${messageContent}`;
     const current = this.getCombatant(encounter, currentId);
     if (!current) return;
     
+    // V3: Emit turn started event for UI sync
+    eventBus.emit('combat.turn.started', {
+      channelId: encounter.channelId,
+      encounterId: encounter.encounterId,
+      round: encounter.round,
+      turnIndex: encounter.currentTurnIndex,
+      combatantId: currentId,
+      combatantName: current.name,
+      isPlayerControlled: current.isPlayerControlled
+    });
+    
     // Skip round 1 turn announcements (combat start embed handles this)
     if (encounter.round === 1 && encounter.currentTurnIndex === 0) {
       this.logger.debug?.(`[CombatEncounter] skipping round 1 first turn announcement`);
+      return;
+    }
+    
+    // V3 FIX: Only post turn announcement embed for PLAYER-CONTROLLED combatants awaiting input
+    // Monster/AI turns will just execute and post their action message - no full status spam
+    if (!current.isPlayerControlled) {
+      this.logger.debug?.(`[CombatEncounter] skipping turn embed for AI/monster: ${current.name}`);
       return;
     }
     
@@ -3379,6 +3524,13 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         encounter.round = Math.max(1, Number(encounter.round) || 1) + 1;
         this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Starting round ${encounter.round}`);
         
+        // V3: Emit round advanced event for UI sync
+        eventBus.emit('combat.round.advanced', {
+          channelId: encounter.channelId,
+          encounterId: encounter.encounterId,
+          round: encounter.round
+        });
+        
         // Check if max rounds reached
         if (this.evaluateEnd(encounter)) {
           this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Combat ended at start of round ${encounter.round}`);
@@ -3398,11 +3550,10 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
         //   try { this._publish('combat.narrative.request.round_planning', { channelId: encounter.channelId, round: encounter.round }); } catch {}
         // }
       }
-      // Apply index and announce turn
+      // Apply index
       encounter.currentTurnIndex = nextIdx;
       
-      try { await this._announceTurn(encounter); } catch {}
-      // Start the turn (just timeout, no auto-actions)
+      // Start the turn - _scheduleTurnStart handles turn announcement
       this._scheduleTurnStart(encounter);
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] nextTurn error: ${e.message}`);

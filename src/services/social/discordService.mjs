@@ -1378,34 +1378,133 @@ export class DiscordService {
         await interaction.editReply({ content: '✅ Action completed!' });
       }
     } catch (error) {
-      this.logger?.error?.(`[DiscordService] D&D button handler error: ${error.message}`);
+      this.logger?.error?.(`[DiscordService] D&D button handler error: ${error.message}`, {
+        customId,
+        userId,
+        channelId: interaction.channelId,
+        stack: error.stack?.slice(0, 500)
+      });
       
       try {
-        // Create atmospheric error embed instead of plain text error
+        // V3 FIX: Categorize error and provide specific recovery actions
+        const errorInfo = this._categorizeButtonError(error);
         const errorEmbed = new EmbedBuilder()
           .setAuthor({ name: '🎲 The Dungeon Master' })
-          .setDescription('*The magical energies dissipate unexpectedly...*\n\nSomething went wrong with your action. Try again or use a command directly.')
-          .setColor(0x7C3AED)
-          .setFooter({ text: 'If this persists, try refreshing your adventure' });
+          .setTitle(errorInfo.title)
+          .setDescription(errorInfo.description)
+          .setColor(errorInfo.color)
+          .setFooter({ text: errorInfo.footer });
         
-        // Add a retry button for the dungeon status
-        const retryRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_map')
-            .setLabel('View Map')
-            .setEmoji('🗺️')
-            .setStyle(ButtonStyle.Primary)
-        );
+        // Build recovery buttons based on error category
+        const recoveryRow = new ActionRowBuilder();
+        
+        if (errorInfo.category === 'ENCOUNTER_ENDED') {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_status')
+              .setLabel('Check Status')
+              .setEmoji('📜')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_enter')
+              .setLabel('New Dungeon')
+              .setEmoji('🏰')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        } else if (errorInfo.category === 'TARGET_MISSING') {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_combat_take_turn')
+              .setLabel('View Targets')
+              .setEmoji('🎯')
+              .setStyle(ButtonStyle.Primary)
+          );
+        } else {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_map')
+              .setLabel('View Map')
+              .setEmoji('🗺️')
+              .setStyle(ButtonStyle.Primary)
+          );
+        }
         
         if (interaction.deferred) {
-          await interaction.editReply({ embeds: [errorEmbed], components: [retryRow] });
+          await interaction.editReply({ embeds: [errorEmbed], components: [recoveryRow] });
         } else if (!interaction.replied) {
-          await interaction.reply({ embeds: [errorEmbed], components: [retryRow], flags: 64 });
+          await interaction.reply({ embeds: [errorEmbed], components: [recoveryRow], flags: 64 });
         }
       } catch (replyError) {
         this.logger?.error?.(`[DiscordService] Failed to send error reply: ${replyError.message}`);
       }
     }
+  }
+
+  /**
+   * Categorize button interaction error for better UX
+   * @private
+   */
+  _categorizeButtonError(error) {
+    const msg = String(error?.message || '').toLowerCase();
+    
+    if (msg.includes('no active encounter') || msg.includes('encounter not found') || msg.includes('combat has ended')) {
+      return {
+        category: 'ENCOUNTER_ENDED',
+        title: '⚔️ Combat Has Ended',
+        description: '*The dust settles... This battle is already over.*\n\nThe encounter you were in has concluded. Check the channel for results or start a new adventure.',
+        color: 0x95A5A6,
+        footer: 'Combat ends when all enemies are defeated or all players flee'
+      };
+    }
+    
+    if (msg.includes('not your turn') || msg.includes('out of turn')) {
+      return {
+        category: 'WRONG_TURN',
+        title: '⏳ Not Your Turn',
+        description: '*"Hold, adventurer! The initiative order must be respected."*\n\nWait for your turn in the combat sequence before acting.',
+        color: 0xF39C12,
+        footer: 'Watch the turn announcements to know when to act'
+      };
+    }
+    
+    if (msg.includes('target not found') || msg.includes('ghost') || msg.includes('not found here')) {
+      return {
+        category: 'TARGET_MISSING',
+        title: '👻 Target Not Found',
+        description: '*Your strike meets only empty air...*\n\nThe target you selected is no longer valid. They may have been defeated or fled from combat.',
+        color: 0xE74C3C,
+        footer: 'Click View Targets to see available enemies'
+      };
+    }
+    
+    if (msg.includes('knocked out') || msg.includes('dead') || msg.includes('incapacitated')) {
+      return {
+        category: 'COMBATANT_DOWN',
+        title: '💀 Unable to Act',
+        description: '*Your strength fails you...*\n\nYou are incapacitated and cannot take actions at this time. Rest or receive healing to recover.',
+        color: 0x1A1A1A,
+        footer: 'Seek a rest room or healing potion'
+      };
+    }
+    
+    if (msg.includes('timeout') || msg.includes('expired')) {
+      return {
+        category: 'TIMEOUT',
+        title: '⌛ Action Timed Out',
+        description: '*The moment has passed...*\n\nYour turn timed out before you could act. The battle continues without you.',
+        color: 0x9B59B6,
+        footer: 'Act faster next time - you have 30 seconds per turn'
+      };
+    }
+    
+    // Default unknown error
+    return {
+      category: 'UNKNOWN',
+      title: '🌀 Something Went Wrong',
+      description: '*The magical energies dissipate unexpectedly...*\n\nAn unexpected error occurred. Try refreshing your view or using a command directly.',
+      color: 0x7C3AED,
+      footer: 'If this persists, try /dungeon status'
+    };
   }
 
   /**

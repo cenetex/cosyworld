@@ -51,6 +51,9 @@ export class DungeonTool extends BasicTool {
   async execute(message, params, avatar) {
     const channelId = message?.channel?.id;
     const action = (params[0] || '').toLowerCase();
+    
+    // Check if we're in a thread or main channel
+    const isThread = message?.channel?.isThread?.() || false;
 
     try {
       // Check for active dungeon in this channel/thread first
@@ -67,7 +70,7 @@ export class DungeonTool extends BasicTool {
 
       // No action specified - show status or prompt to enter
       if (!action || action === 'status') {
-        return await this._showStatus(avatar, channelId, activeDungeon, message);
+        return await this._showStatus(avatar, channelId, activeDungeon, message, isThread);
       }
 
       // Route to specific actions
@@ -75,11 +78,11 @@ export class DungeonTool extends BasicTool {
         case 'enter':
         case 'start':
         case 'begin':
-          return await this._enter(avatar, params, message, channelId, activeDungeon);
+          return await this._enter(avatar, params, message, channelId, activeDungeon, isThread);
         case 'map':
           return await this._showMap(avatar, activeDungeon);
         case 'move':
-          return await this._move(avatar, params, activeDungeon, message);
+          return await this._move(avatar, params, activeDungeon, message, isThread);
         case 'fight':
         case 'attack':
         case 'battle':
@@ -173,6 +176,10 @@ export class DungeonTool extends BasicTool {
       'Must clear current room': {
         narrative: '*The path forward is blocked! You must deal with the current challenge before advancing...*',
         button: { id: 'dnd_combat_start', label: 'Fight!', emoji: '⚔️' }
+      },
+      'Must solve the puzzle': {
+        narrative: '*Ancient runes block your passage! You must solve the riddle to proceed...*',
+        button: { id: 'dnd_puzzle_answer', label: 'Answer Riddle', emoji: '🧩' }
       },
       'Combat rooms must be cleared': {
         narrative: '*Enemies block your path! You cannot flee from this battle...*',
@@ -272,24 +279,89 @@ export class DungeonTool extends BasicTool {
   /**
    * Show current dungeon status or prompt to start
    */
-  async _showStatus(avatar, channelId, activeDungeon, _message) {
+  async _showStatus(avatar, channelId, activeDungeon, message, isThread = false) {
     if (activeDungeon) {
       const threadId = activeDungeon.threadId;
-      const isInDungeonThread = channelId === threadId;
+      const isInDungeonThread = threadId && channelId === threadId;
       
-      // If NOT in the dungeon thread, redirect them there
+      // THREAD ENFORCEMENT: If we're NOT in a thread at all, always redirect
+      // Never show full dungeon status/buttons in a main channel
+      if (!isThread) {
+        // If dungeon has a thread, redirect there
+        if (threadId) {
+          return {
+            embeds: [{
+              author: { name: '🎲 The Dungeon Master' },
+              title: `⚔️ ${activeDungeon.name}`,
+              description: `*Your adventure awaits...*\n\n**Continue in** <#${threadId}>`,
+              color: 0x7C3AED,
+              footer: { text: 'Dungeon commands only work in the adventure thread' }
+            }]
+          };
+        }
+        
+        // No thread exists - try to create one and redirect
+        if (this.discordService?.client && message?.channel?.id) {
+          try {
+            const channel = await this.discordService.client.channels.fetch(message.channel.id);
+            if (channel?.threads?.create) {
+              const thread = await channel.threads.create({
+                name: `⚔️ ${activeDungeon.name}`,
+                autoArchiveDuration: 1440,
+                reason: `Recovering dungeon thread for ${avatar?.name || 'party'}'s adventure`
+              });
+              await this.dungeonService.setThreadId(activeDungeon._id, thread.id);
+              this.logger?.info?.(`[DungeonTool] Created recovery thread ${thread.id} for dungeon ${activeDungeon._id}`);
+              
+              return {
+                embeds: [{
+                  author: { name: '🎲 The Dungeon Master' },
+                  title: `⚔️ ${activeDungeon.name}`,
+                  description: `*The ancient passages reveal themselves once more...*\n\n**Continue in** <#${thread.id}>`,
+                  color: 0x7C3AED,
+                  footer: { text: 'Adventure thread restored' }
+                }]
+              };
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonTool] Failed to create recovery thread: ${e.message}`);
+          }
+        }
+        
+        // Failed to create thread - show abandon option
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: `⚔️ ${activeDungeon.name}`,
+            description: `*Your adventure thread has been lost to the void...*\n\nAbandon this dungeon and start fresh, or try again.`,
+            color: 0x7C3AED,
+            footer: { text: 'Use abandon to start a new adventure' }
+          }],
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId('dnd_dungeon_abandon')
+                .setLabel('Abandon Dungeon')
+                .setEmoji('🚪')
+                .setStyle(ButtonStyle.Danger)
+            )
+          ]
+        };
+      }
+      
+      // We're in a thread - but check if it's the RIGHT thread
       if (threadId && !isInDungeonThread) {
         return {
           embeds: [{
             author: { name: '🎲 The Dungeon Master' },
             title: `⚔️ ${activeDungeon.name}`,
-            description: `*Your adventure awaits...*\n\n**Continue in** <#${threadId}>`,
+            description: `*This is not your dungeon's thread...*\n\n**Continue in** <#${threadId}>`,
             color: 0x7C3AED
           }]
         };
       }
       
-      // In the dungeon thread (or no thread) - show full room status
+      // In the correct dungeon thread - show full room status
       const currentRoom = activeDungeon.rooms.find(r => r.id === activeDungeon.currentRoom);
       const clearedCount = activeDungeon.rooms.filter(r => r.cleared).length;
       const totalRooms = activeDungeon.rooms.length;
@@ -441,7 +513,7 @@ export class DungeonTool extends BasicTool {
   /**
    * Enter a new dungeon - creates thread and posts atmospheric intro
    */
-  async _enter(avatar, params, message, channelId, existingDungeon) {
+  async _enter(avatar, params, message, channelId, existingDungeon, _isThread = false) {
     // Check if dungeon already active in this channel
     if (existingDungeon) {
       return await this._buildActiveDungeonResponse(existingDungeon, message, avatar);
@@ -702,9 +774,21 @@ export class DungeonTool extends BasicTool {
   /**
    * Move to a different room
    */
-  async _move(avatar, params, dungeon, _message) {
+  async _move(avatar, params, dungeon, _message, isThread = false) {
     if (!dungeon) {
       return this._narrateError('No active dungeon');
+    }
+    
+    // If we're not in the dungeon thread, redirect there
+    if (dungeon.threadId && !isThread) {
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          title: `⚔️ ${dungeon.name}`,
+          description: `*Your adventure continues...*\n\n**Use dungeon commands in** <#${dungeon.threadId}>`,
+          color: 0x7C3AED
+        }]
+      };
     }
 
     const roomId = params[1] || params.room;
@@ -783,6 +867,46 @@ export class DungeonTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'explored');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_moved');
 
+    // If we're in the dungeon thread, show the full room embed (already posted above or direct response)
+    if (isThread) {
+      const roomEmbed = {
+        author: { name: '🎲 The Dungeon Master' },
+        title: `${this._getRoomEmoji(room.type)} ${this._getRoomTitle(room.type)}`,
+        description: this._generateRoomNarrative(room, dungeon.theme),
+        color: this._getRoomColor(room.type)
+      };
+      
+      if (imageUrl) {
+        roomEmbed.image = { url: imageUrl };
+      }
+
+      if (room.encounter?.monsters?.length && !room.cleared) {
+        roomEmbed.fields = [{
+          name: '👹 Enemies',
+          value: room.encounter.monsters.map(m => 
+            `${m.emoji || '👹'} **${m.name || m.id}** ×${m.count || 1}`
+          ).join('\n'),
+          inline: false
+        }];
+      }
+
+      // If room has unsolved puzzle, show the riddle
+      if (room.puzzle && !room.puzzle.solved) {
+        roomEmbed.fields = roomEmbed.fields || [];
+        roomEmbed.fields.push({
+          name: '🧩 A Riddle Blocks Your Path',
+          value: `*"${room.puzzle.riddle}"*`,
+          inline: false
+        });
+      }
+
+      return { 
+        embeds: [roomEmbed], 
+        components: this._createRoomButtons(room)
+      };
+    }
+
+    // Not in thread - show redirect message
     const description = dungeon.threadId 
       ? `*The party moves deeper into the ${dungeon.theme} dungeon...*\n\n**Continue in** <#${dungeon.threadId}>`
       : `*The party moves deeper into the ${dungeon.theme} dungeon...*`;
@@ -800,10 +924,36 @@ export class DungeonTool extends BasicTool {
   /**
    * Start combat in current room
    * C-1/C-2 fix: Actually integrates with DungeonService.startRoomCombat
+   * THREAD ENFORCEMENT: Combat only starts in threads, never in main channels
    */
   async _startCombat(avatar, dungeon, message) {
     if (!dungeon) {
       return this._narrateError('No active dungeon');
+    }
+
+    // THREAD ENFORCEMENT: Never start combat in a main channel
+    const isThread = message?.channel?.isThread?.() || false;
+    if (!isThread) {
+      const threadId = dungeon.threadId;
+      if (threadId) {
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: `⚔️ ${dungeon.name}`,
+            description: `*The battle awaits, but not here...*\n\n**Fight in** <#${threadId}>`,
+            color: 0x7C3AED,
+            footer: { text: 'Combat only happens in dungeon threads' }
+          }]
+        };
+      }
+      // No thread - this shouldn't happen, but handle gracefully
+      return {
+        embeds: [{
+          author: { name: '🎲 The Dungeon Master' },
+          description: `*The dungeon has no active thread. Use* 🏰 *to restore it.*`,
+          color: 0x7C3AED
+        }]
+      };
     }
 
     const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
@@ -817,8 +967,8 @@ export class DungeonTool extends BasicTool {
       };
     }
 
-    // Get the channel ID for combat (prefer thread, fall back to message channel)
-    const combatChannelId = dungeon.threadId || message?.channel?.id;
+    // We're in a thread - use this channel for combat
+    const combatChannelId = message?.channel?.id;
 
     // C-1/C-2 fix: Actually start combat via DungeonService integration
     try {

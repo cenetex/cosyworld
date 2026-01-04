@@ -692,11 +692,17 @@ export class DungeonService {
       throw new Error('Room not accessible');
     }
 
-    // Only combat/boss rooms require clearing before advancing
-    // Other rooms (rest, treasure, puzzle, empty, shop) can be left freely
+    // Rooms that block advancement until cleared/solved
     const requiresClearing = ['combat', 'boss'].includes(currentRoom.type);
-    if (dungeon.currentRoom !== roomId && !currentRoom.cleared && requiresClearing) {
-      throw new Error('Must clear current room before advancing');
+    const hasUnsolvedPuzzle = currentRoom.puzzle && !currentRoom.puzzle.solved;
+    
+    if (dungeon.currentRoom !== roomId && !currentRoom.cleared) {
+      if (requiresClearing) {
+        throw new Error('Must clear current room before advancing');
+      }
+      if (hasUnsolvedPuzzle) {
+        throw new Error('Must solve the puzzle before advancing');
+      }
     }
 
     const col = await this.collection();

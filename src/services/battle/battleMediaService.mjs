@@ -54,13 +54,67 @@ export class BattleMediaService {
   }
 
   async _composeOrGenerateImage(images, scenePrompt, uploadOptions = {}) {
+    // Helper to normalize result to a URL string - handles both URL strings and { url, data } objects
+    const normalizeToUrl = async (result) => {
+      if (!result) return null;
+      
+      // Already a URL string - return as-is
+      if (typeof result === 'string') {
+        if (result.startsWith('http')) return result;
+        // Skip if it's raw base64 (very long string without http prefix)
+        if (result.length > 1000) {
+          this.logger?.warn?.(`[BattleMedia] Got raw base64 string instead of URL, uploading to S3`);
+          try {
+            const buffer = Buffer.from(result, 'base64');
+            const tempFile = `./images/battle_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            const { promises: fs } = await import('fs');
+            await fs.mkdir('./images', { recursive: true });
+            await fs.writeFile(tempFile, buffer);
+            const s3url = await this.s3Service?.uploadImage?.(tempFile, uploadOptions);
+            await fs.unlink(tempFile).catch(() => {});
+            return s3url || null;
+          } catch (e) {
+            this.logger?.warn?.(`[BattleMedia] Failed to upload base64 string: ${e.message}`);
+            return null;
+          }
+        }
+        return null;
+      }
+      
+      // Object with url property - return url
+      if (result.url && typeof result.url === 'string' && result.url.startsWith('http')) {
+        return result.url;
+      }
+      
+      // Object with data property (base64) - upload to S3
+      if (result.data && this.s3Service) {
+        try {
+          const buffer = Buffer.from(result.data, 'base64');
+          const tempFile = `./images/battle_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+          const { promises: fs } = await import('fs');
+          await fs.mkdir('./images', { recursive: true });
+          await fs.writeFile(tempFile, buffer);
+          const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
+          await fs.unlink(tempFile).catch(() => {});
+          this.logger?.info?.(`[BattleMedia] Uploaded base64 image to S3: ${s3url}`);
+          return s3url;
+        } catch (e) {
+          this.logger?.warn?.(`[BattleMedia] Failed to upload base64 to S3: ${e.message}`);
+          return null;
+        }
+      }
+      
+      return null;
+    };
+    
     // Try primary provider first, fallback to googleAIService
     const tryProvider = async (provider) => {
       if (!provider) return null;
       try {
         if (typeof provider.composeImageWithGemini === 'function') {
           const composed = await provider.composeImageWithGemini(images, scenePrompt, uploadOptions);
-          if (composed) return composed;
+          const url = await normalizeToUrl(composed);
+          if (url) return url;
         }
       } catch (e) {
         this.logger?.warn?.(`[BattleMedia] compose attempt failed: ${e.message}`);
@@ -69,7 +123,8 @@ export class BattleMediaService {
         if (typeof provider.generateImage === 'function') {
           const prompt = `${scenePrompt}`;
           const gen = await provider.generateImage(prompt, uploadOptions);
-          if (gen) return gen;
+          const url = await normalizeToUrl(gen);
+          if (url) return url;
         }
       } catch (e) {
         this.logger?.warn?.(`[BattleMedia] generate attempt failed: ${e.message}`);

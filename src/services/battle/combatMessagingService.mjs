@@ -132,8 +132,9 @@ export class CombatMessagingService {
    * @param {Object} action - The action taken
    * @param {Object} result - Action result
    * @param {string} dialogue - Optional character dialogue
+   * @param {string} dmNarration - Optional DM third-person narration
    */
-  async postCombatAction(encounter, combatant, action, result, dialogue) {
+  async postCombatAction(encounter, combatant, action, result, dialogue, dmNarration = null) {
     const channel = this.getChannel(encounter);
     if (!channel) return;
 
@@ -178,12 +179,17 @@ export class CombatMessagingService {
         actionMessage = MESSAGE_TEMPLATES.defend(combatant.name);
       }
 
-      // Post action message
+      // Post action message (mechanical result)
       if (actionMessage) {
         await channel.send({ content: actionMessage });
       }
+      
+      // Post DM narration (third-person cinematic description)
+      if (dmNarration) {
+        await channel.send({ content: `*${dmNarration}*` });
+      }
 
-      // Post dialogue as webhook
+      // Post dialogue as webhook (character's one-liner)
       if (dialogue) {
         await this.postAsWebhook(encounter, combatant.ref, dialogue);
       }

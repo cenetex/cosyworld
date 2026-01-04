@@ -1372,7 +1372,7 @@ export class OpenRouterAIService {
     }
     
     // Fallback to default image model instead of failing
-    const defaultImageModel = 'google/gemini-2.5-flash-image';
+    const defaultImageModel = 'google/gemini-3-pro-image-preview';
     this.logger?.debug?.(`[OpenRouter] Model '${model}' is not image-capable, using default: ${defaultImageModel}`);
     return await this.generateImageViaOpenRouter(prompt, images, { ...options, model: defaultImageModel });
   }
@@ -1386,7 +1386,7 @@ export class OpenRouterAIService {
    * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
    */
   async generateImageViaOpenRouter(prompt, referenceImages = [], options = {}) {
-    const model = options.model || 'google/gemini-2.5-flash-image';
+    const model = options.model || 'google/gemini-3-pro-image-preview';
     
     // Build message content with optional reference images
     const content = [];

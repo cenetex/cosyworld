@@ -18,6 +18,14 @@ import { MonsterService } from '../services/dnd/MonsterService.mjs';
 import { TutorialQuestService } from '../services/dnd/TutorialQuestService.mjs';
 import { QuestService } from '../services/quests/QuestService.mjs';
 import { TUTORIAL_QUEST } from '../data/quests/tutorial.mjs';
+import { DMNarratorService } from '../services/dnd/DMNarratorService.mjs';
+
+// Combat target resolution (V3 fix for "Ghost Enemy" bug)
+import { CombatTargetRegistry } from '../services/battle/CombatTargetRegistry.mjs';
+import { CombatUIService } from '../services/battle/CombatUIService.mjs';
+
+// Entity resolution (V3 unified entity lookup)
+import { EntityResolver } from '../services/entities/EntityResolver.mjs';
 
 export function registerPreReady({ container }) {
   container.register({
@@ -40,12 +48,19 @@ export function registerPreReady({ container }) {
     dungeonService: asClass(DungeonService).singleton(),
     monsterService: asClass(MonsterService).singleton(),
     tutorialQuestService: asClass(TutorialQuestService).singleton(),
+    dmNarratorService: asClass(DMNarratorService).singleton(),
     questService: asFunction(({ databaseService, characterService, partyService, dungeonService, discordService, logger }) => {
       const service = new QuestService({ databaseService, characterService, partyService, dungeonService, discordService, logger });
       // Register built-in quests
       service.registerQuest(TUTORIAL_QUEST);
       return service;
     }).singleton(),
+    // Combat target registry (V3 fix for "Ghost Enemy" bug)
+    combatTargetRegistry: asClass(CombatTargetRegistry).singleton(),
+    // Combat UI service (V3 centralized embed management)
+    combatUIService: asClass(CombatUIService).singleton(),
+    // Entity resolver (V3 unified entity lookup)
+    entityResolver: asClass(EntityResolver).singleton(),
   });
 
   // Make container itself injectable as 'services' for late-binding/plugin use.

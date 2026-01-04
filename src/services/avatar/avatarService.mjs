@@ -316,12 +316,24 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   async getAvatarStats(avatarId) {
-    const db = await this._db();
-    const objectId = toObjectId(avatarId);
-    const stats = await db.collection('dungeon_stats').findOne({ avatarId: objectId });
-    return (
-      stats || { hp: 100, attack: 10, defense: 5, avatarId: objectId }
-    );
+    // Handle non-ObjectId IDs (e.g., monster IDs like "monster_mortar_mite_6idl_2_...")
+    // These are synthetic combatants that don't have persistent stats in the DB
+    if (typeof avatarId === 'string' && (avatarId.startsWith('monster_') || avatarId.startsWith('unknown_'))) {
+      this.logger.debug?.(`[AvatarService] getAvatarStats: skipping DB lookup for monster ID ${avatarId}`);
+      return null; // Let caller use embedded stats
+    }
+    
+    try {
+      const db = await this._db();
+      const objectId = toObjectId(avatarId);
+      const stats = await db.collection('dungeon_stats').findOne({ avatarId: objectId });
+      return (
+        stats || { hp: 100, attack: 10, defense: 5, avatarId: objectId }
+      );
+    } catch (_e) {
+      this.logger.debug?.(`[AvatarService] getAvatarStats: invalid ID ${avatarId}, returning null`);
+      return null;
+    }
   }
 
   async updateAvatarStats(avatar, stats) {
@@ -354,12 +366,26 @@ export class AvatarService {
   }
 
   async getOrCreateStats(avatar) {
-    let stats = avatar.stats || (await this.getAvatarStats(avatar._id));
-  if (!stats || !this.statService.constructor.validateStats(stats)) {
-    stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
-      await this.updateAvatarStats(avatar, stats);
-      avatar.stats = stats;
-      await this.updateAvatar(avatar);
+    // For monsters/synthetic combatants with embedded stats, use those directly
+    const avatarId = avatar?._id || avatar?.id;
+    const isMonster = typeof avatarId === 'string' && (avatarId.startsWith('monster_') || avatarId.startsWith('unknown_'));
+    
+    if (isMonster && avatar.stats) {
+      // Monsters come with pre-built stats from MonsterService
+      return avatar.stats;
+    }
+    
+    let stats = avatar.stats || (await this.getAvatarStats(avatarId));
+    if (!stats || !this.statService.constructor.validateStats(stats)) {
+      stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
+      // Only persist stats for real avatars (not monsters)
+      if (!isMonster) {
+        await this.updateAvatarStats(avatar, stats);
+        avatar.stats = stats;
+        await this.updateAvatar(avatar);
+      } else {
+        avatar.stats = stats;
+      }
     }
     return stats;
   }

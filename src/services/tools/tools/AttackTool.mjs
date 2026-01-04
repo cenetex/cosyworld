@@ -161,6 +161,77 @@ export class AttackTool extends BasicTool {
     const targetText = params.join(' ').trim();
 
     try {
+      // V3 FIX: Check for active combat encounter FIRST and use CombatTargetRegistry
+      // This fixes the "Ghost Enemy" bug where monsters exist in combat but not on the map
+      const encounterService = services?.combatEncounterService;
+      const combatTargetRegistry = services?.combatTargetRegistry;
+      
+      if (encounterService && combatTargetRegistry) {
+        const encounter = encounterService.getEncounterByChannelId?.(message.channel.id) || 
+                          encounterService.getEncounter?.(message.channel.id);
+        
+        if (encounter?.state === 'active') {
+          // We're in active combat - use registry for target resolution
+          const attackerId = String(avatar?._id || avatar?.id || '');
+          const target = combatTargetRegistry.resolveTarget(
+            message.channel.id,
+            targetText,
+            { excludeAvatarIds: [attackerId] }
+          );
+          
+          if (target) {
+            // Turn enforcement
+            if (!encounterService.isTurn(encounter, attackerId)) {
+              // Silently ignore out-of-turn attempts
+              return null;
+            }
+            
+            // Execute attack against combat target
+            this.logger?.info?.(`[AttackTool][${message.channel.id}] ${avatar.name} attacks ${target.name} (via CombatTargetRegistry)`);
+            
+            // Pre-register a blocker so turn won't advance until we finish
+            let resolveBlocker = null;
+            try {
+              const p = new Promise(res => { resolveBlocker = res; });
+              encounterService.addTurnAdvanceBlocker?.(message.channel.id, p);
+            } catch {}
+            
+            const result = await this.battleService.attack({ 
+              message, 
+              attacker: avatar, 
+              defender: target.ref || target, 
+              services 
+            });
+            
+            try { resolveBlocker?.(); } catch {}
+            
+            // Notify combat service that player action is complete
+            try {
+              if (encounterService.completePlayerAction) {
+                await encounterService.completePlayerAction(message.channel.id, attackerId, {
+                  damage: result?.damage,
+                  targetId: target.avatarId || target._id
+                });
+              }
+            } catch (e) {
+              this.logger?.warn?.(`[AttackTool] completePlayerAction failed: ${e.message}`);
+            }
+            
+            return result.message;
+          } else {
+            // Target not found in combat - show valid targets to help player
+            const validTargets = combatTargetRegistry.getValidTargets(message.channel.id, avatar._id);
+            if (validTargets.length > 0) {
+              const targetList = validTargets.map(t => 
+                `• **${t.name}** (${t.currentHp}/${t.maxHp} HP)`
+              ).join('\n');
+              return `-# 🫠 [ Target '${targetText}' not found in combat. ]\n\n**Valid targets:**\n${targetList}`;
+            }
+            return `-# 🫠 [ Target '${targetText}' not found. No valid targets in combat. ]`;
+          }
+        }
+      }
+
       // Check if we're in a dungeon encounter first (via context or dungeonService)
       
       if (dungeonService && characterService) {
