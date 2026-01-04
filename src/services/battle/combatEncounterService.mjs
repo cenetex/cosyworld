@@ -482,17 +482,20 @@ export class CombatEncounterService {
       // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
       const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
       // Determine if player-controlled (waiting for human input):
-      // ONLY the player's directly summoned avatar is player-controlled
-      // Party members with discordUserId are still AI-controlled (auto-act)
+      // An avatar is human-controlled if:
       // - Not a monster AND
-      // - summoner starts with 'user:' (the player's own avatar)
+      // - Has summoner starting with 'user:' OR has a discordUserId (linked to human)
       const isMonster = a.isMonster === true;
       const hasSummoner = String(a.summoner || '').startsWith('user:');
-      const isPlayerControlled = !isMonster && hasSummoner;
+      const hasDiscordUser = !!a.discordUserId;
+      const isPlayerControlled = !isMonster && (hasSummoner || hasDiscordUser);
       
       // Extract discordUserId for turn validation
-      // Priority: direct field > nested in avatar data
-      const discordUserId = a.discordUserId || null;
+      // Priority: direct field > extracted from summoner
+      let discordUserId = a.discordUserId || null;
+      if (!discordUserId && hasSummoner) {
+        discordUserId = String(a.summoner).replace(/^user:/, '');
+      }
       
       return {
         avatarId: aid,
