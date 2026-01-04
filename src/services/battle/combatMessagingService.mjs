@@ -46,7 +46,9 @@ const MESSAGE_TEMPLATES = {
     winner: (name) => `# 🏆 ${name} is victorious!`,
     draw: () => `# ⚔️ The battle ends in a draw!`,
     fled: (name) => `# 🏃 ${name} escaped! Combat ends.`,
-    maxRounds: () => `# ⏱️ Combat ends - max rounds reached!`
+    maxRounds: () => `# ⏱️ Combat ends - max rounds reached!`,
+    roomCleared: () => `# ✅ Room Cleared! All enemies defeated!`,
+    tpk: () => `# 💀 Total Party Kill! The dungeon claims more souls...`
   }
 };
 
@@ -273,6 +275,14 @@ export class CombatMessagingService {
         case 'max_rounds':
           title = MESSAGE_TEMPLATES.combatEnd.maxRounds();
           description = `Combat ends after ${encounter.round} rounds without a clear victor.`;
+          break;
+        case 'room_cleared':
+          title = MESSAGE_TEMPLATES.combatEnd.roomCleared();
+          description = `The party defeats all enemies after ${encounter.round} rounds! The room is now safe.`;
+          break;
+        case 'tpk':
+          title = MESSAGE_TEMPLATES.combatEnd.tpk();
+          description = `All party members have fallen in battle after ${encounter.round} rounds...`;
           break;
         default:
           title = MESSAGE_TEMPLATES.combatEnd.draw();

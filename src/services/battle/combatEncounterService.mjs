@@ -1339,12 +1339,38 @@ One-liner (no quotes):`;
   evaluateEnd(encounter) {
     if (encounter.state !== 'active') return false;
     
-    // Maximum rounds limit - END COMBAT AFTER 3 ROUNDS
-    const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
-    if (encounter.round >= maxRounds) {
-      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Max rounds (${maxRounds}) reached - ending combat`);
-      this.endEncounter(encounter, { reason: 'max_rounds' });
-      return true;
+    // Maximum rounds limit - but NOT for dungeon combat (dungeons continue until cleared/flee/TPK)
+    // Dungeon encounters should only end when:
+    // - All monsters defeated (room cleared)
+    // - All players defeated (TPK)
+    // - Players flee
+    if (!encounter.dungeonContext) {
+      const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
+      if (encounter.round >= maxRounds) {
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Max rounds (${maxRounds}) reached - ending combat`);
+        this.endEncounter(encounter, { reason: 'max_rounds' });
+        return true;
+      }
+    }
+    
+    // For dungeon combat: check if one side is eliminated
+    if (encounter.dungeonContext) {
+      const monsters = encounter.combatants.filter(c => c.isMonster && (c.currentHp || 0) > 0);
+      const players = encounter.combatants.filter(c => !c.isMonster && (c.currentHp || 0) > 0);
+      
+      // All monsters defeated - players win
+      if (monsters.length === 0 && players.length > 0) {
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] All monsters defeated - dungeon room cleared`);
+        this.endEncounter(encounter, { reason: 'room_cleared' });
+        return true;
+      }
+      
+      // All players defeated - TPK
+      if (players.length === 0 && monsters.length > 0) {
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] All players defeated - TPK`);
+        this.endEncounter(encounter, { reason: 'tpk' });
+        return true;
+      }
     }
     
     // Basic rule: if <=1 conscious combatant remains
@@ -1359,7 +1385,8 @@ One-liner (no quotes):`;
       return true;
     }
     // Idle logic: if no hostile actions for N rounds after at least one hostile
-    if (encounter.lastHostileAt) {
+    // But not for dungeon combat - players may need time to strategize
+    if (!encounter.dungeonContext && encounter.lastHostileAt) {
       const roundsSince = (Date.now() - encounter.lastHostileAt) / (this.turnTimeoutMs);
       if (roundsSince >= this.idleEndRounds) {
         this.endEncounter(encounter, { reason: 'idle' });

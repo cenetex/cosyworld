@@ -199,10 +199,10 @@ export class DungeonService {
   _setupCombatListener() {
     eventBus.on('combat.dungeon.ended', async (data) => {
       try {
-        const { dungeonId, roomId, winners, combatants } = data;
+        const { dungeonId, roomId, winners, combatants, reason } = data;
         if (!dungeonId || !roomId) return;
         
-        this.logger?.info?.(`[DungeonService] Received combat.dungeon.ended for dungeon ${dungeonId}, room ${roomId}`);
+        this.logger?.info?.(`[DungeonService] Received combat.dungeon.ended for dungeon ${dungeonId}, room ${roomId}, reason=${reason}`);
         
         // Build combat result from event data
         const combatResult = {
@@ -210,7 +210,8 @@ export class DungeonService {
             name: w.name,
             isMonster: w.isMonster || false
           })),
-          combatants
+          combatants,
+          reason // Pass the end reason (room_cleared, tpk, flee, etc.)
         };
         
         await this.resolveCombat(dungeonId, roomId, combatResult);
@@ -889,16 +890,29 @@ export class DungeonService {
     const room = dungeon.rooms.find(r => r.id === roomId);
     if (!room || room.cleared) return;
 
-    // Check if party won (any party member still standing)
-    const partyWon = combatResult?.winners?.some(w => !w.isMonster) || 
-                     !combatResult?.winners?.every(w => w.isMonster);
+    // Determine if party won based on reason or winners
+    const reason = combatResult?.reason;
+    let partyWon = false;
+    
+    if (reason === 'room_cleared') {
+      // Explicit room cleared - party won
+      partyWon = true;
+    } else if (reason === 'tpk') {
+      // Total party kill - party lost
+      partyWon = false;
+    } else {
+      // Fallback: check if any party member still standing
+      partyWon = combatResult?.winners?.some(w => !w.isMonster) || 
+                 !combatResult?.winners?.every(w => w.isMonster);
+    }
 
     if (partyWon) {
       // Clear the room and award XP (C-3: pass combatVictory flag)
       await this.clearRoom(dungeonId, roomId, { combatVictory: true });
       this.logger?.info?.(`[DungeonService] Party cleared room ${roomId} after combat victory`);
     } else {
-      this.logger?.info?.(`[DungeonService] Party defeated in room ${roomId}`);
+      this.logger?.info?.(`[DungeonService] Party defeated in room ${roomId} (${reason || 'unknown'})`);
+      // TODO: Handle TPK - maybe mark dungeon as failed, respawn party, etc.
     }
 
     return { partyWon, room };
