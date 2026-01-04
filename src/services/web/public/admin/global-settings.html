@@ -550,6 +550,18 @@
               </div>
               <div class="setting-row">
                 <div class="setting-info">
+                  <div class="setting-label">Avatar Proxy Mode</div>
+                  <div class="setting-description">Human messages are deleted and re-sent through their avatar's personality</div>
+                </div>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="featureAvatarProxy" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-info">
                   <div class="setting-label">Payment Integration</div>
                   <div class="setting-description">Enable X402 payments and marketplace</div>
                 </div>
@@ -770,6 +782,7 @@
       document.getElementById('featureItemCreation').checked = features.itemCreation !== false;
       document.getElementById('featureStory').checked = features.story !== false;
       document.getElementById('featurePayments').checked = features.payments || false;
+      document.getElementById('featureAvatarProxy').checked = features.avatarProxy === true;
 
       // Advanced
       document.getElementById('debugMode').checked = settings.debugMode || false;
@@ -799,7 +812,8 @@
           combat: document.getElementById('featureCombat').checked,
           itemCreation: document.getElementById('featureItemCreation').checked,
           story: document.getElementById('featureStory').checked,
-          payments: document.getElementById('featurePayments').checked
+          payments: document.getElementById('featurePayments').checked,
+          avatarProxy: document.getElementById('featureAvatarProxy').checked
         },
         debugMode: document.getElementById('debugMode').checked,
         globalRateLimit: parseInt(document.getElementById('globalRateLimit').value),

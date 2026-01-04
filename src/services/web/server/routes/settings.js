@@ -12,6 +12,7 @@ const ALLOWED_SETTING_KEYS = [
   'features.combat',
   'features.itemCreation',
   'features.moderation',
+  'features.avatarProxy',
   'viewDetailsEnabled',
   'enableWebSearchTool',
   'webSearchToolChannelId',

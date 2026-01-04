@@ -800,6 +800,15 @@
                   <span>Enable Moderation</span>
                 </label>
               </div>
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                  <input type="checkbox" id="featureAvatarProxy" />
+                  <span>Avatar Proxy Mode</span>
+                </label>
+                <p style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px; margin-left: 24px;">
+                  When enabled, human messages are deleted and re-sent through their avatar's personality.
+                </p>
+              </div>
             </div>
 
             <div class="config-section">
@@ -1070,6 +1079,7 @@
       document.getElementById('featureCombat').checked = features.combat !== false;
       document.getElementById('featureItemCreation').checked = features.itemCreation !== false;
       document.getElementById('featureModeration').checked = features.moderation !== false;
+      document.getElementById('featureAvatarProxy').checked = features.avatarProxy === true;
 
       const rateLimit = config.rateLimit || {};
       document.getElementById('rateLimitMessages').value = rateLimit.messages || 5;
@@ -1274,7 +1284,8 @@
             breeding: document.getElementById('featureBreeding').checked,
             combat: document.getElementById('featureCombat').checked,
             itemCreation: document.getElementById('featureItemCreation').checked,
-            moderation: document.getElementById('featureModeration').checked
+            moderation: document.getElementById('featureModeration').checked,
+            avatarProxy: document.getElementById('featureAvatarProxy').checked
           },
           rateLimit: {
             messages: parseInt(document.getElementById('rateLimitMessages').value),
