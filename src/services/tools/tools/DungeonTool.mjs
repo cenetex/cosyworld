@@ -1080,6 +1080,9 @@ export class DungeonTool extends BasicTool {
 
     const roomNarrative = await this._getRoomNarrative(room, dungeon);
 
+    // V5 FIX: Track whether we successfully posted to thread to avoid duplicate embeds
+    let postedToThread = false;
+
     // Post to dungeon thread if available
     if (dungeon.threadId && this.discordService?.client) {
       try {
@@ -1107,6 +1110,7 @@ export class DungeonTool extends BasicTool {
           }
 
           await thread.send({ embeds: [roomEmbed], components: this._createRoomButtons(room) });
+          postedToThread = true;
         }
       } catch (e) {
         this.logger?.warn?.(`[DungeonTool] Thread post failed: ${e.message}`);
@@ -1117,7 +1121,13 @@ export class DungeonTool extends BasicTool {
     await this.questService?.onEvent?.(avatar._id, 'explored');
     await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_moved');
 
-    // If we're in the dungeon thread, show the full room embed (already posted above or direct response)
+    // V5 FIX: If we're in the dungeon thread and already posted, return null to avoid duplicate
+    // The embed was already sent via thread.send()
+    if (isThread && postedToThread) {
+      return null;  // Tool will delete ephemeral, thread already has the embed
+    }
+
+    // If we're in the dungeon thread but thread post failed, show the embed as response
     if (isThread) {
       const roomEmbed = {
         author: { name: '🎲 The Dungeon Master' },
