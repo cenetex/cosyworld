@@ -18,7 +18,7 @@ import {
 } from '../dndButtonComponents.mjs';
 
 export class CharacterTool extends BasicTool {
-  constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService }) {
+  constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService, healthService }) {
     super();
     this.logger = logger || console;
     this.characterService = characterService;
@@ -26,6 +26,7 @@ export class CharacterTool extends BasicTool {
     this.discordService = discordService;
     this.questService = questService;
     this.tutorialQuestService = tutorialQuestService;
+    this.healthService = healthService || null;
 
     this.name = 'character';
     this.parameters = '<action> [options]';
@@ -248,7 +249,17 @@ export class CharacterTool extends BasicTool {
     const stats = avatar.stats || {};
     const abilityScores = sheet.abilityScores || {};
 
-    const hpBar = this._createBar(stats.hp || 10, stats.hp || 10, 10);
+    let currentHp = stats.hp || 10;
+    let maxHp = stats.maxHp || stats.hp || 10;
+    if (this.healthService) {
+      const state = await this.healthService.getHpState(avatar);
+      if (state) {
+        currentHp = state.currentHp ?? currentHp;
+        maxHp = state.maxHp ?? maxHp;
+      }
+    }
+
+    const hpBar = this._createBar(currentHp, maxHp, 10);
     
     // Format ability scores
     const statLine = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -275,7 +286,7 @@ export class CharacterTool extends BasicTool {
 
     const fields = [
       { name: '📊 Ability Scores', value: statLine, inline: false },
-      { name: '❤️ HP', value: `${hpBar} ${stats.hp || 10}`, inline: false },
+      { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: false },
       { name: '🎯 Proficiency', value: `+${sheet.proficiencyBonus}`, inline: true },
       { name: '⭐ XP', value: `${sheet.experience}`, inline: true },
       { name: '🎲 Hit Dice', value: `${sheet.hitDice.current}/${sheet.hitDice.max}d${sheet.hitDice.size}`, inline: true },

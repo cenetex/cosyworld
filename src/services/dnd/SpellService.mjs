@@ -9,11 +9,12 @@ import { SPELLS, getCantripDamage } from '../../data/dnd/spells.mjs';
 import { DiceService } from '../battle/diceService.mjs';
 
 export class SpellService {
-  constructor({ characterService, avatarService, statusEffectService, getCombatEncounterService, logger }) {
+  constructor({ characterService, avatarService, statusEffectService, getCombatEncounterService, healthService, logger }) {
     this.characterService = characterService;
     this.avatarService = avatarService;
     this.statusEffectService = statusEffectService;
     this.getCombatEncounterService = getCombatEncounterService;
+    this.healthService = healthService || null;
     this.diceService = new DiceService();
     this.logger = logger;
   }
@@ -248,12 +249,20 @@ export class SpellService {
       const target = await this.avatarService.getAvatarById(targetId);
       if (!target) return { newHp: null, concentrationSave: null };
 
-      const currentHp = target.stats?.hp ?? 10;
-      const newHp = Math.max(0, currentHp - damage);
-
-      await this.avatarService.updateAvatar(targetId, {
-        'stats.hp': newHp
-      });
+      let newHp = null;
+      let currentHp = target.stats?.hp ?? 10;
+      if (this.healthService) {
+        const state = await this.healthService.applyDamage(target, damage, { source: `spell:${damageType || 'damage'}` });
+        newHp = state?.currentHp ?? null;
+        if (state?.damageApplied) {
+          currentHp = state.currentHp + state.damageApplied;
+        }
+      } else {
+        newHp = Math.max(0, currentHp - damage);
+        await this.avatarService.updateAvatar(targetId, {
+          'stats.hp': newHp
+        });
+      }
 
       this.logger?.debug?.(`[SpellService] Applied ${damage} ${damageType} damage to ${target.name} (${currentHp} -> ${newHp})`);
 
@@ -291,13 +300,21 @@ export class SpellService {
       const target = await this.avatarService.getAvatarById(targetId);
       if (!target) return;
 
-      const currentHp = target.stats?.hp ?? 10;
-      const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
-      const newHp = Math.min(maxHp, currentHp + healing);
-
-      await this.avatarService.updateAvatar(targetId, {
-        'stats.hp': newHp
-      });
+      let currentHp = target.stats?.hp ?? 10;
+      let newHp = null;
+      if (this.healthService) {
+        const state = await this.healthService.applyHealing(target, healing, { source: 'spell:healing' });
+        newHp = state?.currentHp ?? null;
+        if (state?.healed) {
+          currentHp = Math.max(0, state.currentHp - state.healed);
+        }
+      } else {
+        const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
+        newHp = Math.min(maxHp, currentHp + healing);
+        await this.avatarService.updateAvatar(targetId, {
+          'stats.hp': newHp
+        });
+      }
 
       this.logger?.debug?.(`[SpellService] Applied ${healing} healing to ${target.name} (${currentHp} -> ${newHp})`);
     } catch (error) {

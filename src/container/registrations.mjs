@@ -24,6 +24,7 @@ import { DungeonMasterService } from '../services/dnd/DungeonMasterService.mjs';
 // Combat target resolution (V3 fix for "Ghost Enemy" bug)
 import { CombatTargetRegistry } from '../services/battle/CombatTargetRegistry.mjs';
 import { CombatUIService } from '../services/battle/CombatUIService.mjs';
+import { HealthService } from '../services/battle/healthService.mjs';
 
 // Entity resolution (V3 unified entity lookup)
 import { EntityResolver } from '../services/entities/EntityResolver.mjs';
@@ -51,6 +52,7 @@ export function registerPreReady({ container }) {
     tutorialQuestService: asClass(TutorialQuestService).singleton(),
     dmNarratorService: asClass(DMNarratorService).singleton(),
     dungeonMasterService: asClass(DungeonMasterService).singleton(),
+    healthService: asClass(HealthService).singleton(),
     questService: asFunction(({ databaseService, characterService, partyService, dungeonService, discordService, logger }) => {
       const service = new QuestService({ databaseService, characterService, partyService, dungeonService, discordService, logger });
       // Register built-in quests

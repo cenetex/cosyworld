@@ -114,7 +114,8 @@ export class DungeonMasterService {
     unifiedAIService, 
     aiService,
     schemaService,
-    configService 
+    configService,
+    healthService
   }) {
     this.logger = logger || console;
     this.discordService = discordService;
@@ -122,6 +123,7 @@ export class DungeonMasterService {
     this.aiService = aiService;
     this.schemaService = schemaService;
     this.configService = configService;
+    this.healthService = healthService || null;
     
     // DM persona settings
     this.dmName = DM_PERSONA.name;
@@ -436,11 +438,25 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     const template = this._pickRandom(NARRATIVE_TEMPLATES.turnPrompt);
     const prompt = this._fillTemplate(template, { name: avatar.name });
 
+    const combatants = encounter?.combatants || encounter?.participants || [];
+    const combatant = combatants.find(c => String(c.avatarId || c._id || c.id) === String(avatar._id || avatar.id));
+    let currentHp = combatant?.currentHp;
+    let maxHp = combatant?.maxHp;
+    if (this.healthService && (!Number.isFinite(currentHp) || !Number.isFinite(maxHp))) {
+      const state = await this.healthService.getHpState(avatar);
+      if (state) {
+        currentHp = state.currentHp ?? currentHp;
+        maxHp = state.maxHp ?? maxHp;
+      }
+    }
+    if (!Number.isFinite(currentHp)) currentHp = avatar.stats?.hp ?? '?';
+    if (!Number.isFinite(maxHp)) maxHp = avatar.stats?.maxHp ?? avatar.stats?.hp ?? '?';
+
     const embed = this.createDMEmbed({
       title: `🎲 ${avatar.name}'s Turn`,
       description: prompt,
       fields: [
-        { name: '❤️ HP', value: `${avatar.stats?.hp || '?'}/${avatar.stats?.maxHp || '?'}`, inline: true },
+        { name: '❤️ HP', value: `${currentHp}/${maxHp}`, inline: true },
         { name: '🛡️ AC', value: `${avatar.stats?.ac || '?'}`, inline: true },
         { name: '⏱️ Round', value: `${encounter.round || 1}`, inline: true }
       ],
@@ -451,8 +467,8 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     const rows = [];
     
     // Get enemies
-    const enemies = encounter.participants?.filter(p => p.isMonster && p.stats?.hp > 0) || [];
-    const _allies = encounter.participants?.filter(p => !p.isMonster && p.stats?.hp > 0 && String(p._id) !== String(avatar._id)) || [];
+    const enemies = combatants.filter(p => p.isMonster && ((p.currentHp ?? p.stats?.hp) || 0) > 0);
+    const _allies = combatants.filter(p => !p.isMonster && ((p.currentHp ?? p.stats?.hp) || 0) > 0 && String(p._id || p.id) !== String(avatar._id || avatar.id));
 
     // Main action row
     const actionRow = new ActionRowBuilder().addComponents(
@@ -484,9 +500,10 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       const targetButtons = enemies.slice(0, 5).map(enemy => {
         // Use avatarId or _id or id for stable target selection
         const targetId = enemy.avatarId || enemy._id || enemy.id || enemy.name;
+        const hpLabel = enemy.currentHp ?? enemy.stats?.hp ?? '?';
         return new ButtonBuilder()
           .setCustomId(`dnd_target_${encodeURIComponent(String(targetId))}`)
-          .setLabel(`${enemy.name} (${enemy.stats?.hp}HP)`.slice(0, 80))
+          .setLabel(`${enemy.name} (${hpLabel}HP)`.slice(0, 80))
           .setEmoji(enemy.emoji || '👹')
           .setStyle(ButtonStyle.Danger);
       });

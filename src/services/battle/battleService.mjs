@@ -26,6 +26,7 @@ export class BattleService  {
     logger,
     databaseService,
     statService,
+    healthService,
     mapService,
     diceService,
     eventPublisher,
@@ -36,6 +37,7 @@ export class BattleService  {
     this.databaseService = databaseService;
     this.avatarService = avatarService;
     this.statService = statService;
+    this.healthService = healthService || null;
     this.mapService = mapService;
     this.diceService = diceService;
     this.eventPublisher = eventPublisher; // optional injection (publishEvent wrapper)
@@ -277,13 +279,26 @@ export class BattleService  {
       // D&D Integration: Use weapon damage dice instead of hardcoded 1d8
       const damage = this._rollWeaponDamage(attackerBonuses.weapon, attackerStats, isCritical);
       
-      await this.statService.createModifier('damage', damage, { avatarId: defender._id });
+      let currentHp = null;
+      let maxHp = targetStats.hp;
+      if (this.healthService) {
+        const state = await this.healthService.applyDamage(defender, damage, { source: 'battle:attack' });
+        currentHp = state?.currentHp ?? null;
+        maxHp = state?.maxHp ?? maxHp;
+        if (!Number.isFinite(currentHp)) {
+          const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
+          currentHp = targetStats.hp - totalDamage;
+        }
+      } else {
+        await this.statService.createModifier('damage', damage, { avatarId: defender._id });
+        const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
+        currentHp = targetStats.hp - totalDamage;
+      }
+
       targetStats.isDefending = false;
       await this.avatarService.updateAvatarStats(defender, targetStats);
-      const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
-      const currentHp = targetStats.hp - totalDamage;
 
-      if (currentHp <= 0) {
+      if (Number.isFinite(currentHp) && currentHp <= 0) {
         const ko = await this.handleKnockout({ message: _message, targetAvatar: defender, damage, attacker, services: _services, corrId });
         publish?.({ type: ko.result === 'dead' ? 'combat.death' : 'combat.knockout', source: 'BattleService', corrId, payload: { attackerId: attacker._id || attacker.id, defenderId: defender._id || defender.id, damage, livesRemaining: defender.lives, critical: isCritical, channelId } });
         return ko;
@@ -294,7 +309,9 @@ export class BattleService  {
       const modBreakdown = attackerBonuses.isProficientWithWeapon 
         ? `${rawRoll}+${this._abilityMod(attackerStats[attackerBonuses.attackAbility])}+${attackerBonuses.proficiencyBonus}` 
         : `${rawRoll}+${attackerBonuses.attackMod}`;
-      const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name}${advNote} with ${weaponName} for ${damage} damage! (${modBreakdown}=${attackRoll} vs AC ${armorClass}) | HP: ${currentHp}/${targetStats.hp} ]`;
+      const hpMaxDisplay = Number.isFinite(maxHp) ? maxHp : targetStats.hp;
+      const hpCurrentDisplay = Number.isFinite(currentHp) ? currentHp : '?';
+      const baseMsg = `-# ⚔️ [ ${attacker.name} hits ${defender.name}${advNote} with ${weaponName} for ${damage} damage! (${modBreakdown}=${attackRoll} vs AC ${armorClass}) | HP: ${hpCurrentDisplay}/${hpMaxDisplay} ]`;
       const critMsg = isCritical ? `\n-# 💥 [ Critical hit! A devastating blow lands (nat 20). ]` : '';
       const res = { result: 'hit', critical: isCritical, message: baseMsg + critMsg, damage, currentHp, attackRoll, armorClass, rawRoll, weapon: weaponName };
       this.logger?.info?.(`[BattleService] Hit: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass} dmg=${damage} weapon=${weaponName}${isCritical ? ' CRIT' : ''}`);

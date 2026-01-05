@@ -153,11 +153,17 @@ export class StatService {
     if (!stats) return false;
 
     const requiredStats = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'hp'];
-    return requiredStats.every(stat => 
-      typeof stats[stat] === 'number' && 
-      stats[stat] >= 8 && 
-      stats[stat] <= 16
-    );
+    const abilityMin = 1;
+    const abilityMax = 30;
+    const hpMin = 1;
+    const hpMax = 10000;
+
+    return requiredStats.every(stat => {
+      const value = stats[stat];
+      if (typeof value !== 'number' || Number.isNaN(value)) return false;
+      if (stat === 'hp') return value >= hpMin && value <= hpMax;
+      return value >= abilityMin && value <= abilityMax;
+    });
   }
 
   validateStats = StatService.validateStats;

@@ -1340,13 +1340,37 @@ One-liner (no quotes):`;
     encounter.lastTurnStartAt = Date.now();
     
     // Determine if this avatar should wait for player input:
-    // 1. Player-controlled avatars with linked user: always wait
-    // 2. Party members without linked user: wait for someone to claim them
+    // 1. Player-controlled avatars with linked user: always wait (unless knocked out)
+    // 2. Party members without linked user: wait for someone to claim them (unless all players KO'd)
     // 3. Monsters and AI-controlled avatars: auto-execute
     const isPartyMember = !current.isMonster && (current.ref?.isPlayerCharacter || current.side !== 'enemy');
-    const hasLinkedUser = !!(current.discordUserId || (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')));
+    const linkedUserId = current.discordUserId || 
+      (current.ref?.summoner && String(current.ref.summoner).startsWith('user:') 
+        ? String(current.ref.summoner).replace(/^user:/, '') 
+        : null);
+    const hasLinkedUser = !!linkedUserId;
+    
+    // Check if this avatar's controlling user is knocked out
+    encounter.defeatedPlayers = encounter.defeatedPlayers || {};
+    const userIsDefeated = linkedUserId && encounter.defeatedPlayers[linkedUserId];
+    
+    // For claimable avatars, check if any players remain who could claim them
     const isClaimable = isPartyMember && !hasLinkedUser;
-    const shouldWaitForPlayer = (current.isPlayerControlled && !current.autoMode) || isClaimable;
+    const hasRemainingPlayers = isClaimable && encounter.combatants.some(c => {
+      if (c.isMonster || this._isKnockedOut(c)) return false;
+      const cUserId = c.discordUserId || 
+        (c.ref?.summoner && String(c.ref.summoner).startsWith('user:') 
+          ? String(c.ref.summoner).replace(/^user:/, '') 
+          : null);
+      return cUserId && !encounter.defeatedPlayers[cUserId];
+    });
+    
+    // Wait for player if:
+    // - Linked player is alive and avatar isn't in auto-mode
+    // - OR claimable and there are players who could claim it
+    const shouldWaitForPlayer = 
+      ((current.isPlayerControlled && !current.autoMode) && !userIsDefeated) || 
+      (isClaimable && hasRemainingPlayers);
     
     // Check if this is a player-controlled avatar awaiting manual input
     if (shouldWaitForPlayer) {
@@ -1415,9 +1439,30 @@ One-liner (no quotes):`;
       
       // Determine if this avatar should wait for player input (same logic as _scheduleTurnStart)
       const isPartyMember = current && !current.isMonster && (current.ref?.isPlayerCharacter || current.side !== 'enemy');
-      const hasLinkedUser = current && !!(current.discordUserId || (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')));
+      const linkedUserId = current?.discordUserId || 
+        (current?.ref?.summoner && String(current.ref.summoner).startsWith('user:') 
+          ? String(current.ref.summoner).replace(/^user:/, '') 
+          : null);
+      const hasLinkedUser = !!linkedUserId;
+      
+      // Check if this avatar's controlling user is knocked out
+      encounter.defeatedPlayers = encounter.defeatedPlayers || {};
+      const userIsDefeated = linkedUserId && encounter.defeatedPlayers[linkedUserId];
+      
+      // For claimable avatars, check if any players remain who could claim them
       const isClaimable = isPartyMember && !hasLinkedUser;
-      const shouldWaitForPlayer = (current?.isPlayerControlled && !current?.autoMode) || isClaimable;
+      const hasRemainingPlayers = isClaimable && encounter.combatants.some(c => {
+        if (c.isMonster || this._isKnockedOut(c)) return false;
+        const cUserId = c.discordUserId || 
+          (c.ref?.summoner && String(c.ref.summoner).startsWith('user:') 
+            ? String(c.ref.summoner).replace(/^user:/, '') 
+            : null);
+        return cUserId && !encounter.defeatedPlayers[cUserId];
+      });
+      
+      const shouldWaitForPlayer = 
+        ((current?.isPlayerControlled && !current?.autoMode) && !userIsDefeated) || 
+        (isClaimable && hasRemainingPlayers);
       
       // Stop if we hit a player-controlled avatar, claimable avatar, or invalid state
       if (!current || shouldWaitForPlayer) {
@@ -2256,6 +2301,18 @@ One-liner (no quotes):`;
             def.currentHp = 0;
             if (!def.conditions?.includes('unconscious')) {
               def.conditions = [...(def.conditions || []), 'unconscious'];
+            }
+            
+            // Track if a player-controlled avatar was knocked out
+            // This prevents them from claiming other avatars
+            const defDiscordUserId = def.discordUserId || 
+              (def.ref?.summoner && String(def.ref.summoner).startsWith('user:') 
+                ? String(def.ref.summoner).replace(/^user:/, '') 
+                : null);
+            if (defDiscordUserId && !def.isMonster) {
+              encounter.defeatedPlayers = encounter.defeatedPlayers || {};
+              encounter.defeatedPlayers[defDiscordUserId] = def.name;
+              this.logger?.info?.(`[CombatEncounter] Player ${defDiscordUserId}'s avatar ${def.name} was knocked out`);
             }
           }
         } catch (e) {
@@ -3241,8 +3298,43 @@ Message: ${messageContent}`;
     }
     
     // FALLBACK: Allow claiming unclaimed party members
+    // RESTRICTION: Only if the user's previous avatar wasn't knocked out
     if (!expectedUserId && !current.isMonster) {
       encounter.claimedAvatars = encounter.claimedAvatars || {};
+      encounter.defeatedPlayers = encounter.defeatedPlayers || {};
+      
+      // Check if this user's avatar was already knocked out
+      if (encounter.defeatedPlayers[userId]) {
+        const defeatedName = encounter.defeatedPlayers[userId];
+        return {
+          error: true,
+          embed: {
+            author: { name: '🎲 The Dungeon Master' },
+            description: `*"Your champion ${defeatedName} has fallen, brave soul. You can no longer participate in this battle."*`,
+            color: 0x2C2C2C,
+            footer: { text: 'Watch and hope your allies prevail...' }
+          },
+          ephemeral: true
+        };
+      }
+      
+      // Check if this user already controls a DIFFERENT avatar
+      const userExistingClaim = Object.entries(encounter.claimedAvatars)
+        .find(([avatarId, claimerId]) => claimerId === userId && avatarId !== currentId);
+      if (userExistingClaim) {
+        const claimedAvatar = this.getCombatant(encounter, userExistingClaim[0]);
+        return {
+          error: true,
+          embed: {
+            author: { name: '🎲 The Dungeon Master' },
+            description: `*"You already control ${claimedAvatar?.name || 'another adventurer'}. One soul, one champion."*`,
+            color: 0x95A5A6,
+            footer: { text: 'Wait for your turn in the initiative order...' }
+          },
+          ephemeral: true
+        };
+      }
+      
       const existingClaimer = encounter.claimedAvatars[currentId];
       
       if (existingClaimer && existingClaimer !== userId) {
@@ -3414,13 +3506,38 @@ Message: ${messageContent}`;
     // FALLBACK: If the avatar has NO linked user (unclaimed party member),
     // allow any user to claim and control it by clicking the button.
     // This handles cases where avatars don't have summoner/discordUserId set.
+    // RESTRICTION: Only allow claiming if:
+    // 1. The user hasn't already been knocked out with another avatar
+    // 2. The user hasn't already claimed a different avatar
     if (!expectedUserId && !current.isMonster) {
-      // Check if another user has already claimed this avatar this encounter
       encounter.claimedAvatars = encounter.claimedAvatars || {};
-      const existingClaimer = encounter.claimedAvatars[currentId];
+      encounter.defeatedPlayers = encounter.defeatedPlayers || {};
       
+      // Check if this user's avatar was already knocked out - they can't claim another
+      if (encounter.defeatedPlayers[discordUserId]) {
+        const defeatedName = encounter.defeatedPlayers[discordUserId];
+        return { 
+          valid: false, 
+          error: `Your avatar ${defeatedName} has fallen! You cannot control other party members.`,
+          currentTurnName: current.name
+        };
+      }
+      
+      // Check if this user already controls a DIFFERENT avatar
+      const userExistingClaim = Object.entries(encounter.claimedAvatars)
+        .find(([avatarId, userId]) => userId === discordUserId && avatarId !== currentId);
+      if (userExistingClaim) {
+        const claimedAvatar = this.getCombatant(encounter, userExistingClaim[0]);
+        return { 
+          valid: false, 
+          error: `You already control ${claimedAvatar?.name || 'another avatar'}. You cannot control multiple party members.`,
+          currentTurnName: current.name
+        };
+      }
+      
+      // Check if another user has already claimed this specific avatar
+      const existingClaimer = encounter.claimedAvatars[currentId];
       if (existingClaimer && existingClaimer !== discordUserId) {
-        // Another user already claimed this avatar
         return { 
           valid: false, 
           error: `${current.name} is controlled by another player.`,
@@ -3430,7 +3547,7 @@ Message: ${messageContent}`;
       
       // Claim this avatar for this user for the remainder of this encounter
       encounter.claimedAvatars[currentId] = discordUserId;
-      current.discordUserId = discordUserId; // Update combatant for future checks
+      current.discordUserId = discordUserId;
       current.isPlayerControlled = true;
       current.autoMode = false;
       
