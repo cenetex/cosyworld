@@ -343,10 +343,13 @@ export class DungeonService {
 
       if (needsEncounter && hasNoMonsters && notCleared) {
         this.logger?.info?.(`[DungeonService] Repairing empty encounter in room ${room.id} (${room.type})`);
+        // Use stored partySize for proper scaling (default to 4 for legacy dungeons)
+        const partySize = dungeon.partySize || 4;
         room.encounter = await this._generateEncounter(
           room.type === 'boss' ? 'boss' : 'regular',
           dungeon.partyLevel,
-          dungeon.theme
+          dungeon.theme,
+          partySize
         );
         modified = true;
       }
@@ -499,7 +502,9 @@ export class DungeonService {
     this._connectRooms(rooms);
 
     // Populate encounters asynchronously (uses MonsterService with bonding curve)
-    await this._populateEncounters(rooms, partyLevel, selectedTheme);
+    // Pass party size for proper encounter scaling
+    const partySize = party.members?.length || 1;
+    await this._populateEncounters(rooms, partyLevel, selectedTheme, partySize);
 
     const dungeonName = this._generateName(selectedTheme);
     
@@ -508,6 +513,7 @@ export class DungeonService {
       theme: selectedTheme,
       difficulty,
       partyLevel,
+      partySize, // Store for encounter repairs
       rooms,
       currentRoom: 'room_1',
       partyId: new ObjectId(partyId),
@@ -588,10 +594,10 @@ export class DungeonService {
    * Populate encounters for rooms that need them (async operation)
    * @private
    */
-  async _populateEncounters(rooms, partyLevel, theme) {
+  async _populateEncounters(rooms, partyLevel, theme, partySize = 4) {
     for (const room of rooms) {
       if (room._needsEncounter) {
-        room.encounter = await this._generateEncounter(room._encounterType, partyLevel, theme);
+        room.encounter = await this._generateEncounter(room._encounterType, partyLevel, theme, partySize);
         delete room._needsEncounter;
         delete room._encounterType;
       }
@@ -599,12 +605,19 @@ export class DungeonService {
     return rooms;
   }
 
-  async _generateEncounter(type, partyLevel, theme = 'cave') {
-    const budget = type === 'boss'
-      ? partyLevel * 100 * 4
-      : partyLevel * 50 * 4;
+  async _generateEncounter(type, partyLevel, theme = 'cave', partySize = 4) {
+    // Scale XP budget by actual party size (minimum 1)
+    // Solo players get reduced encounters, full parties get full challenge
+    const effectivePartySize = Math.max(1, Math.min(6, partySize));
+    const baseBudget = type === 'boss'
+      ? partyLevel * 100
+      : partyLevel * 50;
+    const budget = baseBudget * effectivePartySize;
 
-    const monsters = await this._selectMonsters(budget, partyLevel, type === 'boss', theme);
+    // Cap monster count based on party size to prevent overwhelming solo players
+    const maxMonsters = Math.max(2, effectivePartySize + 1);
+
+    const monsters = await this._selectMonsters(budget, partyLevel, type === 'boss', theme, maxMonsters);
     
     // Calculate XP - use monsterService if available, otherwise fallback
     const xpValue = this.monsterService
@@ -622,22 +635,32 @@ export class DungeonService {
    * Select monsters for an encounter using MonsterService with bonding curve
    * Falls back to static monsters if MonsterService unavailable
    * @private
+   * @param {number} budget - XP budget for the encounter
+   * @param {number} partyLevel - Average party level
+   * @param {boolean} isBoss - Whether this is a boss encounter
+   * @param {string} theme - Dungeon theme/habitat
+   * @param {number} maxMonsters - Maximum number of monsters (scaled by party size)
    */
-  async _selectMonsters(budget, partyLevel, isBoss, theme = 'cave') {
+  async _selectMonsters(budget, partyLevel, isBoss, theme = 'cave', maxMonsters = 6) {
     // Use MonsterService if available
     if (this.monsterService) {
-      return this._selectMonstersFromService(budget, partyLevel, isBoss, theme);
+      return this._selectMonstersFromService(budget, partyLevel, isBoss, theme, maxMonsters);
     }
 
     // Fallback to static monster selection
-    return this._selectMonstersStatic(budget, partyLevel, isBoss);
+    return this._selectMonstersStatic(budget, partyLevel, isBoss, maxMonsters);
   }
 
   /**
    * Select monsters using MonsterService (dynamic, with bonding curve)
    * @private
+   * @param {number} budget - XP budget
+   * @param {number} partyLevel - Average party level
+   * @param {boolean} isBoss - Boss encounter flag
+   * @param {string} theme - Dungeon theme
+   * @param {number} maxMonsters - Max monster count (scaled by party size)
    */
-  async _selectMonstersFromService(budget, partyLevel, isBoss, theme) {
+  async _selectMonstersFromService(budget, partyLevel, isBoss, theme, maxMonsters = 6) {
     const monsters = [];
     let remaining = budget;
 
@@ -672,12 +695,12 @@ export class DungeonService {
       }
     }
 
-    // Fill remaining budget with minions
+    // Fill remaining budget with minions (capped by party-size-scaled maxMonsters)
     const _minionBudget = remaining;
     let minionCount = 0;
-    const maxMinions = 6;
+    const effectiveMaxMinions = Math.max(1, maxMonsters - (isBoss ? 1 : 0));
 
-    while (remaining > 0 && minionCount < maxMinions) {
+    while (remaining > 0 && minionCount < effectiveMaxMinions) {
       const { monster: minion } = await this.monsterService.selectMonsterForEncounter({
         habitats,
         role: isBoss ? 'minion' : null, // Mixed roles if not a boss encounter
@@ -717,7 +740,7 @@ export class DungeonService {
     // If MonsterService returned no monsters, fall back to static selection
     if (monsters.length === 0) {
       this.logger?.warn?.(`[DungeonService] MonsterService returned no monsters for ${theme}, falling back to static`);
-      return this._selectMonstersStatic(budget, partyLevel, isBoss);
+      return this._selectMonstersStatic(budget, partyLevel, isBoss, maxMonsters);
     }
 
     return monsters;
@@ -726,8 +749,12 @@ export class DungeonService {
   /**
    * Fallback static monster selection (original implementation)
    * @private
+   * @param {number} budget - XP budget
+   * @param {number} partyLevel - Average party level  
+   * @param {boolean} isBoss - Boss encounter flag
+   * @param {number} maxMonsters - Max monster count (scaled by party size)
    */
-  _selectMonstersStatic(budget, partyLevel, isBoss) {
+  _selectMonstersStatic(budget, partyLevel, isBoss, maxMonsters = 6) {
     const monsters = [];
     let remaining = budget;
 
@@ -742,15 +769,16 @@ export class DungeonService {
       }
     }
 
-    // Fill with minions
+    // Fill with minions (capped by maxMonsters)
     const targetCR = isBoss ? 0.25 : Math.min(1, partyLevel / 4);
     const minions = getMonstersByCR(targetCR);
     
     if (minions.length > 0) {
       const minion = minions[this.diceService.rollDie(minions.length) - 1];
       const count = Math.max(1, Math.floor(remaining / minion.xp));
+      const effectiveMax = Math.max(1, maxMonsters - (isBoss ? 1 : 0));
       if (count > 0) {
-        monsters.push({ id: minion.id, name: minion.name, emoji: minion.emoji, count: Math.min(count, 6) });
+        monsters.push({ id: minion.id, name: minion.name, emoji: minion.emoji, count: Math.min(count, effectiveMax) });
       }
     }
 
@@ -997,7 +1025,11 @@ export class DungeonService {
     const encounter = this.combatEncounterService.createEncounter({
       channelId,
       participants: allParticipants,
-      sourceMessage: null
+      sourceMessage: null,
+      context: {
+        mode: 'dungeon',
+        threadId: channelId
+      }
     });
 
     // Store encounter context for later resolution
@@ -1029,6 +1061,7 @@ export class DungeonService {
         combatants.push({
           _id: instanceId,
           id: instanceId,
+          baseMonsterId: monster.id || monster.monsterId || null,
           name: count > 1 ? `${monster.name} ${i + 1}` : monster.name,
           emoji: monster.emoji || '👹',
           imageUrl: monster.imageUrl || null,

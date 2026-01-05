@@ -244,7 +244,7 @@ export class CombatUIService {
     if (!currentCombatant.isPlayerControlled) {
       return [new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('combat_waiting')
+          .setCustomId('dnd_combat_wait')
           .setLabel(`${currentCombatant.name}'s Turn...`)
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(true)
@@ -254,15 +254,15 @@ export class CombatUIService {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('combat_take_turn')
+          .setCustomId('dnd_combat_take_turn')
           .setLabel('⚔️ Take Your Turn')
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
-          .setCustomId('combat_defend')
+          .setCustomId('dnd_combat_defend')
           .setLabel('🛡️ Defend')
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId('combat_flee')
+          .setCustomId('dnd_combat_flee')
           .setLabel('🏃 Flee')
           .setStyle(ButtonStyle.Danger)
       )
@@ -379,7 +379,7 @@ export class CombatUIService {
 
       currentRow.addComponents(
         new ButtonBuilder()
-          .setCustomId(`attack_target_${this._normalizeId(target.avatarId || target.id)}`)
+          .setCustomId(`dnd_target_${encodeURIComponent(String(target.combatantId || target.avatarId || target.id))}`)
           .setLabel(`⚔️ ${target.name}`)
           .setStyle(target.isMonster ? ButtonStyle.Danger : ButtonStyle.Secondary)
       );

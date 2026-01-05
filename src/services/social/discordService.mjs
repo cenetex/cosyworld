@@ -1088,6 +1088,30 @@ export class DiscordService {
   }
 
   /**
+   * Create a new thread under a channel (no reuse).
+   * Returns the thread channel ID, or the original channelId on failure.
+   */
+  async createThread(channelId, threadName, options = {}) {
+    try {
+      if (!channelId || !threadName) throw new Error('channelId and threadName are required');
+      const baseChannel = await this.client.channels.fetch(channelId);
+      if (!baseChannel) throw new Error('Base channel not found');
+      const channel = baseChannel.isThread() ? await baseChannel.parent.fetch() : baseChannel;
+      if (!channel?.isTextBased?.() || !channel?.threads) return channelId;
+
+      const created = await channel.threads.create({
+        name: threadName,
+        autoArchiveDuration: options.autoArchiveDuration || 10080, // 7 days
+        reason: options.reason || `Auto-created ${threadName} thread`
+      });
+      return created?.id || channelId;
+    } catch (e) {
+      this.logger?.warn?.(`createThread failed for ${channelId}/${threadName}: ${e.message}`);
+      return channelId;
+    }
+  }
+
+  /**
    * Get avatar for a button interaction user
    * @param {ButtonInteraction} interaction - Discord button interaction
    * @returns {Promise<Object|null>} Avatar object or null

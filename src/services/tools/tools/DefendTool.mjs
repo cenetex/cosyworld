@@ -33,6 +33,12 @@ export class DefendTool extends BasicTool {
       // If in an active encounter, enforce turn order and advance turn after defending
       const ces = services?.combatEncounterService || 
                   (this.conversationManager?.toolService?.toolServices?.combatEncounterService) || null;
+      if (!message?.channel?.isThread?.() && ces?.getEncounterByParentChannelId) {
+        const parentEncounter = ces.getEncounterByParentChannelId(message.channel.id);
+        if (parentEncounter && parentEncounter.state !== 'ended') {
+          return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+        }
+      }
       let inEncounter = null;
       try { inEncounter = ces?.getEncounter?.(message.channel.id) || null; } catch {}
       if (inEncounter && inEncounter.state === 'active') {

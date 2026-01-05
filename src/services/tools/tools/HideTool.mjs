@@ -40,6 +40,12 @@ export class HideTool extends BasicTool {
       }
       // If in encounter, enforce turn and consume turn
       const ces = services?.combatEncounterService;
+      if (!message?.channel?.isThread?.() && ces?.getEncounterByParentChannelId) {
+        const parentEncounter = ces.getEncounterByParentChannelId(message.channel.id);
+        if (parentEncounter && parentEncounter.state !== 'ended') {
+          return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+        }
+      }
       const enc = ces?.getEncounter?.(message.channel.id);
       if (enc && enc.state === 'active') {
         if (!ces.isTurn(enc, avatar.id || avatar._id)) return null;

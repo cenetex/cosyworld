@@ -71,13 +71,20 @@ export class CastTool extends BasicTool {
         return await this._listSpells(avatar);
       }
 
+      const ces = services?.combatEncounterService;
+      if (!message?.channel?.isThread?.() && ces?.getEncounterByParentChannelId) {
+        const parentEncounter = ces.getEncounterByParentChannelId(message.channel.id);
+        if (parentEncounter && parentEncounter.state !== 'ended') {
+          return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+        }
+      }
+
       const spell = SPELLS[spellId];
       if (!spell) {
         return this._errorEmbed(`Unknown spell: \`${spellId}\`. Use 🪄 cast to see available spells.`);
       }
 
       // Check if in combat and enforce turn order
-      const ces = services?.combatEncounterService;
       let encounter = null;
       try { encounter = ces?.getEncounter?.(message.channel.id); } catch {}
       if (encounter?.state === 'active') {

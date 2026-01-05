@@ -58,6 +58,13 @@ export class ChallengeTool extends BasicTool {
       if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return `-# 💤 [ **${avatar.name}** cannot fight again today. ]`;
       if (avatar?.combatCooldownUntil && now < avatar.combatCooldownUntil) return `-# 💤 [ **${avatar.name}** is resting after a narrow escape and cannot enter combat yet. ]`;
     } catch {}
+    const encounterService = services?.combatEncounterService;
+    if (!message?.channel?.isThread?.() && encounterService?.getEncounterByParentChannelId) {
+      const parentEncounter = encounterService.getEncounterByParentChannelId(message.channel.id);
+      if (parentEncounter && parentEncounter.state !== 'ended') {
+        return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+      }
+    }
     if (!params || !params[0]) {
       return `-# [ ❌ Error: No target specified. ]`;
     }
@@ -107,13 +114,13 @@ export class ChallengeTool extends BasicTool {
       } catch {}
 
       // Ensure encounter exists but defer start while we post poster + chatter
-      const ces = services?.combatEncounterService;
-      if (!ces?.ensureEncounterForAttack) return `-# [ ❌ Combat system unavailable. ]`;
+      if (!encounterService?.ensureEncounterForAttack) return `-# [ ❌ Combat system unavailable. ]`;
 
-      const before = ces.getEncounter(message.channel.id);
+      const before = encounterService.getEncounter(message.channel.id) ||
+        encounterService.getEncounterByParentChannelId?.(message.channel.id);
       let encounter;
       try {
-        encounter = await ces.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
+        encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
       } catch (e) {
         const msg = String(e?.message || '').toLowerCase();
         if (msg.includes('self_combat')) {
@@ -132,6 +139,9 @@ export class ChallengeTool extends BasicTool {
         }
         throw e;
       }
+      const encounterChannelId = encounter?.channelId || message.channel.id;
+      const locationChannelId = encounter?.parentChannelId || encounterChannelId;
+      const redirectToThread = !!encounter?.parentChannelId && message.channel.id !== encounterChannelId;
       const isNew = !before && !!encounter;
       this.logger?.info?.(`[ChallengeTool][${message.channel.id}] ${avatar.name} challenges ${defender.name} (isNew=${isNew}).`);
 
@@ -139,20 +149,20 @@ export class ChallengeTool extends BasicTool {
       try { this.discordService?.reactToMessage?.(message, '⚔️'); } catch {}
 
       // Gate turn system while we post the poster and chatter
-      try { ces.beginManualAction(message.channel.id); } catch {}
+      try { encounterService.beginManualAction(encounterChannelId); } catch {}
       try {
         const battleMedia = services?.battleMediaService || this.battleMediaService;
-        const loc = await this.mapService.getLocationAndAvatars(message.channel.id);
+        const loc = await this.mapService.getLocationAndAvatars(locationChannelId);
         if (battleMedia?.generateFightPoster) {
           const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
           if (poster?.imageUrl && this.discordService?.client) {
             // Store poster URL on encounter for later video generation reuse
             try {
-              const enc = ces.getEncounter(message.channel.id);
+              const enc = encounterService.getEncounter(encounterChannelId);
               if (enc) enc.fightPosterUrl = poster.imageUrl;
             } catch {}
             
-            const channel = await this.discordService.client.channels.fetch(message.channel.id);
+            const channel = await this.discordService.client.channels.fetch(encounterChannelId);
             if (channel?.isTextBased()) {
               const embed = {
                 title: `Combat Initiated: ${avatar.name} vs ${defender.name}`,
@@ -183,7 +193,7 @@ export class ChallengeTool extends BasicTool {
                     const text = `⚔️ ${avatar.name} vs ${defender.name} — ${locName}`;
                     const { tweetId, tweetUrl } = await xsvc.postImageToXDetailed(admin, poster.imageUrl, text);
                     try {
-                      const enc = services?.combatEncounterService?.getEncounter(message.channel.id);
+                      const enc = services?.combatEncounterService?.getEncounter(encounterChannelId);
                       if (enc) { enc._xTweetId = tweetId; enc._xTweetUrl = tweetUrl; }
                     } catch {}
                   }
@@ -198,14 +208,14 @@ export class ChallengeTool extends BasicTool {
       } catch (e) {
         this.logger?.warn?.(`[ChallengeTool] poster generation failed: ${e.message}`);
       } finally {
-        try { ces.endManualAction(message.channel.id); } catch {}
-        try { const enc = ces.getEncounter(message.channel.id); enc?.posterBlocker?.resolve?.(); } catch {}
+        try { encounterService.endManualAction(encounterChannelId); } catch {}
+        try { const enc = encounterService.getEncounter(encounterChannelId); enc?.posterBlocker?.resolve?.(); } catch {}
       }
 
       // Start encounter (initiative roll + turn system)
       // NO ConversationManager chatter - combat system handles all actions
-      try { await ces.rollInitiative(ces.getEncounter(message.channel.id)); } catch {}
-      return null; // no extra text
+      try { await encounterService.rollInitiative(encounterService.getEncounter(encounterChannelId)); } catch {}
+      return redirectToThread ? `-# [ Combat started in <#${encounterChannelId}>. ]` : null;
     } catch (error) {
       const reason = String(error?.message || '').trim();
       this.logger?.error?.(`[ChallengeTool] error: ${reason}`);

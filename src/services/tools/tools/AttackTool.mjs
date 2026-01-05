@@ -83,6 +83,14 @@ export class AttackTool extends BasicTool {
       if (avatar?.knockedOutUntil && now < avatar.knockedOutUntil) return null;
     } catch {}
 
+    const encounterService = services?.combatEncounterService;
+    if (!message?.channel?.isThread?.() && encounterService?.getEncounterByParentChannelId) {
+      const parentEncounter = encounterService.getEncounterByParentChannelId(message.channel.id);
+      if (parentEncounter && parentEncounter.state !== 'ended') {
+        return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+      }
+    }
+
     // Check for dungeon context first (for target suggestions)
     const dungeonService = services?.dungeonService;
     const characterService = services?.characterService;
@@ -129,7 +137,6 @@ export class AttackTool extends BasicTool {
         // Use the monster name directly - CombatTargetRegistry handles matching
         // Encode name to handle special chars but preserve underscores as a space marker
         // Get targets from active combat encounter for proper IDs
-        const encounterService = services?.combatEncounterService;
         const encounter = encounterService?.getEncounterByChannelId?.(message.channel.id);
         const combatTargets = encounter?.combatants?.filter(c => c.isMonster && (c.currentHp || 0) > 0) || [];
         
@@ -140,7 +147,7 @@ export class AttackTool extends BasicTool {
         const targetButtons = buttonsSource.slice(0, 5).map(t => {
           // Use avatarId for combat targets; use name for dungeon targets to keep name-based matching
           const targetId = usingCombatTargets
-            ? (t.avatarId || t.id || t.monsterId || t.name)
+            ? (t.combatantId || t.avatarId || t.id || t.monsterId || t.name)
             : (t.name || t.id || t.monsterId || t.avatarId);
           const displayName = t.name || 'Unknown';
           const count = t.count || 1;
@@ -172,7 +179,6 @@ export class AttackTool extends BasicTool {
       }
       
       // Attempt AI intent parse if encounter active
-      const encounterService = services?.combatEncounterService;
       if (encounterService) {
         try {
           const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
@@ -195,7 +201,6 @@ export class AttackTool extends BasicTool {
     try {
       // V3 FIX: Check for active combat encounter FIRST and use CombatTargetRegistry
       // This fixes the "Ghost Enemy" bug where monsters exist in combat but not on the map
-      const encounterService = services?.combatEncounterService;
       const combatTargetRegistry = services?.combatTargetRegistry;
       
       if (encounterService && combatTargetRegistry) {
@@ -296,7 +301,6 @@ export class AttackTool extends BasicTool {
               
               if (monsterMatch) {
                 // Start or continue dungeon combat
-                const encounterService = services?.combatEncounterService;
                 let dungeonEncounter = encounterService?.getEncounter(message.channel.id);
                 
                 if (!dungeonEncounter || !dungeonEncounter.dungeonContext) {
@@ -386,9 +390,9 @@ export class AttackTool extends BasicTool {
   let isNewEncounter = false;
   let initiatedAndReturned = false;
   try {
-        const encounterService = services?.combatEncounterService;
         if (encounterService?.ensureEncounterForAttack) {
-          const before = encounterService.getEncounter(message.channel.id);
+          const before = encounterService.getEncounter(message.channel.id) ||
+            encounterService.getEncounterByParentChannelId?.(message.channel.id);
           let encounter;
           try {
             encounter = await encounterService.ensureEncounterForAttack({ channelId: message.channel.id, attacker: avatar, defender, sourceMessage: message, deferStart: true });
@@ -410,20 +414,23 @@ export class AttackTool extends BasicTool {
             }
             throw e;
           }
+          const encounterChannelId = encounter?.channelId || message.channel.id;
+          const locationChannelId = encounter?.parentChannelId || encounterChannelId;
+          const redirectToThread = !!encounter?.parentChannelId && message.channel.id !== encounterChannelId;
           isNewEncounter = !before && !!encounter;
           // If brand-new encounter, show location image and a "vs" fight poster
           if (isNewEncounter) {
             try {
         // Pause auto-acts/turn starts while we post the poster and chatter
-        encounterService.beginManualAction(message.channel.id);
+        encounterService.beginManualAction(encounterChannelId);
         // React to the initiating message to acknowledge combat start
         try { this.discordService?.reactToMessage?.(message, '⚔️'); } catch {}
               const battleMedia = services?.battleMediaService || this.battleMediaService;
-              const loc = await this.mapService.getLocationAndAvatars(message.channel.id);
+              const loc = await this.mapService.getLocationAndAvatars(locationChannelId);
               if (battleMedia?.generateFightPoster) {
                 const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
                 if (poster?.imageUrl && this.discordService?.client) {
-                  const channel = await this.discordService.client.channels.fetch(message.channel.id);
+                  const channel = await this.discordService.client.channels.fetch(encounterChannelId);
                   if (channel?.isTextBased()) {
                     const embed = {
                       title: `Combat Initiated: ${avatar.name} vs ${defender.name}`,
@@ -454,7 +461,7 @@ export class AttackTool extends BasicTool {
                           const text = `⚔️ ${avatar.name} vs ${defender.name} — ${locName}`;
                           const { tweetId, tweetUrl } = await xsvc.postImageToXDetailed(admin, poster.imageUrl, text);
                           try {
-                            const enc = encounterService.getEncounter(message.channel.id);
+                            const enc = encounterService.getEncounter(encounterChannelId);
                             if (enc) { enc._xTweetId = tweetId; enc._xTweetUrl = tweetUrl; }
                           } catch {}
                         }
@@ -472,25 +479,25 @@ export class AttackTool extends BasicTool {
                 }
               }
         // Done with poster/chatter
-        encounterService.endManualAction(message.channel.id);
-        try { const enc = encounterService.getEncounter(message.channel.id); enc?.posterBlocker?.resolve?.(); } catch {}
+        encounterService.endManualAction(encounterChannelId);
+        try { const enc = encounterService.getEncounter(encounterChannelId); enc?.posterBlocker?.resolve?.(); } catch {}
               // Now start the encounter formally (initiative + chatter + timers)
-              try { await encounterService.rollInitiative(encounterService.getEncounter(message.channel.id)); } catch {}
+              try { await encounterService.rollInitiative(encounterService.getEncounter(encounterChannelId)); } catch {}
               // Do NOT attack now; mark and return after initiating combat (no extra text reply)
               initiatedAndReturned = true;
-              return null;
+              return redirectToThread ? `-# [ Combat started in <#${encounterChannelId}>. ]` : null;
             } catch (e) {
               this.logger?.warn?.(`[AttackTool] fight poster init failed: ${e.message}`);
-        try { services?.combatEncounterService?.endManualAction(message.channel.id); } catch {}
-        try { const enc = services?.combatEncounterService?.getEncounter(message.channel.id); enc?.posterBlocker?.resolve?.(); } catch {}
-              try { await services?.combatEncounterService?.rollInitiative(services?.combatEncounterService?.getEncounter(message.channel.id)); } catch {}
+        try { services?.combatEncounterService?.endManualAction(encounterChannelId); } catch {}
+        try { const enc = services?.combatEncounterService?.getEncounter(encounterChannelId); enc?.posterBlocker?.resolve?.(); } catch {}
+              try { await services?.combatEncounterService?.rollInitiative(services?.combatEncounterService?.getEncounter(encounterChannelId)); } catch {}
               // Return after starting combat despite poster failure fallback (no extra text reply)
               initiatedAndReturned = true;
-              return null;
+              return redirectToThread ? `-# [ Combat started in <#${encounterChannelId}>. ]` : null;
             }
           }
           // Turn enforcement (only for active encounters)
-          const current = encounterService.getEncounter(message.channel.id);
+          const current = encounterService.getEncounter(encounterChannelId);
           if (current?.state === 'active' && !encounterService.isTurn(current, avatar.id || avatar._id)) {
             // Silently ignore out-of-turn attempts to reduce clutter
             return null;

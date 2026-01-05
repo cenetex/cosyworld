@@ -201,6 +201,8 @@ export class CombatEncounterService {
 
     // channelId -> encounter object (active encounters)
     this.encounters = new Map();
+    // parentChannelId -> encounter (for thread-based combat redirects)
+    this.encountersByParent = new Map();
     // Sorted list of encounters by age for efficient cleanup: [{channelId, createdAt}]
     this.encountersByAge = [];
     
@@ -246,6 +248,36 @@ export class CombatEncounterService {
     } catch (e) {
       this.logger.warn?.(`[CombatEncounter] publish failed for ${type}: ${e.message}`);
     }
+  }
+
+  _getPolicyForMode(mode) {
+    const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
+    const idleEndRounds = this.idleEndRounds;
+    const staleEncounterMs = this.staleEncounterMs;
+    if (mode === 'pvp') {
+      const pvpStale = Number(process.env.COMBAT_PVP_STALE_MS || 30 * 24 * 60 * 60 * 1000);
+      return {
+        maxRounds: null,
+        idleEndRounds: null,
+        allowAllDefendingEnd: false,
+        allowIdleEnd: false,
+        staleEncounterMs: pvpStale
+      };
+    }
+    return {
+      maxRounds,
+      idleEndRounds,
+      allowAllDefendingEnd: true,
+      allowIdleEnd: true,
+      staleEncounterMs
+    };
+  }
+
+  _buildCombatThreadName(attacker, defender) {
+    const a = attacker?.name || 'Unknown';
+    const d = defender?.name || 'Unknown';
+    const raw = `Combat: ${a} vs ${d}`;
+    return raw.length > 90 ? `${raw.slice(0, 87)}...` : raw;
   }
 
   /** Initialize cleanup interval (safe to call multiple times) */
@@ -458,11 +490,21 @@ export class CombatEncounterService {
     return this.getEncounter(channelId);
   }
 
+  /** Returns active encounter for a parent channel (thread-based combat) */
+  getEncounterByParentChannelId(channelId) {
+    return this.encountersByParent.get(channelId) || null;
+  }
+
   /** Creates a new encounter for channel with given participants (array of avatar objects). */
-  createEncounter({ channelId, participants, sourceMessage }) {
+  createEncounter({ channelId, participants, sourceMessage, context = {} }) {
     if (this.encounters.has(channelId)) {
       return this.encounters.get(channelId);
     }
+    const mode = context.mode || 'world';
+    const policy = context.policy || this._getPolicyForMode(mode);
+    const parentChannelId = context.parentChannelId || null;
+    const threadId = context.threadId || channelId;
+    const originLocations = context.originLocations || {};
     const guildId = sourceMessage?.guild?.id || null;
     // Enforce per-guild cap
     if (guildId) {
@@ -497,10 +539,13 @@ export class CombatEncounterService {
         discordUserId = String(a.summoner).replace(/^user:/, '');
       }
       
+      const baseMonsterId = a.baseMonsterId || a.monsterId || null;
       return {
+        combatantId: aid,
         avatarId: aid,
         name: a.name,
         ref: a,
+        baseMonsterId: isMonster ? baseMonsterId : null,
         discordUserId, // Store at combatant level for turn validation
         initiative: null,
         currentHp: maxHp, // Start at full HP for new encounter
@@ -518,7 +563,13 @@ export class CombatEncounterService {
     });
 
     const encounter = {
+      encounterId: `${threadId}:${Date.now()}`,
       channelId,
+      parentChannelId,
+      threadId,
+      mode,
+      policy,
+      originLocations,
       guildId,
       state: 'pending', // pending -> active -> ended
       createdAt: Date.now(),
@@ -559,6 +610,9 @@ export class CombatEncounterService {
       battleRecap: { rounds: [] }
     };
     this.encounters.set(channelId, encounter);
+    if (parentChannelId) {
+      this.encountersByParent.set(parentChannelId, encounter);
+    }
     
     // Insert into sorted list by age for efficient cleanup
     this._insertEncounterByAge(channelId, encounter.createdAt);
@@ -1937,6 +1991,7 @@ One-liner (no quotes):`;
   /** Called after each action to see if combat should end (e.g., one side remains, idle) */
   evaluateEnd(encounter) {
     if (encounter.state !== 'active') return false;
+    const policy = encounter.policy || this._getPolicyForMode(encounter.mode);
     
     // Maximum rounds limit - but NOT for dungeon combat (dungeons continue until cleared/flee/TPK)
     // Dungeon encounters should only end when:
@@ -1944,8 +1999,8 @@ One-liner (no quotes):`;
     // - All players defeated (TPK)
     // - Players flee
     if (!encounter.dungeonContext) {
-      const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
-      if (encounter.round >= maxRounds) {
+      const maxRounds = policy?.maxRounds;
+      if (Number.isFinite(maxRounds) && encounter.round >= maxRounds) {
         this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Max rounds (${maxRounds}) reached - ending combat`);
         this.endEncounter(encounter, { reason: 'max_rounds' });
         return true;
@@ -1979,15 +2034,16 @@ One-liner (no quotes):`;
       return true;
     }
     // End if all alive combatants are defending
-    if (alive.length >= 2 && alive.every(c => c.isDefending)) {
+    if (policy?.allowAllDefendingEnd !== false && alive.length >= 2 && alive.every(c => c.isDefending)) {
       this.endEncounter(encounter, { reason: 'all_defending' });
       return true;
     }
     // Idle logic: if no hostile actions for N rounds after at least one hostile
     // But not for dungeon combat - players may need time to strategize
-    if (!encounter.dungeonContext && encounter.lastHostileAt) {
+    if (!encounter.dungeonContext && policy?.allowIdleEnd !== false && encounter.lastHostileAt) {
       const roundsSince = (Date.now() - encounter.lastHostileAt) / (this.turnTimeoutMs);
-      if (roundsSince >= this.idleEndRounds) {
+      const idleEndRounds = policy?.idleEndRounds ?? this.idleEndRounds;
+      if (Number.isFinite(idleEndRounds) && roundsSince >= idleEndRounds) {
         this.endEncounter(encounter, { reason: 'idle' });
         return true;
       }
@@ -2079,6 +2135,12 @@ One-liner (no quotes):`;
     encounter.state = 'ended';
     encounter.endedAt = Date.now();
     encounter.endReason = reason || 'unspecified';
+    if (encounter.parentChannelId) {
+      this.encountersByParent.delete(encounter.parentChannelId);
+    }
+    this._returnCombatantsToOrigin(encounter).catch(e => {
+      this.logger?.warn?.(`[CombatEncounter] return to origin failed: ${e.message}`);
+    });
     
     // Determine winners (combatants with HP > 0)
     const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
@@ -2142,6 +2204,26 @@ One-liner (no quotes):`;
   this._sendSummary(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] summary send failed: ${e.message}`));
   }
 
+  async _returnCombatantsToOrigin(encounter) {
+    if (!encounter || encounter.dungeonContext || !encounter.parentChannelId) return;
+    if (!this.mapService?.updateAvatarPosition) return;
+    const originMap = encounter.originLocations || {};
+    const fleerId = this._normalizeId(encounter.fleerId);
+    for (const c of (encounter.combatants || [])) {
+      if (!c || c.isMonster) continue;
+      const cid = this._normalizeId(c.avatarId);
+      if (!cid || cid === fleerId) continue;
+      if (c.ref?.status === 'dead' || c.ref?.status === 'knocked_out') continue;
+      const origin = originMap[cid];
+      if (!origin || origin === encounter.channelId) continue;
+      try {
+        await this.mapService.updateAvatarPosition(c.ref, origin);
+      } catch (e) {
+        this.logger?.warn?.(`[CombatEncounter] Failed to return ${c.name} to origin: ${e.message}`);
+      }
+    }
+  }
+
   /** Adds an avatar mid-combat (e.g., new hostile). Rolls initiative just for them and inserts into order. */
   async addCombatant(encounter, avatar) {
     if (encounter.state !== 'active' && encounter.state !== 'pending') return;
@@ -2155,7 +2237,34 @@ One-liner (no quotes):`;
   const dexMod = this._dexModFromStats(stats);
     const initiative = this.diceService.rollDie(20) + dexMod;
     const armorClass = 10 + dexMod;
-  const combatant = { avatarId: aid, name: avatar.name, ref: avatar, initiative, currentHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP, maxHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP, armorClass, hasActed: false, isDefending: false, conditions: [], side: 'neutral' };
+  const isMonster = avatar?.isMonster === true;
+  const hasSummoner = String(avatar?.summoner || '').startsWith('user:');
+  const hasDiscordUser = !!avatar?.discordUserId;
+  const isPlayerControlled = !isMonster && (hasSummoner || hasDiscordUser);
+  let discordUserId = avatar?.discordUserId || null;
+  if (!discordUserId && hasSummoner) {
+    discordUserId = String(avatar.summoner).replace(/^user:/, '');
+  }
+  const combatant = {
+    combatantId: aid,
+    avatarId: aid,
+    name: avatar.name,
+    ref: avatar,
+    baseMonsterId: isMonster ? (avatar.baseMonsterId || avatar.monsterId || null) : null,
+    discordUserId,
+    initiative,
+    currentHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP,
+    maxHp: stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP,
+    armorClass,
+    hasActed: false,
+    isDefending: false,
+    conditions: [],
+    side: isMonster ? 'enemy' : 'neutral',
+    isMonster,
+    isPlayerControlled,
+    autoMode: !isPlayerControlled,
+    awaitingAction: false
+  };
     encounter.combatants.push(combatant);
     // Rebuild initiative order and keep current turn index referencing correct avatar
   this._rebuildInitiativeOrder(encounter, { preserveCurrent: true });
@@ -2235,20 +2344,69 @@ One-liner (no quotes):`;
     if ((attacker?.combatCooldownUntil && now < attacker.combatCooldownUntil) || (defender?.combatCooldownUntil && now < defender.combatCooldownUntil)) {
       throw new Error('flee_cooldown');
     }
-    let encounter = this.getEncounter(channelId);
+    const isPlayerControlled = (a) => {
+      if (!a || a.isMonster) return false;
+      const hasSummoner = String(a.summoner || '').startsWith('user:');
+      return !!a.discordUserId || hasSummoner;
+    };
+    const mode = (isPlayerControlled(attacker) && isPlayerControlled(defender)) ? 'pvp' : 'world';
+    const sourceIsThread = !!sourceMessage?.channel?.isThread?.();
+    let combatChannelId = channelId;
+    let parentChannelId = null;
+    let originLocations = {};
+
+    if (!sourceIsThread) {
+      const existingByParent = this.getEncounterByParentChannelId(channelId);
+      if (existingByParent && existingByParent.state !== 'ended') {
+        return existingByParent;
+      }
+      const threadName = this._buildCombatThreadName(attacker, defender);
+      const threadId = await this.discordService?.createThread?.(channelId, threadName, {
+        reason: 'Combat encounter'
+      });
+      if (threadId && threadId !== channelId) {
+        combatChannelId = threadId;
+        parentChannelId = channelId;
+        // Move player-controlled avatars into combat thread
+        const movers = [attacker, defender].filter(a => a && !a.isMonster);
+        for (const mover of movers) {
+          const moverId = this._getAvatarId(mover);
+          if (!moverId) continue;
+          try {
+            const loc = await this.mapService?.getAvatarLocation?.(mover).catch(() => null);
+            if (loc?.locationId) originLocations[moverId] = loc.locationId;
+            await this.mapService?.updateAvatarPosition?.(mover, combatChannelId);
+          } catch (e) {
+            this.logger?.warn?.(`[CombatEncounter] Failed to move ${mover?.name} to combat thread: ${e.message}`);
+          }
+        }
+      }
+    } else {
+      parentChannelId = sourceMessage?.channel?.parentId || sourceMessage?.channel?.parent?.id || null;
+    }
+
+    let encounter = this.getEncounter(combatChannelId);
     if (!encounter) {
-      encounter = this.createEncounter({ channelId, participants: [attacker, defender], sourceMessage });
+      encounter = this.createEncounter({
+        channelId: combatChannelId,
+        participants: [attacker, defender],
+        sourceMessage,
+        context: {
+          mode,
+          parentChannelId,
+          threadId: combatChannelId,
+          originLocations
+        }
+      });
       if (!deferStart) {
         await this.rollInitiative(encounter);
       }
-      this.logger.info?.(`[CombatEncounter] Created new encounter in channel ${channelId} with ${encounter.combatants.length} combatants.`);
+      this.logger.info?.(`[CombatEncounter] Created new encounter in channel ${combatChannelId} with ${encounter.combatants.length} combatants.`);
     } else if (encounter.state === 'pending') {
-      // finalize
       if (!deferStart) {
         await this.rollInitiative(encounter);
       }
     } else {
-      // ensure both are present
       await this.addCombatant(encounter, attacker);
       await this.addCombatant(encounter, defender);
     }
@@ -3696,7 +3854,6 @@ Message: ${messageContent}`;
   /** Remove stale / ended encounters from memory (optimized with sorted list) */
   cleanupStaleEncounters() {
     const now = Date.now();
-    const threshold = this.staleEncounterMs;
     const completedEncounterRetentionMs = 24 * 60 * 60 * 1000; // 24 hours
     
     // Clean up completed encounters older than 24 hours
@@ -3727,12 +3884,16 @@ Message: ${messageContent}`;
       }
       
       const ended = enc.state === 'ended';
-      const stale = !ended && enc.startedAt && (now - enc.startedAt > threshold);
+      const staleThreshold = enc.policy?.staleEncounterMs || this.staleEncounterMs;
+      const stale = !ended && enc.startedAt && (now - enc.startedAt > staleThreshold);
       
       if (ended || stale) {
         this._clearTimers(enc);
         this.encounters.delete(oldest.channelId);
         this.encountersByAge.shift();
+        if (enc.parentChannelId) {
+          this.encountersByParent.delete(enc.parentChannelId);
+        }
         cleanedCount++;
         this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${oldest.channelId} reason=${ended ? 'ended' : 'stale'}`);
       } else {

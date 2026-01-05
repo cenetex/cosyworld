@@ -72,9 +72,10 @@ export class CombatTargetRegistry {
     // This handles cases like "monster_mortar_mite_6idl_2_1767503059096"
     // Use case-insensitive comparison since searchLower is lowercased
     let match = candidates.find(c => {
-      const cId = (this._normalize(c.avatarId) || '').toLowerCase();
+      const cId = (this._normalize(c.combatantId || c.avatarId) || '').toLowerCase();
       const cIdAlt = (this._normalize(c._id || c.id) || '').toLowerCase();
-      return cId === searchLower || cIdAlt === searchLower;
+      const cBase = (this._normalize(c.baseMonsterId) || '').toLowerCase();
+      return cId === searchLower || cIdAlt === searchLower || cBase === searchLower;
     });
     if (match) {
       this.logger?.debug?.(`[CombatTargetRegistry] ID match: ${match.name} (via ${searchLower})`);
@@ -193,7 +194,7 @@ export class CombatTargetRegistry {
     
     return encounter.combatants.filter(c => {
       // Can't target self
-      if (this._normalize(c.avatarId) === attackerId) return false;
+      if (this._normalize(c.combatantId || c.avatarId) === attackerId) return false;
       // Can't target dead
       if ((c.currentHp || 0) <= 0) return false;
       // Prefer targeting opposite side
@@ -233,7 +234,7 @@ export class CombatTargetRegistry {
     if (!encounter || encounter.state !== 'active') return false;
 
     const targetId = this._normalize(targetAvatarId);
-    const target = encounter.combatants.find(c => this._normalize(c.avatarId) === targetId);
+    const target = encounter.combatants.find(c => this._normalize(c.combatantId || c.avatarId) === targetId);
     
     return target && (target.currentHp || 0) > 0;
   }

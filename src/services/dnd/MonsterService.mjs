@@ -410,6 +410,9 @@ export class MonsterService {
       updatedAt: new Date()
     };
 
+    // Clamp stats based on role to ensure balance
+    this._clampMonsterStatsByRole(monster, filters.role);
+
     // Generate image if requested
     if (options.generateImage) {
       try {
@@ -445,13 +448,13 @@ export class MonsterService {
 
     if (filters.role) {
       const roleDesc = {
-        minion: 'weak but numerous',
-        brute: 'strong melee fighter with high HP',
-        skirmisher: 'mobile hit-and-run attacker',
-        artillery: 'ranged attacker',
-        controller: 'uses debuffs and area control',
-        elite: 'powerful single threat',
-        boss: 'legendary creature suitable as a climactic encounter'
+        minion: 'weak but numerous (AC 8-11, low HP)',
+        brute: 'strong melee fighter with high HP (AC 12-14)',
+        skirmisher: 'mobile hit-and-run attacker (AC 13-15)',
+        artillery: 'ranged attacker (AC 10-13)',
+        controller: 'uses debuffs and area control (AC 12-14)',
+        elite: 'powerful single threat (AC 14-17)',
+        boss: 'legendary creature suitable as a climactic encounter (AC 15-18)'
       };
       parts.push(`serving as a ${filters.role} (${roleDesc[filters.role] || filters.role})`);
     }
@@ -463,7 +466,8 @@ export class MonsterService {
       parts.push(`appropriate for a level ${filters.targetLevel} party (CR ${crRange.min}-${crRange.max})`);
     }
 
-    parts.push('. Make it creative and memorable, with unique abilities that fit its theme. Balance stats appropriately for the CR. All numeric fields must be numbers, not strings.');
+    // Add explicit stat guidance based on CR/role
+    parts.push('. IMPORTANT: For CR 0.25-1 minions, use AC 8-11 and HP 7-22. Make it creative and memorable, with unique abilities that fit its theme. Balance stats appropriately for the CR. All numeric fields must be numbers, not strings.');
 
     return parts.join(' ');
   }
@@ -582,6 +586,42 @@ export class MonsterService {
       }
     }
     return coerced;
+  }
+
+  /**
+   * Clamp monster stats based on role to ensure encounter balance
+   * Prevents AI from generating overpowered minions or underpowered bosses
+   * @private
+   */
+  _clampMonsterStatsByRole(monster, role) {
+    if (!monster?.stats) return;
+
+    // Role-based AC and HP ranges
+    const roleLimits = {
+      minion: { acMin: 8, acMax: 11, hpMin: 4, hpMax: 22 },
+      brute: { acMin: 11, acMax: 14, hpMin: 20, hpMax: 80 },
+      skirmisher: { acMin: 12, acMax: 15, hpMin: 15, hpMax: 60 },
+      artillery: { acMin: 10, acMax: 13, hpMin: 10, hpMax: 50 },
+      controller: { acMin: 11, acMax: 14, hpMin: 15, hpMax: 60 },
+      elite: { acMin: 13, acMax: 17, hpMin: 40, hpMax: 150 },
+      boss: { acMin: 14, acMax: 19, hpMin: 80, hpMax: 300 }
+    };
+
+    const limits = roleLimits[role] || roleLimits.minion;
+
+    // Clamp AC
+    if (monster.stats.ac < limits.acMin) {
+      monster.stats.ac = limits.acMin;
+    } else if (monster.stats.ac > limits.acMax) {
+      monster.stats.ac = limits.acMax;
+    }
+
+    // Clamp HP
+    if (monster.stats.hp < limits.hpMin) {
+      monster.stats.hp = limits.hpMin;
+    } else if (monster.stats.hp > limits.hpMax) {
+      monster.stats.hp = limits.hpMax;
+    }
   }
 
   /**

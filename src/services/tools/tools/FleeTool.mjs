@@ -50,6 +50,12 @@ export class FleeTool extends BasicTool {
         this.logger?.warn?.('[FleeTool] Combat system unavailable');
         return `-# [ ❌ Combat system unavailable. ]`;
       }
+      if (!message?.channel?.isThread?.() && ces?.getEncounterByParentChannelId) {
+        const parentEncounter = ces.getEncounterByParentChannelId(message.channel.id);
+        if (parentEncounter && parentEncounter.state !== 'ended') {
+          return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+        }
+      }
       
       // Get active encounter
       const encounter = ces.getEncounter(message.channel.id);
