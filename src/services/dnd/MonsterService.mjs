@@ -176,6 +176,7 @@ export class MonsterService {
    * @param {number} [filters.minCR] - Minimum challenge rating
    * @param {number} [filters.maxCR] - Maximum challenge rating
    * @param {number} [filters.targetLevel] - Target party level (maps to CR range)
+   * @param {number} [filters.maxXP] - Maximum XP value (for budget-constrained selection)
    * @returns {Promise<Object[]>} Array of matching monsters
    */
   async getMonstersByTags(filters = {}) {
@@ -197,8 +198,12 @@ export class MonsterService {
       query['tags.role'] = filters.role;
     }
 
-    // CR range filter
-    if (filters.minCR !== undefined || filters.maxCR !== undefined) {
+    // V5 FIX: XP budget filter (for budget-constrained encounters)
+    // This takes priority over CR range if specified
+    if (filters.maxXP !== undefined) {
+      query.xp = { $lte: filters.maxXP };
+    } else if (filters.minCR !== undefined || filters.maxCR !== undefined) {
+      // CR range filter
       query.cr = {};
       if (filters.minCR !== undefined) query.cr.$gte = filters.minCR;
       if (filters.maxCR !== undefined) query.cr.$lte = filters.maxCR;
@@ -459,7 +464,12 @@ export class MonsterService {
       parts.push(`serving as a ${filters.role} (${roleDesc[filters.role] || filters.role})`);
     }
 
-    if (filters.minCR !== undefined && filters.maxCR !== undefined) {
+    // V5 FIX: Add XP constraint to prevent generating over-budget monsters
+    if (filters.maxXP !== undefined) {
+      // Map XP to appropriate CR
+      const crForXP = this._xpToCR(filters.maxXP);
+      parts.push(`with CR ${crForXP} or less (max ${filters.maxXP} XP)`);
+    } else if (filters.minCR !== undefined && filters.maxCR !== undefined) {
       parts.push(`with Challenge Rating between ${filters.minCR} and ${filters.maxCR}`);
     } else if (filters.targetLevel !== undefined) {
       const crRange = this._levelToCRRange(filters.targetLevel);
@@ -470,6 +480,22 @@ export class MonsterService {
     parts.push('. IMPORTANT: For CR 0.25-1 minions, use AC 8-11 and HP 7-22. Make it creative and memorable, with unique abilities that fit its theme. Balance stats appropriately for the CR. All numeric fields must be numbers, not strings.');
 
     return parts.join(' ');
+  }
+
+  /**
+   * Map XP to approximate CR (inverse of _crToXP)
+   * @private
+   */
+  _xpToCR(xp) {
+    if (xp <= 25) return 0.125;
+    if (xp <= 50) return 0.25;
+    if (xp <= 100) return 0.5;
+    if (xp <= 200) return 1;
+    if (xp <= 450) return 2;
+    if (xp <= 700) return 3;
+    if (xp <= 1100) return 4;
+    if (xp <= 1800) return 5;
+    return Math.floor(xp / 500); // Rough approximation for higher CRs
   }
 
   /**

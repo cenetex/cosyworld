@@ -1327,9 +1327,14 @@ export class DiscordService {
         }
         return;
       }
+      
+      if (customId === 'dnd_combat_cancel') {
+        await interaction.reply({ content: '✅ Action cancelled.', flags: 64 });
+        return;
+      }
 
       // Handle combat action buttons - validate it's the user's turn first
-      const combatActionButtons = ['dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast'];
+      const combatActionButtons = ['dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast', 'dnd_item_use'];
       if (combatActionButtons.includes(customId) || customId.startsWith('dnd_target_')) {
         const combatService = toolService.getCombatService?.() || this.getCombatService?.();
         if (combatService) {
@@ -1643,6 +1648,7 @@ export class DiscordService {
       'dnd_combat_flee': { tool: 'dungeon', params: ['flee'] },
       'dnd_combat_cast': { tool: 'cast', params: [] },
       'dnd_combat_auto': { tool: 'combat_auto', params: [] },
+      'dnd_item_use': { tool: 'item', params: ['use'] },
       
       // Cast/spell button
       'dnd_cast_list': { tool: 'cast', params: [] },

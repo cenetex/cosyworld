@@ -701,10 +701,15 @@ export class DungeonService {
     const effectiveMaxMinions = Math.max(1, maxMonsters - (isBoss ? 1 : 0));
 
     while (remaining > 0 && minionCount < effectiveMaxMinions) {
+      // V5 FIX: Use maxXP filter to ensure monsters fit within budget
+      // This prevents selecting a CR 1 (200 XP) monster for a 50 XP budget
+      const maxXPForMonster = Math.max(25, remaining); // Minimum 25 XP to allow smallest monsters
+      
       const { monster: minion } = await this.monsterService.selectMonsterForEncounter({
         habitats,
         role: isBoss ? 'minion' : null, // Mixed roles if not a boss encounter
-        targetLevel: Math.max(1, partyLevel - 1)
+        targetLevel: Math.max(1, partyLevel - 1),
+        maxXP: maxXPForMonster  // V5: Add budget constraint
       }, {
         forceExisting: minionCount > 0 // After first minion, prefer existing to avoid too many generations
       });
@@ -754,7 +759,7 @@ export class DungeonService {
    * @param {boolean} isBoss - Boss encounter flag
    * @param {number} maxMonsters - Max monster count (scaled by party size)
    */
-  _selectMonstersStatic(budget, partyLevel, isBoss, maxMonsters = 6) {
+  async _selectMonstersStatic(budget, partyLevel, isBoss, maxMonsters = 6) {
     const monsters = [];
     let remaining = budget;
 
@@ -764,7 +769,30 @@ export class DungeonService {
       const bossOptions = getMonstersByCR(bossCR);
       if (bossOptions.length > 0) {
         const boss = bossOptions[this.diceService.rollDie(bossOptions.length) - 1];
-        monsters.push({ id: boss.id, name: boss.name, emoji: boss.emoji, count: 1 });
+        // V5 FIX: Generate image for static monsters via MonsterService if available
+        let imageUrl = null;
+        if (this.monsterService) {
+          try {
+            // Look up the seeded monster in the database and get/generate its image
+            const dbMonster = await this.monsterService.getMonstersByTags({ role: null }).then(ms => 
+              ms.find(m => m.monsterId === boss.id || m.name === boss.name)
+            );
+            if (dbMonster) {
+              imageUrl = await this.monsterService.getOrGenerateImage(dbMonster);
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonService] Failed to get image for ${boss.name}: ${e.message}`);
+          }
+        }
+        monsters.push({ 
+          id: boss.id, 
+          name: boss.name, 
+          emoji: boss.emoji, 
+          stats: boss.stats,
+          attacks: boss.attacks,
+          imageUrl,
+          count: 1 
+        });
         remaining -= boss.xp;
       }
     }
@@ -778,7 +806,29 @@ export class DungeonService {
       const count = Math.max(1, Math.floor(remaining / minion.xp));
       const effectiveMax = Math.max(1, maxMonsters - (isBoss ? 1 : 0));
       if (count > 0) {
-        monsters.push({ id: minion.id, name: minion.name, emoji: minion.emoji, count: Math.min(count, effectiveMax) });
+        // V5 FIX: Generate image for static monsters via MonsterService if available
+        let imageUrl = null;
+        if (this.monsterService) {
+          try {
+            const dbMonster = await this.monsterService.getMonstersByTags({ role: null }).then(ms => 
+              ms.find(m => m.monsterId === minion.id || m.name === minion.name)
+            );
+            if (dbMonster) {
+              imageUrl = await this.monsterService.getOrGenerateImage(dbMonster);
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonService] Failed to get image for ${minion.name}: ${e.message}`);
+          }
+        }
+        monsters.push({ 
+          id: minion.id, 
+          name: minion.name, 
+          emoji: minion.emoji, 
+          stats: minion.stats,
+          attacks: minion.attacks,
+          imageUrl,
+          count: Math.min(count, effectiveMax) 
+        });
       }
     }
 

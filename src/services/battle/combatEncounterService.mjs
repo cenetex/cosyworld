@@ -3297,7 +3297,20 @@ Message: ${messageContent}`;
 
   isTurn(encounter, avatarId) {
     if (!this.enableTurnEnforcement) return true;
-  return this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === this._normalizeId(avatarId);
+    
+    // Check if it's this avatar's turn in the initiative order
+    const isCurrentTurn = this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === this._normalizeId(avatarId);
+    if (!isCurrentTurn) return false;
+    
+    // V5 FIX: Also check if the combatant is awaiting action
+    // This prevents multiple attacks when player spams attack commands
+    const combatant = this.getCombatant(encounter, avatarId);
+    if (!combatant?.awaitingAction) {
+      this.logger?.debug?.(`[CombatEncounter] isTurn: ${combatant?.name} has already acted this turn`);
+      return false;
+    }
+    
+    return true;
   }
 
   /** Initiative embed intentionally removed */

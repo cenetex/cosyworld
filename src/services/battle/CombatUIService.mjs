@@ -393,15 +393,15 @@ export class CombatUIService {
     // Add utility buttons
     rows.push(new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('combat_defend_confirm')
+        .setCustomId('dnd_combat_defend')
         .setLabel('🛡️ Defend')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId('combat_use_item')
+        .setCustomId('dnd_item_use')
         .setLabel('🎒 Use Item')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('combat_cancel')
+        .setCustomId('dnd_combat_cancel')
         .setLabel('❌ Cancel')
         .setStyle(ButtonStyle.Secondary)
     ));
