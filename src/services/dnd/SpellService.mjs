@@ -9,12 +9,13 @@ import { SPELLS, getCantripDamage } from '../../data/dnd/spells.mjs';
 import { DiceService } from '../battle/diceService.mjs';
 
 export class SpellService {
-  constructor({ characterService, avatarService, statusEffectService, getCombatEncounterService, healthService, logger }) {
+  constructor({ characterService, avatarService, statusEffectService, getCombatEncounterService, healthService, statService, logger }) {
     this.characterService = characterService;
     this.avatarService = avatarService;
     this.statusEffectService = statusEffectService;
     this.getCombatEncounterService = getCombatEncounterService;
     this.healthService = healthService || null;
+    this.statService = statService || null;
     this.diceService = new DiceService();
     this.logger = logger;
   }
@@ -257,13 +258,17 @@ export class SpellService {
         if (state?.damageApplied) {
           currentHp = state.currentHp + state.damageApplied;
         }
+      } else if (this.statService) {
+        // Fallback: use StatService modifiers (same underlying mechanism as HealthService)
+        const avatarId = target._id || target.id;
+        await this.statService.createModifier('damage', damage, { avatarId, source: `spell:${damageType || 'damage'}` });
+        const totalDamage = await this.statService.getTotalModifier(avatarId, 'damage');
+        const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
+        newHp = Math.max(0, maxHp - totalDamage);
       } else {
+        // Last resort fallback (should not happen in production)
+        this.logger?.warn?.('[SpellService] No healthService or statService available for damage');
         newHp = Math.max(0, currentHp - damage);
-        target.stats = {
-          ...(target.stats || {}),
-          hp: newHp
-        };
-        await this.avatarService.updateAvatar(target);
       }
 
       this.logger?.debug?.(`[SpellService] Applied ${damage} ${damageType} damage to ${target.name} (${currentHp} -> ${newHp})`);
@@ -310,14 +315,22 @@ export class SpellService {
         if (state?.healed) {
           currentHp = Math.max(0, state.currentHp - state.healed);
         }
+      } else if (this.statService) {
+        // Fallback: use StatService modifiers (negative damage = healing)
+        const avatarId = target._id || target.id;
+        const totalDamage = await this.statService.getTotalModifier(avatarId, 'damage');
+        const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
+        const healAmount = Math.min(healing, Math.max(0, totalDamage));
+        if (healAmount > 0) {
+          await this.statService.createModifier('damage', -healAmount, { avatarId, source: 'spell:healing' });
+        }
+        const newTotalDamage = await this.statService.getTotalModifier(avatarId, 'damage');
+        newHp = Math.max(0, maxHp - newTotalDamage);
       } else {
+        // Last resort fallback (should not happen in production)
+        this.logger?.warn?.('[SpellService] No healthService or statService available for healing');
         const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
         newHp = Math.min(maxHp, currentHp + healing);
-        target.stats = {
-          ...(target.stats || {}),
-          hp: newHp
-        };
-        await this.avatarService.updateAvatar(target);
       }
 
       this.logger?.debug?.(`[SpellService] Applied ${healing} healing to ${target.name} (${currentHp} -> ${newHp})`);

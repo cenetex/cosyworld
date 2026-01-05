@@ -160,14 +160,8 @@ export class CharacterService {
     const initialMaxHp = classDef.hitDice + conMod; // Level 1: max hit die + CON mod
     const finalMaxHp = Math.max(1, initialMaxHp); // Ensure at least 1 HP
     
-    // Update avatar stats with racial bonuses AND initial HP
-    avatar.stats = {
-      ...(avatar.stats || {}),
-      ...newStats,
-      hp: finalMaxHp,
-      maxHp: finalMaxHp
-    };
-    await this.avatarService.updateAvatar(avatar);
+    // Update dungeon_stats as the canonical source of truth for base stats
+    // HealthService will compute currentHp from maxHp minus damage modifiers
     await this.avatarService.updateAvatarStats(avatar, {
       ...newStats,
       hp: finalMaxHp,

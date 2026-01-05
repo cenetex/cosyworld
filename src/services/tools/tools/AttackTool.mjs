@@ -101,7 +101,7 @@ export class AttackTool extends BasicTool {
               // Deduplicate monsters by name, combining counts
               const monsterMap = new Map();
               for (const m of room.encounter.monsters) {
-                const name = m.name || m.id;
+                const name = m.name || m.id || m.monsterId;
                 if (monsterMap.has(name)) {
                   monsterMap.get(name).count += (m.count || 1);
                 } else {
@@ -134,11 +134,14 @@ export class AttackTool extends BasicTool {
         const combatTargets = encounter?.combatants?.filter(c => c.isMonster && (c.currentHp || 0) > 0) || [];
         
         // Use combat encounter targets if available (has proper avatarId), otherwise fall back to dungeon targets
-        const buttonsSource = combatTargets.length > 0 ? combatTargets : dungeonTargets;
+        const usingCombatTargets = combatTargets.length > 0;
+        const buttonsSource = usingCombatTargets ? combatTargets : dungeonTargets;
         
         const targetButtons = buttonsSource.slice(0, 5).map(t => {
-          // Use avatarId for combat targets, id/name for dungeon targets
-          const targetId = t.avatarId || t.id || t.monsterId || t.name;
+          // Use avatarId for combat targets; use name for dungeon targets to keep name-based matching
+          const targetId = usingCombatTargets
+            ? (t.avatarId || t.id || t.monsterId || t.name)
+            : (t.name || t.id || t.monsterId || t.avatarId);
           const displayName = t.name || 'Unknown';
           const count = t.count || 1;
           const hp = t.currentHp ?? t.stats?.hp ?? '?';
@@ -283,10 +286,12 @@ export class AttackTool extends BasicTool {
             if (room?.encounter?.monsters?.length && !room.cleared) {
               // Match target against dungeon monsters
               const monsterMatch = room.encounter.monsters.find(m => {
-                const mName = (m.name || m.id || '').toLowerCase();
                 const target = targetText.toLowerCase();
-                return mName.includes(target) || target.includes(mName) || 
-                       mName.split(' ').some(w => target.includes(w));
+                const keys = [m.name, m.id, m.monsterId].filter(Boolean).map(k => k.toLowerCase());
+                const keyMatch = keys.some(k => k.includes(target) || target.includes(k));
+                if (keyMatch) return true;
+                const mName = (m.name || '').toLowerCase();
+                return mName.split(' ').some(w => w.length >= 3 && target.includes(w));
               });
               
               if (monsterMatch) {
@@ -306,9 +311,10 @@ export class AttackTool extends BasicTool {
                   }
                 }
                 
+                const monsterKey = (monsterMatch.name || monsterMatch.id || monsterMatch.monsterId || '').toLowerCase() || targetText.toLowerCase();
                 // Find the monster combatant by name match
-                const monsterCombatant = dungeonEncounter.participants?.find(p => 
-                  p.isMonster && p.name.toLowerCase().includes(targetText.toLowerCase())
+                const monsterCombatant = dungeonEncounter.combatants?.find(p => 
+                  p.isMonster && p.name?.toLowerCase?.().includes(monsterKey)
                 );
                 
                 if (monsterCombatant) {
