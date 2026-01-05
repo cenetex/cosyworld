@@ -161,12 +161,17 @@ export class CharacterService {
     const finalMaxHp = Math.max(1, initialMaxHp); // Ensure at least 1 HP
     
     // Update avatar stats with racial bonuses AND initial HP
-    await this.avatarService.updateAvatar(avatarId, { 
-      stats: {
-        ...newStats,
-        hp: finalMaxHp,
-        maxHp: finalMaxHp
-      }
+    avatar.stats = {
+      ...(avatar.stats || {}),
+      ...newStats,
+      hp: finalMaxHp,
+      maxHp: finalMaxHp
+    };
+    await this.avatarService.updateAvatar(avatar);
+    await this.avatarService.updateAvatarStats(avatar, {
+      ...newStats,
+      hp: finalMaxHp,
+      maxHp: finalMaxHp
     });
 
     this.logger?.info?.(`[CharacterService] Created ${race} ${className} for avatar ${avatarId} with ${finalMaxHp} HP`);
@@ -206,6 +211,7 @@ export class CharacterService {
   async _levelUp(sheet, newLevel) {
     const classDef = CLASSES[sheet.class];
     const avatar = await this.avatarService.getAvatarById(sheet.avatarId);
+    const dungeonStats = await this.avatarService.getOrCreateStats?.(avatar);
 
     // Gather new features
     const newFeatures = [];
@@ -231,8 +237,12 @@ export class CharacterService {
 
     // Calculate HP gain
     const hpGain = (newLevel - sheet.level) * (Math.floor(classDef.hitDice / 2) + 1);
-    const conMod = Math.floor(((avatar.stats?.constitution || 10) - 10) / 2);
-    const totalHpGain = hpGain + conMod * (newLevel - sheet.level);
+    const conScore = Number.isFinite(avatar.stats?.constitution)
+      ? avatar.stats.constitution
+      : (Number.isFinite(dungeonStats?.constitution) ? dungeonStats.constitution : 10);
+    const conMod = Math.floor((conScore - 10) / 2);
+    const levelsGained = newLevel - sheet.level;
+    const totalHpGain = hpGain + conMod * levelsGained;
 
     const updates = {
       level: newLevel,
@@ -254,11 +264,32 @@ export class CharacterService {
       }
     );
 
-    // Increase avatar max HP
-    const newMaxHP = (avatar.stats?.hp || 10) + totalHpGain;
-    await this.avatarService.updateAvatar(sheet.avatarId, {
-      'stats.hp': newMaxHP
-    });
+    // Increase avatar max HP (do not base on current HP)
+    const existingMaxHp = Number.isFinite(avatar?.stats?.maxHp)
+      ? avatar.stats.maxHp
+      : (Number.isFinite(dungeonStats?.maxHp)
+          ? dungeonStats.maxHp
+          : (Number.isFinite(dungeonStats?.hp)
+              ? dungeonStats.hp
+              : (Number.isFinite(avatar?.stats?.hp) ? avatar.stats.hp : 10)));
+    const currentHp = Number.isFinite(avatar?.stats?.hp) ? avatar.stats.hp : existingMaxHp;
+    const newMaxHP = Math.max(1, existingMaxHp + totalHpGain);
+    const newCurrentHp = Math.min(newMaxHP, currentHp + totalHpGain);
+
+    avatar.stats = {
+      ...(avatar.stats || {}),
+      hp: newCurrentHp,
+      maxHp: newMaxHP
+    };
+    await this.avatarService.updateAvatar(avatar);
+
+    if (dungeonStats) {
+      await this.avatarService.updateAvatarStats(avatar, {
+        ...dungeonStats,
+        hp: newMaxHP,
+        maxHp: newMaxHP
+      });
+    }
 
     this.logger?.info?.(`[CharacterService] ${sheet.class} leveled up to ${newLevel}`);
   }

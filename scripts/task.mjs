@@ -59,6 +59,11 @@ async function main() {
       await (mod.default?.() ?? Promise.resolve());
       break;
     }
+    case 'backfill:avatar-maxhp': {
+      const mod = await import('./backfill-avatar-maxhp.mjs');
+      await (mod.default?.() ?? Promise.resolve());
+      break;
+    }
     case 'update:models': {
       const mod = await import('./updateModels.mjs');
       await (mod.default?.() ?? Promise.resolve());
@@ -69,8 +74,9 @@ async function main() {
       console.log('Commands:');
   console.log('  sync:collection       Sync avatars for a collection');
   console.log('  migrate:agent-blocks  Run agent blocks migration');
-      console.log('  migrate:agent-events  Run agent events migration');
+  console.log('  migrate:agent-events  Run agent events migration');
       console.log('  backfill:agent-ids    Backfill agent IDs');
+      console.log('  backfill:avatar-maxhp Backfill avatar max HP from character sheets');
       console.log('  update:models         Refresh available models');
       process.exit(1);
   }

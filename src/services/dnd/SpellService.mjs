@@ -259,9 +259,11 @@ export class SpellService {
         }
       } else {
         newHp = Math.max(0, currentHp - damage);
-        await this.avatarService.updateAvatar(targetId, {
-          'stats.hp': newHp
-        });
+        target.stats = {
+          ...(target.stats || {}),
+          hp: newHp
+        };
+        await this.avatarService.updateAvatar(target);
       }
 
       this.logger?.debug?.(`[SpellService] Applied ${damage} ${damageType} damage to ${target.name} (${currentHp} -> ${newHp})`);
@@ -311,9 +313,11 @@ export class SpellService {
       } else {
         const maxHp = target.stats?.maxHp ?? target.stats?.hp ?? 10;
         newHp = Math.min(maxHp, currentHp + healing);
-        await this.avatarService.updateAvatar(targetId, {
-          'stats.hp': newHp
-        });
+        target.stats = {
+          ...(target.stats || {}),
+          hp: newHp
+        };
+        await this.avatarService.updateAvatar(target);
       }
 
       this.logger?.debug?.(`[SpellService] Applied ${healing} healing to ${target.name} (${currentHp} -> ${newHp})`);
