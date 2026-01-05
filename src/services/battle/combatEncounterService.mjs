@@ -536,6 +536,9 @@ export class CombatEncounterService {
       lastAction: null,
       // Chatter tracking to avoid repetitive speakers
       chatter: { spokenThisRound: new Set(), lastSpeakerId: null },
+      // Round action accumulator for consolidated narration
+      pendingRoundActions: [],
+      lastNarratedRound: 0,
       timers: {},
       knockout: null,
       knockoutMedia: null,
@@ -1085,7 +1088,7 @@ One-liner (no quotes):`;
 
   /**
    * Post between-round dialogue from 1-2 combatants
-   * Adds flavor and immersion during combat
+   * Adds flavor and immersion during combat (but not every round to reduce spam)
    * @private
    * @param {Object} encounter - Combat encounter
    * @param {number} completedRound - The round that just ended
@@ -1093,6 +1096,13 @@ One-liner (no quotes):`;
    */
   async _postBetweenRoundDialogue(encounter, completedRound, roundActions = []) {
     try {
+      // Only trigger dialogue ~25% of the time to reduce spam
+      // Always speak on round 1 (dramatic entrance) and every 4th round
+      const isSignificantRound = completedRound === 1 || completedRound % 4 === 0;
+      if (!isSignificantRound && Math.random() > 0.25) {
+        return;
+      }
+      
       if (!this.unifiedAIService?.chat) {
         return;
       }
@@ -1120,8 +1130,8 @@ One-liner (no quotes):`;
       const others = aliveCombatants.filter(c => !involvedIds.has(c.avatarId));
       const pool = [...prioritized, ...others];
 
-      // Pick 1-2 speakers randomly from priority pool
-      const speakerCount = Math.min(pool.length, Math.random() < 0.5 ? 1 : 2);
+      // Pick only 1 speaker to reduce spam (was 1-2)
+      const speakerCount = 1;
       const shuffled = pool.sort(() => Math.random() - 0.5);
       const speakers = shuffled.slice(0, speakerCount);
 
@@ -1329,8 +1339,17 @@ One-liner (no quotes):`;
     if (current) current.isDefending = false;
     encounter.lastTurnStartAt = Date.now();
     
+    // Determine if this avatar should wait for player input:
+    // 1. Player-controlled avatars with linked user: always wait
+    // 2. Party members without linked user: wait for someone to claim them
+    // 3. Monsters and AI-controlled avatars: auto-execute
+    const isPartyMember = !current.isMonster && (current.ref?.isPlayerCharacter || current.side !== 'enemy');
+    const hasLinkedUser = !!(current.discordUserId || (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')));
+    const isClaimable = isPartyMember && !hasLinkedUser;
+    const shouldWaitForPlayer = (current.isPlayerControlled && !current.autoMode) || isClaimable;
+    
     // Check if this is a player-controlled avatar awaiting manual input
-    if (current.isPlayerControlled && !current.autoMode) {
+    if (shouldWaitForPlayer) {
       // NO turn timeout for human players - wait indefinitely for their action
       // This gives humans unlimited time to think and act
       if (encounter.timers?.turn) {
@@ -1394,8 +1413,14 @@ One-liner (no quotes):`;
       const currentId = this.getCurrentTurnAvatarId(encounter);
       const current = this.getCombatant(encounter, currentId);
       
-      // Stop if we hit a player-controlled avatar or invalid state
-      if (!current || (current.isPlayerControlled && !current.autoMode)) {
+      // Determine if this avatar should wait for player input (same logic as _scheduleTurnStart)
+      const isPartyMember = current && !current.isMonster && (current.ref?.isPlayerCharacter || current.side !== 'enemy');
+      const hasLinkedUser = current && !!(current.discordUserId || (current.ref?.summoner && String(current.ref.summoner).startsWith('user:')));
+      const isClaimable = isPartyMember && !hasLinkedUser;
+      const shouldWaitForPlayer = (current?.isPlayerControlled && !current?.autoMode) || isClaimable;
+      
+      // Stop if we hit a player-controlled avatar, claimable avatar, or invalid state
+      if (!current || shouldWaitForPlayer) {
         continueLoop = false;
         break;
       }
@@ -1451,6 +1476,16 @@ One-liner (no quotes):`;
         targetName: action.target?.name
       });
       
+      // Also add to encounter's round accumulator for consolidated narration
+      encounter.pendingRoundActions = encounter.pendingRoundActions || [];
+      encounter.pendingRoundActions.push({
+        combatant: current,
+        action,
+        result,
+        targetName: action.target?.name,
+        round: encounter.round
+      });
+      
       // Log to database
       if (this.combatLogService) {
         this.combatLogService.logAction({ encounter, combatant: current, action, result }).catch(() => {});
@@ -1467,8 +1502,9 @@ One-liner (no quotes):`;
       
       // Check end conditions after each action
       if (this.evaluateEnd(encounter)) {
-        if (roundActions.length > 0) {
-          await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+        // Post consolidated round narration before ending
+        if ((encounter.pendingRoundActions?.length || 0) > 0) {
+          await this._postConsolidatedRoundNarration(encounter);
         }
         return;
       }
@@ -1476,18 +1512,20 @@ One-liner (no quotes):`;
       // Advance to next turn index (without full nextTurn processing)
       const newRound = this._advanceTurnIndex(encounter);
       
-      // Post narration at the end of each round
-      if (newRound && roundActions.length > 0) {
-        await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
+      // Post consolidated narration ONLY at the end of each round (not mid-batch)
+      if (newRound) {
+        await this._postConsolidatedRoundNarration(encounter);
         
-        // Post between-round dialogue from 1-2 combatants for flavor
-        await this._postBetweenRoundDialogue(encounter, lastRound, roundActions);
+        // Post between-round dialogue (reduced frequency)
+        await this._postBetweenRoundDialogue(encounter, lastRound, encounter.pendingRoundActions || []);
         
-        roundActions = []; // Reset for next round
+        // Clear accumulator for new round
+        encounter.pendingRoundActions = [];
+        encounter.lastNarratedRound = encounter.round - 1;
         lastRound = encounter.round;
         
-        // Small delay between rounds for readability
-        await new Promise(r => setTimeout(r, 1500));
+        // Longer delay between rounds for readability
+        await new Promise(r => setTimeout(r, 2000));
       }
       
       // Check if next combatant is player-controlled
@@ -1498,10 +1536,8 @@ One-liner (no quotes):`;
       }
     }
     
-    // Post remaining actions from partial round
-    if (roundActions.length > 0) {
-      await this._postBatchedMonsterNarration(encounter, roundActions, lastRound);
-    }
+    // DON'T post partial round narration here - wait for round to complete
+    // This prevents duplicate "Party Actions" / "Enemy Actions" messages
     
     // Release lock before starting next turn
     this.turnLock.release(encounter.channelId, 'batch_complete_before_player');
@@ -1515,6 +1551,27 @@ One-liner (no quotes):`;
     if (encounter.state === 'active') {
       this._scheduleTurnStart(encounter);
     }
+  }
+
+  /**
+   * Post consolidated narration for all actions in the current round
+   * Combines monster and party actions into a single message
+   * @private
+   */
+  async _postConsolidatedRoundNarration(encounter) {
+    const actions = encounter.pendingRoundActions || [];
+    if (actions.length === 0) return;
+    
+    const round = actions[0]?.round || encounter.round || 1;
+    
+    // Avoid double-posting for the same round
+    if (encounter.lastNarratedRound >= round) {
+      this.logger?.debug?.(`[CombatEncounter] Skipping narration for round ${round} - already narrated`);
+      return;
+    }
+    
+    await this._postBatchedMonsterNarration(encounter, actions, round);
+    encounter.lastNarratedRound = round;
   }
 
   /**
@@ -1597,25 +1654,20 @@ One-liner (no quotes):`;
         }
       }
       
-      // Determine title based on who acted
-      const hasMonsterActions = actions.some(a => a.combatant.isMonster);
-      const hasPlayerActions = actions.some(a => !a.combatant.isMonster);
-      let title = '⚔️ Combat Actions';
-      if (hasMonsterActions && !hasPlayerActions) {
-        title = '⚔️ Enemy Actions';
-      } else if (!hasMonsterActions && hasPlayerActions) {
-        title = '⚔️ Party Actions';
-      }
-      if (round) {
-        title = `Round ${round} • ${title}`;
-      }
+      // Use simple round title - no more "Party Actions" vs "Enemy Actions" split
+      const title = round ? `⚔️ Round ${round} Summary` : '⚔️ Combat Actions';
+      
+      // Color based on who dealt more damage
+      const monsterDamage = actions.filter(a => a.combatant.isMonster).reduce((s, a) => s + (a.result?.damage || 0), 0);
+      const partyDamage = actions.filter(a => !a.combatant.isMonster).reduce((s, a) => s + (a.result?.damage || 0), 0);
+      const color = monsterDamage > partyDamage ? 0x8B0000 : 0x3B82F6; // Red if monsters won, blue if party
       
       // Build embed for round actions
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
         title,
         description: dmNarration || `*Steel clashes in the chaos of battle!*\n\n${actionSummaries.join('\n')}`,
-        color: hasMonsterActions ? 0x8B0000 : 0x3B82F6, // Dark red for enemy, blue for party
+        color,
         footer: { text: `${actions.length} action${actions.length > 1 ? 's' : ''} this round` }
       };
       
@@ -3154,6 +3206,20 @@ Message: ${messageContent}`;
       };
     }
     
+    // Monsters cannot be controlled by players
+    if (current.isMonster) {
+      return {
+        error: true,
+        embed: {
+          author: { name: '🎲 The Dungeon Master' },
+          description: `*"The enemy is acting! Wait for your turn, adventurer."*\n\n**Current Turn:** ${current.name}`,
+          color: 0x95A5A6,
+          footer: { text: 'Patience is a virtue in combat...' }
+        },
+        ephemeral: true
+      };
+    }
+    
     // Check if this user controls the current turn's avatar
     // Support multiple ways a user can be linked to an avatar:
     // 1. summoner field starting with 'user:' (classic avatars)
@@ -3172,6 +3238,33 @@ Message: ${messageContent}`;
     // Check discordUserId nested in ref
     else if (current.ref?.discordUserId) {
       expectedUserId = String(current.ref.discordUserId);
+    }
+    
+    // FALLBACK: Allow claiming unclaimed party members
+    if (!expectedUserId && !current.isMonster) {
+      encounter.claimedAvatars = encounter.claimedAvatars || {};
+      const existingClaimer = encounter.claimedAvatars[currentId];
+      
+      if (existingClaimer && existingClaimer !== userId) {
+        return {
+          error: true,
+          embed: {
+            author: { name: '🎲 The Dungeon Master' },
+            description: `*"${current.name} is being controlled by another adventurer."*\n\n*Wait for your moment in the initiative order.*`,
+            color: 0x95A5A6,
+            footer: { text: 'Patience is a virtue in combat...' }
+          },
+          ephemeral: true
+        };
+      }
+      
+      // Claim the avatar
+      encounter.claimedAvatars[currentId] = userId;
+      current.discordUserId = userId;
+      current.isPlayerControlled = true;
+      current.autoMode = false;
+      expectedUserId = userId;
+      this.logger?.info?.(`[CombatEncounter] User ${userId} claimed control of ${current.name} via Take Turn button`);
     }
     
     if (expectedUserId !== userId) {
@@ -3284,6 +3377,15 @@ Message: ${messageContent}`;
       return { valid: false, error: 'Combat state error.' };
     }
     
+    // Monsters cannot be controlled by players
+    if (current.isMonster) {
+      return { 
+        valid: false, 
+        error: `It's the enemy's turn! Current turn: ${current.name}`,
+        currentTurnName: current.name
+      };
+    }
+    
     // Check if this user controls the current turn's avatar
     // Support multiple ways a user can be linked to an avatar:
     // 1. summoner field starting with 'user:' (classic avatars)
@@ -3304,15 +3406,43 @@ Message: ${messageContent}`;
       expectedUserId = String(current.ref.discordUserId);
     }
     
-    if (!expectedUserId || expectedUserId !== discordUserId) {
-      return { 
-        valid: false, 
-        error: `It's not your turn! Current turn: ${current.name}`,
-        currentTurnName: current.name
-      };
+    // If expected user matches, allow the action
+    if (expectedUserId && expectedUserId === discordUserId) {
+      return { valid: true, encounter, combatant: current };
     }
     
-    return { valid: true, encounter, combatant: current };
+    // FALLBACK: If the avatar has NO linked user (unclaimed party member),
+    // allow any user to claim and control it by clicking the button.
+    // This handles cases where avatars don't have summoner/discordUserId set.
+    if (!expectedUserId && !current.isMonster) {
+      // Check if another user has already claimed this avatar this encounter
+      encounter.claimedAvatars = encounter.claimedAvatars || {};
+      const existingClaimer = encounter.claimedAvatars[currentId];
+      
+      if (existingClaimer && existingClaimer !== discordUserId) {
+        // Another user already claimed this avatar
+        return { 
+          valid: false, 
+          error: `${current.name} is controlled by another player.`,
+          currentTurnName: current.name
+        };
+      }
+      
+      // Claim this avatar for this user for the remainder of this encounter
+      encounter.claimedAvatars[currentId] = discordUserId;
+      current.discordUserId = discordUserId; // Update combatant for future checks
+      current.isPlayerControlled = true;
+      current.autoMode = false;
+      
+      this.logger?.info?.(`[CombatEncounter] User ${discordUserId} claimed control of unclaimed avatar ${current.name}`);
+      return { valid: true, encounter, combatant: current };
+    }
+    
+    return { 
+      valid: false, 
+      error: `It's not your turn! Current turn: ${current.name}`,
+      currentTurnName: current.name
+    };
   }
 
   /** Generate a short in-character commentary line between actions */
@@ -3503,6 +3633,14 @@ Message: ${messageContent}`;
     for (const [channelId, enc] of this.encounters.entries()) {
       if (enc.state === 'active') {
         try {
+          // Check if current combatant is player-controlled - NEVER timeout player turns
+          const currentId = this.getCurrentTurnAvatarId(enc);
+          const current = currentId ? this.getCombatant(enc, currentId) : null;
+          if (current?.isPlayerControlled && !current?.autoMode) {
+            // Player is thinking - don't nudge, they get unlimited time
+            continue;
+          }
+          
           const refTs = Math.max(
             enc.lastActionAt || 0,
             enc.lastTurnStartAt || 0,

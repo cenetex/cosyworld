@@ -943,7 +943,7 @@ export class DungeonService {
     // Mark party avatars appropriately:
     // - Avatars with discordUserId (from summoner or direct): human-controlled (waits for their input)
     // - Avatars without discordUserId: AI-controlled allies (auto-act)
-    const partyAvatars = party.members.map(m => {
+    const partyAvatars = party.members.map((m, idx) => {
       if (!m.avatar) return null;
       const avatarId = String(m.avatarId || m.avatar._id);
       
@@ -955,18 +955,36 @@ export class DungeonService {
         discordUserId = String(m.avatar.summoner).replace(/^user:/, '');
       }
       
+      // Check if this is the party leader
+      const isLeader = party.leaderId && String(party.leaderId) === avatarId;
+      
       const isHumanControlled = !!discordUserId;
+      
+      // Log avatar control status for debugging
+      this.logger?.debug?.(`[DungeonService] Party member ${idx}: ${m.avatar.name} - summoner=${m.avatar.summoner}, discordUserId=${discordUserId}, isLeader=${isLeader}, isHumanControlled=${isHumanControlled}`);
+      
       return {
         ...m.avatar,
         isPlayerCharacter: true, // All party members are "player characters" (not enemies)
         partyMemberId: avatarId,
         discordUserId,
+        isLeader,
         // Preserve or set summoner for human-controlled avatars
         summoner: isHumanControlled ? `user:${discordUserId}` : (m.avatar.summoner || null)
       };
     }).filter(Boolean);
     if (partyAvatars.length === 0) {
       throw new Error('No party members available for combat');
+    }
+    
+    // CRITICAL: Check if ANY avatars are player-controlled
+    // If not, log a warning - the combat will auto-play without player input
+    const humanControlledCount = partyAvatars.filter(a => !!a.discordUserId).length;
+    if (humanControlledCount === 0) {
+      this.logger?.warn?.(`[DungeonService] WARNING: No player-controlled avatars in party! Combat will auto-play.`);
+      this.logger?.warn?.(`[DungeonService] Party avatars: ${partyAvatars.map(a => `${a.name} (summoner=${a.summoner})`).join(', ')}`);
+    } else {
+      this.logger?.info?.(`[DungeonService] ${humanControlledCount}/${partyAvatars.length} avatars are player-controlled`);
     }
 
     // Instantiate monsters as pseudo-avatars for combat
