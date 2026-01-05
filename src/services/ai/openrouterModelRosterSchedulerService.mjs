@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import { getAvatarModeFlags } from '../avatar/helpers/avatarModeFlags.mjs';
+
 const MODEL_PROVIDER_EMOJI = {
   google: '📡',
   openai: '🌀',
@@ -128,8 +130,7 @@ export class OpenrouterModelRosterSchedulerService {
     for (const cfg of raw || []) {
       const guildId = cfg?.guildId;
       if (!guildId || guildId === 'global') continue;
-      const modes = cfg?.avatarModes || {};
-      const allowPureModel = modes.pureModel !== false;
+      const { allowPureModel } = getAvatarModeFlags(cfg?.avatarModes);
       if (allowPureModel) guildIds.push(guildId);
     }
 
