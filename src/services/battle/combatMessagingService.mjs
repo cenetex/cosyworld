@@ -82,7 +82,40 @@ export class CombatMessagingService {
    * @returns {Object|null} Discord channel
    */
   getChannel(encounter) {
-    return this.discordService?.client?.channels?.cache?.get(encounter?.channelId) || null;
+    const channelId = encounter?.channelId;
+    if (!channelId) return null;
+    
+    // First try cache
+    let channel = this.discordService?.client?.channels?.cache?.get(channelId);
+    if (channel) return channel;
+    
+    // Cache miss - the channel may not be loaded yet (common for new threads)
+    // Return null and let caller handle async fetch if needed
+    this.logger?.debug?.(`[CombatMessaging] Channel ${channelId} not in cache`);
+    return null;
+  }
+  
+  /**
+   * Get channel with async fetch fallback for threads
+   * @param {Object} encounter - Combat encounter
+   * @returns {Object|null} Discord channel
+   */
+  async getChannelAsync(encounter) {
+    const channelId = encounter?.channelId;
+    if (!channelId) return null;
+    
+    // First try cache
+    let channel = this.discordService?.client?.channels?.cache?.get(channelId);
+    if (channel) return channel;
+    
+    // Try to fetch from Discord API
+    try {
+      channel = await this.discordService?.client?.channels?.fetch(channelId);
+      return channel;
+    } catch (e) {
+      this.logger?.warn?.(`[CombatMessaging] Failed to fetch channel ${channelId}: ${e.message}`);
+      return null;
+    }
   }
 
   /**
@@ -114,7 +147,10 @@ export class CombatMessagingService {
    * @param {Object} combatant - Current turn combatant
    */
   async announceTurn(encounter, combatant) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -137,8 +173,17 @@ export class CombatMessagingService {
    * @param {string} dmNarration - Optional DM third-person narration
    */
   async postCombatAction(encounter, combatant, action, result, dialogue, dmNarration = null) {
-    const channel = this.getChannel(encounter);
-    if (!channel) return;
+    // Try sync cache first, then async fetch for threads that might not be cached
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
+    if (!channel) {
+      this.logger?.warn?.(`[CombatMessaging] postCombatAction skipped: no channel found for ${encounter?.channelId}`);
+      return;
+    }
+
+    this.logger?.debug?.(`[CombatMessaging] postCombatAction: ${combatant?.name} ${action?.type} -> ${action?.target?.name}`);
 
     try {
       let actionEmbed = null;
@@ -185,6 +230,9 @@ export class CombatMessagingService {
           actionEmbed.description += `\n\n*${dmNarration.replace(/^\*|\*$/g, '')}*`;
         }
         await channel.send({ embeds: [actionEmbed] });
+        this.logger?.info?.(`[CombatMessaging] Posted action embed for ${combatant?.name}'s ${action?.type}`);
+      } else {
+        this.logger?.warn?.(`[CombatMessaging] No actionEmbed built for action type: ${action?.type}`);
       }
 
       // Post dialogue as webhook (character's one-liner)
@@ -204,7 +252,10 @@ export class CombatMessagingService {
    * @param {Object} result - Knockout result
    */
   async postKnockout(encounter, attacker, victim, result) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -223,7 +274,10 @@ export class CombatMessagingService {
    * @param {Object} encounter - Combat encounter
    */
   async postInitiativeOrder(encounter) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -253,7 +307,10 @@ export class CombatMessagingService {
    * @param {Object} options - Summary options
    */
   async postCombatSummary(encounter, options = {}) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -332,7 +389,10 @@ export class CombatMessagingService {
    * @param {boolean} success - Whether flee succeeded
    */
   async postFleeResult(encounter, combatant, success) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -351,7 +411,10 @@ export class CombatMessagingService {
    * @param {Object} encounter - Combat encounter
    */
   async postRoundEnd(encounter) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -370,7 +433,10 @@ export class CombatMessagingService {
    * @param {Object} options - Additional options
    */
   async postFightPoster(encounter, imageUrl, options = {}) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {
@@ -394,7 +460,10 @@ export class CombatMessagingService {
    * @param {Object} encounter - Combat encounter
    */
   async postHPStatus(encounter) {
-    const channel = this.getChannel(encounter);
+    let channel = this.getChannel(encounter);
+    if (!channel) {
+      channel = await this.getChannelAsync(encounter);
+    }
     if (!channel) return;
 
     try {

@@ -1813,8 +1813,14 @@ One-liner (no quotes):`;
    */
   async _postPlayerActionNarration(encounter, combatant, actionResult = {}) {
     // Skip if no messaging service or missing action info
-    if (!this.combatMessagingService) return;
-    if (!actionResult.actionType) return;
+    if (!this.combatMessagingService) {
+      this.logger?.warn?.(`[CombatEncounter] _postPlayerActionNarration skipped: no combatMessagingService`);
+      return;
+    }
+    if (!actionResult.actionType) {
+      this.logger?.warn?.(`[CombatEncounter] _postPlayerActionNarration skipped: no actionType in result`, { actionResult });
+      return;
+    }
     
     try {
       // Build action object in same format as AI turns
