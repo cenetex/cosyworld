@@ -304,7 +304,7 @@ export function createCombatButtons({ isPlayerTurn = false, canCast = false, can
   if (targets.length > 0) {
     const targetButtons = targets.slice(0, 5).map((target, i) => 
       createButton({ 
-        customId: `dnd_combat_target_${i}`, 
+        customId: `dnd_target_${encodeURIComponent(String(target.combatantId || target.avatarId || target.id || i))}`, 
         label: target.name?.substring(0, 15) || `Target ${i+1}`,
         emoji: target.emoji || '🎯',
         style: ButtonStyle.Secondary 

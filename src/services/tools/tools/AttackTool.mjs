@@ -401,6 +401,9 @@ export class AttackTool extends BasicTool {
             if (msg.includes('self_combat')) {
               return `-# 🤔 [ You cannot attack yourself! ]`;
             }
+            if (msg.includes('thread_required')) {
+              return `-# [ ❌ Combat must happen in a thread. Please enable threads in this channel. ]`;
+            }
             if (msg.includes('flee_cooldown')) {
               return `-# 💤 [ Combat cannot start: one combatant recently fled and is on cooldown. ]`;
             }

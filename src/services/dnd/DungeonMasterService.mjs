@@ -499,7 +499,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     if (enemies.length > 0) {
       const targetButtons = enemies.slice(0, 5).map(enemy => {
         // Use avatarId or _id or id for stable target selection
-        const targetId = enemy.avatarId || enemy._id || enemy.id || enemy.name;
+        const targetId = enemy.combatantId || enemy.avatarId || enemy._id || enemy.id || enemy.name;
         const hpLabel = enemy.currentHp ?? enemy.stats?.hp ?? '?';
         return new ButtonBuilder()
           .setCustomId(`dnd_target_${encodeURIComponent(String(targetId))}`)

@@ -195,7 +195,13 @@ export class DiscordService {
         
         // Handle attack target selection buttons
         if (customId.startsWith('attack_target_')) {
-          const targetName = customId.replace('attack_target_', '').replace(/_/g, ' ');
+          const targetToken = customId.replace('attack_target_', '');
+          let targetName = targetToken;
+          try {
+            targetName = decodeURIComponent(targetToken);
+          } catch {
+            targetName = targetToken.replace(/_/g, ' ');
+          }
           try {
             await interaction.deferUpdate();
             

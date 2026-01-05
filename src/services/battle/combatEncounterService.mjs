@@ -2364,21 +2364,22 @@ One-liner (no quotes):`;
       const threadId = await this.discordService?.createThread?.(channelId, threadName, {
         reason: 'Combat encounter'
       });
-      if (threadId && threadId !== channelId) {
-        combatChannelId = threadId;
-        parentChannelId = channelId;
-        // Move player-controlled avatars into combat thread
-        const movers = [attacker, defender].filter(a => a && !a.isMonster);
-        for (const mover of movers) {
-          const moverId = this._getAvatarId(mover);
-          if (!moverId) continue;
-          try {
-            const loc = await this.mapService?.getAvatarLocation?.(mover).catch(() => null);
-            if (loc?.locationId) originLocations[moverId] = loc.locationId;
-            await this.mapService?.updateAvatarPosition?.(mover, combatChannelId);
-          } catch (e) {
-            this.logger?.warn?.(`[CombatEncounter] Failed to move ${mover?.name} to combat thread: ${e.message}`);
-          }
+      if (!threadId || threadId === channelId) {
+        throw new Error('thread_required');
+      }
+      combatChannelId = threadId;
+      parentChannelId = channelId;
+      // Move player-controlled avatars into combat thread
+      const movers = [attacker, defender].filter(a => a && !a.isMonster);
+      for (const mover of movers) {
+        const moverId = this._getAvatarId(mover);
+        if (!moverId) continue;
+        try {
+          const loc = await this.mapService?.getAvatarLocation?.(mover).catch(() => null);
+          if (loc?.locationId) originLocations[moverId] = loc.locationId;
+          await this.mapService?.updateAvatarPosition?.(mover, combatChannelId);
+        } catch (e) {
+          this.logger?.warn?.(`[CombatEncounter] Failed to move ${mover?.name} to combat thread: ${e.message}`);
         }
       }
     } else {
@@ -3228,6 +3229,9 @@ Generate the video prompt now:`
       if (!db) return;
       const doc = {
         channelId: encounter.channelId,
+        parentChannelId: encounter.parentChannelId || null,
+        threadId: encounter.threadId || null,
+        mode: encounter.mode || null,
         state: encounter.state,
         createdAt: new Date(encounter.createdAt),
         startedAt: encounter.startedAt ? new Date(encounter.startedAt) : null,
@@ -3235,13 +3239,15 @@ Generate the video prompt now:`
         endReason: encounter.endReason || null,
         rounds: encounter.round,
         combatants: encounter.combatants.map(c => ({
+          combatantId: c.combatantId,
           avatarId: c.avatarId,
             name: c.name,
             initiative: c.initiative,
             finalHp: c.currentHp,
             maxHp: c.maxHp,
             conditions: c.conditions,
-            side: c.side
+            side: c.side,
+            baseMonsterId: c.baseMonsterId || null
         })),
         initiativeOrder: encounter.initiativeOrder,
         summaryVersion: 1,
@@ -3581,7 +3587,7 @@ Message: ${messageContent}`;
     if (enemies.length > 0) {
       const targetButtons = enemies.slice(0, 5).map(enemy => {
         // Use avatarId for stable target resolution (not name)
-        const targetId = enemy.avatarId || enemy._id || enemy.id || enemy.name;
+        const targetId = enemy.combatantId || enemy.avatarId || enemy._id || enemy.id || enemy.name;
         return new ButtonBuilder()
           .setCustomId(`dnd_target_${encodeURIComponent(String(targetId))}`)
           .setLabel(`${enemy.name} (${enemy.currentHp}HP)`.slice(0, 80))
