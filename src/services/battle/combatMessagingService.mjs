@@ -363,6 +363,29 @@ export class CombatMessagingService {
 
       // Add video generation button if enabled
       const components = [];
+      
+      // Add dungeon navigation buttons for room_cleared
+      if (encounter.endReason === 'room_cleared' && encounter.dungeonContext?.dungeonId) {
+        const dungeonRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('dnd_dungeon_map')
+            .setLabel('View Map')
+            .setEmoji('🗺️')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('dnd_dungeon_loot')
+            .setLabel('Loot')
+            .setEmoji('💰')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId('dnd_dungeon_status')
+            .setLabel('Status')
+            .setEmoji('📊')
+            .setStyle(ButtonStyle.Secondary)
+        );
+        components.push(dungeonRow);
+      }
+      
       if (options.enableVideoButton && encounter.battleRecap?.rounds?.length > 0) {
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()

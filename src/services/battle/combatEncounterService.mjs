@@ -468,6 +468,14 @@ export class CombatEncounterService {
     }
   }
 
+  _createPosterBlocker() {
+    let resolve;
+    const p = new Promise(res => { resolve = res; });
+    // Auto-resolve after timeout to avoid deadlock if no poster is produced
+    setTimeout(() => { try { resolve(); } catch {} }, this.posterWaitTimeoutMs).unref?.();
+    return { promise: p, resolve: resolve || (() => {}) };
+  }
+
   /** Normalize any avatar identifier to a string */
   _normalizeId(id) {
     if (!id) return null;
@@ -598,13 +606,7 @@ export class CombatEncounterService {
       // Media/turn sequencing controls
       turnAdvanceBlockers: [], // array of Promises to await before advancing to next turn
       manualActionCount: 0, // increments during manual/command-driven actions to pause auto-act
-      posterBlocker: (() => {
-        let resolve;
-        const p = new Promise(res => { resolve = res; });
-        // Auto-resolve after timeout to avoid deadlock if no poster is produced
-        setTimeout(() => { try { resolve(); } catch {} }, this.posterWaitTimeoutMs).unref?.();
-        return { promise: p, resolve };
-      })(),
+      posterBlocker: this._createPosterBlocker(),
       sourceMessageId: sourceMessage?.id || null,
       // Battle recap data - stores moments from each round for video generation
       battleRecap: { rounds: [] }
@@ -618,6 +620,7 @@ export class CombatEncounterService {
     this._insertEncounterByAge(channelId, encounter.createdAt);
     
     this.logger?.info?.(`[CombatEncounter][${channelId}] created: ${combatants.length} combatant(s), state=pending`);
+    this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
     return encounter;
   }
 
@@ -701,6 +704,8 @@ export class CombatEncounterService {
       round: 1
     });
     
+    this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
+
     // Wait for fight poster phase (if any) before initiative narrative for clean ordering
     try { await encounter.posterBlocker?.promise; } catch {}
     
@@ -1649,6 +1654,7 @@ One-liner (no quotes):`;
     // Now start the next turn (which should be a player turn or end of round)
     if (encounter.state === 'active') {
       this._scheduleTurnStart(encounter);
+      this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
     }
   }
 
@@ -1902,6 +1908,7 @@ One-liner (no quotes):`;
    *   - attacker: {Object} attacker avatar reference
    */
   async completePlayerAction(channelId, avatarId, actionResult = {}) {
+    this.logger?.info?.(`[CombatEncounter] completePlayerAction called: channelId=${channelId}, avatarId=${avatarId}, damage=${actionResult.damage}, targetId=${actionResult.targetId}`);
     try {
       // V3 FIX: Validate lock state
       const lockState = this.turnLock.getState(channelId);
@@ -1945,6 +1952,7 @@ One-liner (no quotes):`;
       
       // Apply damage if provided
       if (actionResult.damage && actionResult.targetId) {
+        this.logger?.info?.(`[CombatEncounter] completePlayerAction: applying ${actionResult.damage} damage to targetId=${actionResult.targetId}`);
         this.applyDamage(encounter, actionResult.targetId, actionResult.damage);
         this.markHostile(encounter);
         
@@ -1955,6 +1963,20 @@ One-liner (no quotes):`;
           damage: actionResult.damage,
           newHp: this.getCombatant(encounter, actionResult.targetId)?.currentHp
         });
+      } else {
+        this.logger?.debug?.(`[CombatEncounter] completePlayerAction: no damage to apply (damage=${actionResult.damage}, targetId=${actionResult.targetId})`);
+      }
+
+      if (actionResult.healing && actionResult.targetId) {
+        const healed = this.applyHeal(encounter, actionResult.targetId, actionResult.healing);
+        if (healed > 0) {
+          eventBus.emit('combat.hp.changed', {
+            channelId: encounter.channelId,
+            targetId: actionResult.targetId,
+            healing: healed,
+            newHp: this.getCombatant(encounter, actionResult.targetId)?.currentHp
+          });
+        }
       }
       
       // V4: Post DM narration embed for player actions (same as AI turns)
@@ -1984,6 +2006,9 @@ One-liner (no quotes):`;
       // Advance to next turn
       this.logger?.info?.(`[CombatEncounter] ${combatant.name} completed action, advancing turn`);
       await this.nextTurn(encounter);
+      if (encounter.state === 'active') {
+        this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
+      }
       
       // Release lock after turn advance (next turn will acquire its own)
       this.turnLock.release(channelId, 'turn_advanced');
@@ -2117,12 +2142,18 @@ One-liner (no quotes):`;
           `[CombatEncounter][${encounter.channelId}] ${actor.name} fled, ${activeCombatants.length} combatants remain`
         );
         await this.nextTurn(encounter);
+        if (encounter.state === 'active') {
+          this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
+        }
         return { success: true, message: `-# 🏃 [ ${actor.name} flees to the Tavern! ]` };
       }
       // Failure: consume turn
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] flee failed for ${actor.name}`);
       try { encounter.lastActionAt = Date.now(); } catch {}
       await this.nextTurn(encounter);
+      if (encounter.state === 'active') {
+        this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
+      }
       return { success: false, message: `-# 🏃 [ ${actor.name} fails to escape! ]` };
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] handleFlee error: ${e.message}`);
@@ -2141,6 +2172,7 @@ One-liner (no quotes):`;
     encounter.state = 'ended';
     encounter.endedAt = Date.now();
     encounter.endReason = reason || 'unspecified';
+    this._removeActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active delete failed: ${e.message}`));
     if (encounter.parentChannelId) {
       this.encountersByParent.delete(encounter.parentChannelId);
     }
@@ -2274,6 +2306,7 @@ One-liner (no quotes):`;
     encounter.combatants.push(combatant);
     // Rebuild initiative order and keep current turn index referencing correct avatar
   this._rebuildInitiativeOrder(encounter, { preserveCurrent: true });
+  this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
   }
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
@@ -2423,8 +2456,13 @@ One-liner (no quotes):`;
   /** Record damage to a combatant and evaluate for end conditions */
   applyDamage(encounter, avatarId, amount) {
     const c = this.getCombatant(encounter, avatarId);
-    if (!c) return;
-    c.currentHp = Math.max(0, (c.currentHp ?? 0) - amount);
+    if (!c) {
+      this.logger?.warn?.(`[CombatEncounter] applyDamage: combatant not found for avatarId=${avatarId}`);
+      return;
+    }
+    const before = c.currentHp ?? 0;
+    c.currentHp = Math.max(0, before - amount);
+    this.logger?.info?.(`[CombatEncounter] applyDamage: ${c.name} took ${amount} damage (${before} -> ${c.currentHp})`);
     if (c.currentHp === 0 && !c.conditions.includes('unconscious')) {
       c.conditions.push('unconscious');
     }
@@ -3264,6 +3302,231 @@ Generate the video prompt now:`
     }
   }
 
+  _normalizeTimestamp(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value.getTime();
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  _serializeActiveEncounter(encounter) {
+    const chatter = encounter.chatter || {};
+    const spoken = chatter.spokenThisRound instanceof Set
+      ? Array.from(chatter.spokenThisRound)
+      : Array.isArray(chatter.spokenThisRound) ? chatter.spokenThisRound : [];
+    return {
+      channelId: encounter.channelId,
+      parentChannelId: encounter.parentChannelId || null,
+      threadId: encounter.threadId || null,
+      encounterId: encounter.encounterId || null,
+      guildId: encounter.guildId || null,
+      mode: encounter.mode || null,
+      policy: encounter.policy || null,
+      originLocations: encounter.originLocations || {},
+      state: encounter.state,
+      createdAt: this._normalizeTimestamp(encounter.createdAt),
+      startedAt: this._normalizeTimestamp(encounter.startedAt),
+      endedAt: this._normalizeTimestamp(encounter.endedAt),
+      endReason: encounter.endReason || null,
+      round: encounter.round || 0,
+      currentTurnIndex: encounter.currentTurnIndex || 0,
+      initiativeOrder: encounter.initiativeOrder || [],
+      lastTurnStartAt: this._normalizeTimestamp(encounter.lastTurnStartAt),
+      lastTimerArmedAt: this._normalizeTimestamp(encounter.lastTimerArmedAt),
+      lastHostileAt: this._normalizeTimestamp(encounter.lastHostileAt),
+      lastActionAt: this._normalizeTimestamp(encounter.lastActionAt),
+      lastAction: encounter.lastAction || null,
+      chatter: { spokenThisRound: spoken, lastSpeakerId: chatter.lastSpeakerId || null },
+      battleRecap: encounter.battleRecap || { rounds: [] },
+      fightPosterUrl: encounter.fightPosterUrl || null,
+      summaryMediaUrl: encounter.summaryMediaUrl || null,
+      sourceMessageId: encounter.sourceMessageId || null,
+      manualActionCount: encounter.manualActionCount || 0,
+      defeatedPlayers: encounter.defeatedPlayers || null,
+      fleerId: encounter.fleerId || null,
+      dungeonContext: encounter.dungeonContext || null,
+      combatants: (encounter.combatants || []).map(c => ({
+        combatantId: c.combatantId || c.avatarId,
+        avatarId: c.avatarId || c.combatantId,
+        name: c.name,
+        initiative: c.initiative,
+        currentHp: c.currentHp,
+        maxHp: c.maxHp,
+        armorClass: c.armorClass,
+        hasActed: !!c.hasActed,
+        isDefending: !!c.isDefending,
+        conditions: Array.isArray(c.conditions) ? c.conditions : [],
+        statusEffects: Array.isArray(c.statusEffects) ? c.statusEffects : [],
+        side: c.side || null,
+        isMonster: !!c.isMonster,
+        isPlayerControlled: !!c.isPlayerControlled,
+        autoMode: !!c.autoMode,
+        awaitingAction: !!c.awaitingAction,
+        discordUserId: c.discordUserId || null,
+        baseMonsterId: c.baseMonsterId || null,
+        refSnapshot: (c.isMonster || !c.ref?._id) ? {
+          id: c.ref?._id || c.ref?.id || c.avatarId || c.combatantId,
+          name: c.ref?.name || c.name,
+          emoji: c.ref?.emoji || c.emoji || null,
+          imageUrl: c.ref?.imageUrl || c.ref?.image || c.imageUrl || null,
+          isMonster: !!c.isMonster,
+          stats: c.ref?.stats || c.stats || null,
+          attacks: c.ref?.attacks || c.attacks || null,
+          side: c.side || null,
+          baseMonsterId: c.baseMonsterId || c.ref?.baseMonsterId || null
+        } : null
+      }))
+    };
+  }
+
+  async _persistActiveEncounter(encounter) {
+    try {
+      if (!this.databaseService || !encounter) return;
+      const db = await this.databaseService.getDatabase();
+      if (!db) return;
+      const doc = this._serializeActiveEncounter(encounter);
+      doc.updatedAt = new Date();
+      await db.collection('combat_active_encounters').updateOne(
+        { channelId: encounter.channelId },
+        { $set: doc },
+        { upsert: true }
+      );
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] Active persist error: ${e.message}`);
+    }
+  }
+
+  async _removeActiveEncounter(encounterOrChannelId) {
+    try {
+      if (!this.databaseService) return;
+      const channelId = typeof encounterOrChannelId === 'string'
+        ? encounterOrChannelId
+        : encounterOrChannelId?.channelId;
+      if (!channelId) return;
+      const db = await this.databaseService.getDatabase();
+      if (!db) return;
+      await db.collection('combat_active_encounters').deleteOne({ channelId });
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] Active delete error: ${e.message}`);
+    }
+  }
+
+  async _hydrateEncounter(doc) {
+    if (!doc?.channelId) return null;
+    const combatants = [];
+    for (const c of (doc.combatants || [])) {
+      let ref = null;
+      if (!c.isMonster) {
+        try {
+          ref = await this.avatarService.getAvatarById(c.avatarId);
+        } catch {}
+      }
+      if (!ref && c.refSnapshot) {
+        ref = { ...c.refSnapshot };
+      }
+      if (!ref) {
+        ref = { _id: c.avatarId, id: c.avatarId, name: c.name, isMonster: !!c.isMonster, stats: c.refSnapshot?.stats };
+      }
+      const isPlayerControlled = c.isPlayerControlled ?? (!c.isMonster && (!!c.discordUserId || String(ref?.summoner || '').startsWith('user:')));
+      const autoMode = c.autoMode ?? !isPlayerControlled;
+      const combatant = {
+        combatantId: c.combatantId || c.avatarId,
+        avatarId: c.avatarId || c.combatantId,
+        name: c.name || ref?.name || 'Unknown',
+        ref,
+        baseMonsterId: c.baseMonsterId || ref?.baseMonsterId || null,
+        discordUserId: c.discordUserId || ref?.discordUserId || null,
+        initiative: c.initiative,
+        currentHp: c.currentHp,
+        maxHp: c.maxHp,
+        armorClass: c.armorClass,
+        hasActed: !!c.hasActed,
+        isDefending: !!c.isDefending,
+        conditions: Array.isArray(c.conditions) ? c.conditions : [],
+        statusEffects: Array.isArray(c.statusEffects) ? c.statusEffects : [],
+        side: c.side || (c.isMonster ? 'enemy' : 'neutral'),
+        isMonster: !!c.isMonster,
+        isPlayerControlled,
+        autoMode,
+        awaitingAction: !!c.awaitingAction
+      };
+      combatants.push(combatant);
+    }
+    const spoken = Array.isArray(doc?.chatter?.spokenThisRound) ? doc.chatter.spokenThisRound : [];
+    const encounter = {
+      encounterId: doc.encounterId || `${doc.channelId}:${Date.now()}`,
+      channelId: doc.channelId,
+      parentChannelId: doc.parentChannelId || null,
+      threadId: doc.threadId || doc.channelId,
+      mode: doc.mode || 'world',
+      policy: doc.policy || this._getPolicyForMode(doc.mode),
+      originLocations: doc.originLocations || {},
+      guildId: doc.guildId || null,
+      state: doc.state || 'active',
+      createdAt: this._normalizeTimestamp(doc.createdAt) || Date.now(),
+      startedAt: this._normalizeTimestamp(doc.startedAt),
+      endedAt: this._normalizeTimestamp(doc.endedAt),
+      endReason: doc.endReason || null,
+      combatants,
+      initiativeOrder: doc.initiativeOrder || combatants.map(c => c.avatarId),
+      currentTurnIndex: doc.currentTurnIndex || 0,
+      round: doc.round || 1,
+      lastTurnStartAt: this._normalizeTimestamp(doc.lastTurnStartAt),
+      lastTimerArmedAt: this._normalizeTimestamp(doc.lastTimerArmedAt),
+      lastHostileAt: this._normalizeTimestamp(doc.lastHostileAt),
+      lastActionAt: this._normalizeTimestamp(doc.lastActionAt),
+      lastAction: doc.lastAction || null,
+      chatter: { spokenThisRound: new Set(spoken), lastSpeakerId: doc?.chatter?.lastSpeakerId || null },
+      pendingRoundActions: [],
+      lastNarratedRound: doc.lastNarratedRound || 0,
+      timers: {},
+      knockout: doc.knockout || null,
+      knockoutMedia: doc.knockoutMedia || null,
+      fightPosterUrl: doc.fightPosterUrl || null,
+      summaryMediaUrl: doc.summaryMediaUrl || null,
+      turnAdvanceBlockers: [],
+      manualActionCount: doc.manualActionCount || 0,
+      posterBlocker: { promise: Promise.resolve(), resolve: () => {} },
+      sourceMessageId: doc.sourceMessageId || null,
+      battleRecap: doc.battleRecap || { rounds: [] },
+      defeatedPlayers: doc.defeatedPlayers || null,
+      fleerId: doc.fleerId || null,
+      dungeonContext: doc.dungeonContext || null
+    };
+    return encounter;
+  }
+
+  async loadActiveEncounters() {
+    try {
+      if (!this.databaseService) return { loaded: 0 };
+      const db = await this.databaseService.getDatabase();
+      if (!db) return { loaded: 0 };
+      const docs = await db.collection('combat_active_encounters').find({ state: { $ne: 'ended' } }).toArray();
+      let loaded = 0;
+      for (const doc of docs) {
+        if (!doc?.channelId || this.encounters.has(doc.channelId)) continue;
+        const encounter = await this._hydrateEncounter(doc);
+        if (!encounter) continue;
+        this.encounters.set(encounter.channelId, encounter);
+        if (encounter.parentChannelId) {
+          this.encountersByParent.set(encounter.parentChannelId, encounter);
+        }
+        this._insertEncounterByAge(encounter.channelId, encounter.createdAt);
+        loaded++;
+        if (encounter.state === 'active') {
+          this._scheduleTurnStart(encounter);
+        }
+      }
+      if (loaded > 0) {
+        this.logger?.info?.(`[CombatEncounter] Loaded ${loaded} active encounter(s) from persistence`);
+      }
+      return { loaded };
+    } catch (e) {
+      this.logger.warn?.(`[CombatEncounter] Active load error: ${e.message}`);
+      return { loaded: 0 };
+    }
+  }
+
   /** AI intent parsing for natural language combat actions */
   async parseCombatIntent({ messageContent, avatarsInLocation }) {
     const lower = (messageContent || '').toLowerCase();
@@ -3913,12 +4176,16 @@ Message: ${messageContent}`;
       const stale = !ended && enc.startedAt && (now - enc.startedAt > staleThreshold);
       
       if (ended || stale) {
+        if (stale) {
+          this.endEncounter(enc, { reason: 'stale' });
+        }
         this._clearTimers(enc);
         this.encounters.delete(oldest.channelId);
         this.encountersByAge.shift();
         if (enc.parentChannelId) {
           this.encountersByParent.delete(enc.parentChannelId);
         }
+        this._removeActiveEncounter(enc).catch(e => this.logger.warn?.(`[CombatEncounter] active delete failed: ${e.message}`));
         cleanedCount++;
         this.logger.info?.(`[CombatEncounter] Cleaned encounter channel=${oldest.channelId} reason=${ended ? 'ended' : 'stale'}`);
       } else {
@@ -4567,6 +4834,7 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       
       // Start the turn - _scheduleTurnStart handles turn announcement
       this._scheduleTurnStart(encounter);
+      this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
     } catch (e) {
       this.logger?.warn?.(`[CombatEncounter] nextTurn error: ${e.message}`);
     }

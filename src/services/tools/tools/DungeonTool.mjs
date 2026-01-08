@@ -1606,7 +1606,10 @@ export class DungeonTool extends BasicTool {
       await this.questService?.onEvent?.(avatar._id, 'puzzle_solved');
       await this.tutorialQuestService?.onEvent?.(avatar._id, 'puzzle_solved');
 
-      // Post success to thread
+      // Build navigation buttons for the thread post
+      const navigationComponents = this._createNavigationButtons(dungeon.rooms[0], dungeon);
+
+      // Post success to thread with navigation buttons
       if (dungeon.threadId && this.discordService?.client) {
         try {
           const thread = await this.discordService.client.channels.fetch(dungeon.threadId);
@@ -1617,20 +1620,14 @@ export class DungeonTool extends BasicTool {
               description: `*${avatar.name} speaks the answer, and the ancient magic responds...*\n\n**"${answer}"**\n\nThe barrier fades away, revealing the path forward!`,
               color: 0x10B981,
               fields: result.xpAwarded ? [{ name: '⭐ XP Earned', value: `${result.xpAwarded}`, inline: true }] : []
-            }]
+            }],
+            components: navigationComponents
           });
         } catch { /* ignore */ }
       }
 
-      return {
-        embeds: [{
-          author: { name: '🎲 The Dungeon Master' },
-          title: '✨ Correct!',
-          description: '*The ancient runes glow bright, then fade. The way is open.*',
-          color: 0x10B981
-        }],
-        components: this._createNavigationButtons(dungeon.rooms[0], dungeon)
-      };
+      // Return null to delete the ephemeral (the thread post has everything)
+      return null;
     }
 
     // Wrong answer

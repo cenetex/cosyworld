@@ -97,16 +97,39 @@ export class CastTool extends BasicTool {
       // Get target(s)
       const targetName = params[1] || params.target;
       let targetIds = [];
+      let combatTarget = null;
+      const combatTargetRegistry = services?.combatTargetRegistry;
 
       if (targetName) {
-        const target = await this.avatarService.getAvatarByName(targetName, { guildId: message.guildId });
-        if (!target) {
-          return this._errorEmbed(`Could not find target: ${targetName}`);
+        if (encounter?.state === 'active' && combatTargetRegistry) {
+          const attackerId = String(avatar?._id || avatar?.id || '');
+          combatTarget = combatTargetRegistry.resolveTarget(
+            message.channel.id,
+            targetName,
+            { excludeAvatarIds: attackerId ? [attackerId] : [] }
+          );
+          if (combatTarget) {
+            const resolvedId = combatTarget.avatarId || combatTarget.combatantId || combatTarget._id || combatTarget.id;
+            if (resolvedId) {
+              targetIds = [resolvedId];
+            }
+          }
         }
-        targetIds = [target._id];
+        if (targetIds.length === 0) {
+          const target = await this.avatarService.getAvatarByName(targetName, { guildId: message.guildId });
+          if (!target) {
+            return this._errorEmbed(`Could not find target: ${targetName}`);
+          }
+          targetIds = [target._id];
+        }
       } else if (spell.healing || spell.effect) {
         // Self-target for buffs/heals
-        targetIds = [avatar._id];
+        const selfTargetId = avatar._id || avatar.id;
+        targetIds = [selfTargetId];
+        if (encounter?.state === 'active') {
+          const selfId = String(avatar?._id || avatar?.id || '');
+          combatTarget = encounter.combatants?.find(c => String(c.avatarId) === selfId) || null;
+        }
       } else {
         return this._errorEmbed('Specify a target: 🪄 cast <spell> <target>');
       }
@@ -117,24 +140,32 @@ export class CastTool extends BasicTool {
         slotLevel = spell.level;
       }
 
+      const casterId = avatar._id || avatar.id;
       const result = await this.spellService.castSpell(
-        avatar._id,
+        casterId,
         spellId,
         slotLevel,
-        targetIds
+        targetIds,
+        { channelId: message.channel.id, encounter }
       );
 
       // Trigger quest progress for casting spells
-      await this.questService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
-      await this.tutorialQuestService?.onEvent?.(avatar._id, 'spell_cast', { spellId, slotLevel });
+      await this.questService?.onEvent?.(casterId, 'spell_cast', { spellId, slotLevel });
+      await this.tutorialQuestService?.onEvent?.(casterId, 'spell_cast', { spellId, slotLevel });
 
       // Complete player action and advance turn if in combat
       if (encounter?.state === 'active' && ces?.completePlayerAction) {
         const targetId = targetIds[0];
-        const damage = result.results?.[0]?.damage;
-        await ces.completePlayerAction(message.channel.id, avatar._id || avatar.id, {
+        const primary = result.results?.[0] || {};
+        const damage = primary.damage;
+        const healing = primary.healing;
+        await ces.completePlayerAction(message.channel.id, casterId, {
+          actionType: 'cast',
           damage,
-          targetId
+          healing,
+          targetId,
+          target: combatTarget || null,
+          result
         });
       }
 

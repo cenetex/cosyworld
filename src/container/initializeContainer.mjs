@@ -435,6 +435,20 @@ export async function initializeContainer({ container, logger, configService }) 
       );
     }
 
+    if (container.registrations.combatEncounterService) {
+      parallelInits.push(
+        (async () => {
+          try {
+            const combatEncounterService = container.resolve('combatEncounterService');
+            await combatEncounterService.loadActiveEncounters?.();
+            console.log('[container] CombatEncounterService active encounters loaded.');
+          } catch (e) {
+            console.warn('[container] Failed to load active encounters:', e.message);
+          }
+        })()
+      );
+    }
+
     if (container.registrations.locationService) {
       parallelInits.push(
         (async () => {

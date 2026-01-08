@@ -38,6 +38,63 @@ export class SpellService {
     return null;
   }
 
+  _getCombatEncounter(context = {}) {
+    if (context?.encounter) return context.encounter;
+    const channelId = context?.channelId || context?.encounterChannelId;
+    if (!channelId || !this.getCombatEncounterService) return null;
+    try {
+      const ces = this.getCombatEncounterService();
+      return ces?.getEncounterByChannelId?.(channelId) || ces?.getEncounter?.(channelId) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  _resolveCombatant(encounter, targetId) {
+    if (!encounter || !targetId) return null;
+    const id = String(targetId);
+    return (encounter.combatants || []).find(c =>
+      String(c.avatarId) === id ||
+      String(c.combatantId || '') === id ||
+      String(c.baseMonsterId || '') === id
+    ) || null;
+  }
+
+  _getStatValue(stats, key) {
+    if (!stats) return 10;
+    const raw = String(key || '').toLowerCase();
+    const map = {
+      str: 'strength',
+      dex: 'dexterity',
+      con: 'constitution',
+      int: 'intelligence',
+      wis: 'wisdom',
+      cha: 'charisma'
+    };
+    const full = map[raw] || raw;
+    const value = stats[full] ?? stats[raw];
+    if (Number.isFinite(value)) return value;
+    const aliases = {
+      strength: ['str'],
+      dexterity: ['dex'],
+      constitution: ['con'],
+      intelligence: ['int'],
+      wisdom: ['wis'],
+      charisma: ['cha']
+    };
+    const aliasKeys = aliases[full] || [];
+    for (const alias of aliasKeys) {
+      const aliasValue = stats[alias];
+      if (Number.isFinite(aliasValue)) return aliasValue;
+    }
+    return 10;
+  }
+
+  _getAbilityMod(value) {
+    const num = Number.isFinite(value) ? value : 10;
+    return Math.floor((num - 10) / 2);
+  }
+
   getSpell(spellId) {
     return SPELLS[spellId] || null;
   }
@@ -92,7 +149,7 @@ export class SpellService {
       abilityMod,
       casterLevel: sheet.level,
       casterId
-    });
+    }, _context);
 
     this.logger?.info?.(`[SpellService] ${caster.name} cast ${spell.name}`);
     return { 
@@ -104,21 +161,37 @@ export class SpellService {
     };
   }
 
-  async _resolveSpell(spell, slotLevel, targetIds, stats) {
+  async _resolveSpell(spell, slotLevel, targetIds, stats, context = {}) {
     const results = [];
     const upcastLevels = Math.max(0, slotLevel - spell.level);
+    const encounter = this._getCombatEncounter(context);
+    const inCombat = !!(encounter && encounter.state === 'active');
 
     for (const targetId of targetIds) {
-      const target = await this.avatarService.getAvatarById(targetId);
+      let target = null;
+      let combatant = null;
+      if (inCombat) {
+        combatant = this._resolveCombatant(encounter, targetId);
+        target = combatant?.ref || combatant || null;
+      } else {
+        target = await this.avatarService.getAvatarById(targetId);
+      }
       if (!target) continue;
 
-      const result = { targetId, targetName: target.name };
+      const targetStats = combatant?.ref?.stats || target.stats || {};
+      const resultTargetId = combatant?.avatarId || targetId;
+      const result = { targetId: resultTargetId, targetName: combatant?.name || target.name };
 
       // Attack roll spells
       if (spell.attack) {
         const roll = this.diceService.rollDie(20);
         const total = roll + stats.spellAttack;
-        const targetAC = 10 + Math.floor(((target.stats?.dexterity || 10) - 10) / 2);
+        const dexMod = this._getAbilityMod(this._getStatValue(targetStats, 'dexterity'));
+        const targetAC = Number.isFinite(combatant?.armorClass)
+          ? combatant.armorClass
+          : (Number.isFinite(targetStats?.ac)
+            ? targetStats.ac
+            : (Number.isFinite(targetStats?.armorClass) ? targetStats.armorClass : 10 + dexMod));
         
         result.attackRoll = roll;
         result.total = total;
@@ -129,8 +202,9 @@ export class SpellService {
         if (result.hit && spell.damage) {
           result.damage = this._rollDamage(spell, upcastLevels, result.critical, stats.casterLevel);
           result.damageType = spell.damage.type;
-          // Apply damage to target
-          await this._applyDamage(targetId, result.damage, result.damageType);
+          if (!combatant?.isMonster) {
+            await this._applyDamage(targetId, result.damage, result.damageType);
+          }
         }
       }
 
@@ -139,13 +213,14 @@ export class SpellService {
         result.hit = true;
         result.damage = this._rollDamage(spell, upcastLevels, false, stats.casterLevel);
         result.damageType = spell.damage.type;
-        // Apply damage to target
-        await this._applyDamage(targetId, result.damage, result.damageType);
+        if (!combatant?.isMonster) {
+          await this._applyDamage(targetId, result.damage, result.damageType);
+        }
       }
 
       // Save spells
       if (spell.save) {
-        const saveMod = Math.floor(((target.stats?.[spell.save] || 10) - 10) / 2);
+        const saveMod = this._getAbilityMod(this._getStatValue(targetStats, spell.save));
         const saveRoll = this.diceService.rollDie(20) + saveMod;
         
         result.saveRoll = saveRoll;
@@ -157,18 +232,20 @@ export class SpellService {
           if (result.saved) damage = Math.floor(damage / 2);
           result.damage = damage;
           result.damageType = spell.damage.type;
-          // Apply damage to target (even on save, half damage was already calculated)
-          if (damage > 0) {
+          if (damage > 0 && !combatant?.isMonster) {
             await this._applyDamage(targetId, damage, result.damageType);
           }
         }
 
         if (spell.effect && !result.saved) {
           result.effectApplied = spell.effect;
-          // Apply status effect if we have the service (C-4 fix: use getter for late-binding)
           const statusSvc = this._getStatusEffectService();
           if (statusSvc) {
-            await statusSvc.applyEffect?.(targetId, spell.effect);
+            if (combatant) {
+              statusSvc.applyEffect?.(combatant, spell.effect, stats.casterId, { round: encounter?.round });
+            } else {
+              statusSvc.applyEffect?.(targetId, spell.effect, stats.casterId);
+            }
           }
         }
       }
@@ -176,13 +253,18 @@ export class SpellService {
       // Healing spells
       if (spell.healing) {
         result.healing = this._rollHealing(spell, upcastLevels, stats.abilityMod);
-        // Apply healing to target
-        await this._applyHealing(targetId, result.healing);
+        if (!combatant?.isMonster) {
+          await this._applyHealing(targetId, result.healing);
+        }
       }
 
       // Buff effects
       if (spell.effect && typeof spell.effect === 'string' && !spell.save) {
         result.effectApplied = spell.effect;
+        if (combatant) {
+          const statusSvc = this._getStatusEffectService();
+          statusSvc?.applyEffect?.(combatant, spell.effect, stats.casterId, { round: encounter?.round });
+        }
       }
 
       results.push(result);
