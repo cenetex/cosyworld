@@ -235,10 +235,32 @@ export class MessageHandler  {
       
       if (avatarProxyEnabled) {
         const proxyResult = await this._proxyHumanMessageThroughAvatar(message);
-        this.logger.info(`[MessageHandler] Proxy result: ${JSON.stringify(proxyResult)}`);
+        this.logger.info(`[MessageHandler] Proxy result: ${JSON.stringify({ handled: proxyResult?.handled, hasMessage: !!proxyResult?.sentMessage })}`);
         if (proxyResult?.handled) {
-          // Message was proxied through avatar - original deleted, stop further processing
+          // Message was proxied through avatar - original deleted
           this.logger.debug(`[MessageHandler] Message proxied through avatar for user ${message.author.id}`);
+          
+          // CRITICAL: Trigger AI avatar responses for the proxied message
+          // The proxied message should activate other AI avatars just like a human message would
+          if (proxyResult.sentMessage && proxyResult.channelId) {
+            try {
+              // Mark the proxied message with metadata for downstream systems
+              const proxiedMessage = proxyResult.sentMessage;
+              proxiedMessage.rati = proxiedMessage.rati || {};
+              proxiedMessage.rati.proxyUserId = proxyResult.originalAuthorId;
+              proxiedMessage.rati.isProxied = true;
+              
+              // Trigger the turn scheduler as if a human sent the message
+              // This ensures AI avatars get activated
+              if (this.turnScheduler) {
+                this.logger.info(`[MessageHandler] Triggering AI responses for proxied message in channel ${proxyResult.channelId}`);
+                await this.turnScheduler.onHumanMessage(proxyResult.channelId, proxiedMessage);
+              }
+            } catch (triggerError) {
+              this.logger.warn?.(`[MessageHandler] Failed to trigger AI responses for proxied message: ${triggerError.message}`);
+            }
+          }
+          
           return;
         }
       }
@@ -897,10 +919,27 @@ export class MessageHandler  {
       }
 
       // Send the reinterpreted message as the avatar via webhook
+      // Include proxy metadata so downstream systems know this is human-initiated
       if (this.discordService?.sendAsWebhook) {
-        await this.discordService.sendAsWebhook(message.channel.id, reinterpretedContent, avatar);
+        const sentMessage = await this.discordService.sendAsWebhook(
+          message.channel.id, 
+          reinterpretedContent, 
+          avatar,
+          { 
+            proxyUserId: message.author.id,
+            isProxied: true 
+          }
+        );
         this.logger.info(`[MessageHandler] Proxied message through avatar ${avatar.name}`);
-        return { handled: true };
+        
+        // Return the sent message so the caller can trigger AI responses
+        return { 
+          handled: true, 
+          sentMessage,
+          avatar,
+          originalAuthorId: message.author.id,
+          channelId: message.channel.id
+        };
       }
 
       return { handled: false };

@@ -228,7 +228,18 @@ export class TurnScheduler {
   }
 
   /**
+   * Check if a message is a proxied human message
+   * @param {Object} msg - Discord message object
+   * @returns {boolean} True if proxied
+   */
+  isProxiedMessage(msg) {
+    if (!msg) return false;
+    return !!(msg.rati?.isProxied || msg.rati?.proxyUserId || msg.isProxied || msg.proxyUserId);
+  }
+
+  /**
    * Check if a channel is "dead" (only bot messages, no human activity)
+   * NOTE: Proxied messages count as human activity since they're human-initiated
    * @param {string} channelId - Channel ID
    * @returns {Promise<boolean>} True if channel is dead
    */
@@ -242,14 +253,21 @@ export class TurnScheduler {
       let consecutiveBots = 0;
       
       for (const msg of messages.values()) {
-        if (msg.author.bot || msg.webhookId) {
+        // CRITICAL: Proxied messages should count as human activity
+        // Even though they come through webhooks, they're human-initiated
+        const isProxied = this.isProxiedMessage(msg);
+        
+        if ((msg.author.bot || msg.webhookId) && !isProxied) {
           consecutiveBots++;
           if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
             this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
             return true;
           }
         } else {
-          // Found a human message - channel is alive
+          // Found a human message (or proxied message) - channel is alive
+          if (isProxied) {
+            this.logger.debug?.(`[TurnScheduler] Found proxied human message in ${channelId} - channel is alive`);
+          }
           return false;
         }
       }

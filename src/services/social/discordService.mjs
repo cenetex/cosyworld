@@ -649,11 +649,14 @@ export class DiscordService {
     return this.webhookManager.getOrCreate(channel);
   }
 
-  async sendAsWebhook(channelId, content, avatar) {
+  async sendAsWebhook(channelId, content, avatar, options = {}) {
     try {
       this.validateAvatar(avatar);
       if (!channelId || typeof channelId !== 'string') throw new Error('Invalid channel ID');
       if (!content || typeof content !== 'string') throw new Error('Content is required and must be a string');
+      
+      // Extract proxy metadata if this is a proxied human message
+      const { proxyUserId, isProxied: _isProxied } = options;
       
       // Get content filter settings from global bot config
       const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
@@ -786,6 +789,15 @@ export class DiscordService {
         this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
       } else {
         this.logger.warn?.(`[DiscordService] Missing avatar id for ${avatar.name}; skipping avatarId attachment on message ${sentMessage.id}`);
+      }
+      
+      // Store proxy metadata if this message was proxied from a human user
+      // This is critical for other AI systems to recognize this as a human-initiated message
+      if (proxyUserId) {
+        sentMessage.rati = sentMessage.rati || {};
+        sentMessage.rati.proxyUserId = proxyUserId;
+        sentMessage.rati.isProxied = true;
+        this.logger.info?.(`[DiscordService] Marked message ${sentMessage.id} as proxied from user ${proxyUserId}`);
       }
       
       sentMessage.guild = channel.guild;

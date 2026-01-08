@@ -233,6 +233,24 @@ export class ResponseCoordinator {
   }
 
   /**
+   * Check if a message is a proxied human message (sent through avatar webhook)
+   * @param {Object} message - Discord message object
+   * @returns {boolean} True if this is a proxied human message
+   */
+  isProxiedHumanMessage(message) {
+    if (!message) return false;
+    // Check rati metadata for proxy flag
+    if (message.rati?.isProxied || message.rati?.proxyUserId) {
+      return true;
+    }
+    // Also check if message has proxy fields set directly
+    if (message.isProxied || message.proxyUserId) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Classify the type of trigger that initiated this response
    * @param {Object} message - Discord message or null
    * @param {Object} context - Additional context
@@ -247,6 +265,14 @@ export class ResponseCoordinator {
     // No message = ambient/scheduled
     if (!message) {
       return { type: 'ambient', source: 'scheduler' };
+    }
+
+    // CRITICAL: Check for proxied human messages BEFORE checking author.bot
+    // Proxied messages come through webhooks (author.bot=true) but are actually human-initiated
+    if (this.isProxiedHumanMessage(message)) {
+      this.logger.debug?.(`[ResponseCoordinator] Detected proxied human message from user ${message.rati?.proxyUserId || message.proxyUserId}`);
+      // Treat as human message with medium priority
+      return { type: 'human_message', source: 'proxy', priority: 'medium', proxyUserId: message.rati?.proxyUserId || message.proxyUserId };
     }
 
     // Human message
@@ -387,9 +413,13 @@ export class ResponseCoordinator {
     }
 
     // PRIORITY 2: Sticky affinity (user has been talking to specific avatar)
-    if (message && !message.author.bot && this.STICKY_AFFINITY_EXCLUSIVE) {
+    // For proxied messages, use the proxyUserId for affinity lookup
+    const isHumanOrProxied = !message?.author?.bot || this.isProxiedHumanMessage(message);
+    const effectiveUserId = message?.rati?.proxyUserId || message?.proxyUserId || message?.author?.id;
+    
+    if (message && isHumanOrProxied && this.STICKY_AFFINITY_EXCLUSIVE && effectiveUserId) {
       try {
-        const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, message.author.id);
+        const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, effectiveUserId);
         if (stickyAvatarId) {
           const stickyAvatar = eligibleAvatars.find(
             av => `${av._id || av.id}` === `${stickyAvatarId}`
@@ -400,8 +430,8 @@ export class ResponseCoordinator {
             if (shouldRespond) {
               // CRITICAL: Extend the sticky affinity TTL since user is still actively engaging
               // This keeps the avatar "locked on" to this user as long as they keep talking
-              this.decisionMaker._recordAffinity(channelId, message.author.id, stickyAvatarId);
-              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed)`);
+              this.decisionMaker._recordAffinity(channelId, effectiveUserId, stickyAvatarId);
+              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed, user: ${effectiveUserId})`);
               
               // Ensure sticky avatar is in the encounter
               if (this.encounterService) {
@@ -427,10 +457,10 @@ export class ResponseCoordinator {
           // Take first mentioned avatar
           const mentioned = mentionedAvatars[0];
           
-          // Record sticky affinity for future
-          if (!message.author.bot && this.decisionMaker._recordAffinity) {
+          // Record sticky affinity for future (use proxyUserId for proxied messages)
+          if (isHumanOrProxied && effectiveUserId && this.decisionMaker._recordAffinity) {
             try {
-              this.decisionMaker._recordAffinity(channelId, message.author.id, mentioned._id || mentioned.id);
+              this.decisionMaker._recordAffinity(channelId, effectiveUserId, mentioned._id || mentioned.id);
             } catch (e) {
               this.logger.debug?.(`[ResponseCoordinator] Failed to record affinity: ${e.message}`);
             }

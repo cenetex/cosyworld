@@ -154,12 +154,16 @@ export class DatabaseService {
           replyToGuildId: message.reference?.guildId || null,
           // Track which avatar sent this message (for webhook messages)
           avatarId: message.rati?.avatarId || message.avatarId || null,
+          // Track proxied messages (human messages sent through avatar webhook)
+          // These should be treated as human-initiated for AI response purposes
+          proxyUserId: message.rati?.proxyUserId || null,
+          isProxied: message.rati?.isProxied || false,
           timestamp: message.createdTimestamp,
         };
 
         // Debug logging for avatarId tracking
         if (message.author.bot || message.webhookId) {
-          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, rati=${JSON.stringify(message.rati || {})}`);
+          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, isProxied=${messageData.isProxied}, rati=${JSON.stringify(message.rati || {})}`);
         }
   
         if (!messageData.messageId || !messageData.channelId) {

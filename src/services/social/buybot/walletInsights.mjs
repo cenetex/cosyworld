@@ -58,7 +58,10 @@ export class WalletInsights {
    * @returns {Promise<{ tokens: Array, assets: Array, meta: Object|null, timestamp: number }>}
    */
   async #ensureWalletSnapshot(walletAddress, options = {}) {
-    if (!walletAddress) {
+    // Validate wallet address - must be a non-empty string of reasonable length
+    // Solana addresses are 32-44 base58 characters, EVM are 42 hex chars
+    if (!walletAddress || typeof walletAddress !== 'string' || walletAddress.length < 20) {
+      this.logger?.debug?.(`[WalletInsights] Skipping invalid wallet address: ${walletAddress || 'empty'}`);
       return { tokens: [], assets: [], meta: null, timestamp: Date.now() };
     }
 

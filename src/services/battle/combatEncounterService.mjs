@@ -1566,6 +1566,12 @@ One-liner (no quotes):`;
       const action = await this.combatAIService.selectCombatAction(encounter, current);
       if (!action) {
         this.logger?.warn?.(`[CombatEncounter] Batch: no action for ${current.name}`);
+        if (this.evaluateEnd(encounter)) {
+          if ((encounter.pendingRoundActions?.length || 0) > 0) {
+            await this._postConsolidatedRoundNarration(encounter);
+          }
+          return;
+        }
         this._advanceTurnIndex(encounter);
         continue;
       }
