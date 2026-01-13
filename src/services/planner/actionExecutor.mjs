@@ -601,8 +601,14 @@ export class PostTweetExecutor extends ActionExecutor {
     });
     
     if (generationFailed) {
-      await ctx.reply('Skipping X post because the media generation failed.');
-      return { success: false, action: this.actionType, stepNum, error: 'Prior media generation failed' };
+      // Don't post error to channel - return context for AI
+      return { 
+        success: false, 
+        action: this.actionType, 
+        stepNum, 
+        error: 'Prior media generation failed',
+        botContext: 'I couldn\'t post to X because the image/video generation failed earlier. I\'ll need to try generating the media again first.'
+      };
     }
 
     // Helper to detect placeholder values like "(will use generated image ID)" or similar
@@ -651,8 +657,14 @@ export class PostTweetExecutor extends ActionExecutor {
 
     if (!mediaIdToTweet) {
       logger?.warn?.('[PostTweetExecutor] Cannot post_tweet: no recent media found');
-      await ctx.reply('I wanted to post to X, but I couldn\'t find the image/video I just made! 🕵️‍♀️');
-      return { success: false, action: this.actionType, stepNum, error: 'No media found' };
+      // Don't post error to channel - return context for AI
+      return { 
+        success: false, 
+        action: this.actionType, 
+        stepNum, 
+        error: 'No media found',
+        botContext: 'I couldn\'t find any recent image or video to post to X. I\'ll need to generate some media first.'
+      };
     }
 
     let tweetText = step.text || step.description;
@@ -706,7 +718,8 @@ Write a creative, engaging tweet caption (under 280 chars) to accompany the medi
         action: this.actionType, 
         stepNum, 
         error,
-        alreadyTweeted: tweetResult?.alreadyTweeted 
+        alreadyTweeted: tweetResult?.alreadyTweeted,
+        botContext: tweetResult?.botContext || 'Tweet posting failed. I\'ll try again later.'
       };
     }
     
