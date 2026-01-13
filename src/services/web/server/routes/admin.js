@@ -77,7 +77,7 @@ async function loadConfig(services = null) {
       summon: "Create a unique avatar with a special ability.",
       avatarTheme: 'Cozy, story-driven fantasy tavern vibe with warm lighting and collaborative energy.'
     },
-    features: { breeding: true, combat: true, itemCreation: true, moderation: true },
+    features: { breeding: true, combat: true, itemCreation: true },
     rateLimit: { messages: 5, interval: 10 },
     adminRoles: ["Admin", "Moderator"]
   };
@@ -585,43 +585,17 @@ function createRouter(db, services) {
 
   router.post('/unban', asyncHandler(async (req, res) => {
     try {
-      const { userId, channelId, source } = req.body;
-      
-      if (source === 'telegram_members' || channelId) {
-        // Unban from telegram_members
-        await db.collection('telegram_members').updateOne(
-          { userId, ...(channelId ? { channelId } : {}) },
-          {
-            $set: {
-              strikeCount: 0,
-              spamStrikes: 0,
-              permanentlyBlacklisted: false,
-              trustLevel: 'probation', // Reset to probation
-              penaltyExpires: new Date()
-            }
-          }
-        );
-        
-        // Also clear from memory cache if service is available
-        if (services.telegramService && services.telegramService._invalidateMemberCache) {
-          if (channelId) {
-            services.telegramService._invalidateMemberCache(channelId, userId);
+      const { userId } = req.body;
+      await db.collection('user_spam_penalties').updateOne(
+        { userId },
+        {
+          $set: {
+            strikeCount: 0,
+            permanentlyBlacklisted: false,
+            penaltyExpires: new Date()
           }
         }
-      } else {
-        // Legacy/Global unban
-        await db.collection('user_spam_penalties').updateOne(
-          { userId },
-          {
-            $set: {
-              strikeCount: 0,
-              permanentlyBlacklisted: false,
-              penaltyExpires: new Date()
-            }
-          }
-        );
-      }
-      
+      );
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -648,54 +622,17 @@ function createRouter(db, services) {
 
       // Get blacklisted users
   const config = await loadConfig(services);
-      
-      // Fetch from both collections to be safe, but prioritize telegram_members for display
-      const [spamPenalties, telegramBlacklisted] = await Promise.all([
-        db.collection('user_spam_penalties')
-          .find({ permanentlyBlacklisted: true })
-          .sort({ strikeCount: -1 })
-          .project({
-            userId: 1,
-            strikeCount: 1,
-            penaltyExpires: 1,
-            permanentlyBlacklisted: 1,
-            server: 1
-          })
-          .toArray(),
-        db.collection('telegram_members')
-          .find({ permanentlyBlacklisted: true })
-          .project({
-            userId: 1,
-            username: 1,
-            firstName: 1,
-            lastName: 1,
-            spamStrikes: 1,
-            lastSpamStrike: 1,
-            channelId: 1,
-            permanentlyBlacklisted: 1
-          })
-          .toArray()
-      ]);
-
-      // Merge lists
-      const blacklistedUsers = [...spamPenalties];
-      
-      // Add telegram members if not already present (by userId)
-      for (const member of telegramBlacklisted) {
-        // We treat telegram members as distinct entries because they have channelId
-        // But for the UI we might want to show them clearly
-        blacklistedUsers.push({
-          userId: member.userId,
-          username: member.username,
-          displayName: [member.firstName, member.lastName].filter(Boolean).join(' '),
-          strikeCount: member.spamStrikes,
-          penaltyExpires: null, // Permanent
-          permanentlyBlacklisted: true,
-          source: 'telegram_members',
-          channelId: member.channelId,
-          lastSpamStrike: member.lastSpamStrike
-        });
-      }
+      const blacklistedUsers = await db.collection('user_spam_penalties')
+        .find({})
+        .sort({ strikeCount: -1 })
+        .project({
+          userId: 1,
+          strikeCount: 1,
+          penaltyExpires: 1,
+          permanentlyBlacklisted: 1,
+          server: 1
+        })
+        .toArray();
 
       res.json({
         counts: {
@@ -1298,7 +1235,7 @@ function createRouter(db, services) {
       }
 
       // Use S3Service to upload the image
-      const s3Service = services?.s3Service;
+      const s3Service = req.app.locals.services?.s3Service;
       if (!s3Service) {
         return res.status(500).json({ error: 'S3Service not available' });
       }
@@ -1497,7 +1434,6 @@ Please ensure the server is fully initialized.
         if (Object.keys(r).length) patch.rate = r; else patch.rate = {};
       }
       if (Array.isArray(body.hashtags)) patch.hashtags = body.hashtags.filter(h => typeof h === 'string' && h.trim()).map(h => h.trim());
-      if (Array.isArray(body.allowedCashtags)) patch.allowedCashtags = body.allowedCashtags.filter(c => typeof c === 'string' && c.trim()).map(c => c.trim().replace(/^\$/, '').toUpperCase());
       if (body.media && typeof body.media === 'object') {
         patch.media = { altAutogen: !!body.media.altAutogen };
       }
@@ -1572,105 +1508,6 @@ Please ensure the server is fully initialized.
     }
   }));
 
-  // Get content filter settings
-  router.get('/global-bot/content-filters', asyncHandler(async (req, res) => {
-    try {
-      if (!services.globalBotService) {
-        return res.status(503).json({ error: 'GlobalBotService not available' });
-      }
-      
-      const persona = await services.globalBotService.getPersona();
-      const contentFilters = persona?.bot?.globalBotConfig?.contentFilters || {
-        enabled: true,
-        blockCryptoAddresses: true,
-        blockCashtags: true,
-        blockUrls: true,
-        allowedCashtags: [],
-        allowedAddresses: []
-      };
-      
-      res.json({ success: true, contentFilters });
-    } catch (e) {
-      res.status(500).json({ error: e.message || 'Failed to load content filters' });
-    }
-  }));
-
-  // Update content filter settings
-  router.put('/global-bot/content-filters', asyncHandler(async (req, res) => {
-    try {
-      if (!services.globalBotService) {
-        return res.status(503).json({ error: 'GlobalBotService not available' });
-      }
-      
-      const { enabled, blockCryptoAddresses, blockCashtags, blockUrls, allowedCashtags, allowedAddresses } = req.body;
-      
-      // Normalize cashtags to uppercase with $ prefix
-      const normalizedCashtags = Array.isArray(allowedCashtags)
-        ? allowedCashtags.map(tag => {
-            const normalized = String(tag).trim().toUpperCase();
-            return normalized.startsWith('$') ? normalized : `$${normalized}`;
-          }).filter(Boolean)
-        : [];
-      
-      // Normalize addresses (lowercase for consistency)
-      const normalizedAddresses = Array.isArray(allowedAddresses)
-        ? allowedAddresses.map(addr => String(addr).trim().toLowerCase()).filter(Boolean)
-        : [];
-      
-      const contentFilters = {
-        enabled: enabled !== false,
-        blockCryptoAddresses: blockCryptoAddresses !== false,
-        blockCashtags: blockCashtags !== false,
-        blockUrls: blockUrls !== false,
-        allowedCashtags: normalizedCashtags,
-        allowedAddresses: normalizedAddresses
-      };
-      
-      // Update via globalBotService
-      const updatedBot = await services.globalBotService.updatePersona({
-        globalBotConfig: { contentFilters }
-      });
-      
-      res.json({ 
-        success: true, 
-        contentFilters: updatedBot.globalBotConfig?.contentFilters || contentFilters 
-      });
-    } catch (e) {
-      res.status(500).json({ error: e.message || 'Failed to update content filters' });
-    }
-  }));
-
-  router.delete('/global-bot/memories/:memoryId', asyncHandler(async (req, res) => {
-    try {
-      if (!services.memoryService) {
-        return res.status(503).json({ error: 'MemoryService not available' });
-      }
-
-      const { memoryId } = req.params;
-      const result = await services.memoryService.deleteMemory(memoryId);
-
-      res.json({ success: true, result });
-    } catch (e) {
-      res.status(500).json({ error: e.message || 'Failed to delete memory' });
-    }
-  }));
-
-  router.delete('/global-bot/memories', asyncHandler(async (req, res) => {
-    try {
-      if (!services.memoryService || !services.globalBotService) {
-        return res.status(503).json({ error: 'Required services not available' });
-      }
-
-      const botId = await services.globalBotService.getOrCreateGlobalBot();
-      const filter = req.body?.filter || {};
-      const result = await services.memoryService.deleteMemoriesByAvatar(botId, filter);
-
-      res.json({ success: true, result });
-    } catch (e) {
-      res.status(500).json({ error: e.message || 'Failed to delete memories' });
-    }
-  }));
-
   // Get recent global bot posts
   router.get('/global-bot/posts', asyncHandler(async (req, res) => {
     try {
@@ -1719,26 +1556,6 @@ Please ensure the server is fully initialized.
     }
   }));
 
-  // Generate image with global bot character
-  router.post('/global-bot/generate-image', asyncHandler(async (req, res) => {
-    try {
-      if (!services.globalBotService) {
-        return res.status(503).json({ error: 'GlobalBotService not available' });
-      }
-      
-      const { prompt, characterDesign } = req.body;
-      
-      if (!prompt) {
-        return res.status(400).json({ error: 'Prompt is required' });
-      }
-      
-      const imageUrl = await services.globalBotService.generateImage(prompt, { characterDesign });
-      
-      res.json({ success: true, imageUrl });
-    } catch (e) {
-      res.status(500).json({ error: e.message || 'Failed to generate image' });
-    }
-  }));
 
   // Add admin routes to main router (mounted at /api/admin in app.js)
   router.use('/', adminRouter);
@@ -1822,71 +1639,6 @@ Please ensure the server is fully initialized.
         error: error.message || 'Test failed'
       });
     }
-  }));
-
-  // OAuth 2.0 credentials management
-  router.get('/x-oauth2', asyncHandler(async (req, res) => {
-    const { secretsService } = services;
-    const creds = await secretsService.getAsync('x_oauth2_creds');
-    
-    // Also check environment variables as fallback
-    const envClientId = process.env.X_CLIENT_ID;
-    const envClientSecret = process.env.X_CLIENT_SECRET;
-    const envCallbackUrl = process.env.X_CALLBACK_URL;
-    
-    if (!creds && !envClientId) {
-      return res.json({ hasCredentials: false, source: 'none' });
-    }
-    
-    // Return non-secret fields and flags for secret fields
-    res.json({
-      clientId: creds?.clientId || envClientId || null,
-      hasClientSecret: !!(creds?.clientSecret || envClientSecret),
-      callbackUrl: creds?.callbackUrl || envCallbackUrl || null,
-      hasCredentials: true,
-      source: creds?.clientId ? 'database' : 'environment'
-    });
-  }));
-
-  router.post('/x-oauth2', asyncHandler(async (req, res) => {
-    const { clientId, clientSecret, callbackUrl } = req.body;
-    const { secretsService } = services;
-    
-    console.log('[admin] Saving OAuth 2.0 credentials:', {
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret,
-      hasCallbackUrl: !!callbackUrl,
-      clientIdLength: clientId?.length,
-      clientSecretLength: clientSecret?.length
-    });
-    
-    // Get existing credentials
-    const existing = await secretsService.getAsync('x_oauth2_creds') || {};
-    
-    // Update with new values (preserve existing if new value is null/undefined/empty)
-    const updated = {
-      clientId: clientId?.trim() || existing.clientId || null,
-      clientSecret: clientSecret?.trim() || existing.clientSecret || null,
-      callbackUrl: callbackUrl?.trim() || existing.callbackUrl || null
-    };
-    
-    console.log('[admin] Updated OAuth 2.0 credentials:', {
-      hasClientId: !!updated.clientId,
-      hasClientSecret: !!updated.clientSecret,
-      hasCallbackUrl: !!updated.callbackUrl
-    });
-    
-    await secretsService.set('x_oauth2_creds', updated);
-    
-    res.json({ 
-      success: true,
-      message: 'OAuth 2.0 credentials saved',
-      saved: {
-        clientId: !!updated.clientId,
-        clientSecret: !!updated.clientSecret,
-        callbackUrl: !!updated.callbackUrl
-      }
-    });
   }));
 
   const checkWhitelistStatus = async (guildId) => {

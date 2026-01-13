@@ -1,7 +1,4 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
-import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
-import { isCollectionAvatar, isOnChainAvatar } from '../avatar/helpers/walletAvatarClassifiers.mjs';
-import { extractMessageLinks, fetchMessageContext, buildContextSummary } from '../discord/messageLinksHelper.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -73,47 +70,6 @@ export class MessageHandler  {
      * Dynamic AI-generated regex pattern (string or null).
      */
     this.dynamicModerationRegex = null;
-  }
-
-  _isPureModelOnlyGuild(guildConfig) {
-    const modes = guildConfig?.avatarModes || {};
-    const allowModelSummons = modes.pureModel !== false;
-    
-    // Backwards compat: if legacy 'wallet' exists, use it instead of split modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    if (hasLegacyWallet) {
-      return Boolean(allowModelSummons && modes.free === false && modes.wallet === false);
-    }
-    
-    return Boolean(allowModelSummons && modes.free === false && modes.onChain === false && modes.collection === false);
-  }
-
-  _filterAvatarsByGuildModes(avatars = [], guildConfig = null) {
-    if (!Array.isArray(avatars) || avatars.length === 0) {
-      return [];
-    }
-
-    const modes = guildConfig?.avatarModes || {};
-    
-    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
-    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
-    const allowFree = modes.free !== false;
-    const allowPureModel = modes.pureModel !== false;
-
-    // If all modes enabled, no filtering needed
-    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
-      return avatars;
-    }
-
-    return avatars.filter(avatar => {
-      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
-      if (allowCollection && isCollectionAvatar(avatar)) return true;
-      if (allowOnChain && isOnChainAvatar(avatar)) return true;
-      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
-      return false;
-    });
   }
 
   async start() {
@@ -189,9 +145,6 @@ export class MessageHandler  {
   // Handle reply tracking - detect if this message is a reply to an avatar
   await this.handleReplyTracking(message);
 
-  // Handle Discord message links - fetch referenced messages and context
-  await this.handleMessageLinks(message);
-
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
 
@@ -253,8 +206,7 @@ export class MessageHandler  {
     }
 
     // Check if the message is a command
-    const summonResult = await this.avatarService.summonUserAvatar(message);
-    const avatar = summonResult?.avatar;
+    const avatar = (await this.avatarService.summonUserAvatar(message)).avatar;
     if (avatar) {
       await handleCommands(message, {
         logger: this.logger,
@@ -263,21 +215,10 @@ export class MessageHandler  {
         mapService: this.mapService,
         configService: this.configService,
       }, avatar, await this.conversationManager.getChannelContext(message.channel.id));
-    } else {
-      this.logger.warn?.('[MessageHandler] Skipping command handling - failed to summon user avatar');
     }
 
   const channelId = message.channel.id;
     const guildId = message.guild.id;
-
-    let moderationEnabled = true;
-    try {
-      const guildConfig = await this.configService.getGuildConfig(guildId);
-      const features = guildConfig?.features || {};
-      moderationEnabled = features.moderation !== false;
-    } catch (err) {
-      this.logger.warn?.(`Failed to load guild config for ${guildId}: ${err.message}`);
-    }
 
     // Mark the channel as active
     await this.databaseService.markChannelActive(channelId, guildId);
@@ -295,28 +236,16 @@ export class MessageHandler  {
     await this.processChannel(channelId, message);
 
     // Structured moderation: analyze links and assign threat level
-    if (moderationEnabled) {
-      await this.moderationService.moderateMessageContent(message);
+    await this.moderationService.moderateMessageContent(message);
 
-      // Structured moderation: backlog moderation if needed
-      await this.moderationService.moderateBacklogIfNeeded(message.channel);
-    } else {
-      this.logger.debug?.(`Structured moderation disabled for guild ${guildId}`);
-    }
+    // Structured moderation: backlog moderation if needed
+    await this.moderationService.moderateBacklogIfNeeded(message.channel);
 
     // Agentic tool planning phase (post-response, general chat only)
     try {
       if (this.toolPlanner && !message.author.bot) {
         const context = await this.conversationManager.getChannelContext(message.channel.id);
-        let plannerAvatar = await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id);
-        if (!plannerAvatar) {
-          plannerAvatar = avatar || (await this.avatarService.summonUserAvatar(message))?.avatar || null;
-        }
-        if (!plannerAvatar) {
-          this.logger.debug?.('[MessageHandler] Agentic planner skipped: no avatar available for planner context');
-        } else {
-          await this.toolPlanner.planAndMaybeExecute(message, plannerAvatar, context);
-        }
+        await this.toolPlanner.planAndMaybeExecute(message, (await this.avatarService.getAvatarByUserId(message.author.id, message.guild.id)) || (await this.avatarService.summonUserAvatar(message)).avatar, context);
       }
     } catch (e) {
       this.logger.debug?.(`Agentic planner skipped: ${e.message}`);
@@ -327,52 +256,24 @@ export class MessageHandler  {
 
   /**
    * Checks if the guild is authorized to use the bot.
-   * Uses the AuthorizationCache from DiscordService for TTL-based caching.
    * @param {Object} message - The Discord message object.
    * @returns {Promise<boolean>} True if authorized, false otherwise.
    */
   async isGuildAuthorized(message) {
     if (!message.guild) return false;
-    
     try {
       const guildId = message.guild.id;
-      
-      // Use the authorization cache from discord service if available
-      if (this.discordService?.authorizationCache) {
-        return this.discordService.authorizationCache.check(guildId, async () => {
-          const db = await this.databaseService.getDatabase();
-          if (!db) return false;
-          const guildConfig = await this.configService.getGuildConfig(guildId);
-          return guildConfig?.authorized === true ||
-            (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-        });
+      if (!this.client.authorizedGuilds?.get(guildId)) {
+        const db = await this.databaseService.getDatabase();
+        if (!db) return false;
+        const guildConfig = await this.configService.getGuildConfig(guildId);
+        const isAuthorized =
+          guildConfig?.authorized === true ||
+          (await this.configService.get("authorizedGuilds") || []).includes(guildId);
+        this.client.authorizedGuilds = this.client.authorizedGuilds || new Map();
+        this.client.authorizedGuilds.set(guildId, isAuthorized);
       }
-      
-      // Fallback to legacy caching (with expiration tracking)
-      const cacheEntry = this.client.authorizedGuilds?.get(guildId);
-      const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-      
-      if (cacheEntry && cacheEntry.timestamp && 
-          Date.now() - cacheEntry.timestamp < CACHE_TTL_MS) {
-        return cacheEntry.authorized;
-      }
-      
-      // Cache miss or expired - fetch fresh
-      const db = await this.databaseService.getDatabase();
-      if (!db) return false;
-      
-      const guildConfig = await this.configService.getGuildConfig(guildId);
-      const isAuthorized =
-        guildConfig?.authorized === true ||
-        (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-      
-      this.client.authorizedGuilds = this.client.authorizedGuilds || new Map();
-      this.client.authorizedGuilds.set(guildId, {
-        authorized: isAuthorized,
-        timestamp: Date.now(),
-      });
-      
-      return isAuthorized;
+      return this.client.authorizedGuilds.get(guildId);
     } catch (error) {
       this.logger.error(`Error checking guild authorization: ${error.message}`);
       return false;
@@ -640,63 +541,6 @@ export class MessageHandler  {
   }
 
   /**
-   * Handles Discord message links - fetches referenced messages and their context
-   * When a user includes a Discord message link, we fetch the message and surrounding context
-   * @param {Object} message - The Discord message object to analyze
-   */
-  async handleMessageLinks(message) {
-    if (!message.content || typeof message.content !== 'string') {
-      return;
-    }
-
-    try {
-      // Extract all Discord message links from the content
-      const messageLinks = extractMessageLinks(message.content);
-      
-      if (messageLinks.length === 0) {
-        this.logger.debug('[MessageLinks] No Discord message links found');
-        return;
-      }
-
-      this.logger.info(`[MessageLinks] Found ${messageLinks.length} Discord message link(s)`);
-
-      // Fetch context for each linked message
-      const contextSummaries = [];
-      for (const link of messageLinks) {
-        this.logger.debug(`[MessageLinks] Fetching context for ${link.url}`);
-        
-        // Fetch the message and surrounding context
-        const context = await fetchMessageContext(
-          this.discordService.client,
-          link.channelId,
-          link.messageId,
-          { before: 3, after: 2 }, // 3 messages before, 2 after
-          this.logger
-        );
-
-        // Build a formatted summary
-        const summary = buildContextSummary(context, link);
-        contextSummaries.push(summary);
-        
-        if (context.target) {
-          this.logger.info(`[MessageLinks] Successfully fetched context for message ${link.messageId}`);
-        } else {
-          this.logger.warn(`[MessageLinks] Could not fetch message ${link.messageId}`);
-        }
-      }
-
-      // Attach the context summaries to the message object
-      // This will be available when building prompts for AI
-      if (contextSummaries.length > 0) {
-        message.referencedMessageContext = contextSummaries.join('\n\n');
-        this.logger.info(`[MessageLinks] Attached ${contextSummaries.length} message context(s) to message`);
-      }
-    } catch (error) {
-      this.logger.error(`[MessageLinks] Error handling message links: ${error.message}`, error.stack);
-    }
-  }
-
-  /**
    * Processes the channel by selecting avatars and considering responses.
    * @param {string} channelId - The ID of the channel to process.
    * @param {Object} message - The Discord message object.
@@ -707,16 +551,6 @@ export class MessageHandler  {
       if (!channel) {
         this.logger.error(`Channel ${channelId} not found in cache.`);
         return;
-      }
-
-      const guildId = message?.guild?.id || null;
-      let guildConfig = null;
-      if (guildId && this.configService?.getGuildConfig) {
-        try {
-          guildConfig = await this.configService.getGuildConfig(guildId);
-        } catch (err) {
-          this.logger.warn?.(`[MessageHandler] Failed to load guild config for ${guildId}: ${err.message}`);
-        }
       }
 
       // If users mention an avatar by name/emoji anywhere in the guild, move that avatar to this channel
@@ -744,29 +578,6 @@ export class MessageHandler  {
       } catch {}
 
       let eligibleAvatars = await this.avatarService.getAvatarsInChannel(channelId, message.guild.id);
-      eligibleAvatars = this._filterAvatarsByGuildModes(eligibleAvatars, guildConfig);
-      
-      // Filter wallet avatars to only respond in channels with buybot notifications
-      try {
-        const buybotService = this.services?.cradle?.buybotService || this.services?.buybotService;
-        if (buybotService && buybotService.hasbuybotNotifications) {
-          const hasBuybot = await buybotService.hasbuybotNotifications(channelId);
-          if (!hasBuybot) {
-            // Remove wallet avatars (both onChain and collection) from non-buybot channels
-            eligibleAvatars = eligibleAvatars.filter(avatar => {
-              const isWallet = isOnChainAvatar(avatar) || isCollectionAvatar(avatar);
-              if (isWallet) {
-                this.logger.debug?.(`[MessageHandler] Filtered wallet avatar ${avatar.name} - no buybot notifications in channel ${channelId}`);
-                return false;
-              }
-              return true;
-            });
-          }
-        }
-      } catch (filterError) {
-        this.logger.warn?.(`[MessageHandler] Failed to filter wallet avatars by buybot status: ${filterError.message}`);
-      }
-      
       // Reorder by priority: in-channel already, then owned by user, then exact name matches
       try {
         eligibleAvatars = await this.avatarService.prioritizeAvatarsForMessage(eligibleAvatars, message);
@@ -779,19 +590,13 @@ export class MessageHandler  {
       // Quick pass: if user explicitly mentions an avatar by name/emoji, set stickiness and activate
       try {
         if (message?.author && !message.author.bot && typeof message.content === 'string' && message.content.trim()) {
-          let mentioned = null;
-          if (this.avatarService?.matchAvatarsByContent) {
-            const mentionMatches = this.avatarService.matchAvatarsByContent(message.content, eligibleAvatars, { limit: 1 });
-            mentioned = mentionMatches[0];
-          } else {
-            const lower = message.content.toLowerCase();
-            mentioned = eligibleAvatars.find(av => {
-              const name = String(av.name || '').toLowerCase();
-              const emo = String(av.emoji || '').toLowerCase();
-              if (!name && !emo) return false;
-              return (name && lower.includes(name)) || (emo && lower.includes(emo));
-            });
-          }
+          const lower = message.content.toLowerCase();
+          const mentioned = eligibleAvatars.find(av => {
+            const name = String(av.name || '').toLowerCase();
+            const emo = String(av.emoji || '').toLowerCase();
+            if (!name && !emo) return false;
+            return (name && lower.includes(name)) || (emo && lower.includes(emo));
+          });
           if (mentioned) {
             const avId = `${mentioned._id || mentioned.id}`;
             

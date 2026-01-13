@@ -17,7 +17,6 @@ export class SceneCameraTool extends BasicTool {
     s3Service,
     locationService,
     avatarService,
-    databaseService,
     logger
   }) {
     super();
@@ -32,7 +31,6 @@ export class SceneCameraTool extends BasicTool {
     this.s3Service = s3Service;
     this.locationService = locationService;
     this.avatarService = avatarService;
-    this.databaseService = databaseService;
     this.logger = logger || console;
   }
 
@@ -58,22 +56,12 @@ export class SceneCameraTool extends BasicTool {
       const location = await this.locationService.getLocationByChannelId(channelId).catch(() => null);
       const present = await this.avatarService.getAvatarsInChannel(channelId, guildId).catch(() => []);
 
-      const mentionSource = userPrompt || message?.content || '';
-      let list = [];
-      if (mentionSource && this.avatarService?.matchAvatarsByContent) {
-        list = this.avatarService.matchAvatarsByContent(mentionSource, present, {
-          limit: 4,
-          excludeAvatarIds: avatar ? [String(avatar._id || avatar.id)] : []
-        });
-      }
-
-      // If no specific avatars were requested, fall back to caller + channel presence
-      if (!list.length) {
-        if (avatar) list.push(avatar);
-        for (const av of present) {
-          if (!list.find(x => String(x._id) === String(av._id))) list.push(av);
-          if (list.length >= 4) break;
-        }
+      // Select up to 4 avatars (prioritize the calling avatar first if present)
+      const list = [];
+      if (avatar) list.push(avatar);
+      for (const av of present) {
+        if (!list.find(x => String(x._id) === String(av._id))) list.push(av);
+        if (list.length >= 4) break;
       }
 
       // Collect images for composition: avatars + location
@@ -98,64 +86,8 @@ export class SceneCameraTool extends BasicTool {
 
       const subjectLine = list.map(a => `${a.name || 'Unknown'} ${a.emoji || ''}`.trim()).join(', ');
       const locLine = location ? `${location.name || 'Unknown Location'}` : 'Unknown Location';
-
-      // Enhance scene description using LLM for better composition
-      let enhancedSceneDescription = '';
-      try {
-        const avatarDetails = list.map(a => `- ${a.name} (${a.emoji}): ${a.description || 'No description'}`).join('\n');
-        const locationDetails = location ? `${location.name}: ${location.description || ''}` : 'Unknown Location';
-        
-        const scenePrompt = `
-You are a cinematic director. Compose a visual scene description for an image generator.
-Context:
-Location: ${locationDetails}
-Characters present:
-${avatarDetails}
-
-User Request: "${userPrompt || 'A candid moment'}"
-
-Instructions:
-- Describe the scene visually.
-- Position the characters naturally within the location.
-- Describe their actions or interactions based on their personalities.
-- Keep it under 100 words.
-- Focus on lighting, mood, and composition.
-- Do not include "Here is a description" or similar meta-text. Just the description.
-`.trim();
-
-        let response;
-        if (this.googleAIService) {
-             response = await this.googleAIService.chat([
-                { role: 'user', content: scenePrompt }
-            ], { model: 'gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
-        } else {
-             response = await this.aiService.chat([
-                { role: 'user', content: scenePrompt }
-            ], { model: 'google/gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
-        }
-        
-        enhancedSceneDescription = typeof response === 'string' ? response : response?.text || '';
-      } catch (e) {
-        this.logger?.warn?.(`[SceneCamera] LLM enhancement failed: ${e.message}`);
-        enhancedSceneDescription = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`;
-      }
-
-      let style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
-      
-      // Override style from guild config if available
-      if (guildId && this.databaseService) {
-        try {
-          const db = await this.databaseService.getDatabase();
-          const guildConfig = await db.collection('guild_configs').findOne({ guildId: guildId });
-          if (guildConfig?.cameraStyle) {
-            style = guildConfig.cameraStyle;
-          }
-        } catch (e) {
-          this.logger?.warn?.(`[SceneCamera] Failed to fetch guild config: ${e.message}`);
-        }
-      }
-
-      const compositePrompt = `${enhancedSceneDescription}. ${style}`.trim();
+      const style = 'cinematic anime style, 16:9, soft lighting, detailed background, cohesive composition, no UI or watermark';
+      const compositePrompt = `Create a cinematic scene featuring: ${subjectLine}. Location: ${locLine}. ${userPrompt}`.trim();
 
       // Build metadata for social media posts
       const metadata = {

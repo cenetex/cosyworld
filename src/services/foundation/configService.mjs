@@ -82,7 +82,6 @@ export class ConfigService {
           apiKey: this.secrets?.get('GOOGLE_API_KEY') || this.secrets?.get('GOOGLE_AI_API_KEY') || process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY,
           model: process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'gemini-2.5-flash',
-          agentModel: process.env.GOOGLE_AI_AGENT_MODEL || process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'gemini-2.5-flash',
           structuredModel: process.env.GOOGLE_AI_STRUCTURED_MODEL || 'gemini-2.5-flash',
           chatModel: process.env.GOOGLE_AI_CHAT_MODEL || 'gemini-2.5-flash',
           visionModel: process.env.GOOGLE_AI_VISION_MODEL || 'gemini-2.5-flash',
@@ -94,7 +93,6 @@ export class ConfigService {
           apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
           model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
-          agentModel: process.env.OPENROUTER_AGENT_MODEL || process.env.OPENROUTER_DECISION_MAKER_MODEL || process.env.OPENROUTER_STRUCTURED_MODEL || 'google/gemma-3-4b-it:free',
           structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'google/gemini-2.0-flash-exp:free',
           chatModel: process.env.OPENROUTER_CHAT_MODEL || 'meta-llama/llama-3.2-1b-instruct',
           visionModel: process.env.OPENROUTER_VISION_MODEL || '"x-ai/grok-2-vision-1212"',
@@ -150,51 +148,10 @@ export class ConfigService {
       }
     };
 
-      // Surface Telegram globals so configService.get('TELEGRAM_GLOBAL_BOT_TOKEN') works even without env access.
-      this.config.TELEGRAM_GLOBAL_BOT_TOKEN = this.secrets?.get('TELEGRAM_GLOBAL_BOT_TOKEN') || process.env.TELEGRAM_GLOBAL_BOT_TOKEN;
-      this.config.TELEGRAM_GLOBAL_CHANNEL_ID = this.secrets?.get('TELEGRAM_GLOBAL_CHANNEL_ID') || process.env.TELEGRAM_GLOBAL_CHANNEL_ID;
-
     this.guildConfigCache = new Map(); // Cache for guild configurations
-    this.globalDefaultsCache = null; // Cache for global defaults document
         this.initialTokenDefaults = JSON.parse(JSON.stringify(this.config.tokens?.defaults || {}));
         this.tokenPreferencesCache = null;
     this._promptDefaultsLoaded = false;
-  }
-
-  async getGlobalDefaults({ forceRefresh = false, db: explicitDb = null } = {}) {
-    if (!forceRefresh && this.globalDefaultsCache) {
-      return JSON.parse(JSON.stringify(this.globalDefaultsCache));
-    }
-
-    let dbConnection = explicitDb;
-    try {
-      if (!dbConnection) {
-        dbConnection = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
-      }
-
-      if (!dbConnection) {
-        return JSON.parse(JSON.stringify(this.globalDefaultsCache || {}));
-      }
-
-      this.db = this.db || dbConnection;
-
-      const doc = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
-      const config = doc?.config || {};
-      this.globalDefaultsCache = JSON.parse(JSON.stringify(config));
-      return JSON.parse(JSON.stringify(this.globalDefaultsCache));
-    } catch (error) {
-      this.logger?.warn?.(`[ConfigService] Failed to load global defaults: ${error.message}`);
-      return JSON.parse(JSON.stringify(this.globalDefaultsCache || {}));
-    }
-  }
-
-  async getGlobalConfig({ forceRefresh = false } = {}) {
-    const overrides = await this.getGlobalDefaults({ forceRefresh });
-    return this.mergeWithDefaults(overrides, 'global', overrides);
-  }
-
-  clearGlobalDefaultsCache() {
-    this.globalDefaultsCache = null;
   }
 
   static deepMerge(target, source) {
@@ -251,15 +208,6 @@ export class ConfigService {
         ? String(lookup.address).toLowerCase()
         : null;
 
-      this.logger?.debug?.(`[ConfigService] getTokenPreferences lookup:`, {
-        inputSymbol: lookup.symbol,
-        normalizedSymbol,
-        lookupAddress,
-        availableOverrides: Object.keys(overrides),
-        defaultsHasNotifications: !!defaults?.notifications,
-        defaultTransferThreshold: defaults?.notifications?.transferAggregationUsdThreshold
-      });
-
       let override = null;
 
       const overrideEntries = Object.entries(overrides || {});
@@ -271,12 +219,6 @@ export class ConfigService {
 
         if (normalizedSymbol && (normalizedKey === normalizedSymbol || aliasSymbols.includes(normalizedSymbol))) {
           override = value;
-          this.logger?.debug?.(`[ConfigService] Found override for symbol ${normalizedSymbol}:`, {
-            matchedKey: key,
-            hasNotifications: !!override?.notifications,
-            transferThreshold: override?.notifications?.transferAggregationUsdThreshold,
-            fullOverride: override
-          });
           break;
         }
 
@@ -286,26 +228,15 @@ export class ConfigService {
             .map(addr => String(addr).toLowerCase());
           if (normalizedAddresses.includes(lookupAddress)) {
             override = value;
-            this.logger?.debug?.(`[ConfigService] Found override for address ${lookupAddress}:`, {
-              matchedKey: key,
-              hasNotifications: !!override?.notifications,
-              transferThreshold: override?.notifications?.transferAggregationUsdThreshold
-            });
             break;
           }
         }
       }
 
       if (override) {
-        const merged = ConfigService.deepMerge(clone, override);
-        this.logger?.debug?.(`[ConfigService] Returning merged preferences:`, {
-          hasNotifications: !!merged?.notifications,
-          transferThreshold: merged?.notifications?.transferAggregationUsdThreshold
-        });
-        return merged;
+        return ConfigService.deepMerge(clone, override);
       }
 
-      this.logger?.debug?.(`[ConfigService] No override found, returning defaults`);
       return clone;
     } catch (error) {
       this.logger?.warn?.(`[ConfigService] getTokenPreferences failed: ${error.message}`);
@@ -430,8 +361,8 @@ export class ConfigService {
 
       this.db = this.db || dbConnection;
 
-      const overrides = await this.getGlobalDefaults({ db: dbConnection, forceRefresh: force });
-      const promptsFromDb = overrides?.prompts;
+      const globalSettings = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
+      const promptsFromDb = globalSettings?.config?.prompts;
 
       if (promptsFromDb && typeof promptsFromDb === 'object') {
         const merged = ConfigService.deepMerge(JSON.parse(JSON.stringify(this.config.prompt || {})), promptsFromDb);
@@ -480,24 +411,17 @@ export class ConfigService {
       whitelisted: false,
       summonerRole: "🔮",
       summonEmoji: "🔮",
-      prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
+    prompts: JSON.parse(JSON.stringify(this.config.prompt || {})),
       toolEmojis: {
         summon: '🔮',
         breed: '🏹',
         attack: '⚔️',
         defend: '🛡️'
       },
-      avatarModes: {
-        free: true,
-        onChain: true,
-        collection: true,
-        pureModel: true
-      },
       features: {
         breeding: true,
         combat: true,
-        itemCreation: true,
-        moderation: true
+        itemCreation: true
       },
       viewDetailsEnabled: true,
       enableWebSearchTool: true,
@@ -506,19 +430,12 @@ export class ConfigService {
   }
 
   // Merge database guild config with defaults
-  mergeWithDefaults(guildConfig, guildId, globalOverrides = null) {
-    const baseDefaults = this.getDefaultGuildConfig(guildId);
-    const defaults = ConfigService.deepMerge(
-      JSON.parse(JSON.stringify(baseDefaults)),
-      globalOverrides || {}
-    );
+  mergeWithDefaults(guildConfig, guildId) {
+    const defaults = this.getDefaultGuildConfig(guildId);
     const merged = {
       ...defaults,
       ...guildConfig,
-      prompts: ConfigService.deepMerge(
-        JSON.parse(JSON.stringify(defaults.prompts || {})),
-        guildConfig?.prompts || {}
-      ),
+    prompts: ConfigService.deepMerge(JSON.parse(JSON.stringify(defaults.prompts || {})), guildConfig?.prompts || {}),
       toolEmojis: {
         ...defaults.toolEmojis,
         ...(guildConfig?.toolEmojis || {})
@@ -526,10 +443,6 @@ export class ConfigService {
       features: {
         ...defaults.features,
         ...(guildConfig?.features || {})
-      },
-      avatarModes: {
-        ...defaults.avatarModes,
-        ...(guildConfig?.avatarModes || {})
       },
       viewDetailsEnabled: guildConfig?.viewDetailsEnabled !== undefined ? guildConfig.viewDetailsEnabled : defaults.viewDetailsEnabled
     };
@@ -544,10 +457,6 @@ export class ConfigService {
     if (!guildId) {
       console.warn(`Invalid guild ID: ${guildId}`);
       return this.getDefaultGuildConfig(guildId);
-    }
-
-    if (guildId === 'global') {
-      return this.getGlobalConfig({ forceRefresh });
     }
 
     // Check cache first
@@ -565,8 +474,7 @@ export class ConfigService {
     try {
       const collection = db.collection(this.config.mongo.collections.guildConfigs);
       const guildConfig = await collection.findOne({ guildId });
-      const globalDefaults = await this.getGlobalDefaults();
-      const mergedConfig = this.mergeWithDefaults(guildConfig, guildId, globalDefaults);
+      const mergedConfig = this.mergeWithDefaults(guildConfig, guildId);
       this.guildConfigCache.set(guildId, mergedConfig);
       return mergedConfig;
     } catch (error) {
@@ -594,8 +502,7 @@ export class ConfigService {
 
       // Update cache with the latest config
       const newGuildConfig = await collection.findOne({ guildId });
-      const globalDefaults = await this.getGlobalDefaults();
-      const mergedConfig = this.mergeWithDefaults(newGuildConfig, guildId, globalDefaults);
+      const mergedConfig = this.mergeWithDefaults(newGuildConfig, guildId);
       this.guildConfigCache.set(guildId, mergedConfig);
       return result;
     } catch (error) {

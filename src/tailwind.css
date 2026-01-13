@@ -4,7 +4,9 @@
  */
 
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Custom spacing for documentation */
 .documentation-container {

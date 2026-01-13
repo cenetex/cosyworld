@@ -11,7 +11,6 @@ const ALLOWED_SETTING_KEYS = [
   'features.breeding',
   'features.combat',
   'features.itemCreation',
-  'features.moderation',
   'viewDetailsEnabled',
   'enableWebSearchTool',
   'webSearchToolChannelId',
@@ -49,15 +48,9 @@ export default function createSettingsRouter(services) {
   // Helper to get global overrides document
   async function getGlobalOverrides() {
     try {
-      const config = await configService.getGlobalDefaults();
-      return { _id: 'guild_defaults', config };
-    } catch (serviceError) {
-      services.logger?.warn?.('[settings] Falling back to direct global_settings read:', serviceError?.message);
-      try {
-        return (await db.collection('global_settings').findOne({ _id: 'guild_defaults' })) || { _id: 'guild_defaults', config: {} };
-      } catch {
-        return { _id: 'guild_defaults', config: {} };
-      }
+      return (await db.collection('global_settings').findOne({ _id: 'guild_defaults' })) || { _id: 'guild_defaults', config: {} };
+    } catch {
+      return { _id: 'guild_defaults', config: {} };
     }
   }
 
@@ -139,10 +132,6 @@ export default function createSettingsRouter(services) {
           { $set: { [`config.${key}`]: value, updatedAt: new Date() } },
           { upsert: true }
         );
-        configService?.clearGlobalDefaultsCache?.();
-        if (typeof configService?.clearCache === 'function') {
-          await configService.clearCache();
-        }
       }
 
       if (configService && key.startsWith('prompts.')) {
@@ -181,10 +170,6 @@ export default function createSettingsRouter(services) {
           { _id: 'guild_defaults' },
           { $unset: { [`config.${key}`]: '' }, $set: { updatedAt: new Date() } }
         );
-        configService?.clearGlobalDefaultsCache?.();
-        if (typeof configService?.clearCache === 'function') {
-          await configService.clearCache();
-        }
       }
 
       if (configService && key.startsWith('prompts.')) {

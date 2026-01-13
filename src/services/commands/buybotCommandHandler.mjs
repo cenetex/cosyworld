@@ -177,7 +177,7 @@ export async function handleBuybotCommands(message, services) {
           },
           {
             name: '💰 How It Works',
-            value: 'Buybot checks for new transactions every 2 minutes and posts notifications when:\n• Tokens are swapped/purchased 💰\n• Tokens are transferred 📤\n\nActivity summaries are generated every $100 in volume and shared with the Telegram bot for context.',
+            value: 'Buybot checks for new transactions every 30 seconds and posts notifications when:\n• Tokens are swapped/purchased 💰\n• Tokens are transferred 📤\n\nActivity summaries are generated every $100 in volume and shared with the Telegram bot for context.',
             inline: false,
           },
           {

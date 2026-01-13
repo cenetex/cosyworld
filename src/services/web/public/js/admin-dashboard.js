@@ -35,109 +35,6 @@ async function fetchPaymentStats() {
   }
 }
 
-async function fetchBotStatus() {
-  try {
-    const res = await fetch('/api/admin/bots');
-    if (!res.ok) {
-      renderBotGrid([]);
-      return;
-    }
-    const data = await res.json();
-    renderBotGrid(data.data || []);
-  } catch (e) {
-    console.warn('Failed to load bot status', e);
-    renderBotGrid([]);
-  }
-}
-
-function renderBotGrid(bots) {
-  const grid = document.getElementById('bot-grid');
-  const badge = document.getElementById('bot-count-badge');
-  
-  if (!grid) return;
-  
-  // Update badge (v2 design)
-  if (badge) {
-    const activeCount = bots.filter(b => b.enabled).length;
-    badge.textContent = `${activeCount}/${bots.length} Active`;
-    badge.className = activeCount > 0 ? 'badge badge-success' : 'badge badge-warning';
-  }
-  
-  if (bots.length === 0) {
-    grid.innerHTML = `
-      <a href="/admin/bots/" class="bot-card bot-card-empty">
-        <div style="font-size: 2rem; margin-bottom: 0.5rem;">➕</div>
-        <div style="font-weight: 500;">Create your first bot</div>
-        <div style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 0.25rem;">Click to get started</div>
-      </a>
-    `;
-    return;
-  }
-  
-  grid.innerHTML = bots.slice(0, 6).map(bot => `
-    <a href="/admin/bots/detail.html?id=${bot.botId}" class="bot-card">
-      <div class="bot-card-header">
-        <div class="bot-card-info">
-          <div class="bot-card-avatar">${getBotEmoji(bot)}</div>
-          <div>
-            <div class="bot-card-name">${escapeHtml(bot.name)}</div>
-            <div class="bot-card-id">${bot.botId}</div>
-          </div>
-        </div>
-        <div class="bot-card-status">
-          <div class="dot ${bot.enabled ? 'active' : 'inactive'}"></div>
-          <span>${bot.enabled ? 'Active' : 'Paused'}</span>
-        </div>
-      </div>
-      <div class="bot-card-platforms">
-        ${bot.platforms?.discord?.enabled ? '<span class="badge badge-info">Discord</span>' : ''}
-        ${bot.platforms?.telegram?.enabled ? '<span class="badge badge-primary">Telegram</span>' : ''}
-        ${bot.platforms?.x?.enabled ? '<span class="badge">𝕏</span>' : ''}
-        ${!bot.platforms?.discord?.enabled && !bot.platforms?.telegram?.enabled && !bot.platforms?.x?.enabled ? '<span style="font-size: var(--text-xs); color: var(--color-text-muted);">No platforms</span>' : ''}
-      </div>
-      <div class="bot-card-footer">
-        <span>${bot.avatars?.length || 0} avatars</span>
-        <span>Last active: ${formatRelativeTime(bot.lastActiveAt)}</span>
-      </div>
-    </a>
-  `).join('') + (bots.length > 6 ? `
-    <a href="/admin/bots/" class="bot-card bot-card-empty">
-      <div style="font-weight: 500;">View all ${bots.length} bots</div>
-      <div style="margin-top: 0.25rem;">→</div>
-    </a>
-  ` : '');
-}
-
-function getBotEmoji(bot) {
-  if (bot.platforms?.discord?.enabled) return '💬';
-  if (bot.platforms?.telegram?.enabled) return '📱';
-  if (bot.platforms?.x?.enabled) return '𝕏';
-  return '🤖';
-}
-
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return 'Never';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 function updatePaymentUI(data) {
   const badge = document.getElementById('payment-status-badge');
   const setText = (id, v) => { 
@@ -149,7 +46,7 @@ function updatePaymentUI(data) {
     // Not configured or error loading
     if (badge) {
       badge.textContent = 'ERROR';
-      badge.className = 'badge badge-danger';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-red-100 text-red-800';
     }
     setText('payment-stat-transactions', '0');
     setText('payment-stat-volume', '$0.00');
@@ -172,17 +69,17 @@ function updatePaymentUI(data) {
   const totalVolume = data.stats.totalVolume || 0;
   const platformRevenue = data.stats.platformRevenue || 0;
   
-  // Update badge based on configuration and activity (v2 design)
+  // Update badge based on configuration and activity
   if (badge) {
     if (!x402Configured && !walletConfigured) {
       badge.textContent = 'NOT CONFIGURED';
-      badge.className = 'badge badge-warning';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-800';
     } else if (totalTx > 0) {
       badge.textContent = 'OPERATIONAL';
-      badge.className = 'badge badge-success';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-green-100 text-green-800';
     } else {
       badge.textContent = 'READY';
-      badge.className = 'badge badge-info';
+      badge.className = 'text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800';
     }
   }
   
@@ -244,170 +141,13 @@ function wirePhantomLogin() {
 function init() {
   initializeWallet();
   fetchStats();
-  fetchBotStatus();
-  fetchPlatformStatus();
   ensureAdminSession();
   wirePhantomLogin();
-}
-
-// Expose migration function globally
-window.migrateAvatarsToDefault = async function() {
-  const migrationStatus = document.getElementById('migration-status');
-  const migrateBtn = document.getElementById('migrate-avatars-btn');
-  
-  if (migrationStatus) {
-    migrationStatus.style.display = 'block';
-    migrationStatus.className = 'alert alert-info';
-    migrationStatus.textContent = 'Migrating avatars to default bot...';
-  }
-  if (migrateBtn) migrateBtn.disabled = true;
-  
-  try {
-    const res = await fetch('/api/admin/bots/migrate-avatars', { method: 'POST' });
-    const data = await res.json();
-    
-    if (!res.ok) throw new Error(data.error || 'Migration failed');
-    
-    if (migrationStatus) {
-      migrationStatus.className = 'alert alert-success';
-      migrationStatus.textContent = `Successfully assigned ${data.data.assigned} avatar(s) to the default bot.`;
-    }
-    if (migrateBtn) migrateBtn.style.display = 'none';
-    
-    // Refresh platform status
-    await fetchPlatformStatus();
-  } catch (e) {
-    if (migrationStatus) {
-      migrationStatus.className = 'alert alert-danger';
-      migrationStatus.textContent = 'Migration failed: ' + e.message;
-    }
-  } finally {
-    if (migrateBtn) migrateBtn.disabled = false;
-  }
-};
-
-async function fetchPlatformStatus() {
-  const discordStatus = document.getElementById('platform-discord-status');
-  const telegramStatus = document.getElementById('platform-telegram-status');
-  const xStatus = document.getElementById('platform-x-status');
-  const avatarsCount = document.getElementById('platform-avatars-count');
-  const hint = document.getElementById('platform-hint');
-  const migrateBtn = document.getElementById('migrate-avatars-btn');
-  
-  if (!discordStatus && !telegramStatus && !xStatus) return;
-  
-  try {
-    // Fetch default bot status
-    const res = await fetch('/api/admin/bots/default');
-    if (!res.ok) {
-      // No default bot yet
-      if (discordStatus) discordStatus.textContent = 'Not configured';
-      if (telegramStatus) telegramStatus.textContent = 'Not configured';
-      if (xStatus) xStatus.textContent = 'Not configured';
-      if (avatarsCount) avatarsCount.textContent = '0';
-      if (hint) hint.style.display = 'block';
-      return;
-    }
-    
-    const data = await res.json();
-    const bot = data.data || data;
-    const platforms = bot.platforms || {};
-    
-    // Update platform statuses with handles/usernames
-    if (discordStatus) {
-      const discord = platforms.discord || {};
-      if (discord.enabled) {
-        const guildCount = discord.guildIds?.length || 0;
-        const clientId = discord.clientId;
-        if (guildCount > 0) {
-          discordStatus.textContent = `${guildCount} guild${guildCount > 1 ? 's' : ''}`;
-          discordStatus.style.color = 'var(--color-success)';
-        } else if (clientId) {
-          discordStatus.textContent = 'Connected';
-          discordStatus.style.color = 'var(--color-success)';
-        } else {
-          discordStatus.textContent = 'Enabled';
-          discordStatus.style.color = 'var(--color-warning)';
-        }
-      } else {
-        discordStatus.textContent = 'Disabled';
-        discordStatus.style.color = 'var(--color-text-muted)';
-      }
-    }
-    
-    if (telegramStatus) {
-      const telegram = platforms.telegram || {};
-      if (telegram.enabled) {
-        const username = telegram.botUsername;
-        if (username) {
-          telegramStatus.textContent = `@${username.replace(/^@/, '')}`;
-          telegramStatus.style.color = 'var(--color-success)';
-        } else if (telegram.botToken) {
-          telegramStatus.textContent = 'Connected';
-          telegramStatus.style.color = 'var(--color-success)';
-        } else {
-          telegramStatus.textContent = 'Enabled';
-          telegramStatus.style.color = 'var(--color-warning)';
-        }
-      } else {
-        telegramStatus.textContent = 'Disabled';
-        telegramStatus.style.color = 'var(--color-text-muted)';
-      }
-    }
-    
-    if (xStatus) {
-      const x = platforms.x || {};
-      if (x.enabled) {
-        const handle = x.accountId || x.handle || x.username;
-        if (handle) {
-          xStatus.textContent = `@${handle.replace(/^@/, '')}`;
-          xStatus.style.color = 'var(--color-success)';
-        } else if (x.oauth1?.apiKey) {
-          xStatus.textContent = 'Connected';
-          xStatus.style.color = 'var(--color-success)';
-        } else {
-          xStatus.textContent = 'Enabled';
-          xStatus.style.color = 'var(--color-warning)';
-        }
-      } else {
-        xStatus.textContent = 'Disabled';
-        xStatus.style.color = 'var(--color-text-muted)';
-      }
-    }
-    
-    // Get the bot's assigned avatar count
-    const botAvatarCount = bot.avatars?.length || bot.avatarIds?.length || 0;
-    
-    // Get global avatar count from stats element (already populated by fetchStats)
-    const globalAvatarsEl = document.getElementById('stat-avatars');
-    const globalAvatarCount = globalAvatarsEl ? parseInt(globalAvatarsEl.textContent, 10) || 0 : 0;
-    
-    if (avatarsCount) {
-      avatarsCount.textContent = botAvatarCount.toString();
-      
-      // Show migrate button if there are unassigned avatars
-      if (migrateBtn) {
-        const unassigned = globalAvatarCount - botAvatarCount;
-        if (unassigned > 0) {
-          migrateBtn.style.display = 'block';
-          migrateBtn.textContent = `Assign ${unassigned} unassigned`;
-        } else {
-          migrateBtn.style.display = 'none';
-        }
-      }
-    }
-    
-    // Show hint if no platforms are configured
-    const anyConnected = platforms.discord?.enabled || platforms.telegram?.enabled || platforms.x?.enabled;
-    if (hint) {
-      hint.style.display = anyConnected ? 'none' : 'block';
-    }
-  } catch (e) {
-    console.warn('Failed to load platform status', e);
-    if (discordStatus) discordStatus.textContent = '--';
-    if (telegramStatus) telegramStatus.textContent = '--';
-    if (xStatus) xStatus.textContent = '--';
-  }
+  wireGlobalXToggle();
+  // Order: first wire unified toggle (loads config), then account (loads profile) so pills can update coherently
+  // wireGlobalXToggle removed (global X posting page & toggle deprecated)
+  wireAdminX();
+  wireOAuth1Form();
 }
 
 // Wait for both DOM ready and admin bootstrap readiness (so window.AdminAPI is present)
@@ -430,6 +170,341 @@ onReady(() => {
   })();
 });
 
-// Note: wireAdminX, wireGlobalXToggle, and wireOAuth1Form have been deprecated.
-// Platform configuration (X, Telegram, Discord) is now managed per-bot on the bot detail page.
-// See /admin/bots/detail.html?id=default&tab=platforms for platform configuration.
+async function wireAdminX() {
+  const connectBtn = document.getElementById('admin-x-connect');
+  const disconnectBtn = document.getElementById('admin-x-disconnect');
+  // Refresh profile button removed (auto-refresh via connect/disconnect events)
+  const hint = document.getElementById('global-x-hint');
+  const profileWrapper = document.getElementById('x-profile-wrapper');
+  // Removed account pill & global badge (single implicit global account)
+
+  function showHint(msg, kind='warn') {
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.classList.remove('hidden');
+    hint.classList.remove('bg-green-50','text-green-700','border-green-200','bg-yellow-50','text-yellow-700','border-yellow-200','bg-red-50','text-red-700','border-red-200');
+    if (kind === 'ok') hint.classList.add('bg-green-50','text-green-700','border','border-green-200');
+    else if (kind === 'error') hint.classList.add('bg-red-50','text-red-700','border','border-red-200');
+    else hint.classList.add('bg-yellow-50','text-yellow-700','border','border-yellow-200');
+  }
+
+  function hideHint() { hint?.classList.add('hidden'); }
+
+  async function fetchJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json();
+  }
+
+  // Simplified: we only need the admin target, which implicitly is the global account
+
+  async function refresh() {
+    try {
+      hideHint();
+      const placeholderImg = '/images/x-placeholder.svg';
+      let targetAvatarId = null;
+      try {
+        const t = await fetchJson('/api/xauth/admin/target');
+        targetAvatarId = t.avatarId;
+      } catch {}
+      let status = null;
+      let targetMeta = null;
+      if (targetAvatarId) {
+        try { status = await fetchJson(`/api/xauth/status/${targetAvatarId}`); } catch {}
+      }
+      // Fetch target meta (may include stored profile) for fallback
+      try { targetMeta = await fetchJson('/api/xauth/admin/target'); } catch {}
+      if (status && !status.profile && targetMeta?.profile) {
+        status.profile = targetMeta.profile; // Enrich missing profile
+      }
+      // Final fallback: direct admin profile fetch if still missing
+      if ((!status || !status.profile) && targetAvatarId) {
+        try {
+          const ap = await fetchJson('/api/xauth/admin/profile');
+          if (ap?.authorized && ap.profile) {
+            if (!status) status = { authorized: true, expiresAt: ap.expiresAt, profile: ap.profile };
+            else if (!status.profile) status.profile = ap.profile;
+          }
+        } catch {}
+      }
+      // No secondary search: only admin target matters now
+
+      const img = document.getElementById('admin-x-avatar');
+      const name = document.getElementById('admin-x-name');
+      const user = document.getElementById('admin-x-username');
+      const exp = document.getElementById('admin-x-expiry');
+
+      if (status?.authorized) {
+        connectBtn?.classList.add('hidden');
+        disconnectBtn?.classList.remove('hidden');
+        profileWrapper?.classList.remove('hidden');
+        const p = status.profile || {};
+        if (img) {
+          if (p.profile_image_url) {
+            img.src = p.profile_image_url;
+            img.onerror = () => { img.src = placeholderImg; };
+          } else {
+            img.src = placeholderImg;
+          }
+        }
+        if (name) name.textContent = p.name || (p.username ? p.username : 'X Account');
+        if (user) user.textContent = p.username ? `@${p.username}` : '';
+        if (exp) exp.textContent = status.expiresAt ? `Token expires: ${new Date(status.expiresAt).toLocaleString()}` : '';
+        hideHint();
+      } else {
+        if (img) img.src = placeholderImg;
+        if (name) name.textContent = 'No X account connected';
+        if (user) user.textContent = '';
+        if (exp) exp.textContent = '';
+        connectBtn?.classList.remove('hidden');
+        disconnectBtn?.classList.add('hidden');
+        profileWrapper?.classList.remove('hidden');
+        showHint('No authorized X account. Connect to enable auto posting.');
+      }
+    } catch (e) {
+      showHint('Failed to load X status: ' + e.message, 'error');
+    }
+  }
+
+  connectBtn?.addEventListener('click', async () => {
+    try {
+      connectBtn.disabled = true;
+      hideHint();
+      const res = await fetch('/api/xauth/admin/auth-url');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const w = 600, h = 650; const l = window.screen.width/2 - w/2; const t = window.screen.height/2 - h/2;
+      const popup = window.open(data.url, 'xauth_popup', `width=${w},height=${h},top=${t},left=${l},resizable=yes,scrollbars=yes`);
+      if (!popup) throw new Error('Popup blocked');
+      window.addEventListener('message', async function onMsg(ev) {
+        if (ev.data?.type === 'X_AUTH_SUCCESS' || ev.data?.type === 'X_AUTH_ERROR') {
+          window.removeEventListener('message', onMsg);
+          await refresh();
+        }
+      });
+    } catch (e) { showHint('Failed to start auth: ' + e.message, 'error'); } finally { connectBtn.disabled = false; }
+  });
+
+  disconnectBtn?.addEventListener('click', async () => {
+    try {
+      disconnectBtn.disabled = true; hideHint();
+      const res = await fetch('/api/xauth/admin/disconnect', { method: 'POST' });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      await refresh();
+    } catch (e) { showHint('Failed to disconnect: ' + e.message, 'error'); } finally { disconnectBtn.disabled = false; }
+  });
+
+  // Manual profile refresh removed: profile auto-updates after auth actions.
+
+  // Set Global workflow removed
+
+  await refresh();
+}
+
+// Minimal API helper for signed writes. Previously this returned an empty object
+// if the AdminAuth bootstrap hadn't finished yet, which caused authenticated
+// PUTs to fail with "Signed message required". We now attempt a direct wallet
+// signature using signWriteHeaders as a fallback so the toggle works even if
+// AdminAuth isn't fully initialized yet.
+async function getSignedHeaders(meta = {}) {
+  if (window.AdminAuth?.getSignedHeaders) return window.AdminAuth.getSignedHeaders(meta);
+  try {
+    return await signWriteHeaders(meta);
+  } catch (e) {
+    console.warn('[admin-dashboard] fallback signWriteHeaders failed', e);
+    return {};
+  }
+}
+
+async function fetchCsrfToken() {
+  try {
+    const r = await fetch('/api/admin/csrf-token');
+    if (!r.ok) return '';
+    const j = await r.json();
+    return j.csrfToken || '';
+  } catch { return ''; }
+}
+
+// Lightweight inline implementation of global X enable toggle using /api/admin/x-posting/config
+function wireGlobalXToggle() {
+  const toggle = document.getElementById('global-x-enabled');
+  const pill = document.getElementById('global-x-state-pill');
+  if (!toggle || !pill) return;
+
+  const setPill = (enabled) => {
+    pill.textContent = enabled ? 'ENABLED' : 'DISABLED';
+    pill.className = 'text-xs px-2 py-0.5 rounded ' + (enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700');
+  };
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/x-posting/config', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('' + r.status);
+      const data = await r.json();
+      const enabled = !!data?.config?.enabled;
+      toggle.checked = enabled;
+      setPill(enabled);
+    } catch (e) {
+      setPill(false);
+    }
+  }
+
+  let saveTimer = null;
+  toggle.addEventListener('change', async () => {
+    // Debounce rapid flips
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        const csrf = await fetchCsrfToken();
+        const signedHeaders = await getSignedHeaders({ op: 'set_global_x_enabled', enabled: toggle.checked });
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrf,
+          ...signedHeaders
+        };
+        const body = JSON.stringify({ enabled: toggle.checked });
+        const r = await fetch('/api/admin/x-posting/config', {
+          method: 'PUT',
+          headers,
+          body,
+          credentials: 'same-origin'
+        });
+        if (!r.ok) throw new Error('Save failed');
+        const j = await r.json().catch(()=>({}));
+        setPill(!!j?.config?.enabled);
+      } catch (e) {
+        // revert UI state on failure
+        toggle.checked = !toggle.checked;
+        setPill(toggle.checked);
+      }
+    }, 150);
+  });
+
+  load();
+}
+
+function wireOAuth1Form() {
+  const toggleBtn = document.getElementById('oauth1-toggle');
+  const form = document.getElementById('oauth1-form');
+  const saveBtn = document.getElementById('oauth1-save');
+  const testBtn = document.getElementById('oauth1-test');
+  const status = document.getElementById('oauth1-status');
+  
+  const apiKeyInput = document.getElementById('oauth1-api-key');
+  const apiSecretInput = document.getElementById('oauth1-api-secret');
+  const accessTokenInput = document.getElementById('oauth1-access-token');
+  const accessTokenSecretInput = document.getElementById('oauth1-access-token-secret');
+  
+  function showStatus(msg, type = 'info') {
+    if (!status) return;
+    status.textContent = msg;
+    status.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-blue-600');
+    if (type === 'success') status.classList.add('text-green-600');
+    else if (type === 'error') status.classList.add('text-red-600');
+    else status.classList.add('text-blue-600');
+  }
+  
+  // Toggle form visibility
+  toggleBtn?.addEventListener('click', () => {
+    const isHidden = form?.classList.contains('hidden');
+    if (isHidden) {
+      form?.classList.remove('hidden');
+      toggleBtn.textContent = 'Hide';
+      loadCredentials();
+    } else {
+      form?.classList.add('hidden');
+      toggleBtn.textContent = 'Show';
+    }
+  });
+  
+  // Load existing credentials
+  async function loadCredentials() {
+    try {
+      const res = await fetch('/api/admin/x-oauth1');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.apiKey) apiKeyInput.value = data.apiKey;
+      if (data.accessToken) accessTokenInput.value = data.accessToken;
+      // Secrets are not returned for security, show placeholder
+      if (data.hasApiSecret) apiSecretInput.placeholder = '••••••••••••';
+      if (data.hasAccessTokenSecret) accessTokenSecretInput.placeholder = '••••••••••••';
+      showStatus('Credentials loaded', 'success');
+    } catch (e) {
+      showStatus('Failed to load credentials: ' + e.message, 'error');
+    }
+  }
+  
+  // Save credentials
+  saveBtn?.addEventListener('click', async () => {
+    try {
+      saveBtn.disabled = true;
+      showStatus('Saving...', 'info');
+      
+      const payload = {
+        apiKey: apiKeyInput?.value?.trim() || '',
+        apiSecret: apiSecretInput?.value?.trim() || '',
+        accessToken: accessTokenInput?.value?.trim() || '',
+        accessTokenSecret: accessTokenSecretInput?.value?.trim() || '',
+      };
+      
+      console.log('[OAuth1] Saving credentials:', {
+        hasApiKey: !!payload.apiKey,
+        hasApiSecret: !!payload.apiSecret,
+        hasAccessToken: !!payload.accessToken,
+        hasAccessTokenSecret: !!payload.accessTokenSecret,
+        apiKeyPreview: payload.apiKey?.substring(0, 10) + '...',
+        accessTokenPreview: payload.accessToken?.substring(0, 10) + '...'
+      });
+      
+      const headers = await signWriteHeaders();
+      headers['Content-Type'] = 'application/json';
+      
+      const res = await fetch('/api/admin/x-oauth1', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      
+      const responseData = await res.json();
+      console.log('[OAuth1] Save response:', responseData);
+      
+      if (!res.ok) {
+        throw new Error(responseData.error || `HTTP ${res.status}`);
+      }
+      
+      showStatus('Credentials saved successfully!', 'success');
+      // Clear password fields for security
+      if (apiSecretInput.value) apiSecretInput.value = '';
+      if (accessTokenSecretInput.value) accessTokenSecretInput.value = '';
+      await loadCredentials();
+    } catch (e) {
+      showStatus('Save failed: ' + e.message, 'error');
+      console.error('[OAuth1] Save error:', e);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+  
+  // Test upload
+  testBtn?.addEventListener('click', async () => {
+    try {
+      testBtn.disabled = true;
+      showStatus('Testing upload...', 'info');
+      
+      const res = await fetch('/api/admin/x-oauth1/test');
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      
+      showStatus(`Test successful! ${data.message || 'Upload works'}`, 'success');
+    } catch (e) {
+      showStatus('Test failed: ' + e.message, 'error');
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
+}
+

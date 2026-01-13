@@ -13,14 +13,7 @@
 import express from 'express';
 import { ObjectId } from 'mongodb';
 
-export default function createNftRouter(routeServices = {}) {
-  const router = express.Router();
-  const {
-    databaseService,
-    nftMetadataService,
-    arweaveService,
-    logger,
-  } = routeServices;
+const router = express.Router();
 
 /**
  * Generate NFT metadata manifests for an avatar
@@ -30,6 +23,8 @@ export default function createNftRouter(routeServices = {}) {
 router.get('/avatar/:avatarId/metadata', async (req, res) => {
   try {
     const { avatarId } = req.params;
+    const { services } = req.app.locals;
+    const { databaseService, nftMetadataService, logger } = services;
 
     // Validate avatar ID
     if (!ObjectId.isValid(avatarId)) {
@@ -62,6 +57,7 @@ router.get('/avatar/:avatarId/metadata', async (req, res) => {
 
     res.json(manifest);
   } catch (error) {
+    const { logger } = req.app.locals.services;
     logger?.error?.('[NFT API] Error generating metadata:', error);
     res.status(500).json({ error: 'Failed to generate metadata', message: error.message });
   }
@@ -76,6 +72,8 @@ router.post('/avatar/:avatarId/deploy', async (req, res) => {
   try {
     const { avatarId } = req.params;
     const { walletConnected } = req.body;
+    const { services } = req.app.locals;
+    const { databaseService, nftMetadataService, arweaveService, logger } = services;
 
     // Validate avatar ID
     if (!ObjectId.isValid(avatarId)) {
@@ -180,6 +178,7 @@ router.post('/avatar/:avatarId/deploy', async (req, res) => {
 
     res.json(deployment);
   } catch (error) {
+    const { logger } = req.app.locals.services;
     logger?.error?.('[NFT API] Error deploying to Arweave:', error);
     res.status(500).json({ error: 'Failed to deploy to Arweave', message: error.message });
   }
@@ -193,6 +192,8 @@ router.post('/avatar/:avatarId/deploy', async (req, res) => {
 router.get('/avatar/:avatarId/status', async (req, res) => {
   try {
     const { avatarId } = req.params;
+    const { services } = req.app.locals;
+    const { databaseService, logger } = services;
 
     // Validate avatar ID
     if (!ObjectId.isValid(avatarId)) {
@@ -224,6 +225,7 @@ router.get('/avatar/:avatarId/status', async (req, res) => {
       deployedAt: avatar.nftDeployedAt
     });
   } catch (error) {
+    const { logger } = req.app.locals.services;
     logger?.error?.('[NFT API] Error fetching deployment status:', error);
     res.status(500).json({ error: 'Failed to fetch deployment status', message: error.message });
   }
@@ -236,6 +238,9 @@ router.get('/avatar/:avatarId/status', async (req, res) => {
  */
 router.get('/deployed', async (req, res) => {
   try {
+    const { services } = req.app.locals;
+    const { databaseService, logger } = services;
+
     const limit = parseInt(req.query.limit) || 50;
     const skip = parseInt(req.query.skip) || 0;
 
@@ -264,10 +269,10 @@ router.get('/deployed', async (req, res) => {
       skip
     });
   } catch (error) {
+    const { logger } = req.app.locals.services;
     logger?.error?.('[NFT API] Error listing deployed NFTs:', error);
     res.status(500).json({ error: 'Failed to list deployed NFTs', message: error.message });
   }
 });
 
-  return router;
-}
+export default router;

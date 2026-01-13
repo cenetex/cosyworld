@@ -22,9 +22,6 @@ export class ResponseCoordinator {
     avatarService,
     decisionMaker,
     discordService,
-    conversationThreadService,
-    encounterService,
-    avatarAgentService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -33,24 +30,12 @@ export class ResponseCoordinator {
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.discordService = discordService;
-    this.conversationThreadService = conversationThreadService;
-    this.encounterService = encounterService;
-    this.avatarAgentService = avatarAgentService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
     this.RESPONSE_LOCK_TTL_MS = Number(process.env.RESPONSE_LOCK_TTL_MS || 5000);
     this.STICKY_AFFINITY_EXCLUSIVE = String(process.env.STICKY_AFFINITY_EXCLUSIVE || 'true').toLowerCase() === 'true';
     this.TURN_BASED_MODE = String(process.env.TURN_BASED_MODE || 'true').toLowerCase() === 'true';
-    this.AMBIENT_DIVERSITY_LOOKBACK = Number(process.env.AMBIENT_DIVERSITY_LOOKBACK || 8);
-    
-    // Multi-avatar response settings for human messages
-    // When a human writes, multiple avatars may join the conversation
-    this.MULTI_AVATAR_ENABLED = String(process.env.MULTI_AVATAR_ENABLED || 'true').toLowerCase() === 'true';
-    this.MULTI_AVATAR_MAX = Number(process.env.MULTI_AVATAR_MAX || 3); // Max additional responders beyond primary
-    this.MULTI_AVATAR_CHANCE = Number(process.env.MULTI_AVATAR_CHANCE || 0.4); // Chance for each additional avatar to chime in
-    this.MULTI_AVATAR_DELAY_MS = Number(process.env.MULTI_AVATAR_DELAY_MS || 2500); // Delay between responses
-    this.MULTI_AVATAR_DELAY_VARIANCE_MS = Number(process.env.MULTI_AVATAR_DELAY_VARIANCE_MS || 1500); // Random variance
     
     // Cache for recent speakers to reduce Discord API calls
     this.recentSpeakersCache = new Map(); // channelId -> { speakers: [], at: timestamp }
@@ -118,7 +103,6 @@ export class ResponseCoordinator {
 
       // 5. Generate responses with locking
       const responses = [];
-      const threadSelections = context.threadSelections || {};
       for (const avatar of selectedAvatars) {
         this.logger.debug?.(`[ResponseCoordinator] Attempting response from ${avatar.name}`);
         
@@ -131,54 +115,8 @@ export class ResponseCoordinator {
 
         try {
           this.logger.debug?.(`[ResponseCoordinator] Lock acquired, generating response for ${avatar.name}`);
-
-          // Layer B: agentic action decision (respond | wait | disengage)
-          try {
-            if (this.avatarAgentService?.decideAction) {
-              const decision = await this.avatarAgentService.decideAction({
-                channel,
-                message,
-                avatar,
-                trigger,
-              });
-
-              const action = decision?.action;
-              if (action === 'wait') {
-                this.logger.info?.(`[ResponseCoordinator] Agent action=wait for ${avatar.name}${decision?.reason ? ` (${decision.reason})` : ''}`);
-                continue;
-              }
-              if (action === 'disengage') {
-                this.logger.info?.(`[ResponseCoordinator] Agent action=disengage for ${avatar.name}${decision?.reason ? ` (${decision.reason})` : ''}`);
-                try {
-                  await this.presenceService?.disableConversationMode?.(channelId, `${avatar._id || avatar.id}`);
-                } catch (e) {
-                  this.logger.debug?.(`[ResponseCoordinator] disableConversationMode failed: ${e.message}`);
-                }
-                try {
-                  await this.encounterService?.leaveEncounter?.(channelId, `${avatar._id || avatar.id}`, 'agent_disengage');
-                } catch (e) {
-                  this.logger.debug?.(`[ResponseCoordinator] leaveEncounter failed: ${e.message}`);
-                }
-                // Mark cooldown so we don't repeatedly reselect the same avatar immediately.
-                try {
-                  await this.presenceService?.recordTurn?.(channelId, `${avatar._id || avatar.id}`);
-                } catch (e) {
-                  this.logger.debug?.(`[ResponseCoordinator] recordTurn (disengage) failed: ${e.message}`);
-                }
-                continue;
-              }
-            }
-          } catch (e) {
-            this.logger.debug?.(`[ResponseCoordinator] Agent decision failed: ${e.message}`);
-          }
-
           // Generate and send the response
-          const avatarId = `${avatar._id || avatar.id}`;
-          const responseContext = {
-            ...context,
-            conversationThread: threadSelections[avatarId] || context.conversationThread || null
-          };
-          const response = await this.generateResponse(avatar, channel, message, responseContext);
+          const response = await this.generateResponse(avatar, channel, message, context);
           if (response) {
             this.logger.debug?.(`[ResponseCoordinator] Response generated successfully for ${avatar.name}`);
             responses.push(response);
@@ -203,25 +141,6 @@ export class ResponseCoordinator {
         // Respect max responses limit
         if (responses.length >= this.MAX_RESPONSES_PER_MESSAGE) {
           break;
-        }
-      }
-
-      // 6. Multi-avatar responses for human messages
-      // When a human is chatting, give other avatars a chance to join the conversation
-      if (this.MULTI_AVATAR_ENABLED && 
-          message && 
-          !message.author.bot && 
-          responses.length > 0 &&
-          trigger.type !== 'ambient') {
-        
-        // Get avatars that didn't respond yet
-        const respondedIds = new Set(selectedAvatars.map(av => `${av._id || av.id}`));
-        const otherAvatars = eligibleAvatars.filter(av => !respondedIds.has(`${av._id || av.id}`));
-        
-        if (otherAvatars.length > 0) {
-          // Schedule additional responses asynchronously (don't block the main response)
-          this.scheduleAdditionalResponses(channel, message, otherAvatars, context, responses[0])
-            .catch(err => this.logger.warn?.(`[ResponseCoordinator] Additional responses failed: ${err.message}`));
         }
       }
 
@@ -334,12 +253,6 @@ export class ResponseCoordinator {
           // Even if avatar is on cooldown, we should respond to direct replies
           // This creates a natural conversation flow
           this.logger.info?.(`[ResponseCoordinator] 🎯 REPLY PRIORITY: ${repliedToAvatar.name} will respond to reply (overriding all other priorities)`);
-          
-          // Ensure replied-to avatar is in the encounter
-          if (this.encounterService) {
-            await this.encounterService.joinEncounter(channelId, repliedToAvatar);
-          }
-          
           return [repliedToAvatar];
         } else {
           this.logger.error?.(`[ResponseCoordinator] ❌ Could not find or fetch replied-to avatar ${message.repliedToAvatarName} (ID: ${message.repliedToAvatarId})`);
@@ -349,15 +262,6 @@ export class ResponseCoordinator {
       }
     } else {
       this.logger.debug?.(`[ResponseCoordinator] No reply detected (message.repliedToAvatarId: ${message?.repliedToAvatarId || 'undefined'})`);
-    }
-
-    const threadResult = await this.getThreadParticipant(channelId, eligibleAvatars);
-    if (threadResult) {
-      if (!_context.threadSelections) _context.threadSelections = {};
-      const key = `${threadResult.avatar._id || threadResult.avatar.id}`;
-      _context.threadSelections[key] = threadResult.thread;
-      this.logger.info?.(`[ResponseCoordinator] Thread participant: ${threadResult.avatar.name}`);
-      return [threadResult.avatar];
     }
 
     // PRIORITY 1: Explicit summon with guaranteed turns
@@ -402,12 +306,6 @@ export class ResponseCoordinator {
               // This keeps the avatar "locked on" to this user as long as they keep talking
               this.decisionMaker._recordAffinity(channelId, message.author.id, stickyAvatarId);
               this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed)`);
-              
-              // Ensure sticky avatar is in the encounter
-              if (this.encounterService) {
-                await this.encounterService.joinEncounter(channelId, stickyAvatar);
-              }
-              
               return [stickyAvatar];
             }
           }
@@ -420,9 +318,7 @@ export class ResponseCoordinator {
     // PRIORITY 3: Direct mention by name/emoji
     if (message && message.content) {
       try {
-        const mentionedAvatars = this.avatarService?.matchAvatarsByContent
-          ? this.avatarService.matchAvatarsByContent(message.content, eligibleAvatars, { limit: 1 })
-          : [];
+        const mentionedAvatars = this.findMentionedAvatars(message.content, eligibleAvatars);
         if (mentionedAvatars.length > 0) {
           // Take first mentioned avatar
           const mentioned = mentionedAvatars[0];
@@ -437,12 +333,6 @@ export class ResponseCoordinator {
           }
           
           this.logger.info?.(`[ResponseCoordinator] Direct mention: ${mentioned.name}`);
-          
-          // Ensure mentioned avatar is in the encounter
-          if (this.encounterService) {
-            await this.encounterService.joinEncounter(channelId, mentioned);
-          }
-          
           return [mentioned];
         }
       } catch (e) {
@@ -450,70 +340,8 @@ export class ResponseCoordinator {
       }
     }
 
-    // PRIORITY 4: Initiative System (Encounter Turn)
-    if (this.encounterService) {
-      try {
-        // Check if there's an active encounter
-        let encounter = this.encounterService.getEncounter(channelId);
-        
-        // If no encounter, but we have a message, start one with eligible avatars
-        if (!encounter && message) {
-          // Filter eligible avatars to a reasonable number for the encounter
-          const participants = eligibleAvatars.slice(0, this.encounterService.MAX_PARTICIPANTS || 10);
-          encounter = await this.encounterService.startEncounter(channelId, participants, { trigger });
-        }
-
-        if (encounter) {
-          // Get whose turn it is
-          const turnParticipant = this.encounterService.getCurrentTurn(channelId);
-          
-          if (turnParticipant) {
-            const avatar = eligibleAvatars.find(av => String(av._id || av.id) === turnParticipant.avatarId);
-            
-            if (avatar) {
-              // Check if avatar wants to speak (using DecisionMaker)
-              // We lower the threshold slightly since it's their turn
-              const shouldRespond = await this.decisionMaker.shouldRespond(channel, avatar, message);
-              
-              if (shouldRespond) {
-                this.logger.info?.(`[ResponseCoordinator] Initiative Turn: ${avatar.name} (Init: ${turnParticipant.initiative})`);
-                
-                // Advance turn for next time
-                this.encounterService.nextTurn(channelId);
-                
-                return [avatar];
-              } else {
-                this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} passed their turn`);
-                // Advance turn and try next participant (recurse or loop?)
-                // For safety, we just advance turn and fall through to other logic or return empty
-                // Ideally we'd loop, but let's keep it simple for now: pass turn, no response this tick.
-                this.encounterService.nextTurn(channelId);
-                
-                // Optional: Try one more time with next participant?
-                // Let's try one recursion depth
-                const nextParticipant = this.encounterService.getCurrentTurn(channelId);
-                if (nextParticipant && nextParticipant.avatarId !== turnParticipant.avatarId) {
-                   const nextAvatar = eligibleAvatars.find(av => String(av._id || av.id) === nextParticipant.avatarId);
-                   if (nextAvatar) {
-                     const nextShouldRespond = await this.decisionMaker.shouldRespond(channel, nextAvatar, message);
-                     if (nextShouldRespond) {
-                        this.logger.info?.(`[ResponseCoordinator] Initiative Turn (Next): ${nextAvatar.name}`);
-                        this.encounterService.nextTurn(channelId);
-                        return [nextAvatar];
-                     }
-                   }
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        this.logger.warn?.(`[ResponseCoordinator] Initiative system failed: ${e.message}`);
-      }
-    }
-
-    // PRIORITY 5: Turn-based selection (Legacy/Fallback)
-    if (this.TURN_BASED_MODE && message && !this.encounterService) {
+    // PRIORITY 4: Turn-based selection (active speaker)
+    if (this.TURN_BASED_MODE && message) {
       try {
         const activeSpeaker = await this.getActiveSpeaker(channelId, eligibleAvatars);
         if (activeSpeaker) {
@@ -533,43 +361,26 @@ export class ResponseCoordinator {
     
     // For ambient triggers, ensure conversational diversity
     if (trigger.type === 'ambient') {
-      // Get recent speakers with extended lookback for better diversity
-      const recentSpeakers = await this.getRecentChannelSpeakers(channel, this.AMBIENT_DIVERSITY_LOOKBACK);
-      
-      // Build exponential decay scores for recent speakers
-      const recentSpeakerScores = new Map();
-      recentSpeakers.forEach((msg, index) => {
-        const aliases = this.extractSpeakerAliases(msg);
-        const decay = Math.pow(0.5, index); // 1.0, 0.5, 0.25, 0.125, ...
-        aliases.forEach(alias => {
-          const current = recentSpeakerScores.get(alias) || 0;
-          recentSpeakerScores.set(alias, current + decay);
-        });
-      });
+      // Get last 3 speakers in channel to avoid consecutive ambient responses from same avatar
+      const recentSpeakers = await this.getRecentChannelSpeakers(channel, 3);
+      const recentSpeakerAliases = new Set();
+      for (const msg of recentSpeakers) {
+        for (const alias of this.extractSpeakerAliases(msg)) {
+          recentSpeakerAliases.add(alias);
+        }
+      }
 
       const lastSpeakerAliasSet = recentSpeakers.length > 0 ? new Set(this.extractSpeakerAliases(recentSpeakers[0])) : new Set();
-      const veryRecentAliases = new Set();
-      recentSpeakers.slice(0, 2).forEach(msg => {
-        this.extractSpeakerAliases(msg).forEach(alias => veryRecentAliases.add(alias));
-      });
 
-      this.logger.debug?.(`[ResponseCoordinator] Recent speakers (${this.AMBIENT_DIVERSITY_LOOKBACK}): ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
+      this.logger.debug?.(`[ResponseCoordinator] Recent speakers: ${recentSpeakers.map(m => m.author.username || m.author.id).join(', ')}`);
       
-      // Apply diversity penalties and filter
-      const eligibleForAmbient = ranked.map(r => {
+      // Filter out avatars who spoke in the last 3 messages (creates natural back-and-forth)
+      const eligibleForAmbient = ranked.filter(r => {
         const avatarAliases = this.getAvatarAliases(r.avatar);
-        const penalty = Math.max(...avatarAliases.map(a => recentSpeakerScores.get(a) || 0));
-        return {
-          ...r,
-          score: r.score * (1 - Math.min(0.8, penalty)) // Up to 80% penalty for recent speakers
-        };
-      }).filter(r => {
-        const avatarAliases = this.getAvatarAliases(r.avatar);
+        const wasRecentSpeaker = avatarAliases.some(alias => recentSpeakerAliases.has(alias));
         
-        // Hard filter: skip if spoke in last 2 messages
-        const wasVeryRecentSpeaker = avatarAliases.some(alias => veryRecentAliases.has(alias));
-        if (wasVeryRecentSpeaker) {
-          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - was very recent speaker (last 2 messages)`);
+        if (wasRecentSpeaker) {
+          this.logger.debug?.(`[ResponseCoordinator] Skipping ${r.avatar.name} - was recent speaker (ambient diversity)`);
           return false;
         }
         
@@ -580,18 +391,17 @@ export class ResponseCoordinator {
         }
         
         return true;
-      }).sort((a, b) => b.score - a.score); // Re-sort after penalty adjustment
+      });
       
       if (eligibleForAmbient.length > 0) {
         const selected = eligibleForAmbient[0];
-        this.logger.info?.(`[ResponseCoordinator] Ambient selected: ${selected.avatar.name} (adjusted score: ${selected.score.toFixed(2)})`);
+        this.logger.info?.(`[ResponseCoordinator] Ambient selected: ${selected.avatar.name} (score: ${selected.score.toFixed(2)})`);
         return [selected.avatar];
       }
       
       // If all avatars filtered out, allow a recent speaker but only if score is high enough
       // AND they weren't the very last speaker (most recent message)
-      // Lowered threshold for ambient: score > 0.15 (was 0.5) since ambient scores are typically low
-      if (ranked.length > 0 && ranked[0].score > 0.15) {
+      if (ranked.length > 0 && ranked[0].score > 0.5) {
         const fallback = ranked[0];
         const avatarAliases = this.getAvatarAliases(fallback.avatar);
         const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
@@ -606,9 +416,8 @@ export class ResponseCoordinator {
         return [fallback.avatar];
       }
       
-      // Lower threshold fallback for edge cases - any avatar with non-zero score
-      // This ensures ambient responses happen regularly even without mentions/summons
-      if (ranked.length > 0 && ranked[0].score > 0.05) {
+      // Lower threshold fallback for edge cases (score > 0.3)
+      if (ranked.length > 0 && ranked[0].score > 0.3) {
         const fallback = ranked[0];
         const avatarAliases = this.getAvatarAliases(fallback.avatar);
         const wasLastSpeaker = avatarAliases.some(alias => lastSpeakerAliasSet.has(alias));
@@ -639,26 +448,28 @@ export class ResponseCoordinator {
     return [];
   }
 
-  async getThreadParticipant(channelId, eligibleAvatars) {
-    if (!this.conversationThreadService) return null;
-    try {
-      const threads = this.conversationThreadService.getActiveThreads(channelId) || [];
-      if (!threads.length) return null;
-      for (const thread of threads) {
-        const participant = eligibleAvatars.find(av => {
-          const avatarId = `${av._id || av.id}`;
-          if (!thread.participants?.has?.(avatarId)) return false;
-          if (thread.lastSpeakerId && thread.lastSpeakerId === avatarId) return false;
-          return true;
-        });
-        if (participant) {
-          return { avatar: participant, thread };
-        }
+  /**
+   * Find avatars mentioned by name or emoji in content
+   * @param {string} content - Message content
+   * @param {Array} avatars - Available avatars
+   * @returns {Array} Mentioned avatars
+   */
+  findMentionedAvatars(content, avatars) {
+    const lower = content.toLowerCase();
+    const mentioned = [];
+
+    for (const avatar of avatars) {
+      const name = String(avatar.name || '').toLowerCase();
+      const emoji = String(avatar.emoji || '').toLowerCase();
+      
+      if (name && lower.includes(name)) {
+        mentioned.push(avatar);
+      } else if (emoji && lower.includes(emoji)) {
+        mentioned.push(avatar);
       }
-    } catch (err) {
-      this.logger.debug?.(`[ResponseCoordinator] Thread participant lookup failed: ${err.message}`);
     }
-    return null;
+
+    return mentioned;
   }
 
   /**
@@ -1114,8 +925,7 @@ export class ResponseCoordinator {
     try {
       const options = {
         overrideCooldown: context.overrideCooldown || false,
-        cascadeDepth: context.cascadeDepth || 0,
-        conversationThread: context.conversationThread || null
+        cascadeDepth: context.cascadeDepth || 0
       };
 
       this.logger.debug?.(`[ResponseCoordinator] generateResponse called for ${avatar.name} in channel ${channel.id}`);
@@ -1136,25 +946,6 @@ export class ResponseCoordinator {
             channel = newChannel;
           } else {
             this.logger.warn?.(`[ResponseCoordinator] Could not fetch new channel ${freshAvatar.channelId}, using original`);
-          }
-        }
-        
-        // Check if this is a partial avatar without an image - hydrate it before speaking
-        if (freshAvatar && !freshAvatar.imageUrl && (freshAvatar.isPartial === true || freshAvatar.model === 'partial')) {
-          this.logger.info?.(`[ResponseCoordinator] Detected partial avatar ${avatar.name} without image, hydrating before speaking`);
-          try {
-            const hydratedAvatar = await this.avatarService.hydratePartialAvatarForSpeaking(
-              freshAvatar,
-              channel.id,
-              { discordService: this.discordService }
-            );
-            if (hydratedAvatar?.imageUrl) {
-              avatar = hydratedAvatar;
-              this.logger.info?.(`[ResponseCoordinator] Successfully hydrated ${avatar.name} with image`);
-            }
-          } catch (hydrateError) {
-            this.logger.warn?.(`[ResponseCoordinator] Failed to hydrate partial avatar: ${hydrateError.message}`);
-            // Continue with original avatar - they can still speak without an image
           }
         }
       } catch (e) {
@@ -1270,99 +1061,6 @@ export class ResponseCoordinator {
     );
 
     this.logger.info('[ResponseCoordinator] Maintenance tasks started');
-  }
-
-  /**
-   * Schedule additional avatar responses for human messages
-   * Creates a more natural conversation where multiple avatars can join in
-   * @param {Object} channel - Discord channel
-   * @param {Object} message - Original human message
-   * @param {Array} otherAvatars - Avatars that haven't responded yet
-   * @param {Object} context - Response context
-   * @param {Object} primaryResponse - The primary avatar's response (to reference)
-   */
-  async scheduleAdditionalResponses(channel, message, otherAvatars, context, primaryResponse) {
-    const channelId = channel.id;
-    
-    // Rank other avatars by relevance/presence
-    const ranked = await this.rankByPresence(channelId, otherAvatars);
-    
-    // Take top candidates
-    const candidates = ranked.slice(0, Math.min(this.MULTI_AVATAR_MAX + 2, ranked.length));
-    
-    let additionalResponders = 0;
-    let cumulativeDelay = this.MULTI_AVATAR_DELAY_MS;
-    
-    for (const candidate of candidates) {
-      if (additionalResponders >= this.MULTI_AVATAR_MAX) break;
-      
-      const avatar = candidate.avatar;
-      
-      // Roll the dice - does this avatar want to chime in?
-      const chimeInRoll = Math.random();
-      
-      // Boost chance if avatar is highly engaged (high presence score)
-      const boostedChance = this.MULTI_AVATAR_CHANCE + (candidate.score * 0.2);
-      
-      if (chimeInRoll > boostedChance) {
-        this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} passed on chiming in (roll: ${chimeInRoll.toFixed(2)}, threshold: ${boostedChance.toFixed(2)})`);
-        continue;
-      }
-      
-      // Check if avatar has something relevant to say (optional AI check)
-      const shouldRespond = await this.decisionMaker.shouldRespond(channel, avatar, message);
-      if (!shouldRespond) {
-        this.logger.debug?.(`[ResponseCoordinator] ${avatar.name} decided not to respond (DecisionMaker)`);
-        continue;
-      }
-      
-      // Calculate delay with variance
-      const variance = Math.random() * this.MULTI_AVATAR_DELAY_VARIANCE_MS;
-      const delay = cumulativeDelay + variance;
-      
-      this.logger.info?.(`[ResponseCoordinator] 🗣️ Scheduling additional response from ${avatar.name} in ${Math.round(delay/1000)}s`);
-      
-      // Schedule the response
-      setTimeout(async () => {
-        try {
-          // Re-check lock to avoid race conditions
-          const lockAcquired = await this.acquireResponseLock(channelId, avatar._id || avatar.id);
-          if (!lockAcquired) {
-            this.logger.debug?.(`[ResponseCoordinator] Lock not acquired for ${avatar.name} additional response`);
-            return;
-          }
-          
-          try {
-            // Provide context about the ongoing conversation
-            const enhancedContext = {
-              ...context,
-              isFollowUp: true,
-              previousResponse: primaryResponse?.content?.slice(0, 200), // Reference primary response
-              conversationType: 'multi_avatar'
-            };
-            
-            const response = await this.generateResponse(avatar, channel, message, enhancedContext);
-            if (response) {
-              this.logger.info?.(`[ResponseCoordinator] ✅ Additional response sent from ${avatar.name}`);
-              
-              // Update presence
-              await this.presenceService.recordTurn(channelId, `${avatar._id || avatar.id}`);
-            }
-          } finally {
-            await this.releaseResponseLock(channelId, avatar._id || avatar.id);
-          }
-        } catch (err) {
-          this.logger.warn?.(`[ResponseCoordinator] Additional response failed for ${avatar.name}: ${err.message}`);
-        }
-      }, delay);
-      
-      additionalResponders++;
-      cumulativeDelay += this.MULTI_AVATAR_DELAY_MS; // Stack delays
-    }
-    
-    if (additionalResponders > 0) {
-      this.logger.info?.(`[ResponseCoordinator] Scheduled ${additionalResponders} additional avatar response(s)`);
-    }
   }
 }
 

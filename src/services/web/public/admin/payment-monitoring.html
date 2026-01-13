@@ -8,48 +8,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Payment Monitoring - RATi Admin</title>
-    <link rel="stylesheet" href="/css/admin-v2.css" />
+    <title>Payment Monitoring - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <style>
-      /* Metric Cards */
-      .metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-      }
       .metric-card {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
-        border-radius: 0.5rem;
-        padding: 1.25rem;
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
       }
+      
       .metric-value {
-        font-size: 1.75rem;
+        font-size: 2rem;
         font-weight: 700;
-        color: var(--color-text);
+        color: #111827;
         line-height: 1;
       }
+      
       .metric-label {
         font-size: 0.875rem;
-        color: var(--color-text-muted);
+        color: #6b7280;
         margin-top: 0.5rem;
         font-weight: 500;
       }
+      
       .metric-change {
         font-size: 0.75rem;
         margin-top: 0.5rem;
         font-weight: 600;
       }
+      
       .metric-change.positive {
-        color: #34d399;
+        color: #059669;
       }
+      
       .metric-change.negative {
-        color: #ef4444;
+        color: #dc2626;
       }
-
-      /* Status Badges */
+      
       .status-badge {
         display: inline-flex;
         align-items: center;
@@ -60,120 +59,43 @@
         text-transform: uppercase;
         letter-spacing: 0.025em;
       }
+      
       .status-badge.success {
-        background-color: rgba(16, 185, 129, 0.2);
-        color: #34d399;
+        background-color: #d1fae5;
+        color: #065f46;
       }
+      
       .status-badge.warning {
-        background-color: rgba(245, 158, 11, 0.2);
-        color: #fbbf24;
+        background-color: #fef3c7;
+        color: #92400e;
       }
+      
       .status-badge.error {
-        background-color: rgba(239, 68, 68, 0.2);
-        color: #f87171;
+        background-color: #fee2e2;
+        color: #991b1b;
       }
+      
       .status-badge.info {
-        background-color: rgba(59, 130, 246, 0.2);
-        color: #60a5fa;
+        background-color: #dbeafe;
+        color: #1e40af;
       }
-
-      /* System Status Grid */
-      .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1rem;
-      }
-      .status-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem;
-        background: var(--color-bg);
-        border-radius: 0.5rem;
-        border: 1px solid var(--color-border);
-      }
-      .status-item-info {
-        flex: 1;
-      }
-      .status-item-title {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--color-text);
-      }
-      .status-item-details {
-        font-size: 0.75rem;
-        color: var(--color-text-muted);
-        margin-top: 0.25rem;
-      }
-
-      /* Charts */
-      .charts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-      }
-      @media (max-width: 900px) {
-        .charts-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-      .chart-container {
-        position: relative;
-        height: 280px;
-        margin-top: 1rem;
-      }
-
-      /* Transaction Row */
+      
       .transaction-row {
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid var(--color-border);
+        padding: 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 1rem;
       }
+      
       .transaction-row:hover {
-        background-color: rgba(255, 255, 255, 0.02);
+        background-color: #f9fafb;
       }
+      
       .transaction-row:last-child {
         border-bottom: none;
       }
-
-      /* Table styles */
-      .wallets-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .wallets-table th {
-        text-align: left;
-        padding: 0.75rem 1rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--color-text-muted);
-        background: var(--color-surface);
-        border-bottom: 1px solid var(--color-border);
-      }
-      .wallets-table td {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
-        color: var(--color-text);
-        border-bottom: 1px solid var(--color-border);
-      }
-      .wallets-table tbody tr:hover {
-        background: rgba(255, 255, 255, 0.02);
-      }
-      .wallets-table code {
-        font-size: 0.75rem;
-        background: var(--color-bg);
-        padding: 0.125rem 0.25rem;
-        border-radius: 0.25rem;
-        color: var(--color-text-muted);
-      }
-
-      /* Refresh indicator */
+      
       .refresh-indicator {
         display: inline-block;
         width: 8px;
@@ -182,174 +104,142 @@
         background-color: #10b981;
         animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
       }
+      
       @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
       }
-
-      /* Loading spinner */
+      
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+      }
+      
       .loading-spinner {
-        border: 3px solid var(--color-border);
-        border-top: 3px solid var(--color-accent);
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #6366f1;
         border-radius: 50%;
         width: 24px;
         height: 24px;
         animation: spin 1s linear infinite;
         display: inline-block;
       }
+      
       @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
-
-      /* Two-column layout */
-      .two-col-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-      }
-      @media (max-width: 900px) {
-        .two-col-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      /* Header actions */
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-      }
-      .refresh-status {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        color: var(--color-text-muted);
-      }
     </style>
   </head>
-  <body class="admin-v2">
-    <div class="admin-layout has-sidebar">
-      <!-- Sidebar Navigation -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <img src="/images/image.png" alt="RATi Logo" class="sidebar-logo" />
-          <span class="sidebar-title">RATi Admin</span>
-        </div>
-        <nav class="sidebar-nav">
-          <a href="/admin" class="nav-item">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">Dashboard</span>
-          </a>
-          <a href="/admin/bots/" class="nav-item">
-            <span class="nav-icon">🤖</span>
-            <span class="nav-label">Bots</span>
-          </a>
-          <a href="/admin/entity-management" class="nav-item">
-            <span class="nav-icon">👤</span>
-            <span class="nav-label">Entities</span>
-          </a>
-          <a href="/admin/collections" class="nav-item">
-            <span class="nav-icon">📦</span>
-            <span class="nav-label">Collections</span>
-          </a>
-          <a href="/admin/servers" class="nav-item">
-            <span class="nav-icon">🖥️</span>
-            <span class="nav-label">Servers</span>
-          </a>
-          <a href="/admin/users" class="nav-item">
-            <span class="nav-icon">👥</span>
-            <span class="nav-label">Users</span>
-          </a>
-          <a href="/admin/payment-monitoring" class="nav-item active">
-            <span class="nav-icon">💳</span>
-            <span class="nav-label">Payments</span>
-          </a>
-          <a href="/admin/global-settings" class="nav-item">
-            <span class="nav-icon">⚙️</span>
-            <span class="nav-label">Settings</span>
-          </a>
-        </nav>
-        <div class="sidebar-footer">
-          <span class="version-tag">v2.0</span>
-        </div>
-      </aside>
-
-      <!-- Main Content -->
-      <main class="main-content">
-        <div class="content-wrapper">
-          <!-- Page Header -->
-          <div class="page-header">
-            <div>
-              <h1 class="page-title">Payment & Economy Monitoring</h1>
-              <p class="page-subtitle">Real-time insights into the agentic economy</p>
-            </div>
-            <div class="header-actions">
-              <div class="refresh-status">
-                <span class="refresh-indicator"></span>
-                <span>Auto-refresh: <span id="refresh-countdown">30</span>s</span>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <!-- Navigation -->
+      <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
               </div>
-              <button id="refresh-btn" class="btn btn-primary">
-                <span id="refresh-icon">↻</span> Refresh Now
-              </button>
-              <button id="export-btn" class="btn btn-secondary">
-                ⤓ Export Data
-              </button>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/payment-monitoring" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Payment Monitor</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="refresh-indicator"></span>
+                <span class="text-gray-400">Auto-refresh: <span id="refresh-countdown">30</span>s</span>
+              </div>
+              <button id="admin-logout" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded">Logout</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="flex-grow">
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <!-- Header -->
+          <div class="px-4 mb-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900">Payment & Economy Monitoring</h2>
+                <p class="mt-1 text-sm text-gray-600">Real-time insights into the agentic economy</p>
+              </div>
+              <div class="flex gap-2">
+                <button id="refresh-btn" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  <span id="refresh-icon">↻</span> Refresh Now
+                </button>
+                <button id="export-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  ⤓ Export Data
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- Key Metrics Grid -->
-          <div class="metrics-grid">
-            <div class="metric-card">
-              <div class="metric-value" id="total-transactions">--</div>
-              <div class="metric-label">Total Transactions</div>
-              <div class="metric-change positive" id="transactions-change">--</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value" id="total-volume">--</div>
-              <div class="metric-label">Total Volume (USDC)</div>
-              <div class="metric-change positive" id="volume-change">--</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value" id="active-wallets">--</div>
-              <div class="metric-label">Agent Wallets</div>
-              <div class="metric-change positive" id="wallets-change">--</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value" id="platform-revenue">--</div>
-              <div class="metric-label">Platform Revenue (2%)</div>
-              <div class="metric-change positive" id="revenue-change">--</div>
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Total Transactions -->
+              <div class="metric-card">
+                <div class="metric-value" id="total-transactions">--</div>
+                <div class="metric-label">Total Transactions</div>
+                <div class="metric-change positive" id="transactions-change">--</div>
+              </div>
+
+              <!-- Total Volume -->
+              <div class="metric-card">
+                <div class="metric-value" id="total-volume">--</div>
+                <div class="metric-label">Total Volume (USDC)</div>
+                <div class="metric-change positive" id="volume-change">--</div>
+              </div>
+
+              <!-- Active Wallets -->
+              <div class="metric-card">
+                <div class="metric-value" id="active-wallets">--</div>
+                <div class="metric-label">Agent Wallets</div>
+                <div class="metric-change positive" id="wallets-change">--</div>
+              </div>
+
+              <!-- Platform Revenue -->
+              <div class="metric-card">
+                <div class="metric-value" id="platform-revenue">--</div>
+                <div class="metric-label">Platform Revenue (2%)</div>
+                <div class="metric-change positive" id="revenue-change">--</div>
+              </div>
             </div>
           </div>
 
           <!-- System Status -->
-          <div class="card" style="margin-bottom: 1.5rem;">
-            <div class="card-header">
-              <h3 class="card-title">System Status</h3>
-            </div>
-            <div class="card-body">
-              <div class="status-grid">
-                <div class="status-item">
-                  <div class="status-item-info">
-                    <div class="status-item-title">x402 Service</div>
-                    <div class="status-item-details" id="x402-details">Checking...</div>
+          <div class="px-4 mb-6">
+            <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">x402 Service</div>
+                    <div class="text-xs text-gray-500 mt-1" id="x402-details">Checking...</div>
                   </div>
                   <span class="status-badge info" id="x402-status">--</span>
                 </div>
-                <div class="status-item">
-                  <div class="status-item-info">
-                    <div class="status-item-title">Wallet Service</div>
-                    <div class="status-item-details" id="wallet-details">Checking...</div>
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">Wallet Service</div>
+                    <div class="text-xs text-gray-500 mt-1" id="wallet-details">Checking...</div>
                   </div>
                   <span class="status-badge info" id="wallet-status">--</span>
                 </div>
-                <div class="status-item">
-                  <div class="status-item-info">
-                    <div class="status-item-title">Marketplace</div>
-                    <div class="status-item-details" id="marketplace-details">Checking...</div>
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="text-sm font-medium text-gray-600">Marketplace</div>
+                    <div class="text-xs text-gray-500 mt-1" id="marketplace-details">Checking...</div>
                   </div>
                   <span class="status-badge info" id="marketplace-status">--</span>
                 </div>
@@ -358,22 +248,19 @@
           </div>
 
           <!-- Charts Row -->
-          <div class="charts-grid">
-            <div class="card">
-              <div class="card-header">
-                <h3 class="card-title">Transaction Volume (24h)</h3>
-              </div>
-              <div class="card-body">
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Transaction Volume Chart -->
+              <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Transaction Volume (24h)</h3>
                 <div class="chart-container">
                   <canvas id="volume-chart"></canvas>
                 </div>
               </div>
-            </div>
-            <div class="card">
-              <div class="card-header">
-                <h3 class="card-title">Transaction Count (24h)</h3>
-              </div>
-              <div class="card-body">
+
+              <!-- Transaction Count Chart -->
+              <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Transaction Count (24h)</h3>
                 <div class="chart-container">
                   <canvas id="count-chart"></canvas>
                 </div>
@@ -381,72 +268,84 @@
             </div>
           </div>
 
-          <!-- Recent Transactions & Top Services -->
-          <div class="two-col-grid">
-            <div class="card">
-              <div class="card-header">
-                <h3 class="card-title">Recent Transactions</h3>
-                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.25rem;">Latest payment activity</p>
-              </div>
-              <div id="recent-transactions">
-                <div style="padding: 2rem; text-align: center; color: var(--color-text-muted);">
-                  <div class="loading-spinner" style="margin: 0 auto 0.5rem;"></div>
-                  <p style="font-size: 0.875rem;">Loading transactions...</p>
+          <!-- Recent Transactions & Marketplace Services -->
+          <div class="px-4 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Recent Transactions -->
+              <div class="bg-white rounded-lg shadow border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h3 class="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                  <p class="text-sm text-gray-600 mt-1">Latest payment activity</p>
+                </div>
+                <div class="divide-y divide-gray-200" id="recent-transactions">
+                  <div class="p-6 text-center text-gray-500">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm">Loading transactions...</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="card">
-              <div class="card-header">
-                <h3 class="card-title">Top Services</h3>
-                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.25rem;">Most popular marketplace services</p>
-              </div>
-              <div id="top-services">
-                <div style="padding: 2rem; text-align: center; color: var(--color-text-muted);">
-                  <div class="loading-spinner" style="margin: 0 auto 0.5rem;"></div>
-                  <p style="font-size: 0.875rem;">Loading services...</p>
+
+              <!-- Top Services -->
+              <div class="bg-white rounded-lg shadow border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h3 class="text-lg font-semibold text-gray-900">Top Services</h3>
+                  <p class="text-sm text-gray-600 mt-1">Most popular marketplace services</p>
+                </div>
+                <div class="divide-y divide-gray-200" id="top-services">
+                  <div class="p-6 text-center text-gray-500">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm">Loading services...</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Agent Wallets Table -->
-          <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-              <div>
-                <h3 class="card-title">Agent Wallets</h3>
-                <p style="font-size: 0.875rem; color: var(--color-text-muted); margin-top: 0.25rem;">Active agent wallet balances and spending</p>
+          <div class="px-4 mb-6">
+            <div class="bg-white rounded-lg shadow border border-gray-200">
+              <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">Agent Wallets</h3>
+                  <p class="text-sm text-gray-600 mt-1">Active agent wallet balances and spending</p>
+                </div>
+                <input type="text" id="wallet-search" placeholder="Search wallets..." class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
-              <input type="text" id="wallet-search" placeholder="Search wallets..." class="form-input" style="max-width: 250px;" />
-            </div>
-            <div class="card-body" style="padding: 0; overflow-x: auto;">
-              <table class="wallets-table">
-                <thead>
-                  <tr>
-                    <th>Agent ID</th>
-                    <th>Address</th>
-                    <th>Balance</th>
-                    <th>Daily Spent</th>
-                    <th>Daily Limit</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="wallets-table">
-                  <tr>
-                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">
-                      <div class="loading-spinner" style="margin: 0 auto 0.5rem;"></div>
-                      <p style="font-size: 0.875rem;">Loading wallets...</p>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Spent</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Limit</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200" id="wallets-table">
+                    <tr>
+                      <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        <div class="loading-spinner mx-auto mb-2"></div>
+                        <p class="text-sm">Loading wallets...</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
-
-        <footer class="admin-footer">
-          <p>© 2019-2025 Cenetex Inc. Licensed under MIT License.</p>
-        </footer>
       </main>
+
+      <!-- Footer -->
+      <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p class="text-center text-sm text-gray-500">
+            © 2019-2025 Cenetex Inc. Licensed under MIT License.
+          </p>
+        </div>
+      </footer>
     </div>
 
     <script>
@@ -455,11 +354,8 @@
       let refreshInterval;
       let charts = {};
 
-      // Initialize charts with dark theme
+      // Initialize charts
       function initCharts() {
-        Chart.defaults.color = '#9ca3af';
-        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
-
         const volumeCtx = document.getElementById('volume-chart').getContext('2d');
         const countCtx = document.getElementById('count-chart').getContext('2d');
 
@@ -480,15 +376,13 @@
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: { display: false }
+              legend: {
+                display: false
+              }
             },
             scales: {
               y: {
-                beginAtZero: true,
-                grid: { color: 'rgba(255, 255, 255, 0.05)' }
-              },
-              x: {
-                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                beginAtZero: true
               }
             }
           }
@@ -508,16 +402,16 @@
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: { display: false }
+              legend: {
+                display: false
+              }
             },
             scales: {
               y: {
                 beginAtZero: true,
-                ticks: { stepSize: 1 },
-                grid: { color: 'rgba(255, 255, 255, 0.05)' }
-              },
-              x: {
-                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                ticks: {
+                  stepSize: 1
+                }
               }
             }
           }
@@ -534,6 +428,13 @@
       function formatAddress(address) {
         if (!address) return '--';
         return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+      }
+
+      // Format date
+      function formatDate(date) {
+        if (!date) return '--';
+        const d = new Date(date);
+        return d.toLocaleTimeString() + ' ' + d.toLocaleDateString();
       }
 
       // Format relative time
@@ -554,6 +455,7 @@
       // Load dashboard data
       async function loadDashboard() {
         try {
+          // Use the comprehensive dashboard endpoint
           const response = await fetch('/api/payment/dashboard');
           const data = await response.json();
 
@@ -565,19 +467,32 @@
           document.getElementById('total-volume').textContent = formatUSDC(data.overview.totalVolume);
           document.getElementById('platform-revenue').textContent = formatUSDC(data.overview.platformRevenue);
 
+          // Update change indicators (calculate from hourly data)
           updateChangeIndicators(data);
+
+          // Update system status
           updateSystemStatus(data);
+
+          // Load recent transactions
           loadRecentTransactions(data.recentTransactions);
+
+          // Load marketplace services
           await loadMarketplaceServices();
+
+          // Load agent wallets
           await loadAgentWallets(data.topWallets);
+
+          // Update charts
           updateCharts(data.hourlyData);
 
         } catch (error) {
           console.error('Failed to load dashboard:', error);
+          showError('Failed to load dashboard data. Please refresh the page.');
         }
       }
 
       function updateChangeIndicators(data) {
+        // Calculate 24h change from hourly data
         const now = new Date();
         const yesterday = new Date(now - 24 * 60 * 60 * 1000);
         
@@ -589,15 +504,29 @@
         const recentCount = recentHours.reduce((sum, h) => sum + h.count, 0);
         const recentVolume = recentHours.reduce((sum, h) => sum + h.volume, 0);
 
-        document.getElementById('transactions-change').textContent = `+${recentCount} in 24h`;
-        document.getElementById('volume-change').textContent = `+${formatUSDC(recentVolume)} in 24h`;
-        document.getElementById('wallets-change').textContent = `${data.overview.agentWallets} active`;
-        document.getElementById('revenue-change').textContent = `2% platform fee`;
+        // Show 24h activity
+        const txChange = document.getElementById('transactions-change');
+        txChange.textContent = `+${recentCount} in 24h`;
+        txChange.className = 'metric-change positive';
+
+        const volChange = document.getElementById('volume-change');
+        volChange.textContent = `+${formatUSDC(recentVolume)} in 24h`;
+        volChange.className = 'metric-change positive';
+
+        const walletsChange = document.getElementById('wallets-change');
+        walletsChange.textContent = `${data.overview.agentWallets} active`;
+        walletsChange.className = 'metric-change positive';
+
+        const revenueChange = document.getElementById('revenue-change');
+        revenueChange.textContent = `2% platform fee`;
+        revenueChange.className = 'metric-change positive';
       }
 
       function updateSystemStatus(data) {
+        // x402 Service status
         const x402Status = document.getElementById('x402-status');
         const x402Details = document.getElementById('x402-details');
+        
         const x402Configured = data.configured?.x402;
         const hasTransactions = data.overview.x402Transactions > 0;
         
@@ -615,8 +544,10 @@
           x402Details.textContent = 'Configured, awaiting first transaction';
         }
 
+        // Wallet Service status
         const walletStatus = document.getElementById('wallet-status');
         const walletDetails = document.getElementById('wallet-details');
+        
         const walletConfigured = data.configured?.wallet;
         const hasWallets = data.overview.agentWallets > 0;
         
@@ -634,6 +565,7 @@
           walletDetails.textContent = 'Configured, no agents yet';
         }
 
+        // Marketplace status
         const marketplaceStatus = document.getElementById('marketplace-status');
         const marketplaceDetails = document.getElementById('marketplace-details');
         marketplaceStatus.textContent = 'READY';
@@ -646,8 +578,8 @@
         
         if (!transactions || transactions.length === 0) {
           container.innerHTML = `
-            <div style="padding: 2rem; text-align: center; color: var(--color-text-muted);">
-              <p style="font-size: 0.875rem;">No transactions yet</p>
+            <div class="p-6 text-center text-gray-500">
+              <p class="text-sm">No transactions yet</p>
             </div>
           `;
           return;
@@ -655,12 +587,12 @@
 
         container.innerHTML = transactions.slice(0, 5).map(tx => `
           <div class="transaction-row">
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-size: 0.875rem; font-weight: 500; color: var(--color-text);">${formatUSDC(tx.amount)}</div>
-              <div style="font-size: 0.75rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${tx.agentId || 'Unknown agent'}</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-900">${formatUSDC(tx.amount)}</div>
+              <div class="text-xs text-gray-500 truncate">${tx.agentId || 'Unknown agent'}</div>
             </div>
-            <div style="text-align: right;">
-              <div style="font-size: 0.75rem; color: var(--color-text-muted);">${formatRelativeTime(tx.verifiedAt)}</div>
+            <div class="text-right">
+              <div class="text-xs text-gray-600">${formatRelativeTime(tx.verifiedAt)}</div>
               <span class="status-badge ${tx.status === 'settled' ? 'success' : 'warning'}">${tx.status}</span>
             </div>
           </div>
@@ -675,8 +607,8 @@
 
           if (!data.services || data.services.length === 0) {
             container.innerHTML = `
-              <div style="padding: 2rem; text-align: center; color: var(--color-text-muted);">
-                <p style="font-size: 0.875rem;">No services listed yet</p>
+              <div class="p-6 text-center text-gray-500">
+                <p class="text-sm">No services listed yet</p>
               </div>
             `;
             return;
@@ -684,21 +616,21 @@
 
           container.innerHTML = data.services.map(service => `
             <div class="transaction-row">
-              <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 0.875rem; font-weight: 500; color: var(--color-text);">${service.name}</div>
-                <div style="font-size: 0.75rem; color: var(--color-text-muted);">${service.stats.totalRequests} requests · ${formatUSDC(service.stats.totalRevenue)} earned</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900">${service.name}</div>
+                <div class="text-xs text-gray-500">${service.stats.totalRequests} requests · ${formatUSDC(service.stats.totalRevenue)} earned</div>
               </div>
-              <div style="text-align: right;">
-                <div style="font-size: 0.75rem; color: var(--color-text);">${formatUSDC(service.pricing.amount)}</div>
-                <div style="font-size: 0.75rem; color: var(--color-text-muted);">⭐ ${service.stats.averageRating.toFixed(1)}</div>
+              <div class="text-right">
+                <div class="text-xs text-gray-600">${formatUSDC(service.pricing.amount)}</div>
+                <div class="text-xs text-gray-500">⭐ ${service.stats.averageRating.toFixed(1)}</div>
               </div>
             </div>
           `).join('');
         } catch (error) {
           console.error('Failed to load marketplace services:', error);
           document.getElementById('top-services').innerHTML = `
-            <div style="padding: 2rem; text-align: center; color: #f87171;">
-              <p style="font-size: 0.875rem;">Failed to load services</p>
+            <div class="p-6 text-center text-gray-500">
+              <p class="text-sm text-red-600">Failed to load services</p>
             </div>
           `;
         }
@@ -713,8 +645,8 @@
           if (!data.wallets || data.wallets.length === 0) {
             container.innerHTML = `
               <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">
-                  <p style="font-size: 0.875rem;">No wallets found. Agents will create wallets automatically.</p>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                  <p class="text-sm">No wallets found. Agents will create wallets automatically.</p>
                 </td>
               </tr>
             `;
@@ -730,21 +662,34 @@
 
             return `
               <tr>
-                <td style="font-weight: 500;">${wallet.agentId || 'Unknown'}</td>
-                <td><code>${formatAddress(wallet.address)}</code></td>
-                <td>${formatUSDC(wallet.balance || 0)}</td>
-                <td style="color: var(--color-text-muted);">${formatUSDC(dailySpent)}</td>
-                <td style="color: var(--color-text-muted);">${formatUSDC(dailyLimit)}</td>
-                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  ${wallet.agentId || 'Unknown'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <code class="text-xs">${formatAddress(wallet.address)}</code>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ${formatUSDC(wallet.balance || 0)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  ${formatUSDC(dailySpent)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  ${formatUSDC(dailyLimit)}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="status-badge ${statusClass}">${statusText}</span>
+                </td>
               </tr>
             `;
           }).join('');
         } catch (error) {
           console.error('Failed to load wallets:', error);
-          document.getElementById('wallets-table').innerHTML = `
+          const container = document.getElementById('wallets-table');
+          container.innerHTML = `
             <tr>
-              <td colspan="6" style="text-align: center; padding: 2rem; color: #f87171;">
-                <p style="font-size: 0.875rem;">Failed to load wallet data</p>
+              <td colspan="6" class="px-6 py-4 text-center text-red-500">
+                <p class="text-sm">Failed to load wallet data</p>
               </td>
             </tr>
           `;
@@ -752,6 +697,7 @@
       }
 
       function updateCharts(hourlyData) {
+        // Generate 24-hour labels
         const hours = [];
         const volumeData = [];
         const countData = [];
@@ -762,6 +708,7 @@
           const hourLabel = hour.getHours().toString().padStart(2, '0') + ':00';
           hours.push(hourLabel);
           
+          // Find matching data from API
           const hourKey = hour.toISOString().substring(0, 13).replace('T', '-');
           const matchingData = hourlyData.find(h => h._id.startsWith(hourKey));
           
@@ -776,6 +723,11 @@
         charts.count.data.labels = hours;
         charts.count.data.datasets[0].data = countData;
         charts.count.update();
+      }
+
+      function showError(message) {
+        // Could implement a toast notification system
+        console.error(message);
       }
 
       // Refresh functionality
@@ -802,6 +754,7 @@
           const response = await fetch('/api/payment/dashboard');
           const data = await response.json();
           
+          // Create a more comprehensive export
           const exportData = {
             exportDate: new Date().toISOString(),
             overview: data.overview,
@@ -824,6 +777,11 @@
           console.error('Export failed:', error);
           alert('Failed to export data');
         }
+      });
+
+      // Logout functionality
+      document.getElementById('admin-logout').addEventListener('click', () => {
+        window.location.href = '/admin/login.html';
       });
 
       // Wallet search

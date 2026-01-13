@@ -14,57 +14,10 @@ import { ObjectId } from 'mongodb';
 const DEFAULT_TOKEN_EXPIRY = 7200; // 2 hours in seconds
 const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
-// Tolerant decrypt: accepts plaintext or legacy formats, falls back to input on failure
-function safeDecrypt(value) {
-    try {
-        if (!value) return '';
-        // If value contains our GCM triplet separator, attempt decrypt; else treat as plaintext
-        if (typeof value === 'string' && value.includes(':')) {
-            return decrypt(value);
-        }
-        return String(value);
-    } catch {
-        // If decryption fails (e.g., rotated key), return empty to force reauth
-        return '';
-    }
-}
-
 // Accepts a services object with xService and databaseService
 export default function xauthRoutes(services) {
     const router = express.Router();
     const xService = services.xService;
-    const logger = services.logger || console;
-    const socialPlatformService = services.socialPlatformService;
-    const secretsService = services.secretsService;
-
-    if (!socialPlatformService) {
-        throw new Error('socialPlatformService is required for xauth routes');
-    }
-    
-    // Get OAuth 2.0 credentials from secrets service or environment variables
-    const getOAuth2Credentials = async () => {
-        let clientId = process.env.X_CLIENT_ID;
-        let clientSecret = process.env.X_CLIENT_SECRET;
-        let callbackUrl = process.env.X_CALLBACK_URL;
-        
-        // Try to get from secrets service if available
-        if (secretsService) {
-            try {
-                const storedCreds = await secretsService.get('x_oauth2_creds', 'global');
-                if (storedCreds) {
-                    if (storedCreds.clientId) clientId = storedCreds.clientId;
-                    if (storedCreds.clientSecret) clientSecret = storedCreds.clientSecret;
-                    if (storedCreds.callbackUrl) callbackUrl = storedCreds.callbackUrl;
-                    logger?.debug?.('[xauth] Using OAuth 2.0 credentials from secrets service');
-                }
-            } catch (e) {
-                logger?.debug?.('[xauth] No stored OAuth 2.0 credentials, using env vars');
-            }
-        }
-        
-        return { clientId, clientSecret, callbackUrl };
-    };
-    
     // Resolve a stable admin identity for X without requiring ADMIN_AVATAR_ID.
     // Fallback uses the default AI chat model name to generate a deterministic id.
     const getAdminAvatarId = () => {
@@ -91,89 +44,6 @@ export default function xauthRoutes(services) {
             return 'http://localhost:3000/api/xauth/callback';
         }
     };
-
-    const formatConnectionStatus = (connection) => {
-        if (!connection) {
-            return null;
-        }
-        const metadata = connection.metadata || {};
-        return {
-            authorized: connection.status === 'connected',
-            platform: connection.platform || 'x',
-            profile: metadata.username || metadata.displayName || metadata.name ? {
-                username: metadata.username || null,
-                name: metadata.displayName || metadata.name || null,
-                profile_image_url: metadata.profileImageUrl || metadata.profile_image_url || null,
-                id: metadata.id || metadata.externalId || metadata.userId || null,
-            } : metadata.profile || null,
-            expiresAt: metadata.tokenExpiresAt || null,
-            connectedAt: connection.lastConnectedAt || null,
-            channelId: connection.channelId || null,
-        };
-    };
-
-    // Admin-initiated auth flow (redirects directly)
-    router.get('/auth', async (req, res) => {
-        const { avatarId } = req.query;
-        
-        if (!avatarId) {
-            return res.status(400).send('Missing avatarId parameter');
-        }
-
-        // Only allow admins to initiate this flow via direct link
-        if (!isAdmin(req)) {
-             return res.status(403).send('Access denied. Admin only.');
-        }
-
-        try {
-            const db = await services.databaseService.getDatabase();
-            
-            // Ensure X integration config is present
-            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
-                return res.status(500).send('X integration is not configured on server');
-            }
-
-            const state = crypto.randomBytes(16).toString('hex');
-            const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
-    
-            const client = new TwitterApi({
-                clientId: process.env.X_CLIENT_ID,
-                clientSecret: process.env.X_CLIENT_SECRET,
-            });
-    
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
-                scope: [
-                    'tweet.read',
-                    'tweet.write',
-                    'users.read',
-                    'follows.write',
-                    'like.write',
-                    'block.write',
-                    'offline.access',
-                    'media.write',
-                ],
-                state,
-            });
-    
-            // Clean up old entries for this avatarId
-            await db.collection('x_auth_temp').deleteMany({ avatarId });
-    
-            // Store the codeVerifier and state for later token exchange.
-            await db.collection('x_auth_temp').insertOne({
-                avatarId,
-                codeVerifier,
-                state,
-                createdAt: new Date(),
-                expiresAt,
-                initiatedBy: 'admin'
-            });
-    
-            res.redirect(url);
-        } catch (error) {
-            console.error('Admin Auth URL generation failed:', error);
-            res.status(500).send(`Failed to generate authorization URL: ${error.message}`);
-        }
-    });
 
     // Issue nonce for client to sign (separate endpoint)
     router.get('/nonce', (req, res) => {
@@ -362,9 +232,8 @@ export default function xauthRoutes(services) {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
 
-            const creds = await getOAuth2Credentials();
-            if (!creds.clientId || !creds.clientSecret) {
-                return res.status(500).json({ error: 'X integration is not configured on server (missing OAuth 2.0 credentials)' });
+            if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
+                return res.status(500).json({ error: 'X integration is not configured on server' });
             }
 
             const db = await services.databaseService.getDatabase();
@@ -380,12 +249,11 @@ export default function xauthRoutes(services) {
             const expiresAt = new Date(Date.now() + AUTH_SESSION_TIMEOUT);
 
             const client = new TwitterApi({
-                clientId: creds.clientId,
-                clientSecret: creds.clientSecret,
+                clientId: process.env.X_CLIENT_ID,
+                clientSecret: process.env.X_CLIENT_SECRET,
             });
 
-            const callbackUrl = creds.callbackUrl || getCallbackUrl();
-            const { url, codeVerifier } = client.generateOAuth2AuthLink(callbackUrl, {
+            const { url, codeVerifier } = client.generateOAuth2AuthLink(getCallbackUrl(), {
                 scope: [
                     'tweet.read',
                     'tweet.write',
@@ -400,7 +268,7 @@ export default function xauthRoutes(services) {
             });
 
             await db.collection('x_auth_temp').deleteMany({ avatarId });
-            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt, initiatedBy: 'admin' });
+            await db.collection('x_auth_temp').insertOne({ avatarId, codeVerifier, state, createdAt: new Date(), expiresAt });
 
             try { services?.auditLogService?.log?.({ action: 'xauth.admin.request', actor: req.user?.walletAddress, details: { avatarId, state }, ip: req.ip }); } catch {}
             return res.json({ url, state });
@@ -488,28 +356,22 @@ export default function xauthRoutes(services) {
                 return res.status(400).json({ error: 'Authentication session expired' });
             }
 
-            const creds = await getOAuth2Credentials();
             const client = new TwitterApi({
-                clientId: creds.clientId,
-                clientSecret: creds.clientSecret,
+                clientId: process.env.X_CLIENT_ID,
+                clientSecret: process.env.X_CLIENT_SECRET,
             });
 
-            const callbackUrl = creds.callbackUrl || getCallbackUrl();
             console.log('Token exchange details:', {
-                code: code?.substring(0, 20) + '...',
-                codeVerifier: storedAuth.codeVerifier?.substring(0, 20) + '...',
-                redirectUri: callbackUrl,
-                avatarId: storedAuth.avatarId,
-                clientIdLength: creds.clientId?.length,
-                clientSecretLength: creds.clientSecret?.length,
-                clientIdPrefix: creds.clientId?.substring(0, 10),
-                usingSecretsService: !!secretsService,
-            });
-
-            const { accessToken, refreshToken, expiresIn, scope } = await client.loginWithOAuth2({
                 code,
                 codeVerifier: storedAuth.codeVerifier,
-                redirectUri: callbackUrl,
+                redirectUri: getCallbackUrl(),
+                avatarId: storedAuth.avatarId,
+            });
+
+            const { accessToken, refreshToken, expiresIn } = await client.loginWithOAuth2({
+                code,
+                codeVerifier: storedAuth.codeVerifier,
+                redirectUri: getCallbackUrl(),
             });
 
             const expiresAt = new Date(Date.now() + (expiresIn || DEFAULT_TOKEN_EXPIRY) * 1000);
@@ -526,19 +388,6 @@ export default function xauthRoutes(services) {
 
             const adminId = getAdminAvatarId();
             const isAdminAvatar = storedAuth.avatarId === adminId;
-            // For admin-initiated auth flows, always mark as global
-            const markAsGlobal = isAdminAvatar || storedAuth.initiatedBy === 'admin';
-            
-            console.log('[xauth] Saving tokens:', { 
-                avatarId: storedAuth.avatarId, 
-                adminId, 
-                isAdminAvatar, 
-                markAsGlobal,
-                initiatedBy: storedAuth.initiatedBy,
-                hasAccessToken: !!accessToken,
-                hasRefreshToken: !!refreshToken
-            });
-            
             await db.collection('x_auth').updateOne(
                 { avatarId: storedAuth.avatarId },
                 {
@@ -549,8 +398,7 @@ export default function xauthRoutes(services) {
                         updatedAt: new Date(),
                         ...(profile ? { profile } : {}),
                         // Mark admin account as global so globalPost can find it
-                        ...(markAsGlobal ? { global: true } : {}),
-                        scope: scope || null,
+                        ...(isAdminAvatar ? { global: true } : {}),
                     },
                 },
                 { upsert: true }
@@ -558,20 +406,6 @@ export default function xauthRoutes(services) {
 
             await db.collection('x_auth_temp').deleteOne({ state: sanitizedState });
             console.log('Authentication successful:', { avatarId: storedAuth.avatarId });
-
-            const metadataPayload = { ...(profile || {}), tokenExpiresAt: expiresAt.toISOString() };
-            try {
-                await socialPlatformService.connectAvatar('x', storedAuth.avatarId, {
-                    accessToken,
-                    refreshToken,
-                    clientId: process.env.X_CLIENT_ID,
-                    clientSecret: process.env.X_CLIENT_SECRET,
-                    expiresAt: expiresAt.toISOString(),
-                    scope: scope || undefined,
-                }, { metadata: metadataPayload });
-            } catch (svcError) {
-                logger?.warn?.(`[xauth] Failed to sync social platform connection for avatar ${storedAuth.avatarId}: ${svcError.message}`);
-            }
 
             res.send(`
                 <script>
@@ -606,17 +440,6 @@ export default function xauthRoutes(services) {
             const cacheTtlMs = 60_000; // 1 minute cache for profile
             const key = avatarId;
             const nowMs = Date.now();
-
-            const connection = await socialPlatformService.getConnection('x', avatarId);
-            if (connection && connection.status === 'connected') {
-                const data = {
-                    ...formatConnectionStatus(connection),
-                    source: 'social-platform'
-                };
-                services._xStatusCache.set(key, { data, expires: nowMs + cacheTtlMs });
-                return res.json(data);
-            }
-
             const backoffUntil = services._xStatusBackoff.get(key) || 0;
             if (nowMs < backoffUntil) {
                 const c = services._xStatusCache.get(key);
@@ -665,11 +488,7 @@ export default function xauthRoutes(services) {
             }
 
             try {
-                const accessToken = safeDecrypt(auth.accessToken);
-                if (!accessToken) {
-                    return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
-                }
-                const client = new TwitterApi({ accessToken: accessToken.trim() });
+                const client = new TwitterApi(decrypt(auth.accessToken));
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name,id' });
                 const user = me?.data || null;
                 const mergedProfile = user || auth.profile || null;
@@ -728,11 +547,7 @@ export default function xauthRoutes(services) {
                 }
             }
 
-            const accessToken = safeDecrypt(auth.accessToken);
-            if (!accessToken) {
-                return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
-            }
-            const client = new TwitterApi({ accessToken: accessToken.trim() });
+            const client = new TwitterApi(decrypt(auth.accessToken));
             await client.v2.me();
             res.json({
                 authorized: now < new Date(auth.expiresAt),
@@ -786,11 +601,6 @@ export default function xauthRoutes(services) {
 
         try {
             const db = await services.databaseService.getDatabase();
-            try {
-                await socialPlatformService.disconnectAvatar('x', avatarId);
-            } catch (svcErr) {
-                logger?.warn?.(`[xauth] socialPlatformService disconnect failed for ${avatarId}: ${svcErr.message}`);
-            }
             const result = await db.collection('x_auth').deleteOne({ avatarId });
             console.log('Disconnect result:', { avatarId, deleted: result.deletedCount > 0 });
             res.json({ success: true, disconnected: result.deletedCount > 0 });
@@ -805,15 +615,7 @@ export default function xauthRoutes(services) {
         try {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
-            
-            let db;
-            try {
-                db = await services.databaseService.getDatabase();
-            } catch (dbErr) {
-                logger?.warn?.('[xauth][admin/profile] Database unavailable:', dbErr.message);
-                return res.json({ authorized: false, error: 'Database unavailable' });
-            }
-            
+            const db = await services.databaseService.getDatabase();
             const auth = await db.collection('x_auth').findOne({ avatarId });
             if (!auth?.accessToken) return res.json({ authorized: false });
 
@@ -823,40 +625,19 @@ export default function xauthRoutes(services) {
                 return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
             }
 
-            const accessToken = safeDecrypt(auth.accessToken);
-            if (!accessToken) {
-                return res.json({ authorized: false, error: 'Token decryption failed', requiresReauth: true });
-            }
-            
-            let client;
-            try {
-                client = new TwitterApi({ accessToken: accessToken.trim() });
-            } catch (clientErr) {
-                logger?.warn?.('[xauth][admin/profile] TwitterApi client creation failed:', clientErr.message);
-                return res.json({ authorized: false, error: 'Failed to create Twitter client', requiresReauth: true });
-            }
-            
+            const client = new TwitterApi(decrypt(auth.accessToken));
             let profile = null;
             try {
                 const me = await client.v2.me({ 'user.fields': 'profile_image_url,username,name' });
                 profile = me?.data || null;
             } catch (apiErr) {
-                const code = apiErr?.code || apiErr?.status || apiErr?.statusCode;
-                // Handle rate limiting
+                const code = apiErr?.code || apiErr?.status;
                 if (code === 429) {
+                    // Store rate limit stamp and return cached profile instead of 500
                     try {
                         await db.collection('x_auth').updateOne({ avatarId }, { $set: { profileRateLimitedAt: new Date() } });
                     } catch {}
                     return res.json({ authorized: true, rateLimited: true, cached: true, profile: auth.profile || null, expiresAt: auth.expiresAt });
-                }
-                // Handle auth errors (401, 403) - token may be expired/revoked
-                if (code === 401 || code === 403) {
-                    return res.json({ authorized: false, error: 'Token expired or revoked', requiresReauth: true, cached: true, profile: auth.profile || null });
-                }
-                // Log other errors but return cached profile if available
-                logger?.warn?.('[xauth][admin/profile] Twitter API error:', apiErr.message);
-                if (auth.profile) {
-                    return res.json({ authorized: true, cached: true, profile: auth.profile, expiresAt: auth.expiresAt, apiError: apiErr.message });
                 }
                 throw apiErr;
             }
@@ -886,11 +667,6 @@ export default function xauthRoutes(services) {
             if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
             const avatarId = getAdminAvatarId();
             const db = await services.databaseService.getDatabase();
-            try {
-                await socialPlatformService.disconnectAvatar('x', avatarId);
-            } catch (svcErr) {
-                logger?.warn?.(`[xauth] socialPlatformService admin disconnect failed for ${avatarId}: ${svcErr.message}`);
-            }
             const result = await db.collection('x_auth').deleteOne({ avatarId });
             return res.json({ success: true, disconnected: result.deletedCount > 0 });
         } catch (e) {

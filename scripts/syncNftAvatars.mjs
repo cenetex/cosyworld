@@ -4,13 +4,10 @@ import { container, containerReady } from '../src/container.mjs';
 import { syncAvatarsForCollection } from '../src/services/collections/collectionSyncService.mjs';
 import path from 'path';
 
-const safeResolve = (name) => {
-  try { return container.resolve(name); } catch { return null; }
-};
+const logger = container.resolve('logger');
 
 async function main() {
   await containerReady;
-  const logger = safeResolve('logger') || console;
   const args = process.argv.slice(2);
 
   const optionValue = (flag) => {
@@ -52,24 +49,11 @@ async function main() {
     process.exit(1);
   }
 
-  const guildId = optionValue('guild') || process.env.AVATAR_COLLECTION_GUILD || null;
-
-  logger.info(`Starting NFT avatar sync for collection: ${collectionId}${guildId ? ` (guild ${guildId})` : ''}`);
+  logger.info(`Starting NFT avatar sync for collection: ${collectionId}`);
   const res = await syncAvatarsForCollection({
     collectionId,
     fileSource,
     force,
-    guildId,
-  }, null, {
-    logger,
-    databaseService: safeResolve('databaseService'),
-    s3Service: safeResolve('s3Service'),
-    aiService: safeResolve('aiService'),
-    unifiedAIService: safeResolve('unifiedAIService'),
-    openrouterAIService: safeResolve('openrouterAIService') || safeResolve('openRouterAIService'),
-    googleAIService: safeResolve('googleAIService'),
-    ollamaAIService: safeResolve('ollamaAIService'),
-    replicateAIService: safeResolve('replicateAIService'),
   });
   logger.info(`NFT avatar sync complete. Success ${res.success}/${res.processed}, failures ${res.failures}.`);
   process.exit(res.failures ? 1 : 0);

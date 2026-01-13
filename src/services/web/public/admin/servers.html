@@ -1,246 +1,60 @@
-<!--
-  Copyright (c) 2019-2025 Cenetex Inc.
-  Licensed under the MIT License.
-  
-  Servers Management - v2 Design System
--->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Servers :: Moonstone Sanctum</title>
-  <link href="/css/admin-v2.css" rel="stylesheet" />
-  <style>
-    /* Page-specific styles */
-    .page-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-6);
-    }
-
-    .page-title {
-      font-size: var(--text-3xl);
-      font-weight: 700;
-      color: var(--color-text-primary);
-      margin: 0;
-    }
-
-    .page-subtitle {
-      font-size: var(--text-sm);
-      color: var(--color-text-muted);
-      margin-top: var(--space-1);
-    }
-
-    .servers-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--space-6);
-    }
-
-    @media (max-width: 1024px) {
-      .servers-grid { grid-template-columns: 1fr; }
-    }
-
-    .servers-column h3 {
-      font-size: var(--text-lg);
-      font-weight: 600;
-      color: var(--color-text-primary);
-      margin-bottom: var(--space-4);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-
-    .server-card {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      margin-bottom: var(--space-3);
-      transition: var(--transition-normal);
-    }
-
-    .server-card:hover {
-      border-color: var(--color-accent-primary);
-    }
-
-    .server-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-3);
-    }
-
-    .server-card-info {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .server-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-md);
-      background: var(--color-bg-tertiary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-    }
-
-    .server-icon img {
-      width: 100%;
-      height: 100%;
-      border-radius: var(--radius-md);
-      object-fit: cover;
-    }
-
-    .server-name {
-      font-weight: 600;
-      color: var(--color-text-primary);
-    }
-
-    .server-id {
-      font-size: var(--text-xs);
-      color: var(--color-text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .server-actions {
-      display: flex;
-      gap: var(--space-2);
-    }
-
-    .server-stats {
-      display: flex;
-      gap: var(--space-4);
-      font-size: var(--text-sm);
-      color: var(--color-text-muted);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: var(--space-8);
-      color: var(--color-text-muted);
-    }
-
-    .empty-state-icon {
-      font-size: 3rem;
-      margin-bottom: var(--space-3);
-    }
-  </style>
-</head>
-<body class="admin-v2">
-  <div class="admin-layout has-sidebar">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <img src="/images/image.png" alt="RATi" class="sidebar-logo" onerror="this.style.display='none'" />
-        <div class="sidebar-brand">
-          <span class="brand-name">RATi Admin</span>
-          <span class="brand-tagline">Moonstone Sanctum</span>
-        </div>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/admin" class="nav-item">
-          <span class="nav-icon">📊</span>
-          <span class="nav-label">Dashboard</span>
-        </a>
-        <a href="/admin/bots/" class="nav-item">
-          <span class="nav-icon">🤖</span>
-          <span class="nav-label">Bots</span>
-        </a>
-        <a href="/admin/entity-management" class="nav-item">
-          <span class="nav-icon">🎭</span>
-          <span class="nav-label">Entities</span>
-        </a>
-        <a href="/admin/collections" class="nav-item">
-          <span class="nav-icon">💎</span>
-          <span class="nav-label">Collections</span>
-        </a>
-        <a href="/admin/servers" class="nav-item active">
-          <span class="nav-icon">🖥️</span>
-          <span class="nav-label">Servers</span>
-        </a>
-        <a href="/admin/users" class="nav-item">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label">Users</span>
-        </a>
-        <a href="/admin/global-settings" class="nav-item">
-          <span class="nav-icon">⚙️</span>
-          <span class="nav-label">Settings</span>
-        </a>
-      </nav>
-      
-      <div class="sidebar-footer">
-        <span id="walletAddress" class="badge badge-primary" style="width: 100%; text-align: center; margin-bottom: var(--space-2);">Not Connected</span>
-        <button id="admin-logout" class="btn btn-secondary btn-sm" style="width: 100%;">Logout</button>
-      </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <div class="content-wrapper">
-        <!-- Header -->
-        <div class="page-header">
-          <div>
-            <h1 class="page-title">Discord Servers</h1>
-            <p class="page-subtitle">Manage authorized and detected Discord servers</p>
-          </div>
-          <div style="display: flex; align-items: center; gap: var(--space-3);">
-            <span id="serverCounts" class="badge badge-primary">Loading...</span>
-            <button id="btnRefreshAll" class="btn btn-primary btn-sm">🔄 Refresh</button>
-          </div>
-        </div>
-
-        <!-- Info Box -->
-        <div class="alert alert-info" style="margin-bottom: var(--space-6);">
-          <strong>Authorize</strong> servers to enable bot features. <strong>Deauthorize</strong> or <strong>delete</strong> to revoke access. Clear cache to refresh configuration state.
-        </div>
-
-        <!-- Servers Grid -->
-        <div class="servers-grid">
-          <!-- Authorized Servers Column -->
-          <div class="servers-column">
-            <h3>✅ Authorized Servers</h3>
-            <div id="authorizedList">
-              <div class="empty-state">
-                <div class="loading-spinner"></div>
-                <p style="margin-top: var(--space-3);">Loading servers...</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servers - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <link href="/css/admin-common.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+      <main class="flex-grow">
+        <div class="max-w-7xl mx-auto py-6 px-4">
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div class="flex items-center gap-3">
+                <h2 class="admin-card-title">🖥️ Discord Servers</h2>
+                <span class="admin-badge" id="serverCounts">—</span>
+              </div>
+              <div class="admin-toolbar">
+                <button id="btnRefreshAll" class="btn outline">
+                  <span class="hidden sm:inline">🔄 Refresh</span>
+                  <span class="sm:hidden">🔄</span>
+                </button>
               </div>
             </div>
-          </div>
-          
-          <!-- Detected Servers Column -->
-          <div class="servers-column">
-            <h3>🔍 Detected Servers</h3>
-            <div id="detectedList">
-              <div class="empty-state">
-                <div class="loading-spinner"></div>
-                <p style="margin-top: var(--space-3);">Loading servers...</p>
+            <p class="text-sm text-gray-600 mb-6 leading-relaxed">
+              Manage authorized and detected Discord servers. <strong>Authorize</strong> servers to enable bot features. 
+              <strong>Deauthorize</strong> or <strong>delete</strong> to revoke access. Clear cache to refresh configuration state.
+            </p>
+            
+            <div class="grid lg:grid-cols-2 gap-6">
+              <!-- Authorized Servers Column -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                    ✅ Authorized Servers
+                  </h3>
+                </div>
+                <div id="authorizedList" class="space-y-3"></div>
+              </div>
+              
+              <!-- Detected Servers Column -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-base font-bold text-gray-900 flex items-center gap-2">
+                    🔍 Detected Servers
+                  </h3>
+                </div>
+                <div id="detectedList" class="space-y-3"></div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Footer -->
-      <footer class="admin-footer">
-        <div class="footer-content">
-          <p>RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025</p>
-          <div class="footer-links">
-            <a href="/">Home</a>
-            <a href="/console">Swarm UI</a>
-          </div>
-        </div>
-      </footer>
-    </main>
-  </div>
-
-  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
-  <script type="module" src="/js/admin-servers.js"></script>
-</body>
+      </main>
+    </div>
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/admin-servers.js"></script>
+  </body>
 </html>

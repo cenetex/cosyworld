@@ -1,340 +1,92 @@
-<!--
-  Copyright (c) 2019-2025 Cenetex Inc.
-  Licensed under the MIT License.
-  
-  Collections Management - v2 Design System
--->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collections :: Moonstone Sanctum</title>
-  <link href="/css/admin-v2.css" rel="stylesheet" />
-  <style>
-    /* Page-specific styles */
-    .page-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-6);
-    }
-
-    .page-title {
-      font-size: var(--text-3xl);
-      font-weight: 700;
-      color: var(--color-text-primary);
-      margin: 0;
-    }
-
-    .page-subtitle {
-      font-size: var(--text-sm);
-      color: var(--color-text-muted);
-      margin-top: var(--space-1);
-    }
-
-    /* Form Styles */
-    .collection-form {
-      display: none;
-      margin-top: var(--space-4);
-    }
-
-    .collection-form.active {
-      display: block;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--space-3);
-    }
-
-    @media (max-width: 768px) {
-      .form-grid { grid-template-columns: 1fr; }
-    }
-
-    .form-grid .full-width {
-      grid-column: 1 / -1;
-    }
-
-    /* Collection Card */
-    .collection-card {
-      background: var(--color-bg-primary);
-      border: 1px solid var(--color-border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      margin-bottom: var(--space-3);
-      transition: var(--transition-normal);
-    }
-
-    .collection-card:hover {
-      border-color: var(--color-accent-primary);
-    }
-
-    .collection-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-3);
-    }
-
-    .collection-info {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .collection-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-md);
-      background: var(--color-bg-tertiary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-    }
-
-    .collection-icon img {
-      width: 100%;
-      height: 100%;
-      border-radius: var(--radius-md);
-      object-fit: cover;
-    }
-
-    .collection-name {
-      font-weight: 600;
-      color: var(--color-text-primary);
-    }
-
-    .collection-key {
-      font-size: var(--text-xs);
-      color: var(--color-text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .collection-meta {
-      display: flex;
-      gap: var(--space-2);
-      flex-wrap: wrap;
-      margin-top: var(--space-2);
-    }
-
-    .collection-actions {
-      display: flex;
-      gap: var(--space-2);
-    }
-
-    /* Progress Panel */
-    .progress-panel {
-      display: none;
-      margin-top: var(--space-4);
-      padding: var(--space-4);
-      background: var(--color-bg-primary);
-      border: 1px solid var(--color-border-subtle);
-      border-radius: var(--radius-md);
-    }
-
-    .progress-panel.active {
-      display: block;
-    }
-
-    .progress-meta {
-      font-size: var(--text-sm);
-      color: var(--color-text-muted);
-      margin-bottom: var(--space-3);
-    }
-
-    .progress-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .progress-list li {
-      padding: var(--space-2) 0;
-      border-bottom: 1px solid var(--color-border-subtle);
-      font-size: var(--text-sm);
-    }
-
-    .progress-list li:last-child {
-      border-bottom: none;
-    }
-
-    #list:empty::before {
-      content: 'No collections configured yet.';
-      display: block;
-      text-align: center;
-      padding: var(--space-6);
-      color: var(--color-text-muted);
-    }
-  </style>
-</head>
-<body class="admin-v2">
-  <div class="admin-layout has-sidebar">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <img src="/images/image.png" alt="RATi" class="sidebar-logo" onerror="this.style.display='none'" />
-        <div class="sidebar-brand">
-          <span class="brand-name">RATi Admin</span>
-          <span class="brand-tagline">Moonstone Sanctum</span>
-        </div>
-      </div>
-      
-      <nav class="sidebar-nav">
-        <a href="/admin" class="nav-item">
-          <span class="nav-icon">📊</span>
-          <span class="nav-label">Dashboard</span>
-        </a>
-        <a href="/admin/bots/" class="nav-item">
-          <span class="nav-icon">🤖</span>
-          <span class="nav-label">Bots</span>
-        </a>
-        <a href="/admin/entity-management" class="nav-item">
-          <span class="nav-icon">🎭</span>
-          <span class="nav-label">Entities</span>
-        </a>
-        <a href="/admin/collections" class="nav-item active">
-          <span class="nav-icon">💎</span>
-          <span class="nav-label">Collections</span>
-        </a>
-        <a href="/admin/servers" class="nav-item">
-          <span class="nav-icon">🖥️</span>
-          <span class="nav-label">Servers</span>
-        </a>
-        <a href="/admin/users" class="nav-item">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label">Users</span>
-        </a>
-        <a href="/admin/global-settings" class="nav-item">
-          <span class="nav-icon">⚙️</span>
-          <span class="nav-label">Settings</span>
-        </a>
-      </nav>
-      
-      <div class="sidebar-footer">
-        <span id="walletAddress" class="badge badge-primary" style="width: 100%; text-align: center; margin-bottom: var(--space-2);">Not Connected</span>
-        <button id="admin-logout" class="btn btn-secondary btn-sm" style="width: 100%;">Logout</button>
-      </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <div class="content-wrapper">
-        <!-- Header -->
-        <div class="page-header">
-          <div>
-            <h1 class="page-title">Collections</h1>
-            <p class="page-subtitle">Manage on-chain collections and trigger syncs</p>
-          </div>
-          <button id="toggleForm" class="btn btn-primary">➕ Add Collection</button>
-        </div>
-
-        <!-- Add/Edit Form -->
-        <div class="card" style="margin-bottom: var(--space-6);">
-          <div class="card-body">
-            <form id="cfgForm" class="collection-form">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label class="form-label">Key (slug or contract)</label>
-                  <input id="key" class="form-input" placeholder="collection-key" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Type</label>
-                  <select id="type" class="form-input">
-                    <option value="avatar">Avatar</option>
-                    <option value="orb">Orb</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Provider</label>
-                  <input id="provider" class="form-input" placeholder="reservoir|opensea|alchemy|helius" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Chain</label>
-                  <input id="chain" class="form-input" placeholder="ethereum|polygon|base|solana" />
-                </div>
-                <div class="form-group full-width">
-                  <label class="form-label">Display Name (optional)</label>
-                  <input id="displayName" class="form-input" placeholder="My Collection" />
-                </div>
-                <div class="form-group full-width">
-                  <label class="form-label">Image URL (optional)</label>
-                  <input id="image" class="form-input" placeholder="https://..." />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Claim Policy</label>
-                  <select id="claimPolicy" class="form-input">
-                    <option value="strictTokenOwner">Strict Token Owner</option>
-                    <option value="anyTokenHolder">Any Token Holder</option>
-                    <option value="orbGate">Orb Gate</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Gate Target (for orbGate)</label>
-                  <input id="gateTarget" class="form-input" placeholder="target-collection" />
-                </div>
-                <div class="form-group full-width">
-                  <label class="form-label">File Source (optional)</label>
-                  <textarea id="fileSource" rows="2" class="form-input" placeholder="URL or path to file source"></textarea>
-                </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Collections - Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="/css/admin-common.css" rel="stylesheet" />
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+  <!-- Legacy nav (will be replaced by admin-shell.js) -->
+  <nav class="bg-gray-800 text-white shadow-lg" data-legacy-nav>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <h1 class="text-xl font-bold">RATi Admin Panel</h1>
               </div>
-              <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-                <button type="submit" class="btn btn-success">💾 Save</button>
-                <button type="button" id="cancelForm" class="btn btn-secondary">Cancel</button>
+              <div class="ml-10 flex items-baseline space-x-4">
+                <a href="/admin" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Dashboard</a>
+                <a href="/admin/entity-management" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Entity Management</a>
+                <a href="/admin/collections" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700">Collections</a>
+                <a href="/admin/settings" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700">Settings</a>
               </div>
-            </form>
-            <div id="status" style="margin-top: var(--space-3); font-size: var(--text-sm);"></div>
-            <div id="progressPanel" class="progress-panel">
-              <div class="progress-meta" id="progressMeta">Waiting…</div>
-              <ul class="progress-list" id="progressList"></ul>
             </div>
           </div>
         </div>
+      </nav>
 
-        <!-- Collections List -->
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">Configured Collections</h3>
-            <button id="refresh" class="btn btn-secondary btn-sm">🔄 Refresh</button>
-          </div>
-          <div class="card-body">
-            <div id="list"></div>
+      <main class="flex-grow">
+        <div class="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div class="bg-white shadow sm:rounded-lg p-4">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold">Collections</h2>
+              <p class="text-sm text-gray-500">Manage on-chain collections and trigger syncs</p>
+            </div>
+
+            <div class="mb-6 p-4 bg-gray-50 border rounded">
+              <div class="flex items-center justify-between">
+                <h3 class="font-medium mb-3">Collections</h3>
+                <button id="toggleForm" class="px-2 py-1 rounded bg-gray-800 text-white text-sm" title="Add / Update Collection">＋</button>
+              </div>
+              <form id="cfgForm" class="grid gap-2 md:grid-cols-2 hidden">
+                <input id="key" class="border p-2 rounded" placeholder="key (slug or contract)" />
+                <select id="type" class="border p-2 rounded">
+                  <option value="avatar">avatar</option>
+                  <option value="orb">orb</option>
+                </select>
+                <input id="provider" class="border p-2 rounded" placeholder="provider (reservoir|opensea|alchemy|helius)" />
+                <input id="chain" class="border p-2 rounded" placeholder="chain (ethereum|polygon|base|solana)" />
+                <input id="displayName" class="border p-2 rounded md:col-span-2" placeholder="displayName (optional)" />
+                <input id="image" class="border p-2 rounded md:col-span-2" placeholder="image URL (optional)" />
+                <select id="claimPolicy" class="border p-2 rounded">
+                  <option value="strictTokenOwner">Claim NFT avatar only if you own that NFT</option>
+                  <option value="anyTokenHolder">Claim any avatar from this collection if you hold any token</option>
+                  <option value="orbGate">Claim from another collection if you hold this orb</option>
+                </select>
+                <input id="gateTarget" class="border p-2 rounded md:col-span-2" placeholder="gate target collection (for orbGate)" />
+                <textarea id="fileSource" rows="2" class="border p-2 rounded md:col-span-2" placeholder="optional file source URL or path"></textarea>
+                <button class="bg-indigo-600 text-white rounded px-3 py-2 md:col-span-2">Save</button>
+              </form>
+              <div id="status" class="text-sm text-gray-600 mt-2"></div>
+              <div id="progressPanel" class="mt-4 hidden">
+                <div class="text-sm text-gray-700 mb-1">Sync progress</div>
+                <div class="text-xs text-gray-500" id="progressMeta">Waiting…</div>
+                <ul id="progressList" class="mt-2 divide-y"></ul>
+              </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 border rounded">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-medium">Configured Collections</h3>
+                <button id="refresh" class="text-sm bg-gray-100 px-2 py-1 rounded">Refresh</button>
+              </div>
+              <div id="list" class="grid gap-2"></div>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      <!-- Footer -->
-      <footer class="admin-footer">
-        <div class="footer-content">
-          <p>RATi Swarm Orchestrator :: Moonstone Sanctum Edition © 2025</p>
-          <div class="footer-links">
-            <a href="/">Home</a>
-            <a href="/console">Swarm UI</a>
-          </div>
+      <footer class="bg-white">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+          <p class="text-center text-sm text-gray-500">RATi Swarm Admin Panel © 2024</p>
         </div>
       </footer>
-    </main>
-  </div>
+    </div>
 
-  <script type="module" src="/js/admin/admin-bootstrap.js"></script>
-  <script type="module">
-    // Enhanced form toggle
-    const form = document.getElementById('cfgForm');
-    const toggleBtn = document.getElementById('toggleForm');
-    const cancelBtn = document.getElementById('cancelForm');
-    
-    toggleBtn?.addEventListener('click', () => {
-      form.classList.toggle('active');
-      toggleBtn.textContent = form.classList.contains('active') ? '✕ Close' : '➕ Add Collection';
-    });
-    
-    cancelBtn?.addEventListener('click', () => {
-      form.classList.remove('active');
-      toggleBtn.textContent = '➕ Add Collection';
-    });
-  </script>
-  <script type="module" src="/js/admin-collections.js"></script>
-</body>
+    <script type="module" src="/js/admin/admin-bootstrap.js"></script>
+    <script type="module" src="/js/admin-collections.js"></script>
+  </body>
 </html>

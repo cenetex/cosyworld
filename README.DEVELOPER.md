@@ -198,26 +198,6 @@ export class ExampleService {
 }
 ```
 
-### Conversation Threads & Summon Controls
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `CONVERSATION_THREAD_TTL` | `180000` (3 minutes) | Lifetime for in-memory conversation threads before they expire without activity. |
-| `CONVERSATION_THREAD_MAX_TURNS` | `6` | Maximum number of exchanges tracked inside a single thread. |
-| `CONVERSATION_THREAD_EXTEND_ON_ACTIVITY` | `true` | If `true`, each recorded turn extends the TTL to keep active discussions alive. |
-| `CONVERSATION_MODE_DURATION_MS` | `300000` | Default duration for presence "conversation mode" boosts (used for summons/mentions). |
-| `CONVERSATION_MODE_MAX_TURNS` | `5` | Default guaranteed turns while an avatar is in conversation mode. |
-| `SUMMON_PROACTIVE_ENABLED` | `true` | Enables proactive follow-up responses after a summon greeting. |
-| `SUMMON_INITIAL_TURNS` | `5` | Guaranteed high-priority turns granted to a freshly summoned avatar. |
-| `SUMMON_CONVERSATION_DURATION` | `300000` | Duration (ms) the summon conversation mode and thread remain active. |
-| `SUMMON_THREAD_MAX_TURNS` | `8` | Max thread turns allocated to the summon conversation thread. |
-| `SUMMON_FIRST_FOLLOWUP_DELAY_MS` | `4000` | Delay before the first proactive follow-up message post-summon. |
-| `SUMMON_SECOND_FOLLOWUP_DELAY_MS` | `8000` | Delay before checking for reactions and optionally sending a second follow-up. |
-| `BOT_MENTION_CASCADE_LIMIT` | `3` | Maximum avatars that can respond when mentioned by another avatar. |
-| `BOT_MENTION_CREATE_THREAD` | `true` | Toggle automatic thread creation when avatars mention each other. |
-| `BOT_MENTION_THREAD_TURNS` | `6` | Max turns allocated to mention-triggered threads. |
-| `BOT_MENTION_GRANT_TURNS` | `2` | Guaranteed turns granted to mentioned avatars lacking summon priority. |
-
 ### Event-Based Communication
 
 Use events for decoupled service communication:
@@ -366,18 +346,6 @@ if (response.error) {
   console.log('Success:', response.text);
 }
 ```
-
-### Token & Credit Guarding
-
-High-volume AI runs can burn through OpenRouter credits quickly. ConversationManager now enforces a lightweight budget guard controlled via environment variables:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `AI_COMPLETION_MAX_TOKENS` | `1024` | Hard cap for completion tokens on standard replies. Requests asking for more are truncated to this ceiling. |
-| `AI_LOW_CREDIT_MAX_TOKENS` | `640` (or lower than the main cap) | Secondary cap applied when a request hits a payment/credit error before retrying with a cheaper model. |
-| `AI_LOW_CREDIT_MODEL_FALLBACKS` | `meta-llama/llama-3.2-1b-instruct,google/gemini-2.0-flash-exp:free` | Comma-separated list of low-cost models used when OpenRouter returns HTTP 402 / “insufficient credits.” |
-
-If OpenRouter responds with a payment/credit error, ConversationManager automatically retries the turn with the first available fallback model and the reduced max token budget above. The guard also logs when a recovery occurs so you can monitor how often the downgrade path is being used. Tune these knobs based on your current credit limits (e.g., lower the primary cap during heavy events or swap the fallback list to the cheapest free-tier models available in your account).
 
 ---
 

@@ -19,24 +19,6 @@ export class TurnScheduler {
   // Suppress ambient chatter briefly after each human message to avoid pileups
   this.blockAmbientUntil = new Map(); // channelId -> timestamp
   this.HUMAN_SUPPRESSION_MS = Number(process.env.HUMAN_SUPPRESSION_MS || 4000);
-  // Dead channel detection
-  this.DEAD_CHANNEL_THRESHOLD = Number(process.env.DEAD_CHANNEL_THRESHOLD || 12);
-  this.DEAD_CHANNEL_CHECK_ENABLED = String(process.env.DEAD_CHANNEL_CHECK_ENABLED || 'true').toLowerCase() === 'true';
-
-  // Dead channel revive: even if a channel is "dead" (no recent human messages), allow an occasional
-  // ambient attempt (default: once/hour) to keep the swarm from going completely silent.
-  this.DEAD_CHANNEL_REVIVE_ENABLED = String(process.env.DEAD_CHANNEL_REVIVE_ENABLED || 'true').toLowerCase() === 'true';
-  this.DEAD_CHANNEL_REVIVE_INTERVAL_MS = Number(process.env.DEAD_CHANNEL_REVIVE_INTERVAL_MS || 60 * 60 * 1000);
-  this.DEAD_CHANNEL_REVIVE_PROBABILITY = (() => {
-    const raw = Number(process.env.DEAD_CHANNEL_REVIVE_PROBABILITY || 0.2);
-    if (!Number.isFinite(raw)) return 0.2;
-    return Math.max(0, Math.min(1, raw));
-  })();
-  this.deadChannelReviveAttemptAt = new Map(); // channelId -> timestamp(ms)
-  
-  // Turn lease timeout (how long an avatar has to complete their turn)
-  // Default: 10 minutes (600000ms) to accommodate video generation
-  this.TURN_LEASE_TIMEOUT_MS = Number(process.env.TURN_LEASE_TIMEOUT_MS || 600000);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -93,15 +75,7 @@ export class TurnScheduler {
 
   async tryLease(channelId, avatarId, tickId, meta = {}) {
     const leases = await this.col('turn_leases');
-    const lease = { 
-      channelId, 
-      avatarId, 
-      tickId, 
-      createdAt: new Date(), 
-      leaseExpiresAt: new Date(Date.now() + this.TURN_LEASE_TIMEOUT_MS), 
-      status: 'pending', 
-      ...meta 
-    };
+    const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending', ...meta };
     try {
       await leases.insertOne(lease);
       this.logger.debug?.(`[TurnScheduler] lease granted ${channelId}:${avatarId}:${tickId} mode=${meta.mode || 'ambient'}`);
@@ -159,19 +133,6 @@ export class TurnScheduler {
     const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
     if (Date.now() < suppressedUntil) return 0;
 
-    // Check for dead channel (no human activity)
-    if (this.DEAD_CHANNEL_CHECK_ENABLED) {
-      const isDeadChannel = await this.checkDeadChannel(channelId);
-      if (isDeadChannel) {
-        const allowRevive = this.DEAD_CHANNEL_REVIVE_ENABLED && this._shouldAllowDeadChannelRevive(channelId);
-        if (!allowRevive) {
-          this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - dead channel (no human activity)`);
-          return 0;
-        }
-        this.logger.info?.(`[TurnScheduler] Dead channel revive attempt allowed: ${channelId} (intervalMs=${this.DEAD_CHANNEL_REVIVE_INTERVAL_MS})`);
-      }
-    }
-
     try {
       let guildId = null;
       try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
@@ -212,61 +173,6 @@ export class TurnScheduler {
     }
   }
 
-  _shouldAllowDeadChannelRevive(channelId, now = Date.now()) {
-    const last = this.deadChannelReviveAttemptAt.get(channelId) || 0;
-    if (now - last < this.DEAD_CHANNEL_REVIVE_INTERVAL_MS) return false;
-
-    // Only roll once per interval; even if we decline, we still record the attempt
-    // to avoid repeatedly trying every tick.
-    const roll = Math.random();
-    const allow = roll < this.DEAD_CHANNEL_REVIVE_PROBABILITY;
-    this.deadChannelReviveAttemptAt.set(channelId, now);
-    if (!allow) {
-      this.logger.debug?.(`[TurnScheduler] Dead channel revive declined: ${channelId} roll=${roll.toFixed(3)} p=${this.DEAD_CHANNEL_REVIVE_PROBABILITY}`);
-    }
-    return allow;
-  }
-
-  /**
-   * Check if a channel is "dead" (only bot messages, no human activity)
-   * @param {string} channelId - Channel ID
-   * @returns {Promise<boolean>} True if channel is dead
-   */
-  async checkDeadChannel(channelId) {
-    try {
-      const channel = this.discordService.client.channels.cache.get(channelId);
-      if (!channel) return true; // Can't fetch = treat as dead
-      
-      // Fetch recent messages to check for human activity
-      const messages = await channel.messages.fetch({ limit: this.DEAD_CHANNEL_THRESHOLD + 5 });
-      let consecutiveBots = 0;
-      
-      for (const msg of messages.values()) {
-        if (msg.author.bot || msg.webhookId) {
-          consecutiveBots++;
-          if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
-            this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
-            return true;
-          }
-        } else {
-          // Found a human message - channel is alive
-          return false;
-        }
-      }
-      
-      // If we exhausted messages and all were bots, mark as dead if we have enough samples
-      if (consecutiveBots >= Math.floor(this.DEAD_CHANNEL_THRESHOLD * 0.75)) {
-        this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages, partial batch)`);
-        return true;
-      }
-      
-      return false;
-    } catch (e) {
-      this.logger.warn?.(`[TurnScheduler] checkDeadChannel failed for ${channelId}: ${e.message}`);
-      return false; // Fail open - allow ambient responses on error
-    }
-  }
-
   async onHumanMessage(channelId, message) {
     // Start suppression window for ambient chatter
     this.blockAmbientUntil.set(channelId, Date.now() + this.HUMAN_SUPPRESSION_MS);
@@ -281,28 +187,23 @@ export class TurnScheduler {
       }
 
       // Record mentions for presence tracking
-      const mentionTargets = this.avatarService?.matchAvatarsByContent
-        ? this.avatarService.matchAvatarsByContent(message.content || '', avatars)
-        : (() => {
-            const lower = (message.content || '').toLowerCase();
-            return avatars.filter(av => {
-              const name = String(av.name || '').toLowerCase();
-              const emoji = String(av.emoji || '').toLowerCase();
-              return (name && lower.includes(name)) || (emoji && lower.includes(emoji));
-            });
-          })();
-      for (const av of mentionTargets) {
-        await this.presenceService.recordMention(channelId, `${av._id}`);
-        
-        // Grant priority turn if none pending
-        try {
-          const c = await this.presenceService.col();
-          const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
-          if (!doc?.newSummonTurnsRemaining) {
-            await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+      const content = (message.content || '').toLowerCase();
+      for (const av of avatars) {
+        const name = String(av.name || '').toLowerCase();
+        const emoji = String(av.emoji || '').toLowerCase();
+        if ((name && content.includes(name)) || (emoji && content.includes(emoji))) {
+          await this.presenceService.recordMention(channelId, `${av._id}`);
+          
+          // Grant priority turn if none pending
+          try {
+            const c = await this.presenceService.col();
+            const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+            if (!doc?.newSummonTurnsRemaining) {
+              await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+            }
+          } catch (e) {
+            this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
           }
-        } catch (e) {
-          this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
         }
       }
 

@@ -8,44 +8,27 @@ import {
   Client,
   GatewayIntentBits,
   Partials,
+  WebhookClient,
 } from 'discord.js';
-import { WebhookManager } from '../../utils/WebhookManager.mjs';
-import { RateLimitHandler } from '../../utils/RateLimitHandler.mjs';
-import { AuthorizationCache } from '../../utils/AuthorizationCache.mjs';
 import { ObjectId } from 'mongodb';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
-import { filterContent, stripUrls } from '../../utils/contentFilter.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
 import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
-import { createDiscordAdapter } from '../agent/platformAdapters.mjs';
 
 export class DiscordService {
   constructor(services) {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
-    // Optional cross-service hooks (late-binding to avoid circular deps)
-    this.getMapService = services.getMapService || null;
-    this.getCombatEncounterService = services.getCombatEncounterService || null;
-    this.avatarService = services.avatarService || null;
-    this.globalBotService = services.globalBotService || null;
-    this.getBuybotService = typeof services.getBuybotService === 'function'
-      ? services.getBuybotService
-      : () => services.buybotService;
-    // Unified Chat Agent for @mention handling (late-binding to avoid circular deps)
-    this.getUnifiedChatAgent = typeof services.getUnifiedChatAgent === 'function'
-      ? services.getUnifiedChatAgent
-      : () => services.unifiedChatAgent;
-    // AI Service for agent responses
-    this.aiService = services.aiService || null;
+  // Optional cross-service hooks (late-binding to avoid circular deps)
+  this.getMapService = services.getMapService || null;
+  this.getCombatEncounterService = services.getCombatEncounterService || null;
+  this.avatarService = services.avatarService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
-    // Mention handling state
-    this._mentionReplyQueue = new Map(); // channelId -> { message, timestamp }
-    this._mentionReplyDebounceMs = 2000; // Wait 2 seconds for more messages before responding
-    
+    this.webhookCache = new Map();
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -55,35 +38,6 @@ export class DiscordService {
       ],
       partials: [Partials.Message, Partials.Channel, Partials.Reaction],
     });
-    
-    // Initialize rate limit handler for Discord API operations
-    this.rateLimitHandler = new RateLimitHandler({
-      maxRetries: 3,
-      baseDelayMs: 1000,
-      maxDelayMs: 30000,
-      logger: this.logger,
-    });
-    
-    // Initialize webhook manager with TTL-based caching (replaces simple webhookCache Map)
-    this.webhookManager = new WebhookManager({
-      ttlMs: 30 * 60 * 1000, // 30 minutes
-      maxCacheSize: 1000,
-      cleanupIntervalMs: 5 * 60 * 1000, // 5 minutes
-      logger: this.logger,
-      client: this.client,
-    });
-    
-    // Legacy webhookCache for backwards compatibility (deprecated, use webhookManager)
-    this.webhookCache = new Map();
-    
-    // Initialize authorization cache with TTL expiration
-    this.authorizationCache = new AuthorizationCache({
-      ttlMs: 5 * 60 * 1000, // 5 minutes for authorized guilds
-      negativeTtlMs: 60 * 1000, // 1 minute for unauthorized guilds
-      cleanupIntervalMs: 60 * 1000,
-      logger: this.logger,
-    });
-    
     this.setupEventListeners();
 
     this.messageCache = new Map(); // Initialize message cache
@@ -100,14 +54,6 @@ export class DiscordService {
   }
 
   async shutdown() {
-    // Shutdown managers first
-    if (this.webhookManager) {
-      this.webhookManager.shutdown();
-    }
-    if (this.authorizationCache) {
-      this.authorizationCache.shutdown();
-    }
-    
     if (this.client) {
       await this.client.destroy();
       this.logger.info('Disconnected from Discord.');
@@ -115,7 +61,7 @@ export class DiscordService {
   }
 
   setupEventListeners() {
-    this.client.once('clientReady', async () => {
+    this.client.once('ready', async () => {
       this.logger.info(`Bot is ready as ${this.client.user.tag}`);
       await this.updateConnectedGuilds();
       // Run guild detection in background to avoid blocking startup
@@ -152,17 +98,13 @@ export class DiscordService {
         this.db = await this.databaseService.getDatabase();
         if (!interaction.isButton()) return;
         
-        // Check guild authorization for interactions using the authorization cache
+        // Check guild authorization for interactions
         if (interaction.guild) {
-          const guildId = interaction.guild.id;
-          const isAuthorized = await this.authorizationCache.check(guildId, async () => {
-            const guildConfig = await this.configService.getGuildConfig(guildId);
-            return guildConfig?.authorized === true || 
-              (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-          });
-          
+          const guildConfig = await this.configService.getGuildConfig(interaction.guild.id);
+          const isAuthorized = guildConfig?.authorized === true || 
+            (await this.configService.get("authorizedGuilds") || []).includes(interaction.guild.id);
           if (!isAuthorized) {
-            this.logger.warn(`Interaction in unauthorized guild: ${interaction.guild.name} (${guildId})`);
+            this.logger.warn(`Interaction in unauthorized guild: ${interaction.guild.name} (${interaction.guild.id})`);
             return;
           }
         }
@@ -341,121 +283,18 @@ export class DiscordService {
       }
     });
 
-    // @mention handler - respond when bot is mentioned using the unified chat agent
-    this.client.on('messageCreate', async (message) => {
-      try {
-        // Ignore bot messages to prevent loops
-        if (message.author.bot) return;
-        
-        // Check if bot was mentioned
-        const botMentioned = message.mentions.has(this.client.user);
-        const isReplyToBot = message.reference?.messageId && 
-          (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === this.client.user.id;
-        
-        if (!botMentioned && !isReplyToBot) return;
-        
-        // Check guild authorization
-        if (message.guild) {
-          const guildId = message.guild.id;
-          const isAuthorized = await this.authorizationCache.check(guildId, async () => {
-            const guildConfig = await this.configService.getGuildConfig(guildId);
-            return guildConfig?.authorized === true || 
-              (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-          });
-          
-          if (!isAuthorized) {
-            this.logger.debug?.(`@mention in unauthorized guild: ${message.guild.name} (${guildId}) - ignoring`);
-            return;
-          }
-        }
-        
-        // Get the unified chat agent
-        const agent = this.getUnifiedChatAgent?.();
-        if (!agent) {
-          this.logger.debug?.('[DiscordService] Unified chat agent not available for @mention response');
-          return;
-        }
-        
-        // Create platform adapter for Discord
-        const adapter = createDiscordAdapter({
-          logger: this.logger,
-          discordService: this,
-          message,
-        });
-        
-        // Build channel ID with discord prefix for uniqueness across platforms
-        const channelId = `discord:${message.channel.id}`;
-        
-        // Clean up the message content (remove the @mention)
-        const cleanContent = message.content
-          .replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '')
-          .trim();
-        
-        // Add to conversation history
-        await agent.addToHistory(channelId, {
-          from: message.author.displayName || message.author.username,
-          text: cleanContent || '[mentioned the bot]',
-          date: Math.floor(message.createdTimestamp / 1000),
-          isBot: false,
-          userId: message.author.id,
-          messageId: message.id,
-        });
-        
-        this.logger.info?.(`[DiscordService] Bot @mentioned by ${message.author.username} in ${message.channel.name || 'DM'}`);
-        
-        // Check content filter
-        const filterResult = await agent.checkContentFilter(cleanContent);
-        if (filterResult.blocked) {
-          this.logger.info?.(`[DiscordService] Blocked @mention (${filterResult.type}): ${filterResult.reason}`);
-          return;
-        }
-        
-        // Normalize message for the agent
-        const normalizedMessage = {
-          text: cleanContent,
-          authorName: message.author.displayName || message.author.username,
-          authorUsername: message.author.username,
-          userId: message.author.id,
-          messageId: message.id,
-          replyTo: message.reference?.messageId ? {
-            message_id: message.reference.messageId,
-          } : null,
-        };
-        
-        // Generate response using the unified agent
-        await agent.generateResponse({
-          channelId,
-          message: normalizedMessage,
-          adapter,
-          isMention: botMentioned,
-          triggerType: botMentioned ? 'mention' : 'reply',
-          messageImage: null, // TODO: Extract images from Discord messages if attached
-        });
-        
-      } catch (error) {
-        this.logger.error?.('[DiscordService] @mention handler error:', error);
-        try {
-          await message.reply("I'm having a bit of trouble right now. 💭");
-        } catch {}
-      }
-    });
-
     // When a thread is created from a message, move the speaking avatar into that thread
     this.client.on('threadCreate', async (thread) => {
       try {
         // Only act on newly created threads under text channels
         if (!thread || !thread.parentId || !thread.guild) return;
         
-        // Check guild authorization before moving avatars (using authorization cache)
-        const guildId = thread.guild.id;
-        const isAuthorized = await this.authorizationCache.check(guildId, async () => {
-          const guildConfig = await this.configService.getGuildConfig(guildId);
-          return guildConfig?.authorized === true || 
-            (await this.configService.get("authorizedGuilds") || []).includes(guildId);
-        });
-        
+        // Check guild authorization before moving avatars
+        const guildConfig = await this.configService.getGuildConfig(thread.guild.id);
+        const isAuthorized = guildConfig?.authorized === true || 
+          (await this.configService.get("authorizedGuilds") || []).includes(thread.guild.id);
         if (!isAuthorized) {
-          this.logger.warn(`Thread created in unauthorized guild: ${thread.guild.name} (${guildId}) - ignoring`);;
+          this.logger.warn(`Thread created in unauthorized guild: ${thread.guild.name} (${thread.guild.id}) - ignoring`);
           return;
         }
         
@@ -565,9 +404,26 @@ export class DiscordService {
       this.logger.error('Invalid or non-text-based channel provided for webhook');
       return null;
     }
-    
-    // Use the new WebhookManager with TTL-based caching and rate limit handling
-    return this.webhookManager.getOrCreate(channel);
+    try {
+      const targetChannel = channel.isThread() ? await channel.parent.fetch() : channel;
+      if (!targetChannel) throw new Error('Unable to fetch target channel');
+      if (this.webhookCache.has(targetChannel.id)) return this.webhookCache.get(targetChannel.id);
+      const webhooks = await targetChannel.fetchWebhooks();
+      let webhook = webhooks.find(wh => wh.owner.id === this.client.user.id);
+      if (!webhook) {
+        webhook = await targetChannel.createWebhook({
+          name: 'Multi-Avatar Bot Webhook',
+          avatar: this.client.user.displayAvatarURL(),
+        });
+        this.logger.info(`Created webhook for channel ${targetChannel.id}`);
+      }
+      const webhookClient = new WebhookClient({ id: webhook.id, token: webhook.token });
+      this.webhookCache.set(targetChannel.id, webhookClient);
+      return webhookClient;
+    } catch (error) {
+      this.logger.error(`Failed to get/create webhook for channel ${channel.id}: ${error.message}`);
+      return null;
+    }
   }
 
   async sendAsWebhook(channelId, content, avatar) {
@@ -575,126 +431,26 @@ export class DiscordService {
       this.validateAvatar(avatar);
       if (!channelId || typeof channelId !== 'string') throw new Error('Invalid channel ID');
       if (!content || typeof content !== 'string') throw new Error('Content is required and must be a string');
-      
-      // Get content filter settings from global bot config
-      const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
-      const filterEnabled = contentFilters.enabled !== false;
-      
-      // Filter content for AI-generated messages (strip URLs, check for blocked content)
-      let filteredContent = content;
-      if (filterEnabled) {
-        // Strip URLs from AI-generated content if blockUrls is enabled
-        if (contentFilters.blockUrls !== false) {
-          // Build list of allowed URL domains (CDN, S3, etc.) to preserve image links
-          const allowedDomains = [
-            ...(contentFilters.allowedUrlDomains || []),
-            'cloudfront.net',     // AWS CloudFront CDN
-            'amazonaws.com',      // AWS S3
-            'cdn.discordapp.com', // Discord CDN
-            'media.discordapp.net' // Discord media
-          ];
-          filteredContent = stripUrls(filteredContent, { 
-            allowedDomains,
-            preserveMarkdownLinks: true  // Preserve markdown links to media files
-          });
-        }
-        
-        // Get dynamically allowed tokens from buybot tracked tokens
-        let dynamicAllowlist = { addresses: [], symbols: [] };
-          const buybotService = this.getBuybotService?.();
-          if (buybotService?.getAllTrackedTokensForAllowlist) {
-          try {
-              dynamicAllowlist = await buybotService.getAllTrackedTokensForAllowlist();
-          } catch (err) {
-            this.logger?.debug?.('[DiscordService] Failed to get dynamic token allowlist:', err.message);
-          }
-        }
-        
-        // Merge static config with dynamic allowlists
-        const allowedCashtags = [
-          ...(contentFilters.allowedCashtags || []),
-          ...dynamicAllowlist.symbols
-              ];
-        const allowedAddresses = [
-          ...(contentFilters.allowedAddresses || []),
-          ...dynamicAllowlist.addresses
-        ];
-        
-        // Check for other blocked content (crypto addresses, cashtags)
-        const contentFilter = filterContent(filteredContent, {
-          logger: this.logger,
-          blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
-          blockCashtags: contentFilters.blockCashtags !== false,
-          blockUrls: false, // Already stripped URLs above
-          allowedCashtags,
-          allowedAddresses
-        });
-        
-        if (contentFilter.blocked) {
-          this.logger?.warn?.(`[DiscordService] Blocked AI message (${contentFilter.type}): ${contentFilter.reason}`);
-          return null; // Don't send blocked messages
-        }
-      }
-      
-      const channel = await this.rateLimitHandler.execute(
-        () => this.client.channels.fetch(channelId),
-        `Fetch channel ${channelId}`
-      );
+      const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
-      
       const webhook = await this.getOrCreateWebhook(channel);
       if (!webhook) throw new Error('Failed to obtain webhook');
-      
       const username = `${avatar.name.slice(0, 78)}${avatar.emoji || ''}`.slice(0, 80);
       const prefix = `${username}: `;
-      const trimmed = filteredContent.startsWith(prefix) ? filteredContent.slice(prefix.length) : filteredContent;
+      const trimmed = content.startsWith(prefix) ? content.slice(prefix.length) : content;
       const preparedContent = processMessageLinks(trimmed, this.client);
       const chunks = chunkMessage(preparedContent);
 
       let sentMessage = null;
-      const targetChannelId = channel.isThread() ? channelId : undefined;
 
       for (const chunk of chunks) {
-        try {
-          sentMessage = await this.rateLimitHandler.execute(
-            () => webhook.send({
-              content: chunk,
-              username: username.replace(/discord/ig, ''),
-              avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
-              threadId: targetChannelId,
-            }),
-            `Send webhook message to ${channelId}`
-          );
-        } catch (sendError) {
-          // Check if webhook was deleted externally and invalidate cache
-          const wasInvalidated = this.webhookManager.handleWebhookError(
-            channel.isThread() ? channel.parentId : channelId, 
-            sendError
-          );
-          
-          if (wasInvalidated) {
-            // Retry with fresh webhook
-            this.logger.info?.(`[DiscordService] Retrying with fresh webhook for channel ${channelId}`);
-            const freshWebhook = await this.getOrCreateWebhook(channel);
-            if (freshWebhook) {
-              sentMessage = await this.rateLimitHandler.execute(
-                () => freshWebhook.send({
-                  content: chunk,
-                  username: username.replace(/discord/ig, ''),
-                  avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
-                  threadId: targetChannelId,
-                }),
-                `Retry send webhook message to ${channelId}`
-              );
-            } else {
-              throw sendError;
-            }
-          } else {
-            throw sendError;
-          }
-        }
+        sentMessage = await webhook.send({
+          content: chunk,
+          username: username.replace(/discord/ig, ''),
+          avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
+          threadId: channel.isThread() ? channelId : undefined,
+        });
       }
-      
       this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
       
       // Store avatar ID for reply tracking when available (older encounters may omit avatar ids)
@@ -726,54 +482,6 @@ export class DiscordService {
       return sentMessage;
     } catch (error) {
       this.logger.error(`Failed to send webhook message to ${channelId}: ${error.message}`);
-    }
-  }
-
-  /**
-   * Start a typing indicator in a channel that auto-refreshes until stopped.
-   * Discord typing indicators last ~10 seconds, so we refresh every 8 seconds.
-   * @param {string} channelId - The channel ID to show typing in
-   * @returns {Function} A stop function to call when done typing
-   */
-  async startTyping(channelId) {
-    if (!channelId) return () => {};
-    
-    try {
-      const channel = await this.client.channels.fetch(channelId);
-      if (!channel || !channel.isTextBased?.()) return () => {};
-      
-      // Send initial typing indicator
-      await channel.sendTyping().catch(() => {});
-      
-      // Set up interval to refresh typing every 8 seconds (Discord typing lasts ~10s)
-      const intervalId = setInterval(() => {
-        channel.sendTyping().catch(() => {});
-      }, 8000);
-      
-      // Return stop function
-      return () => {
-        clearInterval(intervalId);
-      };
-    } catch (error) {
-      this.logger?.debug?.(`[DiscordService] Failed to start typing in ${channelId}: ${error.message}`);
-      return () => {};
-    }
-  }
-
-  /**
-   * Send a one-time typing indicator to a channel.
-   * @param {string} channelId - The channel ID to show typing in
-   */
-  async sendTyping(channelId) {
-    if (!channelId) return;
-    
-    try {
-      const channel = await this.client.channels.fetch(channelId);
-      if (channel?.isTextBased?.()) {
-        await channel.sendTyping();
-      }
-    } catch (error) {
-      this.logger?.debug?.(`[DiscordService] Failed to send typing to ${channelId}: ${error.message}`);
     }
   }
 
@@ -829,30 +537,22 @@ export class DiscordService {
       if (!channelId || typeof channelId !== 'string') throw new Error('Invalid channel ID');
       if (!embed) throw new Error('Embed is required');
 
-      const channel = await this.rateLimitHandler.execute(
-        () => this.client.channels.fetch(channelId),
-        `Fetch channel ${channelId} for embed`
-      );
+      const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
 
       const webhook = await this.getOrCreateWebhook(channel);
       if (!webhook) throw new Error('Failed to obtain webhook');
 
-      await this.rateLimitHandler.execute(
-        () => webhook.send({
-          embeds: [embed],
-          username: username ? username.slice(0, 80) : undefined,
-          avatarURL,
-          threadId: channel.isThread() ? channelId : undefined,
-          components,
-        }),
-        `Send embed to channel ${channelId}`
-      );
+      await webhook.send({
+        embeds: [embed],
+        username: username ? username.slice(0, 80) : undefined,
+        avatarURL,
+        threadId: channel.isThread() ? channelId : undefined,
+        components,
+      });
 
       this.logger.debug?.(`Sent embed to channel ${channelId} as ${username}`);
     } catch (error) {
-      // Handle webhook errors and invalidate cache if needed
-      this.webhookManager.handleWebhookError(channelId, error);
       this.logger.error(`Failed to send embed to ${channelId}: ${error.message}`);
       throw error;
     }
@@ -861,15 +561,9 @@ export class DiscordService {
   async getGuildByChannelId(channelId) {
     this.logger.debug?.(`Fetching guild for channel ID: ${channelId}`);
     try {
-      const channel = await this.rateLimitHandler.execute(
-        () => this.client.channels.fetch(channelId),
-        `Fetch channel ${channelId} for guild lookup`
-      );
+      const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
-      const guild = await this.rateLimitHandler.execute(
-        () => this.client.guilds.fetch(channel.guild.id),
-        `Fetch guild ${channel.guild.id}`
-      );
+      const guild = await this.client.guilds.fetch(channel.guild.id);
       return guild;
     }
     catch (error) {
@@ -942,15 +636,9 @@ export class DiscordService {
       return [];
     }
     try {
-      const channel = await this.rateLimitHandler.execute(
-        () => this.client.channels.fetch(channelId),
-        `Fetch channel ${channelId} for recent messages`
-      );
+      const channel = await this.client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased()) throw new Error('Channel not found or not text-based');
-      const messages = await this.rateLimitHandler.execute(
-        () => channel.messages.fetch({ limit }),
-        `Fetch ${limit} messages from channel ${channelId}`
-      );
+      const messages = await channel.messages.fetch({ limit });
       return Array.from(messages.values());
     } catch (error) {
       this.logger.error(`Failed to fetch messages from ${channelId}: ${error.message}`);

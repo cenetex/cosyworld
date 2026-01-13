@@ -42,42 +42,42 @@ const auth = window.AdminAuth;
 
   async function loadLocations() {
     const body = document.getElementById('locations-body');
-    if (body) body.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-text-muted);">Loading locations…</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">Loading locations…</td></tr>';
     try {
       const data = await api.apiFetch('/api/admin/locations?limit=20&offset=0');
       const rows = (data.data || []).map(loc => `
-        <tr style="transition: background 0.2s;">
-          <td style="padding: 0.75rem;"><img style="height: 2.5rem; width: 2.5rem; border-radius: 0.375rem; object-fit: cover;" src="${loc.thumbnailUrl || loc.imageUrl || ''}" alt="" onerror="this.style.display='none'"/></td>
-          <td style="padding: 0.75rem; font-size: 0.875rem; font-weight: 500;">${loc.name || ''}</td>
-          <td style="padding: 0.75rem; font-size: 0.875rem; color: var(--color-text-muted);">${loc.type || ''}</td>
-          <td style="padding: 0.75rem; font-size: 0.75rem; color: var(--color-text-muted);">${formatDate(loc.createdAt)}</td>
-          <td style="padding: 0.75rem;"><button class="edit-location btn btn-ghost btn-sm" data-id="${loc._id}">Edit</button></td>
+        <tr class="hover:bg-gray-50 transition">
+          <td class="px-3 py-3"><img class="h-10 w-10 rounded object-cover" src="${loc.thumbnailUrl || loc.imageUrl || ''}" alt="" onerror="this.style.display='none'"/></td>
+          <td class="px-3 py-3 text-sm text-gray-900 font-medium">${loc.name || ''}</td>
+          <td class="px-3 py-3 text-sm text-gray-500">${loc.type || ''}</td>
+          <td class="px-3 py-3 text-xs text-gray-500">${formatDate(loc.createdAt)}</td>
+          <td class="px-3 py-3 text-sm"><button class="edit-location text-indigo-600 hover:text-indigo-900" data-id="${loc._id}">Edit</button></td>
         </tr>`).join('');
-      if (body) body.innerHTML = rows || '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-text-muted);">No locations</td></tr>';
+      if (body) body.innerHTML = rows || '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">No locations</td></tr>';
       document.querySelectorAll('.edit-location').forEach(btn => btn.addEventListener('click', () => openLocationModal(btn.dataset.id)));
     } catch (e) {
-      if (body) body.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-danger);">Failed to load locations</td></tr>';
+      if (body) body.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-red-500">Failed to load locations</td></tr>';
       ui?.error?.(e.message || 'Failed to load locations');
     }
   }
 
   async function loadItems() {
     const body = document.getElementById('items-body');
-    if (body) body.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-text-muted);">Loading items…</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">Loading items…</td></tr>';
     try {
       const data = await api.apiFetch('/api/admin/items?limit=20&offset=0');
       const rows = (data.data || []).map(item => `
-        <tr style="transition: background 0.2s;">
-          <td style="padding: 0.75rem;"><img style="height: 2.5rem; width: 2.5rem; border-radius: 0.375rem; object-fit: cover;" src="${item.thumbnailUrl || item.imageUrl || ''}" alt="" onerror="this.style.display='none'"/></td>
-          <td style="padding: 0.75rem; font-size: 0.875rem; font-weight: 500;">${item.name || ''}</td>
-          <td style="padding: 0.75rem; font-size: 0.875rem; color: var(--color-text-muted);">${item.rarity || ''}</td>
-          <td style="padding: 0.75rem; font-size: 0.75rem; color: var(--color-text-muted);">${formatDate(item.createdAt)}</td>
-          <td style="padding: 0.75rem;"><button class="edit-item btn btn-ghost btn-sm" data-id="${item._id}">Edit</button></td>
+        <tr class="hover:bg-gray-50 transition">
+          <td class="px-3 py-3"><img class="h-10 w-10 rounded object-cover" src="${item.thumbnailUrl || item.imageUrl || ''}" alt="" onerror="this.style.display='none'"/></td>
+          <td class="px-3 py-3 text-sm text-gray-900 font-medium">${item.name || ''}</td>
+          <td class="px-3 py-3 text-sm text-gray-500">${item.rarity || ''}</td>
+          <td class="px-3 py-3 text-xs text-gray-500">${formatDate(item.createdAt)}</td>
+          <td class="px-3 py-3 text-sm"><button class="edit-item text-indigo-600 hover:text-indigo-900" data-id="${item._id}">Edit</button></td>
         </tr>`).join('');
-      if (body) body.innerHTML = rows || '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-text-muted);">No items</td></tr>';
+      if (body) body.innerHTML = rows || '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">No items</td></tr>';
       document.querySelectorAll('.edit-item').forEach(btn => btn.addEventListener('click', () => openItemModal(btn.dataset.id)));
     } catch (e) {
-      if (body) body.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--color-danger);">Failed to load items</td></tr>';
+      if (body) body.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-red-500">Failed to load items</td></tr>';
       ui?.error?.(e.message || 'Failed to load items');
     }
   }

@@ -24,37 +24,12 @@ import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
 import { PotionTool } from './tools/PotionTool.mjs';
-import { WikiTool } from './tools/WikiTool.mjs';
-
-function normalizeToolResult(rawResult) {
-  const base = { message: null, notify: true };
-  if (rawResult === undefined || rawResult === null) {
-    return { ...base, notify: false };
-  }
-  if (typeof rawResult === 'object' && !Array.isArray(rawResult)) {
-    const notify = rawResult.notify === undefined ? true : Boolean(rawResult.notify);
-    let message = rawResult.message ?? rawResult.result ?? rawResult.text ?? null;
-    if (message !== null && message !== undefined && typeof message !== 'string') {
-      try {
-        message = JSON.stringify(message);
-      } catch {
-        message = String(message);
-      }
-    }
-    return { message, notify };
-  }
-  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), notify: true };
-}
 
 export class ToolService {
   constructor({
     logger,
     aiService,
-    unifiedAIService,
   googleAIService,
-  openrouterAIService,
-  openrouterModelCatalogService,
-  imageGenerationRateLimiter,
     imageProcessingService,
     configService,
     cooldownService,
@@ -80,18 +55,12 @@ export class ToolService {
     knowledgeService,
     veoService,
     videoJobService,
-    presenceService,
-    conversationThreadService,
-    wikiService
+    presenceService
   }) {
     this.toolServices = {
       logger,
       aiService,
-      unifiedAIService,
   googleAIService,
-  openrouterModelCatalogService,
-  openrouterAIService,
-  imageGenerationRateLimiter,
       imageProcessingService,
       battleService,
   combatEncounterService,
@@ -117,9 +86,7 @@ export class ToolService {
       knowledgeService,
       veoService,
       videoJobService,
-      presenceService,
-      conversationThreadService,
-      wikiService
+      presenceService
     }
 
     this.logger = logger || console;
@@ -128,13 +95,12 @@ export class ToolService {
     this.discordService = discordService;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
-  this.spamControlService = spamControlService;
-  this.moderationService = moderationService;
-  this.mapService = mapService;
-  this.decisionMaker = decisionMaker;
-  this.avatarService = avatarService;
-  this.riskManagerService = riskManagerService;
-  this.conversationManager = null;
+    this.spamControlService = spamControlService;
+    this.moderationService = moderationService;
+    this.mapService = mapService;
+    this.decisionMaker = decisionMaker;
+    this.avatarService = avatarService;
+    this.riskManagerService = riskManagerService;
     
     this.started = false;
     this.cooldownService = cooldownService || new CooldownService();
@@ -167,8 +133,7 @@ export class ToolService {
       selfie: SelfieTool,
       camera: SceneCameraTool,
       'video camera': VideoCameraTool,
-      devil: DevilTool,
-      wiki: WikiTool
+      devil: DevilTool
     };
 
   Object.entries(toolClasses).forEach(([name, ToolClass]) => {
@@ -193,31 +158,12 @@ export class ToolService {
   this.toolEmojis.set('🎥', 'video camera');
   // Legacy spiderweb emoji now maps to web search tool
   this.toolEmojis.set('🕸️', 'search');
-  // Wiki tool emoji
-  this.toolEmojis.set('📖', 'wiki');
   }
 
   registerTool(tool) {
     if (tool?.name) {
       this.tools.set(tool.name, tool);
       if (tool.emoji) this.toolEmojis.set(tool.emoji, tool.name);
-    }
-  }
-
-  setConversationManager(conversationManager) {
-    if (!conversationManager || this.conversationManager === conversationManager) return;
-    this.conversationManager = conversationManager;
-    this.toolServices.conversationManager = conversationManager;
-    // Backfill existing tools so they can access the manager without constructor injection
-    for (const tool of this.tools.values()) {
-      tool.conversationManager = conversationManager;
-      if (typeof tool.setConversationManager === 'function') {
-        try {
-          tool.setConversationManager(conversationManager);
-        } catch (err) {
-          this.logger?.debug?.(`[ToolService] setConversationManager propagation failed for ${tool.name}: ${err.message}`);
-        }
-      }
     }
   }
 
@@ -233,22 +179,10 @@ export class ToolService {
   }
 
   /**
-   * Check if current time is optimal for posting to X.
-   * Based on general engagement patterns (UTC times).
-   * @returns {boolean}
-   */
-  _isOptimalXPostingTime() {
-    const hour = new Date().getUTCHours();
-    // Peak engagement hours: 13:00-21:00 UTC (covers US morning to EU evening)
-    const optimalHours = [13, 14, 15, 16, 17, 18, 19, 20, 21];
-    return optimalHours.includes(hour);
-  }
-
-  /**
    * Schedules periodic X posting using XSocialTool logic.
-   * Posts every hour from a random authenticated avatar, with optimal timing.
+   * Posts every hour from a random authenticated avatar.
    */
-  startScheduledXPosting(intervalMs = 30 * 60 * 1000) { // Check every 30 minutes
+  startScheduledXPosting(intervalMs = 60 * 60 * 1000) {
     const schedulingService = this.schedulingService;
     const avatarService = this.avatarService;
     const xSocialTool = this.tools.get('x');
@@ -256,25 +190,8 @@ export class ToolService {
       this.logger?.warn?.('[ToolService] Scheduled X posting not started: missing dependencies');
       return;
     }
-
-    // Track last post time to enforce minimum interval
-    let lastPostTime = 0;
-    const minIntervalMs = 60 * 60 * 1000; // Minimum 1 hour between posts
-
     schedulingService.addTask('x-auto-post', async () => {
       try {
-        // Check optimal timing
-        if (!this._isOptimalXPostingTime()) {
-          this.logger?.debug?.('[ToolService] Skipping X post: not optimal time');
-          return;
-        }
-
-        // Enforce minimum interval
-        if (Date.now() - lastPostTime < minIntervalMs) {
-          this.logger?.debug?.('[ToolService] Skipping X post: too soon since last post');
-          return;
-        }
-
         const db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
         if (!db) return;
         // Get all authenticated avatars
@@ -299,13 +216,12 @@ export class ToolService {
         if (!postAction) return;
         // Post to X
         await xSocialTool.xService.postToX(avatar, postAction.content);
-        lastPostTime = Date.now();
         this.logger?.info?.(`[ToolService] Scheduled X post for avatar ${avatar.name}`);
       } catch (err) {
         this.logger?.error?.('[ToolService] Scheduled X posting error:', err);
       }
     }, intervalMs);
-    this.logger?.info?.('[ToolService] Scheduled X posting enabled (checks every 30min, posts during optimal hours)');
+    this.logger?.info?.('[ToolService] Scheduled X posting enabled');
   }
 
   extractToolCommands(text) {
@@ -398,7 +314,7 @@ export class ToolService {
    * @param {string[]} params - The command parameters
    * @param {Object} avatar - The avatar performing the action
    * @param {Object} guildConfig - The guild configuration
-  * @returns {Promise<{message: string|null, notify: boolean}>} The tool's response and notification preference
+   * @returns {Promise<string>} The tool's response
    */
   // Note: Some callers pass `context` as the 5th argument (omitting guildConfig).
   // To maintain backward compatibility, accept either 5th or 6th param as context.
@@ -438,7 +354,7 @@ export class ToolService {
       return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
     }
 
-    let rawResult;
+    let result;
     try {
       // Augment context with combatEncounterService if available
       if (this.toolServices?.combatEncounterService) {
@@ -449,18 +365,14 @@ export class ToolService {
       }
       // Provide discordService for downstream actions (e.g., KO movement)
       if (this.discordService && !context.discordService) context.discordService = this.discordService;
-      rawResult = await tool.execute(message, params, avatar, context);
+      result = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {
-      rawResult = { message: `Error executing ${toolName}: ${error.message}` };
+      result = `Error executing ${toolName}: ${error.message}`;
     }
 
-    const normalized = normalizeToolResult(rawResult);
-    const resultForLog = normalized.message;
     try {
-      if (resultForLog) {
-        await this.memoryService.addMemory(avatar._id, resultForLog);
-      }
+      await this.memoryService.addMemory(avatar._id, result);
       await this.ActionLog.logAction({
         channelId: message.channel.id,
         action: toolName,
@@ -468,7 +380,7 @@ export class ToolService {
         actorName: avatar.name,
         displayName: avatar.displayName || avatar.name,
         target: params.join(' '),
-        result: resultForLog,
+        result,
         tool: toolName,
         emoji: tool.emoji,
         isCustom: false,
@@ -478,6 +390,6 @@ export class ToolService {
       this.logger?.error(`Failed to log action '${toolName}': ${logError.message}`);
     }
 
-    return normalized;
+    return result;
   }
 }

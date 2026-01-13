@@ -108,44 +108,6 @@ import models from '../../models.openrouter.config.mjs';
 import { parseFirstJson, parseWithRetries } from '../../utils/jsonParse.mjs';
 
 /**
- * Sanitize an API response object for logging by truncating large data.
- * Removes or truncates base64 image data and other large payloads.
- * 
- * @param {any} obj - Object to sanitize
- * @param {number} [maxStringLen=200] - Maximum length for string values
- * @returns {any} - Sanitized copy of the object safe for logging
- */
-function sanitizeForLogging(obj, maxStringLen = 200) {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj === 'string') {
-    // Truncate long strings (like base64 data)
-    if (obj.length > maxStringLen) {
-      // Check if it looks like base64
-      if (/^[A-Za-z0-9+/=]{100,}$/.test(obj.slice(0, 100))) {
-        return `[base64 data, ${obj.length} chars]`;
-      }
-      if (obj.startsWith('data:')) {
-        const match = obj.match(/^data:([^;,]+)/);
-        return `[data URI: ${match?.[1] || 'unknown'}, ${obj.length} chars]`;
-      }
-      return obj.slice(0, maxStringLen) + `... [truncated, ${obj.length} total chars]`;
-    }
-    return obj;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeForLogging(item, maxStringLen));
-  }
-  if (typeof obj === 'object') {
-    const result = {};
-    for (const [key, value] of Object.entries(obj)) {
-      result[key] = sanitizeForLogging(value, maxStringLen);
-    }
-    return result;
-  }
-  return obj;
-}
-
-/**
  * Normalize an OpenRouter/OpenAI style error object into a structured diagnostic form.
  * 
  * @description
@@ -194,15 +156,12 @@ function sanitizeForLogging(obj, maxStringLen = 200) {
 function parseProviderError(err) {
   try {
     const status = err?.response?.status || err?.status || null;
-    // OpenAI SDK style: err has .code, .message, .error (nested), and .headers
-    // OpenRouter sometimes wraps in err.error.error
-    const raw = err?.error?.error || err?.error || err?.response?.data?.error || err?.data?.error || null;
+    // OpenAI style: err.error { type, code, message }
+    const raw = err?.error || err?.response?.data?.error || err?.data?.error || null;
     const type = raw?.type || err?.type || null;
     const code = raw?.code || err?.code || (status ? `HTTP_${status}` : null);
-    // Prefer provider's detailed message, fallback to generic
+    // Prefer provider's message, fallback to generic
     const providerMessage = raw?.message || err?.message || 'Unknown provider error';
-    // Include metadata if available (OpenRouter often includes helpful context)
-    const metadata = raw?.metadata || err?.metadata || null;
     // Public-friendly (avoid leaking internal texts like policy references)
     let userMessage = 'Upstream model request failed';
     if (status === 400) userMessage = 'Invalid request for selected model';
@@ -213,9 +172,9 @@ function parseProviderError(err) {
     else if (status === 429) userMessage = 'Rate limit reached – slowing down';
     else if (status === 500) userMessage = 'Provider internal error';
     else if (status === 503) userMessage = 'Provider temporarily unavailable';
-    return { status, code, type, providerMessage, userMessage, metadata };
+    return { status, code, type, providerMessage, userMessage };
   } catch (e) {
-    return { status: null, code: null, type: null, providerMessage: e.message || 'parse error', userMessage: 'Unknown error', metadata: null };
+    return { status: null, code: null, type: null, providerMessage: e.message || 'parse error', userMessage: 'Unknown error' };
   }
 }
 
@@ -385,12 +344,10 @@ export class OpenRouterAIService {
     logger,
     aiModelService,
     configService,
-    openrouterModelCatalogService,
   }) {
     this.logger = logger;
     this.aiModelService = aiModelService;
     this.configService = configService;
-    this.openrouterModelCatalogService = openrouterModelCatalogService || null;
 
     // Resolve defaults from ConfigService (note: align with keys defined in ConfigService)
     const orCfg = this.configService?.config?.ai?.openrouter || {};
@@ -402,7 +359,6 @@ export class OpenRouterAIService {
       'HTTP-Referer': 'https://ratimics.com',
       'X-Title': 'cosyworld',
     };
-    this.provider = 'openrouter';
     this.openai = new OpenAI({
       apiKey: this.apiKey,
       baseURL: this.baseURL,
@@ -415,15 +371,12 @@ export class OpenRouterAIService {
   this.disableFallbacks = /^true$/i.test(process.env.OPENROUTER_DISABLE_MODEL_FALLBACKS || 'false');
     this._modelSupportCache = new Map();
 
-    // Cache for models that DON'T support json_schema (to skip straight to json_object)
-    this._jsonSchemaUnsupportedCache = new Set();
-
     // Validate that the configured structured model can honor json_schema response format.
     this.ready = this._validateStructuredModelSupport(this.structured_model)
       .catch(err => {
         const msg = `[OpenRouterAIService] Structured model validation failed for ${this.structured_model}: ${err?.message || err}`;
-        this.logger?.warn?.(msg);
-        // Do not throw here to prevent startup crash.
+        this.logger?.error?.(msg);
+        throw err;
       });
 
     // Register models with this.aiModelService
@@ -455,60 +408,11 @@ export class OpenRouterAIService {
   }
 
   async selectRandomModel() {
-    try {
-      if (this.openrouterModelCatalogService?.pickRandomExistingModel) {
-        const picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
-        if (picked) return picked;
-      }
-    } catch (e) {
-      this.logger?.debug?.(`[OpenRouterAIService] selectRandomModel catalog pick failed: ${e?.message || e}`);
-    }
-
-    // Fallback: registry-based selection (may be stale, but better than null)
     return this.aiModelService.getRandomModel('openrouter');
   }
 
   modelIsAvailable(model) {
     return this.aiModelService.modelIsAvailable('openrouter', model);
-  }
-
-  /**
-   * Heuristic check for whether a given OpenRouter model supports vision/image inputs.
-   * We keep this lightweight and local (no network calls) because it's used in hot paths.
-   *
-   * @param {string} model
-   * @returns {boolean}
-   */
-  supportsVisionModel(model) {
-    const m = String(model || '')
-      .replace(/:(online|free)$/i, '')
-      .trim()
-      .toLowerCase();
-    if (!m) return false;
-
-    // Provider families that are generally multimodal on OpenRouter.
-    // (We keep this conservative and easy to update.)
-    if (m.startsWith('google/gemini')) return true;
-
-    // OpenAI vision-capable families where slugs often omit 'vision'.
-    if (m.includes('openai/gpt-4o')) return true;
-    if (m.includes('openai/gpt-4.1')) return true;
-    if (m.includes('gpt-4-vision')) return true;
-
-    // Common OpenRouter naming patterns:
-    // - '*vision*' (e.g. llama-3.2-11b-vision-instruct)
-    // - '*vl*' (vision-language, e.g. qwen3-vl-8b)
-    // - '*image*' (e.g. gpt-5-image, gemini-*-image)
-    // - known explicit vision slugs (grok-*-vision)
-    return (
-      m.includes('vision') ||
-      m.includes('-vl-') ||
-      m.includes('/vl-') ||
-      m.includes('vl-') ||
-      m.includes('image') ||
-      m.includes('grok-2-vision') ||
-      m.includes('grok-vision')
-    );
   }
 
   /**
@@ -536,111 +440,74 @@ export class OpenRouterAIService {
       schema: baseSchema,
       strict: isStrict,
     };
+    const structuredOptions = {
+      model: options.model || this.structured_model,
+      response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
+      ...options,
+    };
 
-    // Normalize the model to a valid OpenRouter model before validation
-    let selectedModel = options.model || this.structured_model;
-    if (!this.modelLock) {
-      try {
-        const mapped = await this.getModel(selectedModel);
-        if (mapped) selectedModel = mapped;
-      } catch (e) {
-        this.logger?.debug?.(`[OpenRouter][StructuredOutput] model mapping failed for '${selectedModel}': ${e?.message || e}`);
+    await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
+
+    try {
+      const response = await this.chat(messages, structuredOptions);
+      if (!response) {
+        throw new Error('Chat returned null/empty response with json_schema format');
       }
-    }
+      return typeof response === 'string' ? parseFirstJson(response) : response;
+    } catch (err) {
+      const parsed = parseProviderError(err);
+      this.logger?.error?.('[OpenRouter][StructuredOutput] json_schema attempt failed', parsed);
 
-    const modelKey = String(selectedModel || '').toLowerCase();
-    
-    // Check if this model is known to NOT support json_schema (skip directly to json_object)
-    const skipJsonSchema = this._jsonSchemaUnsupportedCache.has(modelKey);
-    
-    if (!skipJsonSchema) {
-      // Try json_schema first - use returnEnvelope to capture error details
-      const structuredOptions = {
-        model: selectedModel,
-        response_format: { type: 'json_schema', json_schema: jsonSchemaPayload },
-        ...options,
-        model: selectedModel,
-        returnEnvelope: true,
-      };
-
+      // Capability hint: if status 400 and we previously marked model as supporting response_format, note possible transient / schema error.
       try {
-        await this._ensureModelSupportsStructuredOutputs(structuredOptions.model);
-        const envelope = await this.chat(messages, structuredOptions);
-        
-        // Check if the response has an error
-        if (envelope?.error) {
-          const errorCode = String(envelope.error.code ?? '');
-          const isHttp400 = errorCode.includes('400') || errorCode === 'HTTP_400';
-          if (isHttp400) {
-            this._jsonSchemaUnsupportedCache.add(modelKey);
-            this.logger?.debug?.(`[OpenRouter][StructuredOutput] Model '${selectedModel}' doesn't support json_schema (400 error), cached for future requests`);
-            // Fall through to json_object fallback
-          } else {
-            this.logger?.warn?.('[OpenRouter][StructuredOutput] json_schema attempt failed', { 
-              code: envelope.error.code, 
-              message: envelope.error.message,
-              model: selectedModel 
-            });
-          }
-        } else if (envelope?.text) {
-          // Success - parse and return
-          return typeof envelope.text === 'string' ? parseFirstJson(envelope.text) : envelope.text;
-        } else {
-          // Empty response - fall through to fallbacks
-          this.logger?.debug?.(`[OpenRouter][StructuredOutput] Empty response from json_schema for '${selectedModel}'`);
-        }
-      } catch (err) {
-        const parsed = parseProviderError(err);
-        
-        // For 400 errors, mark this model as not supporting json_schema and fall through
         if (parsed.status === 400) {
-          this._jsonSchemaUnsupportedCache.add(modelKey);
-          this.logger?.debug?.(`[OpenRouter][StructuredOutput] Model '${selectedModel}' doesn't support json_schema, cached for future requests`);
-        } else {
-          // Non-400 errors are logged as warnings (could be transient)
-          this.logger?.warn?.('[OpenRouter][StructuredOutput] json_schema attempt failed', parsed);
+          const key = String(structuredOptions.model || '').toLowerCase();
+          const supported = this._modelSupportCache.get(key);
+          if (supported === true) {
+            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is cached as supporting response_format but returned 400 – likely doesn't support json_schema type, only json_object. Falling back.`);
+          } else if (supported === false) {
+            this.logger?.warn?.(`[OpenRouter][StructuredOutput] Model '${structuredOptions.model}' is NOT marked as supporting response_format; falling back immediately.`);
+          }
+        }
+      } catch {}
+
+      // For 400 errors, try json_object format immediately as many models support it but not json_schema
+      if (parsed.status === 400) {
+        this.logger?.info?.('[OpenRouter][StructuredOutput] Attempting json_object fallback for 400 error');
+        try {
+          const withoutRF = { ...options, model: options.model || this.structured_model };
+          const alt = await this.chat(messages, { ...withoutRF, response_format: { type: 'json_object' } });
+          if (!alt) {
+            throw new Error('Chat returned null/empty response with json_object format');
+          }
+          return typeof alt === 'string' ? parseFirstJson(alt) : alt;
+        } catch (e2) {
+          this.logger?.warn?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', parseProviderError(e2));
+          // Continue to instruction-only fallback below
         }
       }
-    }
 
-    // Try json_object format (many models support this but not json_schema)
-    try {
-      const jsonObjectOptions = { ...options, model: selectedModel, response_format: { type: 'json_object' }, returnEnvelope: true };
-      const envelope = await this.chat(messages, jsonObjectOptions);
-      if (envelope?.error) {
-        this.logger?.debug?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', { 
-          code: envelope.error.code, 
-          message: envelope.error.message 
-        });
-      } else if (envelope?.text) {
-        return typeof envelope.text === 'string' ? parseFirstJson(envelope.text) : envelope.text;
+  // Build concise schema instructions to coerce JSON without relying on response_format
+  const schemaKeys = Object.keys(baseSchema?.properties || {});
+  const example = JSON.stringify(Object.fromEntries(schemaKeys.map(k => [k, '...'])), null, 2);
+      const instructions = `Respond ONLY with a single valid JSON object. It must match this shape (types can vary as appropriate):\n${example}\nDo not include any extra commentary or markdown.`;
+      const fallbackMessages = [
+        { role: 'system', content: instructions },
+        { role: 'user', content: prompt }
+      ];
+      const withoutRF = { ...options, model: options.model || this.structured_model };
+      try {
+        const raw = await parseWithRetries(async () => {
+          const r = await this.chat(fallbackMessages, withoutRF);
+          if (!r) throw new Error('Chat returned null/empty response');
+          return typeof r === 'string' ? r : JSON.stringify(r);
+        }, { retries: 2, backoffMs: 600 });
+        return raw;
+      } catch (e2) {
+        const p2 = parseProviderError(e2);
+        this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p2);
+        throw new Error(`Structured output generation failed after all attempts: ${p2.userMessage || p2.providerMessage || 'Unable to generate valid JSON'}`);
       }
-    } catch (e2) {
-      const parsed2 = parseProviderError(e2);
-      this.logger?.debug?.('[OpenRouter][StructuredOutput] json_object also failed, trying instruction-only', parsed2);
-    }
-
-    // Build concise schema instructions to coerce JSON without relying on response_format
-    const schemaKeys = Object.keys(baseSchema?.properties || {});
-    const example = JSON.stringify(Object.fromEntries(schemaKeys.map(k => [k, '...'])), null, 2);
-    const instructions = `Respond ONLY with a single valid JSON object. It must match this shape (types can vary as appropriate):\n${example}\nDo not include any extra commentary or markdown.`;
-    const fallbackMessages = [
-      { role: 'system', content: instructions },
-      { role: 'user', content: prompt }
-    ];
-    const withoutRF = { ...options, model: selectedModel, returnEnvelope: true };
-    try {
-      const raw = await parseWithRetries(async () => {
-        const envelope = await this.chat(fallbackMessages, withoutRF);
-        if (envelope?.error) throw new Error(envelope.error.message || 'Chat error');
-        if (!envelope?.text) throw new Error('Chat returned null/empty response');
-        return typeof envelope.text === 'string' ? envelope.text : JSON.stringify(envelope.text);
-      }, { retries: 2, backoffMs: 600 });
-      return raw;
-    } catch (e2) {
-      const p2 = parseProviderError(e2);
-      this.logger?.error?.('[OpenRouter][StructuredOutput] all fallbacks failed', p2);
-      throw new Error(`Structured output generation failed after all attempts: ${p2.userMessage || p2.providerMessage || 'Unable to generate valid JSON'}`);
     }
   }
 
@@ -689,27 +556,14 @@ export class OpenRouterAIService {
     // Merge defaults with caller options and map model to an available one
     let selectedModel = options.model || this.defaultChatOptions?.model || this.model;
     const originalRequested = selectedModel;
-    
-    // Check if this is an image-only model - these should NOT be remapped
-    // since text models can't substitute for image generation
-    let skipModelRemap = false;
-    if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
-      try {
-        skipModelRemap = await this.openrouterModelCatalogService.isImageOnlyAsync(selectedModel);
-        if (skipModelRemap) {
-          this.logger?.debug?.(`[OpenRouter][Chat] Skipping model remap for image-only model: ${selectedModel}`);
-        }
-      } catch {}
-    }
-    
-    if (!this.modelLock && !skipModelRemap) {
+    if (!this.modelLock) {
       try {
         const mapped = await this.getModel(selectedModel);
         if (mapped) selectedModel = mapped;
       } catch {}
     }
     if (this.traceModelSelection) {
-      this.logger?.info?.(`[OpenRouter][trace] chat request model requested='${originalRequested}' normalized='${selectedModel}' lock=${this.modelLock} skipRemap=${skipModelRemap}`);
+      this.logger?.info?.(`[OpenRouter][trace] chat request model requested='${originalRequested}' normalized='${selectedModel}' lock=${this.modelLock}`);
     }
     // Merge with correct precedence: defaults < selected model/messages < caller options
     const { model: _discardModel, ...rest } = options || {};
@@ -719,18 +573,6 @@ export class OpenRouterAIService {
       messages: (messages || []).filter(m => m && m.content !== undefined),
       ...rest,
     };
-
-    // GPT-5.x models don't support temperature, top_p, frequency_penalty, presence_penalty
-    // Remove these parameters to avoid 400 errors
-    if (/^openai\/gpt-5/i.test(mergedOptions.model)) {
-      const unsupportedParams = ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'];
-      for (const param of unsupportedParams) {
-        if (param in mergedOptions) {
-          this.logger?.debug?.(`[OpenRouter][Chat] Removing unsupported parameter '${param}' for ${mergedOptions.model}`);
-          delete mergedOptions[param];
-        }
-      }
-    }
 
     if (mergedOptions.response_format?.type === 'json_schema') {
       await this._ensureModelSupportsStructuredOutputs(mergedOptions.model);
@@ -773,15 +615,6 @@ export class OpenRouterAIService {
   this.logger.info('Response:', JSON.stringify(response, null, 2));
   return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
-      
-      // Debug: log raw choice for image models to find where images are
-      if (/flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model)) {
-        const choice = response.choices[0];
-        const choiceKeys = Object.keys(choice);
-        const messageKeys = choice.message ? Object.keys(choice.message) : [];
-        this.logger.info?.(`[OpenRouter][Chat] FLUX raw choice keys: ${JSON.stringify(choiceKeys)}, message keys: ${JSON.stringify(messageKeys)}`);
-      }
-      
       const result = response.choices[0].message;
       const finishReason = response.choices[0].finish_reason;
 
@@ -791,29 +624,7 @@ export class OpenRouterAIService {
         this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit${limitMsg}. Consider increasing or removing max_tokens.`);
       }
       this.logger.debug?.(`[OpenRouter][Chat] finish_reason=${finishReason} usage=${JSON.stringify(response.usage)}`);
-      
-      // Debug logging for image models to understand response structure
-      const isImageModel = /flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model);
-      if (isImageModel) {
-        this.logger.info?.(`[OpenRouter][Chat] Image model ${mergedOptions.model} response keys: ${JSON.stringify(Object.keys(result))}`);
-        this.logger.info?.(`[OpenRouter][Chat] result.images exists: ${!!result.images}, type: ${typeof result.images}, isArray: ${Array.isArray(result.images)}, length: ${result.images?.length}`);
-        this.logger.debug?.(`[OpenRouter][Chat] Image model response structure: ${JSON.stringify({
-          contentType: typeof result.content,
-          contentIsArray: Array.isArray(result.content),
-          contentLength: typeof result.content === 'string' ? result.content.length : (Array.isArray(result.content) ? result.content.length : 'N/A'),
-          hasData: !!response.data,
-          hasImages: !!result.images,
-          imagesCount: result.images?.length || 0,
-          keys: Object.keys(result)
-        })}`);
-        // Log first 500 chars of content for debugging
-        if (result.content) {
-          const preview = typeof result.content === 'string' 
-            ? result.content.slice(0, 500)
-            : JSON.stringify(result.content).slice(0, 500);
-          this.logger.debug?.(`[OpenRouter][Chat] Image model content preview: ${preview}`);
-        }
-      }
+
       // If response is meant to be structured JSON, preserve it
       if (mergedOptions.response_format?.type === 'json_object') {
         return result.content;
@@ -829,149 +640,21 @@ export class OpenRouterAIService {
         };
       }
 
-      // Normalize content that might be an array of segments (including multimodal)
-      let normalizedContent = result.content;
-      let imageData = null;
-      
-      // Check for image data in result.images (FLUX format)
-      // FLUX returns: { images: [{ index, type, image_url: { url: "data:image/png;base64,..." } }] }
-      this.logger.debug?.(`[OpenRouter][Chat] Checking result.images: exists=${!!result.images}, isArray=${Array.isArray(result.images)}, length=${result.images?.length}`);
-      if (result.images && Array.isArray(result.images) && result.images.length > 0) {
-        this.logger.info?.(`[OpenRouter][Chat] Found ${result.images.length} image(s) in result.images (FLUX format)`);
-        imageData = imageData || [];
-        for (const img of result.images) {
-          this.logger.debug?.(`[OpenRouter][Chat] Processing FLUX image: keys=${JSON.stringify(Object.keys(img))}, has image_url=${!!img.image_url}`);
-          if (img.image_url?.url) {
-            // image_url.url is a data URI like "data:image/png;base64,..."
-            const dataUrl = img.image_url.url;
-            this.logger.debug?.(`[OpenRouter][Chat] FLUX image_url.url starts with: ${dataUrl.slice(0, 50)}`);
-            if (dataUrl.startsWith('data:')) {
-              // Parse data URI to extract base64 and mime type
-              const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (match) {
-                this.logger.info?.(`[OpenRouter][Chat] Extracted FLUX image: mimeType=${match[1]}, dataLength=${match[2].length}`);
-                imageData.push({
-                  data: match[2],
-                  mimeType: match[1],
-                  url: null
-                });
-              } else {
-                // Fallback - treat as URL
-                this.logger.debug?.(`[OpenRouter][Chat] FLUX image data URI didn't match base64 pattern, using as URL`);
-                imageData.push({ url: dataUrl });
-              }
-            } else {
-              imageData.push({ url: dataUrl });
-            }
-          }
+        // Normalize content that might be an array of segments
+        let normalizedContent = result.content;
+        if (Array.isArray(normalizedContent)) {
+          try {
+            normalizedContent = normalizedContent.map(p => (typeof p === 'string' ? p : p?.text || p?.content || ''))
+              .filter(Boolean)
+              .join('\n')
+              .trim();
+          } catch {}
         }
-        this.logger.info?.(`[OpenRouter][Chat] Processed ${imageData?.length || 0} image(s) from result.images`);
-      }
-      
-      // Check for image data at response level (some providers put it in response.data)
-      if (response.data && typeof response.data === 'object') {
-        if (response.data.b64_json || response.data.url) {
-          imageData = imageData || [];
-          imageData.push({
-            url: response.data.url || null,
-            data: response.data.b64_json || null,
-            mimeType: 'image/png'
-          });
-        }
-      }
-      
-      // Check if content is a single object with image data (not an array)
-      if (normalizedContent && typeof normalizedContent === 'object' && !Array.isArray(normalizedContent)) {
-        // Handle single content part
-        const p = normalizedContent;
-        if (p.image?.data || p.image?.url) {
-          // FLUX-style: { image: { data: base64, mime_type: 'image/png' } }
-          imageData = imageData || [];
-          imageData.push({
-            url: p.image.url || null,
-            data: p.image.data || null,
-            mimeType: p.image.mime_type || p.image.mimeType || 'image/png'
-          });
-          normalizedContent = p.text || '';
-        } else if (p.type === 'image' && (p.data || p.url)) {
-          imageData = imageData || [];
-          imageData.push({
-            url: p.url || null,
-            data: p.data || null,
-            mimeType: p.mime_type || p.mimeType || 'image/png'
-          });
-          normalizedContent = '';
-        } else if (p.type === 'image_url' && p.image_url?.url) {
-          imageData = imageData || [];
-          imageData.push({ url: p.image_url.url });
-          normalizedContent = '';
-        } else if (p.text) {
-          normalizedContent = p.text;
-        }
-      }
-      
-      // Check if content is a base64 string (some image models return raw base64)
-      if (typeof normalizedContent === 'string' && normalizedContent.length > 1000) {
-        // Check if it looks like base64 image data (starts with base64 chars, no spaces/newlines)
-        const base64Pattern = /^[A-Za-z0-9+/=]{1000,}$/;
-        if (base64Pattern.test(normalizedContent.slice(0, 1100).replace(/\s/g, ''))) {
-          this.logger.debug?.(`[OpenRouter][Chat] Detected base64 image data in content (length: ${normalizedContent.length})`);
-          imageData = imageData || [];
-          imageData.push({
-            data: normalizedContent.replace(/\s/g, ''),
-            mimeType: 'image/png'
-          });
-          normalizedContent = '';
-        }
-      }
-      
-      if (Array.isArray(normalizedContent)) {
-        try {
-          const textParts = [];
-          for (const p of normalizedContent) {
-            if (typeof p === 'string') {
-              textParts.push(p);
-            } else if (p?.type === 'text' && p?.text) {
-              textParts.push(p.text);
-            } else if (p?.type === 'image_url' && p?.image_url?.url) {
-              // Handle image output from multimodal models
-              imageData = imageData || [];
-              imageData.push({
-                url: p.image_url.url,
-                detail: p.image_url.detail || 'auto'
-              });
-            } else if (p?.type === 'image' && (p?.url || p?.data)) {
-              // Alternative image format
-              imageData = imageData || [];
-              imageData.push({
-                url: p.url || null,
-                data: p.data || null,
-                mimeType: p.mime_type || p.mimeType || 'image/png'
-              });
-            } else if (p?.image?.data || p?.image?.url) {
-              // FLUX-style format: { image: { data: base64, mime_type: 'image/png' } }
-              imageData = imageData || [];
-              imageData.push({
-                url: p.image.url || null,
-                data: p.image.data || null,
-                mimeType: p.image.mime_type || p.image.mimeType || 'image/png'
-              });
-            } else if (p?.text || p?.content) {
-              textParts.push(p.text || p.content);
-            }
-          }
-          normalizedContent = textParts.filter(Boolean).join('\n').trim();
-        } catch {}
-      }
-      
-      // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
-      const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
-      const hasImageData = imageData && imageData.length > 0;
-      
-      // For image-only models, having images without text is valid
-      if (!normalizedContent && !hasReasoning && !hasImageData) {
+        // Check for reasoning in multiple formats: reasoning (plain), reasoning_details (encrypted), reasoning_content (structured)
+        const hasReasoning = result.reasoning || result.reasoning_details || result.reasoning_content;
+        if (!normalizedContent && !hasReasoning) {
         this.logger.error('Invalid response from OpenRouter during chat.');
-        this.logger.info(JSON.stringify(sanitizeForLogging(result), null, 2));
+        this.logger.info(JSON.stringify(result, null, 2));
         
         // Return error envelope or throw instead of returning placeholder text
         // This prevents error messages from being treated as valid content
@@ -991,9 +674,9 @@ export class OpenRouterAIService {
       
       // Special case: reasoning exists but content is empty (e.g., GPT-5 reasoning models)
       // This typically indicates an incomplete response where the model only provided internal reasoning
-      if (!normalizedContent && hasReasoning && !hasImageData) {
+      if (!normalizedContent && hasReasoning) {
         this.logger.warn(`Model returned reasoning but no content. finish_reason=${finishReason}. This may indicate an incomplete response${finishReason === 'length' ? ' due to hitting max_tokens limit' : ''}.`);
-        this.logger.info(JSON.stringify(sanitizeForLogging(result), null, 2));
+        this.logger.info(JSON.stringify(result, null, 2));
         
         if (options.returnEnvelope) {
           return { 
@@ -1021,35 +704,11 @@ export class OpenRouterAIService {
           return String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         } catch { return String(s || '').trim(); }
       };
-      
-      const baseText = (scrub(result.content) || '...');
-    
-      // If we have image data from a multimodal response, include it
-      if (imageData && imageData.length > 0) {
-        this.logger?.info?.(`[OpenRouter][Chat] Multimodal response with ${imageData.length} image(s) from ${mergedOptions.model}`);
-        // Mark model as valid since the API call succeeded
-        this.openrouterModelCatalogService?.markModelAsValid?.(mergedOptions.model, { outputModalities: ['image'] });
-        return options.returnEnvelope 
-          ? { text: baseText, images: imageData, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null }
-          : { text: baseText, images: imageData };
-      }
-    
-      // Mark model as valid since the API call succeeded
-      this.openrouterModelCatalogService?.markModelAsValid?.(mergedOptions.model, { outputModalities: ['text'] });
-      return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
+    const baseText = (scrub(result.content) || '...');
+  return options.returnEnvelope ? { text: baseText, raw: response, model: mergedOptions.model, provider: 'openrouter', error: null } : baseText;
     } catch (error) {
       const parsed = parseProviderError(error);
       this.logger.error('[OpenRouter][Chat] error', parsed);
-      
-      // Log full error details at debug level for diagnosis
-      if (parsed.status === 400) {
-        this.logger.debug?.('[OpenRouter][Chat] Full 400 error details', {
-          model: mergedOptions.model,
-          errorMessage: error?.message,
-          errorResponse: error?.response?.data || error?.error,
-          errorBody: error?.body
-        });
-      }
       const status = parsed.status;
       
       // Retry if the error is a rate limit error
@@ -1060,17 +719,7 @@ export class OpenRouterAIService {
       }
       
       // Handle model not found error (404) by selecting a new random model
-      // But NOT for image-only models - they need special handling (check dynamically)
-      let isImageOnlyModel = false;
-      if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
-        try {
-          isImageOnlyModel = await this.openrouterModelCatalogService.isImageOnlyAsync(mergedOptions.model);
-        } catch {
-          // Fallback to pattern-based check
-          isImageOnlyModel = /black-forest-labs\/flux|stabilityai\/stable-diffusion/i.test(mergedOptions.model);
-        }
-      }
-      if (status === 404 && parsed.userMessage === 'Model not found' && retries > 0 && !isImageOnlyModel) {
+      if (status === 404 && parsed.userMessage === 'Model not found' && retries > 0) {
         this.logger.warn(`[OpenRouter][Chat] Model '${mergedOptions.model}' not found (404), selecting fallback model...`);
         
         try {
@@ -1125,66 +774,27 @@ export class OpenRouterAIService {
     }
     const original = modelName;
     modelName = this._normalizePreferredModel(modelName);
-
-    // Hard guarantee: never return a model that isn't in the OpenRouter catalog.
-    // If the catalog service isn't available, we fall back to registry checks.
-    const ensureExists = async (candidate) => {
-      const normalized = String(candidate || '').replace(/:(online|free)$/i, '').trim().toLowerCase();
-      if (!normalized) return null;
-      try {
-        if (this.openrouterModelCatalogService?.modelExists) {
-          const ok = await this.openrouterModelCatalogService.modelExists(normalized);
-          return ok ? normalized : null;
-        }
-      } catch (e) {
-        this.logger?.debug?.(`[OpenRouter][trace] catalog exists check failed for '${normalized}': ${e?.message || e}`);
-      }
-      try {
-        if (this.aiModelService?.modelIsAvailable?.('openrouter', normalized)) return normalized;
-      } catch {}
-      return null;
-    };
     if (this.modelLock || this.disableFallbacks) {
       if (this.traceModelSelection && original !== modelName) {
         this.logger?.info?.(`[OpenRouter][trace] canonicalized '${original}' -> '${modelName}' (lock=${this.modelLock} disableFallbacks=${this.disableFallbacks})`);
       }
-      // Even when locked, don't allow nonexistent models to be assigned.
-      const ok = await ensureExists(modelName);
-      if (ok) return ok;
-      if (this.traceModelSelection) {
-        this.logger?.warn?.(`[OpenRouter][trace] locked model '${modelName}' not found in catalog; selecting random existing.`);
-      }
-      return await this.selectRandomModel();
+      // Return as-is; let upstream provider surface errors for unavailable models.
+      return modelName;
     }
     try {
       const mapped = this.aiModelService.findClosestModel('openrouter', modelName);
       if (mapped && mapped !== modelName && this.traceModelSelection) {
         this.logger?.info?.(`[OpenRouter][trace] fuzzy mapped '${modelName}' -> '${mapped}'`);
       }
-
-      if (mapped) {
-        const ok = await ensureExists(mapped);
-        if (ok) return ok;
-      }
-
-      // If the original (canonicalized) model exists, prefer it.
-      const directOk = await ensureExists(modelName);
-      if (directOk) return directOk;
-
+      if (mapped) return mapped;
       const name = modelName.replace(/^google\//, '').replace(/^x-ai\//, '').replace(/^openai\//, '').replace(/^meta-llama\//, 'meta-llama/');
       const fallback = this.aiModelService.findClosestModel('openrouter', name);
       if (fallback && fallback !== modelName && this.traceModelSelection) {
         this.logger?.info?.(`[OpenRouter][trace] provider-prefix stripped map '${modelName}' -> '${fallback}'`);
       }
-
-      if (fallback) {
-        const ok = await ensureExists(fallback);
-        if (ok) return ok;
-      }
-
-      return await this.selectRandomModel();
+      return fallback;
     } catch {
-      return await this.selectRandomModel();
+      return null;
     }
   }
 
@@ -1260,10 +870,6 @@ export class OpenRouterAIService {
 
     const res = await fetch(url, { method: 'GET', headers });
     if (!res.ok) {
-      // Provide a clearer error for model not found (404) cases
-      if (res.status === 404) {
-        throw new Error(`Model '${model}' not found on OpenRouter. Please verify the model ID is correct.`);
-      }
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
     }
     const json = await res.json();
@@ -1345,148 +951,28 @@ export class OpenRouterAIService {
   }
 
   /**
-   * Generate an image using an image-capable OpenRouter model.
-   * @param {string} prompt - The image generation prompt
-   * @param {object|array} [images] - Optional reference images
-   * @param {object} [options] - Options including model selection
-   * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
+   * Generate an image using the selected model. If the model is Replicate/flux-dev-lora, use ReplicateService.
+   * @param {string} prompt
+   * @param {object|array} [images] - Array of image URLs/base64 or single image. Only one is supported for Replicate; if multiple, one is chosen at random.
+   * @param {object} [options]
+   * @returns {Promise<string|null>} - The URL or base64 of the generated image.
    */
   async generateImage(prompt, images = [], options = {}) {
-    // Check if the selected model is Replicate/flux-dev-lora (legacy path)
+    // Check if the selected model is Replicate/flux-dev-lora
     const model = options.model || this.model;
     if (model && model.includes('flux-dev-lora')) {
       if (!this.services?.replicateService) {
         this.logger?.error?.('ReplicateService not available in services');
         return null;
       }
+      // Accepts images as array or single image
       const imageArr = Array.isArray(images) ? images : images ? [images] : [];
       return await this.services.replicateService.generateImage(prompt, imageArr, options);
     }
-    
-    // Check if model is image-capable via OpenRouter
-    const catalogService = this.openrouterModelCatalogService;
-    const isImageCapable = catalogService?.isImageCapable?.(model);
-    
-    if (isImageCapable) {
-      return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
-    }
-    
-    this.logger?.warn?.(`[OpenRouter] Model '${model}' is not image-capable. Use an image model like google/gemini-2.5-flash-image or openai/gpt-5-image.`);
+    // Fallback to OpenRouter's own image generation (if supported)
+    // ...existing code for OpenRouter image generation (if any)...
+    this.logger?.warn?.('No image generation implemented for this model in OpenRouterAIService.');
     return null;
-  }
-
-  /**
-   * Generate an image using OpenRouter's native image generation models.
-   * These models return images as part of the chat response.
-   * @param {string} prompt 
-   * @param {array} [referenceImages] - Optional reference images to include
-   * @param {object} [options]
-   * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
-   */
-  async generateImageViaOpenRouter(prompt, referenceImages = [], options = {}) {
-    const model = options.model || 'google/gemini-2.5-flash-image';
-    
-    // Build message content with optional reference images
-    const content = [];
-    
-    // Dynamically check if this model accepts image input
-    // Image-output-only models like FLUX don't accept image inputs - check via API
-    let acceptsImageInput = true; // Default to true for safety
-    if (this.openrouterModelCatalogService?.acceptsImageInputAsync) {
-      try {
-        acceptsImageInput = await this.openrouterModelCatalogService.acceptsImageInputAsync(model);
-        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Model ${model} acceptsImageInput=${acceptsImageInput}`);
-      } catch {
-        // Fallback to pattern-based check if API check fails
-        const isImageOnlyPattern = /black-forest-labs\/flux|stabilityai\/stable-diffusion/i.test(model);
-        acceptsImageInput = !isImageOnlyPattern;
-        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] API check failed, using pattern: acceptsImageInput=${acceptsImageInput}`);
-      }
-    }
-    
-    // Add reference images if provided AND the model supports image input
-    if (acceptsImageInput) {
-      const imageArr = Array.isArray(referenceImages) ? referenceImages : referenceImages ? [referenceImages] : [];
-      for (const img of imageArr.slice(0, 4)) { // Limit to 4 reference images
-        if (typeof img === 'string' && img.startsWith('http')) {
-          content.push({ type: 'image_url', image_url: { url: img } });
-        } else if (typeof img === 'string' && img.startsWith('data:')) {
-          content.push({ type: 'image_url', image_url: { url: img } });
-        }
-      }
-    } else {
-      this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Skipping reference images - model ${model} doesn't accept image input`);
-    }
-    
-    // Add the generation prompt
-    // For image-only models, just use the prompt directly (they don't need "Generate an image:" prefix)
-    const promptText = acceptsImageInput ? `Generate an image: ${prompt}` : prompt;
-    content.push({ type: 'text', text: promptText });
-    
-    const messages = [
-      { role: 'user', content }
-    ];
-    
-    this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] About to call chat() with model=${model}, contentParts=${content.length}, acceptsImageInput=${acceptsImageInput}`);
-    
-    try {
-      const response = await this.chat(messages, {
-        ...options,
-        model,
-        returnEnvelope: true,
-      });
-      
-      this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] chat() returned: hasResponse=${!!response}, hasImages=${!!response?.images}, imagesLen=${response?.images?.length}, hasText=${!!response?.text}, hasError=${!!response?.error}`);
-      if (response?.error) {
-        this.logger?.warn?.(`[OpenRouter][generateImageViaOpenRouter] chat() error: code=${response.error.code}, message=${response.error.message}`);
-      }
-      
-      if (response?.images && response.images.length > 0) {
-        const image = response.images[0];
-        return {
-          url: image.url || null,
-          data: image.data || null,
-          text: response.text || null,
-          model,
-        };
-      }
-      
-      // Some models might return image URL in text
-      if (response?.text) {
-        const urlMatch = response.text.match(/https?:\/\/[^\s"'<>]+\.(png|jpg|jpeg|gif|webp)/i);
-        if (urlMatch) {
-          return {
-            url: urlMatch[0],
-            text: response.text,
-            model,
-          };
-        }
-      }
-      
-      this.logger?.warn?.(`[OpenRouter] Image model ${model} did not return image data`);
-      return response?.text ? { text: response.text, model } : null;
-      
-    } catch (e) {
-      this.logger?.error?.(`[OpenRouter] Image generation failed: ${e.message}`);
-      return null;
-    }
-  }
-
-  /**
-   * Check if a model supports image output generation.
-   * @param {string} modelId 
-   * @returns {boolean}
-   */
-  isImageCapableModel(modelId) {
-    return this.openrouterModelCatalogService?.isImageCapable?.(modelId) || false;
-  }
-
-  /**
-   * Get list of available image-capable models.
-   * @returns {string[]}
-   */
-  getImageCapableModels() {
-    return this.openrouterModelCatalogService?.getImageCapableModels?.() || [];
   }
 
   /**
@@ -1507,15 +993,7 @@ export class OpenRouterAIService {
       const imageArr = Array.isArray(images) ? images : images ? [images] : [];
       return await this.services.replicateService.generateImage(prompt, imageArr, options);
     }
-    
-    // Try OpenRouter image-capable models for composition
-    const catalogService = this.openrouterModelCatalogService;
-    const isImageCapable = catalogService?.isImageCapable?.(model);
-    
-    if (isImageCapable) {
-      return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
-    }
-    
+    // ...existing code for OpenRouter composeImage (if any)...
     this.logger?.warn?.('No composeImage implemented for this model in OpenRouterAIService.');
     return null;
   }

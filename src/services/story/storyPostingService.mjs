@@ -13,7 +13,6 @@ export class StoryPostingService {
   constructor({ 
     telegramService,
     xService,
-    buybotService,
     googleAIService,
     aiService,
     schemaService,
@@ -27,7 +26,6 @@ export class StoryPostingService {
   }) {
     this.telegram = telegramService;
     this.x = xService;
-    this.buybotService = buybotService;
     this.googleAI = googleAIService;
     this.aiService = aiService;
   this.schemaService = schemaService;
@@ -371,16 +369,6 @@ export class StoryPostingService {
     // Post to X
     try {
       if (this.x) {
-        // Get dynamically allowed tokens from buybot tracked tokens
-        let dynamicAllowlist = { addresses: [], symbols: [] };
-        if (this.buybotService?.getAllTrackedTokensForAllowlist) {
-          try {
-            dynamicAllowlist = await this.buybotService.getAllTrackedTokensForAllowlist();
-          } catch (err) {
-            this.logger.warn('[StoryPosting] Failed to get dynamic token allowlist:', err.message);
-          }
-        }
-
         const xResult = await this.x.postGlobalMediaUpdate({
           mediaUrl,
           text: caption,
@@ -388,19 +376,12 @@ export class StoryPostingService {
             arcId: arc._id.toString(),
             isStoryContent: true,
             beatNumber: beat.sequenceNumber
-          },
-          contentFilters: {
-            allowedCashtags: [
-              ...dynamicAllowlist.symbols,
-              '$RATI', '$HISS' // Explicitly allow core tokens
-            ],
-            allowedAddresses: dynamicAllowlist.addresses
           }
         });
         
         if (xResult?.id) {
           posts.xTweetId = xResult.id;
-          posts.xTweetUrl = `https://twitter.com/web/status/${xResult.id}`;
+          posts.xTweetUrl = `https://twitter.com/i/web/status/${xResult.id}`;
           this.logger.info(`[StoryPosting] Posted to X: ${xResult.id}`);
         }
       }

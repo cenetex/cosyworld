@@ -11,10 +11,7 @@
 export const DEFAULT_ORB_COLLECTION_ADDRESS = process.env.ORB_COLLECTION_ADDRESS || '8GCAyy5L2o2ZPdQKo3EtYAYNKYT8Y6sqGHweintLTSJ';
 
 // Polling interval for checking token transactions (milliseconds)
-export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 300000; // 5 minutes
-
-// Random jitter applied to each poll interval to avoid thundering herd (milliseconds)
-export const POLLING_JITTER_MS = parseInt(process.env.BUYBOT_POLLING_JITTER_MS, 10) || 45000; // ±45 seconds
+export const POLLING_INTERVAL_MS = parseInt(process.env.BUYBOT_POLL_INTERVAL_MS, 10) || 30000; // 30 seconds
 
 // Maximum number of tokens/collections that can be tracked per channel
 export const MAX_TRACKED_TOKENS_PER_CHANNEL = parseInt(process.env.MAX_TRACKED_TOKENS_PER_CHANNEL, 10) || 20;
@@ -33,12 +30,8 @@ export const RATE_LIMIT_BASE_DELAY_MS = parseInt(process.env.RATE_LIMIT_BASE_DEL
 export const RATE_LIMIT_MAX_DELAY_MS = parseInt(process.env.RATE_LIMIT_MAX_DELAY_MS, 10) || 300000; // 5 minutes
 export const RATE_LIMIT_COOLDOWN_MS = parseInt(process.env.RATE_LIMIT_COOLDOWN_MS, 10) || 60000; // 1 minute
 
-// Price cache TTL (milliseconds) - how long to cache token info before re-fetching
-export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 1800000; // 30 minutes
-
-// Telegram AI response batching interval (milliseconds) - how often to send batched AI responses
-// Set to 0 to disable AI responses in buy channel entirely
-export const TELEGRAM_AI_RESPONSE_INTERVAL_MS = parseInt(process.env.TELEGRAM_AI_RESPONSE_INTERVAL_MS, 10) || 3600000; // 1 hour
+// Price cache TTL (milliseconds)
+export const PRICE_CACHE_TTL_MS = parseInt(process.env.PRICE_CACHE_TTL_MS, 10) || 300000; // 5 minutes
 
 // Maximum number of recent transactions to request per poll (higher value reduces missed buys during bursts)
 export const RECENT_TRANSACTIONS_LIMIT = parseInt(process.env.BUYBOT_RECENT_TRANSACTIONS_LIMIT, 10) || 100;

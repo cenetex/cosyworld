@@ -1,7 +1,5 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.mjs';
-import { isModelRosterAvatar } from './helpers/isModelRosterAvatar.mjs';
-import { isCollectionAvatar, isOnChainAvatar } from './helpers/walletAvatarClassifiers.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -102,35 +100,6 @@ import Fuse from 'fuse.js';
 import { ObjectId } from 'mongodb';
 import { toObjectId } from '../../utils/toObjectId.mjs';
 import { buildAvatarQuery } from './helpers/buildAvatarQuery.js';
-import { buildAvatarGuildMatch, normalizeGuildId } from '../../utils/guildScope.mjs';
-
-const normalizeMentionText = (value = '') => String(value || '')
-  .replace(/\([^)]*\)/g, ' ')
-  .replace(/[^\w\s]/g, ' ')
-  .replace(/\s+/g, ' ')
-  .trim()
-  .toLowerCase();
-
-const mentionTokensFor = (value = '') => {
-  const normalized = normalizeMentionText(value);
-  const words = normalized.split(' ').filter(Boolean);
-  
-  // Include first word even if < 3 chars (for first names like "Al", "Bo")
-  // and all words >= 3 chars or all-digits
-  const tokens = words.filter((token, idx) => 
-    idx === 0 || token.length >= 3 || /^\d+$/.test(token)
-  );
-  
-  return tokens;
-};
-
-const PARTIAL_UPGRADE_ACTIVITY_THRESHOLD = Number.isFinite(Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD))
-  ? Number(process.env.WALLET_AVATAR_ACTIVITY_UPGRADE_THRESHOLD)
-  : 25;
-
-const PARTIAL_UPGRADE_COOLDOWN_MS = Number.isFinite(Number(process.env.WALLET_AVATAR_UPGRADE_COOLDOWN_MS))
-  ? Number(process.env.WALLET_AVATAR_UPGRADE_COOLDOWN_MS)
-  : 6 * 60 * 60 * 1000; // 6 hours
 
 export class AvatarService {
   constructor({
@@ -156,16 +125,11 @@ export class AvatarService {
     this.walletInsights = walletInsights;
     this.pendingAvatarImageHydrations = new Set();
 
-    this.registeredCollectionCache = { keys: [], expiresAt: 0 };
+  this.registeredCollectionCache = { keys: [], expiresAt: 0 };
 
     // in‑memory helpers
     this.channelAvatars = new Map(); // channelId → Set<avatarId>
     this.avatarActivityCount = new Map(); // avatarId  → integer
-    
-    // Rate limiting for activity count increments to prevent inflation from
-    // multiple channels processing the same transaction
-    this.activityIncrementCache = new Map(); // walletAddress → lastIncrementTimestamp
-    this.ACTIVITY_INCREMENT_COOLDOWN_MS = 60_000; // 60 seconds between increments for same wallet
 
     // collection aliases
     this.IMAGE_URL_COLLECTION = 'image_urls';
@@ -208,35 +172,6 @@ export class AvatarService {
       this.channelsCollection.createIndex({ lastActive: 1 }),
     ]);
 
-    const ensureUniqueIndex = async (keys, options) => {
-      try {
-        await this.avatarsCollection.createIndex(keys, options);
-      } catch (error) {
-        this.logger?.warn?.(`[AvatarService] Failed to ensure index ${options?.name || JSON.stringify(keys)}: ${error.message}`);
-      }
-    };
-
-    await ensureUniqueIndex(
-      { 'nft.collection': 1, 'nft.tokenId': 1 },
-      {
-        name: 'avatars_nft_collection_token_unique',
-        unique: true,
-        partialFilterExpression: { 'nft.tokenId': { $exists: true, $ne: null } },
-      }
-    );
-
-    await ensureUniqueIndex(
-      { 'nft.collection': 1, name: 1 },
-      {
-        name: 'avatars_nft_collection_name_unique',
-        unique: true,
-        partialFilterExpression: {
-          'nft.collection': { $exists: true, $ne: null },
-          'nft.tokenId': { $exists: false },
-        },
-      }
-    );
-
     this.logger.info('AvatarService database setup completed with wallet avatar indexes.');
   }
 
@@ -256,40 +191,6 @@ export class AvatarService {
     if (channelId) filters.channelId = channelId;
     if (guildId) filters.guildId = guildId;
     return filters;
-  }
-
-  /**
-   * Filter avatars by guild avatar modes (free, onChain, collection, pureModel)
-   * @param {Array} avatars - Avatars to filter
-   * @param {Object} guildConfig - Guild configuration
-   * @returns {Array} Filtered avatars
-   */
-  _filterByAvatarModes(avatars, guildConfig) {
-    if (!Array.isArray(avatars) || avatars.length === 0) {
-      return [];
-    }
-
-    const modes = guildConfig?.avatarModes || {};
-    
-    // Backwards compatibility: if old 'wallet' setting exists, map to both new modes
-    const hasLegacyWallet = modes.wallet !== undefined;
-    const allowOnChain = hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false;
-    const allowCollection = hasLegacyWallet ? modes.wallet !== false : modes.collection !== false;
-    const allowFree = modes.free !== false;
-    const allowPureModel = modes.pureModel !== false;
-
-    // If all modes enabled, no filtering needed
-    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
-      return avatars;
-    }
-
-    return avatars.filter(avatar => {
-      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
-      if (allowCollection && isCollectionAvatar(avatar)) return true;
-      if (allowOnChain && isOnChainAvatar(avatar)) return true;
-      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
-      return false;
-    });
   }
 
   /* -------------------------------------------------- */
@@ -340,8 +241,8 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   async initializeAvatar(avatar, locationId) {
-  const defaultStats = await this.getOrCreateStats(avatar);
-  await this.updateAvatarStats(avatar, avatar.stats || defaultStats);
+    const defaultStats = await this.getOrCreateStats(avatar);
+    await this.updateAvatarStats(avatar, avatar.stats || defaultStats);
     if (locationId)
       await this.getMapService().updateAvatarPosition(avatar, locationId);
     this.logger.info(`Initialized avatar ${avatar._id}${locationId ? ' @' + locationId : ''}`);
@@ -355,8 +256,8 @@ export class AvatarService {
 
   async getOrCreateStats(avatar) {
     let stats = avatar.stats || (await this.getAvatarStats(avatar._id));
-  if (!stats || !this.statService.constructor.validateStats(stats)) {
-    stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
+    if (!stats || !this.statService.constructor.validateStats(stats)) {
+      stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
       await this.updateAvatarStats(avatar, stats);
       avatar.stats = stats;
       await this.updateAvatar(avatar);
@@ -375,7 +276,7 @@ export class AvatarService {
       .map(a => ({ ...a, id: a._id, active: true }));
   }
 
-  async getAvatarsInChannel(channelId, guildId = null, options = {}) {
+  async getAvatarsInChannel(channelId, guildId = null) {
     const { avatars } = await this.getMapService().getLocationAndAvatars(channelId);
     if (!guildId) return avatars;
   
@@ -402,15 +303,9 @@ export class AvatarService {
         : [];
     }
 
-    // Apply avatar mode restrictions (free, onChain, collection, pureModel)
-    if (options.skipModeFiltering !== true) {
-      filtered = this._filterByAvatarModes(filtered, guildConfig);
-    }
-
     // Limit to MAX_ACTIVE_AVATARS_PER_CHANNEL active avatars
     // Return only avatars marked as "active" in the channel presence
-    // Pass guildConfig to auto-deactivate incompatible avatars
-    const activeAvatars = await this.getActiveAvatarsInChannel(channelId, filtered, guildConfig);
+    const activeAvatars = await this.getActiveAvatarsInChannel(channelId, filtered);
     return activeAvatars;
   }
 
@@ -418,11 +313,10 @@ export class AvatarService {
    * Get the active avatars in a channel (limited to MAX_ACTIVE_AVATARS_PER_CHANNEL)
    * Uses channel_avatar_presence collection to track which avatars are currently active
    * @param {string} channelId - Channel ID
-   * @param {Array} allAvatars - All avatars in the channel (already filtered by modes)
-   * @param {Object} guildConfig - Optional guild config to validate active avatars against current modes
+   * @param {Array} allAvatars - All avatars in the channel
    * @returns {Promise<Array>} Active avatars (max 8)
    */
-  async getActiveAvatarsInChannel(channelId, allAvatars, guildConfig = null) {
+  async getActiveAvatarsInChannel(channelId, allAvatars) {
     try {
       const MAX_ACTIVE = Number(process.env.MAX_ACTIVE_AVATARS_PER_CHANNEL || 8);
       
@@ -438,24 +332,7 @@ export class AvatarService {
       
       const activeIds = new Set(activePresence.map(p => String(p.avatarId)));
       
-      // Create a set of valid avatar IDs (avatars that match current guild modes)
-      const validIds = new Set(allAvatars.map(av => String(av._id)));
-      
-      // Deactivate any avatars that are active but no longer match guild modes
-      if (guildConfig) {
-        const invalidActiveIds = [...activeIds].filter(id => !validIds.has(id));
-        if (invalidActiveIds.length > 0) {
-          await presenceCol.updateMany(
-            { channelId, avatarId: { $in: invalidActiveIds }, isActive: true },
-            { $set: { isActive: false, lastActivityAt: new Date() } }
-          );
-          // Remove them from activeIds set
-          invalidActiveIds.forEach(id => activeIds.delete(id));
-          this.logger.info(`Deactivated ${invalidActiveIds.length} incompatible avatar(s) in channel ${channelId}`);
-        }
-      }
-      
-      // Filter avatars to only those marked as active AND valid
+      // Filter avatars to only those marked as active
       const activeAvatars = allAvatars.filter(av => activeIds.has(String(av._id)));
       
       // If we have fewer active avatars than available, auto-activate up to MAX_ACTIVE
@@ -613,7 +490,7 @@ export class AvatarService {
       const db = await this._db();
       const _ids = avatarIds.map(id => (typeof id === 'string' ? new ObjectId(id) : id));
       const query = { ...buildAvatarQuery(filters), _id: { $in: _ids } };
-      return db.collection(this.AVATARS_COLLECTION).find(query).toArray
+      return db.collection(this.AVATARS_COLLECTION).find(query).toArray();
     } catch (err) {
       this.logger.error(`Failed to fetch avatars – ${err.message}`);
       return [];
@@ -628,189 +505,23 @@ export class AvatarService {
     const mentioned = new Set();
     if (!content || !Array.isArray(avatars)) return mentioned;
 
-    const baseContent = String(content);
-    const lowerContent = baseContent.toLowerCase();
-    const normalizedContent = normalizeMentionText(baseContent);
-    const normalizedWords = normalizedContent ? normalizedContent.split(' ').filter(Boolean) : [];
-    const normalizedWordSet = new Set(normalizedWords);
-    const contentTokens = mentionTokensFor(baseContent);
-    const contentTokenSet = new Set(contentTokens);
-
     // exact match / emoji first
     for (const av of avatars) {
       if (!av?._id || !av.name) continue;
-      const name = String(av.name);
-      const lowerName = name.toLowerCase();
-      const normalizedName = normalizeMentionText(name);
-      const nameTokens = mentionTokensFor(name);
-      const nameMatch = lowerContent.includes(lowerName);
+      const nameMatch = content.toLowerCase().includes(av.name.toLowerCase());
       const emojiMatch = av.emoji && content.includes(av.emoji);
-      const normalizedMatch = normalizedName && normalizedContent.includes(normalizedName);
-      const overlappingTokens = nameTokens.length && contentTokens.length
-        ? contentTokens.filter(token => nameTokens.some(candidate =>
-            candidate.startsWith(token) || token.startsWith(candidate)
-          ))
-        : [];
-      const tokenMatch = overlappingTokens.length > 0;
-  const strongOverlap = nameTokens.length > 0 && overlappingTokens.length >= Math.min(nameTokens.length, 2);
-      const firstToken = nameTokens[0];
-      const wordMatch = firstToken && normalizedWordSet.has(firstToken);
-      const partialWordMatch = firstToken && normalizedWords.some(word =>
-        word.length >= 3 && (firstToken.startsWith(word) || word.startsWith(firstToken))
-      );
-      const anyTokenDirectMatch = nameTokens.some(token => contentTokenSet.has(token));
-      if (
-        nameMatch ||
-        emojiMatch ||
-        normalizedMatch ||
-        tokenMatch ||
-        strongOverlap ||
-        wordMatch ||
-        partialWordMatch ||
-        anyTokenDirectMatch
-      ) {
-        mentioned.add(av);
-      }
+      if (nameMatch || emojiMatch) mentioned.add(av);
     }
 
     // fuzzy on remaining
-    const fuzzyPool = avatars
-      .filter(a => !mentioned.has(a) && String(a?.name || '').trim().length >= 3)
-      .map(av => ({
-      avatar: av,
-      name: av.name,
-      normalizedName: normalizeMentionText(av.name || '')
-      }));
-    if (fuzzyPool.length) {
-      const fuse = new Fuse(fuzzyPool, {
-        keys: [
-          { name: 'name', weight: 0.6 },
-          { name: 'normalizedName', weight: 0.4 }
-        ],
-        threshold: 0.35,
-        ignoreLocation: true
-      });
-      const queries = [baseContent, normalizedContent].filter(Boolean);
-      for (const query of queries) {
-        fuse.search(query).forEach(r => {
-          if (r.score < 0.5) mentioned.add(r.item.avatar);
-        });
-      }
-    }
+    const fuse = new Fuse(avatars.filter(a => !mentioned.has(a)), {
+      keys: ['name'], threshold: 0.4
+    });
+    fuse.search(content).forEach(r => {
+      if (r.score < 0.5) mentioned.add(r.item);
+    });
 
     return mentioned;
-  }
-
-  /**
-   * Match avatars from the provided list that are mentioned in content.
-   * Applies multiple heuristics (normalized text, word boundaries, emoji) and
-   * keeps the order in which avatars appear in the text.
-   *
-   * @param {string} content - User supplied text to scan
-   * @param {Array<Object>} avatars - Avatars scoped to the current channel
-   * @param {Object} [options]
-   * @param {number|null} [options.limit] - Max avatars to return
-   * @param {Array<string|ObjectId>} [options.excludeAvatarIds] - Avatar ids to skip
-   * @returns {Array<Object>} ordered list of mentioned avatars
-   */
-  matchAvatarsByContent(content, avatars = [], options = {}) {
-    if (!content || !Array.isArray(avatars) || avatars.length === 0) return [];
-
-    const text = String(content || '');
-    const lower = text.toLowerCase();
-    const normalized = normalizeMentionText(text);
-    const normalizedWords = normalized ? normalized.split(' ').filter(Boolean) : [];
-    const wordPositions = new Map();
-    normalizedWords.forEach((word, idx) => {
-      if (!wordPositions.has(word)) {
-        wordPositions.set(word, idx);
-      }
-    });
-    const contentTokens = mentionTokensFor(text);
-    const limit = Number.isInteger(options.limit) ? options.limit : null;
-    const excludeIds = new Set((options.excludeAvatarIds || []).map(id => String(id)));
-
-    const pushUnique = (collection, avatar) => {
-      if (!avatar) return;
-      const id = String(avatar._id || avatar.id || '');
-      if (!id || excludeIds.has(id)) return;
-      if (collection.some(av => String(av._id || av.id || '') === id)) return;
-      collection.push(avatar);
-    };
-
-    const findWordIndex = (avatar) => {
-      const tokens = mentionTokensFor(avatar?.name || '');
-      for (const token of tokens) {
-        if (wordPositions.has(token)) {
-          return wordPositions.get(token);
-        }
-        const partialIdx = normalizedWords.findIndex(word =>
-          word.length >= 3 && (token.startsWith(word) || word.startsWith(token))
-        );
-        if (partialIdx !== -1) return partialIdx;
-      }
-      return Number.MAX_SAFE_INTEGER;
-    };
-
-    const positionOf = (avatar) => {
-      if (!avatar) return Number.MAX_SAFE_INTEGER;
-      const wordIdx = findWordIndex(avatar);
-      if (wordIdx !== Number.MAX_SAFE_INTEGER) return wordIdx;
-      const name = String(avatar?.name || '').toLowerCase();
-      const emoji = String(avatar?.emoji || '').toLowerCase();
-      const nameIdx = name ? lower.indexOf(name) : -1;
-      if (nameIdx >= 0) return normalizedWords.length + nameIdx;
-      const emojiIdx = emoji ? lower.indexOf(emoji) : -1;
-      if (emojiIdx >= 0) return normalizedWords.length + lower.length + emojiIdx;
-      return Number.MAX_SAFE_INTEGER;
-    };
-
-    const hasWordOrTokenMatch = (avatar) => {
-      if (!avatar) return false;
-      const name = String(avatar?.name || '').trim();
-      const emoji = String(avatar?.emoji || '').trim();
-      const tokens = mentionTokensFor(name);
-      const wordHit = tokens.some(token => wordPositions.has(token));
-      const partialWordHit = tokens.some(token => normalizedWords.some(word =>
-        word.length >= 3 && (token.startsWith(word) || word.startsWith(token))
-      ));
-      const tokenOverlap = contentTokens.length && tokens.length
-        ? contentTokens.some(ct => tokens.some(token =>
-            token.startsWith(ct) || ct.startsWith(token)
-          ))
-        : false;
-      const emojiMatch = emoji && text.includes(emoji);
-      return wordHit || partialWordHit || tokenOverlap || emojiMatch;
-    };
-
-    const matches = Array.from(this.extractMentionedAvatars(text, avatars));
-    const orderedMatches = [];
-    for (const match of matches) {
-      pushUnique(orderedMatches, match);
-    }
-
-    for (const avatar of avatars) {
-      if (limit !== null && orderedMatches.length >= limit) break;
-      if (orderedMatches.some(av => String(av._id || av.id || '') === String(avatar?._id || avatar?.id || ''))) continue;
-      if (!hasWordOrTokenMatch(avatar)) continue;
-      pushUnique(orderedMatches, avatar);
-    }
-
-    orderedMatches.sort((a, b) => positionOf(a) - positionOf(b));
-
-    if (limit !== null) {
-      return orderedMatches.slice(0, Math.max(0, limit));
-    }
-    return orderedMatches;
-  }
-
-  /**
-   * Convenience helper to detect mentions constrained to a single channel.
-   */
-  async detectMentionedAvatarsInChannel(content, channelId, guildId, options = {}) {
-    if (!content || !channelId) return [];
-    const avatars = options.avatars || await this.getAvatarsInChannel(channelId, guildId);
-    return this.matchAvatarsByContent(content, avatars, options);
   }
 
   /**
@@ -1101,9 +812,8 @@ export class AvatarService {
    * @returns {Promise<Object|null>} - Existing avatar with _existing flag, or null
    * @private
    */
-  async _checkExistingAvatar(name, guildId = null) {
-    const options = guildId ? { guildId } : {};
-    const existing = await this.getAvatarByName(name, options);
+  async _checkExistingAvatar(name) {
+    const existing = await this.getAvatarByName(name);
     if (existing) {
       this.logger?.info?.(`[AvatarService] Avatar "${name}" already exists, returning existing`);
       return { ...existing, _existing: true };
@@ -1565,7 +1275,7 @@ export class AvatarService {
       if (!collectionSet || collectionSet.size === 0) {
         return false;
       }
-      const avatarCollection = (avatar?.nft?.collection || '')
+      const avatarCollection = (avatar?.nft?.collection || avatar?.collection || '')
         .toString()
         .trim()
         .toLowerCase();
@@ -1632,62 +1342,8 @@ export class AvatarService {
     return this.schemaService.executePipeline({ prompt, schema });
   }
 
-  /**
-   * Generate an avatar image, optionally using a reference image (e.g., token icon)
-   * @param {string} prompt - The image generation prompt
-   * @param {Object} uploadOptions - Upload options including optional referenceImageUrl
-   * @returns {Promise<string|null>} - The generated image URL or null
-   */
   async generateAvatarImage(prompt, uploadOptions = {}) {
-    const { referenceImageUrl, ...cleanUploadOptions } = uploadOptions;
-    
-    // If we have a reference image and aiService supports composition, try that first
-    if (referenceImageUrl && this.aiService?.composeImageWithGemini && this.aiService?.s3Service?.downloadImage) {
-      try {
-        this.logger?.info?.(`[AvatarService] Attempting image composition with reference: ${referenceImageUrl.substring(0, 60)}...`);
-        
-        // Download the reference image
-        const refBuffer = await this.aiService.s3Service.downloadImage(referenceImageUrl);
-        if (refBuffer) {
-          const images = [{
-            data: refBuffer.toString('base64'),
-            mimeType: 'image/png',
-            label: 'token_icon'
-          }];
-          
-          // Build enhanced prompt that incorporates the token icon
-          const compositionPrompt = `Create a unique character avatar inspired by and incorporating visual elements from the attached token icon image. 
-The character should:
-- Reflect the token's visual identity, colors, and themes
-- Be a full character portrait suitable for a profile image
-- Maintain the essence and color palette of the token icon
-- Have a complete character design with face, expression, and personality
-
-Character prompt: ${prompt}
-
-Style: Fantasy character portrait, 1:1 square format, detailed, expressive, suitable for avatar use. 
-The token icon's colors and motifs should be visible in the character's design.`;
-
-          const compositionOptions = {
-            ...cleanUploadOptions,
-            source: cleanUploadOptions.source || 'avatar.wallet.composed',
-            characterReference: false, // Token icon is design inspiration, not a character to replicate
-          };
-          
-          const composedUrl = await this.aiService.composeImageWithGemini(images, compositionPrompt, compositionOptions);
-          
-          if (composedUrl) {
-            this.logger?.info?.(`[AvatarService] Successfully composed avatar with token reference: ${composedUrl.substring(0, 60)}...`);
-            return composedUrl;
-          }
-        }
-      } catch (composeError) {
-        this.logger?.warn?.(`[AvatarService] Image composition with reference failed, falling back to standard generation: ${composeError.message}`);
-      }
-    }
-    
-    // Fall back to standard generation via schemaService
-    return this.schemaService.generateImage(prompt, '1:1', cleanUploadOptions);
+    return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
   }
 
   _canGenerateAvatarImages() {
@@ -1702,11 +1358,10 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
   }
 
-  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false, forceHydratePartial = false, referenceImageUrl = null } = {}) {
+  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false } = {}) {
     if (!avatar) return null;
     if (!force && avatar.imageUrl) return avatar;
-    // Skip partial avatars unless forceHydratePartial is set (used when avatar speaks)
-    if (!force && !forceHydratePartial && avatar.isPartial === true) return avatar;
+    if (!force && avatar.isPartial === true) return avatar;
     if (!this._canGenerateAvatarImages()) {
       this.logger?.debug?.(`[AvatarService] Skipping image hydration for ${avatar?.name || avatar?._id}: Replicate not configured`);
       return avatar;
@@ -1741,8 +1396,7 @@ The token icon's colors and motifs should be visible in the character's design.`
         avatarId: cacheKey,
         avatarName: avatar.name,
         avatarEmoji: avatar.emoji,
-        prompt: generationPrompt,
-        referenceImageUrl: referenceImageUrl || null, // Token icon for wallet avatars
+        prompt: generationPrompt
       };
 
       const imageUrl = await this.generateAvatarImage(generationPrompt, uploadOptions);
@@ -1777,88 +1431,6 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
 
     return avatar;
-  }
-
-  /**
-   * Hydrate a partial avatar when it's selected to speak.
-   * This upgrades the avatar with a generated image and posts an announcement embed.
-   * @param {Object} avatar - The partial avatar to hydrate
-   * @param {string} channelId - Channel where the avatar will speak
-   * @param {Object} options - Additional options
-   * @param {Object} options.discordService - Discord service for posting embeds
-   * @returns {Promise<Object>} - The hydrated avatar with imageUrl
-   */
-  async hydratePartialAvatarForSpeaking(avatar, channelId, options = {}) {
-    if (!avatar) return null;
-    
-    // Skip if already has an image
-    if (avatar.imageUrl) return avatar;
-    
-    // Skip if not a partial avatar (shouldn't happen, but safety check)
-    if (avatar.isPartial !== true && avatar.model !== 'partial') return avatar;
-    
-    this.logger?.info?.(`[AvatarService] Hydrating partial avatar ${avatar.name} for speaking in channel ${channelId}`);
-    
-    // Get token image reference if this is a wallet avatar
-    let referenceImageUrl = null;
-    if (avatar.walletContext?.tokenImage) {
-      referenceImageUrl = avatar.walletContext.tokenImage;
-    } else if (avatar.walletAddress && this.configService?.services?.buybotService) {
-      // Try to find the tracked token for this channel to get its image
-      try {
-        const trackedTokens = await this.configService.services.buybotService.getTrackedTokens(channelId);
-        if (trackedTokens?.length > 0 && trackedTokens[0]?.tokenImage) {
-          referenceImageUrl = trackedTokens[0].tokenImage;
-        }
-      } catch (e) {
-        this.logger?.debug?.(`[AvatarService] Could not fetch token image for hydration: ${e.message}`);
-      }
-    }
-    
-    // Hydrate the avatar image
-    const hydratedAvatar = await this._ensureAvatarImage(avatar, {
-      reason: 'speaking',
-      forceHydratePartial: true,
-      referenceImageUrl,
-    });
-    
-    // Update the model if it was 'partial'
-    if (hydratedAvatar.imageUrl && (hydratedAvatar.model === 'partial' || !hydratedAvatar.model)) {
-      try {
-        const newModel = await this._resolveHydratedModel(hydratedAvatar.model);
-        const db = await this._db();
-        await db.collection(this.AVATARS_COLLECTION).updateOne(
-          { _id: hydratedAvatar._id },
-          { $set: { model: newModel, upgradedAt: new Date() } }
-        );
-        hydratedAvatar.model = newModel;
-        this.logger?.info?.(`[AvatarService] Upgraded ${hydratedAvatar.name} model to ${newModel}`);
-      } catch (e) {
-        this.logger?.warn?.(`[AvatarService] Failed to upgrade model for ${hydratedAvatar.name}: ${e.message}`);
-      }
-    }
-    
-    // Post announcement embed if we successfully generated an image
-    if (hydratedAvatar.imageUrl && options.discordService) {
-      try {
-        const isWalletAvatar = Boolean(hydratedAvatar.walletAddress || hydratedAvatar.summoner?.startsWith('wallet:'));
-        const announceMessage = isWalletAvatar 
-          ? `🎨 New trader avatar ready!`
-          : `🎨 ${hydratedAvatar.name} has emerged!`;
-        
-        await options.discordService.sendMiniAvatarEmbed(
-          hydratedAvatar,
-          channelId,
-          announceMessage
-        );
-        
-        this.logger?.info?.(`[AvatarService] Posted hydration announcement for ${hydratedAvatar.name}`);
-      } catch (embedError) {
-        this.logger?.warn?.(`[AvatarService] Failed to post hydration embed: ${embedError.message}`);
-      }
-    }
-    
-    return hydratedAvatar;
   }
 
   /**
@@ -1911,8 +1483,7 @@ The token icon's colors and motifs should be visible in the character's design.`
     return db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
   }
 
-  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null, referenceImageUrl = null }) {
-    const normalizedGuildId = normalizeGuildId(guildId);
+  async createAvatar({ prompt, summoner, channelId, guildId, imageUrl: imageUrlOverride = null }) {
     let details = null;
     try {
       details = await this.generateAvatarDetails(prompt, guildId);
@@ -1958,23 +1529,24 @@ The token icon's colors and motifs should be visible in the character's design.`
     if (!validatedName) return null;
     details.name = validatedName;
 
-  const existing = await this._checkExistingAvatar(details.name, normalizedGuildId);
+    // Check for existing avatar with same name
+    const existing = await this._checkExistingAvatar(details.name);
     if (existing) return existing;
 
     let imageUrl = null;
     if (imageUrlOverride) {
       imageUrl = imageUrlOverride;
     } else {
-      try {
+      try { 
+        // Pass metadata through to the upload service for proper event emission
         const uploadOptions = {
           source: 'avatar.create',
           avatarName: details.name,
           avatarEmoji: details.emoji,
           prompt: details.description,
-          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim(),
-          referenceImageUrl: referenceImageUrl || null, // Token icon for visual inspiration
+          context: `${details.emoji || '✨'} Meet ${details.name} — ${details.description}`.trim()
         };
-        imageUrl = await this.generateAvatarImage(details.description, uploadOptions);
+        imageUrl = await this.generateAvatarImage(details.description, uploadOptions); 
       } catch (e) {
         this.logger?.warn?.(`Avatar image generation failed, continuing without image: ${e?.message || e}`);
         imageUrl = null;
@@ -1983,118 +1555,62 @@ The token icon's colors and motifs should be visible in the character's design.`
     let model = null;
     try { model = await this.aiService.getModel(details.model); } catch { model = details.model || 'auto'; }
 
-    const now = new Date();
-    const insertDoc = {
+    const doc = {
       ...details,
       imageUrl,
       model,
-      channelId: channelId || null,
-      summoner: summoner ? String(summoner) : null,
-      guildId: normalizedGuildId,
+      channelId,
+      summoner,
       lives: 3,
       status: 'alive',
-      createdAt: now,
-      introductionCompletedAt: null
-    };    const db = await this._db();
-    const collection = db.collection(this.AVATARS_COLLECTION);
-    const guildMatch = buildAvatarGuildMatch(normalizedGuildId);
-    const result = await collection.findOneAndUpdate(
-      { name: details.name, ...guildMatch },
-      {
-        $setOnInsert: insertDoc,
-        $set: {
-          updatedAt: now
-        }
-      },
-      { upsert: true, returnDocument: 'after' }
-    );
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    let createdAvatar = result.value;
-    const upsertedId = result.lastErrorObject?.upserted || result.lastErrorObject?._id || null;
-    let isNew = Boolean(upsertedId);
-    if (!isNew && typeof result.lastErrorObject?.updatedExisting === 'boolean') {
-      isNew = result.lastErrorObject.updatedExisting === false;
-    }
-
-    if (!createdAvatar) {
-      if (upsertedId) {
-        createdAvatar = await collection.findOne({ _id: upsertedId });
-      }
-    }
-
-    if (!createdAvatar) {
-      const fallbackQuery = { name: details.name, ...guildMatch };
-      createdAvatar = await collection.findOne(fallbackQuery);
-    }
-
-    if (!createdAvatar) {
-      this.logger?.error?.('[AvatarService] Failed to create or fetch avatar after upsert', {
-        name: details.name,
-        guildId: normalizedGuildId,
-        upsertMeta: result?.lastErrorObject || null
-      });
-      return null;
-    }
-
-    if (!isNew && upsertedId && createdAvatar && createdAvatar._id?.equals?.(upsertedId)) {
-      isNew = true;
-    }
-
-    // Final fallback: if no intro flag is present and the avatar was truly just created, treat as new
-    if (!isNew && !createdAvatar.introductionCompletedAt) {
-      const createdAtMs = createdAvatar?.createdAt instanceof Date
-        ? createdAvatar.createdAt.getTime()
-        : Date.parse(createdAvatar?.createdAt);
-      if (Number.isFinite(createdAtMs) && Math.abs(createdAtMs - now.getTime()) <= 5000) {
-        isNew = true;
-      }
-    }
-
-    if (!isNew && normalizedGuildId !== null && !createdAvatar.guildId) {
-      await collection.updateOne({ _id: createdAvatar._id }, { $set: { guildId: normalizedGuildId } });
-      createdAvatar.guildId = normalizedGuildId;
-    }
-    if (!isNew) {
-      createdAvatar._existing = true;
-      createdAvatar.stats = createdAvatar.stats || await this.getOrCreateStats(createdAvatar);
-      return createdAvatar;
-    }
+    const db = await this._db();
+    const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
+    const createdAvatar = { ...doc, _id: insertedId };
 
     if (!createdAvatar.imageUrl) {
       await this._ensureAvatarImage(createdAvatar, { reason: 'post-create', force: true });
     }
 
+  // Auto-post new avatars to X when enabled and admin account is linked
     try {
       const autoPost = String(process.env.X_AUTO_POST_AVATARS || 'false').toLowerCase();
       if (autoPost === 'true' && createdAvatar.imageUrl && this.configService?.services?.xService) {
+        // Basic dedupe: avoid posting if a recent social_posts entry exists for this image
         const posted = await db.collection('social_posts').findOne({ imageUrl: createdAvatar.imageUrl, mediaType: 'image' });
         if (!posted) {
           try {
+            // Resolve admin identity (avatar doc if ObjectId, otherwise fallback system identity)
             let admin = null;
             const envId = resolveAdminAvatarId();
             if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
               admin = await this.configService.services.avatarService.getAvatarById(envId);
             } else {
               const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
-              const modelId = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
-              const safe = String(modelId).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
-              admin = { _id: `model:${safe}`, name: `System (${modelId})`, username: process.env.X_ADMIN_USERNAME || undefined };
+              const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
+              const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+              admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
             }
             if (admin) {
               const content = `${createdAvatar.emoji || ''} Meet ${createdAvatar.name} — ${createdAvatar.description}`.trim().slice(0, 240);
-              try {
-                eventBus.emit('MEDIA.IMAGE.GENERATED', {
-                  type: 'image',
-                  source: 'avatar.create',
-                  avatarId: createdAvatar._id,
-                  imageUrl: createdAvatar.imageUrl,
-                  prompt: createdAvatar.description,
+              // Emit event for global auto-poster system (may have been emitted by S3Service already, but ensure it's available)
+              try { 
+                eventBus.emit('MEDIA.IMAGE.GENERATED', { 
+                  type: 'image', 
+                  source: 'avatar.create', 
+                  avatarId: insertedId, 
+                  imageUrl: createdAvatar.imageUrl, 
+                  prompt: createdAvatar.description, 
                   avatarName: createdAvatar.name,
                   avatarEmoji: createdAvatar.emoji,
                   context: content,
-                  createdAt: new Date()
-                });
+                  createdAt: new Date() 
+                }); 
               } catch {}
+              // Direct X posting for backwards compatibility (may be skipped if global auto-poster already posted)
               await this.configService.services.xService.postImageToX(admin, createdAvatar.imageUrl, content);
             }
           } catch (e) { this.logger?.warn?.(`[AvatarService] auto X post (avatar) failed: ${e.message}`); }
@@ -2117,7 +1633,6 @@ The token icon's colors and motifs should be visible in the character's design.`
    * @returns {Promise<Object>} Created partial avatar
    */
   async createPartialAvatar({ prompt, summoner, channelId, guildId: _guildId, metadata = {} }) {
-    const normalizedGuildId = normalizeGuildId(_guildId);
     let details = null;
     try {
       details = await this.generatePartialAvatarDetails(prompt);
@@ -2137,7 +1652,7 @@ The token icon's colors and motifs should be visible in the character's design.`
     details.name = validatedName;
 
     // Check for existing avatar with same name
-  const existing = await this._checkExistingAvatar(details.name, normalizedGuildId);
+    const existing = await this._checkExistingAvatar(details.name);
     if (existing) return existing;
 
     const doc = {
@@ -2149,13 +1664,11 @@ The token icon's colors and motifs should be visible in the character's design.`
       model: 'partial', // Mark as partial
       channelId,
       summoner,
-  guildId: normalizedGuildId,
       isPartial: true, // Flag for easy filtering
       lives: 3,
       status: 'alive',
       createdAt: new Date(),
       updatedAt: new Date(),
-      introductionCompletedAt: null,
       ...metadata // Spread any additional metadata (walletAddress, tokenBalances, etc)
     };
 
@@ -2290,18 +1803,11 @@ The token icon's colors and motifs should be visible in the character's design.`
   }
 
   async summonUserAvatar(message, customPrompt = null) {
-    if (!message?.author) {
-      return { avatar: null, isNewAvatar: false };
-    }
+    if (!message?.author) return null;
     const { id: userId, username } = message.author;
     const channelId = message.channel.id;
     const prompt = customPrompt || `Create an avatar that represents ${username}.`;
     const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(userId, prompt, channelId);
-
-    if (!avatar) {
-      this.logger?.error?.('[AvatarService] summonUserAvatar failed - avatar is null');
-      return { avatar: null, isNewAvatar: false };
-    }
 
     if (avatar.channelId !== channelId)
       await this.getMapService().updateAvatarPosition(avatar, channelId, avatar.channelId);
@@ -2424,29 +1930,6 @@ The token icon's colors and motifs should be visible in the character's design.`
    * @returns {Promise<Avatar>} Avatar document
    */
   async createAvatarForWallet(walletAddress, context = {}) {
-    const guildIdForWallet = context?.guildId;
-    if (guildIdForWallet && this.configService?.getGuildConfig) {
-      try {
-        const guildConfig = await this.configService.getGuildConfig(guildIdForWallet);
-        const guildAvatarModes = guildConfig?.avatarModes || {};
-        
-        // Backwards compatibility: if old 'wallet' setting exists, use it; otherwise check new split modes
-        const hasLegacyWallet = guildAvatarModes.wallet !== undefined;
-        const onChainDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.onChain === false;
-        const collectionDisabled = hasLegacyWallet ? guildAvatarModes.wallet === false : guildAvatarModes.collection === false;
-        
-        // Block only if both on-chain and collection modes are disabled
-        if (onChainDisabled && collectionDisabled) {
-          const reason = `Wallet avatars disabled for guild ${guildIdForWallet}`;
-          this.logger?.info?.(`[AvatarService] ${reason}`);
-          throw new Error(reason);
-        }
-      } catch (modeError) {
-        if (modeError?.message?.includes('disabled for guild')) throw modeError;
-        this.logger?.warn?.(`[AvatarService] Failed to evaluate wallet avatar mode for guild ${guildIdForWallet}: ${modeError.message}`);
-      }
-    }
-
     const db = await this._db();
     
     const walletShort = formatAddress(walletAddress);
@@ -2565,51 +2048,32 @@ The token icon's colors and motifs should be visible in the character's design.`
       return null;
     }
 
-    // Note: effectiveShouldAutoActivate is kept for claimed avatar activation in existing avatar path
-    const _effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
+    const effectiveShouldAutoActivate = claimedSource ? true : shouldAutoActivate;
     const effectiveShouldSendIntro = claimedSource ? false : shouldSendIntro;
     
-    let upgradeAppliedThisCall = false;
-
     if (avatar) {
       // Check if we need to upgrade a partial avatar to full avatar (add image)
       const isPartialAvatar = !avatar.imageUrl;
       const needsUpgrade = isPartialAvatar && isEligibleForFullAvatar;
-      const activityCount = Number.isFinite(avatar?.activityCount) ? avatar.activityCount : 0;
-      const engagementEligible = isPartialAvatar && activityCount >= PARTIAL_UPGRADE_ACTIVITY_THRESHOLD;
-      const lastUpgradeAttemptAt = avatar?.lastUpgradeAttemptAt instanceof Date
-        ? avatar.lastUpgradeAttemptAt
-        : (avatar?.lastUpgradeAttemptAt ? new Date(avatar.lastUpgradeAttemptAt) : null);
-      const timeSinceLastUpgradeAttempt = lastUpgradeAttemptAt ? Date.now() - lastUpgradeAttemptAt.getTime() : Infinity;
-      const cooldownMs = PARTIAL_UPGRADE_COOLDOWN_MS;
-      const canRetryUpgrade = !Number.isFinite(cooldownMs) || cooldownMs <= 0 || timeSinceLastUpgradeAttempt >= cooldownMs;
-      const upgradeReason = needsUpgrade ? 'balance-threshold' : (engagementEligible ? 'high-activity' : null);
-      const shouldAttemptUpgrade = Boolean(upgradeReason) && canRetryUpgrade;
       
-      // Debug logging for upgrade decision (reduced to debug level to avoid log spam)
-      this.logger?.debug?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, activityCount: ${activityCount}, highActivityEligible: ${engagementEligible}, lastUpgradeAttemptAt: ${lastUpgradeAttemptAt || 'never'}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
+      // Debug logging for upgrade decision
+      this.logger?.info?.(`[AvatarService] Existing avatar ${avatar.emoji} ${avatar.name} - imageUrl: ${avatar.imageUrl ? 'EXISTS' : 'NULL'}, isPartial: ${isPartialAvatar}, hasBalance: ${hasPositiveBalance}, balance: ${normalizedBalance}, fullAvatarAllowed: ${Boolean(walletAvatarPrefs.createFullAvatar)}, meetsThreshold: ${meetsFullAvatarThreshold}, needsUpgrade: ${needsUpgrade}`);
       
-      if (shouldAttemptUpgrade) {
+      if (needsUpgrade) {
         const balanceDescription = context.tokenSymbol
           ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol}`
           : `${formatLargeNumber(normalizedBalance)} tokens`;
-        const upgradeAttemptedAt = new Date();
-        const upgradeContextMessage = upgradeReason === 'high-activity'
-          ? `high-activity holder (${activityCount} interactions)`
-          : `eligible holder with ${balanceDescription}`;
-        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (${upgradeContextMessage})`);
+        this.logger?.info?.(`[AvatarService] Upgrading partial avatar ${avatar.emoji} ${avatar.name} to full avatar (eligible holder with ${balanceDescription})`);
         
-        let appliedUpgrade = false;
         try {
-          // Generate image for existing avatar, using token icon as reference if available
+          // Generate image for existing avatar
           const uploadOptions = {
             source: 'avatar.upgrade',
             avatarName: avatar.name,
             avatarEmoji: avatar.emoji,
             avatarId: avatar._id,
             prompt: avatar.description,
-            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim(),
-            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
+            context: `${avatar.emoji || '✨'} ${avatar.name} — ${avatar.description}`.trim()
           };
           const imageUrl = await this.generateAvatarImage(avatar.description, uploadOptions);
           
@@ -2620,8 +2084,6 @@ The token icon's colors and motifs should be visible in the character's design.`
               imageUrl,
               isPartial: false,
               upgradedAt,
-              lastUpgradeAttemptAt: upgradeAttemptedAt,
-              lastUpgradeReason: upgradeReason,
             };
 
             if (hydratedModel && hydratedModel !== avatar.model) {
@@ -2640,42 +2102,16 @@ The token icon's colors and motifs should be visible in the character's design.`
             avatar.imageUrl = imageUrl;
             avatar.isPartial = false;
             avatar.upgradedAt = upgradedAt;
-            avatar.lastUpgradeAttemptAt = upgradeAttemptedAt;
-            avatar.lastUpgradeReason = upgradeReason;
             if (upgradeFields.model) {
               avatar.model = upgradeFields.model;
               this.logger?.info?.(`[AvatarService] Assigned upgraded model ${upgradeFields.model} to ${avatar.name}`);
             }
-            appliedUpgrade = true;
-            upgradeAppliedThisCall = true;
           } else {
             this.logger?.error?.(`[AvatarService] Failed to generate image for ${avatar.name}`);
           }
         } catch (error) {
           this.logger?.error?.(`[AvatarService] Error upgrading avatar ${avatar.name}:`, error);
-        } finally {
-          if (!appliedUpgrade) {
-            try {
-              await db.collection(this.AVATARS_COLLECTION).updateOne(
-                { _id: avatar._id },
-                {
-                  $set: {
-                    lastUpgradeAttemptAt: upgradeAttemptedAt,
-                    lastUpgradeReason: upgradeReason || null,
-                  },
-                }
-              );
-              avatar.lastUpgradeAttemptAt = upgradeAttemptedAt;
-              avatar.lastUpgradeReason = upgradeReason || null;
-            } catch (attemptError) {
-              this.logger?.debug?.(`[AvatarService] Failed to record upgrade attempt for ${avatar.name}: ${attemptError.message}`);
-            }
-          }
         }
-      } else if (upgradeReason && !canRetryUpgrade) {
-        const remainingMs = cooldownMs - timeSinceLastUpgradeAttempt;
-        const remainingMinutes = Math.max(0, remainingMs / 60_000).toFixed(1);
-        this.logger?.debug?.(`[AvatarService] Skipping upgrade attempt for ${avatar.name} (reason=${upgradeReason}) due to cooldown ${remainingMinutes}m remaining`);
       }
       
       // Update last activity and token balances
@@ -2776,39 +2212,18 @@ The token icon's colors and motifs should be visible in the character's design.`
         updateData.summoner = `wallet:${walletAddress}`;
       }
 
-      // Rate limit activity count increments to prevent inflation from
-      // multiple channels processing the same transaction
-      const now = Date.now();
-      const lastIncrement = this.activityIncrementCache.get(walletAddress);
-      const shouldIncrementActivity = !lastIncrement || (now - lastIncrement) >= this.ACTIVITY_INCREMENT_COOLDOWN_MS;
-      
-      if (shouldIncrementActivity) {
-        this.activityIncrementCache.set(walletAddress, now);
-        
-        // Cleanup old entries periodically (every 100 new entries)
-        if (this.activityIncrementCache.size > 1000 && this.activityIncrementCache.size % 100 === 0) {
-          const cutoff = now - this.ACTIVITY_INCREMENT_COOLDOWN_MS * 2;
-          for (const [addr, ts] of this.activityIncrementCache) {
-            if (ts < cutoff) this.activityIncrementCache.delete(addr);
-          }
-        }
-      }
-
-      const updateOp = { $set: updateData };
-      if (shouldIncrementActivity) {
-        updateOp.$inc = { activityCount: 1 };
-      }
-
       await db.collection(this.AVATARS_COLLECTION).updateOne(
         { _id: avatar._id },
-        updateOp
+        {
+          $set: updateData,
+          $inc: { activityCount: 1 }
+        }
       );
       
       // Reload to get updated data
       avatar = await db.collection(this.AVATARS_COLLECTION).findOne({ _id: avatar._id });
       
-      // Reduced to debug level to avoid log spam from high-frequency polling
-      this.logger?.debug?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${upgradeAppliedThisCall ? ' (upgraded to full)' : ''}${shouldIncrementActivity ? '' : ' (activity increment skipped - rate limited)'} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
+      this.logger?.info?.(`[AvatarService] Updated wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort}${needsUpgrade ? ' (upgraded to full)' : ''} - Final imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}`);
 
   const claimedActivationTarget = context.discordChannelId || context.channelId || avatar.channelId;
       if ((claimedSource || avatar.claimed === true || Boolean(avatar.claimedBy)) && claimedActivationTarget) {
@@ -2828,8 +2243,8 @@ The token icon's colors and motifs should be visible in the character's design.`
     const tokenInfo = context.tokenSymbol ? `${context.tokenSymbol} holder` : 'trader';
     const balanceInfo = normalizedBalance 
       ? `with ${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
-      : `${context.tokenSymbol || 'their token position'}`;
-    
+      : '';
+
     let avatarPromptTheme = null;
     if (this.configService) {
       try {
@@ -2881,13 +2296,12 @@ The token icon's colors and motifs should be visible in the character's design.`
   this.logger?.info?.(`[AvatarService] Creating wallet avatar for ${walletShort} (attempt ${retries + 1}/${maxRetries}, hasBalance: ${hasPositiveBalance}, meetsThreshold: ${meetsFullAvatarThreshold}, fullAvatarEligible: ${isEligibleForFullAvatar})`);
         
   if (isEligibleForFullAvatar) {
-          // Full avatar with image, using token icon as reference if available
+          // Full avatar with image
           avatar = await this.createAvatar({
             prompt,
             summoner: `wallet:${walletAddress}`,
             channelId: context.discordChannelId || context.channelId || null,
-            guildId: context.guildId || null,
-            referenceImageUrl: context.tokenImage || null, // Token icon for visual inspiration
+            guildId: context.guildId || null
           });
         } else {
           // Partial avatar (no image)
@@ -3001,11 +2415,10 @@ The token icon's colors and motifs should be visible in the character's design.`
     
     this.logger?.info?.(`[AvatarService] Created new wallet avatar ${avatar.emoji} ${avatar.name} for ${walletShort} - imageUrl: ${avatar.imageUrl ? 'EXISTS (' + (avatar.imageUrl.substring(0, 50)) + '...)' : 'NULL'}, isPartial: ${avatar.isPartial}`);
     
-    // Activate in channel and announce new wallet avatar
-    const activationTargetChannel = context.discordChannelId || context.channelId || avatar.channelId || null;
+    // Activate in channel and optionally send introduction per token preferences
+  const activationTargetChannel = context.discordChannelId || context.channelId || avatar.channelId || null;
 
-    // ALWAYS activate new wallet avatars in their channel so they can participate
-    if (activationTargetChannel) {
+    if (effectiveShouldAutoActivate && activationTargetChannel) {
       try {
         // Activate in channel
         await this.activateAvatarInChannel(
@@ -3014,84 +2427,77 @@ The token icon's colors and motifs should be visible in the character's design.`
         );
         this.logger?.info?.(`[AvatarService] Activated wallet avatar in channel ${activationTargetChannel}`);
         
-        // ALWAYS post embed for new wallet avatars to announce their creation
-        if (!avatar._existing && this.configService?.services?.discordService) {
-          const discordService = this.configService.services.discordService;
-          const balanceStr = normalizedBalance
-            ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
-            : `${context.tokenSymbol || 'their token position'}`;
-          
-          // If token preferences say to send intro, generate an AI introduction first
-          if (effectiveShouldSendIntro) {
-            try {
-              // Generate brief introduction (1 sentence, trading-themed)
-              const introPrompt = [
-                { 
-                  role: 'system', 
-                  content: `You are ${avatar.name}, ${avatar.description}. You're a Solana trader with ${balanceStr}.` 
-                },
-                { 
-                  role: 'user', 
-                  content: `You just made a ${context.tokenSymbol} trade. Introduce yourself briefly in ONE sentence (max 15 words). Be enthusiastic and trading-focused.` 
+        // Send introduction message (only for new avatars)
+        if (effectiveShouldSendIntro && !avatar._existing && this.configService?.services?.discordService) {
+          try {
+            const balanceStr = normalizedBalance
+              ? `${formatLargeNumber(normalizedBalance)} ${context.tokenSymbol || ''}`.trim()
+              : `${context.tokenSymbol || 'their token position'}`;
+            
+            // Generate brief introduction (1 sentence, trading-themed)
+            const introPrompt = [
+              { 
+                role: 'system', 
+                content: `You are ${avatar.name}, ${avatar.description}. You're a Solana trader with ${balanceStr}.` 
+              },
+              { 
+                role: 'user', 
+                content: `You just made a ${context.tokenSymbol} trade. Introduce yourself briefly in ONE sentence (max 15 words). Be enthusiastic and trading-focused.` 
+              }
+            ];
+            
+            const intro = await this.aiService.chat(introPrompt, { temperature: 0.9 });
+            const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
+            
+            if (introText && introText.length > 5 && !introText.includes('No response')) {
+              // Send to Discord as webhook (avatar speaks!)
+              await this.configService.services.discordService.sendAsWebhook(
+                activationTargetChannel,
+                `${avatar.emoji} *${introText.trim()}*`,
+                avatar
+              );
+              
+              // Send avatar embed to show their profile
+              setTimeout(async () => {
+                try {
+                  await this.configService.services.discordService.sendMiniAvatarEmbed(
+                    avatar,
+                    activationTargetChannel,
+                    `New trader detected!`
+                  );
+                } catch (embedError) {
+                  this.logger?.warn?.(`[AvatarService] Failed to send avatar embed: ${embedError.message}`);
                 }
-              ];
+              }, 500);
               
-              const intro = await this.aiService.chat(introPrompt, { temperature: 0.9 });
-              const introText = typeof intro === 'object' && intro?.text ? intro.text : String(intro || '');
+              this.logger?.info?.(`[AvatarService] Sent Discord introduction for wallet avatar ${avatar.name}`);
               
-              if (introText && introText.length > 5 && !introText.includes('No response')) {
-                // Send to Discord as webhook (avatar speaks!)
-                await discordService.sendAsWebhook(
-                  activationTargetChannel,
-                  `${avatar.emoji} *${introText.trim()}*`,
-                  avatar
-                );
-                this.logger?.info?.(`[AvatarService] Sent Discord introduction for wallet avatar ${avatar.name}`);
-                
-                // Also send to Telegram channel if configured
-                if (context.telegramChannelId) {
-                  try {
-                    const telegramService = this.configService?.services?.telegramService;
-                    if (telegramService) {
-                      const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
-                      const telegramMessage = 
-                        `${avatar.emoji} <b>New Trader: ${avatar.name}</b>\n\n` +
-                        `<i>${introText.trim()}</i>\n\n` +
-                        `🔗 Wallet: <code>${walletSlug}</code>\n` +
-                        `💰 Balance: ${balanceStr}`;
-                      
-                      await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
-                        parse_mode: 'HTML'
-                      });
-                      
-                      this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
-                    }
-                  } catch (telegramErr) {
-                    this.logger?.warn?.(`[AvatarService] Failed to send Telegram introduction: ${telegramErr.message}`);
+              // Also send to Telegram channel if configured
+              if (context.telegramChannelId) {
+                try {
+                  const telegramService = this.configService?.services?.telegramService;
+                  if (telegramService) {
+                    const walletSlug = walletAddress.substring(0, 4) + '...' + walletAddress.slice(-4);
+                    const telegramMessage = 
+                      `${avatar.emoji} *New Trader: ${avatar.name}*\n\n` +
+                      `_${introText.trim()}_\n\n` +
+                      `🔗 Wallet: \`${walletSlug}\`\n` +
+                      `💰 Balance: ${balanceStr}`;
+                    
+                    await telegramService.sendMessage(context.telegramChannelId, telegramMessage, {
+                      parse_mode: 'Markdown'
+                    });
+                    
+                    this.logger?.info?.(`[AvatarService] Sent Telegram introduction for wallet avatar ${avatar.name} to channel ${context.telegramChannelId}`);
                   }
+                } catch (telegramErr) {
+                  this.logger?.warn?.(`[AvatarService] Failed to send Telegram introduction: ${telegramErr.message}`);
                 }
               }
-            } catch (introErr) {
-              this.logger?.warn?.(`[AvatarService] Failed to generate introduction: ${introErr.message}`);
             }
+          } catch (introErr) {
+            this.logger?.warn?.(`[AvatarService] Failed to send introduction: ${introErr.message}`);
           }
-          
-          // Always post avatar embed after a short delay (whether or not we sent an intro)
-          setTimeout(async () => {
-            try {
-              const embedMessage = avatar.imageUrl 
-                ? `🎨 New trader detected!`
-                : `👋 New trader entering the chat!`;
-              await discordService.sendMiniAvatarEmbed(
-                avatar,
-                activationTargetChannel,
-                embedMessage
-              );
-              this.logger?.info?.(`[AvatarService] Posted new wallet avatar embed for ${avatar.name}`);
-            } catch (embedError) {
-              this.logger?.warn?.(`[AvatarService] Failed to send avatar embed: ${embedError.message}`);
-            }
-          }, 500);
         }
       } catch (err) {
         this.logger?.warn?.(`[AvatarService] Failed to activate wallet avatar: ${err.message}`);
@@ -3102,47 +2508,135 @@ The token icon's colors and motifs should be visible in the character's design.`
   }
 
   /* -------------------------------------------------- */
-  /*  INITIATIVE & STATS                                 */
+  /*  MISC                                               */
+  /* -------------------------------------------------- */
+
+  generateRatiMetadata(avatar, storageUris) {
+    return {
+      tokenId: avatar._id.toString(),
+      name: avatar.name,
+      description: avatar.description,
+      media: { image: avatar.imageUrl, video: avatar.videoUrl || null },
+      attributes: [
+        { trait_type: 'Personality', value: avatar.personality },
+        { trait_type: 'Status', value: avatar.status },
+        { trait_type: 'Lives', value: String(avatar.lives) },
+      ],
+      signature: null,
+      storage: storageUris,
+      evolution: {
+        level: avatar.evolutionLevel || 1,
+        previous: avatar.previousTokenIds || [],
+        timestamp: avatar.updatedAt
+      },
+      memory: {
+        recent: avatar.memoryRecent || null,
+        archive: avatar.memoryArchive || null
+      }
+    };
+  }
+
+  async getInventoryItems(avatar) {
+    if (!avatar) return [];
+    const ids = [avatar.selectedItemId, avatar.storedItemId].filter(Boolean);
+    if (!ids.length) return [];
+    const db = await this._db();
+    return db.collection('items').find({ _id: { $in: ids.map(toObjectId) } }).toArray();
+  }
+
+  /* -------------------------------------------------- */
+  /*  BREED TRACKING                                     */
+  /* -------------------------------------------------- */
+
+  async getLastBredDate(avatarId) {
+    try {
+      const db = await this._db();
+      const doc = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { lastBredAt: 1 } }
+      );
+      return doc?.lastBredAt || null;
+    } catch (err) {
+      this.logger.error(`getLastBredDate failed – ${err.message}`);
+      return null;
+    }
+  }
+
+  async setLastBredDate(avatarId, date = new Date()) {
+    try {
+      const db = await this._db();
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { $set: { lastBredAt: date, updatedAt: new Date() } }
+      );
+    } catch (err) {
+      this.logger.error(`setLastBredDate failed – ${err.message}`);
+    }
+  }
+
+  /* -------------------------------------------------- */
+  /*  THOUGHTS MANAGEMENT                                */
   /* -------------------------------------------------- */
 
   /**
-   * Roll initiative for an avatar based on their stats.
-   * Formula: d20 + Dexterity Modifier
-   * @param {Object} avatar 
-   * @returns {Promise<number>} Initiative score
+   * Get recent thoughts for an avatar
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {number} limit - Maximum number of thoughts to return (default: 10)
+   * @returns {Promise<Array>} Array of thought objects
    */
-  async rollInitiative(avatar) {
+  async getRecentThoughts(avatarId, limit = 10) {
     try {
-      // Ensure we have stats
-      const stats = avatar.stats || await this.getOrCreateStats(avatar);
+      const db = await this._db();
+      const avatar = await db.collection(this.AVATARS_COLLECTION).findOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { projection: { thoughts: 1 } }
+      );
       
-      // Calculate modifier: (Score - 10) / 2
-      // Default to Dexterity (reaction speed)
-      const dex = stats.dexterity || 10;
-      const modifier = Math.floor((dex - 10) / 2);
+      if (!avatar?.thoughts) return [];
       
-      // Roll d20
-      const d20 = Math.floor(Math.random() * 20) + 1;
-      
-      const total = d20 + modifier;
-      this.logger?.debug?.(`[AvatarService] ${avatar.name} rolled initiative: ${d20} + ${modifier} (DEX ${dex}) = ${total}`);
-      
-      return total;
+      return avatar.thoughts
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
     } catch (err) {
-      this.logger?.warn?.(`[AvatarService] Initiative roll failed for ${avatar.name}: ${err.message}`);
-      return Math.floor(Math.random() * 20) + 1; // Fallback to straight d20
+      this.logger.error(`getRecentThoughts failed – ${err.message}`);
+      return [];
     }
   }
 
   /**
-   * Get the active status of an avatar in a channel
-   * @param {string} channelId - Channel ID
-   * @param {string} avatarId - Avatar ID
-   * @returns {Promise<boolean>} - True if active, false if not found or inactive
+   * Add a thought to an avatar's thoughts collection
+   * @param {string|ObjectId} avatarId - Avatar ID
+   * @param {string} content - Thought content
+   * @param {string} guildName - Guild name where thought occurred
+   * @returns {Promise<boolean>} Success status
    */
-  async isAvatarActiveInChannel(channelId, avatarId) {
-    const db = await this._db();
-    const presence = await db.collection('channel_avatar_presence').findOne({ channelId, avatarId });
-    return presence?.isActive === true;
+  async addThought(avatarId, content, guildName = 'Unknown') {
+    try {
+      const db = await this._db();
+      const thoughtData = {
+        content: content.trim(),
+        timestamp: Date.now(),
+        guildName
+      };
+
+      const result = await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId },
+        { 
+          $push: { 
+            thoughts: { 
+              $each: [thoughtData], 
+              $position: 0,
+              $slice: 20  // Keep only the most recent 20 thoughts
+            } 
+          },
+          $set: { updatedAt: new Date() }
+        }
+      );
+
+      return result.modifiedCount > 0;
+    } catch (err) {
+      this.logger.error(`addThought failed – ${err.message}`);
+      return false;
+    }
   }
 }

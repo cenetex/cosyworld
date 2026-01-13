@@ -369,7 +369,7 @@ async function saveConfiguration() {
     baseUrl: 'http://localhost:3000',
     publicUrl: 'http://localhost:3000'
   };
-
+  
   // Add optional services
   if (document.getElementById('enableReplicate')?.checked) {
     config.optional.replicate = {

@@ -40,6 +40,7 @@ export class ToolDecisionService {
         { role: 'user', content: prompt }
       ], {
         model: this.decisionModel,
+        max_tokens: 500,
         temperature: 0.3 // Lower temp for more consistent decisions
       });
       
