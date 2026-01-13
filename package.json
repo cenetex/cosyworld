@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "AI Avatar Discord bot with persistent memory, turn‑based combat, and Crossmint NFT support",
   "type": "module",
   "private": true,
