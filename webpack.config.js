@@ -121,6 +121,7 @@ export default (env, argv) => {
           { from: path.resolve(__dirname, 'src/services/web/public/rati.js'), to: path.resolve(__dirname, 'dist/rati.js') },
           { from: path.resolve(__dirname, 'src/services/web/public/css/tribe-styles.css'), to: path.resolve(__dirname, 'dist/css/tribe-styles.css') },
           { from: path.resolve(__dirname, 'src/services/web/public/css/admin-common.css'), to: path.resolve(__dirname, 'dist/css/admin-common.css') },
+          { from: path.resolve(__dirname, 'src/services/web/public/css/admin-v2.css'), to: path.resolve(__dirname, 'dist/css/admin-v2.css') },
           { from: path.resolve(__dirname, 'src/services/web/public/images'), to: path.resolve(__dirname, 'dist/images') },
           { from: path.resolve(__dirname, 'src/services/web/public/thumbnails'), to: path.resolve(__dirname, 'dist/thumbnails'), noErrorOnMissing: true }
         ]
