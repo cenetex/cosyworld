@@ -2060,6 +2060,7 @@ class TelegramService {
     if (!tweetLimits.allowed) {
       // Provide context to bot about cooldown - don't announce in channel
       return { success: false, error: 'Rate limited', botContext: 'X/Twitter posting is on cooldown. The platform has rate limits. Wait a few minutes before trying again.' };
+    }
     
     const media = await this.mediaManager.findRecentMediaById(channelId, mediaId);
     if (!media || !media.mediaUrl) {
@@ -2068,6 +2069,7 @@ class TelegramService {
     
     if (media.tweetedAt) {
       return { success: false, error: 'Already tweeted', alreadyTweeted: true, botContext: 'This image/video has already been posted to X. I should generate something new if you want another post.' };
+    }
     
     const result = await this.xService.postGlobalMediaUpdate({
       mediaUrl: media.mediaUrl,
