@@ -7,6 +7,7 @@
  */
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { randomInt } from 'crypto';
 
 // DM persona configuration
 const DM_PERSONA = {
@@ -144,7 +145,8 @@ export class DungeonMasterService {
    * @private
    */
   _pickRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    return arr[randomInt(0, arr.length)];
   }
 
   /**

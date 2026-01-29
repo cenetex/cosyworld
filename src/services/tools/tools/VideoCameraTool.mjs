@@ -265,12 +265,12 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
       };
 
       // Try composition first with aiService, then googleAIService
-      let keyFrameUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
-      if (!keyFrameUrl && this.googleAIService) {
-        keyFrameUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
+      let keyFrameResult = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
+      if (!keyFrameResult && this.googleAIService) {
+        keyFrameResult = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
       }
 
-      if (!keyFrameUrl) {
+      if (!keyFrameResult) {
         this.logger?.error?.('[VideoCamera] Failed to generate key frame for video');
         // Post error message to channel
         if (message?.channel?.send) {
@@ -279,20 +279,70 @@ Audio: Ambient sounds of the environment, subtle character movements, atmospheri
         return;
       }
       
-      this.logger?.info?.(`[VideoCamera] Key frame generated successfully: ${keyFrameUrl}`);
+      const normalizeKeyFrameToBuffer = async (result) => {
+        if (!result) return null;
+
+        // Buffer passthrough
+        if (Buffer.isBuffer(result)) {
+          return { buffer: result, mimeType: 'image/png', debug: 'buffer' };
+        }
+
+        // If provider returned an object with URL or data
+        if (typeof result === 'object') {
+          const url = result.url || result.imageUrl || result.image_url || result.cdnUrl;
+          if (typeof url === 'string' && url.length) {
+            return { buffer: await this.s3Service.downloadImage(url), mimeType: result.mimeType || 'image/png', debug: 'url' };
+          }
+
+          const data = result.data || result.base64 || result.b64;
+          if (typeof data === 'string' && data.length) {
+            return { buffer: Buffer.from(data, 'base64'), mimeType: result.mimeType || 'image/png', debug: 'base64' };
+          }
+        }
+
+        // If provider returned a string URL or base64
+        if (typeof result === 'string') {
+          const trimmed = result.trim();
+          if (/^https?:\/\//i.test(trimmed)) {
+            return { buffer: await this.s3Service.downloadImage(trimmed), mimeType: 'image/png', debug: 'url' };
+          }
+
+          // Heuristic: treat long strings as base64 image bytes
+          if (trimmed.length > 1000) {
+            return { buffer: Buffer.from(trimmed, 'base64'), mimeType: 'image/png', debug: 'base64' };
+          }
+        }
+
+        return null;
+      };
+
+      let keyFrame;
+      try {
+        keyFrame = await normalizeKeyFrameToBuffer(keyFrameResult);
+      } catch (e) {
+        this.logger?.warn?.(`[VideoCamera] Failed to normalize key frame result: ${e?.message || e}`);
+        keyFrame = null;
+      }
+
+      if (!keyFrame?.buffer) {
+        this.logger?.error?.('[VideoCamera] Key frame generated but could not be normalized to image bytes');
+        if (message?.channel?.send) {
+          await message.channel.send('-# [ ❌ Error: Key frame could not be processed (invalid image output). ]');
+        }
+        return;
+      }
+
+      this.logger?.info?.(`[VideoCamera] Key frame ready (${keyFrame.buffer.length} bytes via ${keyFrame.debug})`);
 
       this.logger?.info?.(`[VideoCamera] Generating video from key frame...`);
 
       // Step 2: Generate video from the composed key frame using Veo 3.1
       try {
-        // Download the key frame to use as the starting image
-        const keyFrameBuffer = await this.s3Service.downloadImage(keyFrameUrl);
-        
         const videos = await this.veoService.generateVideosFromImages({
           prompt: cinematicPrompt,
           images: [{
-            data: keyFrameBuffer.toString('base64'),
-            mimeType: 'image/png'
+            data: keyFrame.buffer.toString('base64'),
+            mimeType: keyFrame.mimeType || 'image/png'
           }],
           config: {
             aspectRatio: '16:9',

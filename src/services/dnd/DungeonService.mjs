@@ -6,6 +6,7 @@
  */
 
 import { ObjectId } from 'mongodb';
+import { randomInt } from 'crypto';
 import { DiceService } from '../battle/diceService.mjs';
 import eventBus from '../../utils/eventBus.mjs';
 
@@ -29,6 +30,11 @@ class RoomImageCache {
     // Schedule periodic cleanup every hour
     this._cleanupInterval = setInterval(() => this._evictStale(), 60 * 60 * 1000);
     if (this._cleanupInterval.unref) this._cleanupInterval.unref();
+  }
+
+  _rand01() {
+    // 0 <= x < 1, using crypto RNG
+    return randomInt(0, 1_000_000) / 1_000_000;
   }
   
   getCacheKey(theme, roomType) {
@@ -61,7 +67,7 @@ class RoomImageCache {
     
     const n = entry.images.length;
     const probGenerate = Math.max(this.minGenerateProbability, 1 / (n + 1));
-    const roll = Math.random();
+    const roll = this._rand01();
     
     // Generate new image if roll says so OR no cached images
     if (roll < probGenerate || n === 0) {
@@ -92,7 +98,7 @@ class RoomImageCache {
     
     const weights = images.map(img => 1 / (img.usageCount + 1));
     const totalWeight = weights.reduce((a, b) => a + b, 0);
-    let roll = Math.random() * totalWeight;
+    let roll = this._rand01() * totalWeight;
     
     for (let i = 0; i < images.length; i++) {
       roll -= weights[i];

@@ -10,7 +10,10 @@
  * @module services/dnd/MonsterService
  */
 
+import { randomInt } from 'crypto';
 import { MONSTERS, MONSTER_TRAITS } from '../../data/dnd/monsters.mjs';
+
+const rand01 = () => randomInt(0, 1_000_000) / 1_000_000;
 
 /**
  * Default monster tags for categorization
@@ -254,7 +257,7 @@ export class MonsterService {
 
     // Calculate probability of new monster: 1/(n+1)
     const probNew = 1 / (n + 1);
-    const roll = Math.random();
+    const roll = rand01();
 
     // Log the selection decision
     this.logger?.debug?.(`[MonsterService] Selection: ${n} existing monsters, P(new)=${(probNew * 100).toFixed(1)}%, rolled=${(roll * 100).toFixed(1)}%`);
@@ -297,7 +300,7 @@ export class MonsterService {
     const totalWeight = weights.reduce((a, b) => a + b, 0);
 
     // Weighted random selection
-    let roll = Math.random() * totalWeight;
+    let roll = rand01() * totalWeight;
     for (let i = 0; i < monsters.length; i++) {
       roll -= weights[i];
       if (roll <= 0) return monsters[i];

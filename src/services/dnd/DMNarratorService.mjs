@@ -7,6 +7,8 @@
  * room entries, and dramatic moments. This is the "voice" of the DM.
  */
 
+import { randomInt } from 'crypto';
+
 /**
  * Narrative templates for fallback when AI is unavailable
  */
@@ -328,7 +330,8 @@ Do NOT start with "I" or speak in first person.`;
    * @private
    */
   _pickRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    return arr[randomInt(0, arr.length)];
   }
 
   /**
