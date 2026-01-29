@@ -20,6 +20,7 @@ import { QuestService } from '../services/quests/QuestService.mjs';
 import { TUTORIAL_QUEST } from '../data/quests/tutorial.mjs';
 import { DMNarratorService } from '../services/dnd/DMNarratorService.mjs';
 import { DungeonMasterService } from '../services/dnd/DungeonMasterService.mjs';
+import { DndTurnContextService } from '../services/dnd/DndTurnContextService.mjs';
 
 // Combat target resolution (V3 fix for "Ghost Enemy" bug)
 import { CombatTargetRegistry } from '../services/battle/CombatTargetRegistry.mjs';
@@ -52,6 +53,7 @@ export function registerPreReady({ container }) {
     tutorialQuestService: asClass(TutorialQuestService).singleton(),
     dmNarratorService: asClass(DMNarratorService).singleton(),
     dungeonMasterService: asClass(DungeonMasterService).singleton(),
+    dndTurnContextService: asClass(DndTurnContextService).singleton(),
     healthService: asClass(HealthService).singleton(),
     questService: asFunction(({ databaseService, characterService, partyService, dungeonService, discordService, logger }) => {
       const service = new QuestService({ databaseService, characterService, partyService, dungeonService, discordService, logger });

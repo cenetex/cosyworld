@@ -8,6 +8,7 @@
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { randomInt } from 'crypto';
+import { buildDungeonActionRows } from './dungeonActions.mjs';
 
 // DM persona configuration
 const DM_PERSONA = {
@@ -271,8 +272,8 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       footer: `${dungeon.name} • Room ${room.id.replace('room_', '')}`
     });
 
-    // Create action buttons based on room state
-    const buttons = this.createRoomActionButtons(room, dungeon);
+    // Create action buttons based on canonical room action builder
+    const buttons = buildDungeonActionRows({ room, dungeon });
 
     return {
       embeds: [embed],
@@ -312,113 +313,7 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
    * Create action buttons for current room state
    */
   createRoomActionButtons(room, _dungeon) {
-    const rows = [];
-    
-    if (!room.cleared) {
-      // Combat/Puzzle actions
-      if (room.type === 'combat' || room.type === 'boss') {
-        const combatRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('dnd_combat_start')
-            .setLabel('Start Battle')
-            .setEmoji('⚔️')
-            .setStyle(ButtonStyle.Danger),
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_map')
-            .setLabel('View Map')
-            .setEmoji('🗺️')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_abandon')
-            .setLabel('Flee Dungeon')
-            .setEmoji('🏃')
-            .setStyle(ButtonStyle.Secondary)
-        );
-        rows.push(combatRow);
-      } else if (room.type === 'entrance' && room.puzzle && !room.puzzle.solved) {
-        const puzzleRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('dnd_puzzle_hint')
-            .setLabel('Get Hint')
-            .setEmoji('💡')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('dnd_puzzle_answer')
-            .setLabel('Answer Riddle')
-            .setEmoji('🧩')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_abandon')
-            .setLabel('Leave')
-            .setEmoji('🚪')
-            .setStyle(ButtonStyle.Secondary)
-        );
-        rows.push(puzzleRow);
-      } else if (room.type === 'treasure') {
-        const treasureRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_loot')
-            .setLabel('Collect Treasure')
-            .setEmoji('💰')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_map')
-            .setLabel('View Map')
-            .setEmoji('🗺️')
-            .setStyle(ButtonStyle.Secondary)
-        );
-        rows.push(treasureRow);
-      } else if (room.type === 'rest') {
-        const restRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('dnd_character_short_rest')
-            .setLabel('Short Rest')
-            .setEmoji('☕')
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId('dnd_character_long_rest')
-            .setLabel('Long Rest')
-            .setEmoji('🏕️')
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId('dnd_dungeon_map')
-            .setLabel('Continue')
-            .setEmoji('🚪')
-            .setStyle(ButtonStyle.Secondary)
-        );
-        rows.push(restRow);
-      }
-    } else {
-      // Room cleared - show navigation
-      const exits = room.connections || [];
-      if (exits.length > 0) {
-        const navButtons = exits.slice(0, 5).map((exitId, _i) =>
-          new ButtonBuilder()
-            .setCustomId(`dnd_dungeon_move_${exitId}`)
-            .setLabel(`Room ${exitId.replace('room_', '')}`)
-            .setEmoji('🚪')
-            .setStyle(ButtonStyle.Primary)
-        );
-        rows.push(new ActionRowBuilder().addComponents(navButtons));
-      }
-      
-      // Add utility buttons
-      const utilRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('dnd_dungeon_map')
-          .setLabel('View Map')
-          .setEmoji('🗺️')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId('dnd_character_sheet')
-          .setLabel('View Stats')
-          .setEmoji('📜')
-          .setStyle(ButtonStyle.Secondary)
-      );
-      rows.push(utilRow);
-    }
-
-    return rows;
+    return buildDungeonActionRows({ room, dungeon: _dungeon });
   }
 
   /**

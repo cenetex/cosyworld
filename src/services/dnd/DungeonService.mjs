@@ -426,7 +426,11 @@ export class DungeonService {
     const dungeon = await col.findOne({ _id: new ObjectId(dungeonId) });
     
     // Create a location record for this dungeon thread
-    let locationId = null;
+    // Contract:
+    // - `locationChannelId` is the Discord thread id (gameplay key)
+    // - `locationDocId`/`locationId` is locations._id (story metadata)
+    const locationChannelId = threadId || null;
+    let locationDocId = null;
     if (threadId && this.locationService) {
       try {
         const db = await this.databaseService.getDatabase();
@@ -436,7 +440,7 @@ export class DungeonService {
         const existingLocation = await locationsCol.findOne({ channelId: threadId });
         
         if (existingLocation) {
-          locationId = existingLocation._id;
+          locationDocId = existingLocation._id;
           // Update it to be marked as dungeon type
           await locationsCol.updateOne(
             { _id: existingLocation._id },
@@ -460,10 +464,10 @@ export class DungeonService {
             version: '1.0.0'
           };
           const result = await locationsCol.insertOne(locationDoc);
-          locationId = result.insertedId;
+          locationDocId = result.insertedId;
         }
         
-        this.logger?.info?.(`[DungeonService] Linked dungeon ${dungeonId} to location ${locationId}`);
+        this.logger?.info?.(`[DungeonService] Linked dungeon ${dungeonId} to location ${locationDocId}`);
       } catch (e) {
         this.logger?.warn?.(`[DungeonService] Failed to create location for dungeon: ${e.message}`);
       }
@@ -471,7 +475,7 @@ export class DungeonService {
     
     await col.updateOne(
       { _id: new ObjectId(dungeonId) },
-      { $set: { threadId, locationId } }
+      { $set: { threadId, locationChannelId, locationDocId, locationId: locationDocId } }
     );
   }
 
@@ -525,7 +529,9 @@ export class DungeonService {
       partyId: new ObjectId(partyId),
       channelId: channelId || null,
       threadId: null,
-      locationId: null, // Will be set when thread is created
+      locationChannelId: null, // Discord thread id (gameplay location key)
+      locationDocId: null, // locations._id (metadata)
+      locationId: null, // legacy alias of locationDocId
       status: 'active',
       entrancePuzzleSolved: false,
       createdAt: new Date(),
@@ -931,7 +937,9 @@ export class DungeonService {
       { $set: { currentRoom: roomId } }
     );
 
-    return { room, dungeon };
+    // Return fresh dungeon doc so callers always see updated currentRoom.
+    const updatedDungeon = await col.findOne({ _id: dungeon._id });
+    return { room, dungeon: updatedDungeon || dungeon };
   }
 
   /**

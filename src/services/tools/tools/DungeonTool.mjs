@@ -11,9 +11,10 @@
 import { BasicTool } from '../BasicTool.mjs';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { roomImageCache } from '../../dnd/DungeonService.mjs';
+import { buildDungeonActionRows } from '../../dnd/dungeonActions.mjs';
 
 export class DungeonTool extends BasicTool {
-  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService, dungeonMasterService, itemService }) {
+  constructor({ logger, dungeonService, partyService, characterService, discordService, questService, tutorialQuestService, schemaService, locationService, dungeonMasterService, itemService, dndTurnContextService }) {
     super();
     this.logger = logger || console;
     this.dungeonService = dungeonService;
@@ -26,6 +27,7 @@ export class DungeonTool extends BasicTool {
     this.locationService = locationService;
     this.dungeonMasterService = dungeonMasterService;
     this.itemService = itemService;
+    this.dndTurnContextService = dndTurnContextService;
 
     this.name = 'dungeon';
     this.parameters = '[action]';
@@ -343,7 +345,7 @@ export class DungeonTool extends BasicTool {
           try {
             await thread.send({ 
               embeds: [recoveryEmbed], 
-              components: this._createRoomButtons(currentRoom) 
+              components: buildDungeonActionRows({ room: currentRoom, dungeon })
             });
             this.logger?.info?.(`[DungeonTool] Posted recovery status to thread ${thread.id}`);
           } catch (sendErr) {
@@ -519,7 +521,7 @@ export class DungeonTool extends BasicTool {
               try {
                 await thread.send({ 
                   embeds: [recoveryEmbed], 
-                  components: this._createRoomButtons(currentRoom) 
+                  components: buildDungeonActionRows({ room: currentRoom, dungeon: activeDungeon })
                 });
                 this.logger?.info?.(`[DungeonTool] Posted recovery status to thread ${thread.id}`);
               } catch (sendErr) {
@@ -605,20 +607,7 @@ export class DungeonTool extends BasicTool {
           
           return {
             embeds: [embed],
-            components: [
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                  .setCustomId('dnd_puzzle_answer')
-                  .setLabel('Answer Riddle')
-                  .setEmoji('🧩')
-                  .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                  .setCustomId('dnd_puzzle_hint')
-                  .setLabel('Get Hint')
-                  .setEmoji('💡')
-                  .setStyle(ButtonStyle.Primary)
-              )
-            ]
+            components: buildDungeonActionRows({ room: currentRoom, dungeon: activeDungeon })
           };
         } else if ((currentRoom.type === 'combat' || currentRoom.type === 'boss') && currentRoom.encounter?.monsters?.length && !currentRoom.cleared) {
           // Combat or boss room - show enemies with Fight button
@@ -629,7 +618,7 @@ export class DungeonTool extends BasicTool {
           });
           return {
             embeds: [embed],
-            components: this._createRoomButtons(currentRoom)
+            components: buildDungeonActionRows({ room: currentRoom, dungeon: activeDungeon })
           };
         } else if (currentRoom.type === 'treasure' && !currentRoom.cleared) {
           // Treasure room
@@ -640,7 +629,7 @@ export class DungeonTool extends BasicTool {
           });
           return {
             embeds: [embed],
-            components: this._createRoomButtons(currentRoom)
+            components: buildDungeonActionRows({ room: currentRoom, dungeon: activeDungeon })
           };
         } else {
           // Other room types or cleared rooms
@@ -652,9 +641,14 @@ export class DungeonTool extends BasicTool {
         }
       }
 
+      // Canonical room actions (shared across DM narration + tool UI)
+      const ctx = await this.dndTurnContextService?.buildForDungeon?.({ dungeon: activeDungeon, channelId, avatarId: avatar?._id })
+        .catch(() => null);
+      const components = ctx?.components || buildDungeonActionRows({ room: currentRoom, dungeon: activeDungeon });
+
       return { 
         embeds: [embed],
-        components: this._createNavigationButtons(currentRoom, activeDungeon)
+        components
       };
     }
 
@@ -894,7 +888,7 @@ export class DungeonTool extends BasicTool {
           }
 
           // Post entrance description with buttons
-          const entranceButtons = this._createRoomButtons(firstRoom);
+          const entranceButtons = buildDungeonActionRows({ room: firstRoom, dungeon });
           await thread.send({ embeds: [introEmbed], components: entranceButtons });
 
           // Post puzzle if entrance has one
@@ -1008,7 +1002,7 @@ export class DungeonTool extends BasicTool {
           { name: '🚪 Available Exits', value: exits.join('\n') || 'None visible', inline: false }
         ]
       }],
-      components: this._createNavigationButtons(currentRoom, dungeon)
+      components: buildDungeonActionRows({ room: currentRoom, dungeon })
     };
   }
 
@@ -1048,6 +1042,7 @@ export class DungeonTool extends BasicTool {
       return this._narrateError(e.message);
     }
     const room = result.room;
+    dungeon = result.dungeon || dungeon;
 
     // Generate room image using cache for cost savings
     let imageUrl = null;
@@ -1109,7 +1104,10 @@ export class DungeonTool extends BasicTool {
             }];
           }
 
-          await thread.send({ embeds: [roomEmbed], components: this._createRoomButtons(room) });
+          const ctx = await this.dndTurnContextService?.buildForDungeon?.({ dungeon, channelId: dungeon.threadId, avatarId: avatar?._id })
+            .catch(() => null);
+          const components = ctx?.components || buildDungeonActionRows({ room, dungeon });
+          await thread.send({ embeds: [roomEmbed], components });
           postedToThread = true;
         }
       } catch (e) {
@@ -1160,9 +1158,13 @@ export class DungeonTool extends BasicTool {
         });
       }
 
+      const ctx = await this.dndTurnContextService?.buildForDungeon?.({ dungeon, channelId: dungeon.threadId || dungeon.channelId || null, avatarId: avatar?._id })
+        .catch(() => null);
+      const components = ctx?.components || buildDungeonActionRows({ room, dungeon });
+
       return { 
         embeds: [roomEmbed], 
-        components: this._createRoomButtons(room)
+        components
       };
     }
 
@@ -1606,8 +1608,13 @@ export class DungeonTool extends BasicTool {
       await this.questService?.onEvent?.(avatar._id, 'puzzle_solved');
       await this.tutorialQuestService?.onEvent?.(avatar._id, 'puzzle_solved');
 
-      // Build navigation buttons for the thread post
-      const navigationComponents = this._createNavigationButtons(dungeon.rooms[0], dungeon);
+      // Refresh dungeon state so buttons reflect cleared-room navigation after solve
+      try {
+        dungeon = await this.dungeonService.getDungeon(dungeon._id);
+      } catch {}
+
+      const entranceRoom = dungeon?.rooms?.find(r => r.type === 'entrance') || dungeon?.rooms?.[0];
+      const navigationComponents = buildDungeonActionRows({ room: entranceRoom, dungeon });
 
       // Post success to thread with navigation buttons
       if (dungeon.threadId && this.discordService?.client) {
