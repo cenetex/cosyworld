@@ -276,6 +276,9 @@ class TelegramService {
     const asyncVideoEnv = (process.env.TELEGRAM_ASYNC_VIDEO ?? 'true').toString().toLowerCase();
     this.USE_ASYNC_VIDEO_GENERATION = asyncVideoEnv === 'true' || asyncVideoEnv === '1' || asyncVideoEnv === 'yes';
 
+    // Admin notification user ID (for sending detailed error logs)
+    this._adminUserId = process.env.TELEGRAM_ADMIN_USER_ID || null;
+
     // Video progress tracking
     this._setupVideoProgressListener();
 
@@ -2003,10 +2006,29 @@ class TelegramService {
     }
   }
 
+  /**
+   * Send an admin notification message (for detailed error logs).
+   * Only sends if TELEGRAM_ADMIN_USER_ID is configured.
+   * @param {string} message - The message to send
+   * @returns {Promise<boolean>} - Whether the message was sent
+   */
+  async _sendAdminNotification(message) {
+    if (!this._adminUserId || !this.globalBot) {
+      return false;
+    }
+    try {
+      await this.globalBot.telegram.sendMessage(this._adminUserId, message, { parse_mode: 'HTML' });
+      return true;
+    } catch (err) {
+      this.logger?.debug?.('[TelegramService] Failed to send admin notification:', err.message);
+      return false;
+    }
+  }
+
   async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
     if (!this.xService) {
-      await ctx.reply('🚫 X service unavailable.');
-      return { success: false, error: 'X service unavailable' };
+      // Don't post error to channel - return context for bot
+      return { success: false, error: 'X service unavailable', botContext: 'X/Twitter service is not configured. Cannot post tweets at this time.' };
     }
     
     // Resolve content filters
@@ -2028,26 +2050,25 @@ class TelegramService {
       
       if (contentFilter.blocked) {
         this.logger?.info?.(`[TelegramService] Blocked tweet (${contentFilter.type}) from ${userId}: ${contentFilter.reason}`);
-        await ctx.reply(`🚫 Cannot post: ${contentFilter.reason}`);
-        return { success: false, error: `Content blocked: ${contentFilter.reason}` };
+        // Send detailed error to admin, not to channel
+        await this._sendAdminNotification(`🚫 <b>Tweet Blocked</b>\nReason: ${contentFilter.reason}\nUser: ${userId}\nText: ${text?.slice(0, 100)}`);
+        return { success: false, error: `Content blocked: ${contentFilter.reason}`, botContext: `Your tweet was blocked by content filters: ${contentFilter.reason}. Please rephrase without the blocked content.` };
       }
     }
 
     const tweetLimits = await this.checkMediaGenerationLimit(null, 'tweet');
     if (!tweetLimits.allowed) {
-      await ctx.reply('🐦 X posting is cooling down. Try again later.');
-      return { success: false, error: 'Rate limited' };
+      // Provide context to bot about cooldown - don't announce in channel
+      return { success: false, error: 'Rate limited', botContext: 'X/Twitter posting is on cooldown. The platform has rate limits. Wait a few minutes before trying again.' };
     }
     
     const media = await this.mediaManager.findRecentMediaById(channelId, mediaId);
     if (!media || !media.mediaUrl) {
-      await ctx.reply('❌ Media not found or expired.');
-      return { success: false, error: 'Media not found or expired' };
+      return { success: false, error: 'Media not found or expired', botContext: 'The media I was trying to post has expired or was not found. I\'ll need to generate new content first.' };
     }
     
     if (media.tweetedAt) {
-      await ctx.reply('⚠️ Already tweeted.');
-      return { success: false, error: 'Already tweeted', alreadyTweeted: true };
+      return { success: false, error: 'Already tweeted', alreadyTweeted: true, botContext: 'This image/video has already been posted to X. I should generate something new if you want another post.' };
     }
     
     const result = await this.xService.postGlobalMediaUpdate({
@@ -2099,9 +2120,20 @@ class TelegramService {
       pending.lastXError = { message: errorMessage, timestamp: Date.now(), mediaId };
       this.pendingReplies.set(channelId, pending);
       
-      // Send a brief user-facing message (not the full error details)
-      await ctx.reply('❌ Tweet failed. Will retry later.');
-      return { success: false, error: errorMessage };
+      // Send detailed error to admin only - not to the channel
+      await this._sendAdminNotification(`❌ <b>Tweet Failed</b>\nChannel: ${channelId}\nMedia: ${mediaId}\nError: ${errorMessage}\nUser: ${userId}`);
+      
+      // Determine user-friendly context for the bot based on error type
+      let botContext = 'Tweet posting failed due to a technical issue. I\'ll try again later.';
+      if (errorMessage.includes('401') || errorMessage.includes('auth')) {
+        botContext = 'X/Twitter authentication has expired. The admin needs to reconnect the account.';
+      } else if (errorMessage.includes('402') || errorMessage.includes('payment')) {
+        botContext = 'X/Twitter API access requires a paid subscription. The admin needs to upgrade the API tier.';
+      } else if (errorMessage.includes('429') || errorMessage.includes('rate')) {
+        botContext = 'X/Twitter rate limit reached. I need to wait before posting again.';
+      }
+      
+      return { success: false, error: errorMessage, botContext };
     }
   }
 
