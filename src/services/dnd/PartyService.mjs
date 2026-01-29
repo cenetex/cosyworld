@@ -186,6 +186,8 @@ export class PartyService {
 
   /**
    * Accept a party invitation
+   * Uses atomic findOneAndUpdate to prevent race conditions when multiple
+   * invites are accepted simultaneously (P1 fix)
    * @param {string} avatarId - The avatar accepting the invite
    * @param {string} partyId - The party to join
    * @returns {Promise<Object>} The updated party
@@ -201,18 +203,20 @@ export class PartyService {
     if (!invite) throw new Error('No pending invite found');
     if (invite.expiresAt < new Date()) throw new Error('Invite has expired');
 
-    // Verify party still has room
-    const party = await this.getParty(partyId);
-    if (!party) throw new Error('Party no longer exists');
-    if (party.members.length >= party.maxSize) throw new Error('Party is now full');
-
     const sheet = await this.characterService.getSheet(avatarId);
     if (sheet.partyId) throw new Error('You joined another party');
 
-    // Add member to party
+    // Atomic add member with capacity check to prevent race conditions
+    // This ensures only one concurrent acceptInvite can succeed if party is near capacity
     const col = await this.collection();
-    await col.updateOne(
-      { _id: party._id },
+    const result = await col.findOneAndUpdate(
+      { 
+        _id: new ObjectId(partyId),
+        // Atomic capacity check: only update if current member count < maxSize
+        $expr: { $lt: [{ $size: '$members' }, '$maxSize'] },
+        // Ensure not already a member (prevents duplicate joins on concurrent accept)
+        'members.avatarId': { $ne: new ObjectId(avatarId) }
+      },
       {
         $push: {
           members: {
@@ -222,19 +226,28 @@ export class PartyService {
             joinedAt: new Date()
           }
         }
-      }
+      },
+      { returnDocument: 'after' }
     );
+
+    const updatedParty = result?.value || null;
+    if (!updatedParty) {
+      // Check why it failed - party doesn't exist or is full
+      const party = await this.getParty(partyId);
+      if (!party) throw new Error('Party no longer exists');
+      throw new Error('Party is now full');
+    }
 
     await this.characterService.setParty(avatarId, partyId);
 
     // Mark invite as accepted
     await inviteCol.updateOne(
-      { _id: invite._id },
+      { _id: invite._id, status: 'pending' },
       { $set: { status: 'accepted', respondedAt: new Date() } }
     );
 
     this.logger?.info?.(`[PartyService] ${avatarId} accepted invite and joined party ${partyId}`);
-    return this.getParty(partyId);
+    return updatedParty;
   }
 
   /**
@@ -275,28 +288,27 @@ export class PartyService {
   /**
    * Legacy invite method - now uses the invitation system
    * For backwards compatibility, this immediately adds if inviter is the target (self-join)
+   * Uses atomic operations to prevent race conditions
    * @deprecated Use sendInvite + acceptInvite instead
    */
   async invite(partyId, avatarId, inviterId = null) {
     // If no inviter specified or inviter is the avatar themselves, use legacy direct add
     if (!inviterId || inviterId === avatarId || String(inviterId) === String(avatarId)) {
-      // Legacy behavior for backward compatibility - direct join
-      const party = await this.getParty(partyId);
-      if (!party) throw new Error('Party not found');
-      if (party.members.length >= party.maxSize) throw new Error('Party is full');
-
       // Get or create character sheet (auto-generates if missing)
       const sheet = await this._getSheetForParty(avatarId);
       if (!sheet) throw new Error('No character sheet');
       if (sheet.partyId) throw new Error('Already in a party');
 
-      if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
-        throw new Error('Already in this party');
-      }
-
+      // Atomic add member with capacity and duplicate checks
       const col = await this.collection();
-      await col.updateOne(
-        { _id: party._id },
+      const result = await col.findOneAndUpdate(
+        { 
+          _id: new ObjectId(partyId),
+          // Atomic capacity check
+          $expr: { $lt: [{ $size: '$members' }, '$maxSize'] },
+          // Ensure not already a member
+          'members.avatarId': { $ne: new ObjectId(avatarId) }
+        },
         {
           $push: {
             members: {
@@ -306,8 +318,20 @@ export class PartyService {
               joinedAt: new Date()
             }
           }
-        }
+        },
+        { returnDocument: 'after' }
       );
+
+      const updatedParty = result?.value || null;
+      if (!updatedParty) {
+        // Determine the specific error
+        const party = await this.getParty(partyId);
+        if (!party) throw new Error('Party not found');
+        if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
+          throw new Error('Already in this party');
+        }
+        throw new Error('Party is full');
+      }
 
       await this.characterService.setParty(avatarId, partyId);
       this.logger?.info?.(`[PartyService] ${avatarId} joined party ${partyId} (direct)`);
@@ -563,7 +587,8 @@ export class PartyService {
     if (candidates.length > 0) {
       const maxRoll = Math.max(...candidates.map(c => c.roll));
       const top = candidates.filter(c => c.roll === maxRoll);
-      winner = top.length === 1 ? top[0] : top[Math.floor(Math.random() * top.length)];
+      // Use cryptographically secure dice for fair tiebreakers (P2 fix)
+      winner = top.length === 1 ? top[0] : top[this.diceService.rollDie(top.length) - 1];
     }
 
     let item = null;

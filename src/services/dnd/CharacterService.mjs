@@ -9,6 +9,7 @@ import { ObjectId } from 'mongodb';
 import { CLASSES, getLevelFromXP, getProficiencyBonus } from '../../data/dnd/classes.mjs';
 import { RACES, BACKGROUNDS } from '../../data/dnd/races.mjs';
 import { getSpellSlots } from '../../data/dnd/spells.mjs';
+import { DiceService } from '../battle/diceService.mjs';
 import eventBus from '../../utils/eventBus.mjs';
 
 export class CharacterService {
@@ -20,6 +21,8 @@ export class CharacterService {
     this.aiService = unifiedAIService;
     this.logger = logger;
     this._collection = null;
+    // Cryptographically secure dice for gameplay fairness
+    this.diceService = new DiceService();
 
     // Listen for new avatar creation to auto-generate character sheets
     this._setupEventListeners();
@@ -474,7 +477,9 @@ export class CharacterService {
     if (!concentration) return { success: true, roll: null, dc: null, brokenSpell: null };
     
     const dc = Math.max(10, Math.floor(damageTaken / 2));
-    const roll = Math.floor(Math.random() * 20) + 1 + constitutionMod;
+    // Use cryptographically secure dice for fair gameplay (P2 fix)
+    const d20 = this.diceService.rollDie(20);
+    const roll = d20 + constitutionMod;
     const success = roll >= dc;
     
     let brokenSpell = null;
