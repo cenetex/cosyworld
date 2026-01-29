@@ -33,6 +33,7 @@ import { DungeonTool } from './tools/DungeonTool.mjs';
 import { CastTool } from './tools/CastTool.mjs';
 import { QuestTool } from './tools/QuestTool.mjs';
 import { TutorialTool } from './tools/TutorialTool.mjs';
+import { DMTool } from './tools/DMTool.mjs';
 
 function normalizeToolResult(rawResult) {
   const base = { message: null, notify: true, embeds: null, components: null, ephemeral: false };
@@ -112,7 +113,8 @@ export class ToolService {
     dungeonService,
     questService,
     tutorialQuestService,
-    dungeonMasterService
+    dungeonMasterService,
+    dmProfileService
   }) {
     this.toolServices = {
       logger,
@@ -158,7 +160,8 @@ export class ToolService {
       dungeonService,
       questService,
       tutorialQuestService,
-      dungeonMasterService
+      dungeonMasterService,
+      dmProfileService
     }
 
     this.logger = logger || console;
@@ -213,7 +216,8 @@ export class ToolService {
       DungeonTool,
       CastTool,
       QuestTool,
-      TutorialTool
+      TutorialTool,
+      DMTool
     ];
 
     // Instantiate and register all tools - names and emojis are inferred from tool instances

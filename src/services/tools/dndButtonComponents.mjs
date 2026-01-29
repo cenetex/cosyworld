@@ -436,6 +436,13 @@ export function createMainDndMenu({ hasCharacter = false, hasParty = false, inDu
       createButton({ customId: 'dnd_character_sheet', label: 'Character', emoji: '📜', style: ButtonStyle.Primary })
     );
   }
+
+  // DM controls (only when already in an adventure context)
+  if (inDungeon) {
+    row2.push(
+      createButton({ customId: 'dnd_dm_menu', label: 'DM', emoji: '🎛️', style: ButtonStyle.Secondary })
+    );
+  }
   
   row1.push(
     createButton({ customId: 'dnd_party_menu', label: 'Party', emoji: '👥', style: ButtonStyle.Primary })

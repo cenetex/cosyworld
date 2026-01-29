@@ -116,7 +116,8 @@ export class DungeonMasterService {
     aiService,
     schemaService,
     configService,
-    healthService
+    healthService,
+    dmProfileService
   }) {
     this.logger = logger || console;
     this.discordService = discordService;
@@ -125,6 +126,7 @@ export class DungeonMasterService {
     this.schemaService = schemaService;
     this.configService = configService;
     this.healthService = healthService || null;
+    this.dmProfileService = dmProfileService || null;
     
     // DM persona settings
     this.dmName = DM_PERSONA.name;
@@ -197,13 +199,24 @@ export class DungeonMasterService {
     }
 
     try {
+      const channelId = dungeon?.threadId || dungeon?.channelId || null;
+      let persona = '';
+      try {
+        if (this.dmProfileService && channelId) {
+          const profile = await this.dmProfileService.getProfileForChannel(channelId);
+          persona = `\n\nDM Persona:\n${this.dmProfileService.getPersonaPrompt(profile)}\n`;
+        }
+      } catch (e) {
+        this.logger?.debug?.(`[DM] Persona lookup failed: ${e.message}`);
+      }
+
       const prompt = `You are a Dungeon Master narrating a ${dungeon.theme} dungeon. 
 Describe a ${room.type} room in 2-3 atmospheric sentences. Be dramatic but concise.
 ${room.encounter?.monsters?.length ? `Enemies present: ${room.encounter.monsters.map(m => m.name).join(', ')}` : ''}
 ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
 
       let response = await ai.chat([
-        { role: 'system', content: 'You are a dramatic D&D Dungeon Master. Keep descriptions to 2-3 sentences maximum.' },
+        { role: 'system', content: `You are a dramatic D&D Dungeon Master. Keep descriptions to 2-3 sentences maximum.${persona}` },
         { role: 'user', content: prompt }
       ]);
       

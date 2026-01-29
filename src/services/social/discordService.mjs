@@ -175,6 +175,12 @@ export class DiscordService {
           await this._showPuzzleAnswerModal(interaction);
           return;
         }
+
+        // DM secret button - show modal
+        if (interaction.customId === 'dnd_dm_secret') {
+          await this._showDmSecretModal(interaction);
+          return;
+        }
         
         // Check guild authorization for interactions using the authorization cache
         if (interaction.guild) {
@@ -1249,6 +1255,75 @@ export class DiscordService {
       }
       return;
     }
+
+    if (customId === 'dm_secret_modal') {
+      const secret = interaction.fields.getTextInputValue('dm_secret_text')?.trim();
+      const target = interaction.fields.getTextInputValue('dm_secret_target')?.trim();
+
+      // Always ephemeral while we process
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        const senderId = interaction.user.id;
+        const targetId = (target || '').replace(/[^0-9]/g, '');
+
+        if (!secret) {
+          await interaction.editReply({ content: '❌ Secret message cannot be empty.' });
+          return;
+        }
+
+        // Self-only for now (prevents abuse; still supports "DM secrets to players")
+        if (targetId && targetId !== senderId) {
+          await interaction.editReply({ content: '❌ For now, you can only send secrets to yourself.' });
+          return;
+        }
+
+        const user = await this.client.users.fetch(senderId);
+        await user.send({
+          embeds: [
+            new EmbedBuilder()
+              .setAuthor({ name: '🎲 The Dungeon Master' })
+              .setTitle('🤫 A Secret, Just for You')
+              .setDescription(`*${secret}*`)
+              .setColor(0x7C3AED),
+          ],
+        });
+
+        await interaction.editReply({ content: '✅ Secret delivered via DM.' });
+      } catch (error) {
+        this.logger?.error?.(`[DiscordService] DM secret modal error: ${error.message}`);
+        await interaction.editReply({ content: '❌ I couldn\'t DM you (check privacy settings).'});
+      }
+      return;
+    }
+  }
+
+  async _showDmSecretModal(interaction) {
+    const modal = new ModalBuilder()
+      .setCustomId('dm_secret_modal')
+      .setTitle('🤫 DM Secret');
+
+    const targetInput = new TextInputBuilder()
+      .setCustomId('dm_secret_target')
+      .setLabel('Target (optional; leave blank for you)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setPlaceholder('Leave blank');
+
+    const secretInput = new TextInputBuilder()
+      .setCustomId('dm_secret_text')
+      .setLabel('Secret message')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(800)
+      .setPlaceholder('A private clue, warning, or hook…');
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(targetInput),
+      new ActionRowBuilder().addComponents(secretInput)
+    );
+
+    await interaction.showModal(modal);
   }
 
   /**
@@ -1714,6 +1789,19 @@ export class DiscordService {
         // Fallback: replace underscores with spaces for legacy buttons
         return { toolName: 'attack', params: [targetId.replace(/_/g, ' ')] };
       }
+    }
+
+    if (customId === 'dnd_dm_menu') {
+      return { toolName: 'dm', params: ['menu'] };
+    }
+
+    if (customId.startsWith('dnd_dm_tone_')) {
+      const preset = customId.replace('dnd_dm_tone_', '');
+      return { toolName: 'dm', params: ['tone', preset] };
+    }
+
+    if (customId === 'dnd_dm_roll_d20') {
+      return { toolName: 'dm', params: ['roll', 'd20'] };
     }
     
     // Party dynamic buttons

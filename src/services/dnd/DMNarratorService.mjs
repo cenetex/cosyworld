@@ -76,10 +76,11 @@ export class DMNarratorService {
    * @param {Object} deps.unifiedAIService - AI service for narrative generation
    * @param {Object} deps.configService - Configuration service
    */
-  constructor({ logger, unifiedAIService, configService }) {
+  constructor({ logger, unifiedAIService, configService, dmProfileService }) {
     this.logger = logger || console;
     this.unifiedAIService = unifiedAIService;
     this.configService = configService;
+    this.dmProfileService = dmProfileService || null;
     
     // DM persona configuration
     this.dmName = 'The Dungeon Master';
@@ -105,9 +106,12 @@ export class DMNarratorService {
 
     try {
       const prompt = this._buildActionPrompt({ action, result, attacker, defender, encounter });
+
+      const channelId = encounter?.channelId;
+      const systemPrompt = await this._getDMSystemPrompt({ channelId });
       
       const response = await this.unifiedAIService.chat([
-        { role: 'system', content: this._getDMSystemPrompt() },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ], {
         model: this.narrativeModel,
@@ -146,7 +150,7 @@ export class DMNarratorService {
 Write ONE dramatic sentence announcing the start of battle. Be vivid and concise.`;
 
       const response = await this.unifiedAIService.chat([
-        { role: 'system', content: this._getDMSystemPrompt() },
+        { role: 'system', content: await this._getDMSystemPrompt({ channelId: encounter?.channelId }) },
         { role: 'user', content: prompt }
       ], {
         model: this.narrativeModel,
@@ -197,7 +201,7 @@ Write ONE dramatic sentence announcing the start of battle. Be vivid and concise
 Write ONE dramatic sentence describing this moment. Be vivid but respectful.`;
 
       const response = await this.unifiedAIService.chat([
-        { role: 'system', content: this._getDMSystemPrompt() },
+        { role: 'system', content: await this._getDMSystemPrompt({ channelId: victim?.channelId || attacker?.channelId }) },
         { role: 'user', content: prompt }
       ], {
         model: this.narrativeModel,
@@ -219,14 +223,24 @@ Write ONE dramatic sentence describing this moment. Be vivid but respectful.`;
    * Get DM system prompt
    * @private
    */
-  _getDMSystemPrompt() {
+  async _getDMSystemPrompt({ channelId } = {}) {
+    let persona = '';
+    try {
+      if (this.dmProfileService && channelId) {
+        const profile = await this.dmProfileService.getProfileForChannel(channelId);
+        persona = `\n\nDM Persona:\n${this.dmProfileService.getPersonaPrompt(profile)}\n`;
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[DMNarrator] Persona lookup failed: ${e.message}`);
+    }
+
     return `You are a dramatic D&D Dungeon Master narrating combat.
 Your role is to describe what HAPPENS, not what characters SAY.
 Write in third person, present tense. Be vivid but CONCISE (1-2 sentences max).
 Use dramatic language but don't be melodramatic.
 Focus on the ACTION, not the emotions.
 Do NOT include dialogue or quotes from characters.
-Do NOT start with "I" or speak in first person.`;
+Do NOT start with "I" or speak in first person.${persona}`;
   }
 
   /**
