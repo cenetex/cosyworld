@@ -2821,22 +2821,54 @@ Requirements:
       const sceneDescription = response?.text || actionSummary;
       
       this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Generating Round ${roundData.round} recap video with ${referenceImages.length} reference images`);
+
+      // VeoService expects referenceImages as [{ data: base64, mimeType, referenceType }]
+      const s3Service = this.battleMediaService?.s3Service || this.configService?.services?.s3Service;
+      const toBase64Ref = async (url) => {
+        if (!url) return null;
+        try {
+          if (s3Service?.downloadImage) {
+            const buf = await s3Service.downloadImage(url);
+            return { data: buf.toString('base64'), mimeType: 'image/png', referenceType: 'asset' };
+          }
+          if (/^https?:\/\//i.test(url)) {
+            const resp = await fetch(url);
+            if (!resp.ok) return null;
+            const arrayBuffer = await resp.arrayBuffer();
+            const buf = Buffer.from(arrayBuffer);
+            return { data: buf.toString('base64'), mimeType: resp.headers.get('content-type') || 'image/png', referenceType: 'asset' };
+          }
+        } catch (e) {
+          this.logger?.debug?.(`[CombatEncounter] Failed to load reference image: ${e?.message || e}`);
+        }
+        return null;
+      };
+
+      const refPayload = [];
+      for (const url of referenceImages.slice(0, 3)) {
+        const ref = await toBase64Ref(url);
+        if (ref?.data) refPayload.push(ref);
+      }
       
       // Generate video using Veo 3.1 Fast with reference images
-      const videos = await this.veoService.generateVideosWithReferenceImages({
-        prompt: sceneDescription,
-        referenceImages: referenceImages.slice(0, 3), // Max 3 images
-        config: {
-          aspectRatio: '16:9',
-          durationSeconds: 8
-        },
-        model: 'veo-3.1-fast-generate-preview'
-      });
+      const config = { aspectRatio: '16:9', durationSeconds: 8 };
+      const videos = refPayload.length
+        ? await this.veoService.generateVideosWithReferenceImages({
+            prompt: sceneDescription,
+            referenceImages: refPayload,
+            config,
+            model: 'veo-3.1-fast-generate-preview'
+          })
+        : await this.veoService.generateVideos({
+            prompt: sceneDescription,
+            config,
+            model: 'veo-3.1-fast-generate-preview'
+          });
       
       if (videos && videos.length > 0) {
         return {
           round: roundData.round,
-          url: videos[0].url,
+          url: videos[0],
           prompt: sceneDescription,
           actions: actions.length
         };
