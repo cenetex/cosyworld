@@ -364,34 +364,48 @@ Do NOT start with "I" or speak in first person.`;
     }
 
     try {
+      const hasCriticalOrKnockout = actions.some(a => !!a?.result?.critical || a?.result?.result === 'knockout' || a?.result?.result === 'dead');
+
       // Build action summary for the AI
       const actionDescriptions = actions.map((a, i) => {
         const attacker = a.combatant?.name || 'Unknown';
         const target = a.targetName || 'their target';
         const damage = a.result?.damage || 0;
-        const hit = a.result?.hit !== false && damage > 0;
+        const hit = a.result?.hit !== false && (damage > 0 || ['hit', 'knockout', 'dead'].includes(a.result?.result));
         const critical = a.result?.critical;
+        const outcome = a.result?.result;
         
         if (a.action?.type === 'attack') {
-          if (critical && hit) {
-            return `${i + 1}. ${attacker} lands a CRITICAL HIT on ${target} for ${damage} damage!`;
-          } else if (hit) {
-            return `${i + 1}. ${attacker} hits ${target} for ${damage} damage.`;
-          } else {
-            return `${i + 1}. ${attacker} swings at ${target} but misses.`;
+          if (outcome === 'dead') {
+            return `${i + 1}. ${attacker} delivers a killing blow to ${target}${damage ? ` for ${damage} damage` : ''}.`;
           }
+          if (outcome === 'knockout') {
+            return `${i + 1}. ${attacker} knocks ${target} out${damage ? ` with ${damage} damage` : ''}.`;
+          }
+          if (critical && hit) return `${i + 1}. ${attacker} lands a CRITICAL HIT on ${target}${damage ? ` for ${damage} damage` : ''}.`;
+          if (hit) return `${i + 1}. ${attacker} hits ${target}${damage ? ` for ${damage} damage` : ''}.`;
+          return `${i + 1}. ${attacker} swings at ${target} but misses.`;
         } else if (a.action?.type === 'defend') {
           return `${i + 1}. ${attacker} takes a defensive stance.`;
         }
         return `${i + 1}. ${attacker} acts.`;
       }).join('\n');
 
-      const prompt = `Multiple enemies attack in rapid succession:
+      const prompt = hasCriticalOrKnockout
+        ? `Multiple enemies act in rapid succession:
 
 ${actionDescriptions}
 
-Write 2-3 vivid sentences describing this flurry of monster attacks as a unified dramatic moment.
-Keep it exciting and concise. Focus on the chaos and danger. Do not use character dialogue.`;
+Write 2-3 vivid sentences describing this as ONE unified dramatic moment.
+Focus primarily on the CRITICAL HIT / KNOCKOUT / death moment(s) and keep everything else brief.
+No dialogue. Third-person, present tense.`
+        : `Multiple enemies act in rapid succession:
+
+${actionDescriptions}
+
+Write ONE vivid sentence (max ~20 words) describing this as ONE unified dramatic moment.
+It should read like: "three creatures swarm in and bite one by one" (but in your own words).
+No dialogue. Third-person, present tense.`;
 
       const response = await this.unifiedAIService.chat([
         { role: 'system', content: this._getDMSystemPrompt() },
@@ -399,10 +413,15 @@ Keep it exciting and concise. Focus on the chaos and danger. Do not use characte
       ], {
         model: this.narrativeModel,
         temperature: 0.85,
-        max_tokens: 200
+        max_tokens: hasCriticalOrKnockout ? 200 : 90
       });
 
-      const narrative = (response?.text || '').trim();
+      let narrative = (response?.text || '').trim();
+      if (!hasCriticalOrKnockout && narrative) {
+        // Enforce the single-sentence requirement even if the model over-produces.
+        const m = narrative.match(/^([\s\S]*?[.!?])\s/);
+        if (m?.[1]) narrative = m[1].trim();
+      }
       if (narrative && narrative.length > 20) {
         this.logger?.debug?.(`[DMNarrator] Batched: "${narrative.slice(0, 100)}..."`);
         // Ensure italics formatting
@@ -424,19 +443,41 @@ Keep it exciting and concise. Focus on the chaos and danger. Do not use characte
       return '*The monsters act...*';
     }
 
+    const hasCriticalOrKnockout = actions.some(a => !!a?.result?.critical || a?.result?.result === 'knockout' || a?.result?.result === 'dead');
+
     const hits = actions.filter(a => a.result?.hit !== false && a.result?.damage > 0);
     const misses = actions.filter(a => a.result?.hit === false || !a.result?.damage);
     const totalDamage = hits.reduce((sum, a) => sum + (a.result?.damage || 0), 0);
+
+    const knockouts = actions.filter(a => a?.result?.result === 'knockout');
+    const deaths = actions.filter(a => a?.result?.result === 'dead');
 
     if (hits.length === 0) {
       return '*The monsters strike wildly, but their attacks find no purchase!*';
     }
 
     if (misses.length === 0) {
-      return `*The monsters attack in a coordinated assault, dealing ${totalDamage} damage to the party!*`;
+      if (!hasCriticalOrKnockout) {
+        return `*The monsters swarm in and strike one after another, dealing ${totalDamage} damage!*`;
+      }
+      const extra = deaths.length
+        ? `One blow proves fatal.`
+        : knockouts.length
+          ? `One target collapses, knocked out.`
+          : `A critical strike lands true.`;
+      return `*The monsters swarm in and strike one after another, dealing ${totalDamage} damage!* ${extra}`;
     }
 
-    return `*The monsters unleash a barrage of attacks! ${hits.length} hit${hits.length > 1 ? 's' : ''} land for ${totalDamage} total damage, while ${misses.length} miss${misses.length > 1 ? '' : 'es'} wide.*`;
+    if (!hasCriticalOrKnockout) {
+      return `*The monsters swarm in and strike one by one—${hits.length} hit for ${totalDamage} total damage as ${misses.length} miss wide.*`;
+    }
+
+    const extra = deaths.length
+      ? `A killing blow lands.`
+      : knockouts.length
+        ? `Someone drops, knocked out.`
+        : `A critical hit punctuates the flurry.`;
+    return `*The monsters swarm in and strike one by one—${hits.length} hit for ${totalDamage} total damage as ${misses.length} miss wide.* ${extra}`;
   }
 }
 

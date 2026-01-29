@@ -1733,24 +1733,16 @@ One-liner (no quotes):`;
     if (!channel) return;
     
     try {
-      // Build a summary of all monster actions
-      const actionSummaries = actions.map(a => {
-        const attackerName = a.combatant.name;
-        const targetName = a.targetName || 'unknown';
-        const damage = a.result?.damage || 0;
-        const hit = a.result?.hit !== false;
-        
-        if (a.action.type === 'attack') {
-          if (hit && damage > 0) {
-            return `${attackerName} strikes ${targetName} for ${damage} damage`;
-          } else if (!hit) {
-            return `${attackerName} swings at ${targetName} but misses`;
-          }
-        } else if (a.action.type === 'defend') {
-          return `${attackerName} takes a defensive stance`;
-        }
-        return `${attackerName} acts`;
-      });
+      // Compact fallback summary (single sentence unless critical/KO/death)
+      const hasCriticalOrKnockout = actions.some(a => !!a?.result?.critical || a?.result?.result === 'knockout' || a?.result?.result === 'dead');
+      const totalDamage = actions.reduce((sum, a) => sum + (a.result?.damage || 0), 0);
+      const hitCount = actions.filter(a => a.action?.type === 'attack' && ['hit', 'knockout', 'dead'].includes(a.result?.result)).length;
+      const missCount = actions.filter(a => a.action?.type === 'attack' && (a.result?.result === 'miss' || a.result?.hit === false)).length;
+      const knockoutCount = actions.filter(a => a?.result?.result === 'knockout').length;
+      const deathCount = actions.filter(a => a?.result?.result === 'dead').length;
+      const fallbackNarration = !hasCriticalOrKnockout
+        ? `*Enemies surge in and strike one by one—${hitCount} hit for ${totalDamage} total damage as ${missCount} miss wide.*`
+        : `*Enemies surge in and strike one by one—${hitCount} hit for ${totalDamage} total damage as ${missCount} miss wide.* ${deathCount ? 'A killing blow lands.' : knockoutCount ? 'Someone drops, knocked out.' : 'A critical strike punctuates the flurry.'}`;
       
       // Generate DM narration via AI if available
       let dmNarration = null;
@@ -1777,13 +1769,13 @@ One-liner (no quotes):`;
       const embed = {
         author: { name: '🎲 The Dungeon Master' },
         title,
-        description: dmNarration || `*Steel clashes in the chaos of battle!*\n\n${actionSummaries.join('\n')}`,
+        description: dmNarration || fallbackNarration,
         color,
         footer: { text: `${actions.length} action${actions.length > 1 ? 's' : ''} this round` }
       };
       
       // Add damage summary field
-      const totalDamage = actions.reduce((sum, a) => sum + (a.result?.damage || 0), 0);
+      // Reuse computed totalDamage
       if (totalDamage > 0) {
         embed.fields = [
           { name: '💥 Total Damage Dealt', value: `${totalDamage} HP`, inline: true }
