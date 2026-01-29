@@ -2038,18 +2038,27 @@ One-liner (no quotes):`;
     
     // For dungeon combat: check if one side is eliminated
     if (encounter.dungeonContext) {
-      const monsters = encounter.combatants.filter(c => c.isMonster && (c.currentHp || 0) > 0);
-      const players = encounter.combatants.filter(c => !c.isMonster && (c.currentHp || 0) > 0);
-      
-      // All monsters defeated - players win
-      if (monsters.length === 0 && players.length > 0) {
+      // NOTE: Use _isKnockedOut() rather than HP alone.
+      // Some KOs are represented via status/knockedOutUntil and can leave HP > 0.
+      const monstersAlive = encounter.combatants.filter(c => c.isMonster && !this._isKnockedOut(c));
+      const playersAlive = encounter.combatants.filter(c => !c.isMonster && !this._isKnockedOut(c));
+
+      // Everyone down: treat as TPK for dungeon flow safety.
+      if (playersAlive.length === 0 && monstersAlive.length === 0) {
+        this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] All combatants defeated - ending dungeon combat as TPK`);
+        this.endEncounter(encounter, { reason: 'tpk' });
+        return true;
+      }
+
+      // All monsters defeated - room cleared
+      if (monstersAlive.length === 0 && playersAlive.length > 0) {
         this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] All monsters defeated - dungeon room cleared`);
         this.endEncounter(encounter, { reason: 'room_cleared' });
         return true;
       }
-      
+
       // All players defeated - TPK
-      if (players.length === 0 && monsters.length > 0) {
+      if (playersAlive.length === 0 && monstersAlive.length > 0) {
         this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] All players defeated - TPK`);
         this.endEncounter(encounter, { reason: 'tpk' });
         return true;
@@ -2178,8 +2187,8 @@ One-liner (no quotes):`;
       this.logger?.warn?.(`[CombatEncounter] return to origin failed: ${e.message}`);
     });
     
-    // Determine winners (combatants with HP > 0)
-    const alive = (encounter.combatants || []).filter(c => (c.currentHp || 0) > 0);
+    // Determine winners (combatants not knocked out / dead)
+    const alive = (encounter.combatants || []).filter(c => !this._isKnockedOut(c));
     const winners = alive;
     const winner = alive.length === 1 ? alive[0].name : null;
     
