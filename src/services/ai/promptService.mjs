@@ -3,8 +3,11 @@
  * Licensed under the MIT License.
  */
 
+import { resolveLocationIdentity } from '../location/locationIdentity.mjs';
+
 export class PromptService  {
   constructor({
+    logger,
     databaseService,
     discordService,
     configService,
@@ -13,8 +16,11 @@ export class PromptService  {
     memoryService,
     imageProcessingService,
     toolService,
-    promptAssembler
+    promptAssembler,
+    dungeonService,
+    dndTurnContextService
   }) {
+    this.logger = logger || console;
     this.toolService = toolService;
     this.databaseService = databaseService;
     this.discordService = discordService;
@@ -24,6 +30,65 @@ export class PromptService  {
     this.memoryService = memoryService;
     this.imageProcessingService = imageProcessingService;
     this.promptAssembler = promptAssembler || null;
+    this.dungeonService = dungeonService || null;
+    this.dndTurnContextService = dndTurnContextService || null;
+  }
+
+  async _getDungeonTurnContextForChannel({ channelId, avatar } = {}) {
+    try {
+      if (!channelId) return null;
+      if (!this.dungeonService?.getActiveDungeonByChannel) return null;
+      if (!this.dndTurnContextService?.buildForDungeon) return null;
+
+      const activeDungeon = await this.dungeonService.getActiveDungeonByChannel(channelId);
+      if (!activeDungeon) return null;
+
+      return await this.dndTurnContextService.buildForDungeon({
+        dungeon: activeDungeon,
+        channelId,
+        avatarId: avatar?._id
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  _formatDungeonTurnContextInline(ctx, { clip } = {}) {
+    try {
+      if (!ctx?.dungeon) return '';
+
+      const dungeon = ctx.dungeon;
+      const room = ctx.room;
+
+      const roomLabel = room?.name
+        ? `${room.name}${room?.type ? ` (${room.type})` : ''}`
+        : (room?.type || room?.id || 'unknown');
+
+      const exits = Array.isArray(room?.exits) ? room.exits.filter(Boolean) : [];
+      const exitsText = exits.length ? exits.join(', ') : 'none';
+
+      const clearedText = room?.cleared === true ? 'cleared' : room?.cleared === false ? 'uncleared' : 'unknown';
+
+      const localItemsCount = Array.isArray(ctx.localItems) ? ctx.localItems.length : 0;
+
+      const storyRaw = ctx.channelSummary?.summary || '';
+      const story = clip ? clip(storyRaw, 240) : storyRaw;
+
+      const theme = dungeon.theme || dungeon.name || 'Dungeon';
+      const difficulty = dungeon.difficulty || 'unknown';
+
+      const parts = [
+        `Dungeon: ${theme} (${difficulty})`,
+        `Room: ${roomLabel} (${clearedText})`,
+        `Exits: ${exitsText}`,
+        `Loose items nearby: ${localItemsCount}`
+      ];
+
+      if (story) parts.push(`Story so far: ${story}`);
+      return parts.join(' • ');
+    } catch {
+      return '';
+    }
   }
   /**
    * Builds the system prompt with just the avatar's basic identity.
@@ -72,15 +137,31 @@ export class PromptService  {
       return `${sign}${fixed}%`;
     };
 
-    // Resolve a real location document for the avatar's current channel (creates one if missing)
+    // Resolve a real location document for the avatar's current channel
+    // (older code may use ObjectId strings; resolveLocationIdentity handles both)
     let location = null;
+    let locationChannelId = avatar.channelId || null;
     try {
-      const pos = await this.mapService.getAvatarLocation(avatar); // returns { locationId, avatarId, ... }
-      const locId = pos?.locationId || avatar.channelId;
-      location = await this.mapService.locationService.getLocationByChannelId(locId);
+      const pos = await this.mapService?.getAvatarLocation?.(avatar); // returns { locationId, avatarId, ... }
+      const locRef = pos?.locationId || avatar.channelId;
+      const ident = await resolveLocationIdentity({
+        locationService: this.mapService?.locationService,
+        locationRef: locRef
+      });
+      location = ident.locationDoc || null;
+      locationChannelId = ident.locationChannelId || avatar.channelId || null;
     } catch {
-      // Fall back gracefully when no location document exists
       location = null;
+      locationChannelId = avatar.channelId || null;
+    }
+
+    // Best-effort: include active dungeon/room context in the system prompt when the avatar is speaking inside a dungeon thread.
+    let dungeonTurnContextInline = '';
+    try {
+      const ctx = await this._getDungeonTurnContextForChannel({ channelId: locationChannelId, avatar });
+      dungeonTurnContextInline = this._formatDungeonTurnContextInline(ctx, { clip });
+    } catch {
+      dungeonTurnContextInline = '';
     }
 
     // Phase 2: Add tool context if LLM tool calling is enabled
@@ -136,6 +217,10 @@ export class PromptService  {
         ? locationDesc.substring(0, 200) + '...' 
         : locationDesc;
       parts.push(`Location: ${location.name}${truncatedDesc ? ' - ' + truncatedDesc : ''}`);
+    }
+
+    if (dungeonTurnContextInline) {
+      parts.push(dungeonTurnContextInline);
     }
 
     if (avatar.walletAddress) {
@@ -363,12 +448,22 @@ Based on all of the above context, share an updated personality that reflects yo
   const commandsDescription = (await this.toolService.getCommandsDescription(guildId)) || '';
   // Use full location doc (auto-creates if missing) to avoid stringifying objects
   let locationDoc = null;
-  try { locationDoc = await this.mapService.locationService.getLocationByChannelId(avatar.channelId); } catch {}
+  let locationChannelId = avatar.channelId || null;
+  try {
+    const pos = await this.mapService?.getAvatarLocation?.(avatar);
+    const locRef = pos?.locationId || avatar.channelId;
+    const ident = await resolveLocationIdentity({
+      locationService: this.mapService?.locationService,
+      locationRef: locRef
+    });
+    locationDoc = ident.locationDoc || null;
+    locationChannelId = ident.locationChannelId || avatar.channelId || null;
+  } catch {}
   const items = await this.itemService.getItemsDescription(avatar);
   const locationText = locationDoc ? `You are currently in ${locationDoc.name}. ${locationDoc.description}` : `You are in ${avatar.channelName || 'a chat channel'}.`;
     const selectedItem = avatar.selectedItemId ? this.itemService.getItem(avatar.selectedItemId): null;
     const selectedItemText = selectedItem ? `Selected item: ${selectedItem.name}` : 'No item selected.';
-    const groundItems = await this.itemService.searchItems(avatar.channelId, '');
+    const groundItems = await this.itemService.searchItems(locationChannelId || avatar.channelId, '');
     const groundItemsText = groundItems.length > 0 ? `Items on the ground: ${groundItems.map(i => i.name).join(', ')}` : 'There are no items on the ground.';
   let _summonEmoji = this.configService.getGuildConfig(guildId)?.summonEmoji || '🔮';
   let _breedEmoji = '🏹';
@@ -406,6 +501,12 @@ ${items}
    * @returns {Promise<string>} The response user content.
    */
   async getResponseUserContent(avatar, channel, messages, channelSummary) {
+    const clip = (value, limit = 240) => {
+      if (!value) return '';
+      const text = String(value).replace(/\s+/g, ' ').trim();
+      return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+    };
+
     // Construct conversation history with naturally interleaved image descriptions
     const channelContextText = messages
       .map(msg => {
@@ -419,13 +520,27 @@ ${items}
   
     const context = { channelName: channel.name, guildName: channel.guild?.name || 'Unknown Guild' };
     const dungeonPrompt = await this.buildDungeonPrompt(avatar, channel.guild.id);
+
+    // Best-effort: enrich prompt with canonical turn context when this channel is a dungeon thread.
+    let dungeonTurnContextInline = '';
+    let effectiveChannelSummary = channelSummary || '';
+    try {
+      const ctx = await this._getDungeonTurnContextForChannel({ channelId: channel?.id, avatar });
+      dungeonTurnContextInline = this._formatDungeonTurnContextInline(ctx, { clip });
+
+      if (!effectiveChannelSummary && ctx?.channelSummary?.summary) {
+        effectiveChannelSummary = ctx.channelSummary.summary;
+      }
+    } catch {}
   
     // Return the formatted prompt without a separate image descriptions list
   return `
 Channel: #${context.channelName} in ${context.guildName}
 
 Channel summary:
-${channelSummary}
+${effectiveChannelSummary}
+
+${dungeonTurnContextInline ? `Turn context: ${dungeonTurnContextInline}\n` : ''}
 
 Actions Available (internal reference – do NOT list them back to users unless explicitly asked):
 ${dungeonPrompt}
@@ -535,7 +650,31 @@ ${recentActionsText}
     const featureFlags = `memoryV2=${process.env.MEMORY_V2_ENABLED !== 'false'}, frames=${process.env.FRAMES_ENABLED || false}`;
     const caller = (messages && messages.length) ? messages[messages.length-1]?.authorTag || messages[messages.length-1]?.author || 'user' : 'user';
 
-    const CONTEXT = `ts=${now}; runId=${runId}; guild=${guild}; channel=${channelName}\ncaller=${caller}\nfeatureFlags: ${featureFlags}`;
+    // Best-effort: add channel summary + dungeon turn context to V2 prompt (was previously unused here)
+    let dungeonTurnContextInline = '';
+    let effectiveChannelSummary = channelSummary || '';
+    try {
+      const ctx = await this._getDungeonTurnContextForChannel({ channelId: channel?.id, avatar });
+      dungeonTurnContextInline = this._formatDungeonTurnContextInline(ctx, {
+        clip: (v, limit = 800) => this.promptAssembler.truncateToTokensSentences(String(v || ''), limit)
+      });
+
+      if (!effectiveChannelSummary && ctx?.channelSummary?.summary) {
+        effectiveChannelSummary = ctx.channelSummary.summary;
+      }
+    } catch {}
+
+    const summaryBlock = effectiveChannelSummary
+      ? this.promptAssembler.truncateToTokensSentences(String(effectiveChannelSummary), 900)
+      : '';
+
+    const CONTEXT = [
+      `ts=${now}; runId=${runId}; guild=${guild}; channel=${channelName}`,
+      `caller=${caller}`,
+      `featureFlags: ${featureFlags}`,
+      summaryBlock ? `channelSummary: ${summaryBlock}` : '',
+      dungeonTurnContextInline ? `turnContext: ${dungeonTurnContextInline}` : ''
+    ].filter(Boolean).join('\n');
 
     // Build FOCUS from recent dialog window (thin windowing here; summaries TODO)
     const turns = (messages || []).slice(-10).map(m => `${m.role || m.authorRole || 'user'}: ${m.content || m.text || ''}`);
