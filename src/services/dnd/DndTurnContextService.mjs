@@ -40,6 +40,10 @@ export class DndTurnContextService {
       };
     }
 
+    // `_avatarId` is reserved for future per-avatar context (e.g., personalization),
+    // but unused for now.
+    const _avatarId = avatarId;
+
     const locationChannelId = dungeonDoc.locationChannelId || dungeonDoc.threadId || dungeonDoc.channelId || channelId || null;
 
     const { locationDocId, locationDoc } = await resolveLocationIdentity({
