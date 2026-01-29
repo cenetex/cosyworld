@@ -1658,15 +1658,48 @@ export class DungeonTool extends BasicTool {
       return '*The air is still as the party advances...*';
     }
 
+    const truncate = (text, max = 220) => {
+      const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
+      if (!cleaned) return '';
+      if (cleaned.length <= max) return cleaned;
+      return `${cleaned.slice(0, max - 1).trim()}…`;
+    };
+
+    // Best-effort continuity/context hint. Keep it short and unobtrusive.
+    let continuityHint = '';
+    try {
+      const ctx = await this.dndTurnContextService?.buildForDungeon?.({
+        dungeon,
+        channelId: dungeon?.locationChannelId || dungeon?.threadId || dungeon?.channelId || null
+      });
+
+      const parts = [];
+      const summary = ctx?.channelSummary?.summary;
+      if (summary) {
+        parts.push(`Story so far: ${truncate(summary, 180)}`);
+      }
+      const localCount = Array.isArray(ctx?.localItems) ? ctx.localItems.length : 0;
+      if (localCount > 0) {
+        parts.push(`Loose items nearby: ${localCount}`);
+      }
+
+      if (parts.length > 0) {
+        continuityHint = `\n\n-# ${parts.join(' • ')}`;
+      }
+    } catch {
+      // ignore
+    }
+
     if (this.dungeonMasterService?.generateRoomDescription) {
       try {
-        return await this.dungeonMasterService.generateRoomDescription(room, dungeon);
+        const narrative = await this.dungeonMasterService.generateRoomDescription(room, dungeon);
+        return `${narrative}${continuityHint}`;
       } catch (e) {
         this.logger?.debug?.(`[DungeonTool] DM narration failed: ${e.message}`);
       }
     }
 
-    return this._getFallbackRoomNarrative(room, dungeon?.theme);
+    return `${this._getFallbackRoomNarrative(room, dungeon?.theme)}${continuityHint}`;
   }
 
   _getFallbackRoomNarrative(room, theme) {
