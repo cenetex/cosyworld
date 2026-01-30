@@ -176,6 +176,15 @@ async function main() {
       logger.warn(`[startup] SocialPlatformService not initialized: ${e.message}`);
     }
 
+    // Start Moltbook heartbeat (periodic feed check + optional comment)
+    try {
+      const moltbookHeartbeatService = container.resolve('moltbookHeartbeatService');
+      await moltbookHeartbeatService?.start?.();
+      logger.log('[startup] MoltbookHeartbeatService started');
+    } catch (e) {
+      logger.warn(`[startup] MoltbookHeartbeatService not started: ${e.message}`);
+    }
+
     // Start DM Planner (lightweight periodic planner)
     try {
       const dmPlannerService = container.resolve('dmPlannerService');

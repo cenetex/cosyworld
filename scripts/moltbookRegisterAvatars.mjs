@@ -24,7 +24,7 @@ const buildAgentName = (avatar) => {
   return `cosy_${base}_${id}`;
 };
 
-export default async function moltbookRegisterAvatars({ limit = null } = {}) {
+export default async function moltbookRegisterAvatars({ limit = null, random = false } = {}) {
   await containerReady;
 
   const logger = (() => { try { return container.resolve('logger'); } catch { return console; } })();
@@ -38,10 +38,7 @@ export default async function moltbookRegisterAvatars({ limit = null } = {}) {
   const db = await databaseService.getDatabase();
   const avatars = db.collection('avatars');
 
-  const cursor = avatars.find({});
-  if (Number.isFinite(Number(limit)) && Number(limit) > 0) {
-    cursor.limit(Number(limit));
-  }
+  const desired = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : null;
 
   const client = new MoltbookClient();
 
@@ -51,15 +48,14 @@ export default async function moltbookRegisterAvatars({ limit = null } = {}) {
 
   logger.info('[moltbook] Registering Moltbook accounts for avatars...');
 
-  // eslint-disable-next-line no-restricted-syntax
-  for await (const avatar of cursor) {
+  const registerOne = async (avatar) => {
     const avatarId = String(avatar._id);
 
     try {
       const existing = await socialPlatformService.getConnection('moltbook', avatarId);
       if (existing?.credentials?.cipherText) {
         skipped += 1;
-        continue;
+        return { ok: false, skipped: true };
       }
 
       const desiredName = buildAgentName(avatar);
@@ -73,7 +69,9 @@ export default async function moltbookRegisterAvatars({ limit = null } = {}) {
           reg = await client.registerAgent({ name: attemptName, description });
           break;
         } catch (e) {
-          const isConflict = e?.status === 409 || String(e?.message || '').toLowerCase().includes('taken') || String(e?.message || '').toLowerCase().includes('exists');
+          const isConflict = e?.status === 409
+            || String(e?.message || '').toLowerCase().includes('taken')
+            || String(e?.message || '').toLowerCase().includes('exists');
           if (!isConflict || i === 2) throw e;
           attemptName = `${desiredName}_${Math.random().toString(16).slice(2, 6)}`;
         }
@@ -112,9 +110,45 @@ export default async function moltbookRegisterAvatars({ limit = null } = {}) {
       if (claimUrl) console.log(`  claim_url: ${claimUrl}`);
       // eslint-disable-next-line no-console
       if (verificationCode) console.log(`  verification_code: ${verificationCode}`);
+
+      return { ok: true };
     } catch (e) {
       failed += 1;
       logger.warn(`[moltbook] Failed for avatar ${avatarId}: ${e?.message || e}`);
+      return { ok: false, skipped: false };
+    }
+  };
+
+  if (!random) {
+    const cursor = avatars.find({});
+    if (desired) cursor.limit(desired);
+
+    // eslint-disable-next-line no-restricted-syntax
+    for await (const avatar of cursor) {
+      await registerOne(avatar);
+      if (desired && created >= desired) break;
+    }
+  } else {
+    if (!desired) {
+      throw new Error('Random mode requires a positive --limit');
+    }
+
+    const seen = new Set();
+    let passes = 0;
+    while (created < desired && passes < 10) {
+      passes += 1;
+      const remaining = desired - created;
+      const batchSize = Math.max(remaining * 5, remaining + 5);
+      const sampled = await avatars.aggregate([{ $sample: { size: batchSize } }]).toArray();
+      if (!sampled.length) break;
+
+      for (const avatar of sampled) {
+        if (created >= desired) break;
+        const avatarId = String(avatar._id);
+        if (seen.has(avatarId)) continue;
+        seen.add(avatarId);
+        await registerOne(avatar);
+      }
     }
   }
 

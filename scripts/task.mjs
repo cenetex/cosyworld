@@ -72,7 +72,8 @@ async function main() {
     case 'moltbook:register-avatars': {
       const mod = await import('./moltbookRegisterAvatars.mjs');
       const limit = args.limit ? Number(args.limit) : null;
-      const res = await (mod.default?.({ limit }) ?? Promise.resolve());
+      const random = flags.has('--random');
+      const res = await (mod.default?.({ limit, random }) ?? Promise.resolve());
       if (res?.failed) process.exit(1);
       break;
     }
