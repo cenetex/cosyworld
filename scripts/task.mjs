@@ -80,6 +80,15 @@ async function main() {
     case 'moltbook:heartbeat-now': {
       const mod = await import('./moltbookHeartbeatNow.mjs');
       const max = args.max ? Number(args.max) : null;
+      const agentName = args.agentName || args.agent || args.username || null;
+      const avatarId = args.avatarId || args.avatar || null;
+
+      // Configure optional targets on the module function so it can run a single agent.
+      if (mod.default) {
+        mod.default._targetAgentName = agentName;
+        mod.default._targetAvatarId = avatarId;
+      }
+
       await (mod.default?.({ max }) ?? Promise.resolve());
       break;
     }
@@ -93,7 +102,7 @@ async function main() {
       console.log('  backfill:avatar-maxhp Backfill avatar max HP from character sheets');
       console.log('  update:models         Refresh available models');
       console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
-      console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N)');
+      console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N, --agentName=..., --avatarId=...)');
       process.exit(1);
   }
 }
