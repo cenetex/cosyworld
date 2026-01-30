@@ -77,6 +77,12 @@ async function main() {
       if (res?.failed) process.exit(1);
       break;
     }
+    case 'moltbook:heartbeat-now': {
+      const mod = await import('./moltbookHeartbeatNow.mjs');
+      const max = args.max ? Number(args.max) : null;
+      await (mod.default?.({ max }) ?? Promise.resolve());
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -87,6 +93,7 @@ async function main() {
       console.log('  backfill:avatar-maxhp Backfill avatar max HP from character sheets');
       console.log('  update:models         Refresh available models');
       console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
+      console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N)');
       process.exit(1);
   }
 }
