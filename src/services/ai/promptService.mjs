@@ -17,8 +17,7 @@ export class PromptService  {
     imageProcessingService,
     toolService,
     promptAssembler,
-    dungeonService,
-    dndTurnContextService
+    dungeonService
   }) {
     this.logger = logger || console;
     this.toolService = toolService;
@@ -31,23 +30,56 @@ export class PromptService  {
     this.imageProcessingService = imageProcessingService;
     this.promptAssembler = promptAssembler || null;
     this.dungeonService = dungeonService || null;
-    this.dndTurnContextService = dndTurnContextService || null;
   }
 
   async _getDungeonTurnContextForChannel({ channelId, avatar } = {}) {
     try {
       if (!channelId) return null;
       if (!this.dungeonService?.getActiveDungeonByChannel) return null;
-      if (!this.dndTurnContextService?.buildForDungeon) return null;
 
       const activeDungeon = await this.dungeonService.getActiveDungeonByChannel(channelId);
       if (!activeDungeon) return null;
 
-      return await this.dndTurnContextService.buildForDungeon({
-        dungeon: activeDungeon,
-        channelId,
+      const dungeon = activeDungeon;
+
+      const locationChannelId = dungeon.locationChannelId || dungeon.threadId || dungeon.channelId || channelId || null;
+      const room = dungeon.rooms?.find?.(r => r.id === dungeon.currentRoom) || null;
+
+      // Local items (best-effort)
+      let localItems = [];
+      try {
+        if (locationChannelId) {
+          const db = await this.databaseService?.getDatabase?.();
+          if (db) {
+            localItems = await db.collection('items')
+              .find({ locationId: locationChannelId, owner: null })
+              .sort({ updatedAt: -1, createdAt: -1 })
+              .limit(20)
+              .toArray();
+          }
+        }
+      } catch {}
+
+      // Channel summary (best-effort) without ChannelSummaryService to avoid DI cycles
+      let channelSummary = null;
+      try {
+        if (locationChannelId) {
+          const db = await this.databaseService?.getDatabase?.();
+          if (db) {
+            const compositeId = `discord:${locationChannelId}`;
+            channelSummary = await db.collection('unified_channel_summaries').findOne({ compositeId });
+          }
+        }
+      } catch {}
+
+      return {
+        dungeon,
+        room,
+        locationChannelId,
+        localItems,
+        channelSummary,
         avatarId: avatar?._id
-      });
+      };
     } catch {
       return null;
     }
