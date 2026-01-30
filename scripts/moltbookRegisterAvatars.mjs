@@ -104,11 +104,8 @@ export default async function moltbookRegisterAvatars({ limit = null, random = f
       created += 1;
 
       // Print claim info for the human to complete activation
-      // eslint-disable-next-line no-console
       console.log(`[moltbook] ${avatar.emoji || ''} ${avatar.name || avatarId} -> ${attemptName}`);
-      // eslint-disable-next-line no-console
       if (claimUrl) console.log(`  claim_url: ${claimUrl}`);
-      // eslint-disable-next-line no-console
       if (verificationCode) console.log(`  verification_code: ${verificationCode}`);
 
       return { ok: true };
@@ -123,7 +120,6 @@ export default async function moltbookRegisterAvatars({ limit = null, random = f
     const cursor = avatars.find({});
     if (desired) cursor.limit(desired);
 
-    // eslint-disable-next-line no-restricted-syntax
     for await (const avatar of cursor) {
       await registerOne(avatar);
       if (desired && created >= desired) break;
