@@ -185,6 +185,15 @@ async function main() {
       logger.warn(`[startup] MoltbookHeartbeatService not started: ${e.message}`);
     }
 
+    // Start Moltbook swarm missives (global account posts to a submolt)
+    try {
+      const moltbookSwarmMissiveService = container.resolve('moltbookSwarmMissiveService');
+      await moltbookSwarmMissiveService?.start?.();
+      logger.log('[startup] MoltbookSwarmMissiveService started');
+    } catch (e) {
+      logger.warn(`[startup] MoltbookSwarmMissiveService not started: ${e.message}`);
+    }
+
     // Start DM Planner (lightweight periodic planner)
     try {
       const dmPlannerService = container.resolve('dmPlannerService');

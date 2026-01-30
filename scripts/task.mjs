@@ -92,6 +92,11 @@ async function main() {
       await (mod.default?.({ max }) ?? Promise.resolve());
       break;
     }
+    case 'moltbook:swarm-missive-now': {
+      const mod = await import('./moltbookSwarmMissiveNow.mjs');
+      await (mod.default?.() ?? Promise.resolve());
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -103,6 +108,7 @@ async function main() {
       console.log('  update:models         Refresh available models');
       console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
       console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N, --agentName=..., --avatarId=...)');
+      console.log('  moltbook:swarm-missive-now  Post a swarm missive now (uses MOLTBOOK_SWARM_AGENT_NAME)');
       process.exit(1);
   }
 }
