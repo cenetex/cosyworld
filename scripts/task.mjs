@@ -69,6 +69,13 @@ async function main() {
       await (mod.default?.() ?? Promise.resolve());
       break;
     }
+    case 'moltbook:register-avatars': {
+      const mod = await import('./moltbookRegisterAvatars.mjs');
+      const limit = args.limit ? Number(args.limit) : null;
+      const res = await (mod.default?.({ limit }) ?? Promise.resolve());
+      if (res?.failed) process.exit(1);
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -78,6 +85,7 @@ async function main() {
       console.log('  backfill:agent-ids    Backfill agent IDs');
       console.log('  backfill:avatar-maxhp Backfill avatar max HP from character sheets');
       console.log('  update:models         Refresh available models');
+      console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
       process.exit(1);
   }
 }

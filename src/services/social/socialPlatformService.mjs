@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { TelegramProvider } from './providers/telegramProvider.mjs';
+import { MoltbookProvider } from './providers/moltbookProvider.mjs';
 import { XProvider } from './providers/xProvider.mjs';
 import { encrypt, decrypt } from '../../utils/encryption.mjs';
 
@@ -51,10 +52,12 @@ export class SocialPlatformService extends EventEmitter {
     
     // Initialize providers
     this.registerProvider('telegram', new TelegramProvider(this));
+    this.registerProvider('moltbook', new MoltbookProvider(this));
     this.registerProvider('x', new XProvider(this));
     
     await Promise.all([
       this.getProvider('telegram').initialize(),
+      this.getProvider('moltbook').initialize(),
       this.getProvider('x').initialize()
     ]);
 
