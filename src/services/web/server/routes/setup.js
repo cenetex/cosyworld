@@ -74,6 +74,13 @@ export default function createSetupRouter(services) {
             structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || null,
             configured: !!process.env.OPENROUTER_API_KEY
           },
+          swarm: {
+            apiKey: process.env.SWARM_API_KEY ? maskSecret(process.env.SWARM_API_KEY) : null,
+            baseURL: process.env.SWARM_API_BASE_URL || 'https://swarm.rati.chat/api/v1', // Not a secret
+            model: process.env.SWARM_MODEL || 'avatar:rati', // Not a secret
+            chatModel: process.env.SWARM_CHAT_MODEL || process.env.SWARM_MODEL || null,
+            configured: !!process.env.SWARM_API_KEY
+          },
           google: {
             apiKey: (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) ? maskSecret(process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : null,
             model: process.env.GOOGLE_AI_MODEL || 'gemini-2.5-flash', // Not a secret

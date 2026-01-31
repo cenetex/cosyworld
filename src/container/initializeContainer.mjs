@@ -246,9 +246,20 @@ export async function initializeContainer({ container, logger, configService }) 
       }
     }
 
-    // Provide a stable alias 'aiService' that prefers OpenRouter for all chat/text
+    // Provide a stable alias 'aiService' that respects AI_SERVICE
     try {
-      if (container.registrations.openrouterAIService) {
+      const preferred = String(process.env.AI_SERVICE || 'openrouter').toLowerCase();
+
+      if (preferred === 'swarm' && container.registrations.swarmAIService) {
+        container.register({ aiService: asValue(container.resolve('swarmAIService')) });
+        console.log('[container] Registered aiService alias pointing to swarmAIService');
+      } else if (preferred === 'ollama' && container.registrations.ollamaAIService) {
+        container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
+        console.log('[container] Registered aiService alias pointing to ollamaAIService');
+      } else if (preferred === 'google' && container.registrations.googleAIService) {
+        container.register({ aiService: asValue(container.resolve('googleAIService')) });
+        console.log('[container] Registered aiService alias pointing to googleAIService');
+      } else if (container.registrations.openrouterAIService) {
         const openrouterAIService = container.resolve('openrouterAIService');
         if (openrouterAIService?.ready) await openrouterAIService.ready;
         container.register({ aiService: asValue(openrouterAIService) });
@@ -260,8 +271,10 @@ export async function initializeContainer({ container, logger, configService }) 
         );
       } else if (container.registrations.ollamaAIService) {
         container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
+        console.log('[container] Registered aiService alias pointing to ollamaAIService');
       } else if (container.registrations.googleAIService) {
         container.register({ aiService: asValue(container.resolve('googleAIService')) });
+        console.log('[container] Registered aiService alias pointing to googleAIService');
       }
     } catch (e) {
       console.warn('[container] Failed to set aiService alias:', e.message);

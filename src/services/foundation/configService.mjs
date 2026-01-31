@@ -102,6 +102,14 @@ export class ConfigService {
           maxTokens: 1000,
           topP: 1.0
         },
+        swarm: {
+          apiKey: this.secrets?.get('SWARM_API_KEY') || process.env.SWARM_API_KEY,
+          baseURL: process.env.SWARM_API_BASE_URL || 'https://swarm.rati.chat/api/v1',
+          model: process.env.SWARM_MODEL || 'avatar:rati',
+          chatModel: process.env.SWARM_CHAT_MODEL || process.env.SWARM_MODEL || 'avatar:rati',
+          temperature: Number(process.env.SWARM_TEMPERATURE || 0.8),
+          maxTokens: Number(process.env.SWARM_MAX_TOKENS || 1000),
+        },
         replicate: {
           apiToken: this.secrets?.get('REPLICATE_API_TOKEN') || process.env.REPLICATE_API_TOKEN,
           model: process.env.REPLICATE_BASE_MODEL || 'black-forest-labs/flux-dev-lora',
@@ -232,6 +240,9 @@ export class ConfigService {
     }
     if (service === 'google') {
       return this.config.ai.google;
+    }
+    if (service === 'swarm') {
+      return this.config.ai.swarm;
     }
     console.warn(`Unknown AI service: ${service}. Defaulting to openrouter.`);
     return this.config.ai.openrouter;
