@@ -97,6 +97,14 @@ async function main() {
       await (mod.default?.() ?? Promise.resolve());
       break;
     }
+    case 'moltbook:recent-posts': {
+      const mod = await import('./moltbookRecentPosts.mjs');
+      const submolt = args.submolt || null;
+      const limit = args.limit ? Number(args.limit) : 15;
+      const sort = args.sort || 'new';
+      await (mod.default?.({ submolt, limit, sort }) ?? Promise.resolve());
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -109,6 +117,7 @@ async function main() {
       console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
       console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N, --agentName=..., --avatarId=...)');
       console.log('  moltbook:swarm-missive-now  Post a swarm missive now (uses MOLTBOOK_SWARM_AGENT_NAME)');
+      console.log('  moltbook:recent-posts       Print Moltbook recent posts (optional: --submolt=rati --limit=15 --sort=new)');
       process.exit(1);
   }
 }
