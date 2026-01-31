@@ -25,6 +25,7 @@ export class ResponseCoordinator {
     conversationThreadService,
     encounterService,
     avatarAgentService,
+    discordChannelActivityService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -36,6 +37,7 @@ export class ResponseCoordinator {
     this.conversationThreadService = conversationThreadService;
     this.encounterService = encounterService;
     this.avatarAgentService = avatarAgentService;
+    this.discordChannelActivityService = discordChannelActivityService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
@@ -79,6 +81,41 @@ export class ResponseCoordinator {
   async coordinateResponse(channel, message, context = {}) {
     try {
       const channelId = channel.id;
+
+      // Channel inactivity gating:
+      // - If triggered by a human (or proxied-human) message, mark channel active and proceed.
+      // - If triggered by ambient/bot events and no human has spoken for N days, suppress AI-avatar output.
+      try {
+        const guildIdForGate = context.guildId || channel?.guild?.id || message?.guild?.id || null;
+        const isHumanTrigger = !!(
+          message &&
+          ((message?.author && !message.author.bot && !message.webhookId) || this.isProxiedHumanMessage(message))
+        );
+
+        if (isHumanTrigger && this.discordChannelActivityService?.recordHumanActivity) {
+          await this.discordChannelActivityService.recordHumanActivity({
+            guildId: guildIdForGate,
+            channelId,
+            userId: message?.author?.id || message?.rati?.proxyUserId || message?.proxyUserId || null,
+            messageId: message?.id || null,
+            at: message?.createdAt || new Date(),
+          });
+        }
+
+        if (!isHumanTrigger && this.discordChannelActivityService?.isChannelActiveForAI) {
+          const active = await this.discordChannelActivityService.isChannelActiveForAI({
+            guildId: guildIdForGate,
+            channelId,
+          });
+          if (!active) {
+            this.logger?.debug?.(`[ResponseCoordinator] Suppressing responses in inactive channel ${channelId}`);
+            return [];
+          }
+        }
+      } catch (e) {
+        // Fail open if gating can't be evaluated.
+        this.logger?.debug?.(`[ResponseCoordinator] inactivity gate check failed: ${e?.message || e}`);
+      }
       
       // 1. Classify the trigger type
       const trigger = this.classifyTrigger(message, context);

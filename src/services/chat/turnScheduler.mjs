@@ -1,5 +1,5 @@
 export class TurnScheduler {
-  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator }) {
+  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator, discordChannelActivityService }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
@@ -8,6 +8,7 @@ export class TurnScheduler {
     this.conversationManager = conversationManager;
     this.avatarService = avatarService;
     this.responseCoordinator = responseCoordinator;
+    this.discordChannelActivityService = discordChannelActivityService;
     
   // Default: 1 hour ticks with ±5 minutes jitter
   this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
@@ -158,6 +159,25 @@ export class TurnScheduler {
   async onChannelTick(channelId, budgetAllowed = Infinity) {
     const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
     if (Date.now() < suppressedUntil) return 0;
+
+    // Human-activity inactivity gating: if no human has spoken for N days, don't run AI ambient turns.
+    // This also prevents dead-channel revive attempts from generating noise in long-inactive channels.
+    try {
+      let guildIdForGate = null;
+      try { guildIdForGate = (await this.discordService.getGuildByChannelId(channelId))?.id; } catch {}
+      if (this.discordChannelActivityService?.isChannelActiveForAI) {
+        const active = await this.discordChannelActivityService.isChannelActiveForAI({
+          guildId: guildIdForGate,
+          channelId,
+        });
+        if (!active) {
+          this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - inactive (no human within DISCORD_AI_INACTIVE_DAYS)`);
+          return 0;
+        }
+      }
+    } catch (e) {
+      this.logger.debug?.(`[TurnScheduler] inactivity gate check failed for ${channelId}: ${e?.message || e}`);
+    }
 
     // Check for dead channel (no human activity)
     if (this.DEAD_CHANNEL_CHECK_ENABLED) {

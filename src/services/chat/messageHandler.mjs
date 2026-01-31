@@ -26,6 +26,7 @@ export class MessageHandler  {
     toolService,
     discordService,
     databaseService,
+    discordChannelActivityService,
     configService,
     spamControlService,
     schedulingService,
@@ -43,6 +44,7 @@ export class MessageHandler  {
     this.toolService = toolService;
     this.discordService = discordService;
     this.databaseService = databaseService;
+    this.discordChannelActivityService = discordChannelActivityService;
     this.configService = configService;
     this.spamControlService = spamControlService;
     this.schedulingService = schedulingService;
@@ -179,6 +181,24 @@ export class MessageHandler  {
 
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
+
+    // Record human activity for channel inactivity gating.
+    // NOTE: Proxied human messages (sent via webhook/avatar) should count as human activity.
+    try {
+      const isProxied = !!(message?.rati?.isProxied || message?.rati?.proxyUserId || message?.isProxied || message?.proxyUserId);
+      const isHuman = !message.author.bot && !message.webhookId;
+      if ((isHuman || isProxied) && this.discordChannelActivityService?.recordHumanActivity) {
+        await this.discordChannelActivityService.recordHumanActivity({
+          guildId: message.guild.id,
+          channelId: message.channel.id,
+          userId: isHuman ? message.author.id : (message?.rati?.proxyUserId || message?.proxyUserId || null),
+          messageId: message.id,
+          at: message.createdAt || new Date(),
+        });
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[MessageHandler] recordHumanActivity failed: ${e?.message || e}`);
+    }
 
     // Apply spam control
     if (!(await this.spamControlService.shouldProcessMessage(message))) {
