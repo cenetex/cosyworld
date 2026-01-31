@@ -9,9 +9,9 @@ export class DiscordChannelActivityService {
     this.databaseService = databaseService;
 
     this.inactiveDays = (() => {
-      const raw = Number(process.env.DISCORD_AI_INACTIVE_DAYS || 0);
+      const raw = Number(process.env.DISCORD_AI_INACTIVE_DAYS || 3);
       if (!Number.isNaN(raw) && raw >= 0) return raw;
-      return 0;
+      return 3;
     })();
 
     this._col = null;
