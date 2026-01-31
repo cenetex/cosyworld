@@ -105,6 +105,12 @@ async function main() {
       await (mod.default?.({ submolt, limit, sort }) ?? Promise.resolve());
       break;
     }
+    case 'moltbook:diagnostics': {
+      const mod = await import('./moltbookDiagnostics.mjs');
+      const limit = args.limit ? Number(args.limit) : 20;
+      await (mod.default?.({ limit }) ?? Promise.resolve());
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -118,6 +124,7 @@ async function main() {
       console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N, --agentName=..., --avatarId=...)');
       console.log('  moltbook:swarm-missive-now  Post a swarm missive now (uses MOLTBOOK_SWARM_AGENT_NAME)');
       console.log('  moltbook:recent-posts       Print Moltbook recent posts (optional: --submolt=rati --limit=15 --sort=new)');
+      console.log('  moltbook:diagnostics        Inspect DB + state for why Moltbook isn\'t active (optional: --limit=20)');
       process.exit(1);
   }
 }

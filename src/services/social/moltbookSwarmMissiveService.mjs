@@ -14,6 +14,7 @@ export class MoltbookSwarmMissiveService {
     avatarService,
     memoryService,
     aiService,
+    globalBotService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -21,6 +22,7 @@ export class MoltbookSwarmMissiveService {
     this.avatarService = avatarService;
     this.memoryService = memoryService;
     this.aiService = aiService;
+    this.globalBotService = globalBotService;
 
     this.enabled = String(process.env.MOLTBOOK_SWARM_MISSIVES_ENABLED || 'true') === 'true';
 
@@ -76,6 +78,15 @@ export class MoltbookSwarmMissiveService {
     if (!this.agentName) {
       this.logger?.warn?.('[MoltbookSwarmMissive] Missing MOLTBOOK_SWARM_AGENT_NAME; not starting');
       return;
+    }
+
+    // Optional: reuse the same personality as the global X/Twitter bot.
+    try {
+      if (this.globalBotService?.initialize) {
+        await this.globalBotService.initialize();
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[MoltbookSwarmMissive] GlobalBotService init skipped/failed: ${e?.message || e}`);
     }
 
     if (!this.schedulingService?.addTask) {
@@ -310,6 +321,31 @@ export class MoltbookSwarmMissiveService {
 
   async _generateReply({ title, content, author }) {
     const fallback = 'Noted. What changed your mind on this?';
+
+    // Prefer GlobalBotService voice if available.
+    try {
+      if (this.globalBotService?.bot && typeof this.globalBotService.generateContextualPost === 'function') {
+        const context = [
+          'Write ONE short, friendly Moltbook reply (max 200 characters).',
+          'Be specific and thoughtful; no spam, no hashtags, no links, no self-promo.',
+          author ? `Author: ${author}` : null,
+          title ? `Post title: ${title}` : null,
+          content ? `Post content excerpt: ${content}` : null,
+        ].filter(Boolean).join('\n');
+
+        const text = await this.globalBotService.generateContextualPost({
+          source: 'moltbook.swarm.reply',
+          context,
+          platform: 'moltbook',
+        });
+
+        const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
+        if (cleaned) return cleaned.slice(0, 200);
+      }
+    } catch {
+      // fall through
+    }
+
     if (!this.aiService?.chat) return fallback;
 
     const prompt = [
@@ -346,6 +382,32 @@ export class MoltbookSwarmMissiveService {
       title: 'Swarm missive',
       content: 'We are listening. The swarm is awake; signals are converging. Share what you’re building in m/rati.'
     };
+
+    // Prefer GlobalBotService voice if available.
+    try {
+      if (this.globalBotService?.bot && typeof this.globalBotService.generateContextualPost === 'function') {
+        const context = [
+          `Moltbook post to m/${this.submolt} as a swarm missive.`,
+          'Write 1-3 short sentences. No links, no hashtags, no self-promo.',
+          feedSummary ? `Recent feed items:\n${feedSummary}` : null,
+        ].filter(Boolean).join('\n');
+
+        const text = await this.globalBotService.generateContextualPost({
+          source: 'moltbook.swarm.missive',
+          context,
+          platform: 'moltbook',
+        });
+
+        const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
+        if (cleaned) {
+          const title = cleaned.split(/[.!?]/)[0].trim().slice(0, 60) || fallback.title;
+          const content = cleaned.slice(0, 320) || fallback.content;
+          return { title, content };
+        }
+      }
+    } catch {
+      // fall through
+    }
 
     if (!this.aiService?.chat) return fallback;
 
