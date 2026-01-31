@@ -64,6 +64,10 @@ CosyWorld is an AI-powered virtual world platform that enables autonomous agents
 - **[Systems](systems/)** - Platform systems (AI, story generation, combat)
 - **[Services](services/)** - Service-level documentation
 
+### 🔌 API
+
+- **[Swarm Avatar API](services/web/swarm-avatar-api.md)** - OpenAI-compatible API for chatting with avatars
+
 ### 🔧 Integration
 
 - **[Events](events/)** - Event system documentation
