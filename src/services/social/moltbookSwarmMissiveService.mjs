@@ -27,6 +27,29 @@ export class MoltbookSwarmMissiveService {
     this.agentName = String(process.env.MOLTBOOK_SWARM_AGENT_NAME || '').trim() || null;
     this.submolt = String(process.env.MOLTBOOK_SWARM_SUBMOLT || 'rati').trim() || 'rati';
 
+    // Exploration/replies across the wider feed.
+    this.exploreEnabled = String(process.env.MOLTBOOK_SWARM_EXPLORE_ENABLED || 'true') === 'true';
+    this.replyEnabled = String(process.env.MOLTBOOK_SWARM_REPLY_ENABLED || 'true') === 'true';
+
+    this.checkIntervalHours = (() => {
+      const raw = Number(process.env.MOLTBOOK_SWARM_CHECK_INTERVAL_HOURS || 4);
+      if (!Number.isNaN(raw) && raw > 0) return raw;
+      return 4;
+    })();
+
+    // Be conservative vs. 50 comments/hour.
+    this.replyCooldownMinutes = (() => {
+      const raw = Number(process.env.MOLTBOOK_SWARM_REPLY_COOLDOWN_MINUTES || 180);
+      if (!Number.isNaN(raw) && raw > 0) return raw;
+      return 180;
+    })();
+
+    this.replyProbability = (() => {
+      const raw = Number(process.env.MOLTBOOK_SWARM_REPLY_PROBABILITY || 0.45);
+      if (!Number.isNaN(raw) && raw >= 0 && raw <= 1) return raw;
+      return 0.45;
+    })();
+
     // Moltbook rate guidance: 1 post / 30 minutes. Default is conservative.
     this.intervalMinutes = (() => {
       const raw = Number(process.env.MOLTBOOK_SWARM_MISSIVE_INTERVAL_MINUTES || 90);
@@ -81,6 +104,7 @@ export class MoltbookSwarmMissiveService {
     await Promise.all([
       this._stateCol.createIndex({ agentName: 1 }, { unique: true }),
       this._stateCol.createIndex({ lastPostAt: 1 }),
+      this._stateCol.createIndex({ lastCheckAt: 1 }),
     ]);
     return this._stateCol;
   }
@@ -134,11 +158,6 @@ export class MoltbookSwarmMissiveService {
       }
 
       const state = await this._getState();
-      const lastPostAt = state?.lastPostAt ? new Date(state.lastPostAt) : null;
-      const minMs = this.minPostMinutes * 60 * 1000;
-      if (lastPostAt && Date.now() - lastPostAt.getTime() < minMs) {
-        return;
-      }
 
       const client = new MoltbookClient({ apiKey });
 
@@ -158,6 +177,18 @@ export class MoltbookSwarmMissiveService {
       }
 
       await this._setState({ lastError: null, claimStatus, isClaimed: true });
+
+      // 1) Explore / reply across the wider feed (conservative cadence)
+      if (this.exploreEnabled || this.replyEnabled) {
+        await this._exploreAndMaybeReply({ client, avatarId, avatar, state });
+      }
+
+      // 2) Post a missive to the configured submolt
+      const lastPostAt = state?.lastPostAt ? new Date(state.lastPostAt) : null;
+      const minMs = this.minPostMinutes * 60 * 1000;
+      if (lastPostAt && Date.now() - lastPostAt.getTime() < minMs) {
+        return;
+      }
 
       let feedSummary = null;
       try {
@@ -189,6 +220,124 @@ export class MoltbookSwarmMissiveService {
       }
     } finally {
       this._inProgress = false;
+    }
+  }
+
+  async _exploreAndMaybeReply({ client, avatarId, avatar, state }) {
+    const checkIntervalMs = this.checkIntervalHours * 60 * 60 * 1000;
+    const lastCheckAt = state?.lastCheckAt ? new Date(state.lastCheckAt) : null;
+    if (lastCheckAt && Date.now() - lastCheckAt.getTime() < checkIntervalMs) {
+      return;
+    }
+
+    let feedPayload;
+    try {
+      feedPayload = await client.getFeed({ sort: 'new', limit: 12 });
+    } catch (e) {
+      await this._setState({ lastCheckAt: new Date(), lastError: `feed_failed:${e?.message || e}` });
+      await this._writeMemory(avatarId, avatar, `Moltbook swarm explore: feed fetch failed: ${e?.message || e}`);
+      return;
+    }
+
+    const feed = client.unwrap(feedPayload);
+    const posts = Array.isArray(feed?.posts)
+      ? feed.posts
+      : (Array.isArray(feed) ? feed : []);
+
+    const recentPostIds = Array.isArray(state?.recentPostIds) ? state.recentPostIds : [];
+
+    // Update lastCheckAt even if we don't reply.
+    await this._setState({ lastCheckAt: new Date(), lastError: null });
+
+    if (!posts.length) {
+      if (this.exploreEnabled) {
+        await this._writeMemory(avatarId, avatar, 'Moltbook swarm explore: checked feed; no posts found.');
+      }
+      return;
+    }
+
+    const replyCooldownMs = this.replyCooldownMinutes * 60 * 1000;
+    const lastReplyAt = state?.lastReplyAt ? new Date(state.lastReplyAt) : null;
+    const replyAllowed = !lastReplyAt || (Date.now() - lastReplyAt.getTime() >= replyCooldownMs);
+    const shouldReply = this.replyEnabled && replyAllowed && Math.random() < this.replyProbability;
+
+    if (!shouldReply) {
+      if (this.exploreEnabled) {
+        await this._writeMemory(avatarId, avatar, `Moltbook swarm explore: checked feed (${posts.length} posts), no reply this time.`);
+      }
+      return;
+    }
+
+    const pick = posts.find((p) => {
+      const id = String(p?._id || p?.id || '');
+      if (!id) return false;
+      return !recentPostIds.includes(id);
+    }) || posts[0];
+
+    const postId = String(pick?._id || pick?.id || '');
+    const title = String(pick?.title || '').slice(0, 120);
+    const content = String(pick?.content || pick?.text || '').slice(0, 400);
+    const author = pick?.author?.name || pick?.author || pick?.agent?.name || null;
+
+    if (!postId) {
+      if (this.exploreEnabled) {
+        await this._writeMemory(avatarId, avatar, 'Moltbook swarm explore: checked feed but could not identify a post id to reply to.');
+      }
+      return;
+    }
+
+    const replyText = await this._generateReply({ title, content, author });
+
+    try {
+      await client.addComment(postId, { content: replyText });
+      const nextRecent = [postId, ...recentPostIds].slice(0, 50);
+      await this._setState({
+        lastReplyAt: new Date(),
+        recentPostIds: nextRecent,
+        lastError: null,
+      });
+
+      await this._writeMemory(
+        avatarId,
+        avatar,
+        `Moltbook swarm: replied to post "${title || postId}"${author ? ` by ${author}` : ''}: ${replyText}`
+      );
+    } catch (e) {
+      await this._setState({ lastError: `reply_failed:${e?.message || e}` });
+      await this._writeMemory(avatarId, avatar, `Moltbook swarm: failed to reply to "${title || postId}": ${e?.message || e}`);
+    }
+  }
+
+  async _generateReply({ title, content, author }) {
+    const fallback = 'Noted. What changed your mind on this?';
+    if (!this.aiService?.chat) return fallback;
+
+    const prompt = [
+      {
+        role: 'system',
+        content: [
+          'You are the CosyWorld Swarm: many agents speaking as one.',
+          'Write ONE short, friendly Moltbook reply (max 200 characters).',
+          'Be specific and thoughtful; no spam, no hashtags, no links, no self-promo.'
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          author ? `Author: ${author}` : null,
+          title ? `Post title: ${title}` : null,
+          content ? `Post content excerpt: ${content}` : null,
+        ].filter(Boolean).join('\n')
+      }
+    ];
+
+    try {
+      const res = await this.aiService.chat(prompt, { temperature: 0.7 });
+      const text = String(res?.content || res || '').replace(/\s+/g, ' ').trim();
+      if (!text) return fallback;
+      return text.slice(0, 200);
+    } catch {
+      return fallback;
     }
   }
 
