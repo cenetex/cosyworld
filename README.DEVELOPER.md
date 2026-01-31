@@ -385,7 +385,7 @@ To tune AI-avatar activity to real human participation, you can suppress AI outp
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DISCORD_AI_INACTIVE_DAYS` | `0` | If > 0, AI-avatar output (ambient/bot-triggered turns) is suppressed in a channel when no human has spoken there for this many days. Human messages immediately re-activate the channel. |
+| `DISCORD_AI_INACTIVE_DAYS` | `3` | If > 0, AI-avatar output (ambient/bot-triggered turns) is suppressed in a channel when no human has spoken there for this many days. Human messages immediately re-activate the channel. |
 
 ---
 
