@@ -15,9 +15,10 @@ import eventBus from '../../utils/eventBus.mjs';
 export class CharacterService {
   static _avatarCreatedListener = null;
 
-  constructor({ databaseService, avatarService, unifiedAIService, logger }) {
+  constructor({ databaseService, avatarService, healthService, unifiedAIService, logger }) {
     this.databaseService = databaseService;
     this.avatarService = avatarService;
+    this.healthService = healthService;
     this.aiService = unifiedAIService;
     this.logger = logger;
     this._collection = null;
@@ -296,8 +297,17 @@ export class CharacterService {
     if (!sheet) throw new Error('No character sheet found');
 
     const updates = { updatedAt: new Date() };
+    let hpRestored = 0;
 
     if (type === 'long') {
+      // Long rest: Full HP restoration
+      if (this.healthService) {
+        const beforeState = await this.healthService.getHpState(avatarId);
+        await this.healthService.resetDamage(avatarId, { source: 'long_rest' });
+        const afterState = await this.healthService.getHpState(avatarId);
+        hpRestored = (afterState?.currentHp || 0) - (beforeState?.currentHp || 0);
+      }
+      
       // Restore all spell slots
       if (sheet.spellcasting?.slots) {
         for (const [lvl, slot] of Object.entries(sheet.spellcasting.slots)) {
@@ -306,6 +316,16 @@ export class CharacterService {
       }
       // Restore hit dice (half, minimum 1)
       updates['hitDice.current'] = Math.max(1, Math.floor(sheet.hitDice.max / 2));
+    } else {
+      // Short rest: Restore 50% of missing HP (spend hit dice equivalent)
+      if (this.healthService) {
+        const hpState = await this.healthService.getHpState(avatarId);
+        if (hpState && hpState.totalDamage > 0) {
+          const healAmount = Math.max(1, Math.floor(hpState.totalDamage / 2));
+          const result = await this.healthService.applyHealing(avatarId, healAmount, { source: 'short_rest' });
+          hpRestored = result?.healed || 0;
+        }
+      }
     }
 
     // Restore features based on recharge type
@@ -321,8 +341,8 @@ export class CharacterService {
     const col = await this.collection();
     await col.updateOne({ _id: sheet._id }, { $set: updates });
 
-    this.logger?.info?.(`[CharacterService] ${type} rest completed for avatar ${avatarId}`);
-    return { type, restored: true };
+    this.logger?.info?.(`[CharacterService] ${type} rest completed for avatar ${avatarId}, restored ${hpRestored} HP`);
+    return { type, restored: true, hpRestored };
   }
 
   async setParty(avatarId, partyId) {

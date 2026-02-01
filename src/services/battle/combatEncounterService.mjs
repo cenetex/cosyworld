@@ -843,7 +843,8 @@ export class CombatEncounterService {
         if (!action.target) return null;
         const attackResult = await this.battleService.attack({
           attacker: combatant.ref,
-          defender: action.target.ref
+          defender: action.target.ref,
+          defenderIsDefending: !!action.target.isDefending
         });
         // Apply damage and state changes
         if (attackResult?.damage) {

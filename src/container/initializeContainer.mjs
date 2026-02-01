@@ -253,9 +253,9 @@ export async function initializeContainer({ container, logger, configService }) 
       if (preferred === 'swarm' && container.registrations.swarmAIService) {
         container.register({ aiService: asValue(container.resolve('swarmAIService')) });
         console.log('[container] Registered aiService alias pointing to swarmAIService');
-      } else if (preferred === 'ollama' && container.registrations.ollamaAIService) {
-        container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
-        console.log('[container] Registered aiService alias pointing to ollamaAIService');
+      } else if (preferred === 'ollama' && container.registrations.ollamaService) {
+        container.register({ aiService: asValue(container.resolve('ollamaService')) });
+        console.log('[container] Registered aiService alias pointing to ollamaService');
       } else if (preferred === 'google' && container.registrations.googleAIService) {
         container.register({ aiService: asValue(container.resolve('googleAIService')) });
         console.log('[container] Registered aiService alias pointing to googleAIService');
@@ -269,9 +269,9 @@ export async function initializeContainer({ container, logger, configService }) 
             .resolve('aiModelService')
             .getAllModels('openrouter').length}`
         );
-      } else if (container.registrations.ollamaAIService) {
-        container.register({ aiService: asValue(container.resolve('ollamaAIService')) });
-        console.log('[container] Registered aiService alias pointing to ollamaAIService');
+      } else if (container.registrations.ollamaService) {
+        container.register({ aiService: asValue(container.resolve('ollamaService')) });
+        console.log('[container] Registered aiService alias pointing to ollamaService');
       } else if (container.registrations.googleAIService) {
         container.register({ aiService: asValue(container.resolve('googleAIService')) });
         console.log('[container] Registered aiService alias pointing to googleAIService');
@@ -366,9 +366,24 @@ export async function initializeContainer({ container, logger, configService }) 
 
     // Late-binding unifiedAIService
     try {
-      const preferred = ['openrouterAIService', 'ollamaAIService', 'googleAIService'];
+      const preferredEnv = String(process.env.AI_SERVICE || '').trim().toLowerCase();
+      const preferredMap = {
+        swarm: 'swarmAIService',
+        openrouter: 'openrouterAIService',
+        'open-router': 'openrouterAIService',
+        ollama: 'ollamaService',
+        google: 'googleAIService',
+      };
+
+      const candidates = [];
+      const fromEnv = preferredMap[preferredEnv];
+      if (fromEnv) candidates.push(fromEnv);
+
+      // Fallback order if env is unset/missing.
+      candidates.push('openrouterAIService', 'swarmAIService', 'ollamaService', 'googleAIService');
+
       let wrappedName = null;
-      for (const name of preferred) {
+      for (const name of [...new Set(candidates)]) {
         if (container.registrations[name]) {
           wrappedName = name;
           break;

@@ -65,6 +65,31 @@ const EMBED_COLORS = {
   summary: 0x3498DB      // Blue
 };
 
+/**
+ * Create a visual HP bar for display in combat messages
+ * @param {number} current - Current HP
+ * @param {number} max - Maximum HP
+ * @param {number} length - Bar length (default 10)
+ * @returns {string} Visual HP bar
+ */
+function createHpBar(current, max, length = 10) {
+  if (!Number.isFinite(current) || !Number.isFinite(max) || max <= 0) {
+    return `${current ?? '?'}/${max ?? '?'} HP`;
+  }
+  const ratio = Math.max(0, Math.min(1, current / max));
+  const filled = Math.round(ratio * length);
+  const empty = length - filled;
+  
+  // Color coding: green > yellow > red based on HP ratio
+  let barEmoji = '🟩'; // High HP
+  if (ratio <= 0.25) barEmoji = '🟥'; // Critical
+  else if (ratio <= 0.5) barEmoji = '🟨'; // Low
+  else if (ratio <= 0.75) barEmoji = '🟩'; // Medium-high
+  
+  const bar = '█'.repeat(filled) + '░'.repeat(empty);
+  return `${barEmoji} ${bar} ${current}/${max}`;
+}
+
 export class CombatMessagingService {
   /**
    * @param {Object} deps
@@ -195,18 +220,19 @@ export class CombatMessagingService {
         // Get HP from result (enriched by combatEncounterService) or fallback to target combatant
         const currentHp = result?.currentHp ?? action.target.currentHp ?? '?';
         const maxHp = result?.maxHp ?? action.target.maxHp ?? '?';
+        const hpBar = createHpBar(currentHp, maxHp);
 
         if (isCritical) {
           actionEmbed = {
             description: `💥 **CRITICAL HIT!** ${combatant.name} devastates ${action.target.name} for **${result.damage}** damage!`,
             color: 0xFF0000,
-            footer: { text: `${action.target.name}: ${currentHp}/${maxHp} HP` }
+            footer: { text: `${action.target.name}: ${hpBar}` }
           };
         } else if (isHit) {
           actionEmbed = {
             description: `⚔️ **${combatant.name}** hits **${action.target.name}** for **${result.damage || 0}** damage! *(${result.attackRoll ?? '?'} vs AC ${result.armorClass ?? '?'})*`,
             color: EMBED_COLORS.attack,
-            footer: { text: `${action.target.name}: ${currentHp}/${maxHp} HP` }
+            footer: { text: `${action.target.name}: ${hpBar}` }
           };
         } else {
           actionEmbed = {

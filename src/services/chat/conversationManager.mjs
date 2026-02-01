@@ -13,6 +13,7 @@ export class ConversationManager  {
     logger,
     databaseService,
     aiService,
+    aiRouterService,
   unifiedAIService,
     openrouterModelCatalogService,
     discordService,
@@ -38,6 +39,7 @@ export class ConversationManager  {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.aiService = aiService;
+    this.aiRouterService = aiRouterService || null;
   this.unifiedAIService = unifiedAIService; // optional adapter
     this.openrouterModelCatalogService = openrouterModelCatalogService || null;
     this.discordService = discordService;
@@ -232,9 +234,10 @@ export class ConversationManager  {
         }
       }
 
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
-  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId}`);
   let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId, returnEnvelope: true });
   
   // Handle model not found fallback
@@ -523,9 +526,10 @@ export class ConversationManager  {
   ${messagesText}
       `.trim();
     }
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `summary:${avatar._id}:${channelId}`;
-  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId}`);
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
@@ -833,7 +837,7 @@ export class ConversationManager  {
       // Otherwise we rely on existing caption/summary fields (imageDescription/imageDescriptions).
       const imagePromptParts = [];
       try {
-        const capSource = this.unifiedAIService?.base || this.aiService;
+        const capSource = this.aiRouterService?.getBaseForAvatar?.(avatar) || (this.unifiedAIService?.base || this.aiService);
         const supportsVision =
           (typeof capSource?.supportsVisionModel === 'function' && capSource.supportsVisionModel(avatar.model)) ||
           (typeof capSource?.modelSupportsVision === 'function' && capSource.modelSupportsVision(avatar.model)) ||
@@ -952,9 +956,10 @@ export class ConversationManager  {
         userContent = [...imagePromptParts, { type: 'text', text: userText }];
         chatMessages = chatMessages.map(msg => msg.role === 'user' ? { role: 'user', content: userContent } : msg);
       }
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
-  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
+  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
   
   // Phase 2: Tool calling with universal meta-prompting approach
   let toolCalls = [];

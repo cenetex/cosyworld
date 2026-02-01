@@ -318,16 +318,18 @@ export class CharacterTool extends BasicTool {
   async _rest(avatar, params) {
     const restType = params[1] || params.restType || 'short';
     
-    await this.characterService.rest(avatar._id, restType);
+    const result = await this.characterService.rest(avatar._id, restType);
+    const hpRestored = result?.hpRestored || 0;
 
     // Trigger quest progress (both quest systems)
     await this.questService?.onEvent?.(avatar._id, 'rested', { restType });
     await this.tutorialQuestService?.onEvent?.(avatar._id, restType === 'long' ? 'long_rest' : 'short_rest', { restType });
 
     const emoji = restType === 'long' ? '🏕️' : '☕';
+    const hpMessage = hpRestored > 0 ? `\n💚 **+${hpRestored} HP** restored` : '';
     const restored = restType === 'long' 
-      ? 'All spell slots, hit dice, and features restored!'
-      : 'Short rest features restored!';
+      ? `All HP, spell slots, hit dice, and features restored!${hpMessage}`
+      : `Short rest features restored!${hpMessage}`;
 
     const response = {
       embeds: [{

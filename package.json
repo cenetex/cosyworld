@@ -41,6 +41,7 @@
     "deploy:setup-db": "node scripts/create-indexes.js",
     "deploy:verify": "node scripts/verify-phase2-deployment.js",
     "deploy:prepare": "npm run lint && npm run build:js && npm run deploy:setup-db && npm run deploy:verify",
+    "export:world": "node scripts/export-world.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

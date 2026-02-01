@@ -265,18 +265,59 @@ export class TurnScheduler {
    */
   async checkDeadChannel(channelId) {
     try {
+      // Prefer DB-backed detection because Discord fetches won't preserve our custom
+      // `rati.*` metadata across fresh fetches.
+      try {
+        const db = await this.databaseService.getDatabase();
+        const col = db.collection('messages');
+        const docs = await col
+          .find(
+            { channelId: String(channelId) },
+            { projection: { webhookId: 1, isProxied: 1, proxyUserId: 1, author: 1, authorId: 1, timestamp: 1 } }
+          )
+          .sort({ timestamp: -1 })
+          .limit(this.DEAD_CHANNEL_THRESHOLD + 5)
+          .toArray();
+
+        let consecutiveBots = 0;
+        for (const doc of docs) {
+          const isProxied = !!(doc?.isProxied || doc?.proxyUserId);
+          const authorIsBot = !!(doc?.author?.bot);
+          const isWebhook = !!doc?.webhookId;
+
+          if ((authorIsBot || isWebhook) && !isProxied) {
+            consecutiveBots++;
+            if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
+              this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
+              return true;
+            }
+          } else {
+            if (isProxied) {
+              this.logger.debug?.(`[TurnScheduler] Found proxied human message in ${channelId} (db) - channel is alive`);
+            }
+            return false;
+          }
+        }
+
+        if (consecutiveBots >= Math.floor(this.DEAD_CHANNEL_THRESHOLD * 0.75)) {
+          this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages, partial batch)`);
+          return true;
+        }
+
+        return false;
+      } catch (dbErr) {
+        this.logger.debug?.(`[TurnScheduler] DB dead-channel check failed for ${channelId}: ${dbErr?.message || dbErr}`);
+      }
+
+      // Fallback: fetch from Discord (best-effort).
       const channel = this.discordService.client.channels.cache.get(channelId);
       if (!channel) return true; // Can't fetch = treat as dead
-      
-      // Fetch recent messages to check for human activity
+
       const messages = await channel.messages.fetch({ limit: this.DEAD_CHANNEL_THRESHOLD + 5 });
       let consecutiveBots = 0;
-      
+
       for (const msg of messages.values()) {
-        // CRITICAL: Proxied messages should count as human activity
-        // Even though they come through webhooks, they're human-initiated
         const isProxied = this.isProxiedMessage(msg);
-        
         if ((msg.author.bot || msg.webhookId) && !isProxied) {
           consecutiveBots++;
           if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
@@ -284,7 +325,6 @@ export class TurnScheduler {
             return true;
           }
         } else {
-          // Found a human message (or proxied message) - channel is alive
           if (isProxied) {
             this.logger.debug?.(`[TurnScheduler] Found proxied human message in ${channelId} - channel is alive`);
           }

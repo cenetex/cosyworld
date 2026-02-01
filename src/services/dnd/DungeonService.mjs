@@ -1113,6 +1113,7 @@ export class DungeonService {
 
   /**
    * Instantiate monsters from encounter data into combat-ready pseudo-avatars
+   * Adds HP variance for D&D authenticity (±25% of base HP)
    * @private
    */
   _instantiateMonstersForCombat(monsters) {
@@ -1122,6 +1123,13 @@ export class DungeonService {
       const count = monster.count || 1;
       for (let i = 0; i < count; i++) {
         const instanceId = `monster_${monster.id || monster.monsterId}_${i + 1}_${Date.now()}`;
+        
+        // Calculate HP with variance (±25% of base, minimum 1)
+        const baseHp = monster.stats?.hp || 10;
+        const variance = Math.max(1, Math.floor(baseHp / 4)); // 25% variance
+        const hpRoll = this.diceService.rollDie(variance * 2 + 1) - variance - 1; // Range: -variance to +variance
+        const finalHp = Math.max(1, baseHp + hpRoll);
+        
         combatants.push({
           _id: instanceId,
           id: instanceId,
@@ -1131,8 +1139,8 @@ export class DungeonService {
           imageUrl: monster.imageUrl || null,
           isMonster: true,
           stats: {
-            hp: monster.stats?.hp || 10,
-            maxHp: monster.stats?.hp || 10,
+            hp: finalHp,
+            maxHp: finalHp,
             ac: monster.stats?.ac || 10,
             strength: monster.stats?.str || 10,
             dexterity: monster.stats?.dex || 10,

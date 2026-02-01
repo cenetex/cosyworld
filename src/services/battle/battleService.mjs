@@ -216,7 +216,7 @@ export class BattleService  {
     return Math.max(1, damage + strMod);
   }
 
-  async attack({ message: _message, attacker, defender, services: _services }) {
+  async attack({ message: _message, attacker, defender, defenderIsDefending = null, services: _services }) {
     const publish = this._publish;
     const channelId = _message?.channel?.id;
     const corrId = _message?.id || null;
@@ -236,7 +236,9 @@ export class BattleService  {
 
     // D&D Integration: Get combat bonuses (proficiency, weapon, etc.)
     const attackerBonuses = await this._getCombatBonuses(attacker, attackerStats);
-    const armorClass = await this._calculateDefenderAC(defender, targetStats, targetStats.isDefending);
+    // Use encounter's isDefending state if provided, otherwise fall back to stats
+    const isDefending = defenderIsDefending !== null ? defenderIsDefending : targetStats.isDefending;
+    const armorClass = await this._calculateDefenderAC(defender, targetStats, isDefending);
 
     // Roll d20 for attack (with advantage if applicable)
     const rollOnce = () => this.diceService.rollDie(20);
