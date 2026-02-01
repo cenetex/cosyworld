@@ -334,8 +334,8 @@ export function createCharacterButtons({ hasSpells = false, canRest = true }) {
   
   if (canRest) {
     buttons.push(
-      createButton({ customId: 'dnd_character_short_rest', label: 'Short Rest', emoji: '☕', style: ButtonStyle.Secondary }),
-      createButton({ customId: 'dnd_character_long_rest', label: 'Long Rest', emoji: '🏕️', style: ButtonStyle.Success })
+        createButton({ customId: 'dnd_character_short_rest', label: 'Short Rest', emoji: '☕', style: ButtonStyle.Secondary }),
+        createButton({ customId: 'dnd_character_long_rest', label: 'Long Rest', emoji: '🏕️', style: ButtonStyle.Success })
     );
   }
   

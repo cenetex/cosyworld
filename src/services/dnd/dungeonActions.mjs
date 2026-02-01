@@ -47,8 +47,8 @@ export function getDungeonRoomActions({ room, _dungeon } = {}) {
     if (room.type === 'rest') {
       return [
         [
-          { id: 'dnd_character_short_rest', label: 'Short Rest', emoji: '☕', style: ButtonStyle.Primary },
-          { id: 'dnd_character_long_rest', label: 'Long Rest', emoji: '🏕️', style: ButtonStyle.Success },
+          { id: 'dnd_dungeon_short_rest', label: 'Short Rest', emoji: '☕', style: ButtonStyle.Primary },
+          { id: 'dnd_dungeon_long_rest', label: 'Long Rest', emoji: '🏕️', style: ButtonStyle.Success },
           { id: 'dnd_dungeon_map', label: 'Continue', emoji: '🚪', style: ButtonStyle.Secondary }
         ]
       ];

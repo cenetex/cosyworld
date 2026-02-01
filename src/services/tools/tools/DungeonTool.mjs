@@ -84,6 +84,8 @@ export class DungeonTool extends BasicTool {
           return await this._enter(avatar, params, message, channelId, activeDungeon, isThread);
         case 'map':
           return await this._showMap(avatar, activeDungeon);
+        case 'rest':
+          return await this._restInDungeonRoom(avatar, params.slice(1), activeDungeon);
         case 'move':
           return await this._move(avatar, params, activeDungeon, message, isThread);
         case 'fight':
@@ -717,6 +719,63 @@ export class DungeonTool extends BasicTool {
             .setStyle(ButtonStyle.Danger)
         )
       ]
+    };
+  }
+
+  async _restInDungeonRoom(avatar, params, dungeon) {
+    if (!dungeon) {
+      return this._narrateError('No active dungeon');
+    }
+
+    const restType = (params?.[0] || 'short').toLowerCase();
+    const isLong = restType === 'long';
+    const emoji = isLong ? '🏕️' : '☕';
+
+    const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+    if (!currentRoom || currentRoom.type !== 'rest') {
+      return this._narrateError('Seek a rest room');
+    }
+
+    const result = await this.characterService.rest(avatar._id, restType);
+    const hpRestored = result?.hpRestored || 0;
+
+    // Trigger quest progress (both quest systems)
+    await this.questService?.onEvent?.(avatar._id, 'rested', { restType });
+    await this.tutorialQuestService?.onEvent?.(avatar._id, isLong ? 'long_rest' : 'short_rest', { restType });
+
+    // Mark rest room as cleared so navigation buttons appear
+    let clearResult = null;
+    try {
+      clearResult = await this.dungeonService.clearRoom(dungeon._id, currentRoom.id);
+      await this.tutorialQuestService?.onEvent?.(avatar._id, 'room_cleared');
+    } catch {
+      // Ignore clear errors (e.g., already cleared)
+    }
+
+    const refreshedDungeon = await this.dungeonService.getDungeon(dungeon._id);
+    const refreshedRoom = refreshedDungeon?.rooms?.find(r => r.id === refreshedDungeon.currentRoom) || currentRoom;
+
+    const hpMessage = hpRestored > 0 ? `\n💚 **+${hpRestored} HP** restored` : '';
+    const restored = isLong
+      ? `All HP, spell slots, hit dice, and features restored!${hpMessage}`
+      : `Short rest features restored!${hpMessage}`;
+
+    const clearedText = clearResult?.alreadyCleared
+      ? '✅ This rest room was already cleared.'
+      : '✅ The rest room is now cleared — you can continue.';
+
+    return {
+      embeds: [{
+        author: { name: '🎲 The Dungeon Master' },
+        title: `${emoji} ${isLong ? 'Long' : 'Short'} Rest`,
+        description: `**${avatar.name}** takes a ${restType} rest.`,
+        color: isLong ? 0x10B981 : 0x3B82F6,
+        fields: [
+          { name: '✨ Restored', value: restored, inline: false },
+          { name: '🚪 Progress', value: clearedText, inline: false }
+        ]
+      }],
+      components: buildDungeonActionRows({ room: refreshedRoom, dungeon: refreshedDungeon || dungeon })
     };
   }
 
@@ -1903,8 +1962,8 @@ export class DungeonTool extends BasicTool {
     // Rest room: offer short and long rest options
     if (room.type === 'rest') {
       buttons.push(
-        new ButtonBuilder().setCustomId('dnd_character_short_rest').setLabel('Short Rest').setEmoji('☕').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('dnd_character_long_rest').setLabel('Long Rest').setEmoji('🏕️').setStyle(ButtonStyle.Success)
+        new ButtonBuilder().setCustomId('dnd_dungeon_short_rest').setLabel('Short Rest').setEmoji('☕').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('dnd_dungeon_long_rest').setLabel('Long Rest').setEmoji('🏕️').setStyle(ButtonStyle.Success)
       );
     }
     

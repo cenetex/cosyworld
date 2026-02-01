@@ -1726,6 +1726,8 @@ export class DiscordService {
       'dnd_dungeon_loot': { tool: 'dungeon', params: ['loot'] },
       'dnd_dungeon_abandon': { tool: 'dungeon', params: ['abandon'] },
       'dnd_dungeon_clear': { tool: 'dungeon', params: ['fight'] },
+      'dnd_dungeon_short_rest': { tool: 'dungeon', params: ['rest', 'short'] },
+      'dnd_dungeon_long_rest': { tool: 'dungeon', params: ['rest', 'long'] },
       'dnd_combat_start': { tool: 'dungeon', params: ['fight'] },
       'dnd_puzzle_hint': { tool: 'dungeon', params: ['puzzle', 'hint'] },
       
