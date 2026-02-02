@@ -285,17 +285,17 @@ describe('ToolService', () => {
 
     it('should return error for unknown tool', async () => {
       const result = await service.executeTool('nonexistent', mockMessage, [], mockAvatar);
-      
-      expect(result).toContain("Tool 'nonexistent' not found");
+
+      expect(result?.message || result?.content).toContain("Tool 'nonexistent' not found");
     });
 
     it('should enforce cooldowns', async () => {
       deps.cooldownService.getRemainingCooldown.mockReturnValue(120000); // 2 minutes remaining
       
       const result = await service.executeTool('attack', mockMessage, ['@enemy'], mockAvatar);
-      
-      expect(result).toContain('Please wait');
-      expect(result).toContain("minute");
+
+      expect(result?.message || result?.content).toContain('Please wait');
+      expect(result?.message || result?.content).toContain('minute');
     });
 
     it('should block dead avatars from using tools', async () => {
@@ -307,7 +307,7 @@ describe('ToolService', () => {
     });
 
     it('should block knocked out avatars from using tools', async () => {
-      const koAvatar = { ...mockAvatar, status: 'knocked_out' };
+      const koAvatar = { ...mockAvatar, status: 'knocked_out', knockedOutUntil: Date.now() + 60_000 };
       
       const result = await service.executeTool('attack', mockMessage, ['@enemy'], koAvatar);
       
@@ -318,8 +318,8 @@ describe('ToolService', () => {
       deps.combatEncounterService.isInActiveCombat.mockReturnValue(true);
       
       const result = await service.executeTool('wiki', mockMessage, ['search'], mockAvatar);
-      
-      expect(result).toContain('not available during combat');
+
+      expect(result?.message || result?.content).toContain('not available during combat');
     });
 
     it('should allow combat tools during combat', async () => {
@@ -328,7 +328,7 @@ describe('ToolService', () => {
       const result = await service.executeTool('attack', mockMessage, ['@enemy'], mockAvatar);
       
       // Should not contain combat block message
-      expect(result.message || result).not.toContain('not available during combat');
+      expect(result.message || result.content || '').not.toContain('not available during combat');
     });
 
     it('should allow item use during combat', async () => {
@@ -336,7 +336,7 @@ describe('ToolService', () => {
       
       const result = await service.executeTool('item', mockMessage, ['use', 'potion'], mockAvatar);
       
-      expect(result.message || result).not.toContain('not available during combat');
+      expect(result.message || result.content || '').not.toContain('not available during combat');
     });
 
     it('should log action to memory service', async () => {

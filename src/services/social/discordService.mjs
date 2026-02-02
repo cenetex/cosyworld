@@ -26,6 +26,7 @@ import { filterContent, stripUrls } from '../../utils/contentFilter.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
 import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
 import { createDiscordAdapter } from '../agent/platformAdapters.mjs';
+import { TTLMap } from '../../utils/TTLMap.mjs';
 
 export class DiscordService {
   constructor(services) {
@@ -97,7 +98,12 @@ export class DiscordService {
     
     this.setupEventListeners();
 
-    this.messageCache = new Map(); // Initialize message cache
+    // Bounded message cache to prevent duplicate processing loops.
+    this.messageCache = new TTLMap({
+      ttlMs: 5 * 60 * 1000,
+      maxSize: 5000,
+      cleanupIntervalMs: 60 * 1000,
+    });
   }
 
   async login() {
@@ -117,6 +123,10 @@ export class DiscordService {
     }
     if (this.authorizationCache) {
       this.authorizationCache.shutdown();
+    }
+
+    if (this.messageCache?.shutdown) {
+      this.messageCache.shutdown();
     }
     
     if (this.client) {

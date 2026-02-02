@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import { randomUUID } from 'crypto';
+
 import { ActionLog } from './ActionLog.mjs';
 import { AttackTool } from './tools/AttackTool.mjs';
 import { ChallengeTool } from './tools/ChallengeTool.mjs';
@@ -36,7 +38,7 @@ import { TutorialTool } from './tools/TutorialTool.mjs';
 import { DMTool } from './tools/DMTool.mjs';
 
 function normalizeToolResult(rawResult) {
-  const base = { message: null, notify: true, embeds: null, components: null, ephemeral: false };
+  const base = { message: null, content: null, notify: true, embeds: null, components: null, ephemeral: false };
   if (rawResult === undefined || rawResult === null) {
     return { ...base, notify: false };
   }
@@ -47,7 +49,8 @@ function normalizeToolResult(rawResult) {
     // Check for embed responses with optional components
     if (rawResult.embeds && Array.isArray(rawResult.embeds)) {
       return { 
-        message: null, 
+        message: null,
+        content: null,
         embeds: rawResult.embeds, 
         components: rawResult.components || null,
         notify,
@@ -63,9 +66,10 @@ function normalizeToolResult(rawResult) {
         message = String(message);
       }
     }
-    return { message, embeds: null, components: rawResult.components || null, notify, ephemeral };
+    return { message, content: message, embeds: null, components: rawResult.components || null, notify, ephemeral };
   }
-  return { message: typeof rawResult === 'string' ? rawResult : String(rawResult), embeds: null, components: null, notify: true, ephemeral: false };
+  const message = typeof rawResult === 'string' ? rawResult : String(rawResult);
+  return { message, content: message, embeds: null, components: null, notify: true, ephemeral: false };
 }
 
 export class ToolService {
@@ -188,6 +192,9 @@ export class ToolService {
     this.defaultCooldownMs = 60 * 60 * 1000; // 1 hour cooldown
     this.cooldownService = this.cooldownService || new CooldownService();
 
+    // Used for distributed scheduler leases (e.g., X auto-post) so we can safely release only our own lock.
+    this._instanceId = randomUUID();
+
     // Initialize tools - each tool defines its own name and emoji
     const toolClasses = [
       SummonTool,
@@ -299,11 +306,14 @@ export class ToolService {
       return;
     }
 
-    // Track last post time to enforce minimum interval
-    let lastPostTime = 0;
     const minIntervalMs = 60 * 60 * 1000; // Minimum 1 hour between posts
+    const leaseMs = 5 * 60 * 1000; // Enough time to fetch timeline + post
 
     schedulingService.addTask('x-auto-post', async () => {
+      let db = null;
+      let lockAcquired = false;
+      const lockId = 'x-auto-post';
+      const now = new Date();
       try {
         // Check optimal timing
         if (!this._isOptimalXPostingTime()) {
@@ -311,14 +321,53 @@ export class ToolService {
           return;
         }
 
-        // Enforce minimum interval
-        if (Date.now() - lastPostTime < minIntervalMs) {
-          this.logger?.debug?.('[ToolService] Skipping X post: too soon since last post');
+        db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
+        if (!db) return;
+
+        // Distributed lock + minimum interval enforcement (safe across multiple instances)
+        const lockCol = db.collection('scheduling_locks');
+        const minLastPostAt = new Date(Date.now() - minIntervalMs);
+        const leaseUntil = new Date(Date.now() + leaseMs);
+        const leaseOwner = `toolService:${this._instanceId}`;
+
+        const lockRes = await lockCol.findOneAndUpdate(
+          {
+            _id: lockId,
+            $and: [
+              {
+                $or: [
+                  { leaseUntil: { $exists: false } },
+                  { leaseUntil: { $lte: now } },
+                ],
+              },
+              {
+                $or: [
+                  { lastPostedAt: { $exists: false } },
+                  { lastPostedAt: { $lte: minLastPostAt } },
+                ],
+              },
+            ],
+          },
+          {
+            $set: {
+              leaseUntil,
+              leaseOwner,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              createdAt: now,
+              lastPostedAt: new Date(0),
+            },
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
+
+        lockAcquired = Boolean(lockRes?.value && lockRes.value.leaseOwner === leaseOwner);
+        if (!lockAcquired) {
+          this.logger?.debug?.('[ToolService] Skipping X post: lock not acquired or interval not met');
           return;
         }
 
-        const db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
-        if (!db) return;
         // Get all authenticated avatars
         const xAuths = await db.collection('x_auth').find({ accessToken: { $exists: true, $ne: null } }).toArray();
         if (!xAuths.length) return;
@@ -341,10 +390,28 @@ export class ToolService {
         if (!postAction) return;
         // Post to X
         await xSocialTool.xService.postToX(avatar, postAction.content);
-        lastPostTime = Date.now();
+
+        // Record successful post (and release lease)
+        try {
+          await db.collection('scheduling_locks').updateOne(
+            { _id: lockId, leaseOwner },
+            { $set: { lastPostedAt: new Date(), leaseUntil: new Date(0), updatedAt: new Date() } }
+          );
+        } catch {}
+
         this.logger?.info?.(`[ToolService] Scheduled X post for avatar ${avatar.name}`);
       } catch (err) {
         this.logger?.error?.('[ToolService] Scheduled X posting error:', err);
+      } finally {
+        // Ensure lease is released even if we exit early
+        if (db && lockAcquired) {
+          try {
+            await db.collection('scheduling_locks').updateOne(
+              { _id: lockId, leaseOwner: `toolService:${this._instanceId}` },
+              { $set: { leaseUntil: new Date(0), updatedAt: new Date() } }
+            );
+          } catch {}
+        }
       }
     }, intervalMs);
     this.logger?.info?.('[ToolService] Scheduled X posting enabled (checks every 30min, posts during optimal hours)');
@@ -471,7 +538,7 @@ export class ToolService {
   async executeTool(toolName, message, params, avatar, _guildConfig_or_context = {}, maybeContext) {
     const tool = this.tools.get(toolName);
     if (!tool) {
-      return `Tool '${toolName}' not found.`;
+      return normalizeToolResult({ message: `Tool '${toolName}' not found.` });
     }
 
     // Check if this is a D&D tool and send welcome message if first time
@@ -483,7 +550,7 @@ export class ToolService {
     const remaining = this.cooldownService.getRemainingCooldown(toolName, avatar._id, cooldownMs);
     if (remaining > 0) {
       const minutes = Math.ceil(remaining / 60000);
-      return `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]`;
+      return normalizeToolResult({ message: `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]` });
     }
 
     // Back-compat: detect where `context` was provided.
@@ -545,7 +612,7 @@ export class ToolService {
   const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
   const isItemUse = toolName === 'item' && Array.isArray(params) && params[0] && String(params[0]).toLowerCase() === 'use';
   if (inCombat && !combatAllowed.has(toolName) && !isItemUse) {
-      return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
+      return normalizeToolResult({ message: `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]` });
     }
 
     let rawResult;
