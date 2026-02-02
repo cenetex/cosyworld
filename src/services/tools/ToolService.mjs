@@ -492,10 +492,49 @@ export class ToolService {
   const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
 
     // Global gating: KO/dead cannot use tools; in-combat restrict tools
+    // Note: KO should only block while knockedOutUntil is still in the future.
+    // If the KO cooldown has elapsed but status remains 'knocked_out', auto-clear it.
     try {
       const now = Date.now();
-      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+      if (avatar?.status === 'dead') {
         return null; // silent block
+      }
+
+      const rawUntil = avatar?.knockedOutUntil;
+      let koUntilTs = null;
+      if (rawUntil) {
+        if (rawUntil instanceof Date) {
+          koUntilTs = rawUntil.getTime();
+        } else if (typeof rawUntil === 'number') {
+          koUntilTs = rawUntil;
+        } else {
+          const asNumber = Number(rawUntil);
+          if (Number.isFinite(asNumber)) {
+            koUntilTs = asNumber;
+          } else {
+            const parsed = new Date(rawUntil);
+            const parsedTs = parsed.getTime();
+            if (!Number.isNaN(parsedTs)) koUntilTs = parsedTs;
+          }
+        }
+      }
+
+      // Still knocked out: block.
+      if (koUntilTs && now < koUntilTs) {
+        return null; // silent block
+      }
+
+      // KO cooldown elapsed (or missing): clear stale KO status so tools work again.
+      if (avatar?.status === 'knocked_out') {
+        avatar.status = 'alive';
+        avatar.knockedOutUntil = null;
+        try {
+          if (this.avatarService?.updateAvatar) {
+            await this.avatarService.updateAvatar(avatar);
+          }
+        } catch (e) {
+          this.logger?.warn?.(`[ToolService] Failed to auto-clear KO for ${avatar?._id || avatar?.id}: ${e?.message || e}`);
+        }
       }
     } catch {}
 
