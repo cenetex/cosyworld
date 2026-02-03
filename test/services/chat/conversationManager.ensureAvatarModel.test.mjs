@@ -3,7 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { ConversationManager } from '../../../src/services/chat/conversationManager.mjs';
 
 describe('ConversationManager.ensureAvatarModel', () => {
-  it('repairs an invalid model to a random existing model and persists', async () => {
+  it('repairs an invalid model to FAST_MODEL and persists', async () => {
+    process.env.FAST_MODEL = 'openai/gpt-4o-mini';
+
     const updateAvatar = vi.fn().mockResolvedValue(true);
 
     const aiService = {

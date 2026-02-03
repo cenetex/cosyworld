@@ -19,56 +19,38 @@ export class AIRouterService {
     configService,
     aiService,
     unifiedAIService,
-    container,
+    openrouterAIService,
+    swarmAIService,
+    ollamaService,
+    googleAIService,
   } = {}) {
     this.logger = logger || console;
     this.configService = configService || null;
 
-    // Awilix is configured with strict resolution; do not access optional
-    // deps during construction. Instead, resolve lazily via container.
-    this.container = container || null;
-
     this.aiService = aiService || null;
     this.unifiedAIService = unifiedAIService || null;
 
-    this._openrouter = null;
-    this._swarm = null;
-    this._ollama = null;
-    this._google = null;
+    this._openrouter = openrouterAIService || null;
+    this._swarm = swarmAIService || null;
+    this._ollama = ollamaService || null;
+    this._google = googleAIService || null;
 
     this._wrapperCache = new Map();
   }
 
-  _tryResolve(name) {
-    try {
-      return this.container?.resolve?.(name) || null;
-    } catch {
-      return null;
-    }
-  }
-
   _getOpenRouter() {
-    if (this._openrouter) return this._openrouter;
-    this._openrouter = this._tryResolve('openrouterAIService');
     return this._openrouter;
   }
 
   _getSwarm() {
-    if (this._swarm) return this._swarm;
-    this._swarm = this._tryResolve('swarmAIService');
     return this._swarm;
   }
 
   _getOllama() {
-    if (this._ollama) return this._ollama;
-    // Service is named OllamaService -> registration key `ollamaService`
-    this._ollama = this._tryResolve('ollamaService');
     return this._ollama;
   }
 
   _getGoogle() {
-    if (this._google) return this._google;
-    this._google = this._tryResolve('googleAIService');
     return this._google;
   }
 

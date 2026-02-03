@@ -43,6 +43,7 @@ const createMockDeps = () => {
           charisma: 8,
         },
       }),
+      updateAvatarStats: vi.fn().mockResolvedValue(true),
       updateAvatar: vi.fn().mockResolvedValue(true),
     },
     logger: {
@@ -171,13 +172,13 @@ describe('CharacterService', () => {
         background: 'soldier',
       });
 
-      // Verify updateAvatar was called with modified stats
-      expect(deps.avatarService.updateAvatar).toHaveBeenCalledWith(
-        avatarId,
+      // Verify updateAvatarStats was called with modified stats
+      expect(deps.avatarService.updateAvatarStats).toHaveBeenCalledWith(
         expect.objectContaining({
-          stats: expect.objectContaining({
-            constitution: 18, // 16 + 2
-          }),
+          _id: expect.any(ObjectId),
+        }),
+        expect.objectContaining({
+          constitution: 18, // 16 + 2
         })
       );
     });
