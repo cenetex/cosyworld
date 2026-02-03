@@ -403,6 +403,17 @@ async function initializeApp(services) {
   app.use('/api/payment', (await import('./routes/payment.js')).default(paymentRouteServices));
   app.use('/api/ai', (await import('./routes/ai.js')).default(aiRouteServices));
   app.use('/api/models', (await import('./routes/models.js')).default(db, modelsRouteServices));
+
+    // OpenAI-compatible Avatar API (Swarm Avatar API compatible)
+    const openaiAvatarRouteServices = {
+      logger,
+      avatarService: services.avatarService,
+      promptService: services.promptService,
+      aiService: services.aiService,
+      configService: services.configService,
+    };
+    app.use('/api/v1', (await import('./routes/openai-avatar.js')).default(db, openaiAvatarRouteServices));
+
   app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(marketplaceRouteServices));
   app.use('/api/services', (await import('./routes/services.js')).default(serviceRoutesServices));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));

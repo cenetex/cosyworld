@@ -111,6 +111,15 @@ async function main() {
       await (mod.default?.({ limit }) ?? Promise.resolve());
       break;
     }
+
+    case 'ingest:swarm-avatars': {
+      const mod = await import('./ingestSwarmAvatars.mjs');
+      const provider = args.provider || 'swarm';
+      const limit = args.limit ? Number(args.limit) : null;
+      const res = await (mod.default?.({ provider, limit }) ?? Promise.resolve());
+      if (res?.failed) process.exit(1);
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
@@ -125,6 +134,7 @@ async function main() {
       console.log('  moltbook:swarm-missive-now  Post a swarm missive now (uses MOLTBOOK_SWARM_AGENT_NAME)');
       console.log('  moltbook:recent-posts       Print Moltbook recent posts (optional: --submolt=rati --limit=15 --sort=new)');
       console.log('  moltbook:diagnostics        Inspect DB + state for why Moltbook isn\'t active (optional: --limit=20)');
+      console.log('  ingest:swarm-avatars        Fetch /v1/models from a Swarm/OpenAI-compatible avatar API and upsert to DB (optional: --provider=swarm --limit=100)');
       process.exit(1);
   }
 }
