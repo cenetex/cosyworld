@@ -1172,20 +1172,28 @@ export class DungeonService {
     const room = dungeon.rooms.find(r => r.id === roomId);
     if (!room || room.cleared) return;
 
-    // Determine if party won based on reason or winners
+    // Determine if party won based on explicit reason; otherwise use conservative fallbacks.
+    // IMPORTANT: Do not clear rooms on ambiguous outcomes.
     const reason = combatResult?.reason;
     let partyWon = false;
-    
+
     if (reason === 'room_cleared') {
-      // Explicit room cleared - party won
       partyWon = true;
     } else if (reason === 'tpk') {
-      // Total party kill - party lost
       partyWon = false;
+    } else if (reason === 'flee') {
+      // Players fleeing should never clear the room.
+      partyWon = false;
+    } else if (Array.isArray(combatResult?.combatants) && combatResult.combatants.length > 0) {
+      // Prefer combatants state if provided.
+      const monstersAlive = combatResult.combatants.filter(c => c?.isMonster && ((c.currentHp ?? 0) > 0));
+      const playersAlive = combatResult.combatants.filter(c => !c?.isMonster && ((c.currentHp ?? 0) > 0));
+      partyWon = monstersAlive.length === 0 && playersAlive.length > 0;
+    } else if (Array.isArray(combatResult?.winners)) {
+      // Winners list is derived from alive combatants at end.
+      partyWon = combatResult.winners.some(w => w && !w.isMonster);
     } else {
-      // Fallback: check if any party member still standing
-      partyWon = combatResult?.winners?.some(w => !w.isMonster) || 
-                 !combatResult?.winners?.every(w => w.isMonster);
+      partyWon = false;
     }
 
     if (partyWon) {
