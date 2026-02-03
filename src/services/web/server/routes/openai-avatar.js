@@ -296,8 +296,8 @@ export default function createOpenAIAvatarRouter(db, services = {}) {
     }
   });
 
-  // GET /v1/models
-  router.get('/v1/models', async (req, res) => {
+  // GET /models
+  router.get('/models', async (req, res) => {
     try {
       const { scope, energyCfg, energyState } = req.avatarApi;
 
@@ -322,8 +322,8 @@ export default function createOpenAIAvatarRouter(db, services = {}) {
     }
   });
 
-  // GET /v1/models/:model_id
-  router.get('/v1/models/:modelId', async (req, res) => {
+  // GET /models/:model_id
+  router.get('/models/:modelId', async (req, res) => {
     try {
       const modelId = decodeURIComponent(req.params.modelId);
       const { scope, energyCfg, energyState } = req.avatarApi;
@@ -346,8 +346,8 @@ export default function createOpenAIAvatarRouter(db, services = {}) {
     }
   });
 
-  // POST /v1/chat/completions
-  router.post('/v1/chat/completions', async (req, res) => {
+  // POST /chat/completions
+  router.post('/chat/completions', async (req, res) => {
     try {
       const body = req.body || {};
       const requestedModel = normalizeAvatarModelId(body.model);

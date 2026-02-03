@@ -58,16 +58,16 @@ describe('OpenAI-compatible Avatar API Routes', () => {
     app.use(express.json());
   });
 
-  it('GET /api/v1/v1/models returns 401 without Bearer', async () => {
+  it('GET /api/v1/models returns 401 without Bearer', async () => {
     const db = makeDb({ avatars: [] });
     app.use('/api/v1', createOpenAIAvatarRouter(db, {}));
 
-    const res = await request(app).get('/api/v1/v1/models');
+    const res = await request(app).get('/api/v1/models');
     expect(res.status).toBe(401);
     expect(res.body?.error?.type).toBe('authentication_error');
   });
 
-  it('GET /api/v1/v1/models returns models list with energy', async () => {
+  it('GET /api/v1/models returns models list with energy', async () => {
     const db = makeDb({
       avatars: [{ name: 'Rati', description: 'A helpful AI assistant', imageUrl: 'https://example.com/rati.png' }],
       apiKeys: [{ keyHash: 'x', scope: '*' }],
@@ -79,7 +79,7 @@ describe('OpenAI-compatible Avatar API Routes', () => {
     app.use('/api/v1', createOpenAIAvatarRouter(db, {}));
 
     const res = await request(app)
-      .get('/api/v1/v1/models')
+      .get('/api/v1/models')
       .set('Authorization', 'Bearer sk-rati-testkey');
 
     expect(res.status).toBe(200);
@@ -90,7 +90,7 @@ describe('OpenAI-compatible Avatar API Routes', () => {
     expect(typeof res.body.energy.current).toBe('number');
   });
 
-  it('POST /api/v1/v1/chat/completions returns 500 if aiService missing', async () => {
+  it('POST /api/v1/chat/completions returns 500 if aiService missing', async () => {
     process.env.AVATAR_API_KEYS = 'sk-rati-testkey';
 
     const db = makeDb({
@@ -100,7 +100,7 @@ describe('OpenAI-compatible Avatar API Routes', () => {
     app.use('/api/v1', createOpenAIAvatarRouter(db, { aiService: null }));
 
     const res = await request(app)
-      .post('/api/v1/v1/chat/completions')
+      .post('/api/v1/chat/completions')
       .set('Authorization', 'Bearer sk-rati-testkey')
       .send({
         model: 'avatar:rati',
