@@ -233,7 +233,8 @@ describe('PostTweetExecutor', () => {
     
     expect(result.success).toBe(false);
     expect(result.error).toBe('Prior media generation failed');
-    expect(mockContext.ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Skipping'));
+    expect(result.botContext).toEqual(expect.stringContaining("couldn't post to X"));
+    expect(mockContext.ctx.reply).not.toHaveBeenCalled();
   });
 
   it('fails when no media is available', async () => {

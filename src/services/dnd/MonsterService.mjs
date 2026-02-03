@@ -10,10 +10,9 @@
  * @module services/dnd/MonsterService
  */
 
-import { randomInt } from 'crypto';
 import { MONSTERS, MONSTER_TRAITS } from '../../data/dnd/monsters.mjs';
 
-const rand01 = () => randomInt(0, 1_000_000) / 1_000_000;
+const rand01 = () => Math.random();
 
 /**
  * Default monster tags for categorization
@@ -624,6 +623,7 @@ export class MonsterService {
    */
   _clampMonsterStatsByRole(monster, role) {
     if (!monster?.stats) return;
+    if (!role) return;
 
     // Role-based AC and HP ranges
     const roleLimits = {

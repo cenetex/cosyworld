@@ -217,7 +217,7 @@ describe('TelegramService tweet tool helpers', () => {
       chat: { id: 'channel-3' }
     };
 
-    await service.executeTweetPost(ctx, {
+    const result = await service.executeTweetPost(ctx, {
       text: 'Need to share this',
       mediaId: 'media-3',
       channelId: 'channel-3',
@@ -225,7 +225,10 @@ describe('TelegramService tweet tool helpers', () => {
       username: 'tester'
     });
 
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('X posting is cooling down'));
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Rate limited');
+    expect(result.botContext).toEqual(expect.stringContaining('cooldown'));
+    expect(ctx.reply).not.toHaveBeenCalled();
     expect(postGlobalMediaUpdate).not.toHaveBeenCalled();
   });
 });
