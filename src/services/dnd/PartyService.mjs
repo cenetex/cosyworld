@@ -294,6 +294,18 @@ export class PartyService {
   async invite(partyId, avatarId, inviterId = null) {
     // If no inviter specified or inviter is the avatar themselves, use legacy direct add
     if (!inviterId || inviterId === avatarId || String(inviterId) === String(avatarId)) {
+      // Validate party first so errors are stable and informative
+      const party = await this.getParty(partyId);
+      if (!party) throw new Error('Party not found');
+
+      if (Array.isArray(party.members) && party.members.length >= (party.maxSize || 4)) {
+        throw new Error('Party is full');
+      }
+
+      if (party.members?.some(m => String(m.avatarId) === String(avatarId))) {
+        throw new Error('Already in this party');
+      }
+
       // Get or create character sheet (auto-generates if missing)
       const sheet = await this._getSheetForParty(avatarId);
       if (!sheet) throw new Error('No character sheet');
@@ -301,36 +313,34 @@ export class PartyService {
 
       // Atomic add member with capacity and duplicate checks
       const col = await this.collection();
-      const result = await col.findOneAndUpdate(
-        { 
-          _id: new ObjectId(partyId),
-          // Atomic capacity check
-          $expr: { $lt: [{ $size: '$members' }, '$maxSize'] },
-          // Ensure not already a member
-          'members.avatarId': { $ne: new ObjectId(avatarId) }
-        },
-        {
-          $push: {
-            members: {
-              avatarId: new ObjectId(avatarId),
-              sheetId: sheet._id,
-              role: 'dps',
-              joinedAt: new Date()
-            }
-          }
-        },
-        { returnDocument: 'after' }
-      );
 
-      const updatedParty = result?.value || null;
-      if (!updatedParty) {
-        // Determine the specific error
-        const party = await this.getParty(partyId);
-        if (!party) throw new Error('Party not found');
-        if (party.members.some(m => m.avatarId.equals(new ObjectId(avatarId)))) {
-          throw new Error('Already in this party');
-        }
-        throw new Error('Party is full');
+      const memberDoc = {
+        avatarId: new ObjectId(avatarId),
+        sheetId: sheet._id,
+        role: 'dps',
+        joinedAt: new Date(),
+      };
+
+      if (typeof col.findOneAndUpdate === 'function') {
+        const result = await col.findOneAndUpdate(
+          {
+            _id: party._id,
+            $expr: { $lt: [{ $size: '$members' }, '$maxSize'] },
+            'members.avatarId': { $ne: new ObjectId(avatarId) },
+          },
+          { $push: { members: memberDoc } },
+          { returnDocument: 'after' }
+        );
+
+        const updatedParty = result?.value || null;
+        if (!updatedParty) throw new Error('Party is full');
+      } else {
+        const result = await col.updateOne(
+          { _id: party._id },
+          { $push: { members: memberDoc } }
+        );
+
+        if (!result || result.modifiedCount === 0) throw new Error('Party is full');
       }
 
       await this.characterService.setParty(avatarId, partyId);
