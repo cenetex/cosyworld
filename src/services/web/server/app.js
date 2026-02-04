@@ -309,6 +309,8 @@ async function initializeApp(services) {
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
     app.use('/api/health', (await import('./routes/health.js')).default(db, healthRouteServices));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
+    app.use('/api/items', (await import('./routes/items.js')).default(db, { logger }));
+    app.use('/api/locations', (await import('./routes/locations.js')).default(db, { logger }));
     const nftRouteServices = {
       databaseService: services.databaseService,
       nftMetadataService: services.nftMetadataService,
