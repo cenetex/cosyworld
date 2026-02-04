@@ -311,6 +311,7 @@ async function initializeApp(services) {
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
     app.use('/api/items', (await import('./routes/items.js')).default(db, { logger }));
     app.use('/api/locations', (await import('./routes/locations.js')).default(db, { logger }));
+    app.use('/api/gallery', (await import('./routes/gallery.js')).default(db, { logger }));
     const nftRouteServices = {
       databaseService: services.databaseService,
       nftMetadataService: services.nftMetadataService,
