@@ -24,6 +24,31 @@ export default function (db, services) {
     return [...openrouterModels, ...googleModels];
   };
 
+  const getSwarmModelsFromDb = async () => {
+    try {
+      if (!db) return [];
+      const rows = await db.collection('external_avatar_models')
+        .find({ provider: 'swarm' }, { projection: { _id: 0, modelId: 1, capabilities: 1, avatar: 1, owned_by: 1, created: 1 } })
+        .sort({ modelId: 1 })
+        .toArray();
+      return (rows || [])
+        .filter(r => r?.modelId)
+        .map(r => ({
+          provider: 'swarm',
+          model: r.modelId,
+          rarity: 'common',
+          contextLength: r?.capabilities?.context_length || null,
+          capabilities: r?.capabilities || null,
+          owned_by: r?.owned_by || null,
+          created: r?.created || null,
+          source: 'external_avatar_models',
+        }));
+    } catch (e) {
+      console.warn('[models route] Failed to load swarm models from DB:', e?.message || e);
+      return [];
+    }
+  };
+
   // Utility: Validate and sanitize query parameters
   const parseQuery = (query) => ({
     page: Math.max(1, parseInt(query.page) || 1),
@@ -88,7 +113,22 @@ export default function (db, services) {
     try {
       // Combine models from all registered services
       const allModels = getAllModels();
-      res.json(allModels);
+
+      // Add Swarm avatar models (ingested into DB) when available
+      const swarmDbModels = await getSwarmModelsFromDb();
+      const combined = [...allModels, ...swarmDbModels];
+
+      // De-dupe (provider+model when provider exists, else model)
+      const seen = new Set();
+      const deduped = [];
+      for (const m of combined) {
+        const key = `${m?.provider || 'default'}::${m?.model || ''}`;
+        if (!m?.model || seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(m);
+      }
+
+      res.json(deduped);
     } catch (error) {
       console.error('Error fetching model config:', error);
       res.status(500).json({ error: 'Failed to fetch model configurations' });

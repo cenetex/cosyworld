@@ -655,6 +655,38 @@ export class DiscordService {
     }
   }
 
+  _getPublicOrigin() {
+    const rawPublicBase = process.env.PUBLIC_BASE_URL || process.env.API_URL || 'http://0.0.0.0:3000';
+    try {
+      return new URL(rawPublicBase).origin;
+    } catch {
+      return 'http://0.0.0.0:3000';
+    }
+  }
+
+  _resolveAbsoluteUrl(url, fallbackUrl) {
+    try {
+      if (!url || typeof url !== 'string') return fallbackUrl;
+      const trimmed = url.trim();
+      if (!trimmed) return fallbackUrl;
+      // Discord webhook avatarURL must be a network URL; avoid data URIs.
+      if (trimmed.startsWith('data:')) return fallbackUrl;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+      const origin = this._getPublicOrigin();
+      // Handle absolute-path and relative-path URLs.
+      return new URL(trimmed, origin).toString();
+    } catch {
+      return fallbackUrl;
+    }
+  }
+
+  _resolveWebhookAvatarURL(avatar) {
+    const fallback = this.client?.user?.displayAvatarURL?.() || undefined;
+    const candidate = avatar?.thumbnailUrl || avatar?.imageUrl || avatar?.avatarUrl || avatar?.pfpUrl || null;
+    return this._resolveAbsoluteUrl(candidate, fallback);
+  }
+
   async getOrCreateWebhook(channel) {
     if (!channel || !channel.isTextBased()) {
       this.logger.error('Invalid or non-text-based channel provided for webhook');
@@ -754,11 +786,12 @@ export class DiscordService {
 
       for (const chunk of chunks) {
         try {
+          const avatarURL = this._resolveWebhookAvatarURL(avatar);
           sentMessage = await this.rateLimitHandler.execute(
             () => webhook.send({
               content: chunk,
               username: username.replace(/discord/ig, ''),
-              avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
+              avatarURL,
               threadId: targetChannelId,
             }),
             `Send webhook message to ${channelId}`
@@ -775,11 +808,12 @@ export class DiscordService {
             this.logger.info?.(`[DiscordService] Retrying with fresh webhook for channel ${channelId}`);
             const freshWebhook = await this.getOrCreateWebhook(channel);
             if (freshWebhook) {
+              const avatarURL = this._resolveWebhookAvatarURL(avatar);
               sentMessage = await this.rateLimitHandler.execute(
                 () => freshWebhook.send({
                   content: chunk,
                   username: username.replace(/discord/ig, ''),
-                  avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
+                  avatarURL,
                   threadId: targetChannelId,
                 }),
                 `Retry send webhook message to ${channelId}`
@@ -945,11 +979,16 @@ export class DiscordService {
       const webhook = await this.getOrCreateWebhook(channel);
       if (!webhook) throw new Error('Failed to obtain webhook');
 
+      const resolvedAvatarURL = this._resolveAbsoluteUrl(
+        avatarURL,
+        this.client?.user?.displayAvatarURL?.() || undefined
+      );
+
       await this.rateLimitHandler.execute(
         () => webhook.send({
           embeds: [embed],
           username: username ? username.slice(0, 80) : undefined,
-          avatarURL,
+          avatarURL: resolvedAvatarURL,
           threadId: channel.isThread() ? channelId : undefined,
           components,
         }),

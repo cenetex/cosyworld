@@ -129,6 +129,13 @@ export class ConversationManager  {
     try {
       if (!avatar) return null;
 
+      const providerRaw = this.aiRouterService?.getProviderForAvatar?.(avatar) || avatar?.provider || null;
+      const provider = providerRaw ? String(providerRaw).trim().toLowerCase() : null;
+      const isSwarm = provider === 'swarm';
+      const isOpenRouter = !provider || provider === 'openrouter' || provider === 'open-router';
+
+      const SWARM_FALLBACK_MODEL = process.env.SWARM_MODEL || 'avatar:rati';
+
       // Use FAST_MODEL for repairs (cost-effective fallback)
       const FAST_MODEL = process.env.FAST_MODEL || 'meta-llama/llama-4-maverick';
 
@@ -147,7 +154,7 @@ export class ConversationManager  {
 
       // Missing model: assign and persist.
       if (!avatar.model) {
-        const picked = await pickRandomExisting();
+        const picked = isSwarm ? SWARM_FALLBACK_MODEL : await pickRandomExisting();
         if (picked) {
           avatar.model = picked;
           try { await this.avatarService.updateAvatar(avatar); } catch {}
@@ -157,18 +164,19 @@ export class ConversationManager  {
       }
 
       // Special case: 'partial' model is a placeholder from incomplete avatar creation
-      // Use FAST_MODEL instead of a random (potentially expensive) model
+      // Provider-aware repair.
       if (avatar.model === 'partial') {
         const previous = avatar.model;
-        avatar.model = FAST_MODEL;
+        avatar.model = isSwarm ? SWARM_FALLBACK_MODEL : FAST_MODEL;
         try { await this.avatarService.updateAvatar(avatar); } catch {}
         this.logger.info?.(`[AI] repaired placeholder model '${previous}' -> '${avatar.model}' for avatar ${avatar?.name || avatar?._id}`);
         return avatar.model;
       }
 
-      // Invalid model: repair to FAST_MODEL (cost-effective) and persist.
+      // Invalid model: validate against OpenRouter catalog ONLY when provider is OpenRouter.
+      // Swarm models like 'avatar:rati' are not expected to exist in OpenRouter catalog.
       try {
-        if (this.openrouterModelCatalogService?.modelExists) {
+        if (isOpenRouter && this.openrouterModelCatalogService?.modelExists) {
           this.logger.debug?.(`[AI] ensureAvatarModel checking if model '${avatar.model}' exists for ${avatar?.name}`);
           const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
           this.logger.debug?.(`[AI] ensureAvatarModel model '${avatar.model}' exists: ${ok}`);
@@ -218,10 +226,7 @@ export class ConversationManager  {
       if (Date.now() - this.lastGlobalNarrativeTime < this.GLOBAL_NARRATIVE_COOLDOWN) {
         return null;
       }
-      if (!avatar.model) {
-        avatar.model = await this.aiService.selectRandomModel();
-        await this.avatarService.updateAvatar(avatar);
-      }
+      await this.ensureAvatarModel(avatar);
 
       const kgContext = await this.knowledgeService.queryKnowledgeGraph(avatar._id);
       const chatMessages = await this.promptService.getNarrativeChatMessages(avatar);

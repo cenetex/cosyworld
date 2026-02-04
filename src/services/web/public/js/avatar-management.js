@@ -536,8 +536,7 @@ if (emojiInput) {
     
     // Populate model dropdowns
     const fullModel = avatar.model || "google/gemini-2.0-flash";
-    const [provider, ...modelParts] = fullModel.split('/');
-    const modelName = modelParts.join('/');
+    const provider = (avatar.provider || (fullModel.includes('/') ? fullModel.split('/')[0] : '') || '').trim();
     
     const providerSelect = document.getElementById('avatar-model-provider');
     const modelNameSelect = document.getElementById('avatar-model-name');
@@ -584,6 +583,7 @@ if (emojiInput) {
     const payload = {
       name: document.getElementById("avatar-name").value,
       status: document.getElementById("avatar-status").value,
+      provider: document.getElementById("avatar-model-provider")?.value || null,
       model: document.getElementById("avatar-model-name").value, // Get from split dropdown
       emoji: document.getElementById("avatar-emoji").value,
       description: document.getElementById("avatar-description").value,

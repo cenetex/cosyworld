@@ -29,22 +29,34 @@ export async function fetchModels() {
     modelsCache.forEach(modelObj => {
       const fullModel = modelObj?.model;
       if (!fullModel) return;
-      
-      const [provider, ...modelParts] = fullModel.split('/');
-      const modelName = modelParts.join('/');
-      
-      if (provider && modelName) {
-        if (!modelsByProvider.has(provider)) {
-          modelsByProvider.set(provider, []);
-        }
-        modelsByProvider.get(provider).push({
-          fullName: fullModel,
-          modelName: modelName,
-          rarity: modelObj.rarity || 'common',
-          contextLength: modelObj.contextLength,
-          pricing: modelObj.pricing
-        });
+
+      const explicitProvider = modelObj?.provider ? String(modelObj.provider).trim() : '';
+      const hasSlash = String(fullModel).includes('/');
+      const parsedProvider = hasSlash ? String(fullModel).split('/')[0] : '';
+      const provider = (explicitProvider || parsedProvider || '').trim();
+
+      let modelName = '';
+      if (hasSlash) {
+        const parts = String(fullModel).split('/');
+        modelName = parts.slice(1).join('/');
+      } else {
+        // Swarm-style model ids like 'avatar:rati'
+        modelName = String(fullModel).replace(/^avatar:/i, '');
       }
+
+      if (!provider || !modelName) return;
+
+      if (!modelsByProvider.has(provider)) {
+        modelsByProvider.set(provider, []);
+      }
+      modelsByProvider.get(provider).push({
+        // Keep option value as the actual model id to store on the avatar
+        fullName: fullModel,
+        modelName,
+        rarity: modelObj.rarity || 'common',
+        contextLength: modelObj.contextLength,
+        pricing: modelObj.pricing
+      });
     });
     
     console.log(`[model-selector] Loaded ${modelsCache.length} models from ${modelsByProvider.size} providers`);

@@ -197,10 +197,12 @@ function createRouter(db, services) {
       personality,
       emoji,
       imageUrl,
+      thumbnailUrl,
       locationId,
       lives,
       status,
-      model
+      model,
+      provider
     } = req.body;
 
     // Validate required fields
@@ -215,10 +217,12 @@ function createRouter(db, services) {
       personality: personality || '',
       emoji: emoji || '✨',
       imageUrl: imageUrl || '',
+      thumbnailUrl: thumbnailUrl || '',
       status: status || 'active',
       lives: lives || 3,
       locationId: locationId || null,
       model: model || 'gpt-4',
+      provider: provider || null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -263,10 +267,12 @@ function createRouter(db, services) {
       personality,
       emoji,
       imageUrl,
+      thumbnailUrl,
       locationId,
       lives,
       status,
-      model
+      model,
+      provider
     } = req.body;
 
     // Create update object with only provided fields
@@ -276,10 +282,12 @@ function createRouter(db, services) {
     if (personality !== undefined) updateObj.personality = personality;
     if (emoji !== undefined) updateObj.emoji = emoji;
     if (imageUrl !== undefined) updateObj.imageUrl = imageUrl;
+    if (thumbnailUrl !== undefined) updateObj.thumbnailUrl = thumbnailUrl;
     if (locationId !== undefined) updateObj.locationId = locationId;
     if (lives !== undefined) updateObj.lives = lives;
     if (status !== undefined) updateObj.status = status;
     if (model !== undefined) updateObj.model = model;
+    if (provider !== undefined) updateObj.provider = provider;
 
     // Add updated timestamp
     updateObj.updatedAt = new Date();
