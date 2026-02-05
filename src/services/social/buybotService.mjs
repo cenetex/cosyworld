@@ -50,7 +50,8 @@ const DEFAULT_TOKEN_PREFERENCES = {
   },
   notifications: {
     onlySwapEvents: false,
-    transferAggregationUsdThreshold: 0
+    transferAggregationUsdThreshold: 0,
+    compactMode: false // When true, sends 1-line notifications with "View Details" button
   },
   walletAvatar: {
     createFullAvatar: false,
@@ -2909,7 +2910,110 @@ export class BuybotService {
         customDescription = `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}`;
       }
 
-      // Now create the embed with custom description
+      // Check for compact mode - send 1-line message instead of full embed
+      const compactMode = Boolean(tokenPreferences?.notifications?.compactMode);
+      
+      if (compactMode) {
+        // Build compact 1-line message
+        const usdDisplay = usdValue ? ` ($${usdValue.toFixed(2)})` : '';
+        let compactMessage;
+        
+        if (effectiveType === 'swap') {
+          const buyerDisplay = buyerAvatar && buyerAvatar.name && buyerEmoji
+            ? `${buyerEmoji} **${buyerAvatar.name}**`
+            : `\`${formatAddress(event.to)}\``;
+          compactMessage = `${emoji} ${buyerDisplay} bought **${formattedAmount} ${token.tokenSymbol}**${usdDisplay}`;
+        } else {
+          const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
+            ? `${senderEmoji} **${senderAvatar.name}**`
+            : `\`${formatAddress(event.from)}\``;
+          const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
+            ? `${recipientEmoji} **${recipientAvatar.name}**`
+            : `\`${formatAddress(event.to)}\``;
+          compactMessage = `${emoji} ${senderDisplay} → ${recipientDisplay}: **${formattedAmount} ${token.tokenSymbol}**${usdDisplay}`;
+        }
+
+        // Build compact components with View Details button
+        const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:3000';
+        const detailsUrl = event.signature 
+          ? `${baseUrl}/api/buybot/events/${event.signature}`
+          : event.txUrl;
+        
+        const compactComponents = [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 5,
+                label: 'Details',
+                url: detailsUrl,
+              },
+              {
+                type: 2,
+                style: 5,
+                label: 'Tx',
+                url: event.txUrl,
+              }
+            ],
+          },
+        ];
+
+        // Send compact message
+        try {
+          const channel = await this.discordService.client.channels.fetch(channelId);
+          if (!channel) {
+            throw new Error(`Channel ${channelId} not found`);
+          }
+          if (!channel.isTextBased()) {
+            throw new Error(`Channel ${channelId} is not a text channel`);
+          }
+          
+          const sentMessage = await channel.send({ content: compactMessage, components: compactComponents });
+          this.logger.info(`[BuybotService] Sent compact Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId} (message ID: ${sentMessage.id})`);
+          
+          // Track volume for activity summaries
+          if (usdValue) {
+            await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue);
+          }
+        } catch (sendError) {
+          const isMissingPermissions =
+            sendError?.code === 50013 ||
+            sendError?.status === 403 ||
+            (typeof sendError?.message === 'string' && /missing permissions/i.test(sendError.message));
+
+          if (isMissingPermissions) {
+            this.logger.warn(`[BuybotService] Missing permissions to post compact trade message in channel ${channelId}; skipping notification.`, {
+              channelId,
+              tokenSymbol: token.tokenSymbol,
+              eventType: event.type
+            });
+          } else {
+            this.logger.error(`[BuybotService] Failed to send compact Discord message to channel ${channelId}:`, {
+              error: sendError.message,
+              code: sendError.code,
+              channelId,
+              tokenSymbol: token.tokenSymbol,
+              eventType: event.type
+            });
+            throw sendError;
+          }
+        }
+        
+        // Trigger avatar responses for compact mode too
+        const eventForResponses = { ...event, type: effectiveType, description: customDescription };
+        await this.triggerAvatarTradeResponses(channelId, eventForResponses, token, {
+          buyerAvatar,
+          senderAvatar,
+          recipientAvatar
+        }, {
+          requireClaimedOnly: requireClaimedAvatar
+        });
+        
+        return; // Exit early for compact mode
+      }
+
+      // Now create the embed with custom description (full mode)
       const embed = {
         title: `${emoji} ${token.tokenSymbol} ${effectiveType === 'swap' ? 'Purchase' : 'Transfer'}`,
         description: customDescription,

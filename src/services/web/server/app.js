@@ -312,6 +312,7 @@ async function initializeApp(services) {
     app.use('/api/items', (await import('./routes/items.js')).default(db, { logger }));
     app.use('/api/locations', (await import('./routes/locations.js')).default(db, { logger }));
     app.use('/api/gallery', (await import('./routes/gallery.js')).default(db, { logger }));
+    app.use('/api/buybot', (await import('./routes/buybot.js')).createBuybotRouter({ databaseService: services.databaseService }));
     const nftRouteServices = {
       databaseService: services.databaseService,
       nftMetadataService: services.nftMetadataService,

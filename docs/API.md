@@ -629,3 +629,172 @@ curl "http://192.168.1.79:3000/api/gallery/recent?limit=10"
   ]
 }
 ```
+
+---
+
+## BuyBot (Token Events)
+
+The BuyBot API provides access to token transaction events tracked by the buybot service.
+
+### GET /api/buybot/events/:signature
+Get a specific token event by its transaction signature.
+
+**Example:**
+```bash
+curl "http://192.168.1.79:3000/api/buybot/events/5KtPn1LGmHPdqHzh..."
+```
+
+**Response:**
+```json
+{
+  "signature": "5KtPn1LGmHPdqHzh...",
+  "type": "swap",
+  "inferredType": "swap",
+  "tokenAddress": "So11111111111111111111111111111111111111112",
+  "tokenSymbol": "SOL",
+  "amount": "1000000000",
+  "amountFormatted": "1.0",
+  "decimals": 9,
+  "from": null,
+  "to": "9WzDXwBbmkg8ZTbNMqUxvQRAyr...",
+  "txUrl": "https://solscan.io/tx/...",
+  "timestamp": "2026-02-03T12:00:00.000Z",
+  "channelId": "1234567890",
+  "usdValue": 150.25,
+  "isNewHolder": true,
+  "createdAt": "2026-02-03T12:00:01.000Z"
+}
+```
+
+### GET /api/buybot/events
+List recent token events with optional filtering.
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `channelId` | string | Filter by Discord channel ID |
+| `tokenAddress` | string | Filter by token address |
+| `type` | string | Filter by event type (`swap`, `transfer`) |
+| `limit` | number | Max results (default: 20, max: 100) |
+| `skip` | number | Pagination offset |
+
+**Example:**
+```bash
+curl "http://192.168.1.79:3000/api/buybot/events?type=swap&limit=10"
+```
+
+**Response:**
+```json
+{
+  "events": [
+    {
+      "signature": "5KtPn1LGmHPdqHzh...",
+      "type": "swap",
+      "tokenAddress": "So11111111111111111111111111111111111111112",
+      "tokenSymbol": "SOL",
+      "amount": "1000000000",
+      "amountFormatted": "1.0",
+      "from": null,
+      "to": "9WzDXwBbmkg8ZTbNMqUxvQRAyr...",
+      "txUrl": "https://solscan.io/tx/...",
+      "timestamp": "2026-02-03T12:00:00.000Z",
+      "channelId": "1234567890",
+      "usdValue": 150.25
+    }
+  ],
+  "pagination": {
+    "total": 1250,
+    "limit": 10,
+    "skip": 0,
+    "hasMore": true
+  }
+}
+```
+
+### GET /api/buybot/tokens/:channelId
+List tracked tokens for a specific Discord channel.
+
+**Example:**
+```bash
+curl "http://192.168.1.79:3000/api/buybot/tokens/1234567890"
+```
+
+**Response:**
+```json
+{
+  "channelId": "1234567890",
+  "tokens": [
+    {
+      "tokenAddress": "So11111111111111111111111111111111111111112",
+      "tokenSymbol": "SOL",
+      "tokenName": "Wrapped SOL",
+      "tokenImage": "https://...",
+      "addedAt": "2026-01-15T10:00:00.000Z",
+      "lastEventAt": "2026-02-03T12:00:00.000Z",
+      "lastCheckedAt": "2026-02-03T12:01:00.000Z",
+      "settings": {
+        "displayEmoji": "💰",
+        "transferEmoji": "📤",
+        "compactMode": true,
+        "onlySwapEvents": false,
+        "transferAggregationUsdThreshold": 10
+      }
+    }
+  ]
+}
+```
+
+### GET /api/buybot/stats/:channelId
+Get trading statistics for a channel.
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tokenAddress` | string | Filter by specific token |
+| `period` | string | Time period: `1h`, `24h`, `7d` (default: `24h`) |
+
+**Example:**
+```bash
+curl "http://192.168.1.79:3000/api/buybot/stats/1234567890?period=24h"
+```
+
+**Response:**
+```json
+{
+  "channelId": "1234567890",
+  "period": "24h",
+  "startTime": "2026-02-02T12:00:00.000Z",
+  "endTime": "2026-02-03T12:00:00.000Z",
+  "stats": [
+    {
+      "tokenAddress": "So11111111111111111111111111111111111111112",
+      "totalEvents": 125,
+      "totalVolumeUsd": 15250.50,
+      "uniqueWallets": 45,
+      "byType": {
+        "swap": { "count": 100, "volumeUsd": 12500.00 },
+        "transfer": { "count": 25, "volumeUsd": 2750.50 }
+      }
+    }
+  ]
+}
+```
+
+### Compact Notification Mode
+
+To enable compact 1-line notifications for a tracked token, set `compactMode: true` in the token preferences:
+
+```javascript
+// In tokenPreferences.notifications
+{
+  "compactMode": true,  // Enables 1-line notifications
+  "onlySwapEvents": false,
+  "transferAggregationUsdThreshold": 10
+}
+```
+
+**Compact notification format:**
+- Swaps: `💰 **AvatarName** bought **1.0 SOL** ($150.25)`
+- Transfers: `📤 **SenderAvatar** → **RecipientAvatar**: **1.0 SOL** ($150.25)`
+
+Compact notifications include "Details" and "Tx" buttons linking to the full event details and transaction explorer.
