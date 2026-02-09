@@ -1386,6 +1386,13 @@ export class DiscordService {
     const userId = interaction.user.id;
     
     try {
+      // V7: Quick expiry check — if the interaction token is stale (e.g. server
+      // restarted or 3-second window elapsed), bail out silently.
+      if (interaction.replied || interaction.deferred) {
+        this.logger?.debug?.(`[DiscordService] D&D button already handled: ${customId}`);
+        return;
+      }
+      
       // Handle summon help button (doesn't require avatar)
       if (customId === 'dnd_show_summon_help') {
         const helpEmbed = new EmbedBuilder()
@@ -1609,6 +1616,13 @@ export class DiscordService {
         await interaction.editReply({ content: '✅ Action completed!' });
       }
     } catch (error) {
+      // V7: Silently ignore expired interactions (stale buttons from previous session)
+      const errMsg = String(error?.message || '').toLowerCase();
+      if (errMsg.includes('unknown interaction') || errMsg.includes('interaction has already been acknowledged')) {
+        this.logger?.debug?.(`[DiscordService] D&D button interaction expired: ${customId}`);
+        return;
+      }
+      
       this.logger?.error?.(`[DiscordService] D&D button handler error: ${error.message}`, {
         customId,
         userId,

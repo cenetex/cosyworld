@@ -1415,6 +1415,7 @@ One-liner (no quotes):`;
     // Reset defending state at the start of their new turn
     if (current) current.isDefending = false;
     encounter.lastTurnStartAt = Date.now();
+    encounter._reannounceCount = 0; // V7: fresh re-announce budget for new turn
     
     // Determine if this avatar should wait for player input:
     // 1. Player-controlled avatars with linked user: always wait (unless knocked out)
@@ -1640,20 +1641,31 @@ One-liner (no quotes):`;
       // Advance to next turn index (without full nextTurn processing)
       const newRound = this._advanceTurnIndex(encounter);
       
-      // Post consolidated narration ONLY at the end of each round (not mid-batch)
+      // V7: Consolidate multi-round auto-combat narration. Post every 3 rounds
+      // (or at the end of the batch) to reduce message spam.
       if (newRound) {
-        await this._postConsolidatedRoundNarration(encounter);
+        const roundsSinceNarration = encounter.round - lastRound;
+        const nextId2 = this.getCurrentTurnAvatarId(encounter);
+        const next2 = this.getCombatant(encounter, nextId2);
+        const batchWillEnd = !next2 || (next2.isPlayerControlled && !next2.autoMode);
         
-        // Post between-round dialogue (reduced frequency)
-        await this._postBetweenRoundDialogue(encounter, lastRound, encounter.pendingRoundActions || []);
+        if (roundsSinceNarration >= 3 || batchWillEnd) {
+          // Post combined narration covering multiple rounds
+          await this._postConsolidatedRoundNarration(encounter);
+          
+          // Between-round dialogue only at the very end of a batch (not mid-auto-combat)
+          if (batchWillEnd) {
+            await this._postBetweenRoundDialogue(encounter, lastRound, encounter.pendingRoundActions || []);
+          }
+          
+          // Clear accumulator for next batch of rounds
+          encounter.pendingRoundActions = [];
+          encounter.lastNarratedRound = encounter.round - 1;
+          lastRound = encounter.round;
+        }
         
-        // Clear accumulator for new round
-        encounter.pendingRoundActions = [];
-        encounter.lastNarratedRound = encounter.round - 1;
-        lastRound = encounter.round;
-        
-        // Longer delay between rounds for readability
-        await new Promise(r => setTimeout(r, 2000));
+        // Pacing delay between rounds (shorter for auto-combat)
+        await new Promise(r => setTimeout(r, 1500));
       }
       
       // Check if next combatant is player-controlled
@@ -1775,8 +1787,16 @@ One-liner (no quotes):`;
         }
       }
       
-      // Use simple round title - no more "Party Actions" vs "Enemy Actions" split
-      const title = round ? `⚔️ Round ${round} Summary` : '⚔️ Combat Actions';
+      // V7: Support multi-round summaries from auto-combat batching
+      let title = '⚔️ Combat Actions';
+      if (round) {
+        const actionRounds = [...new Set((actions || []).map(a => a.round).filter(Boolean))];
+        if (actionRounds.length > 1) {
+          title = `⚔️ Rounds ${Math.min(...actionRounds)}–${Math.max(...actionRounds)} Summary`;
+        } else {
+          title = `⚔️ Round ${round} Summary`;
+        }
+      }
       
       // Color based on who dealt more damage
       const monsterDamage = actions.filter(a => a.combatant.isMonster).reduce((s, a) => s + (a.result?.damage || 0), 0);
@@ -4269,13 +4289,22 @@ Message: ${messageContent}`;
           // V6 FIX: For player turns, don't skip their turn but DO re-announce
           // if the lock expired (the lock silently clears after 60s, leaving combat
           // stalled with no prompt). Re-announce so the player sees buttons again.
+          // V7: Limit re-announces to 2 then auto-skip to keep combat moving.
           if (current?.isPlayerControlled && !current?.autoMode) {
             const lockState = this.turnLock.getState(channelId);
             if (lockState === TURN_STATES.IDLE || lockState === null) {
-              // Lock expired — player's turn is still active but UI vanished
-              this.logger.info?.(`[CombatEncounter][${channelId}] watchdog: re-announcing stalled player turn for ${current.name}`);
-              current.awaitingAction = true;
-              this._scheduleTurnStart(enc);
+              enc._reannounceCount = (enc._reannounceCount || 0) + 1;
+              if (enc._reannounceCount > 2) {
+                // Too many re-announces — auto-skip this player's turn
+                this.logger.warn?.(`[CombatEncounter][${channelId}] watchdog: auto-skipping ${current.name} after ${enc._reannounceCount} re-announces`);
+                enc._reannounceCount = 0;
+                void this._onTurnTimeout(enc);
+              } else {
+                // Lock expired — player's turn is still active but UI vanished
+                this.logger.info?.(`[CombatEncounter][${channelId}] watchdog: re-announcing stalled player turn for ${current.name} (attempt ${enc._reannounceCount}/2)`);
+                current.awaitingAction = true;
+                this._scheduleTurnStart(enc);
+              }
             }
             // Otherwise player is still in a valid lock state — let them think
             continue;
