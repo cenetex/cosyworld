@@ -5,6 +5,7 @@
  * CharacterTool - D&D character creation and management
  */
 
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { BasicTool } from '../BasicTool.mjs';
 import { CLASSES } from '../../../data/dnd/classes.mjs';
 import { RACES, BACKGROUNDS } from '../../../data/dnd/races.mjs';
@@ -18,7 +19,7 @@ import {
 } from '../dndButtonComponents.mjs';
 
 export class CharacterTool extends BasicTool {
-  constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService, healthService }) {
+  constructor({ logger, characterService, avatarService, discordService, questService, tutorialQuestService, healthService, mapService }) {
     super();
     this.logger = logger || console;
     this.characterService = characterService;
@@ -27,6 +28,7 @@ export class CharacterTool extends BasicTool {
     this.questService = questService;
     this.tutorialQuestService = tutorialQuestService;
     this.healthService = healthService || null;
+    this.mapService = mapService || null;
 
     this.name = 'character';
     this.parameters = '<action> [options]';
@@ -93,19 +95,23 @@ export class CharacterTool extends BasicTool {
           return await this._showClassSelection(avatar, params[1]);
         case 'sheet':
         case 'stats':
-          return await this._showSheet(avatar);
+          // Show own public summary with inspect button (full sheet via button click)
+          return await this._showPublicSummary(avatar);
         case 'rest':
           return await this._rest(avatar, params);
         case undefined:
         case '':
-          // No action - show race selection menu (interactive character creation)
-          return await this._showRaceSelection(avatar);
-        default:
+          // No action - if has sheet show summary, else show create menu
+          return await this._showPublicSummary(avatar);
+        default: {
           // Check if it might be a race name
           if (RACES[action]) {
             return await this._showClassSelection(avatar, action);
           }
-          return this._errorEmbed(`Unknown action: ${action}. Use: create, sheet, rest`);
+          // Otherwise treat as a target name lookup (e.g. "📜 Kai")
+          const targetName = params.join(' ');
+          return await this._inspectTarget(message, avatar, targetName);
+        }
       }
     } catch (error) {
       this.logger.error('[CharacterTool] Error:', error);
@@ -114,26 +120,96 @@ export class CharacterTool extends BasicTool {
   }
 
   /**
-   * Show race selection menu
+   * Show public summary card for an avatar (Name / Race / Class, no level).
+   * If the avatar has no sheet, falls through to the race selection (create) flow.
    */
-  async _showRaceSelection(avatar) {
-    // Check if already has a character
-    const existing = await this.characterService.getSheet(avatar._id);
-    if (existing) {
+  async _showPublicSummary(avatar) {
+    const sheet = await this.characterService.getSheet(avatar._id);
+    if (!sheet) {
+      return this._showRaceSelection(avatar);
+    }
+
+    const classDef = CLASSES[sheet.class];
+    const raceDef = RACES[sheet.race];
+
+    // Public summary: Name / Race / Class — no level, no stats
+    const inspectButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`dnd_inspect_sheet_${String(avatar._id)}`)
+        .setLabel('Inspect')
+        .setEmoji('📜')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    return {
+      embeds: [{
+        title: `${avatar.emoji || '📜'} ${avatar.name}`,
+        description: `${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`,
+        color: 0x7C3AED,
+        thumbnail: avatar.imageUrl ? { url: avatar.imageUrl } : undefined,
+        footer: { text: 'Click Inspect to learn more about this character' }
+      }],
+      components: [inspectButton]
+    };
+  }
+
+  /**
+   * Look up a target avatar by name and show their public summary card.
+   * Falls back to the user's own summary if no match found.
+   */
+  async _inspectTarget(message, callerAvatar, targetName) {
+    // Try exact name match first, then fuzzy
+    let target = await this.avatarService.getAvatarByName(targetName);
+    if (!target) {
+      const fuzzy = await this.avatarService.fuzzyAvatarByName?.(targetName, { limit: 1 });
+      target = fuzzy?.[0] || null;
+    }
+
+    // If we found a nearby avatar with a sheet, show their public card
+    if (target) {
+      const sheet = await this.characterService.getSheet(target._id);
+      if (sheet) {
+        const classDef = CLASSES[sheet.class];
+        const raceDef = RACES[sheet.race];
+
+        const inspectButton = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dnd_inspect_sheet_${String(target._id)}`)
+            .setLabel('Inspect')
+            .setEmoji('📜')
+            .setStyle(ButtonStyle.Primary)
+        );
+
+        return {
+          embeds: [{
+            title: `${target.emoji || '📜'} ${target.name}`,
+            description: `${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`,
+            color: 0x7C3AED,
+            thumbnail: target.imageUrl ? { url: target.imageUrl } : undefined,
+            footer: { text: 'Click Inspect to learn more about this character' }
+          }],
+          components: [inspectButton]
+        };
+      }
+      // Target exists but no sheet
       return {
         embeds: [{
-          title: '📜 Character Exists',
-          description: `**${avatar.name}** already has a character!\n\nUse \`📜 character sheet\` to view your character.`,
-          color: 0xFBBF24,
-          footer: { text: 'One character per avatar' }
-        }],
-        components: createActionMenu([
-          { id: 'dnd_character_sheet', label: 'View Sheet', emoji: '📜' },
-          { id: 'dnd_tutorial_next', label: 'Continue', emoji: '➡️' }
-        ])
+          title: `${target.emoji || '❓'} ${target.name}`,
+          description: '*This character has no adventuring record.*',
+          color: 0x6B7280,
+          thumbnail: target.imageUrl ? { url: target.imageUrl } : undefined
+        }]
       };
     }
 
+    // No target found — fall back to own summary
+    return await this._showPublicSummary(callerAvatar);
+  }
+
+  /**
+   * Show race selection menu (character creation)
+   */
+  async _showRaceSelection(avatar) {
     return {
       embeds: [{
         title: '⚔️ Choose Your Race',

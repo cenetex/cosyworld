@@ -138,6 +138,7 @@ export class AvatarService {
     databaseService,
     configService,
     getMapService,
+    getPartyService,
     aiService,
     schedulingService,
     statService,
@@ -149,6 +150,7 @@ export class AvatarService {
     this.configService = configService;
     // late‑bound to avoid cyclic deps
     this.getMapService = getMapService;
+    this.getPartyService = getPartyService;
     this.aiService = aiService;
     this.schedulingService = schedulingService;
     this.statService = statService;
@@ -2485,6 +2487,27 @@ The token icon's colors and motifs should be visible in the character's design.`
     }
     
     avatar.stats = stats;
+
+    // If the dead avatar was in a party, swap the new avatar in automatically
+    if (deadAvatar) {
+      try {
+        const partyService = this.getPartyService?.();
+        if (partyService) {
+          const updatedParty = await partyService.replacePartyMember(
+            String(deadAvatar._id),
+            String(avatar._id)
+          );
+          if (updatedParty) {
+            this.logger?.info?.(
+              `[AvatarService] Auto-swapped party member: ${deadAvatar.name} → ${avatar.name} in party ${updatedParty._id}`
+            );
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to auto-swap party member: ${e.message}`);
+      }
+    }
+
     this.logger?.info?.(`[AvatarService] Created new avatar ${avatar.name} for user ${summonerId}${deadAvatar ? ' (replacing dead avatar)' : ''}`);
     return { avatar, new: true, previouslyDead: !!deadAvatar };
   }

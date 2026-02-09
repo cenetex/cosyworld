@@ -59,6 +59,23 @@ export class ChallengeTool extends BasicTool {
       if (avatar?.combatCooldownUntil && now < avatar.combatCooldownUntil) return `-# 💤 [ **${avatar.name}** is resting after a narrow escape and cannot enter combat yet. ]`;
     } catch {}
     const encounterService = services?.combatEncounterService;
+    
+    // V6 FIX: If there's already an active encounter in this channel, delegate to
+    // the attack tool instead of blocking.  Players naturally use ⚔️ to mean "attack"
+    // during combat, not just to initiate it.
+    if (encounterService) {
+      const activeEncounter = encounterService.getEncounterByChannelId?.(message.channel.id) || 
+                               encounterService.getEncounter?.(message.channel.id);
+      if (activeEncounter?.state === 'active') {
+        // Delegate to attack tool — it handles turn enforcement and encounter integration
+        const attackTool = services?.toolService?.tools?.get?.('attack') || 
+                           services?.attackTool;
+        if (attackTool?.execute) {
+          return attackTool.execute(message, params, avatar, services);
+        }
+      }
+    }
+    
     if (!message?.channel?.isThread?.() && encounterService?.getEncounterByParentChannelId) {
       const parentEncounter = encounterService.getEncounterByParentChannelId(message.channel.id);
       if (parentEncounter && parentEncounter.state !== 'ended') {
@@ -71,6 +88,45 @@ export class ChallengeTool extends BasicTool {
     const targetText = params.join(' ').trim();
 
     try {
+      // ── Check for dungeon context first ──
+      // If we're in a dungeon thread, the target may be a room monster rather than
+      // an avatar on the map.  Resolve via channel-based dungeon lookup.
+      const dungeonService = services?.dungeonService;
+      const characterService = services?.characterService;
+      if (dungeonService) {
+        let dungeon = await dungeonService.getActiveDungeonByChannel?.(message.channel.id);
+        if (!dungeon && characterService) {
+          try {
+            const sheet = await characterService.getSheet(avatar._id);
+            if (sheet?.partyId) dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
+          } catch {}
+        }
+        if (dungeon) {
+          const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
+          if (room?.encounter?.monsters?.length && !room.cleared) {
+            const target = targetText.toLowerCase();
+            const monsterMatch = room.encounter.monsters.find(m => {
+              const keys = [m.name, m.id, m.monsterId].filter(Boolean).map(k => k.toLowerCase());
+              return keys.some(k => k.includes(target) || target.includes(k))
+                || (m.name || '').toLowerCase().split(' ').some(w => w.length >= 3 && target.includes(w));
+            });
+            if (monsterMatch) {
+              // Start dungeon combat via the encounter service
+              let dungeonEncounter = encounterService?.getEncounter?.(message.channel.id);
+              if (!dungeonEncounter || !dungeonEncounter.dungeonContext) {
+                dungeonEncounter = await dungeonService.startRoomCombat(
+                  String(dungeon._id), dungeon.currentRoom, message.channel.id
+                );
+              }
+              if (dungeonEncounter) {
+                try { await encounterService.rollInitiative(dungeonEncounter); } catch {}
+                return `-# ⚔️ [ **${avatar.name}** challenges the monsters! Combat begins! ]`;
+              }
+            }
+          }
+        }
+      }
+
       const locationResult = await this.mapService.getLocationAndAvatars(message.channel.id);
       if (!locationResult || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;

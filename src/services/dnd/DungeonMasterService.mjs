@@ -196,7 +196,9 @@ export class DungeonMasterService {
     const ai = this._getAI();
     if (!ai) {
       // Fallback to template
-      return this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat);
+      return room.cleared
+        ? this._getClearedRoomFallback(room)
+        : this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat);
     }
 
     try {
@@ -211,10 +213,29 @@ export class DungeonMasterService {
         this.logger?.debug?.(`[DM] Persona lookup failed: ${e.message}`);
       }
 
+      // Build state-aware context for the AI
+      const stateHints = [];
+      if (room.cleared) {
+        stateHints.push('This room has already been cleared by the party.');
+        if (room.type === 'combat' || room.type === 'boss') {
+          stateHints.push('The enemies have been defeated. Describe the aftermath — scattered remains, silence after battle.');
+        } else if (room.type === 'rest') {
+          stateHints.push('The party has rested here before. Describe it as a familiar, already-used campsite.');
+        } else if (room.type === 'treasure') {
+          stateHints.push('The treasure has already been collected. Describe empty chests or bare shelves.');
+        }
+      }
+      if (room.puzzle?.solved) {
+        stateHints.push(`The riddle "${room.puzzle.riddle}" has been solved. Describe the mechanism as already activated/open.`);
+      }
+      if (room.encounter?.monsters?.length && !room.cleared) {
+        stateHints.push(`Enemies present: ${room.encounter.monsters.map(m => m.name).join(', ')}`);
+      }
+
       const prompt = `You are a Dungeon Master narrating a ${dungeon.theme} dungeon. 
 Describe a ${room.type} room in 2-3 atmospheric sentences. Be dramatic but concise.
-${room.encounter?.monsters?.length ? `Enemies present: ${room.encounter.monsters.map(m => m.name).join(', ')}` : ''}
-${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
+${stateHints.join('\n')}
+${room.puzzle && !room.puzzle.solved ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
 
       let response = await ai.chat([
         { role: 'system', content: `You are a dramatic D&D Dungeon Master. Keep descriptions to 2-3 sentences maximum.${persona}` },
@@ -222,11 +243,34 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       ]);
       
       if (response?.text) response = response.text;
-      return response || this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat);
+      return response || (room.cleared
+        ? this._getClearedRoomFallback(room)
+        : this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat));
     } catch (e) {
       this.logger?.warn?.(`[DM] AI room description failed: ${e.message}`);
-      return this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat);
+      return room.cleared
+        ? this._getClearedRoomFallback(room)
+        : this._pickRandom(NARRATIVE_TEMPLATES.roomEntry[room.type] || NARRATIVE_TEMPLATES.roomEntry.combat);
     }
+  }
+
+  /**
+   * Get a fallback description for a cleared room
+   * @param {Object} room - The room object
+   * @returns {string} Description text
+   */
+  _getClearedRoomFallback(room) {
+    const cleared = {
+      combat: '*The echoes of battle have faded. Fallen enemies lie still, and the air carries the scent of victory.*',
+      boss: '*The great beast lies defeated. An eerie calm fills the lair where once a terrible power ruled.*',
+      treasure: '*Empty chests and bare pedestals — the riches have already been claimed.*',
+      puzzle: '*The ancient mechanisms have been solved. Gears click softly in their resting positions.*',
+      rest: '*The campfire embers still glow faintly. A familiar sanctuary, already used.*',
+      shop: '*The merchant nods in recognition. Their wares have been picked over.*',
+      empty: '*Dust and silence. Nothing new stirs in this empty chamber.*',
+      entrance: '*The entrance stands open. The way forward — and backward — is clear.*'
+    };
+    return cleared[room.type] || '*This room has been cleared. Nothing stirs.*';
   }
 
   /**
@@ -238,8 +282,13 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
     const description = await this.generateRoomDescription(room, dungeon);
     
     const fields = [];
+
+    // Show cleared status badge
+    if (room.cleared) {
+      fields.push({ name: '✅ Cleared', value: 'This room has been cleared.', inline: true });
+    }
     
-    // Show monsters if combat room
+    // Show monsters if combat room (not cleared)
     if (room.encounter?.monsters?.length && !room.cleared) {
       const monsterList = room.encounter.monsters
         .map(m => `${m.emoji || '👹'} **${m.name || m.id}** ×${m.count}`)
@@ -265,10 +314,17 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       });
     }
 
+    // Use the first monster's image as thumbnail for uncleared combat/boss rooms
+    let monsterThumbnail = null;
+    if (room.encounter?.monsters?.length && !room.cleared) {
+      monsterThumbnail = room.encounter.monsters.find(m => m.imageUrl)?.imageUrl || null;
+    }
+
     const embed = this.createDMEmbed({
       title: `${this.getRoomEmoji(room.type)} ${this.getRoomTitle(room.type)}`,
       description,
       fields,
+      thumbnail: monsterThumbnail,
       footer: `${dungeon.name} • Room ${room.id.replace('room_', '')}`
     });
 
@@ -330,12 +386,17 @@ ${room.puzzle ? `There is a riddle: "${room.puzzle.riddle}"` : ''}`;
       return `${i + 1}. ${emoji} **${name}**`;
     }).join('\n') || 'Initiative order pending...';
 
+    // Find a monster image for the combat thumbnail
+    const combatants = encounter?.combatants || encounter?.participants || [];
+    const monsterWithImage = combatants.find(c => c.isMonster && c.imageUrl);
+
     const embed = this.createDMEmbed({
       title: '⚔️ Combat Begins!',
       description: narration,
       fields: [
         { name: '📋 Initiative Order', value: initiativeList, inline: false }
-      ]
+      ],
+      thumbnail: monsterWithImage?.imageUrl || null
     });
 
     return { embeds: [embed] };

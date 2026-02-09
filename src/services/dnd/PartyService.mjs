@@ -419,6 +419,60 @@ export class PartyService {
     this.logger?.info?.(`[PartyService] ${avatarId} was kicked from party ${partyId}`);
   }
 
+  /**
+   * Replace one party member's avatar with another (e.g. when a user's avatar
+   * dies and a new one is created).  Atomically swaps the avatarId, updates
+   * leadership if needed, and re-links character sheets.
+   *
+   * @param {string} oldAvatarId - The avatar to remove
+   * @param {string} newAvatarId - The avatar to add in its place
+   * @returns {Promise<Object|null>} The updated party, or null if old avatar wasn't in any party
+   */
+  async replacePartyMember(oldAvatarId, newAvatarId) {
+    const party = await this.getPartyByMember(oldAvatarId);
+    if (!party) return null;
+
+    const col = await this.collection();
+    const oldOid = new ObjectId(oldAvatarId);
+    const newOid = new ObjectId(newAvatarId);
+
+    // Get or create character sheet for the new avatar
+    const sheet = await this._getSheetForParty(newAvatarId);
+
+    // Find the old member entry to preserve their role
+    const oldMember = party.members.find(m => m.avatarId.equals(oldOid));
+    const role = oldMember?.role || 'dps';
+
+    // Atomically swap the member
+    await col.updateOne(
+      { _id: party._id, 'members.avatarId': oldOid },
+      {
+        $set: {
+          'members.$.avatarId': newOid,
+          'members.$.sheetId': sheet?._id || null,
+          'members.$.role': role,
+          'members.$.joinedAt': new Date(),
+          // If old avatar was the leader, transfer leadership to the new avatar
+          ...(party.leaderId.equals(oldOid) ? { leaderId: newOid } : {})
+        }
+      }
+    );
+
+    // Update character sheet party references
+    try { await this.characterService.setParty(oldAvatarId, null); } catch { /* may already be deleted */ }
+    if (sheet) {
+      try { await this.characterService.setParty(newAvatarId, party._id); } catch { /* best effort */ }
+    }
+
+    this.logger?.info?.(
+      `[PartyService] Replaced party member ${oldAvatarId} → ${newAvatarId} in party ${party._id}${
+        party.leaderId.equals(oldOid) ? ' (transferred leadership)' : ''
+      }`
+    );
+
+    return this.getParty(party._id);
+  }
+
   async setRole(partyId, avatarId, role) {
     const validRoles = ['tank', 'healer', 'dps', 'support'];
     if (!validRoles.includes(role)) throw new Error('Invalid role');

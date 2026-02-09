@@ -326,6 +326,14 @@ export class DungeonTool extends BasicTool {
           if (roomImageUrl) {
             recoveryEmbed.image = { url: roomImageUrl };
           }
+
+          // Show monster thumbnail for uncleared combat/boss rooms
+          const recoveryMonsterThumb = (currentRoom?.encounter?.monsters?.length && !currentRoom.cleared)
+            ? currentRoom.encounter.monsters.find(m => m.imageUrl)?.imageUrl
+            : null;
+          if (recoveryMonsterThumb) {
+            recoveryEmbed.thumbnail = { url: recoveryMonsterThumb };
+          }
           
           // Add enemy info if present
           if (currentRoom?.encounter?.monsters?.length && !currentRoom.cleared) {
@@ -501,6 +509,14 @@ export class DungeonTool extends BasicTool {
               
               if (roomImageUrl) {
                 recoveryEmbed.image = { url: roomImageUrl };
+              }
+
+              // Show monster thumbnail for uncleared combat rooms
+              const statusMonsterThumb = (currentRoom?.encounter?.monsters?.length && !currentRoom.cleared)
+                ? currentRoom.encounter.monsters.find(m => m.imageUrl)?.imageUrl
+                : null;
+              if (statusMonsterThumb) {
+                recoveryEmbed.thumbnail = { url: statusMonsterThumb };
               }
               
               // Add room-specific info
@@ -734,6 +750,33 @@ export class DungeonTool extends BasicTool {
     const currentRoom = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
     if (!currentRoom || currentRoom.type !== 'rest') {
       return this._narrateError('Seek a rest room');
+    }
+
+    // Check if rest room is on cooldown (already rested here within the last 24h)
+    if (currentRoom.cleared && currentRoom.clearedAt) {
+      const elapsed = Date.now() - new Date(currentRoom.clearedAt).getTime();
+      const REST_RESET_MS = 24 * 60 * 60 * 1000;
+      if (elapsed < REST_RESET_MS) {
+        const hoursLeft = Math.ceil((REST_RESET_MS - elapsed) / (60 * 60 * 1000));
+        return {
+          embeds: [{
+            author: { name: '🎲 The Dungeon Master' },
+            title: '🏕️ Rest Area On Cooldown',
+            description: `*The campfire smolders low. This sanctuary needs time to restore its magic.*`,
+            color: 0xF59E0B,
+            fields: [
+              { name: '⏳ Available In', value: `~${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`, inline: true }
+            ]
+          }]
+        };
+      }
+      // 24h elapsed — the rest room is available again. Reset it.
+      const roomIndex = dungeon.rooms.findIndex(r => r.id === currentRoom.id);
+      if (roomIndex !== -1) {
+        try {
+          await this.dungeonService._maybeResetRestRoom(dungeon, currentRoom, roomIndex);
+        } catch {}
+      }
     }
 
     const result = await this.characterService.rest(avatar._id, restType);
@@ -1153,15 +1196,34 @@ export class DungeonTool extends BasicTool {
             roomEmbed.image = { url: imageUrl };
           }
 
+          // Show monster thumbnail for uncleared combat/boss rooms
+          const monsterThumb = (!room.cleared && room.encounter?.monsters?.length)
+            ? room.encounter.monsters.find(m => m.imageUrl)?.imageUrl
+            : null;
+          if (monsterThumb) {
+            roomEmbed.thumbnail = { url: monsterThumb };
+          }
+
+          // Build fields based on room state
+          const roomFields = [];
+          if (room.cleared) {
+            roomFields.push({ name: '✅ Cleared', value: 'This room has been cleared.', inline: true });
+          }
           if (room.encounter?.monsters?.length && !room.cleared) {
-            roomEmbed.fields = [{
+            roomFields.push({
               name: '👹 Enemies',
               value: room.encounter.monsters.map(m => 
                 `${m.emoji || '👹'} **${m.name || m.id}** ×${m.count}`
               ).join('\n'),
               inline: false
-            }];
+            });
           }
+          if (room.puzzle && !room.puzzle?.solved) {
+            roomFields.push({ name: '🧩 Riddle', value: `*"${room.puzzle.riddle}"*`, inline: false });
+          } else if (room.puzzle?.solved) {
+            roomFields.push({ name: '🧩 Solved', value: 'The riddle has been answered.', inline: true });
+          }
+          if (roomFields.length) roomEmbed.fields = roomFields;
 
           const ctx = await this.dndTurnContextService?.buildForDungeon?.({ dungeon, channelId: dungeon.threadId, avatarId: avatar?._id })
             .catch(() => null);
@@ -1197,25 +1259,39 @@ export class DungeonTool extends BasicTool {
         roomEmbed.image = { url: imageUrl };
       }
 
+      // Show monster thumbnail for uncleared combat/boss rooms
+      const fallbackMonsterThumb = (!room.cleared && room.encounter?.monsters?.length)
+        ? room.encounter.monsters.find(m => m.imageUrl)?.imageUrl
+        : null;
+      if (fallbackMonsterThumb) {
+        roomEmbed.thumbnail = { url: fallbackMonsterThumb };
+      }
+
+      const fallbackFields = [];
+      if (room.cleared) {
+        fallbackFields.push({ name: '✅ Cleared', value: 'This room has been cleared.', inline: true });
+      }
       if (room.encounter?.monsters?.length && !room.cleared) {
-        roomEmbed.fields = [{
+        fallbackFields.push({
           name: '👹 Enemies',
           value: room.encounter.monsters.map(m => 
             `${m.emoji || '👹'} **${m.name || m.id}** ×${m.count || 1}`
           ).join('\n'),
           inline: false
-        }];
+        });
       }
 
       // If room has unsolved puzzle, show the riddle
       if (room.puzzle && !room.puzzle.solved) {
-        roomEmbed.fields = roomEmbed.fields || [];
-        roomEmbed.fields.push({
+        fallbackFields.push({
           name: '🧩 A Riddle Blocks Your Path',
           value: `*"${room.puzzle.riddle}"*`,
           inline: false
         });
+      } else if (room.puzzle?.solved) {
+        fallbackFields.push({ name: '🧩 Solved', value: 'The riddle has been answered.', inline: true });
       }
+      if (fallbackFields.length) roomEmbed.fields = fallbackFields;
 
       const ctx = await this.dndTurnContextService?.buildForDungeon?.({ dungeon, channelId: dungeon.threadId || dungeon.channelId || null, avatarId: avatar?._id })
         .catch(() => null);
@@ -1762,6 +1838,21 @@ export class DungeonTool extends BasicTool {
   }
 
   _getFallbackRoomNarrative(room, theme) {
+    // Show cleared descriptions when revisiting completed rooms
+    if (room.cleared) {
+      const clearedNarratives = {
+        combat: '*The echoes of battle have faded. Fallen enemies lie still amid scattered weapons and broken shields.*',
+        boss: '*The great beast lies defeated. An eerie calm fills the lair where once a terrible power ruled.*',
+        treasure: '*Empty chests and bare pedestals — the riches have already been claimed.*',
+        puzzle: '*The ancient mechanisms rest in their solved positions. Gears click softly, the way forward open.*',
+        rest: '*The campfire embers still glow faintly. A familiar sanctuary, already used.*',
+        shop: '*The merchant nods in recognition. Their wares have been picked over.*',
+        empty: '*Dust and silence. Nothing new stirs in this empty chamber.*',
+        entrance: '*The entrance stands open. The way forward — and backward — is clear.*'
+      };
+      return clearedNarratives[room.type] || `*This chamber has been cleared. The ${theme || 'mysterious'} dungeon is quieter here.*`;
+    }
+
     const baseNarratives = {
       combat: '*Shadows shift in the darkness. You are not alone...*',
       boss: '*An overwhelming presence fills the chamber. Something ancient and powerful awaits...*',
@@ -1880,9 +1971,29 @@ export class DungeonTool extends BasicTool {
   }
 
   _getRoomImagePrompt(room, theme) {
+    // Include monster names in combat room prompts for more specific imagery
+    const monsterNames = room.encounter?.monsters?.length && !room.cleared
+      ? room.encounter.monsters.map(m => m.name || m.id).join(', ')
+      : null;
+
+    // Use cleared-specific prompts for revisited rooms
+    if (room.cleared) {
+      const clearedPrompts = {
+        combat: `${theme} dungeon chamber after battle, defeated enemies, scattered weapons, dark fantasy RPG, aftermath`,
+        boss: `${theme} dungeon boss lair after victory, fallen beast, empty throne, dark fantasy RPG, triumphant`,
+        treasure: `${theme} dungeon empty treasure room, open chests, bare shelves, fantasy RPG, already looted`,
+        rest: `${theme} dungeon campsite, cooling embers, used bedrolls, fantasy RPG, familiar sanctuary`,
+        puzzle: `${theme} dungeon solved puzzle room, activated mechanisms, open passage, fantasy RPG`,
+        shop: `${theme} underground merchant shop, picked-over wares, fantasy RPG`,
+        empty: `${theme} dungeon empty chamber, abandoned room, fantasy RPG, dust and cobwebs`,
+        entrance: `${theme} dungeon entrance hall, open doorway, fantasy RPG`
+      };
+      return clearedPrompts[room.type] || `${theme} dungeon cleared room, fantasy RPG art, atmospheric`;
+    }
+
     const typePrompts = {
-      combat: `${theme} dungeon combat chamber, enemies lurking, dark fantasy RPG, torchlight, battle arena`,
-      boss: `${theme} dungeon boss lair, massive throne room, dark fantasy RPG, ominous atmosphere, powerful enemy`,
+      combat: `${theme} dungeon combat chamber, ${monsterNames || 'enemies lurking'}, dark fantasy RPG, torchlight, battle arena`,
+      boss: `${theme} dungeon boss lair, ${monsterNames || 'massive throne room'}, dark fantasy RPG, ominous atmosphere, powerful enemy`,
       treasure: `${theme} dungeon treasure room, piles of gold, glittering gems, fantasy RPG, warm torchlight`,
       puzzle: `${theme} dungeon puzzle chamber, ancient mechanisms, mystical runes, fantasy RPG, mysterious`,
       rest: `${theme} dungeon safe room, peaceful alcove, fantasy RPG, soft lighting, sanctuary`,

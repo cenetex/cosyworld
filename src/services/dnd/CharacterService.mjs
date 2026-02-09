@@ -610,4 +610,80 @@ Respond with ONLY a JSON object in this exact format (no markdown, no explanatio
     if (existing) return existing;
     return await this.generateCharacterForAvatar(avatarId);
   }
+
+  // ============ Perception Roll Persistence ============
+
+  /**
+   * Get the perception rolls collection (lazy init)
+   * @private
+   */
+  async _perceptionCollection() {
+    if (!this._perceptionCol) {
+      const db = await this.databaseService.getDatabase();
+      this._perceptionCol = db.collection('perception_rolls');
+      try {
+        await this._perceptionCol.createIndex(
+          { observerId: 1, targetId: 1 },
+          { unique: true }
+        );
+      } catch (e) {
+        this.logger?.warn?.('[CharacterService] Perception index:', e.message);
+      }
+    }
+    return this._perceptionCol;
+  }
+
+  /**
+   * Get a previously stored perception roll (observer inspecting target).
+   * Returns null if the observer has never rolled perception on this target.
+   * @param {string} observerAvatarId - The avatar doing the inspecting
+   * @param {string} targetAvatarId  - The avatar being inspected
+   * @returns {Promise<{roll: number, modifier: number, total: number, createdAt: Date}|null>}
+   */
+  async getPerceptionRoll(observerAvatarId, targetAvatarId) {
+    const col = await this._perceptionCollection();
+    return col.findOne({
+      observerId: String(observerAvatarId),
+      targetId: String(targetAvatarId)
+    });
+  }
+
+  /**
+   * Save a perception roll permanently (roll once, stays forever per pair).
+   * @param {string} observerAvatarId - The avatar doing the inspecting
+   * @param {string} targetAvatarId  - The avatar being inspected
+   * @param {number} roll     - The raw d20 roll
+   * @param {number} modifier - Wisdom (perception) modifier
+   * @param {number} total    - roll + modifier
+   * @returns {Promise<void>}
+   */
+  async savePerceptionRoll(observerAvatarId, targetAvatarId, roll, modifier, total) {
+    const col = await this._perceptionCollection();
+    await col.updateOne(
+      { observerId: String(observerAvatarId), targetId: String(targetAvatarId) },
+      {
+        $setOnInsert: {
+          observerId: String(observerAvatarId),
+          targetId: String(targetAvatarId),
+          roll,
+          modifier,
+          total,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+  }
+
+  /**
+   * Roll a d20 + Wisdom modifier for perception.
+   * @param {Object} observerSheet - The observer's character sheet (needs abilityScores.wis)
+   * @returns {{ roll: number, modifier: number, total: number }}
+   */
+  rollPerception(observerSheet) {
+    const wis = observerSheet?.abilityScores?.wis || 10;
+    const modifier = Math.floor((wis - 10) / 2);
+    const roll = this.diceService.rollDie(20);
+    return { roll, modifier, total: roll + modifier };
+  }
 }

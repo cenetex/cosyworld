@@ -1406,6 +1406,12 @@ export class DiscordService {
         return;
       }
 
+      // Handle character sheet inspection button (perception-gated)
+      if (customId.startsWith('dnd_inspect_sheet_')) {
+        await this._handleInspectSheet(interaction, customId.replace('dnd_inspect_sheet_', ''));
+        return;
+      }
+
       // Get user's avatar using the centralized lookup
       const avatar = await this._getAvatarForInteraction(interaction);
       
@@ -1730,6 +1736,287 @@ export class DiscordService {
       color: 0x7C3AED,
       footer: 'If this persists, try /dungeon status'
     };
+  }
+
+  /**
+   * Handle the "Inspect" button on character summary cards.
+   * Owner sees full sheet; others roll perception (locked per observer+target pair).
+   * @param {ButtonInteraction} interaction
+   * @param {string} targetAvatarId - The avatar ID embedded in the button
+   */
+  async _handleInspectSheet(interaction, targetAvatarId) {
+    const userId = interaction.user.id;
+
+    try {
+      // Resolve services
+      const toolService = this.getToolService?.();
+      const characterService = toolService?.toolServices?.characterService;
+      const avatarService = this.avatarService || toolService?.toolServices?.avatarService;
+      const healthService = toolService?.toolServices?.healthService;
+
+      if (!characterService || !avatarService) {
+        await interaction.reply({ content: '⚠️ Character service not available.', flags: 64 });
+        return;
+      }
+
+      // Look up the target avatar and their sheet
+      const targetAvatar = await avatarService.getAvatarById(targetAvatarId);
+      if (!targetAvatar) {
+        await interaction.reply({ content: '⚠️ That character could not be found.', flags: 64 });
+        return;
+      }
+
+      const targetSheet = await characterService.getSheet(targetAvatarId);
+      if (!targetSheet) {
+        await interaction.reply({
+          embeds: [new EmbedBuilder()
+            .setDescription(`**${targetAvatar.name}** has no adventuring record.`)
+            .setColor(0x6B7280)],
+          flags: 64
+        });
+        return;
+      }
+
+      // Determine if the clicker is the owner of the target avatar
+      const targetSummoner = String(targetAvatar.summoner || '');
+      const isOwner = targetSummoner === `user:${userId}` ||
+                      String(targetAvatar.discordUserId) === userId;
+
+      if (isOwner) {
+        // Owner gets the full sheet (ephemeral)
+        const embed = this._buildFullSheetEmbed(targetAvatar, targetSheet, healthService);
+        await interaction.reply({ embeds: [await embed], flags: 64 });
+        return;
+      }
+
+      // ── Non-owner: perception-gated reveal ──
+      // Get the clicker's own avatar to roll perception
+      const observerAvatar = await avatarService.getAvatarByUserId(userId, interaction.guild?.id);
+      if (!observerAvatar) {
+        // No avatar → show just the public info
+        await interaction.reply({
+          embeds: [this._buildPublicOnlyEmbed(targetAvatar, targetSheet,
+            '*You have no avatar to appraise with.*')],
+          flags: 64
+        });
+        return;
+      }
+
+      const observerSheet = await characterService.getSheet(observerAvatar._id);
+
+      // Check for existing locked perception roll
+      let perceptionData = await characterService.getPerceptionRoll(
+        String(observerAvatar._id), targetAvatarId
+      );
+
+      if (!perceptionData) {
+        // First time inspecting — roll and lock
+        const result = characterService.rollPerception(observerSheet);
+        await characterService.savePerceptionRoll(
+          String(observerAvatar._id), targetAvatarId,
+          result.roll, result.modifier, result.total
+        );
+        perceptionData = result;
+      }
+
+      const { roll, modifier, total } = perceptionData;
+      const modSign = modifier >= 0 ? '+' : '';
+      const rollText = `🎲 Perception: **${roll}** (d20) ${modSign}${modifier} = **${total}**`;
+
+      // Tiered reveal based on total
+      const embed = this._buildPerceptionEmbed(
+        targetAvatar, targetSheet, total, rollText, observerAvatar, healthService
+      );
+      await interaction.reply({ embeds: [await embed], flags: 64 });
+    } catch (error) {
+      this.logger?.error?.(`[DiscordService] Inspect sheet error: ${error.message}`, { stack: error.stack?.slice(0, 500) });
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply({ content: '⚠️ Something went wrong inspecting that character.' });
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: '⚠️ Something went wrong inspecting that character.', flags: 64 });
+        }
+      } catch { /* ignore reply errors */ }
+    }
+  }
+
+  /**
+   * Build the full character sheet embed (for the owner).
+   * @private
+   */
+  async _buildFullSheetEmbed(avatar, sheet, healthService) {
+    // Inline imports to avoid top-level dep
+    const { CLASSES } = await import('../../data/dnd/classes.mjs');
+    const { RACES } = await import('../../data/dnd/races.mjs');
+
+    const classDef = CLASSES[sheet.class];
+    const raceDef = RACES[sheet.race];
+    const abilityScores = sheet.abilityScores || {};
+
+    let currentHp = avatar.stats?.hp || 10;
+    let maxHp = avatar.stats?.maxHp || avatar.stats?.hp || 10;
+    if (healthService) {
+      try {
+        const state = await healthService.getHpState(avatar);
+        if (state) { currentHp = state.currentHp ?? currentHp; maxHp = state.maxHp ?? maxHp; }
+      } catch { /* ignore */ }
+    }
+
+    const hpBar = this._createBar(currentHp, maxHp, 10);
+
+    const statLine = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+      .map(s => {
+        const score = abilityScores[s] || 10;
+        const mod = Math.floor((score - 10) / 2);
+        const sign = mod >= 0 ? '+' : '';
+        return `**${s.toUpperCase()}** ${score} (${sign}${mod})`;
+      })
+      .join(' | ');
+
+    let spellInfo = null;
+    if (sheet.spellcasting) {
+      const slots = Object.entries(sheet.spellcasting.slots || {})
+        .map(([lvl, s]) => `L${lvl}: ${s.current}/${s.max}`)
+        .join(' | ');
+      spellInfo = slots || 'None';
+    }
+
+    const featureList = (sheet.features || [])
+      .slice(0, 3)
+      .map(f => f.uses ? `${f.name} (${f.uses.current}/${f.uses.max})` : f.name)
+      .join('\n') || 'None';
+
+    const fields = [
+      { name: '📊 Ability Scores', value: statLine, inline: false },
+      { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: false },
+      { name: '🎯 Proficiency', value: `+${sheet.proficiencyBonus}`, inline: true },
+      { name: '⭐ XP', value: `${sheet.experience}`, inline: true },
+      { name: '🎲 Hit Dice', value: `${sheet.hitDice.current}/${sheet.hitDice.max}d${sheet.hitDice.size}`, inline: true },
+      { name: '⚔️ Features', value: featureList, inline: false }
+    ];
+
+    if (spellInfo) {
+      fields.splice(5, 0, { name: '✨ Spell Slots', value: spellInfo, inline: false });
+    }
+
+    return new EmbedBuilder()
+      .setTitle(`📜 ${avatar.name}`)
+      .setDescription(`Level ${sheet.level} ${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`)
+      .setColor(0x7C3AED)
+      .setFields(fields)
+      .setThumbnail(avatar.imageUrl || null)
+      .setFooter({ text: 'Your full character sheet' });
+  }
+
+  /**
+   * Build a public-only embed (Name / Race / Class, no stats).
+   * @private
+   */
+  _buildPublicOnlyEmbed(avatar, sheet, footerNote) {
+    const classDef = { name: sheet.class };
+    const raceDef = { name: sheet.race };
+    // Lazy lookup from data files would add complexity; just use raw names
+    return new EmbedBuilder()
+      .setTitle(`${avatar.emoji || '📜'} ${avatar.name}`)
+      .setDescription(`${raceDef.name} ${classDef.name}`)
+      .setColor(0x7C3AED)
+      .setThumbnail(avatar.imageUrl || null)
+      .setFooter({ text: footerNote || 'Perception too low to discern more' });
+  }
+
+  /**
+   * Build a perception-tiered reveal embed.
+   * - Total ≤ 8  : Name / Race / Class only
+   * - Total 9-14 : + Level, HP bar, AC
+   * - Total 15-19: + Ability scores
+   * - Total 20+  : Full sheet
+   * @private
+   */
+  async _buildPerceptionEmbed(targetAvatar, sheet, total, rollText, observerAvatar, healthService) {
+    const { CLASSES } = await import('../../data/dnd/classes.mjs');
+    const { RACES } = await import('../../data/dnd/races.mjs');
+
+    const classDef = CLASSES[sheet.class];
+    const raceDef = RACES[sheet.race];
+    const abilityScores = sheet.abilityScores || {};
+
+    // Always show: Name / Race / Class
+    const baseTitle = `${targetAvatar.emoji || '📜'} ${targetAvatar.name}`;
+    const baseDesc = `${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`;
+
+    if (total <= 8) {
+      // Low — just the public info
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`${baseDesc}\n\n${rollText}`)
+        .setColor(0x95A5A6) // gray
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} squints but can't make out much...` });
+    }
+
+    // Get HP for medium+ tiers
+    let currentHp = targetAvatar.stats?.hp || 10;
+    let maxHp = targetAvatar.stats?.maxHp || targetAvatar.stats?.hp || 10;
+    if (healthService) {
+      try {
+        const state = await healthService.getHpState(targetAvatar);
+        if (state) { currentHp = state.currentHp ?? currentHp; maxHp = state.maxHp ?? maxHp; }
+      } catch { /* ignore */ }
+    }
+
+    if (total <= 14) {
+      // Medium — add Level, HP bar, AC
+      const hpBar = this._createBar(currentHp, maxHp, 10);
+      const ac = 10 + Math.floor(((abilityScores.dex || 10) - 10) / 2);
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`Level ${sheet.level} ${baseDesc}\n\n${rollText}`)
+        .setColor(0xF39C12) // amber
+        .addFields(
+          { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: true },
+          { name: '🛡️ AC', value: `${ac}`, inline: true }
+        )
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} sizes up the character` });
+    }
+
+    if (total <= 19) {
+      // High — add ability scores
+      const hpBar = this._createBar(currentHp, maxHp, 10);
+      const ac = 10 + Math.floor(((abilityScores.dex || 10) - 10) / 2);
+      const statLine = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+        .map(s => {
+          const score = abilityScores[s] || 10;
+          const mod = Math.floor((score - 10) / 2);
+          const sign = mod >= 0 ? '+' : '';
+          return `**${s.toUpperCase()}** ${score} (${sign}${mod})`;
+        })
+        .join(' | ');
+
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`Level ${sheet.level} ${baseDesc}\n\n${rollText}`)
+        .setColor(0x3B82F6) // blue
+        .addFields(
+          { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: true },
+          { name: '🛡️ AC', value: `${ac}`, inline: true },
+          { name: '📊 Ability Scores', value: statLine, inline: false }
+        )
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} studies the character closely` });
+    }
+
+    // 20+ — full sheet (same as owner view)
+    return this._buildFullSheetEmbed(targetAvatar, sheet, healthService);
+  }
+
+  /**
+   * Simple HP bar helper used by inspect embeds
+   * @private
+   */
+  _createBar(current, max, length = 10) {
+    const filled = Math.round((current / Math.max(1, max)) * length);
+    return '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, length - filled));
   }
 
   /**

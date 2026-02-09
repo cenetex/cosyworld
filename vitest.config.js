@@ -40,10 +40,10 @@ export default defineConfig({
       ],
       include: ['src/**/*.mjs'],
       all: true,
-      lines: 10,
-      functions: 10,
-      branches: 10,
-      statements: 10,
+      lines: 30,
+      functions: 25,
+      branches: 20,
+      statements: 30,
     },
     
     // Test file patterns
@@ -65,9 +65,6 @@ export default defineConfig({
     
     // Parallel execution
     threads: true,
-    
-    // Retry failed tests once
-    retry: 1,
     
     // Setup files
     setupFiles: ['./test/setup.mjs'],

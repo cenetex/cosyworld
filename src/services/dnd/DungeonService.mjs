@@ -931,6 +931,16 @@ export class DungeonService {
       }
     }
 
+    // Reset rest rooms whose 24h cooldown has expired so they can be used again
+    const targetRoomIndex = dungeon.rooms.findIndex(r => r.id === roomId);
+    if (targetRoomIndex !== -1 && room.type === 'rest' && room.cleared) {
+      const wasReset = await this._maybeResetRestRoom(dungeon, room, targetRoomIndex);
+      if (wasReset) {
+        room.cleared = false;
+        room.clearedAt = null;
+      }
+    }
+
     const col = await this.collection();
     await col.updateOne(
       { _id: dungeon._id },
@@ -951,6 +961,35 @@ export class DungeonService {
    * @param {boolean} [options.combatVictory] - True if called from combat resolution
    * @param {boolean} [options.force] - Force clear (for admin/debug)
    */
+
+  /** @type {number} Rest rooms reset after 24 hours so players can rest again */
+  static REST_ROOM_RESET_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Check if a rest room's cleared status should be reset (24h cooldown).
+   * Call this before checking `room.cleared` on rest-type rooms.
+   * @param {Object} dungeon - The dungeon document
+   * @param {Object} room - The room object
+   * @param {number} roomIndex - Index of the room in dungeon.rooms
+   * @returns {Promise<boolean>} True if the room was reset
+   */
+  async _maybeResetRestRoom(dungeon, room, roomIndex) {
+    if (room.type !== 'rest' || !room.cleared || !room.clearedAt) return false;
+    const elapsed = Date.now() - new Date(room.clearedAt).getTime();
+    if (elapsed < DungeonService.REST_ROOM_RESET_MS) return false;
+
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: dungeon._id },
+      { $set: {
+        [`rooms.${roomIndex}.cleared`]: false,
+        [`rooms.${roomIndex}.clearedAt`]: null
+      } }
+    );
+    this.logger?.info?.(`[DungeonService] Rest room ${room.id} in dungeon ${dungeon._id} reset after 24h`);
+    return true;
+  }
+
   async clearRoom(dungeonId, roomId, options = {}) {
     const dungeon = await this.getDungeon(dungeonId);
     if (!dungeon) throw new Error('Dungeon not found');
@@ -976,7 +1015,10 @@ export class DungeonService {
     const col = await this.collection();
     await col.updateOne(
       { _id: dungeon._id },
-      { $set: { [`rooms.${roomIndex}.cleared`]: true } }
+      { $set: {
+        [`rooms.${roomIndex}.cleared`]: true,
+        [`rooms.${roomIndex}.clearedAt`]: new Date()
+      } }
     );
 
     // Award XP to party
@@ -1031,6 +1073,52 @@ export class DungeonService {
     // Get party avatars
     const party = await this.partyService.getPartyWithAvatars(dungeon.partyId);
     if (!party) throw new Error('Party not found');
+
+    // ── Validate party members: detect stale/dead/disowned avatars ──
+    // If a member's avatar is dead, missing, or no longer owned by the original
+    // user, attempt to swap in the user's current alive avatar automatically.
+    for (const m of party.members) {
+      if (!m.avatar) continue;
+      const avatarStatus = m.avatar.status || 'alive';
+      const summoner = m.avatar.summoner ? String(m.avatar.summoner) : '';
+      const isStale = avatarStatus === 'dead' || avatarStatus === 'knocked_out'
+        || summoner.startsWith('deceased:');
+
+      if (!isStale) continue;
+
+      // Try to resolve the original owner's current alive avatar
+      let ownerSummoner = summoner;
+      if (summoner.startsWith('deceased:')) {
+        ownerSummoner = summoner.replace(/^deceased:/, '');
+      }
+      if (!ownerSummoner.startsWith('user:')) continue; // AI avatar, skip
+
+      const discordUserId = ownerSummoner.replace(/^user:/, '');
+      const currentAvatar = await this.partyService.avatarService.getAvatarByUserId(discordUserId);
+
+      if (currentAvatar && String(currentAvatar._id) !== String(m.avatarId)) {
+        this.logger?.info?.(
+          `[DungeonService] Stale party member detected: ${m.avatar.name} (status=${avatarStatus}). ` +
+          `Auto-swapping to user's current avatar: ${currentAvatar.name}`
+        );
+        try {
+          await this.partyService.replacePartyMember(
+            String(m.avatarId),
+            String(currentAvatar._id)
+          );
+          // Update in-memory reference so the rest of the method uses the new avatar
+          m.avatar = currentAvatar;
+          m.avatarId = currentAvatar._id;
+        } catch (e) {
+          this.logger?.warn?.(`[DungeonService] Failed to auto-swap stale party member: ${e.message}`);
+        }
+      } else {
+        this.logger?.warn?.(
+          `[DungeonService] Stale party member ${m.avatar.name} (status=${avatarStatus}) ` +
+          `but no replacement avatar found for user ${discordUserId}`
+        );
+      }
+    }
 
     // Mark party avatars appropriately:
     // - Avatars with discordUserId (from summoner or direct): human-controlled (waits for their input)
@@ -1242,6 +1330,29 @@ export class DungeonService {
       this.logger?.warn?.(`[DungeonService] Failed to apply TPK gold penalty: ${e.message}`);
     }
     
+    // Clear knocked_out status on all party members so they can re-enter combat
+    try {
+      const party = await this.partyService.getParty(dungeon.partyId);
+      if (party?.members?.length && this.partyService.avatarService) {
+        const avatarService = this.partyService.avatarService;
+        for (const member of party.members) {
+          try {
+            const avatar = await avatarService.getAvatarById(member.avatarId);
+            if (avatar && (avatar.status === 'knocked_out' || avatar.knockedOutUntil)) {
+              avatar.status = 'active';
+              delete avatar.knockedOutUntil;
+              await avatarService.updateAvatar(avatar);
+              this.logger?.info?.(`[DungeonService] Cleared KO status on ${avatar.name} after TPK reset`);
+            }
+          } catch (e) {
+            this.logger?.warn?.(`[DungeonService] Failed to clear KO for member ${member.avatarId}: ${e.message}`);
+          }
+        }
+      }
+    } catch (e) {
+      this.logger?.warn?.(`[DungeonService] Failed to clear party KO statuses: ${e.message}`);
+    }
+
     // Reset party to entrance room (room_1)
     const col = await this.collection();
     await col.updateOne(

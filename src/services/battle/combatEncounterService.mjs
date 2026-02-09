@@ -531,6 +531,16 @@ export class CombatEncounterService {
     const combatants = Array.from(unique.entries()).map(([aid, a]) => {
       // Always start with MAX HP for a fresh combat, ignoring avatar's current HP
       const maxHp = a.stats?.hp || a.maxHp || a.hp || COMBAT_CONSTANTS.DEFAULT_HP;
+
+      // FIX: Clear stale knocked_out status on the ref object for fresh encounters.
+      // The 24-hour KO cooldown is meant for world PvP, not dungeon re-attempts.
+      // Without this, _isKnockedOut() sees the stale ref.status and skips the
+      // combatant before round 1, causing instant TPK.
+      if (a.status === 'knocked_out') {
+        a.status = 'active';
+        delete a.knockedOutUntil;
+        this.logger?.info?.(`[CombatEncounter] Cleared stale knocked_out status on ${a.name} for fresh encounter`);
+      }
       // Determine if player-controlled (waiting for human input):
       // An avatar is human-controlled if:
       // - Not a monster AND
@@ -844,7 +854,8 @@ export class CombatEncounterService {
         const attackResult = await this.battleService.attack({
           attacker: combatant.ref,
           defender: action.target.ref,
-          defenderIsDefending: !!action.target.isDefending
+          defenderIsDefending: !!action.target.isDefending,
+          encounterManaged: true  // V6: encounter system owns HP tracking
         });
         // Apply damage and state changes
         if (attackResult?.damage) {
@@ -1382,7 +1393,13 @@ One-liner (no quotes):`;
     const current = this.getCombatant(encounter, currentId);
     
     if (this._isKnockedOut(current)) {
-      this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId}`);
+      // Log why the combatant was considered KO'd for debugging
+      const koReason = (current?.currentHp || 0) <= 0 ? 'HP=0'
+        : current?.conditions?.includes('unconscious') ? 'unconscious'
+        : current?.ref?.status === 'dead' ? 'status=dead'
+        : current?.ref?.status === 'knocked_out' ? `stale ref.status=knocked_out (knockedOutUntil=${current.ref?.knockedOutUntil ? new Date(current.ref.knockedOutUntil).toISOString() : 'unset'})`
+        : 'knockedOutUntil timer';
+      this.logger.info?.(`[CombatEncounter] skipping turn for KO'd combatant ${current?.name || currentId} — reason: ${koReason}`);
       if (this.evaluateEnd(encounter)) return;
       // Skip to next turn immediately
       setImmediate(() => this.nextTurn(encounter));
@@ -1909,11 +1926,12 @@ One-liner (no quotes):`;
   async completePlayerAction(channelId, avatarId, actionResult = {}) {
     this.logger?.info?.(`[CombatEncounter] completePlayerAction called: channelId=${channelId}, avatarId=${avatarId}, damage=${actionResult.damage}, targetId=${actionResult.targetId}`);
     try {
-      // V3 FIX: Validate lock state
+      // V6 FIX: Validate lock state — reject if not in a valid action state.
+      // Previously this logged but continued, allowing duplicate/stale actions.
       const lockState = this.turnLock.getState(channelId);
       if (lockState !== TURN_STATES.AWAITING_INPUT && lockState !== TURN_STATES.EXECUTING) {
-        this.logger?.debug?.(`[CombatEncounter] completePlayerAction: wrong lock state (${lockState})`);
-        // Don't return - allow action to complete if encounter is valid
+        this.logger?.debug?.(`[CombatEncounter] completePlayerAction: wrong lock state (${lockState}), rejecting`);
+        return;
       }
 
       const encounter = this.getEncounterByChannelId(channelId);
@@ -3646,9 +3664,11 @@ Message: ${messageContent}`;
       isPlayerControlled: current.isPlayerControlled
     });
     
-    // Skip round 1 turn announcements (combat start embed handles this)
-    if (encounter.round === 1 && encounter.currentTurnIndex === 0) {
-      this.logger.debug?.(`[CombatEncounter] skipping round 1 first turn announcement`);
+    // V6 FIX: Always show the turn announcement for PLAYER turns (including round 1 turn 0).
+    // The combat start embed shows the encounter, but the player still needs the
+    // "Take Your Turn" button to actually act.  Skip only for AI/monster turns on round 1.
+    if (encounter.round === 1 && encounter.currentTurnIndex === 0 && !current.isPlayerControlled) {
+      this.logger.debug?.(`[CombatEncounter] skipping round 1 first turn announcement (AI/monster)`);
       return;
     }
     
@@ -4243,11 +4263,21 @@ Message: ${messageContent}`;
     for (const [channelId, enc] of this.encounters.entries()) {
       if (enc.state === 'active') {
         try {
-          // Check if current combatant is player-controlled - NEVER timeout player turns
           const currentId = this.getCurrentTurnAvatarId(enc);
           const current = currentId ? this.getCombatant(enc, currentId) : null;
+          
+          // V6 FIX: For player turns, don't skip their turn but DO re-announce
+          // if the lock expired (the lock silently clears after 60s, leaving combat
+          // stalled with no prompt). Re-announce so the player sees buttons again.
           if (current?.isPlayerControlled && !current?.autoMode) {
-            // Player is thinking - don't nudge, they get unlimited time
+            const lockState = this.turnLock.getState(channelId);
+            if (lockState === TURN_STATES.IDLE || lockState === null) {
+              // Lock expired — player's turn is still active but UI vanished
+              this.logger.info?.(`[CombatEncounter][${channelId}] watchdog: re-announcing stalled player turn for ${current.name}`);
+              current.awaitingAction = true;
+              this._scheduleTurnStart(enc);
+            }
+            // Otherwise player is still in a valid lock state — let them think
             continue;
           }
           

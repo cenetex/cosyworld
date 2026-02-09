@@ -609,10 +609,10 @@ export class ToolService {
     const inCombat = (() => {
       try { return ces?.isInActiveCombat?.(message.channel.id, avatar.id || avatar._id) || false; } catch { return false; }
     })();
-  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
+  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee', 'cast', 'challenge']);
   const isItemUse = toolName === 'item' && Array.isArray(params) && params[0] && String(params[0]).toLowerCase() === 'use';
   if (inCombat && !combatAllowed.has(toolName) && !isItemUse) {
-      return normalizeToolResult({ message: `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]` });
+      return normalizeToolResult({ message: `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🪄 cast, 🛡️ defend, 🫥 hide, or 🏃 flee. ]` });
     }
 
     let rawResult;
@@ -633,6 +633,8 @@ export class ToolService {
       }
       // Provide discordService for downstream actions (e.g., KO movement)
       if (this.discordService && !context.discordService) context.discordService = this.discordService;
+      // V6: Provide toolService ref so tools can delegate (e.g., challenge → attack in combat)
+      if (!context.toolService) context.toolService = this;
       rawResult = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {

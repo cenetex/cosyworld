@@ -92,6 +92,10 @@ export class CastTool extends BasicTool {
         if (!ces.isTurn(encounter, avatarId)) {
           return null; // Silent out-of-turn
         }
+        // V6 FIX: Atomically claim the turn BEFORE casting the spell
+        // Prevents race condition where two rapid casts both pass isTurn()
+        const combatant = ces.getCombatant(encounter, avatarId);
+        if (combatant) combatant.awaitingAction = false;
       }
 
       // Get target(s)

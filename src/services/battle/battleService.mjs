@@ -216,7 +216,7 @@ export class BattleService  {
     return Math.max(1, damage + strMod);
   }
 
-  async attack({ message: _message, attacker, defender, defenderIsDefending = null, services: _services }) {
+  async attack({ message: _message, attacker, defender, defenderIsDefending = null, services: _services, encounterManaged = false }) {
     const publish = this._publish;
     const channelId = _message?.channel?.id;
     const corrId = _message?.id || null;
@@ -283,27 +283,37 @@ export class BattleService  {
       
       let currentHp = null;
       let maxHp = targetStats.hp;
-      if (this.healthService) {
-        const state = await this.healthService.applyDamage(defender, damage, { source: 'battle:attack' });
-        currentHp = state?.currentHp ?? null;
-        maxHp = state?.maxHp ?? maxHp;
-        if (!Number.isFinite(currentHp)) {
+      
+      // V6: When encounterManaged is true, the CombatEncounterService owns HP tracking.
+      // Skip healthService/statService persistence to avoid errors with pseudo-avatar monsters
+      // that don't exist in the avatars DB.  completePlayerAction → applyDamage handles it.
+      if (!encounterManaged) {
+        if (this.healthService) {
+          const state = await this.healthService.applyDamage(defender, damage, { source: 'battle:attack' });
+          currentHp = state?.currentHp ?? null;
+          maxHp = state?.maxHp ?? maxHp;
+          if (!Number.isFinite(currentHp)) {
+            const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
+            currentHp = targetStats.hp - totalDamage;
+          }
+        } else {
+          await this.statService.createModifier('damage', damage, { avatarId: defender._id });
           const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
           currentHp = targetStats.hp - totalDamage;
         }
+
+        targetStats.isDefending = false;
+        await this.avatarService.updateAvatarStats(defender, targetStats);
+
+        if (Number.isFinite(currentHp) && currentHp <= 0) {
+          const ko = await this.handleKnockout({ message: _message, targetAvatar: defender, damage, attacker, services: _services, corrId });
+          publish?.({ type: ko.result === 'dead' ? 'combat.death' : 'combat.knockout', source: 'BattleService', corrId, payload: { attackerId: attacker._id || attacker.id, defenderId: defender._id || defender.id, damage, livesRemaining: defender.lives, critical: isCritical, channelId } });
+          return ko;
+        }
       } else {
-        await this.statService.createModifier('damage', damage, { avatarId: defender._id });
-        const totalDamage = await this.statService.getTotalModifier(defender._id, 'damage');
-        currentHp = targetStats.hp - totalDamage;
-      }
-
-      targetStats.isDefending = false;
-      await this.avatarService.updateAvatarStats(defender, targetStats);
-
-      if (Number.isFinite(currentHp) && currentHp <= 0) {
-        const ko = await this.handleKnockout({ message: _message, targetAvatar: defender, damage, attacker, services: _services, corrId });
-        publish?.({ type: ko.result === 'dead' ? 'combat.death' : 'combat.knockout', source: 'BattleService', corrId, payload: { attackerId: attacker._id || attacker.id, defenderId: defender._id || defender.id, damage, livesRemaining: defender.lives, critical: isCritical, channelId } });
-        return ko;
+        // Encounter-managed: compute HP from defender's in-memory state without DB writes
+        maxHp = defender.maxHp || targetStats.hp || 10;
+        currentHp = Math.max(0, (defender.currentHp ?? maxHp) - damage);
       }
 
       // Build detailed hit message
@@ -323,8 +333,10 @@ export class BattleService  {
       }
       return res;
     } else {
-      targetStats.isDefending = false;
-      await this.avatarService.updateAvatarStats(defender, targetStats);
+      if (!encounterManaged) {
+        targetStats.isDefending = false;
+        await this.avatarService.updateAvatarStats(defender, targetStats);
+      }
       const res = { result: 'miss', message: `-# 🛡️ [ ${attacker.name}'s ${weaponName} attack misses ${defender.name}! (${attackRoll} vs AC ${armorClass}) ]`, attackRoll, armorClass, rawRoll, weapon: weaponName };
       this.logger?.info?.(`[BattleService] Miss: ${attacker.name} → ${defender.name} atk=${attackRoll} vs AC ${armorClass} weapon=${weaponName}`);
       publish?.({ type: 'combat.attack.miss', source: 'BattleService', corrId, payload: { attackerId: attacker._id || attacker.id, defenderId: defender._id || defender.id, attackRoll, armorClass, rawRoll, weapon: weaponName, channelId } });

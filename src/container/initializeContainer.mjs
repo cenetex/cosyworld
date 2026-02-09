@@ -6,9 +6,8 @@
  */
 
 import { asClass, asFunction, asValue } from 'awilix';
-import { globby } from 'globby';
-import path from 'path';
-import { fileURLToPath } from 'url';
+
+import { registerDiscoveredServices } from './registerDiscoveredServices.mjs';
 
 import { validateEnv } from '../config/validateEnv.mjs';
 
@@ -58,10 +57,6 @@ import { WikiGardenerService } from '../services/wiki/wikiGardenerService.mjs';
 import { ImageGenerationRateLimiter } from '../services/ai/imageGenerationRateLimiter.mjs';
 import { UnifiedChatAgent } from '../services/agent/unifiedChatAgent.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const srcDir = path.resolve(__dirname, '..');
-
 export async function initializeContainer({ container, logger, configService }) {
   try {
     try {
@@ -98,7 +93,7 @@ export async function initializeContainer({ container, logger, configService }) 
         container.register({ googleAIService: asValue(googleAIService) });
       }
     } catch (e) {
-      console.warn('[container] Failed to init optional GoogleAIService:', e.message);
+      logger.warn('[container] Failed to init optional GoogleAIService:', e.message);
     }
 
     // Precreate crossmint as value; dynamic loader may also provide class, so guard duplicates
@@ -221,30 +216,8 @@ export async function initializeContainer({ container, logger, configService }) 
       marketplaceServiceRegistry: asClass(MarketplaceServiceRegistry).singleton(),
     });
 
-    // Dynamically register remaining services
-    const servicePaths = await globby(['./services/**/*.mjs'], {
-      cwd: srcDir,
-      absolute: true,
-      followSymbolicLinks: true,
-    });
-
-    for (const file of servicePaths) {
-      try {
-        const mod = await import(file);
-        const isClass = (v) => typeof v === 'function' && /^\s*class\s/.test(v.toString());
-        const exportsArray = Object.entries(mod);
-        const defaultIsClass = isClass(mod.default);
-        const namedClass = exportsArray.map(([, v]) => v).find(isClass);
-        const ServiceClass = defaultIsClass ? mod.default : namedClass;
-        if (!ServiceClass) continue;
-        const fileName = path.basename(file, '.mjs');
-        const camelName = fileName.charAt(0).toLowerCase() + fileName.slice(1);
-        if (container.registrations[camelName]) continue;
-        container.register(camelName, asClass(ServiceClass).singleton());
-      } catch (err) {
-        console.error(`Failed to register service from ${file}:`, err);
-      }
-    }
+    // Explicitly register all discovered services (replaces dynamic globby scan)
+    registerDiscoveredServices({ container, logger });
 
     // Provide a stable alias 'aiService' that respects AI_SERVICE
     try {
@@ -252,32 +225,32 @@ export async function initializeContainer({ container, logger, configService }) 
 
       if (preferred === 'swarm' && container.registrations.swarmAIService) {
         container.register({ aiService: asValue(container.resolve('swarmAIService')) });
-        console.log('[container] Registered aiService alias pointing to swarmAIService');
+        logger.info('[container] Registered aiService alias pointing to swarmAIService');
       } else if (preferred === 'ollama' && container.registrations.ollamaService) {
         container.register({ aiService: asValue(container.resolve('ollamaService')) });
-        console.log('[container] Registered aiService alias pointing to ollamaService');
+        logger.info('[container] Registered aiService alias pointing to ollamaService');
       } else if (preferred === 'google' && container.registrations.googleAIService) {
         container.register({ aiService: asValue(container.resolve('googleAIService')) });
-        console.log('[container] Registered aiService alias pointing to googleAIService');
+        logger.info('[container] Registered aiService alias pointing to googleAIService');
       } else if (container.registrations.openrouterAIService) {
         const openrouterAIService = container.resolve('openrouterAIService');
         if (openrouterAIService?.ready) await openrouterAIService.ready;
         container.register({ aiService: asValue(openrouterAIService) });
-        console.log('[container] Registered aiService alias pointing to openrouterAIService');
-        console.log(
+        logger.info('[container] Registered aiService alias pointing to openrouterAIService');
+        logger.info(
           `[container] OpenRouter models registered: ${container
             .resolve('aiModelService')
             .getAllModels('openrouter').length}`
         );
       } else if (container.registrations.ollamaService) {
         container.register({ aiService: asValue(container.resolve('ollamaService')) });
-        console.log('[container] Registered aiService alias pointing to ollamaService');
+        logger.info('[container] Registered aiService alias pointing to ollamaService');
       } else if (container.registrations.googleAIService) {
         container.register({ aiService: asValue(container.resolve('googleAIService')) });
-        console.log('[container] Registered aiService alias pointing to googleAIService');
+        logger.info('[container] Registered aiService alias pointing to googleAIService');
       }
     } catch (e) {
-      console.warn('[container] Failed to set aiService alias:', e.message);
+      logger.warn('[container] Failed to set aiService alias:', e.message);
     }
 
     // Create MediaGenerationService after dynamic services (veoService) are available
@@ -298,7 +271,7 @@ export async function initializeContainer({ container, logger, configService }) 
         hasAI: !!aiService,
       });
     } catch (e) {
-      console.warn('[container] Failed to init MediaGenerationService:', e.message);
+      logger.warn('[container] Failed to init MediaGenerationService:', e.message);
     }
 
     // Create MediaIndexService for semantic media search
@@ -312,7 +285,7 @@ export async function initializeContainer({ container, logger, configService }) 
       container.register({ mediaIndexService: asValue(mediaIndexService) });
       logger.info('[container] ✅ MediaIndexService initialized');
     } catch (e) {
-      console.warn('[container] Failed to init MediaIndexService:', e.message);
+      logger.warn('[container] Failed to init MediaIndexService:', e.message);
     }
 
     // Create UnifiedChatAgent for cross-platform AI agent functionality (Telegram + Discord)
@@ -344,7 +317,7 @@ export async function initializeContainer({ container, logger, configService }) 
       container.register({ unifiedChatAgent: asValue(unifiedChatAgent) });
       logger.info('[container] ✅ UnifiedChatAgent initialized (Telegram + Discord AI agent)');
     } catch (e) {
-      console.warn('[container] Failed to init UnifiedChatAgent:', e.message);
+      logger.warn('[container] Failed to init UnifiedChatAgent:', e.message);
     }
 
     // Provide late-binding getters early to break circular deps
@@ -362,6 +335,9 @@ export async function initializeContainer({ container, logger, configService }) 
     });
     container.register({
       getUnifiedChatAgent: asFunction(() => () => container.resolve('unifiedChatAgent')).singleton(),
+    });
+    container.register({
+      getPartyService: asFunction(() => () => container.resolve('partyService')).singleton(),
     });
 
     // Late-binding unifiedAIService
@@ -394,42 +370,42 @@ export async function initializeContainer({ container, logger, configService }) 
         if (wrappedName === 'openrouterAIService' && base?.ready) await base.ready;
         unifiedAIService = new UnifiedAIService({ aiService: base, logger, configService });
         container.register({ unifiedAIService: asValue(unifiedAIService) });
-        console.log('[container] Registered unifiedAIService wrapping', wrappedName);
+        logger.info('[container] Registered unifiedAIService wrapping', wrappedName);
 
         try {
           if (container.registrations.decisionMaker && container.cradle.decisionMaker) {
             container.cradle.decisionMaker.unifiedAIService = unifiedAIService;
-            console.log('[container] Injected unifiedAIService into existing decisionMaker instance.');
+            logger.info('[container] Injected unifiedAIService into existing decisionMaker instance.');
           }
         } catch (e) {
-          console.warn('[container] Failed to inject unifiedAIService into decisionMaker:', e.message);
+          logger.warn('[container] Failed to inject unifiedAIService into decisionMaker:', e.message);
         }
       }
     } catch (e) {
-      console.warn('[container] Failed late unifiedAIService init:', e.message);
+      logger.warn('[container] Failed late unifiedAIService init:', e.message);
     }
 
-    console.log('🔧 registered services:', Object.keys(container.registrations));
+    logger.info('🔧 registered services:', Object.keys(container.registrations));
 
     // Start combat narrative listeners
     try {
       if (container.registrations.combatNarrativeService) {
         const narr = container.resolve('combatNarrativeService');
         narr.start();
-        console.log('[container] CombatNarrativeService started.');
+        logger.info('[container] CombatNarrativeService started.');
       }
     } catch (e) {
-      console.warn('[container] Failed to start CombatNarrativeService:', e.message);
+      logger.warn('[container] Failed to start CombatNarrativeService:', e.message);
     }
 
     // Initialize background image analyzer (listens to MESSAGE.CREATED events)
     try {
       if (container.registrations.backgroundImageAnalyzer) {
         container.resolve('backgroundImageAnalyzer');
-        console.log('[container] BackgroundImageAnalyzer initialized and listening for image events.');
+        logger.info('[container] BackgroundImageAnalyzer initialized and listening for image events.');
       }
     } catch (e) {
-      console.warn('[container] Failed to initialize BackgroundImageAnalyzer:', e.message);
+      logger.warn('[container] Failed to initialize BackgroundImageAnalyzer:', e.message);
     }
 
     // Parallelize independent service initializations
@@ -441,9 +417,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const chatAgent = container.resolve('unifiedChatAgent');
             await chatAgent.initialize();
-            console.log('[container] UnifiedChatAgent initialized (Telegram + Discord AI agent).');
+            logger.info('[container] UnifiedChatAgent initialized (Telegram + Discord AI agent).');
           } catch (e) {
-            console.warn('[container] Failed to initialize UnifiedChatAgent:', e.message);
+            logger.warn('[container] Failed to initialize UnifiedChatAgent:', e.message);
           }
         })()
       );
@@ -455,9 +431,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const memService = container.resolve('avatarLocationMemory');
             await memService.init();
-            console.log('[container] AvatarLocationMemory initialized.');
+            logger.info('[container] AvatarLocationMemory initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
+            logger.warn('[container] Failed to initialize AvatarLocationMemory:', e.message);
           }
         })()
       );
@@ -469,9 +445,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const combatEncounterService = container.resolve('combatEncounterService');
             await combatEncounterService.loadActiveEncounters?.();
-            console.log('[container] CombatEncounterService active encounters loaded.');
+            logger.info('[container] CombatEncounterService active encounters loaded.');
           } catch (e) {
-            console.warn('[container] Failed to load active encounters:', e.message);
+            logger.warn('[container] Failed to load active encounters:', e.message);
           }
         })()
       );
@@ -483,9 +459,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const locService = container.resolve('locationService');
             await locService.initializeDatabase();
-            console.log('[container] LocationService indexes initialized.');
+            logger.info('[container] LocationService indexes initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize LocationService:', e.message);
+            logger.warn('[container] Failed to initialize LocationService:', e.message);
           }
         })()
       );
@@ -497,9 +473,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const globalBot = container.resolve('globalBotService');
             await globalBot.initialize();
-            console.log('[container] GlobalBotService initialized.');
+            logger.info('[container] GlobalBotService initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize GlobalBotService:', e.message);
+            logger.warn('[container] Failed to initialize GlobalBotService:', e.message);
           }
         })()
       );
@@ -511,9 +487,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const storyState = container.resolve('storyStateService');
             await storyState.createIndexes();
-            console.log('[container] StoryStateService indexes created.');
+            logger.info('[container] StoryStateService indexes created.');
           } catch (e) {
-            console.warn('[container] Failed to create StoryStateService indexes:', e.message);
+            logger.warn('[container] Failed to create StoryStateService indexes:', e.message);
           }
         })()
       );
@@ -525,9 +501,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const storyPlanner = container.resolve('storyPlannerService');
             await storyPlanner.initialize();
-            console.log('[container] StoryPlannerService initialized.');
+            logger.info('[container] StoryPlannerService initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize StoryPlannerService:', e.message);
+            logger.warn('[container] Failed to initialize StoryPlannerService:', e.message);
           }
         })()
       );
@@ -539,9 +515,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const storyScheduler = container.resolve('storySchedulerService');
             await storyScheduler.initialize();
-            console.log('[container] StorySchedulerService initialized.');
+            logger.info('[container] StorySchedulerService initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize StorySchedulerService:', e.message);
+            logger.warn('[container] Failed to initialize StorySchedulerService:', e.message);
           }
         })()
       );
@@ -553,9 +529,9 @@ export async function initializeContainer({ container, logger, configService }) 
           try {
             const roster = container.resolve('openrouterModelRosterSchedulerService');
             await roster.initialize();
-            console.log('[container] OpenrouterModelRosterSchedulerService initialized.');
+            logger.info('[container] OpenrouterModelRosterSchedulerService initialized.');
           } catch (e) {
-            console.warn('[container] Failed to initialize OpenrouterModelRosterSchedulerService:', e.message);
+            logger.warn('[container] Failed to initialize OpenrouterModelRosterSchedulerService:', e.message);
           }
         })()
       );
@@ -569,11 +545,11 @@ export async function initializeContainer({ container, logger, configService }) 
         const s3Service = container.resolve('s3Service');
         if (s3Service && !googleAIService.s3Service) {
           googleAIService.s3Service = s3Service;
-          console.log('[container] Injected s3Service into googleAIService for image generation fallback.');
+          logger.info('[container] Injected s3Service into googleAIService for image generation fallback.');
         }
       }
     } catch (e) {
-      console.warn('[container] Failed post-injection for googleAIService:', e.message);
+      logger.warn('[container] Failed post-injection for googleAIService:', e.message);
     }
 
     // Prevent unused import warning if kept elsewhere.

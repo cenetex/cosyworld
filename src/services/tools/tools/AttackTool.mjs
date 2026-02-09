@@ -97,12 +97,20 @@ export class AttackTool extends BasicTool {
     let dungeonTargets = [];
     let inDungeon = false;
     
-    if (dungeonService && characterService) {
+    if (dungeonService) {
       try {
-        const sheet = await characterService.getSheet(avatar._id);
-        if (sheet?.partyId) {
-          const dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
-          if (dungeon) {
+        // Try channel-based lookup first (works even if avatar has no partyId yet)
+        let dungeon = await dungeonService.getActiveDungeonByChannel?.(message.channel.id);
+
+        // Fallback: check via character sheet → partyId → dungeon
+        if (!dungeon && characterService) {
+          const sheet = await characterService.getSheet(avatar._id);
+          if (sheet?.partyId) {
+            dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
+          }
+        }
+
+        if (dungeon) {
             inDungeon = true;
             const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
             if (room?.encounter?.monsters?.length && !room.cleared) {
@@ -123,7 +131,6 @@ export class AttackTool extends BasicTool {
               }
               dungeonTargets = Array.from(monsterMap.values());
             }
-          }
         }
       } catch (e) {
         this.logger?.warn?.(`[AttackTool] Dungeon check failed: ${e.message}`);
@@ -223,6 +230,12 @@ export class AttackTool extends BasicTool {
               return null;
             }
             
+            // V6 FIX: Atomically claim the turn BEFORE dealing damage
+            // This prevents the race condition where two rapid emoji messages
+            // both pass isTurn() before completePlayerAction sets awaitingAction=false
+            const combatant = encounterService.getCombatant(encounter, attackerId);
+            if (combatant) combatant.awaitingAction = false;
+            
             // Execute attack against combat target
             this.logger?.info?.(`[AttackTool][${message.channel.id}] ${avatar.name} attacks ${target.name} (via CombatTargetRegistry)`);
             
@@ -237,7 +250,8 @@ export class AttackTool extends BasicTool {
               message, 
               attacker: avatar, 
               defender: target.ref || target, 
-              services 
+              services,
+              encounterManaged: true  // V6: encounter system owns HP tracking
             });
             
             try { resolveBlocker?.(); } catch {}
@@ -279,13 +293,19 @@ export class AttackTool extends BasicTool {
         }
       }
 
-      // Check if we're in a dungeon encounter first (via context or dungeonService)
+      // Check if we're in a dungeon encounter first (via channel or partyId)
       
-      if (dungeonService && characterService) {
-        const sheet = await characterService.getSheet(avatar._id);
-        if (sheet?.partyId) {
-          const dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
-          if (dungeon) {
+      if (dungeonService) {
+        // Channel-based lookup first, then partyId fallback
+        let dungeon = await dungeonService.getActiveDungeonByChannel?.(message.channel.id);
+        if (!dungeon && characterService) {
+          try {
+            const sheet = await characterService.getSheet(avatar._id);
+            if (sheet?.partyId) dungeon = await dungeonService.getActiveDungeon(sheet.partyId);
+          } catch {}
+        }
+
+        if (dungeon) {
             // We're in a dungeon! Check for room monsters
             const room = dungeon.rooms.find(r => r.id === dungeon.currentRoom);
             if (room?.encounter?.monsters?.length && !room.cleared) {
@@ -300,11 +320,13 @@ export class AttackTool extends BasicTool {
               });
               
               if (monsterMatch) {
-                // Start or continue dungeon combat
+                // V6 FIX: Always route through the encounter system — never call
+                // battleService.attack directly, as that bypasses turn tracking
+                // and allows unlimited attacks outside the initiative order.
                 let dungeonEncounter = encounterService?.getEncounter(message.channel.id);
                 
                 if (!dungeonEncounter || !dungeonEncounter.dungeonContext) {
-                  // Start dungeon combat
+                  // Start dungeon combat — this creates the encounter and rolls initiative
                   dungeonEncounter = await dungeonService.startRoomCombat(
                     String(dungeon._id), 
                     dungeon.currentRoom, 
@@ -315,26 +337,13 @@ export class AttackTool extends BasicTool {
                   }
                 }
                 
-                const monsterKey = (monsterMatch.name || monsterMatch.id || monsterMatch.monsterId || '').toLowerCase() || targetText.toLowerCase();
-                // Find the monster combatant by name match
-                const monsterCombatant = dungeonEncounter.combatants?.find(p => 
-                  p.isMonster && p.name?.toLowerCase?.().includes(monsterKey)
-                );
-                
-                if (monsterCombatant) {
-                  // Use battleService to attack the monster
-                  const result = await this.battleService.attack({ 
-                    message, 
-                    attacker: avatar, 
-                    defender: monsterCombatant, 
-                    services 
-                  });
-                  return result.message;
-                }
+                // Now that the encounter exists, the top-of-function active-encounter
+                // block will handle it on the player's next attack attempt. Show a
+                // prompt with the target buttons so the player can re-select.
+                return `-# ⚔️ [ Combat has begun! Use the **Take Your Turn** button or 🗡️ to attack. ]`;
               }
             }
           }
-        }
       }
 
       // Fall through to normal map-based attack

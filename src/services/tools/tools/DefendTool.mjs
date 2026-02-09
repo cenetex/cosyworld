@@ -44,6 +44,9 @@ export class DefendTool extends BasicTool {
       if (inEncounter && inEncounter.state === 'active') {
         try {
           if (!ces.isTurn(inEncounter, avatar.id || avatar._id)) return null; // silent out-of-turn
+          // V6 FIX: Atomically claim the turn before executing
+          const combatant = ces.getCombatant(inEncounter, avatar.id || avatar._id);
+          if (combatant) combatant.awaitingAction = false;
           await this.battleService.defend({ avatar });
           // Reflect in encounter state
           try {

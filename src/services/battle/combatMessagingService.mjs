@@ -255,6 +255,11 @@ export class CombatMessagingService {
         if (dmNarration) {
           actionEmbed.description += `\n\n*${dmNarration.replace(/^\*|\*$/g, '')}*`;
         }
+        // Add actor thumbnail if available (especially for monsters)
+        const actorImage = combatant.ref?.imageUrl || combatant.ref?.image || combatant.imageUrl || null;
+        if (actorImage) {
+          actionEmbed.thumbnail = { url: actorImage };
+        }
         await channel.send({ embeds: [actionEmbed] });
         this.logger?.info?.(`[CombatMessaging] Posted action embed for ${combatant?.name}'s ${action?.type}`);
       } else {
@@ -289,7 +294,18 @@ export class CombatMessagingService {
         ? MESSAGE_TEMPLATES.death(attacker.name, victim.name)
         : MESSAGE_TEMPLATES.knockout(attacker.name, victim.name, victim.ref?.lives || 0);
 
-      await channel.send({ content: message });
+      // Show victim's image as a thumbnail on knockout/death
+      const victimImage = victim.ref?.imageUrl || victim.ref?.image || victim.imageUrl || null;
+      if (victimImage) {
+        const embed = {
+          description: message,
+          color: result.result === 'dead' ? 0x1a1a2e : 0xFF6347,
+          thumbnail: { url: victimImage }
+        };
+        await channel.send({ embeds: [embed] });
+      } else {
+        await channel.send({ content: message });
+      }
     } catch (e) {
       this.logger.warn?.(`[CombatMessaging] Knockout post failed: ${e.message}`);
     }
@@ -386,6 +402,12 @@ export class CombatMessagingService {
         )
         .setFooter({ text: `${encounter.round} round(s) • ${encounter.endReason}` })
         .setTimestamp();
+
+      // Add winner's image as thumbnail if available
+      const winnerImage = winner?.ref?.imageUrl || winner?.ref?.image || winner?.imageUrl || null;
+      if (winnerImage) {
+        embed.setThumbnail(winnerImage);
+      }
 
       // Add video generation button if enabled
       const components = [];
