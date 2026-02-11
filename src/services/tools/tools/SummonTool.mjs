@@ -1092,7 +1092,7 @@ export class SummonTool extends BasicTool {
       const guildConfig = await this.configService.getGuildConfig(guildId, true);
       const guildAvatarModes = guildConfig?.avatarModes || {};
       const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildAvatarModes);
-      const onChainDisabled = !allowOnChain;
+      const _onChainDisabled = !allowOnChain;
       const collectionDisabled = !allowCollection;
       const freeSummonsDisabled = Boolean(guildId) && !allowFree;
       const allowModelSummons = allowPureModel;

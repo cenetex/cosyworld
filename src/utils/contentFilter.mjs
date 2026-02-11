@@ -64,6 +64,7 @@ export function isCashtag(text) {
  */
 export function containsUrl(text) {
   if (!text || typeof text !== 'string') return false;
+  URL_REGEX.lastIndex = 0;
   return URL_REGEX.test(text);
 }
 

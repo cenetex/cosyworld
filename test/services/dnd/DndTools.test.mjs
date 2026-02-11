@@ -203,14 +203,14 @@ describe('CharacterTool', () => {
       expect(result.embeds[0].title).toContain(avatar.name);
     });
 
-    it('should return error if no sheet exists', async () => {
+    it('should show race selection if no sheet exists', async () => {
       deps.characterService.getSheet.mockResolvedValue(null);
       const avatar = createMockAvatar();
       const message = createMockMessage();
 
       const result = await tool.execute(message, ['sheet'], avatar);
 
-      expect(result.embeds[0].color).toBe(0x6B7280); // Gray for "no sheet"
+      expect(result.embeds[0].color).toBe(0x7C3AED); // Purple for race selection
     });
   });
 
