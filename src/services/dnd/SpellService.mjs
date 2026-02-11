@@ -202,7 +202,8 @@ export class SpellService {
         if (result.hit && spell.damage) {
           result.damage = this._rollDamage(spell, upcastLevels, result.critical, stats.casterLevel);
           result.damageType = spell.damage.type;
-          if (!combatant?.isMonster) {
+          // Skip persistent HP when in combat — encounter tracks HP via applyDamage
+          if (!inCombat && !combatant?.isMonster) {
             await this._applyDamage(targetId, result.damage, result.damageType);
           }
         }
@@ -213,7 +214,8 @@ export class SpellService {
         result.hit = true;
         result.damage = this._rollDamage(spell, upcastLevels, false, stats.casterLevel);
         result.damageType = spell.damage.type;
-        if (!combatant?.isMonster) {
+        // Skip persistent HP when in combat — encounter tracks HP via applyDamage
+        if (!inCombat && !combatant?.isMonster) {
           await this._applyDamage(targetId, result.damage, result.damageType);
         }
       }
@@ -232,7 +234,8 @@ export class SpellService {
           if (result.saved) damage = Math.floor(damage / 2);
           result.damage = damage;
           result.damageType = spell.damage.type;
-          if (damage > 0 && !combatant?.isMonster) {
+          // Skip persistent HP when in combat — encounter tracks HP via applyDamage
+          if (damage > 0 && !inCombat && !combatant?.isMonster) {
             await this._applyDamage(targetId, damage, result.damageType);
           }
         }
@@ -253,7 +256,8 @@ export class SpellService {
       // Healing spells
       if (spell.healing) {
         result.healing = this._rollHealing(spell, upcastLevels, stats.abilityMod);
-        if (!combatant?.isMonster) {
+        // Skip persistent HP when in combat — encounter tracks HP via applyHeal
+        if (!inCombat && !combatant?.isMonster) {
           await this._applyHealing(targetId, result.healing);
         }
       }

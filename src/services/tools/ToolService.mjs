@@ -98,6 +98,7 @@ export class ToolService {
     locationService,
     battleService,
   combatEncounterService,
+  combatTargetRegistry,
   battleMediaService,
     xService,
     itemService,
@@ -131,6 +132,7 @@ export class ToolService {
       imageProcessingService,
       battleService,
   combatEncounterService,
+  combatTargetRegistry,
   battleMediaService,
       locationService,
       configService,
@@ -620,6 +622,9 @@ export class ToolService {
       // Augment context with combatEncounterService if available
       if (this.toolServices?.combatEncounterService) {
         context.combatEncounterService = context.combatEncounterService || this.toolServices.combatEncounterService;
+      }
+      if (this.toolServices?.combatTargetRegistry) {
+        context.combatTargetRegistry = context.combatTargetRegistry || this.toolServices.combatTargetRegistry;
       }
       if (this.toolServices?.battleMediaService) {
         context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;

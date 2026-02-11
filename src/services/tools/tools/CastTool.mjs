@@ -66,6 +66,12 @@ export class CastTool extends BasicTool {
 
   async execute(message, params, avatar, services) {
     try {
+      // Disallow actions from dead or KO'd avatars
+      const now = Date.now();
+      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+        return null;
+      }
+
       const spellId = params[0] || params.spell;
       if (!spellId) {
         return await this._listSpells(avatar);
@@ -92,10 +98,6 @@ export class CastTool extends BasicTool {
         if (!ces.isTurn(encounter, avatarId)) {
           return null; // Silent out-of-turn
         }
-        // V6 FIX: Atomically claim the turn BEFORE casting the spell
-        // Prevents race condition where two rapid casts both pass isTurn()
-        const combatant = ces.getCombatant(encounter, avatarId);
-        if (combatant) combatant.awaitingAction = false;
       }
 
       // Get target(s)

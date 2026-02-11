@@ -1,4 +1,4 @@
-import { resolveAdminAvatarId } from '../../social/adminAvatarResolver.mjs';
+import { postFightPoster } from '../battleMediaHelper.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -230,12 +230,6 @@ export class AttackTool extends BasicTool {
               return null;
             }
             
-            // V6 FIX: Atomically claim the turn BEFORE dealing damage
-            // This prevents the race condition where two rapid emoji messages
-            // both pass isTurn() before completePlayerAction sets awaitingAction=false
-            const combatant = encounterService.getCombatant(encounter, attackerId);
-            if (combatant) combatant.awaitingAction = false;
-            
             // Execute attack against combat target
             this.logger?.info?.(`[AttackTool][${message.channel.id}] ${avatar.name} attacks ${target.name} (via CombatTargetRegistry)`);
             
@@ -438,58 +432,18 @@ export class AttackTool extends BasicTool {
         // React to the initiating message to acknowledge combat start
         try { this.discordService?.reactToMessage?.(message, '⚔️'); } catch {}
               const battleMedia = services?.battleMediaService || this.battleMediaService;
-              const loc = await this.mapService.getLocationAndAvatars(locationChannelId);
-              if (battleMedia?.generateFightPoster) {
-                const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
-                if (poster?.imageUrl && this.discordService?.client) {
-                  const channel = await this.discordService.client.channels.fetch(encounterChannelId);
-                  if (channel?.isTextBased()) {
-                    const embed = {
-                      title: `Combat Initiated: ${avatar.name} vs ${defender.name}`,
-                      description: loc?.location?.name ? `Location: ${loc.location.name}` : undefined,
-                      color: 0xff4757,
-                      image: { url: poster.imageUrl },
-                    };
-                    await channel.send({ embeds: [embed] });
-                    // Optional: auto-post to X for admin account and attach tweet info to encounter
-                    try {
-                      const autoX = String(process.env.X_AUTO_POST_BATTLES || 'false').toLowerCase();
-                      const xsvc = this.configService?.services?.xService;
-                      if (autoX === 'true' && xsvc && poster.imageUrl) {
-                        let admin = null;
-                        try {
-                          const envId = resolveAdminAvatarId();
-                          if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
-                            admin = await this.configService.services.avatarService.getAvatarById(envId);
-                          } else {
-                            const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
-                            const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
-                            const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
-                            admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
-                          }
-                        } catch {}
-                        if (admin) {
-                          const locName = loc?.location?.name || 'Unknown Arena';
-                          const text = `⚔️ ${avatar.name} vs ${defender.name} — ${locName}`;
-                          const { tweetId, tweetUrl } = await xsvc.postImageToXDetailed(admin, poster.imageUrl, text);
-                          try {
-                            const enc = encounterService.getEncounter(encounterChannelId);
-                            if (enc) { enc._xTweetId = tweetId; enc._xTweetUrl = tweetUrl; }
-                          } catch {}
-                        }
-                      }
-                    } catch (e) { this.logger?.warn?.(`[AttackTool] auto X poster post failed: ${e.message}`); }
-                    
-                    // DISABLED: Brief discussion after poster causes spam
-                    // Combat flow should be: poster -> initiative -> turn-based actions only
-                    // const cm = this.conversationManager;
-                    // if (cm?.sendResponse) {
-                    //   try { await cm.sendResponse(channel, avatar, null, { overrideCooldown: true }); } catch {}
-                    //   try { await cm.sendResponse(channel, defender, null, { overrideCooldown: true }); } catch {}
-                    // }
-                  }
-                }
-              }
+              await postFightPoster({
+                attacker: avatar,
+                defender,
+                encounterChannelId,
+                locationChannelId,
+                battleMediaService: battleMedia,
+                discordService: this.discordService,
+                mapService: this.mapService,
+                encounterService,
+                configService: this.configService,
+                logger: this.logger
+              });
         // Done with poster/chatter
         encounterService.endManualAction(encounterChannelId);
         try { const enc = encounterService.getEncounter(encounterChannelId); enc?.posterBlocker?.resolve?.(); } catch {}
@@ -528,7 +482,11 @@ export class AttackTool extends BasicTool {
         services?.combatEncounterService?.addTurnAdvanceBlocker?.(message.channel.id, p);
       } catch {}
   this.logger?.info?.(`[AttackTool][${message.channel.id}] ${avatar.name} attacks ${defender.name}`);
-  const result = await this.battleService.attack({ message, attacker: avatar, defender, services });
+  // V8: Pass encounterManaged flag when in active encounter to prevent double damage
+  // (battleService writes to DB, completePlayerAction applies to encounter state)
+  const activeEnc = services?.combatEncounterService?.getEncounter?.(message.channel.id);
+  const encounterManaged = activeEnc?.state === 'active';
+  const result = await this.battleService.attack({ message, attacker: avatar, defender, services, encounterManaged });
   // No per-action media generation; proceed
       try { resolveBlocker && resolveBlocker(); } catch {}
       

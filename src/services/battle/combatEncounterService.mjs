@@ -1377,7 +1377,7 @@ One-liner (no quotes):`;
    * 
    * V3 FIX: Uses TurnLock to prevent race conditions
    */
-  _scheduleTurnStart(encounter) {
+  _scheduleTurnStart(encounter, { isReannounce = false } = {}) {
     if (!encounter || encounter.state !== 'active') return;
     
     const channelId = encounter.channelId;
@@ -1415,7 +1415,12 @@ One-liner (no quotes):`;
     // Reset defending state at the start of their new turn
     if (current) current.isDefending = false;
     encounter.lastTurnStartAt = Date.now();
-    encounter._reannounceCount = 0; // V7: fresh re-announce budget for new turn
+    // V8: Only reset re-announce budget on genuine new turns, not watchdog re-announces.
+    // The watchdog increments _reannounceCount and calls _scheduleTurnStart; if we reset
+    // the counter here unconditionally, the watchdog can never reach the auto-skip threshold.
+    if (!isReannounce) {
+      encounter._reannounceCount = 0;
+    }
     
     // Determine if this avatar should wait for player input:
     // 1. Player-controlled avatars with linked user: always wait (unless knocked out)
@@ -1976,16 +1981,31 @@ One-liner (no quotes):`;
         return;
       }
       
-      // V3 FIX: Transition to completing state
-      this.turnLock.transition(channelId, TURN_STATES.COMPLETING, {
+      // V9 FIX: Atomically clear awaitingAction FIRST, then transition.
+      // This closes the race window where two near-simultaneous calls both
+      // see awaitingAction=true before either clears it.
+      combatant.awaitingAction = false;
+      combatant.hasActed = true;
+      
+      // V9 FIX: Check transition return value — reject if lock state machine
+      // doesn't allow COMPLETING (means another call already claimed this turn).
+      const transitioned = this.turnLock.transition(channelId, TURN_STATES.COMPLETING, {
         combatantId: avatarId,
         combatantName: combatant?.name,
         reason: 'action_complete'
       });
+      if (!transitioned) {
+        this.logger?.warn?.(`[CombatEncounter] completePlayerAction: transition to COMPLETING rejected (duplicate action), ignoring`);
+        return;
+      }
       
-      // Mark action completed
-      combatant.awaitingAction = false;
-      combatant.hasActed = true;
+      // V9 FIX: Player has acted — reset watchdog re-announce counter so they
+      // don't get auto-skipped by a watchdog tick that fires moments later.
+      encounter._reannounceCount = 0;
+      if (encounter.timers?.turn) {
+        clearTimeout(encounter.timers.turn);
+        encounter.timers.turn = null;
+      }
       
       // Apply damage if provided
       if (actionResult.damage && actionResult.targetId) {
@@ -2137,6 +2157,9 @@ One-liner (no quotes):`;
       // Enforce turn order
       if (!this.isTurn(encounter, avatarId)) return { success: false, message: null }; // silent per out-of-turn policy
 
+      // Consume the turn immediately to prevent duplicate flee attempts
+      actor.awaitingAction = false;
+
       // Dex check vs highest enemy passive Perception (10 + Dex mod)
       const enemies = encounter.combatants.filter(c => this._normalizeId(c.avatarId) !== this._normalizeId(actor.avatarId) && (c.currentHp || 0) > 0);
       let dc = 10;
@@ -2164,12 +2187,7 @@ One-liner (no quotes):`;
           }
         } catch (e) { this.logger?.warn?.(`[CombatEncounter] flee movement failed: ${e.message}`); }
         
-        // CRITICAL FIX: Remove from turn order to prevent ghost attacks
-        encounter.turnOrder = (encounter.turnOrder || []).filter(
-          id => this._normalizeId(id) !== this._normalizeId(avatarId)
-        );
-        
-        // Remove from combatants array
+        // CRITICAL FIX: Remove from encounter to prevent ghost attacks
         this.removeCombatant(encounter, avatarId);
         
         // Check if combat should end (only 1 or fewer combatants remain)
@@ -2329,6 +2347,7 @@ One-liner (no quotes):`;
   if (!discordUserId && hasSummoner) {
     discordUserId = String(avatar.summoner).replace(/^user:/, '');
   }
+
   const combatant = {
     combatantId: aid,
     avatarId: aid,
@@ -2353,6 +2372,21 @@ One-liner (no quotes):`;
     // Rebuild initiative order and keep current turn index referencing correct avatar
   this._rebuildInitiativeOrder(encounter, { preserveCurrent: true });
   this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
+  }
+
+  /** Remove a combatant from the encounter and repair initiative order */
+  removeCombatant(encounter, avatarId) {
+    if (!encounter) return;
+    const id = this._normalizeId(avatarId);
+    if (!id) return;
+    const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+    const removedIndex = order.findIndex(v => this._normalizeId(v) === id);
+    encounter.combatants = (encounter.combatants || []).filter(c => this._normalizeId(c.avatarId) !== id);
+    encounter.initiativeOrder = order.filter(v => this._normalizeId(v) !== id);
+    if (removedIndex !== -1 && Number.isFinite(encounter.currentTurnIndex)) {
+      encounter.currentTurnIndex = Math.max(0, encounter.currentTurnIndex - (encounter.currentTurnIndex >= removedIndex ? 1 : 0));
+    }
+    this._persistActiveEncounter(encounter).catch(e => this.logger.warn?.(`[CombatEncounter] active persist failed: ${e.message}`));
   }
 
   /** Utility: ensures an encounter exists for channel and is active, creating + rolling if needed */
@@ -3581,8 +3615,22 @@ Generate the video prompt now:`
       if (!db) return { loaded: 0 };
       const docs = await db.collection('combat_active_encounters').find({ state: { $ne: 'ended' } }).toArray();
       let loaded = 0;
+      const MAX_ENCOUNTER_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — encounters older than this are zombies
+      const now = Date.now();
       for (const doc of docs) {
         if (!doc?.channelId || this.encounters.has(doc.channelId)) continue;
+        // V8 FIX: Evict stale encounters instead of rehydrating them.
+        // Without this, zombie encounters survive restarts indefinitely
+        // (one was stuck for 13 days, spamming re-announces every 60s).
+        const createdAt = doc.createdAt instanceof Date ? doc.createdAt.getTime() : (Number(doc.createdAt) || 0);
+        if (now - createdAt > MAX_ENCOUNTER_AGE_MS) {
+          this.logger?.info?.(`[CombatEncounter] Evicting stale encounter in ${doc.channelId} (age: ${Math.round((now - createdAt) / 3600000)}h)`);
+          try {
+            const evictDb = await this.databaseService.getDatabase();
+            await evictDb.collection('combat_active_encounters').deleteOne({ channelId: doc.channelId });
+          } catch (e) { this.logger?.warn?.(`[CombatEncounter] Failed to delete stale encounter: ${e.message}`); }
+          continue;
+        }
         const encounter = await this._hydrateEncounter(doc);
         if (!encounter) continue;
         this.encounters.set(encounter.channelId, encounter);
@@ -4290,8 +4338,14 @@ Message: ${messageContent}`;
           // if the lock expired (the lock silently clears after 60s, leaving combat
           // stalled with no prompt). Re-announce so the player sees buttons again.
           // V7: Limit re-announces to 2 then auto-skip to keep combat moving.
+          // V9 FIX: Also check COMPLETING/ADVANCING — the player may have just acted
+          // and the turn is mid-processing. Don't skip or re-announce in that case.
           if (current?.isPlayerControlled && !current?.autoMode) {
             const lockState = this.turnLock.getState(channelId);
+            // If lock is actively processing (EXECUTING/COMPLETING/ADVANCING), leave it alone
+            if (lockState === TURN_STATES.EXECUTING || lockState === TURN_STATES.COMPLETING || lockState === TURN_STATES.ADVANCING) {
+              continue;
+            }
             if (lockState === TURN_STATES.IDLE || lockState === null) {
               enc._reannounceCount = (enc._reannounceCount || 0) + 1;
               if (enc._reannounceCount > 2) {
@@ -4303,10 +4357,17 @@ Message: ${messageContent}`;
                 // Lock expired — player's turn is still active but UI vanished
                 this.logger.info?.(`[CombatEncounter][${channelId}] watchdog: re-announcing stalled player turn for ${current.name} (attempt ${enc._reannounceCount}/2)`);
                 current.awaitingAction = true;
-                this._scheduleTurnStart(enc);
+                this._scheduleTurnStart(enc, { isReannounce: true });
               }
             }
-            // Otherwise player is still in a valid lock state — let them think
+            // Otherwise player is still in a valid lock state (AWAITING_INPUT) — let them think
+            continue;
+          }
+          
+          // V9 FIX: If the lock is actively held (EXECUTING/COMPLETING/ADVANCING),
+          // the turn is being processed — don't nudge.
+          const monsterLockState = this.turnLock.getState(channelId);
+          if (monsterLockState === TURN_STATES.EXECUTING || monsterLockState === TURN_STATES.COMPLETING || monsterLockState === TURN_STATES.ADVANCING) {
             continue;
           }
           
@@ -4930,6 +4991,15 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       }
       // Apply index
       encounter.currentTurnIndex = nextIdx;
+      
+      // V9 FIX: Release any lingering lock before scheduling the next turn.
+      // Without this, the lock can remain in COMPLETING/ADVANCING from the previous
+      // action, causing _scheduleTurnStart to silently bail via isLocked() — which
+      // is why monsters would time out for 60s doing nothing.
+      const channelId = encounter.channelId;
+      if (this.turnLock.isLocked(channelId)) {
+        this.turnLock.release(channelId, 'nextTurn_pre_schedule');
+      }
       
       // Start the turn - _scheduleTurnStart handles turn announcement
       this._scheduleTurnStart(encounter);

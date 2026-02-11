@@ -680,4 +680,14 @@ export class PartyService {
     await col.updateOne({ _id: roll._id }, { $set: update });
     return { ...roll, ...update, item };
   }
+
+  /** Rename a party */
+  async renameParty(partyId, newName) {
+    const col = await this.collection();
+    await col.updateOne(
+      { _id: new ObjectId(partyId) },
+      { $set: { name: newName, updatedAt: new Date() } }
+    );
+    return this.getParty(partyId);
+  }
 }

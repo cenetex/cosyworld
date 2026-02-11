@@ -472,6 +472,27 @@ export class ItemService {
       return { ...doc, _id: insertedId };
     }
 
+    /** Consume a charge from a soulbound potion and update recharge timers */
+    async consumeSoulboundPotion(potion, { rechargeMs = null } = {}) {
+      if (!potion?._id) return potion;
+      const itemsCol = await this.items();
+      const charges = Number(potion?.properties?.charges ?? 0);
+      const rechargeDelay = Number(potion?.properties?.rechargeMs || rechargeMs || 48 * 60 * 60 * 1000);
+      const newCharges = Math.max(0, charges - 1);
+      const newRechargeAt = newCharges <= 0 ? Date.now() + rechargeDelay : null;
+      await itemsCol.updateOne(
+        { _id: potion._id },
+        { $set: { 'properties.charges': newCharges, 'properties.rechargeAt': newRechargeAt, updatedAt: new Date() } }
+      );
+      potion.properties = {
+        ...(potion.properties || {}),
+        charges: newCharges,
+        rechargeAt: newRechargeAt,
+        rechargeMs: rechargeDelay
+      };
+      return potion;
+    }
+
     /*──────────────────── Crafting (combine items) ───────────────────*/
     async createCraftedItem(inputItems, creatorId) {
       const itemsCol = await this.items();

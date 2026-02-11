@@ -1392,6 +1392,16 @@ export class DiscordService {
         this.logger?.debug?.(`[DiscordService] D&D button already handled: ${customId}`);
         return;
       }
+
+      // V8 FIX: Defer reply IMMEDIATELY for combat action buttons to avoid
+      // Discord's 3-second interaction timeout. The avatar DB lookup and
+      // validation can take longer than 3s under load, causing
+      // DiscordAPIError[10062]: Unknown interaction for every button click.
+      const combatActionIds = ['dnd_combat_take_turn', 'dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast', 'dnd_combat_auto', 'dnd_item_use'];
+      const isCombatAction = combatActionIds.includes(customId) || customId.startsWith('dnd_target_');
+      if (isCombatAction) {
+        await interaction.deferReply({ flags: 64 });
+      }
       
       // Handle summon help button (doesn't require avatar)
       if (customId === 'dnd_show_summon_help') {
@@ -1438,11 +1448,15 @@ export class DiscordService {
             .setStyle(ButtonStyle.Primary)
         );
         
-        await interaction.reply({ 
-          embeds: [embed],
-          components: [actionRow],
-          flags: 64 // ephemeral
-        });
+        if (interaction.deferred) {
+          await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        } else {
+          await interaction.reply({ 
+            embeds: [embed],
+            components: [actionRow],
+            flags: 64 // ephemeral
+          });
+        }
         return;
       }
 
@@ -1457,28 +1471,31 @@ export class DiscordService {
       if (customId === 'dnd_combat_take_turn') {
         const combatService = toolService.getCombatService?.() || this.getCombatService?.();
         if (!combatService) {
-          await interaction.reply({ content: '⚠️ Combat service not available.', flags: 64 });
+          await interaction.editReply({ content: '⚠️ Combat service not available.' });
           return;
         }
         
         const result = await combatService.handleTakeTurnButton(interaction);
         
         if (result.error && result.content) {
-          await interaction.reply({ content: result.content, flags: 64 });
+          await interaction.editReply({ content: result.content });
         } else if (result.error && result.embed) {
-          await interaction.reply({ embeds: [result.embed], flags: 64 });
+          await interaction.editReply({ embeds: [result.embed] });
         } else {
-          await interaction.reply({ 
+          await interaction.editReply({ 
             embeds: [result.embed], 
-            components: result.components || [],
-            flags: 64 
+            components: result.components || []
           });
         }
         return;
       }
       
       if (customId === 'dnd_combat_cancel') {
-        await interaction.reply({ content: '✅ Action cancelled.', flags: 64 });
+        if (interaction.deferred) {
+          await interaction.editReply({ content: '✅ Action cancelled.' });
+        } else {
+          await interaction.reply({ content: '✅ Action cancelled.', flags: 64 });
+        }
         return;
       }
 
@@ -1494,7 +1511,7 @@ export class DiscordService {
               .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*Wait for your moment in the initiative order.*`)
               .setColor(0x95A5A6) // Gray
               .setFooter({ text: 'Patience is a virtue in combat...' });
-            await interaction.reply({ embeds: [notYourTurnEmbed], flags: 64 });
+            await interaction.editReply({ embeds: [notYourTurnEmbed] });
             return;
           }
         }
@@ -1509,7 +1526,11 @@ export class DiscordService {
           .setDescription('*The magical runes on this button have faded with time...*')
           .setColor(0x7C3AED)
           .setFooter({ text: 'Try using a command directly instead' });
-        await interaction.reply({ embeds: [unknownEmbed], flags: 64 });
+        if (interaction.deferred) {
+          await interaction.editReply({ embeds: [unknownEmbed] });
+        } else {
+          await interaction.reply({ embeds: [unknownEmbed], flags: 64 });
+        }
         return;
       }
 
@@ -1517,7 +1538,7 @@ export class DiscordService {
       if (toolName === 'combat_auto') {
         const combatService = toolService.getCombatService?.() || this.getCombatService?.();
         if (!combatService) {
-          await interaction.reply({ content: '⚠️ Combat service not available.', flags: 64 });
+          await interaction.editReply({ content: '⚠️ Combat service not available.' });
           return;
         }
         
@@ -1529,13 +1550,13 @@ export class DiscordService {
             .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*You can only enable auto-mode on your turn.*`)
             .setColor(0x95A5A6)
             .setFooter({ text: 'Wait for your turn to enable auto-pilot...' });
-          await interaction.reply({ embeds: [notYourTurnEmbed], flags: 64 });
+          await interaction.editReply({ embeds: [notYourTurnEmbed] });
           return;
         }
         
         const encounter = combatService.getEncounterByChannelId(interaction.channelId);
         if (!encounter || encounter.state !== 'active') {
-          await interaction.reply({ content: '⚠️ No active combat in this channel.', flags: 64 });
+          await interaction.editReply({ content: '⚠️ No active combat in this channel.' });
           return;
         }
         
@@ -1545,7 +1566,7 @@ export class DiscordService {
         );
         
         if (!combatant || !combatant.isPlayerControlled) {
-          await interaction.reply({ content: '⚠️ You don\'t have a character in this combat.', flags: 64 });
+          await interaction.editReply({ content: '⚠️ You don\'t have a character in this combat.' });
           return;
         }
         
@@ -1553,9 +1574,8 @@ export class DiscordService {
         combatant.autoMode = true;
         combatant.awaitingAction = false;
         
-        await interaction.reply({ 
-          content: `🤖 **${combatant.name}** is now on auto-pilot! The AI will control them for the rest of combat.`,
-          flags: 64 
+        await interaction.editReply({ 
+          content: `🤖 **${combatant.name}** is now on auto-pilot! The AI will control them for the rest of combat.`
         });
         
         // If this combatant was awaiting their turn, execute it now
@@ -1569,8 +1589,10 @@ export class DiscordService {
         return;
       }
 
-      // Defer reply for potentially slow operations
-      await interaction.deferReply({ flags: 64 }); // ephemeral
+      // Defer reply for potentially slow operations (skip if already deferred by early combat defer)
+      if (!interaction.deferred) {
+        await interaction.deferReply({ flags: 64 }); // ephemeral
+      }
 
       // Create a mock message object for tool execution
       const mockMessage = {
@@ -1595,25 +1617,28 @@ export class DiscordService {
         return;
       }
 
-      // If result is null/undefined, the tool posted directly to the channel (e.g., combat action)
-      // Delete the ephemeral reply to avoid duplicates
-      if (result === null || result === undefined) {
+      // If result is null/undefined, or the normalized result carries no displayable
+      // content (notify:false, no message, no embeds), the tool posted directly to the
+      // channel (e.g. combat DM narration embed). Delete the ephemeral to keep things clean.
+      const hasContent = result?.message || result?.embeds || typeof result === 'string';
+      if (result === null || result === undefined || !hasContent) {
         await interaction.deleteReply().catch(() => {});
         return;
       }
 
       // Format and send the response
-      if (result?.embeds) {
+      if (result.embeds) {
         await interaction.editReply({
           embeds: result.embeds,
           components: result.components || []
         });
-      } else if (result?.message) {
+      } else if (result.message) {
         await interaction.editReply({ content: result.message });
       } else if (typeof result === 'string') {
         await interaction.editReply({ content: result });
       } else {
-        await interaction.editReply({ content: '✅ Action completed!' });
+        // Should not be reached after hasContent check, but safety net
+        await interaction.deleteReply().catch(() => {});
       }
     } catch (error) {
       // V7: Silently ignore expired interactions (stale buttons from previous session)

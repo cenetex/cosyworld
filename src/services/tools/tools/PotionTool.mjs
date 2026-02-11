@@ -27,7 +27,7 @@ export class PotionTool extends BasicTool {
     this.replyNotification = true;
   }
 
-  async execute(message, params, avatar) {
+  async execute(message, params, avatar, services) {
     try {
       if (!message.channel?.guild) {
         return `-# [${this.emoji} This command can only be used in a guild!]`;
@@ -78,9 +78,6 @@ export class PotionTool extends BasicTool {
         
         this.logger?.info?.(`[PotionTool] Searching for avatar: "${targetName}" in channel: ${message.channel.id}`);
         
-        // Get database connection
-        const db = this.avatarService.db || await this.avatarService.databaseService.getDatabase();
-        
         // First, get all avatars in this channel/location
         const { avatars: channelAvatars } = await this.avatarService.getMapService().getLocationAndAvatars(message.channel.id);
         
@@ -121,51 +118,44 @@ export class PotionTool extends BasicTool {
         const charges = Number(potion?.properties?.charges ?? 0);
         const rechargeAt = Number(potion?.properties?.rechargeAt ?? 0);
         
-        // If no charges but recharge time has passed, restore a charge
-        if (charges <= 0 && rechargeAt && Date.now() >= rechargeAt) {
-          const itemsCol = db.collection('items');
-          await itemsCol.updateOne(
-            { _id: potion._id },
-            { $set: { 'properties.charges': 1, 'properties.rechargeAt': null, updatedAt: new Date() } }
-          );
-          potion.properties.charges = 1;
-          potion.properties.rechargeAt = null;
-        } else if (charges <= 0) {
+        // If no charges (and not yet recharged), exit
+        if (charges <= 0) {
           const timeRemaining = rechargeAt ? `<t:${Math.floor(rechargeAt/1000)}:R>` : 'soon';
           return `-# [${this.emoji} Your potion has no charges. It will recharge ${timeRemaining}.]`;
         }
         
         // Use the potion - consume a charge
-        const itemsCol = db.collection('items');
-        const newCharges = charges - 1;
-        const rechargeMs = Number(potion.properties?.rechargeMs || 48 * 60 * 60 * 1000); // 48 hours default
-        const newRechargeAt = newCharges <= 0 ? Date.now() + rechargeMs : null;
-        
-        await itemsCol.updateOne(
-          { _id: potion._id },
-          { 
-            $set: { 
-              'properties.charges': newCharges, 
-              'properties.rechargeAt': newRechargeAt,
-              updatedAt: new Date() 
-            } 
-          }
-        );
-        
+        await this.itemService.consumeSoulboundPotion(potion);
+
         // Revive the target avatar
-        const avatarsCol = db.collection('avatars');
-        await avatarsCol.updateOne(
-          { _id: targetAvatar._id },
-          { 
-            $set: { 
-              status: 'active',
-              knockedOutUntil: null,
-              updatedAt: new Date()
-            } 
+        targetAvatar.status = 'active';
+        targetAvatar.knockedOutUntil = null;
+        await this.avatarService.updateAvatar(targetAvatar);
+
+        // If target is in an active encounter, sync revival to encounter combatant
+        try {
+          const ces = services?.combatEncounterService;
+          if (ces) {
+            const encounter = ces.getEncounter?.(message.channel.id) || 
+                              ces.getEncounterByChannelId?.(message.channel.id);
+            if (encounter?.state === 'active') {
+              const combatant = ces.getCombatant?.(encounter, targetAvatar._id);
+              if (combatant) {
+                // Restore to potion heal value and remove unconscious condition
+                const healValue = Number(potion?.properties?.healValue ?? 10);
+                combatant.currentHp = Math.max(combatant.currentHp || 0, healValue);
+                combatant.conditions = (combatant.conditions || []).filter(c => c !== 'unconscious' && c !== 'dead');
+                this.logger?.info?.(`[PotionTool] Synced revival of ${targetAvatar.name} to encounter (${combatant.currentHp} HP)`);
+              }
+            }
           }
-        );
+        } catch (e) {
+          this.logger?.warn?.(`[PotionTool] Encounter sync failed: ${e.message}`);
+        }
         
         // Post success message
+        const newCharges = Number(potion?.properties?.charges ?? 0);
+        const newRechargeAt = Number(potion?.properties?.rechargeAt ?? 0);
         const chargesRemaining = newCharges > 0 ? `${newCharges} charge(s) remaining.` : `Recharging. Ready <t:${Math.floor(newRechargeAt/1000)}:R>.`;
         return `-# [${this.emoji} ${avatar.name} used their potion to revive ${targetAvatar.name}! ${chargesRemaining}]`;
       }

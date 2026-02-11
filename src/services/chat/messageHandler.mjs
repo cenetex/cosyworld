@@ -527,6 +527,12 @@ export class MessageHandler  {
       if (originalMessage?.avatarId) {
         this.logger.info(`[ReplyTracking] ✅ Found original message in DB with avatarId: ${originalMessage.avatarId}`);
         
+        // Skip DB lookup for synthetic monster IDs — they don't exist in the avatars collection
+        if (String(originalMessage.avatarId).startsWith('monster_')) {
+          this.logger.debug(`[ReplyTracking] Skipping lookup for synthetic monster avatar: ${originalMessage.avatarId}`);
+          return; // Monster narratives don't need reply tracking
+        }
+        
         // Get the avatar directly by ID
         const ObjectId = (await import('mongodb')).ObjectId;
         avatar = await db.collection('avatars').findOne({

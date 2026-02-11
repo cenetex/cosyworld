@@ -155,11 +155,11 @@ export const WEAPON_TYPES = {
   unarmed: {
     name: 'Unarmed Strike',
     emoji: '👊',
-    damage: { dice: 1, count: 1 },  // 1 + STR mod
+    damage: { dice: 4, count: 1 },  // 1d4 + STR mod (Monk-style, more variance than flat 1)
     type: 'bludgeoning',
     properties: [],
-    statBonus: 'strength',
-    baseDamage: 1  // Flat 1 damage instead of die
+    statBonus: 'strength'
+    // V9: Removed baseDamage so dice are actually rolled (avg 2.5 vs flat 1)
   },
   
   // Magic/Special

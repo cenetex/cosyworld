@@ -8,21 +8,11 @@ import { publishEvent as basePublishEvent } from '../../../events/envelope.mjs';
 export class FleeTool extends BasicTool {
   constructor({
     logger,
-    configService,
-    avatarService,
-    mapService,
-    conversationManager,
-    diceService,
     combatEncounterService,
     discordService,
   }) {
     super();
     this.logger = logger || console;
-    this.configService = configService;
-    this.avatarService = avatarService;
-    this.mapService = mapService;
-    this.conversationManager = conversationManager;
-    this.diceService = diceService;
     this.combatEncounterService = combatEncounterService;
     this.discordService = discordService;
 
@@ -69,7 +59,7 @@ export class FleeTool extends BasicTool {
         // Silent out-of-turn handling
         return null;
       }
-      
+
       // Emit flee attempt event
       const publish = (evt) => {
         try { 

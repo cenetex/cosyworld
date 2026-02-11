@@ -26,14 +26,12 @@ const COLORS = {
 const DEFAULT_AVATAR_EMOJI = '👤';
 
 export class PartyTool extends BasicTool {
-  constructor({ logger, partyService, characterService, avatarService, databaseService, discordService, questService, tutorialQuestService }) {
+  constructor({ logger, partyService, characterService, avatarService, questService, tutorialQuestService }) {
     super();
     this.logger = logger || console;
     this.partyService = partyService;
     this.characterService = characterService;
     this.avatarService = avatarService;
-    this.databaseService = databaseService;
-    this.discordService = discordService;
     this.questService = questService;
     this.tutorialQuestService = tutorialQuestService;
 
@@ -214,12 +212,16 @@ export class PartyTool extends BasicTool {
     }
 
     // Get recently active avatars in this channel
-    const db = await this.databaseService.getDatabase();
-    const recentAvatars = await db.collection('avatars').find({
-      status: 'alive',
-      channelId: message.channelId,
-      _id: { $nin: party.members.map(m => m.avatarId) } // Exclude current members
-    }).sort({ lastActiveAt: -1 }).limit(10).toArray();
+    const channelAvatars = await this.avatarService.getAvatarsInChannel(message.channelId, message.guildId);
+    const excludedIds = new Set(party.members.map(m => String(m.avatarId)));
+    const recentAvatars = channelAvatars
+      .filter(av => !excludedIds.has(String(av._id)))
+      .sort((a, b) => {
+        const aTime = new Date(a.lastActiveAt || 0).getTime();
+        const bTime = new Date(b.lastActiveAt || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 10);
 
     // Filter out avatars already in ANY party
     const availableAvatars = [];
@@ -312,9 +314,7 @@ export class PartyTool extends BasicTool {
     }
 
     // Get target avatar
-    const { ObjectId } = await import('mongodb');
-    const db = await this.databaseService.getDatabase();
-    const target = await db.collection('avatars').findOne({ _id: new ObjectId(targetId) });
+    const target = await this.avatarService.getAvatarById(targetId);
     
     if (!target) {
       return this._errorEmbed('Avatar not found.');
@@ -481,9 +481,7 @@ export class PartyTool extends BasicTool {
     }
 
     // Get target avatar name before removing
-    const { ObjectId } = await import('mongodb');
-    const db = await this.databaseService.getDatabase();
-    const target = await db.collection('avatars').findOne({ _id: new ObjectId(targetId) });
+    const target = await this.avatarService.getAvatarById(targetId);
     const targetName = target?.name || 'Unknown';
 
     // Remove from party
@@ -618,12 +616,7 @@ export class PartyTool extends BasicTool {
     }
 
     // Update party name
-    const { ObjectId } = await import('mongodb');
-    const db = await this.databaseService.getDatabase();
-    await db.collection('parties').updateOne(
-      { _id: new ObjectId(sheet.partyId) },
-      { $set: { name: newName } }
-    );
+    await this.partyService.renameParty(sheet.partyId, newName);
 
     const response = {
       embeds: [{

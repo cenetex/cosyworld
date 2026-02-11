@@ -1132,10 +1132,15 @@ export class ConversationManager  {
         this.channelLastBotMessage.set(channel.id, Date.now());
         responders.add(avatar._id);
         
-        try {
-          await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
-        } catch (e) {
-          this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+        // Skip activity tracking for synthetic/monster avatars (non-ObjectId IDs)
+        const isSynthetic = avatar?.isMonster === true ||
+          String(avatar?._id || avatar?.id || '').startsWith('monster_');
+        if (!isSynthetic) {
+          try {
+            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+          } catch (e) {
+            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+          }
         }
         
         return null; // Early exit - no final response needed
@@ -1388,11 +1393,20 @@ export class ConversationManager  {
           
           this.logger.debug(`Updated bot rate limit for channel ${channel.id} (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
           
+          // V8: Skip activity tracking and command handling for synthetic/monster
+          // avatars. Their IDs (e.g. "monster_lintel_warden_...") are not valid
+          // MongoDB ObjectIds and cause crashes in updateAvatarActivity and
+          // MapService.updateAvatarPosition.
+          const isSyntheticAvatar = avatar?.isMonster === true ||
+            String(avatar?._id || avatar?.id || '').startsWith('monster_');
+
           // Update avatar activity for active avatar management
-          try {
-            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
-          } catch (e) {
-            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+          if (!isSyntheticAvatar) {
+            try {
+              await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+            } catch (e) {
+              this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+            }
           }
           
           // React with brain emoji if thoughts were detected
@@ -1412,14 +1426,18 @@ export class ConversationManager  {
           sentMessage.guildId = guild.id;
           sentMessage.channel = channel;
 
-          handleCommands(sentMessage, {
-            logger: this.logger,
-            mapService: this.mapService,
-            toolService: this.toolService,
-            avatarService: this.avatarService,
-            discordService: this.discordService,
-            configService: this.configService
-          }, avatar, await this.getChannelContext(channel.id, 50));
+          // Skip command handling for synthetic avatars — they don't need
+          // position updates or tool command processing.
+          if (!isSyntheticAvatar) {
+            handleCommands(sentMessage, {
+              logger: this.logger,
+              mapService: this.mapService,
+              toolService: this.toolService,
+              avatarService: this.avatarService,
+              discordService: this.discordService,
+              configService: this.configService
+            }, avatar, await this.getChannelContext(channel.id, 50));
+          }
 
           // After successfully sending a visible message, process bot->bot mentions (limited cascade)
           try {

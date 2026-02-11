@@ -28,7 +28,10 @@ export async function handleCommands(message, services = {
 
   if (isToolCommand) {
     try {
-      await services.mapService.updateAvatarPosition(avatar, message.channel.id);
+      // Skip position update for synthetic/monster avatars (non-ObjectId IDs)
+      if (avatar?._id && !String(avatar._id).startsWith('monster_')) {
+        await services.mapService.updateAvatarPosition(avatar, message.channel.id);
+      }
 
       const { commands } = services.toolService.extractToolCommands(content);
       // Only execute the first detected tool command to reduce spam / chaining

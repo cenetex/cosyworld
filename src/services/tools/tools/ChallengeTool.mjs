@@ -1,4 +1,4 @@
-import { resolveAdminAvatarId } from '../../social/adminAvatarResolver.mjs';
+import { postFightPoster } from '../battleMediaHelper.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -211,61 +211,18 @@ export class ChallengeTool extends BasicTool {
       try { encounterService.beginManualAction(encounterChannelId); } catch {}
       try {
         const battleMedia = services?.battleMediaService || this.battleMediaService;
-        const loc = await this.mapService.getLocationAndAvatars(locationChannelId);
-        if (battleMedia?.generateFightPoster) {
-          const poster = await battleMedia.generateFightPoster({ attacker: avatar, defender, location: loc?.location });
-          if (poster?.imageUrl && this.discordService?.client) {
-            // Store poster URL on encounter for later video generation reuse
-            try {
-              const enc = encounterService.getEncounter(encounterChannelId);
-              if (enc) enc.fightPosterUrl = poster.imageUrl;
-            } catch {}
-            
-            const channel = await this.discordService.client.channels.fetch(encounterChannelId);
-            if (channel?.isTextBased()) {
-              const embed = {
-                title: `Combat Initiated: ${avatar.name} vs ${defender.name}`,
-                description: loc?.location?.name ? `Location: ${loc.location.name}` : undefined,
-                color: 0xff4757,
-                image: { url: poster.imageUrl },
-              };
-              await channel.send({ embeds: [embed] });
-              // Optional: auto-post to X for admin account and attach tweet info to encounter
-              try {
-                const autoX = String(process.env.X_AUTO_POST_BATTLES || 'false').toLowerCase();
-                const xsvc = this.configService?.services?.xService;
-                if (autoX === 'true' && xsvc && poster.imageUrl) {
-                  let admin = null;
-                  try {
-                    const envId = resolveAdminAvatarId();
-                    if (envId && /^[a-f0-9]{24}$/i.test(envId)) {
-                      admin = await this.configService.services.avatarService.getAvatarById(envId);
-                    } else {
-                      const aiCfg = this.configService?.getAIConfig?.(process.env.AI_SERVICE);
-                      const model = aiCfg?.chatModel || aiCfg?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.GOOGLE_AI_CHAT_MODEL || 'default';
-                      const safe = String(model).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
-                      admin = { _id: `model:${safe}`, name: `System (${model})`, username: process.env.X_ADMIN_USERNAME || undefined };
-                    }
-                  } catch {}
-                  if (admin) {
-                    const locName = loc?.location?.name || 'Unknown Arena';
-                    const text = `⚔️ ${avatar.name} vs ${defender.name} — ${locName}`;
-                    const { tweetId, tweetUrl } = await xsvc.postImageToXDetailed(admin, poster.imageUrl, text);
-                    try {
-                      const enc = services?.combatEncounterService?.getEncounter(encounterChannelId);
-                      if (enc) { enc._xTweetId = tweetId; enc._xTweetUrl = tweetUrl; }
-                    } catch {}
-                  }
-                }
-              } catch (e) { this.logger?.warn?.(`[ChallengeTool] auto X poster post failed: ${e.message}`); }
-              
-              // NO ConversationManager chatter here - combat system handles dialogue autonomously
-              // Old code was causing spam by triggering full AI responses with tool execution
-            }
-          }
-        }
-      } catch (e) {
-        this.logger?.warn?.(`[ChallengeTool] poster generation failed: ${e.message}`);
+        await postFightPoster({
+          attacker: avatar,
+          defender,
+          encounterChannelId,
+          locationChannelId,
+          battleMediaService: battleMedia,
+          discordService: this.discordService,
+          mapService: this.mapService,
+          encounterService,
+          configService: this.configService,
+          logger: this.logger
+        });
       } finally {
         try { encounterService.endManualAction(encounterChannelId); } catch {}
         try { const enc = encounterService.getEncounter(encounterChannelId); enc?.posterBlocker?.resolve?.(); } catch {}

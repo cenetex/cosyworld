@@ -123,6 +123,10 @@ export class MapService {
    * @returns {Promise<Object>} The updated avatar object
    */
   async updateAvatarPosition(avatar, newLocationId, _oldLocationId) {
+    if (!avatar?._id) {
+      this.logger?.warn?.(`[MapService] updateAvatarPosition called with missing avatar._id, skipping`);
+      return avatar;
+    }
     const db = await this._db();
     const session = db.client.startSession();
 

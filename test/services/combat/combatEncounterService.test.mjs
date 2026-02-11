@@ -1,20 +1,184 @@
 /**
  * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
- * 
+ *
  * @file test/services/combat/combatEncounterService.test.mjs
- * @description Comprehensive tests for CombatEncounterService
- * 
- * NOTE: This test file is temporarily skipped because it tests a planned API
- * that differs from the current implementation. The actual CombatEncounterService
- * has methods like ensureEncounterForAttack, handleAttackResult, handleFlee
- * instead of the initiateEncounter, processAttack, flee methods tested here.
+ * @description Tests for CombatEncounterService aligned with current API
  */
 
-import { describe, it } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { CombatEncounterService } from '../../../src/services/battle/combatEncounterService.mjs';
+import { TURN_STATES } from '../../../src/services/battle/TurnLock.mjs';
 
-describe.skip('CombatEncounterService', () => {
-  it('placeholder - tests need to be updated to match implementation', () => {});
+const createService = (options = {}) => {
+  const {
+    rollSequence = [10, 10],
+    stats = { dexterity: 12, hp: 10 }
+  } = options;
+
+  const rollDie = vi.fn();
+  for (const roll of rollSequence) {
+    rollDie.mockImplementationOnce(() => roll);
+  }
+  const fallback = rollSequence.length ? rollSequence[rollSequence.length - 1] : 10;
+  rollDie.mockImplementation(() => fallback);
+
+  const logger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+  };
+
+  const avatarService = {
+    getOrCreateStats: vi.fn().mockResolvedValue(stats),
+    updateAvatar: vi.fn(),
+  };
+
+  const mapService = {
+    updateAvatarPosition: vi.fn(),
+    getAvatarLocation: vi.fn().mockResolvedValue(null),
+  };
+
+  const discordService = {
+    createThread: vi.fn(),
+    getOrCreateThread: vi.fn().mockResolvedValue('tavern-thread'),
+  };
+
+  const diceService = { rollDie };
+
+  const service = new CombatEncounterService({
+    logger,
+    diceService,
+    avatarService,
+    mapService,
+    battleService: {},
+    battleMediaService: null,
+    databaseService: null,
+    unifiedAIService: null,
+    discordService,
+    configService: {},
+    promptAssembler: null,
+    getConversationManager: () => null,
+    veoService: null,
+    dmNarratorService: null,
+  });
+
+  // Avoid poster wait delays in tests
+  service._createPosterBlocker = () => ({ promise: Promise.resolve(), resolve: () => {} });
+
+  return { service, mocks: { logger, avatarService, mapService, discordService, diceService } };
+};
+
+describe('CombatEncounterService', () => {
+  let service;
+  let mocks;
+  let attacker;
+  let defender;
+  let sourceMessage;
+
+  beforeEach(() => {
+    ({ service, mocks } = createService());
+    attacker = { _id: 'attacker-1', name: 'Hero', stats: { hp: 12 }, summoner: 'user:1' };
+    defender = { _id: 'defender-1', name: 'Goblin', stats: { hp: 10 }, summoner: 'user:2' };
+    sourceMessage = {
+      channel: { isThread: () => true, parentId: 'parent-1' },
+      guild: { id: 'guild-1' },
+    };
+  });
+
+  describe('ensureEncounterForAttack', () => {
+    it('creates an active encounter in a thread channel', async () => {
+      const encounter = await service.ensureEncounterForAttack({
+        channelId: 'thread-1',
+        attacker,
+        defender,
+        sourceMessage
+      });
+
+      expect(encounter).toBeTruthy();
+      expect(encounter.channelId).toBe('thread-1');
+      expect(encounter.state).toBe('active');
+      expect(encounter.round).toBe(1);
+      expect(encounter.combatants).toHaveLength(2);
+      expect(encounter.initiativeOrder).toHaveLength(2);
+      expect(service.getEncounter('thread-1')).toBe(encounter);
+    });
+
+    it('rejects self-combat', async () => {
+      await expect(service.ensureEncounterForAttack({
+        channelId: 'thread-1',
+        attacker,
+        defender: attacker,
+        sourceMessage
+      })).rejects.toThrow('self_combat_blocked');
+    });
+  });
+
+  describe('completePlayerAction', () => {
+    it('applies damage and advances turn', async () => {
+      ({ service, mocks } = createService({ rollSequence: [20, 5] }));
+      const encounter = await service.ensureEncounterForAttack({
+        channelId: 'thread-2',
+        attacker,
+        defender,
+        sourceMessage
+      });
+
+      const attackerId = attacker._id;
+      const defenderId = defender._id;
+
+      const attackerCombatant = service.getCombatant(encounter, attackerId);
+      const defenderCombatant = service.getCombatant(encounter, defenderId);
+      attackerCombatant.awaitingAction = true;
+
+      service.turnLock.transition(encounter.channelId, TURN_STATES.AWAITING_INPUT, {
+        combatantId: attackerId,
+        combatantName: attackerCombatant.name
+      });
+
+      service.nextTurn = vi.fn().mockResolvedValue();
+      service._postPlayerActionNarration = vi.fn().mockResolvedValue();
+
+      await service.completePlayerAction(encounter.channelId, attackerId, {
+        actionType: 'attack',
+        damage: 3,
+        targetId: defenderId,
+      });
+
+      expect(defenderCombatant.currentHp).toBe(defenderCombatant.maxHp - 3);
+      expect(attackerCombatant.awaitingAction).toBe(false);
+      expect(attackerCombatant.hasActed).toBe(true);
+      expect(service.nextTurn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('handleFlee', () => {
+    it('removes the combatant and ends the encounter when only one remains', async () => {
+      ({ service, mocks } = createService({ rollSequence: [20, 5] }));
+      const encounter = await service.ensureEncounterForAttack({
+        channelId: 'thread-3',
+        attacker,
+        defender,
+        sourceMessage
+      });
+
+      const attackerId = attacker._id;
+      const attackerCombatant = service.getCombatant(encounter, attackerId);
+      attackerCombatant.awaitingAction = true;
+
+      // Ensure flee succeeds
+      mocks.diceService.rollDie.mockImplementation(() => 20);
+      service.endEncounter = vi.fn();
+
+      const result = await service.handleFlee(encounter, attackerId);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toMatch(/flees/i);
+      expect(encounter.combatants).toHaveLength(1);
+      expect(service.endEncounter).toHaveBeenCalled();
+    });
+  });
 });
 
 /* Original tests commented out pending API alignment

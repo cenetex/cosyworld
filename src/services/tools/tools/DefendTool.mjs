@@ -7,20 +7,12 @@ import { BasicTool } from '../BasicTool.mjs';
 
 export class DefendTool extends BasicTool {
   constructor({
-    configService,
-    avatarService,
     battleService,
-    mapService,
     conversationManager,
-    diceService,
   }) {
     super();
-    this.configService = configService;
-    this.avatarService = avatarService;
     this.battleService = battleService;
-    this.mapService = mapService;
     this.conversationManager = conversationManager;
-    this.diceService = diceService;
 
     this.name = 'defend';
     this.description = 'Take a defensive stance';
@@ -30,6 +22,12 @@ export class DefendTool extends BasicTool {
 
   async execute(message, params, avatar, services) {
     try {
+      // Disallow actions from dead or KO'd avatars
+      const now = Date.now();
+      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+        return null;
+      }
+
       // If in an active encounter, enforce turn order and advance turn after defending
       const ces = services?.combatEncounterService || 
                   (this.conversationManager?.toolService?.toolServices?.combatEncounterService) || null;
@@ -44,9 +42,6 @@ export class DefendTool extends BasicTool {
       if (inEncounter && inEncounter.state === 'active') {
         try {
           if (!ces.isTurn(inEncounter, avatar.id || avatar._id)) return null; // silent out-of-turn
-          // V6 FIX: Atomically claim the turn before executing
-          const combatant = ces.getCombatant(inEncounter, avatar.id || avatar._id);
-          if (combatant) combatant.awaitingAction = false;
           await this.battleService.defend({ avatar });
           // Reflect in encounter state
           try {

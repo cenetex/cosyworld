@@ -572,6 +572,11 @@ export class AvatarService {
    */
   async updateAvatarActivity(channelId, avatarId) {
     try {
+      // Skip synthetic/monster avatar IDs — they're not in the avatars collection
+      if (!avatarId || !ObjectId.isValid(avatarId)) {
+        this.logger.debug?.(`[AvatarService] Skipping updateAvatarActivity for non-ObjectId: ${avatarId}`);
+        return;
+      }
       const db = await this._db();
       const presenceCol = db.collection('channel_avatar_presence');
       const avatarsCol = db.collection(this.AVATARS_COLLECTION);

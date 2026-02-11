@@ -145,7 +145,7 @@ export const SPELLS = {
     level: 1,
     school: 'abjuration',
     classes: ['wizard'],
-    castingTime: 'bonus_action',
+    castingTime: 'reaction',
     range: 'self',
     duration: 6,
     effect: { acBonus: 5 },
