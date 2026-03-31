@@ -8,18 +8,6 @@ import eventBus from '../../utils/eventBus.mjs';
 export function registerXGlobalAutoPoster({ xService, aiService, logger, databaseService, globalBotService }) {
   if (!xService) return;
   logger?.debug?.('[XGlobalAutoPoster] Initialising (DB-config governed)');
-  const IMAGE_AUTOPOST_ENABLED = process.env.X_IMAGE_AUTOPOST_ENABLED === '1';
-
-  const shouldSkipAutoPosting = async () => {
-    try {
-      if (typeof xService.getGlobalPostingMode !== 'function') return false;
-      const mode = await xService.getGlobalPostingMode();
-      return mode === 'tool';
-    } catch (error) {
-      logger?.warn?.('[XGlobalAutoPoster] Failed to determine posting mode:', error?.message || error);
-      return false;
-    }
-  };
 
   /**
    * Check if an avatar was recently posted about to prevent duplicates
@@ -51,10 +39,6 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
 
   const imageHandler = async (payload) => {
     try {
-      if (await shouldSkipAutoPosting()) {
-        logger?.info?.('[XGlobalAutoPoster] Skipping image auto-post because mode=tool');
-        return;
-      }
       if (!payload?.imageUrl) return;
       
       // Skip if this is a keyframe/thumbnail for a video
@@ -139,10 +123,6 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
 
   const videoHandler = async (payload) => {
     try {
-      if (await shouldSkipAutoPosting()) {
-        logger?.info?.('[XGlobalAutoPoster] Skipping video auto-post because mode=tool');
-        return;
-      }
       if (!payload?.videoUrl) return;
       
       logger?.debug?.('[XGlobalAutoPoster] evt MEDIA.VIDEO.GENERATED', { 
@@ -210,11 +190,7 @@ export function registerXGlobalAutoPoster({ xService, aiService, logger, databas
     }
   };
 
-  if (IMAGE_AUTOPOST_ENABLED) {
-    eventBus.on('MEDIA.IMAGE.GENERATED', imageHandler);
-  } else {
-    logger?.info?.('[XGlobalAutoPoster] Image auto-posting disabled; MEDIA.IMAGE.GENERATED will be ignored');
-  }
+  eventBus.on('MEDIA.IMAGE.GENERATED', imageHandler);
   eventBus.on('MEDIA.VIDEO.GENERATED', videoHandler);
 }
 export default registerXGlobalAutoPoster;

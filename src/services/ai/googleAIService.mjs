@@ -4,11 +4,9 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleGenAI } from '@google/genai';
 import modelsConfig from '../../models.google.config.mjs';
 import stringSimilarity from 'string-similarity';
 import fs from 'fs/promises';
-import { Blob } from 'buffer';
 import { parseWithRetries } from '../../utils/jsonParse.mjs';
 import { CircuitBreaker } from '../../utils/circuitBreaker.mjs';
 
@@ -55,13 +53,7 @@ export class GoogleAIService {
       return;
     }
 
-    this.provider = 'google';
     this.googleAI = new GoogleGenerativeAI(this.apiKey);
-    // New GenAI client for Files API and advanced features
-    this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
-    // File cache: hash -> { uri, mimeType, expiry }
-    this._fileCache = new Map();
-    this.FILE_CACHE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours (Gemini files expire after 48h)
     this.model = config.defaultModel || 'gemini-2.0-flash-001';
     this.structured_model = config.structuredModel || this.model;
     this.rawModels = modelsConfig.rawModels;
@@ -553,7 +545,9 @@ export class GoogleAIService {
     delete options.guildId;
 
     let fullPrompt = prompt ? prompt.trim() : '';
-    // Note: aspectRatio is now handled in imageConfig, not prompt
+    if (aspectRatio) {
+      fullPrompt += `\nDesired aspect ratio: ${aspectRatio}`;
+    }
     if (avatar) {
       fullPrompt += `\nSubject: ${avatar.name || ''} ${avatar.emoji || ''}. Description: ${avatar.description || ''}`;
     }
@@ -575,46 +569,30 @@ export class GoogleAIService {
         attemptPrompt += `\nOnly respond with an image.`;
       }
       try {
-        const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
+  const generativeModel = this.googleAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
         // Only include supported options for image generation
-        const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
-        const generationConfig = { 
-          temperature, 
-          maxOutputTokens, 
-          topP, 
-          topK, 
-          ...options,
-          responseModalities: ['text', 'image'],
-        };
-        
-        // Add imageConfig if aspectRatio is present
-        if (aspectRatio) {
-          generationConfig.imageConfig = {
-            aspectRatio: aspectRatio
-          };
-        }
-
+  const { temperature, maxOutputTokens, topP, topK } = { ...this.defaultCompletionOptions, ...options };
+        const generationConfig = { temperature, maxOutputTokens, topP, topK, ...options };
         // Remove penalty fields if present (always for image models)
         delete generationConfig.frequencyPenalty;
         delete generationConfig.presencePenalty;
-        
         const response = await generativeModel.generateContent({
           contents: [{ role: 'user', parts: [{ text: attemptPrompt }] }],
-          generationConfig,
+          generationConfig: {
+            ...generationConfig,
+            responseModalities: ['text', 'image'],
+          },
         });
         // Find the first image part
         for (const part of response.response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
-            // Save base64 image to temp file with correct extension based on mime type
+            // Save base64 image to temp file
             const buffer = Buffer.from(part.inlineData.data, 'base64');
-            const mimeType = part.inlineData.mimeType || 'image/png';
-            const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
             await fs.mkdir('./images', { recursive: true });
-            const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.${ext}`;
+            const tempFile = `./images/gemini_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
             const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
-            this.logger?.debug?.(`[GoogleAIService] Image saved as ${ext}, mimeType from API: ${mimeType}`);
             return s3url;
           }
         }
@@ -660,8 +638,8 @@ export class GoogleAIService {
   }
 
   /**
-   * Generate a composed image from up to 14 images (avatar, location, item) using Gemini's image editing.
-   * @param {object[]} images - Array of { data: base64, mimeType: string, label: string } (max 14).
+   * Generate a composed image from up to 3 images (avatar, location, item) using Gemini's image editing.
+   * @param {object[]} images - Array of { data: base64, mimeType: string, label: string } (max 3).
    * @param {string} prompt - Text prompt describing the desired composition.
    * @param {object} [options] - Optional config (model, etc).
    * @returns {Promise<string|null>} - base64 image string or null.
@@ -670,7 +648,7 @@ export class GoogleAIService {
     if (!this.googleAI) throw new Error("Google AI client not initialized.");
     if (!this.s3Service) throw new Error("s3Service not initialized.");
     if (!Array.isArray(images) || images.length === 0) throw new Error("At least one image is required");
-    if (images.length > 14) images = images.slice(0, 14); // Limit to 14 images
+    if (images.length > 3) images = images.slice(0, 3); // Limit to 3 images
     
     // Extract purpose for upload metadata and remove from generation config
     const uploadPurpose = options.purpose || 'general';
@@ -704,63 +682,23 @@ export class GoogleAIService {
       context: _context, 
       source: _source,
       prompt: _prompt, // Remove prompt from options if present
-      aspectRatio,
-      imageSize,           // '1k', '2k', or '4k'
-      characterReference, // Flag to indicate character reference mode
       ...genOptions 
     } = options;
     
     // Build a single content object with role 'user' and a parts array
-    const parts = [];
-    
-    // Check if any images are labeled as character references
-    const hasCharacterRef = images.some(img => 
-      img.label === 'character_reference' || img.label === 'reference'
-    ) || characterReference;
-    
-    this.logger?.info?.('[GoogleAIService] composeImageWithGemini called', {
-      imageCount: images.length,
-      imageLabels: images.map(img => img.label).filter(Boolean),
-      hasCharacterRef,
-      promptPreview: prompt?.substring(0, 100)
-    });
-    
-    // Add reference instruction if we have character references
-    if (hasCharacterRef) {
-      this.logger?.info?.('[GoogleAIService] Character reference mode ENABLED - adding consistency instructions');
-      parts.push({ 
-        text: `IMPORTANT: The attached image(s) show the character's appearance that MUST be maintained in the generated image. Study the character's face, body shape, clothing, colors, and distinctive features carefully. The generated image must depict this EXACT same character with consistent visual identity.\n\n` 
-      });
-    }
-    
-    // Add images with labels
-    for (const img of images) {
-      if (img.label) {
-        parts.push({ text: `[${img.label.toUpperCase()}]:` });
+    const parts = images.map(img => ({
+      inline_data: {
+        mime_type: img.mimeType || 'image/png',
+        data: img.data,
       }
-      parts.push({
-        inline_data: {
-          mime_type: img.mimeType || 'image/png',
-          data: img.data,
-        }
-      });
-    }
-    
-    // Add the main prompt with character consistency reminder if needed
-    if (hasCharacterRef) {
-      parts.push({ 
-        text: `\n\nNow generate a new image following this prompt while maintaining EXACT character consistency with the reference image above:\n\n${prompt}` 
-      });
-    } else {
-      parts.push({ text: prompt });
-    }
-    
+    }));
+    parts.push({ text: prompt });
     const contents = [{ role: 'user', parts }];
 
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-3-pro-image-preview' });
+  const generativeModel = this.googleAI.getGenerativeModel({ model: model || 'gemini-2.5-flash-image-preview' });
         // Remove penalty fields and other unsupported fields (always for image models)
         // Only include valid generation config fields
         const validConfigFields = ['temperature', 'maxOutputTokens', 'topP', 'topK', 'responseModalities', 'candidateCount', 'stopSequences'];
@@ -772,41 +710,18 @@ export class GoogleAIService {
           responseModalities: ['text', 'image']
         };
         
-        if (aspectRatio) {
-            generationConfig.imageConfig = { aspectRatio };
-        }
-        
-        // Support image size options for Gemini 3 Pro: '1k' (1024), '2k' (2048), '4k' (4096)
-        if (imageSize) {
-            const sizeMap = {
-              '1k': 1024,
-              '2k': 2048,
-              '4k': 4096,
-              '1024': 1024,
-              '2048': 2048,
-              '4096': 4096
-            };
-            const dimension = sizeMap[String(imageSize).toLowerCase()] || sizeMap['1k'];
-            generationConfig.imageConfig = generationConfig.imageConfig || {};
-            generationConfig.imageConfig.outputImageSize = dimension;
-        }
-
         const response = await generativeModel.generateContent({
           contents: contents,
           generationConfig,
         });
         for (const part of response.response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
-            // Use actual mime type from response to determine file extension
             const buffer = Buffer.from(part.inlineData.data, 'base64');
-            const mimeType = part.inlineData.mimeType || 'image/png';
-            const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
             await fs.mkdir('./images', { recursive: true });
-            const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.${ext}`;
+            const tempFile = `./images/gemini_compose_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
             await fs.writeFile(tempFile, buffer);
             const s3url = await this.s3Service.uploadImage(tempFile, uploadOptions);
             await fs.unlink(tempFile);
-            this.logger?.debug?.(`[GoogleAIService] Composed image saved as ${ext}, mimeType from API: ${mimeType}`);
             return s3url;
           }
         }
@@ -819,160 +734,5 @@ export class GoogleAIService {
     this.logger?.error(`[GoogleAIService] Gemini compose image failed after retries: ${lastError?.message}`);
     throw lastError || new Error('Image composition failed');
   }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // Gemini Files API
-  // ────────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Compute a simple hash for cache key from buffer content
-   * @private
-   */
-  _computeBufferHash(buffer) {
-    if (!buffer) return null;
-    // Simple FNV-1a hash for speed (not cryptographic)
-    let hash = 2166136261;
-    for (let i = 0; i < Math.min(buffer.length, 8192); i++) {
-      hash ^= buffer[i];
-      hash = (hash * 16777619) >>> 0;
-    }
-    return `${hash.toString(16)}_${buffer.length}`;
-  }
-
-  /**
-   * Upload a file to Gemini Files API for reuse across requests
-   * @param {Buffer|string} data - File data as Buffer or base64 string
-   * @param {string} mimeType - MIME type of the file
-   * @param {Object} [options] - Optional configuration
-   * @param {string} [options.displayName] - Display name for the file
-   * @param {boolean} [options.skipCache] - Skip cache lookup/storage
-   * @returns {Promise<{ uri: string, mimeType: string, name: string }>}
-   */
-  async uploadFile(data, mimeType, options = {}) {
-    if (!this.genAI) {
-      throw new Error('GoogleGenAI client not initialized');
-    }
-
-    // Convert base64 to buffer if needed
-    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data, 'base64');
-    const hash = this._computeBufferHash(buffer);
-
-    // Check cache first
-    if (!options.skipCache && hash) {
-      const cached = this._fileCache.get(hash);
-      if (cached && Date.now() < cached.expiry) {
-        this.logger?.debug?.(`[GoogleAIService] File cache hit: ${hash}`);
-        return { uri: cached.uri, mimeType: cached.mimeType, name: cached.name };
-      }
-      // Clean up expired entry
-      if (cached) {
-        this._fileCache.delete(hash);
-      }
-    }
-
-    try {
-      // Upload via Files API
-      const uploadResult = await this.genAI.files.upload({
-        file: new Blob([buffer], { type: mimeType }),
-        config: {
-          mimeType,
-          displayName: options.displayName || `upload_${Date.now()}`
-        }
-      });
-
-      const result = {
-        uri: uploadResult.uri,
-        mimeType: uploadResult.mimeType || mimeType,
-        name: uploadResult.name
-      };
-
-      // Cache the result
-      if (!options.skipCache && hash) {
-        this._fileCache.set(hash, {
-          ...result,
-          expiry: Date.now() + this.FILE_CACHE_TTL_MS
-        });
-        this.logger?.debug?.(`[GoogleAIService] File cached: ${hash} -> ${result.uri}`);
-      }
-
-      this.logger?.info?.(`[GoogleAIService] Uploaded file to Gemini: ${result.name}`);
-      return result;
-    } catch (err) {
-      this.logger?.error?.(`[GoogleAIService] File upload failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Get file info from Gemini Files API
-   * @param {string} name - File name (from upload response)
-   * @returns {Promise<Object>}
-   */
-  async getFile(name) {
-    if (!this.genAI) {
-      throw new Error('GoogleGenAI client not initialized');
-    }
-    try {
-      return await this.genAI.files.get({ name });
-    } catch (err) {
-      this.logger?.warn?.(`[GoogleAIService] getFile failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Delete a file from Gemini Files API
-   * @param {string} name - File name to delete
-   * @returns {Promise<void>}
-   */
-  async deleteFile(name) {
-    if (!this.genAI) {
-      throw new Error('GoogleGenAI client not initialized');
-    }
-    try {
-      await this.genAI.files.delete({ name });
-      // Remove from cache if present
-      for (const [hash, entry] of this._fileCache.entries()) {
-        if (entry.name === name) {
-          this._fileCache.delete(hash);
-          break;
-        }
-      }
-      this.logger?.info?.(`[GoogleAIService] Deleted file: ${name}`);
-    } catch (err) {
-      this.logger?.warn?.(`[GoogleAIService] deleteFile failed: ${err.message}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Prune expired entries from file cache
-   */
-  pruneFileCache() {
-    const now = Date.now();
-    let pruned = 0;
-    for (const [hash, entry] of this._fileCache.entries()) {
-      if (now >= entry.expiry) {
-        this._fileCache.delete(hash);
-        pruned++;
-      }
-    }
-    if (pruned > 0) {
-      this.logger?.debug?.(`[GoogleAIService] Pruned ${pruned} expired file cache entries`);
-    }
-    return pruned;
-  }
-
-  /**
-   * Get file cache statistics
-   * @returns {{ size: number, validEntries: number }}
-   */
-  getFileCacheStats() {
-    const now = Date.now();
-    let valid = 0;
-    for (const entry of this._fileCache.values()) {
-      if (now < entry.expiry) valid++;
-    }
-    return { size: this._fileCache.size, validEntries: valid };
-  }
+  
 }

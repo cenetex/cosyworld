@@ -10,14 +10,13 @@
  * Handles tool call chains and result aggregation for LLM-driven agentic behavior.
  */
 export class ToolExecutor {
-  constructor({ logger, toolService, toolSchemaGenerator, agentContinuationService }) {
+  constructor({ logger, toolService, toolSchemaGenerator }) {
     this.logger = logger || console;
     this.toolService = toolService;
     this.toolSchemaGenerator = toolSchemaGenerator;
-    this.continuationService = agentContinuationService;
     
     // Configuration
-    this.maxIterations = parseInt(process.env.TOOL_MAX_ITERATIONS || '5', 10);
+    this.maxIterations = parseInt(process.env.TOOL_MAX_ITERATIONS || '3', 10);
     this.enableToolChaining = String(process.env.TOOL_ENABLE_CHAINING || 'true').toLowerCase() === 'true';
   }
 
@@ -69,22 +68,19 @@ export class ToolExecutor {
       // Handle null/undefined/empty results:
       // - null means intentional silence (e.g., out of turn, already KO'd)
       // - Return formatted message for other cases
-      const resultMessage = result?.message ?? (typeof result === 'string' ? result : null);
-      const shouldNotify = result?.notify !== false;
       let formattedResult;
-      if (!shouldNotify) {
-        formattedResult = null;
-      } else if (resultMessage === null || resultMessage === undefined) {
+      if (result === null || result === undefined) {
         // Silent execution - don't show anything to user
         formattedResult = null;
-      } else if (typeof resultMessage === 'string' && resultMessage.trim().length === 0) {
+      } else if (typeof result === 'string' && result.trim().length === 0) {
+        // Empty string - treat as silent
         formattedResult = null;
-      } else if (typeof resultMessage === 'string') {
+      } else if (typeof result === 'string') {
         // String result - use as-is if properly formatted, otherwise format it
-        formattedResult = resultMessage.trim().startsWith('-#') ? resultMessage : `-# [ ${resultMessage} ]`;
+        formattedResult = result.trim().startsWith('-#') ? result : `-# [ ${result} ]`;
       } else {
         // Non-string result - format as JSON in brackets
-        formattedResult = `-# [ ${JSON.stringify(resultMessage)} ]`;
+        formattedResult = `-# [ ${JSON.stringify(result)} ]`;
       }
       
       return {
@@ -108,23 +104,21 @@ export class ToolExecutor {
   }
 
   /**
-   * Execute multiple tool calls with optional chaining and continuation
+   * Execute multiple tool calls with optional chaining
    * @param {Array} toolCalls - Array of tool calls from LLM
    * @param {Object} message - Discord message context
    * @param {Object} avatar - Avatar executing the tools
    * @param {Object} services - Additional services for tool execution
-   * @param {Object} options - Execution options { maxIterations, enableChaining, chatHistory }
-   * @returns {Object} Result with { results: Array, finalDecision: Object }
+   * @param {Object} options - Execution options { maxIterations, enableChaining }
+   * @returns {Array} Array of tool execution results
    */
   async executeToolCalls(toolCalls, message, avatar, services = {}, options = {}) {
     const maxIterations = options.maxIterations || this.maxIterations;
     const enableChaining = options.enableChaining !== undefined ? options.enableChaining : this.enableToolChaining;
-    const chatHistory = options.chatHistory || [];
     
     const allResults = [];
     let iteration = 0;
     let currentCalls = toolCalls;
-    let finalDecision = null;
     
     this.logger.debug?.(`[ToolExecutor] Starting tool execution loop (max ${maxIterations} iterations, chaining: ${enableChaining})`);
     
@@ -139,83 +133,22 @@ export class ToolExecutor {
         allResults.push(result);
       }
       
-      iteration++;
-      
       // If chaining disabled or last iteration, stop here
-      if (!enableChaining || iteration >= maxIterations) {
+      if (!enableChaining || iteration >= maxIterations - 1) {
         this.logger.debug?.(`[ToolExecutor] Tool execution complete (chaining disabled or max iterations reached)`);
-        finalDecision = {
-          needsMoreActions: false,
-          reasoning: iteration >= maxIterations ? 'Max iterations reached' : 'Chaining disabled',
-          shouldRespond: true
-        };
         break;
       }
       
-      // Use continuation service to decide if more actions needed
-      if (this.continuationService) {
-        try {
-          const decision = await this.continuationService.shouldContinue({
-            avatar,
-            toolResults: iterationResults,
-            chatHistory,
-            originalMessage: message,
-            iteration,
-            maxIterations
-          });
-          
-          this.logger.debug?.(`[ToolExecutor] Continuation decision: needsMore=${decision.needsMoreActions}, tools=${decision.toolCalls?.length || 0}`);
-          
-          if (decision.needsMoreActions && decision.toolCalls?.length > 0) {
-            currentCalls = decision.toolCalls;
-            this.logger.info?.(`[ToolExecutor] ${avatar.name} continuing with ${currentCalls.length} more tool(s)`);
-          } else {
-            currentCalls = [];
-            finalDecision = decision;
-          }
-        } catch (error) {
-          this.logger.error?.(`[ToolExecutor] Continuation check failed: ${error.message}`);
-          currentCalls = [];
-          finalDecision = {
-            needsMoreActions: false,
-            reasoning: `Continuation error: ${error.message}`,
-            shouldRespond: true
-          };
-        }
-      } else {
-        // No continuation service - check heuristically
-        const suggestsContinue = iterationResults.some(r => this._suggestsContinuation(r));
-        if (!suggestsContinue) {
-          currentCalls = [];
-        }
-      }
+      // For now, don't automatically request follow-up tools
+      // In the future, we could analyze results and suggest next actions
+      currentCalls = [];
+      
+      iteration++;
     }
     
-    this.logger.info?.(`[ToolExecutor] Completed tool execution: ${allResults.length} total calls over ${iteration} iteration(s)`);
+    this.logger.info?.(`[ToolExecutor] Completed tool execution: ${allResults.length} total calls over ${iteration + 1} iteration(s)`);
     
-    return {
-      results: allResults,
-      finalDecision: finalDecision || { needsMoreActions: false, shouldRespond: true },
-      iterations: iteration
-    };
-  }
-
-  /**
-   * Simple heuristic to suggest if continuation might be needed
-   * @param {Object} toolResult - Single tool result
-   * @returns {boolean}
-   * @private
-   */
-  _suggestsContinuation(toolResult) {
-    if (!toolResult || !toolResult.success) return false;
-    
-    const result = String(toolResult.result || '').toLowerCase();
-    
-    // Results that suggest follow-up might be useful
-    if (result.includes('now in context')) return true;
-    if (result.includes('found') && result.includes('results')) return true;
-    
-    return false;
+    return allResults;
   }
 
   /**
@@ -242,14 +175,6 @@ export class ToolExecutor {
       case 'create':
         // create expects description/prompt
         return args.description ? [args.description] : args.prompt ? [args.prompt] : [];
-      
-      case 'summon':
-        // summon expects name/description
-        return args.name ? [args.name] : args.description ? [args.description] : [];
-      
-      case 'breed':
-        // breed expects two avatar names
-        return [args.avatar1, args.avatar2].filter(Boolean);
       
       case 'x':
         // x (Twitter) expects tweet content
@@ -285,25 +210,14 @@ export class ToolExecutor {
 
   /**
    * Get a summary of tool execution for logging
-   * @param {Array|Object} resultsOrExecution - Array of results or execution object { results, finalDecision }
+   * @param {Array} results - Array of tool execution results
    * @returns {string} Summary string
    */
-  getSummary(resultsOrExecution) {
-    // Handle both old array format and new object format
-    const results = Array.isArray(resultsOrExecution) 
-      ? resultsOrExecution 
-      : (resultsOrExecution?.results || []);
-    
+  getSummary(results) {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     const toolNames = results.map(r => r.toolName).join(', ');
-    const iterations = resultsOrExecution?.iterations;
     
-    let summary = `Executed ${results.length} tool(s): ${toolNames} (${successful} succeeded, ${failed} failed)`;
-    if (iterations && iterations > 1) {
-      summary += ` over ${iterations} iterations`;
-    }
-    
-    return summary;
+    return `Executed ${results.length} tool(s): ${toolNames} (${successful} succeeded, ${failed} failed)`;
   }
 }

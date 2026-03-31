@@ -694,7 +694,7 @@ Caption:`;
       
     } catch (error) {
       this.logger.error('[NarrativeGenerator] Error generating caption:', error);
-      return beat.description;
+      return `${beat.description}\n\n#CosyWorld`;
     }
   }
 

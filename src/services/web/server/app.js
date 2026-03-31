@@ -17,7 +17,6 @@ import { AuditLogService } from '../../foundation/auditLogService.mjs';
 import eventBus from '../../../utils/eventBus.mjs';
 import { registerXGlobalAutoPoster } from '../../social/xGlobalAutoPoster.mjs';
 import { registerTelegramGlobalAutoPoster } from '../../social/telegramGlobalAutoPoster.mjs';
-import { registerXMentionAutoReplier } from '../../social/xMentionAutoReplier.mjs';
 async function initializeApp(services) {
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -32,12 +31,6 @@ async function initializeApp(services) {
   const PORT = serverCfg.port || process.env.WEB_PORT || 3000;
     const logger = services.logger;
 
-    // Trust proxy when running behind a proxy (e.g., in production)
-    // This is needed for rate limiting and IP detection to work correctly
-    if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
-      app.set('trust proxy', true);
-    }
-
     // Middleware setup
   const corsCfg = serverCfg.cors || { enabled: true, origin: '*', credentials: false };
   const allowedOrigins = Array.isArray(corsCfg.origin) ? corsCfg.origin : String(corsCfg.origin || '*');
@@ -45,22 +38,7 @@ async function initializeApp(services) {
   // Optional basic rate limit
   const rl = serverCfg.rateLimit || { enabled: false, windowMs: 60_000, max: 300 };
   if (rl.enabled) {
-    app.use(rateLimit({ 
-      windowMs: Number(rl.windowMs) || 60_000, 
-      max: Number(rl.max) || 300, 
-      standardHeaders: true, 
-      legacyHeaders: false,
-      // Skip rate limiting for failed trust proxy scenarios
-      skip: (req) => {
-        // If we can't determine the real IP, skip rate limiting rather than crash
-        return false;
-      },
-      // Validate that we can get a real IP address
-      validate: {
-        xForwardedForHeader: false, // Disable strict validation to prevent crashes
-        trustProxy: false
-      }
-    }));
+    app.use(rateLimit({ windowMs: Number(rl.windowMs) || 60_000, max: Number(rl.max) || 300, standardHeaders: true, legacyHeaders: false }));
   }
     app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
@@ -119,7 +97,8 @@ async function initializeApp(services) {
   const publicImagesDir = path.join(staticDir, 'images');
   app.use('/images', express.static(publicImagesDir, { maxAge: '7d', etag: false }));
 
-    // Core app locals
+    // Core services
+    app.locals.services = services;
   // Reuse existing DB connection; do not force re-connect if already connected
   const db = await services.databaseService.getDatabase();
   logger.info('Web server using existing database connection');
@@ -144,17 +123,6 @@ async function initializeApp(services) {
       });
     } catch (e) { logger?.warn?.('[init] xGlobalAutoPoster registration failed: ' + e.message); }
 
-    // Register global X mention auto-replier (budgeted polling)
-    try {
-      registerXMentionAutoReplier({
-        xService: services.xService,
-        schedulingService: services.schedulingService,
-        aiService: services.openRouterAIService || services.aiService,
-        globalBotService: services.globalBotService,
-        logger
-      });
-    } catch (e) { logger?.warn?.('[init] xMentionAutoReplier registration failed: ' + e.message); }
-
     // Register global Telegram auto poster
     try {
       registerTelegramGlobalAutoPoster({ 
@@ -166,148 +134,14 @@ async function initializeApp(services) {
       });
     } catch (e) { logger?.warn?.('[init] telegramGlobalAutoPoster registration failed: ' + e.message); }
 
-    // Route-scoped service bundles (avoid passing the full services bag into every route module)
-    const setupRouteServices = {
-      logger,
-      setupStatusService: services.setupStatusService,
-      secretsService: services.secretsService,
-      configService: services.configService,
-    };
-
-    const healthRouteServices = {
-      aiService: services.aiService,
-      unifiedAIService: services.unifiedAIService,
-      metricsService: services.metricsService,
-      xService: services.xService,
-      telegramService: services.telegramService,
-    };
-
-    const xAuthRouteServices = {
-      xService: services.xService,
-      databaseService: services.databaseService,
-      logger,
-      socialPlatformService: services.socialPlatformService,
-      configService: services.configService,
-    };
-
-    const telegramAuthRouteServices = {
-      telegramService: services.telegramService,
-      databaseService: services.databaseService,
-      logger,
-      socialPlatformService: services.socialPlatformService,
-      secretsService: services.secretsService,
-      configService: services.configService,
-    };
-
-    const socialRouteServices = {
-      socialPlatformService: services.socialPlatformService,
-    };
-
-    const adminUsersRouteServices = {
-      configService: services.configService,
-    };
-
-    const adminCollectionsRouteServices = {
-      logger,
-      databaseService: services.databaseService,
-      s3Service: services.s3Service,
-      aiService: services.aiService,
-      unifiedAIService: services.unifiedAIService,
-      openrouterAIService: services.openrouterAIService || services.openRouterAIService,
-      googleAIService: services.googleAIService,
-      ollamaAIService: services.ollamaAIService,
-      replicateAIService: services.replicateAIService,
-    };
-
-    const adminReplicateRouteServices = {
-      secretsService: services.secretsService,
-      configService: services.configService,
-      logger,
-    };
-
-    const adminBotsRouteServices = {
-      botService: services.botService,
-      secretsService: services.secretsService,
-      logger,
-    };
-
-    const inviteRouteServices = {
-      xService: services.xService,
-    };
-
-    const adminRouteServices = {
-      logger,
-      configService: services.configService,
-      databaseService: services.databaseService,
-      telegramService: services.telegramService,
-      xService: services.xService,
-      globalBotService: services.globalBotService,
-      memoryService: services.memoryService,
-      promptService: services.promptService,
-      secretsService: services.secretsService,
-      s3Service: services.s3Service,
-    };
-
-    const configRouteServices = {
-      databaseService: services.databaseService,
-      configService: services.configService,
-      logger,
-    };
-
-    const secretsRouteServices = {
-      secretsService: services.secretsService,
-    };
-
-    const settingsRouteServices = {
-      databaseService: services.databaseService,
-      configService: services.configService,
-      secretsService: services.secretsService,
-      logger,
-    };
-
-    const paymentRouteServices = {
-      configService: services.configService,
-      logger,
-      x402Service: services.x402Service,
-      databaseService: services.databaseService,
-      agentWalletService: services.agentWalletService,
-    };
-
-    const aiRouteServices = {
-      logger,
-      openrouterAIService: services.openrouterAIService,
-      googleAIService: services.googleAIService,
-      pricingService: services.pricingService,
-      x402Service: services.x402Service,
-      configService: services.configService,
-    };
-
-    const modelsRouteServices = {
-      aiModelService: services.aiModelService,
-    };
-
-    const marketplaceRouteServices = {
-      logger,
-      marketplaceService: services.marketplaceService,
-      x402Service: services.x402Service,
-      agentWalletService: services.agentWalletService,
-    };
-
-    const serviceRoutesServices = {
-      logger,
-      marketplaceServiceRegistry: services.marketplaceServiceRegistry,
-      x402Service: services.x402Service,
-      agentWalletService: services.agentWalletService,
-    };
-
     // Setup routes (must be registered before auth checks)
-    app.use('/api/setup', (await import('./routes/setup.js')).default(setupRouteServices));
+    app.use('/api/setup', (await import('./routes/setup.js')).default(services));
 
     // Routes
     app.get('/test', (req, res) => res.json({ message: 'Test route working' }));
   app.use('/api/leaderboard', (await import('./routes/leaderboard.js')).default(db));
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
-    app.use('/api/health', (await import('./routes/health.js')).default(db, healthRouteServices));
+    app.use('/api/health', (await import('./routes/health.js')).default(db, services));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
     app.use('/api/items', (await import('./routes/items.js')).default(db, { logger }));
     app.use('/api/locations', (await import('./routes/locations.js')).default(db, { logger }));
@@ -322,10 +156,10 @@ async function initializeApp(services) {
     app.use('/api/nft', (await import('./routes/nft.js')).default(nftRouteServices));
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
-    app.use('/api/xauth', (await import('./routes/xauth.js')).default(xAuthRouteServices));
-    app.use('/api/telegramauth', (await import('./routes/telegramauth.js')).default(telegramAuthRouteServices));
-    app.use('/api/wiki', (await import('./routes/wiki.js')).default(db, services.wikiService));
-    app.use('/api/social', (await import('./routes/social.js')).default(db, socialRouteServices));
+    app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));
+    app.use('/api/telegramauth', (await import('./routes/telegramauth.js')).default(services));
+    app.use('/api/wiki', (await import('./routes/wiki.js')).default(db));
+    app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
   app.use('/api/link', (await import('./routes/link.js')).default(db));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
@@ -338,14 +172,8 @@ async function initializeApp(services) {
 
   // Protect admin API
   // Mount specific collections router first to prevent shadowing by the generic /api/admin router
-  app.use('/api/admin/users', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.users.js')).default(db, adminUsersRouteServices));
-  app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db, adminCollectionsRouteServices));
-  app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(adminReplicateRouteServices));
-  app.use('/api/admin/bots', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.bots.js')).default(db, adminBotsRouteServices));
-  
-  // Public Invite Route
-  app.use('/api/invite', (await import('./routes/invite.js')).default(db, inviteRouteServices));
-
+  app.use('/api/admin/collections', ensureAdmin, validateCsrf, adminWriteRateLimit, requireSignedWrite, (await import('./routes/admin.collections.js')).default(db));
+  app.use('/api/admin/replicate', ensureAdmin, validateCsrf, (await import('./routes/admin.replicate.js')).default(services));
   // /api/admin/video-jobs removed: inline video generation active
   // Admin API: allow reads (GET) with session; require signed message for writes (POST/PUT/PATCH/DELETE)
   app.use('/api/admin', ensureAdmin, validateCsrf, (req, res, next) => {
@@ -354,19 +182,16 @@ async function initializeApp(services) {
       return adminWriteRateLimit(req, res, () => requireSignedWrite(req, res, next));
     }
     next();
-  }, (await import('./routes/admin.js')).default(db, adminRouteServices));
+  }, (await import('./routes/admin.js')).default(db, services));
   
   // Story system admin routes (no CSRF/signed message required for MVP, but still requires admin auth)
   try {
     const { default: registerStoryAdminRoutes } = await import('../../story/storyAdminRoutes.mjs');
-    registerStoryAdminRoutes(app, {
-      logger,
-      storyStateService: services.storyStateService,
-      storyPlannerService: services.storyPlannerService,
-      storyPostingService: services.storyPostingService,
-      storySchedulerService: services.storySchedulerService,
-      worldContextService: services.worldContextService,
-    });
+    // Create a mini-container object with resolve method
+    const storyContainer = {
+      resolve: (name) => services[name]
+    };
+    registerStoryAdminRoutes(app, storyContainer);
     logger.info('[Web] Story admin routes registered');
   } catch (e) {
     logger.warn('[Web] Failed to register story admin routes:', e.message);
@@ -421,6 +246,7 @@ async function initializeApp(services) {
   app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(marketplaceRouteServices));
   app.use('/api/services', (await import('./routes/services.js')).default(serviceRoutesServices));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));
+  app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
   app.use('/api/auth', (await import('./routes/auth.js')).default(db));
   app.use('/api/memory', ensureAdmin, (await import('./routes/memory.js')).default(db));
@@ -502,9 +328,9 @@ async function initializeApp(services) {
         return res.redirect('/admin/setup');
       }
     });
-    app.get(['/admin/guild-settings', '/admin/guild-settings.html'], ensureAdmin, (req, res) => {
-      // Consolidated into /admin/global-settings
-      res.redirect('/admin/global-settings');
+    app.get('/admin/guild-settings', ensureAdmin, (req, res) => {
+      // Consolidated into /admin/settings
+      res.redirect('/admin/settings');
     });
     // Backward compat: redirect old Avatar Management to Entity Management
     app.get('/admin/avatar-management', ensureAdmin, (req, res) => {
@@ -515,9 +341,10 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    // Redirect old secrets page to new bot management
-    app.get(['/admin/secrets', '/admin/secrets.html'], ensureAdmin, (req, res) => {
-      res.redirect('/admin/bots/');
+    app.get('/admin/secrets', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'secrets.html'), (err) => {
+        if (err) next(err);
+      });
     });
     app.get('/admin/collections', ensureAdmin, (req, res, next) => {
       res.sendFile(path.join(staticDir, 'admin', 'collections.html'), (err) => {
@@ -529,47 +356,18 @@ async function initializeApp(services) {
         if (err) next(err);
       });
     });
-    // Redirect old X accounts page to new bot management
-    app.get(['/admin/x-accounts', '/admin/x-accounts.html'], ensureAdmin, (req, res) => {
-      res.redirect('/admin/bots/');
-    });
-    // Redirect old settings page to new global settings
-    app.get(['/admin/settings', '/admin/settings.html'], ensureAdmin, (req, res) => {
-      res.redirect('/admin/global-settings');
-    });
-    app.get('/admin/users', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'users.html'), (err) => {
+    app.get('/admin/x-accounts', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'x-accounts.html'), (err) => {
         if (err) next(err);
       });
     });
-    // Redirect old global-bot page to new bots hub
-    app.get(['/admin/global-bot', '/admin/global-bot.html'], ensureAdmin, (req, res) => {
-      res.redirect('/admin/bots/');
-    });
-    // New bots management pages
-    app.get(['/admin/bots', '/admin/bots/', '/admin/bots/index.html'], ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'bots', 'index.html'), (err) => {
+    app.get('/admin/settings', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'settings.html'), (err) => {
         if (err) next(err);
       });
     });
-    app.get('/admin/bots/detail.html', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'bots', 'detail.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-    // New global settings page
-    app.get(['/admin/global-settings', '/admin/global-settings.html'], ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'global-settings.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-    app.get('/admin/x-global-posting', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'x-global-posting.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-    app.get('/admin/telegram-global-posting', ensureAdmin, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'admin', 'telegram-global-posting.html'), (err) => {
+    app.get('/admin/global-bot', ensureAdmin, (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'admin', 'global-bot.html'), (err) => {
         if (err) next(err);
       });
     });
@@ -598,49 +396,28 @@ async function initializeApp(services) {
       });
     });
 
-    // Invite page (public)
-    app.get('/invite.html', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'invite.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-
-    // Wiki homepage - serves wiki.html for browsing and sharing articles
-    app.get('/wiki', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'wiki.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-
-    // Wiki article pages - SPA handles routing for /wiki/:slug
-    app.get(/^\/wiki\/(.+)$/, (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'wiki.html'), (err) => {
-        if (err) next(err);
-      });
-    });
-
     // Keep /app as alias for backwards compatibility
     app.get('/app', (req, res, next) => {
       res.redirect('/console');
     });
 
     // SPA fallback for console routes
-    app.get(/^\/console(?:\/.*)?$/, (req, res, next) => {
+    app.get('/console/*', (req, res, next) => {
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
     // SPA fallback for app routes (backwards compatibility)
-    app.get(/^\/app(?:\/.*)?$/, (req, res, next) => {
+    app.get('/app/*', (req, res, next) => {
       res.sendFile(path.join(staticDir, 'app.html'), (err) => {
         if (err) next(err);
       });
     });
 
     // Catch-all for other paths
-    app.get(/^\/(?!api\/).*/, (req, res, next) => {
-      if (path.extname(req.path)) {
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/') || path.extname(req.path)) {
         return next();
       }
       // Redirect unknown routes to landing page

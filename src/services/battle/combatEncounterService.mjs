@@ -737,7 +737,7 @@ export class CombatEncounterService {
   /** If it's still the same combatant's turn, pick and execute an AI action */
   /**
    * Execute one combatant's turn in combat
-   * Orchestrates: status effects → action selection → execution → dialogue → post → capture
+   * Orchestrates: action selection → execution → dialogue → post → capture
    */
   async _executeTurn(encounter, combatant) {
     try {
@@ -747,32 +747,8 @@ export class CombatEncounterService {
         return;
       }
       
-      // 0. Process status effects at turn start (DoT, HoT, expired effects)
-      const statusResult = this.statusEffectService.processTurnStart(combatant, encounter.round);
-      if (statusResult.messages.length > 0) {
-        const channel = this._getChannel(encounter);
-        if (channel) {
-          await channel.send({ content: `-# ${statusResult.messages.join(' | ')}` });
-        }
-      }
-      
-      // Check if turn is skipped due to status effect (stunned, etc.)
-      if (statusResult.skipTurn) {
-        this.logger?.info?.(`[CombatEncounter] ${combatant.name}'s turn skipped due to status effect`);
-        await this.nextTurn(encounter);
-        return;
-      }
-      
-      // Check if knocked out from DoT
-      if (combatant.currentHp <= 0) {
-        this.logger?.info?.(`[CombatEncounter] ${combatant.name} knocked out from status effects`);
-        if (this.evaluateEnd(encounter)) return;
-        await this.nextTurn(encounter);
-        return;
-      }
-      
-      // 1. Select action (AI decision via CombatAIService)
-      const action = await this.combatAIService.selectCombatAction(encounter, combatant);
+      // 1. Select action (AI decision)
+      const action = await this._selectCombatAction(encounter, combatant);
       if (!action) {
         this.logger?.warn?.(`[CombatEncounter] No valid action for ${combatant.name}`);
         await this.nextTurn(encounter);
@@ -800,7 +776,7 @@ export class CombatEncounterService {
       
       // 3. Generate combat dialogue (AI one-liner via CombatAIService)
       this.logger?.info?.(`[CombatEncounter] Generating dialogue for ${combatant.name} (action: ${action.type})`);
-      const dialogue = await this.combatAIService.generateCombatDialogue(combatant, action, result);
+      const dialogue = await this._generateCombatDialogue(combatant, action, result);
       this.logger?.info?.(`[CombatEncounter] Dialogue generated: "${dialogue}"`);
       
       // 4. Post to Discord via CombatMessagingService
@@ -835,11 +811,27 @@ export class CombatEncounterService {
 
   /**
    * AI selects combat action based on current state
-   * @deprecated Use combatAIService.selectCombatAction instead
+   * Simple logic: low HP → defend, otherwise → attack random target
    */
   async _selectCombatAction(encounter, combatant) {
-    // Delegate to CombatAIService for smarter decision making
-    return this.combatAIService.selectCombatAction(encounter, combatant);
+    // Get all alive opponents
+    const opponents = encounter.combatants.filter(c => 
+      c.avatarId !== combatant.avatarId && !this._isKnockedOut(c)
+    );
+    
+    if (opponents.length === 0) return null;
+    
+    // Simple AI logic
+    const myHpPercent = combatant.currentHp / combatant.maxHp;
+    
+    if (myHpPercent < 0.3) {
+      // Low HP → defend
+      return { type: 'defend', target: null };
+    } else {
+      // Attack random opponent
+      const target = opponents[Math.floor(Math.random() * opponents.length)];
+      return { type: 'attack', target };
+    }
   }
 
   /**
@@ -892,24 +884,11 @@ export class CombatEncounterService {
     try {
       // Use the avatar's actual model and persona for authentic dialogue
       const avatar = combatant.ref;
-      // Use avatar's assigned model, fall back to a fast model for combat banter
-      const model = avatar?.model || 'google/gemini-2.0-flash-001';
+      const model = avatar?.model || 'openai/gpt-4o'; // Default to high-quality model
       const personality = avatar?.personality || 'bold warrior';
       const description = avatar?.description || '';
-      const emoji = avatar?.emoji || '';
-      const name = combatant.name;
       
-      // Build a compact but character-rich system prompt
-      // Use avatar.prompt if available (full persona), otherwise build a minimal one
-      let systemContent;
-      if (avatar?.prompt) {
-        // Use the avatar's full system prompt but add combat-specific instructions
-        systemContent = `${avatar.prompt}\n\nCOMBAT MODE: Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.`;
-      } else {
-        systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.`;
-      }
-      
-      const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${name}.
+      const prompt = `Generate a SHORT combat one-liner (max 15 words) for ${combatant.name}.
 Action: ${action.type}${action.target ? ` against ${action.target.name}` : ''}
 Result: ${result?.result || 'defending'}
 ${result?.damage ? `Damage: ${result.damage}` : ''}
@@ -918,13 +897,17 @@ ${result?.critical ? 'CRITICAL HIT!' : ''}
 One-liner (no quotes):`;
       
       const messages = [
-        { role: 'system', content: systemContent },
+        { 
+          role: 'system', 
+          content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT one-liner (max 15 words) for this combat action. Stay in character. Return ONLY the dialogue, no quotes or narration.` 
+        },
         { role: 'user', content: prompt }
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
         model,
-        temperature: 0.9
+        temperature: 0.9,
+        max_tokens: 30
       });
       
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, ''); // Remove surrounding quotes if any
@@ -1034,12 +1017,9 @@ One-liner (no quotes):`;
         try {
           // Use the avatar's actual model and persona for authentic dialogue
           const avatar = combatant.ref;
-          // Use avatar's assigned model, fall back to a fast model for combat banter
-          const model = avatar?.model || 'google/gemini-2.0-flash-001';
+          const model = avatar?.model || 'openai/gpt-4o';
           const personality = avatar?.personality || 'bold warrior';
           const description = avatar?.description || '';
-          const emoji = avatar?.emoji || '';
-          const name = combatant.name;
           
           // Generate pre-combat taunt/challenge
           const opponents = encounter.combatants
@@ -1047,18 +1027,10 @@ One-liner (no quotes):`;
             .map(c => c.name)
             .join(', ');
 
-          // Build system prompt - use full avatar.prompt if available
-          let systemContent;
-          if (avatar?.prompt) {
-            systemContent = `${avatar.prompt}\n\nCOMBAT MODE: Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.`;
-          } else {
-            systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.`;
-          }
-
           const messages = [
             { 
               role: 'system', 
-              content: systemContent
+              content: `You are ${combatant.name}. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT pre-combat taunt or challenge (max 20 words). Be bold and in-character. Return ONLY the dialogue, no quotes.` 
             },
             { 
               role: 'user', 
@@ -1068,7 +1040,8 @@ One-liner (no quotes):`;
 
           const response = await this.unifiedAIService.chat(messages, {
             model,
-            temperature: 0.95
+            temperature: 0.95,
+            max_tokens: 40
           });
 
           const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -1109,12 +1082,9 @@ One-liner (no quotes):`;
 
       // Use the avatar's actual model and persona for authentic dialogue
       const avatar = winner;
-      // Use avatar's assigned model, fall back to a fast model for combat banter
-      const model = avatar?.model || 'google/gemini-2.0-flash-001';
+      const model = avatar?.model || 'openai/gpt-4o';
       const personality = avatar?.personality || 'bold warrior';
       const description = avatar?.description || '';
-      const emoji = avatar?.emoji || '';
-      const name = winner.name;
 
       // Get opponents' names
       const opponents = encounter.combatants
@@ -1122,18 +1092,10 @@ One-liner (no quotes):`;
         .map(c => c.name)
         .join(', ');
 
-      // Build system prompt - use full avatar.prompt if available
-      let systemContent;
-      if (avatar?.prompt) {
-        systemContent = `${avatar.prompt}\n\nCOMBAT MODE: You are the victor of this battle. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.`;
-      } else {
-        systemContent = `You are ${emoji ? emoji + ' ' : ''}${name}, the victor of this battle. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.`;
-      }
-
       const messages = [
         { 
           role: 'system', 
-          content: systemContent
+          content: `You are ${winner.name}, the victor of this battle. ${description ? `Character: ${description}. ` : ''}Personality: ${personality}. Generate a SHORT victory speech or taunt (max 25 words). Be triumphant and in-character. Return ONLY the dialogue, no quotes.` 
         },
         { 
           role: 'user', 
@@ -1143,7 +1105,8 @@ One-liner (no quotes):`;
 
       const response = await this.unifiedAIService.chat(messages, {
         model,
-        temperature: 0.95
+        temperature: 0.95,
+        max_tokens: 50
       });
 
       const dialogue = (response?.text || '').trim().replace(/^["']|["']$/g, '');
@@ -2889,7 +2852,8 @@ Requirements:
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
-        temperature: 0.8
+        temperature: 0.8,
+        max_tokens: 350
       });
       
       const sceneDescription = response?.text || actionSummary;
@@ -3002,7 +2966,8 @@ Requirements:
       ];
       
       const response = await this.unifiedAIService.chat(messages, {
-        temperature: 0.8
+        temperature: 0.8,
+        max_tokens: 350
       });
       
       const sceneDescription = response?.text || `The battle continues as ${actionSummary}`;
@@ -3277,7 +3242,8 @@ Generate the video prompt now:`
       ];
       
       const promptResponse = await this.unifiedAIService.chat(promptGenMessages, {
-        temperature: 0.9
+        temperature: 0.9,
+        max_tokens: 500
       });
       
       const sceneDescription = promptResponse?.text || `Epic battle between ${combatants.map(c => c.name).join(' and ')} at ${locationName}. The combat flows from initial clash to victory in one continuous motion.`;
@@ -4492,16 +4458,19 @@ Message: ${messageContent}`;
       const channel = this._getChannel(encounter);
       if (!channel?.send) return;
       
-      // Sync maxHp from avatar stats but preserve combat currentHp
-      // The combatant's currentHp is already tracked correctly during combat via applyDamage
+      // Sync combatant HP from actual avatar refs to get current state
       for (const c of encounter.combatants) {
         if (c.ref) {
           try {
             const freshStats = await this.avatarService?.getOrCreateStats?.(c.ref);
             if (freshStats?.hp) {
               c.maxHp = freshStats.hp;
-              // DO NOT overwrite currentHp - it's already correctly tracked during combat
-              // c.currentHp is reduced by applyDamage() and should not be reset from ref
+              // Only update currentHp if ref has a valid value
+              if (typeof c.ref.currentHp === 'number') {
+                c.currentHp = c.ref.currentHp;
+              } else if (typeof c.ref.hp === 'number') {
+                c.currentHp = c.ref.hp;
+              }
             }
           } catch (e) {
             this.logger.debug?.(`[CombatEncounter] HP sync failed for ${c.name}: ${e.message}`);
@@ -4554,7 +4523,8 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
           ];
           
           const response = await this.unifiedAIService.chat(messages, {
-            temperature: 0.8
+            temperature: 0.8,
+            max_tokens: 100
           });
           
           if (response?.text) {
@@ -5044,113 +5014,7 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
       this.logger?.warn?.(`[CombatEncounter] onTurnTimeout error: ${e.message}`);
     }
   }
-
-  // ============ Status Effect Public API ============
-
-  /**
-   * Apply a status effect to a combatant in the current encounter
-   * @param {string} channelId - Channel ID of the encounter
-   * @param {string} avatarId - Avatar ID of the target
-   * @param {string} effectId - Status effect ID (see StatusEffectService)
-   * @param {string} sourceId - Avatar ID of the source
-   * @param {Object} options - Additional options (duration, stacks)
-   * @returns {Object} Result of application
-   */
-  applyStatusEffect(channelId, avatarId, effectId, sourceId, options = {}) {
-    const encounter = this.getEncounter(channelId);
-    if (!encounter || encounter.state !== 'active') {
-      return { success: false, reason: 'no_active_encounter' };
-    }
-    
-    const combatant = this.getCombatant(encounter, avatarId);
-    if (!combatant) {
-      return { success: false, reason: 'combatant_not_found' };
-    }
-    
-    return this.statusEffectService.applyEffect(combatant, effectId, sourceId, {
-      ...options,
-      round: encounter.round
-    });
-  }
-
-  /**
-   * Remove a status effect from a combatant
-   * @param {string} channelId - Channel ID of the encounter
-   * @param {string} avatarId - Avatar ID of the target
-   * @param {string} effectId - Status effect ID to remove
-   * @returns {boolean} Whether effect was removed
-   */
-  removeStatusEffect(channelId, avatarId, effectId) {
-    const encounter = this.getEncounter(channelId);
-    if (!encounter) return false;
-    
-    const combatant = this.getCombatant(encounter, avatarId);
-    if (!combatant) return false;
-    
-    return this.statusEffectService.removeEffect(combatant, effectId);
-  }
-
-  /**
-   * Get status summary for a combatant (emoji icons)
-   * @param {string} channelId - Channel ID of the encounter
-   * @param {string} avatarId - Avatar ID of the target
-   * @returns {string} Status effect emoji summary
-   */
-  getStatusSummary(channelId, avatarId) {
-    const encounter = this.getEncounter(channelId);
-    if (!encounter) return '';
-    
-    const combatant = this.getCombatant(encounter, avatarId);
-    if (!combatant) return '';
-    
-    return this.statusEffectService.getStatusSummary(combatant);
-  }
-
-  /**
-   * Check if combatant has a specific status effect
-   * @param {string} channelId - Channel ID of the encounter
-   * @param {string} avatarId - Avatar ID of the target
-   * @param {string} effectId - Status effect ID to check
-   * @returns {boolean}
-   */
-  hasStatusEffect(channelId, avatarId, effectId) {
-    const encounter = this.getEncounter(channelId);
-    if (!encounter) return false;
-    
-    const combatant = this.getCombatant(encounter, avatarId);
-    if (!combatant) return false;
-    
-    return this.statusEffectService.hasEffect(combatant, effectId);
-  }
-
-  /**
-   * Get the CombatAIService instance for external use
-   * @returns {CombatAIService}
-   */
-  getCombatAIService() {
-    return this.combatAIService;
-  }
-
-  /**
-   * Get the StatusEffectService instance for external use
-   * @returns {StatusEffectService}
-   */
-  getStatusEffectService() {
-    return this.statusEffectService;
-  }
-
-  /**
-   * Get the CombatMessagingService instance for external use
-   * @returns {CombatMessagingService}
-   */
-  getCombatMessagingService() {
-    return this.combatMessagingService;
-  }
 }
 
-// Re-export sub-services for external use
-export { CombatAIService } from './combatAIService.mjs';
-export { CombatMessagingService } from './combatMessagingService.mjs';
-export { StatusEffectService, STATUS_EFFECTS } from './statusEffectService.mjs';
 
 export default CombatEncounterService;

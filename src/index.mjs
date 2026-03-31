@@ -97,32 +97,16 @@ async function main() {
       logger.error(`[startup] Failed to attach SecretsService to Mongo: ${e.message}`);
     }
 
-    // Note: Database indexes are created automatically during databaseService.connect()
-    // No need to call db.createIndexes() again here
+
+    await db.createIndexes();
+    logTiming('Database indexes created');
+    logger.log('[startup] Database indexes created');
 
     // Step 4: Initialize core services
     const toolService = container.resolve('toolService');
     await toolService.initialize();
     logTiming('ToolService initialized');
     logger.log('[startup] ToolService initialized');
-
-    // Initialize WikiService (indexes)
-    try {
-      const wikiService = container.resolve('wikiService');
-      await wikiService.initialize();
-      logger.log('[startup] WikiService initialized');
-    } catch (e) {
-      logger.warn(`[startup] WikiService initialization failed: ${e.message}`);
-    }
-
-    // Start Wiki Gardener (background curation)
-    try {
-      const wikiGardener = container.resolve('wikiGardenerService');
-      wikiGardener.start?.();
-      logger.log('[startup] WikiGardener started');
-    } catch (e) {
-      logger.warn(`[startup] WikiGardener not started: ${e.message}`);
-    }
 
     // Start Memory nightly job (if enabled)
     try {
@@ -162,7 +146,16 @@ async function main() {
     logTiming('Discord bot logged in');
     logger.log('[startup] Discord bot logged in');
 
-    // Start the MessageHandler (needed for Discord to function)
+    // Initialize Buybot Service
+    try {
+      const buybotService = container.resolve('buybotService');
+      await buybotService.initialize();
+      logger.log('[startup] BuybotService initialized');
+    } catch (e) {
+      logger.warn(`[startup] BuybotService not initialized: ${e.message}`);
+    }
+
+    // Start the MessageHandler
     const messageHandler = container.resolve('messageHandler');
     await messageHandler.start();
     logger.log('[startup] MessageHandler started');
@@ -203,31 +196,9 @@ async function main() {
       logger.warn(`[startup] DMPlannerService not started: ${e.message}`);
     }
 
-    // Start the Web Service early so the app is reachable
-    try {
-      logger.info('[startup] Starting web service...');
-      const web = container.resolve('webService');
-      await web.start?.();
-      logTiming('Web service started');
-      logger.log('[startup] Web service started');
-    } catch (e) {
-      logger.error(`[startup] Web service failed to start: ${e.message}`);
-      logger.error(e.stack);
-      logTiming('Web service failed');
-    }
 
-    // Defer non-critical initializations to run in background after core services are ready
+    // Initialize Telegram global bot in background (don't block startup)
     setImmediate(async () => {
-      // Initialize Buybot Service (non-blocking)
-      try {
-        const buybotService = container.resolve('buybotService');
-        await buybotService.initialize();
-        logger.log('[startup] BuybotService initialized');
-      } catch (e) {
-        logger.warn(`[startup] BuybotService not initialized: ${e.message}`);
-      }
-
-      // Initialize Telegram global bot
       try {
         logger.info('[startup] Initializing Telegram bot in background...');
         const telegramService = container.resolve('telegramService');
@@ -244,16 +215,17 @@ async function main() {
       }
     });
 
-    // Check for reset-quotas flag
-    if (process.argv.includes('--reset-quotas')) {
-      logger.info('[startup] Resetting media quotas as requested...');
-      try {
-        const dbInstance = await db.getDatabase();
-        await dbInstance.collection('telegram_media_usage').deleteMany({});
-        logger.info('[startup] ✓ Media quotas reset successfully');
-      } catch (error) {
-        logger.error('[startup] Failed to reset media quotas:', error);
-      }
+    // Start the Web Service
+    try {
+      logger.info('[startup] Starting web service...');
+      const web = container.resolve('webService');
+      await web.start?.();
+      logTiming('Web service started');
+      logger.log('[startup] Web service started');
+    } catch (e) {
+      logger.error(`[startup] Web service failed to start: ${e.message}`);
+      logger.error(e.stack);
+      logTiming('Web service failed');
     }
 
   } catch (err) {

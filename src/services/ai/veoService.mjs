@@ -3,34 +3,11 @@
  * Licensed under the MIT License.
  */
 
-import { GoogleGenAI, GenerateVideosOperation } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import eventBus from '../../utils/eventBus.mjs';
 
-/**
- * VeoService - Video generation using Google Veo 3.1
- * 
- * Prompt Writing Best Practices (from Veo 3.1 Guide):
- * 
- * REQUIRED ELEMENTS:
- * - Subject: Object, person, animal, or scenery
- * - Action: What the subject is doing (walking, running, turning)
- * - Style: Creative direction (cinematic, animated, film noir, sci-fi)
- * 
- * OPTIONAL ENHANCEMENTS:
- * - Camera: aerial view, eye-level, dolly shot, tracking shot, POV
- * - Composition: wide shot, close-up, medium shot, extreme close-up
- * - Focus/Lens: shallow focus, deep focus, macro lens, wide-angle
- * - Ambiance: blue tones, warm lighting, night, sunrise
- * - Audio cues: Use quotes for dialogue, describe sound effects explicitly
- * 
- * AUDIO PROMPTING (Veo 3.1):
- * - Dialogue: Use quotes - "This must be the key," he murmured.
- * - SFX: Describe explicitly - tires screeching loudly, engine roaring
- * - Ambient: Describe environment - A faint, eerie hum resonates
- */
 export class VeoService {
   constructor({ configService, logger, s3Service, databaseService }) {
     this.configService = configService;
@@ -49,70 +26,6 @@ export class VeoService {
 
   // DEPRECATED: In-memory tracking (kept for backward compatibility but not used for primary rate limiting)
   recentRequests = [];
-
-  /**
-   * Enhance a video prompt using Veo 3.1 best practices
-   * @param {string} prompt - Original user prompt
-   * @param {object} options - Enhancement options
-   * @param {string} [options.style] - Visual style (cinematic, animated, documentary, etc)
-   * @param {string} [options.camera] - Camera motion/position
-   * @param {string} [options.ambiance] - Mood and lighting
-   * @param {string} [options.audioHints] - Dialogue, SFX, or ambient audio hints
-   * @param {string} [options.characterDescription] - Character appearance for consistency
-   * @returns {string} - Enhanced prompt
-   */
-  enhanceVideoPrompt(prompt, options = {}) {
-    const { 
-      style, 
-      camera, 
-      ambiance, 
-      audioHints, 
-      characterDescription
-    } = options;
-
-    const parts = [];
-
-    // Add style prefix
-    if (style) {
-      parts.push(`${style} style video.`);
-    }
-
-    // Add camera direction
-    if (camera) {
-      parts.push(`Camera: ${camera}.`);
-    }
-
-    // Add character consistency if provided
-    if (characterDescription) {
-      parts.push(`The subject is ${characterDescription}.`);
-    }
-
-    // Add the main prompt
-    parts.push(prompt);
-
-    // Add ambiance/mood
-    if (ambiance) {
-      parts.push(`The atmosphere is ${ambiance}.`);
-    }
-
-    // Add audio cues for Veo 3.1
-    if (audioHints) {
-      parts.push(`Audio: ${audioHints}`);
-    }
-
-    return parts.join(' ').trim();
-  }
-
-  /**
-   * Build a negative prompt from elements to avoid
-   * @param {string[]} elements - Things to avoid in the video
-   * @returns {string} - Formatted negative prompt
-   */
-  buildNegativePrompt(elements = []) {
-    const defaults = ['low quality', 'blurry', 'distorted faces', 'artifacts'];
-    const combined = [...new Set([...defaults, ...elements])];
-    return combined.join(', ');
-  }
 
   /**
    * Get database collection for video generation tracking
@@ -280,30 +193,24 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Optional text prompt for video generation.
    * @param {{data: string, mimeType: string}[]} params.images - Array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, personGeneration, resolution, durationSeconds).
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, personGeneration).
+   *                                   Note: resolution and durationSeconds are NOT supported for image-to-video.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
-   * @param {string} [params.traceId] - Trace ID for progress correlation.
-   * @param {string} [params.channelId] - Channel ID for progress routing.
    * @returns {Promise<string[]>} - Array of video URIs.
    */
-  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview', traceId, channelId }) {
+  async generateVideosFromImages({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult"  }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!images || images.length === 0) throw new Error('At least one image is required');
-
-    // Emit starting progress
-    this._emitProgress('starting', 0, { traceId, channelId, operation: 'image_to_video' });
 
     // Enforce rate limits (global + configured) - NOW ASYNC
     if (!(await this.checkRateLimit())) {
       this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
       await this._recordGeneration('generate_from_images', 'rate_limited', { prompt: prompt?.substring(0, 100), model });
-      this._emitProgress('rate_limited', 0, { traceId, channelId });
       return [];
     }
 
     // Record generation attempt
     await this._recordGeneration('generate_from_images', 'started', { prompt: prompt?.substring(0, 100), model });
-    this._emitProgress('submitting', 5, { traceId, channelId });
 
     // Prepare the image payload for image-to-video
     const first = images[0];
@@ -317,14 +224,11 @@ export class VeoService {
       model,
       prompt,
       image: imageParam,
-      config: {
-        ...config,
-        personGeneration: "allow_adult" // Required for image-to-video
-      }
+      config
     });
 
     // Poll until complete
-    operation = await this._pollOperation(operation, { traceId, channelId });
+    operation = await this._pollOperation(operation);
 
     // Download and upload to S3
     const s3Urls = await this._downloadAndUploadVideos(operation);
@@ -335,9 +239,6 @@ export class VeoService {
       model,
       videoCount: s3Urls.length 
     });
-    
-    // Emit completion
-    this._emitProgress('complete', 100, { traceId, channelId, videoCount: s3Urls.length });
 
     return s3Urls;
   }
@@ -348,35 +249,20 @@ export class VeoService {
    * @param {object} params
    * @param {string} params.prompt - Required text prompt when no image is provided.
    * @param {{data: string, mimeType: string}[]} [params.images] - Optional array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration, resolution, durationSeconds).
+   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration).
+   *                                   Note: resolution and durationSeconds are NOT supported for basic text/image-to-video.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  /**
-   * Generate videos using Veo 3.1 with either text-only prompt or image + prompt.
-   * If images are provided, the first image is used as the seed/frame reference; otherwise text-to-video is used.
-   * @param {object} params
-   * @param {string} params.prompt - Required text prompt when no image is provided.
-   * @param {{data: string, mimeType: string}[]} [params.images] - Optional array of base64-encoded images.
-   * @param {object} [params.config] - Video generation configuration (aspectRatio, numberOfVideos, negativePrompt, personGeneration, resolution, durationSeconds).
-   * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
-   * @param {string} [params.traceId] - Trace ID for progress correlation.
-   * @param {string} [params.channelId] - Channel ID for progress routing.
-   * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
-   */
-  async generateVideos({ prompt, images, config = { numberOfVideos: 1 }, model = 'veo-3.1-generate-preview', traceId, channelId }) {
+  async generateVideos({ prompt, images, config = { numberOfVideos: 1, personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     const hasImages = Array.isArray(images) && images.length > 0;
     if (!hasImages && !prompt) throw new Error('Prompt is required when no image is provided');
-
-    // Emit starting progress
-    this._emitProgress('starting', 0, { traceId, channelId, operation: hasImages ? 'image_to_video' : 'text_to_video' });
 
     // Enforce rate limits - NOW ASYNC
     if (!(await this.checkRateLimit())) {
       this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
       await this._recordGeneration('generate', 'rate_limited', { prompt: prompt?.substring(0, 100), model });
-      this._emitProgress('rate_limited', 0, { traceId, channelId });
       return [];
     }
 
@@ -386,7 +272,6 @@ export class VeoService {
       model,
       hasImages 
     });
-    this._emitProgress('submitting', 5, { traceId, channelId });
 
     // Prepare optional image payload
     let imageParam;
@@ -398,28 +283,16 @@ export class VeoService {
       };
     }
 
-    // Determine correct personGeneration based on input type
-    const personGeneration = hasImages ? "allow_adult" : "allow_all";
-
-    // Ensure durationSeconds is a number if present
-    const videoConfig = {
-      ...config,
-      personGeneration
-    };
-    if (videoConfig.durationSeconds) {
-      videoConfig.durationSeconds = Number(videoConfig.durationSeconds);
-    }
-
     // Start operation (text-to-video when no image)
     let operation = await this.ai.models.generateVideos({
       model,
       prompt,
       ...(imageParam ? { image: imageParam } : {}),
-      config: videoConfig
+      config
     });
 
     // Poll until complete
-    operation = await this._pollOperation(operation, { traceId, channelId });
+    operation = await this._pollOperation(operation);
 
     // Download and upload to S3
     const s3Urls = await this._downloadAndUploadVideos(operation);
@@ -430,9 +303,6 @@ export class VeoService {
       model,
       videoCount: s3Urls.length 
     });
-    
-    // Emit completion
-    this._emitProgress('complete', 100, { traceId, channelId, videoCount: s3Urls.length });
 
     return s3Urls;
   }
@@ -446,25 +316,19 @@ export class VeoService {
    * @param {{data: string, mimeType: string, referenceType: string}[]} params.referenceImages - Array of 1-3 reference images with type ('asset' or 'style').
    * @param {object} [params.config] - Video generation configuration (aspectRatio must be '16:9', durationSeconds must be 8).
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
-   * @param {string} [params.traceId] - Trace ID for progress correlation.
-   * @param {string} [params.channelId] - Channel ID for progress routing.
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { aspectRatio: '16:9', durationSeconds: "8" }, model = 'veo-3.1-generate-preview', traceId, channelId }) {
+  async generateVideosWithReferenceImages({ prompt, referenceImages, config = { aspectRatio: '16:9', durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!prompt) throw new Error('Prompt is required');
     if (!Array.isArray(referenceImages) || referenceImages.length === 0 || referenceImages.length > 3) {
       throw new Error('Must provide 1-3 reference images');
     }
 
-    // Emit starting progress
-    this._emitProgress('starting', 0, { traceId, channelId, operation: 'reference_to_video' });
-
     // Enforce rate limits - NOW ASYNC
     if (!(await this.checkRateLimit())) {
       this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
       await this._recordGeneration('generate_with_references', 'rate_limited', { prompt: prompt?.substring(0, 100), model });
-      this._emitProgress('rate_limited', 0, { traceId, channelId });
       return [];
     }
 
@@ -491,16 +355,14 @@ export class VeoService {
       config: {
         ...config,
         referenceImages: refImages,
-        durationSeconds: Number(config.durationSeconds || 8), // Required when using reference images
-        personGeneration: "allow_adult" // Required for reference images
+        durationSeconds: 8 // Required when using reference images
       }
     });
 
     // Poll until complete
-    operation = await this._pollOperation(operation, { traceId, channelId });
+    operation = await this._pollOperation(operation);
 
     // Download and upload to S3
-    this._emitProgress('uploading', 95, { traceId, channelId });
     const s3Urls = await this._downloadAndUploadVideos(operation);
     
     // Record successful completion
@@ -510,7 +372,6 @@ export class VeoService {
       videoCount: s3Urls.length 
     });
 
-    this._emitProgress('complete', 100, { traceId, channelId });
     return s3Urls;
   }
 
@@ -521,23 +382,17 @@ export class VeoService {
    * @param {string} params.prompt - Text prompt describing how to extend the video.
    * @param {object} [params.config] - Video generation configuration.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
-   * @param {string} [params.traceId] - Trace ID for progress correlation.
-   * @param {string} [params.channelId] - Channel ID for progress routing.
    * @returns {Promise<string[]>} - Array of S3 URLs to extended videos (combines input + extension).
    */
-  async extendVideo({ videoUrl, prompt, config = { personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview', traceId, channelId }) {
+  async extendVideo({ videoUrl, prompt, config = { personGeneration: "allow_adult" }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!videoUrl) throw new Error('Video URL is required');
     if (!prompt) throw new Error('Prompt is required');
-
-    // Emit starting progress
-    this._emitProgress('starting', 0, { traceId, channelId, operation: 'extend_video' });
 
     // Enforce rate limits - NOW ASYNC
     if (!(await this.checkRateLimit())) {
       this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
       await this._recordGeneration('extend_video', 'rate_limited', { prompt: prompt?.substring(0, 100), model });
-      this._emitProgress('rate_limited', 0, { traceId, channelId });
       return [];
     }
 
@@ -570,18 +425,15 @@ export class VeoService {
       prompt,
       video: videoParam,
       config: {
-        ...config,
-        durationSeconds: Number(config.durationSeconds || 8), // Required for extension
-        resolution: "720p", // Required for extension
-        personGeneration: "allow_all" // Required for extension
+        ...config
+        // Note: resolution parameter is not supported in Gemini API
       }
     });
 
     // Poll until complete
-    operation = await this._pollOperation(operation, { traceId, channelId });
+    operation = await this._pollOperation(operation);
 
     // Download and upload to S3
-    this._emitProgress('uploading', 95, { traceId, channelId });
     const s3Urls = await this._downloadAndUploadVideos(operation);
     
     // Record successful completion
@@ -591,7 +443,6 @@ export class VeoService {
       videoCount: s3Urls.length 
     });
 
-    this._emitProgress('complete', 100, { traceId, channelId });
     return s3Urls;
   }
 
@@ -603,23 +454,17 @@ export class VeoService {
    * @param {{data: string, mimeType: string}} params.lastFrame - Last frame image.
    * @param {object} [params.config] - Video generation configuration.
    * @param {string} [params.model] - Veo model to use (default "veo-3.1-generate-preview").
-   * @param {string} [params.traceId] - Trace ID for progress correlation.
-   * @param {string} [params.channelId] - Channel ID for progress routing.
    * @returns {Promise<string[]>} - Array of S3 URLs to generated videos.
    */
-  async generateVideosWithInterpolation({ prompt, firstFrame, lastFrame, config = { personGeneration: "allow_adult", durationSeconds: "8" }, model = 'veo-3.1-generate-preview', traceId, channelId }) {
+  async generateVideosWithInterpolation({ prompt, firstFrame, lastFrame, config = { personGeneration: "allow_adult", durationSeconds: 8 }, model = 'veo-3.1-generate-preview' }) {
     if (!this.ai) throw new Error('Veo AI client not initialized');
     if (!prompt) throw new Error('Prompt is required');
     if (!firstFrame || !lastFrame) throw new Error('Both firstFrame and lastFrame are required');
-
-    // Emit starting progress
-    this._emitProgress('starting', 0, { traceId, channelId, operation: 'interpolation' });
 
     // Enforce rate limits - NOW ASYNC
     if (!(await this.checkRateLimit())) {
       this.logger?.warn?.('[VeoService] Global or configured rate limit reached. Skipping video generation.');
       await this._recordGeneration('interpolate', 'rate_limited', { prompt: prompt?.substring(0, 100), model });
-      this._emitProgress('rate_limited', 0, { traceId, channelId });
       return [];
     }
 
@@ -647,16 +492,14 @@ export class VeoService {
       config: {
         ...config,
         lastFrame: lastFrameParam,
-        durationSeconds: Number(config.durationSeconds || 8), // Required for interpolation
-        personGeneration: "allow_adult" // Required for interpolation
+        durationSeconds: 8 // Required for interpolation
       }
     });
 
     // Poll until complete
-    operation = await this._pollOperation(operation, { traceId, channelId });
+    operation = await this._pollOperation(operation);
 
     // Download and upload to S3
-    this._emitProgress('uploading', 95, { traceId, channelId });
     const s3Urls = await this._downloadAndUploadVideos(operation);
     
     // Record successful completion
@@ -666,53 +509,27 @@ export class VeoService {
       videoCount: s3Urls.length 
     });
 
-    this._emitProgress('complete', 100, { traceId, channelId });
     return s3Urls;
   }
 
   /**
    * Helper method to poll an operation until completion.
-   * Emits 'video:progress' events via eventBus for UI updates.
-   * @param {Object} operation - The video generation operation
-   * @param {Object} [options] - Polling options
-   * @param {string} [options.traceId] - Trace ID for correlation
-   * @param {string} [options.channelId] - Channel ID for routing progress events
    * @private
    */
-  async _pollOperation(operation, options = {}) {
-    const { traceId, channelId } = options;
+  async _pollOperation(operation) {
     const startedAt = Date.now();
     const deadline = startedAt + this.MAX_POLL_MINUTES * 60 * 1000;
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    
-    // Emit initial progress
-    this._emitProgress('processing', 10, { traceId, channelId, eta: `~${this.MAX_POLL_MINUTES} minutes` });
     
     const getOp = async () => {
       const opName = operation?.name || operation?.operation?.name || null;
       try {
         if (opName && this.ai?.operations?.getVideosOperation) {
           try {
-            // Ensure we have a proper GenerateVideosOperation instance with _fromAPIResponse method
-            let opInstance = operation;
-            if (!opInstance || typeof opInstance._fromAPIResponse !== 'function') {
-              opInstance = new GenerateVideosOperation();
-              if (operation) Object.assign(opInstance, operation);
-              if (!opInstance.name) opInstance.name = opName;
-            }
-            return await this.ai.operations.getVideosOperation({ operation: opInstance });
+            return await this.ai.operations.getVideosOperation({ operation: { name: opName } });
           } catch (inner) {
-            this.logger?.info?.(`[VeoService] getVideosOperation error: ${inner?.message || inner}`);
-            // Fallback to internal method if available and public method fails
-            if (this.ai.operations.getVideosOperationInternal) {
-               try {
-                 const rawOp = await this.ai.operations.getVideosOperationInternal({ operationName: opName });
-                 // Return raw JSON which has .done property
-                 return rawOp;
-               } catch (e2) {
-                 this.logger?.warn?.(`[VeoService] getVideosOperationInternal error: ${e2?.message}`);
-               }
-            }
+            this.logger?.info?.(`[VeoService] getVideosOperation alt signature after error: ${inner?.message || inner}`);
+            return await this.ai.operations.getVideosOperation({ name: opName });
           }
         }
       } catch (e) {
@@ -730,47 +547,15 @@ export class VeoService {
 
     while (!operation?.done) {
       if (Date.now() > deadline) {
-        this._emitProgress('timeout', 0, { traceId, channelId, error: 'Generation timed out' });
         throw new Error('VEO_TIMEOUT: video generation did not complete within allotted time');
       }
       await sleep(this.POLL_INTERVAL_MS);
       operation = await getOp();
       const pct = operation?.metadata?.progressPercent || operation?.metadata?.progress || null;
-      if (pct != null) {
-        this.logger?.info?.(`[VeoService] video generation progress: ${pct}%`);
-        const elapsed = Math.round((Date.now() - startedAt) / 1000);
-        const etaSeconds = pct > 0 ? Math.round((elapsed / pct) * (100 - pct)) : null;
-        this._emitProgress('processing', pct, { 
-          traceId, 
-          channelId, 
-          eta: etaSeconds ? `~${Math.ceil(etaSeconds / 60)} min` : null 
-        });
-      }
+      if (pct != null) this.logger?.info?.(`[VeoService] video generation progress: ${pct}%`);
     }
-    
-    // Emit completion before uploading
-    this._emitProgress('uploading', 90, { traceId, channelId });
 
     return operation;
-  }
-
-  /**
-   * Emit a video generation progress event
-   * @param {string} status - Current status (starting, generating_keyframe, processing, uploading, complete, error)
-   * @param {number} progress - Progress percentage (0-100)
-   * @param {Object} data - Additional event data
-   * @private
-   */
-  _emitProgress(status, progress, data = {}) {
-    const event = {
-      type: 'video:progress',
-      timestamp: Date.now(),
-      status,
-      progress,
-      ...data
-    };
-    eventBus.emit('video:progress', event);
-    this.logger?.debug?.('[VeoService] Progress event:', event);
   }
 
   /**

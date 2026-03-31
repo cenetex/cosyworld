@@ -76,11 +76,7 @@ export class ToolService {
   constructor({
     logger,
     aiService,
-    unifiedAIService,
   googleAIService,
-  openrouterAIService,
-  openrouterModelCatalogService,
-  imageGenerationRateLimiter,
     imageProcessingService,
     configService,
     cooldownService,
@@ -124,11 +120,7 @@ export class ToolService {
     this.toolServices = {
       logger,
       aiService,
-      unifiedAIService,
   googleAIService,
-  openrouterModelCatalogService,
-  openrouterAIService,
-  imageGenerationRateLimiter,
       imageProcessingService,
       battleService,
   combatEncounterService,
@@ -176,13 +168,12 @@ export class ToolService {
     this.discordService = discordService;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
-  this.spamControlService = spamControlService;
-  this.moderationService = moderationService;
-  this.mapService = mapService;
-  this.decisionMaker = decisionMaker;
-  this.avatarService = avatarService;
-  this.riskManagerService = riskManagerService;
-  this.conversationManager = null;
+    this.spamControlService = spamControlService;
+    this.moderationService = moderationService;
+    this.mapService = mapService;
+    this.decisionMaker = decisionMaker;
+    this.avatarService = avatarService;
+    this.riskManagerService = riskManagerService;
     
     this.started = false;
     this.cooldownService = cooldownService || new CooldownService();
@@ -255,23 +246,6 @@ export class ToolService {
     }
   }
 
-  setConversationManager(conversationManager) {
-    if (!conversationManager || this.conversationManager === conversationManager) return;
-    this.conversationManager = conversationManager;
-    this.toolServices.conversationManager = conversationManager;
-    // Backfill existing tools so they can access the manager without constructor injection
-    for (const tool of this.tools.values()) {
-      tool.conversationManager = conversationManager;
-      if (typeof tool.setConversationManager === 'function') {
-        try {
-          tool.setConversationManager(conversationManager);
-        } catch (err) {
-          this.logger?.debug?.(`[ToolService] setConversationManager propagation failed for ${tool.name}: ${err.message}`);
-        }
-      }
-    }
-  }
-
   async initialize() {
     let tools = {};
     for (const [name, tool] of this.tools.entries()) {
@@ -284,22 +258,10 @@ export class ToolService {
   }
 
   /**
-   * Check if current time is optimal for posting to X.
-   * Based on general engagement patterns (UTC times).
-   * @returns {boolean}
-   */
-  _isOptimalXPostingTime() {
-    const hour = new Date().getUTCHours();
-    // Peak engagement hours: 13:00-21:00 UTC (covers US morning to EU evening)
-    const optimalHours = [13, 14, 15, 16, 17, 18, 19, 20, 21];
-    return optimalHours.includes(hour);
-  }
-
-  /**
    * Schedules periodic X posting using XSocialTool logic.
-   * Posts every hour from a random authenticated avatar, with optimal timing.
+   * Posts every hour from a random authenticated avatar.
    */
-  startScheduledXPosting(intervalMs = 30 * 60 * 1000) { // Check every 30 minutes
+  startScheduledXPosting(intervalMs = 60 * 60 * 1000) {
     const schedulingService = this.schedulingService;
     const avatarService = this.avatarService;
     const xSocialTool = this.tools.get('x');
@@ -416,7 +378,7 @@ export class ToolService {
         }
       }
     }, intervalMs);
-    this.logger?.info?.('[ToolService] Scheduled X posting enabled (checks every 30min, posts during optimal hours)');
+    this.logger?.info?.('[ToolService] Scheduled X posting enabled');
   }
 
   extractToolCommands(text) {
@@ -533,7 +495,7 @@ export class ToolService {
    * @param {string[]} params - The command parameters
    * @param {Object} avatar - The avatar performing the action
    * @param {Object} guildConfig - The guild configuration
-  * @returns {Promise<{message: string|null, notify: boolean}>} The tool's response and notification preference
+   * @returns {Promise<string>} The tool's response
    */
   // Note: Some callers pass `context` as the 5th argument (omitting guildConfig).
   // To maintain backward compatibility, accept either 5th or 6th param as context.
@@ -617,7 +579,7 @@ export class ToolService {
       return normalizeToolResult({ message: `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🪄 cast, 🛡️ defend, 🫥 hide, or 🏃 flee. ]` });
     }
 
-    let rawResult;
+    let result;
     try {
       // Augment context with combatEncounterService if available
       if (this.toolServices?.combatEncounterService) {
@@ -643,15 +605,11 @@ export class ToolService {
       rawResult = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {
-      rawResult = { message: `Error executing ${toolName}: ${error.message}` };
+      result = `Error executing ${toolName}: ${error.message}`;
     }
 
-    const normalized = normalizeToolResult(rawResult);
-    const resultForLog = normalized.message;
     try {
-      if (resultForLog) {
-        await this.memoryService.addMemory(avatar._id, resultForLog);
-      }
+      await this.memoryService.addMemory(avatar._id, result);
       await this.ActionLog.logAction({
         channelId: message.channel.id,
         action: toolName,
@@ -659,7 +617,7 @@ export class ToolService {
         actorName: avatar.name,
         displayName: avatar.displayName || avatar.name,
         target: params.join(' '),
-        result: resultForLog,
+        result,
         tool: toolName,
         emoji: tool.emoji,
         isCustom: false,
@@ -669,7 +627,7 @@ export class ToolService {
       this.logger?.error(`Failed to log action '${toolName}': ${logError.message}`);
     }
 
-    return normalized;
+    return result;
   }
 
   /**

@@ -155,13 +155,9 @@ export class SummonTool extends BasicTool {
     databaseService,
     aiService,
     unifiedAIService,
-    openrouterModelCatalogService,
     statService,
     presenceService,
     logger,
-    conversationManager,
-    conversationThreadService,
-    s3Service,
   }) {
     super();
     this.discordService = discordService;
@@ -171,41 +167,17 @@ export class SummonTool extends BasicTool {
     this.databaseService = databaseService;
     this.aiService = aiService;
     this.unifiedAIService = unifiedAIService;
-    this.openrouterModelCatalogService = openrouterModelCatalogService || null;
     this.statService = statService;
     this.presenceService = presenceService;
     this.logger = logger;
-    this.conversationManager = conversationManager;
-    this.conversationThreadService = conversationThreadService;
-    this.s3Service = s3Service || null;
 
     this.name = 'summon';
     this.description = 'Summons a new avatar';
     this.emoji = '🔮'; // Default emoji
-    this.DAILY_SUMMON_LIMIT = 18; // Per-user daily summon limit
+  // Limit: one summon per user per day (excluding admin override)
+  this.DAILY_SUMMON_LIMIT = 18;
     this.replyNotification = true;
-    this.cooldownMs = 10 * 1000; // 10 second cooldown
-    this._dailySummonIndexEnsured = false;
-    this._fallbackSummonTracking = new Map();
-    this.SUMMON_INITIAL_TURNS = Number(process.env.SUMMON_INITIAL_TURNS || 5);
-    this.SUMMON_PROACTIVE_ENABLED = String(process.env.SUMMON_PROACTIVE_ENABLED || 'true').toLowerCase() === 'true';
-    this.SUMMON_CONVERSATION_DURATION_MS = Number(process.env.SUMMON_CONVERSATION_DURATION || 300000);
-    this.SUMMON_FIRST_FOLLOWUP_DELAY_MS = Number(process.env.SUMMON_FIRST_FOLLOWUP_DELAY_MS || 4000);
-    this.SUMMON_SECOND_FOLLOWUP_DELAY_MS = Number(process.env.SUMMON_SECOND_FOLLOWUP_DELAY_MS || 8000);
-    this.SUMMON_THREAD_MAX_TURNS = Number(process.env.SUMMON_THREAD_MAX_TURNS || 8);
-  }
-
-  setConversationManager(conversationManager) {
-    this.conversationManager = conversationManager;
-  }
-
-  _shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons }) {
-    if (requestedModelId) return false;
-    if (!avatarName) return false;
-    if (!allowModelSummons) return false;
-    if (freeSummonsDisabled) return true;
-    if (pureModelOnly) return true;
-    return false;
+    this.cooldownMs = 10 * 1000; // 1 minute cooldown
   }
 
   /**
@@ -217,75 +189,11 @@ export class SummonTool extends BasicTool {
   }
 
   /**
-   * Returns the parameter schema for AI tool calling.
-   * @returns {object} OpenAI-compatible parameter schema.
-   */
-  getParameterSchema() {
-    return {
-      type: 'object',
-      properties: {
-        name: {
-          type: 'string',
-          description: 'Name or description of the avatar to summon. Can be an existing avatar name, a model ID (e.g., "google/gemini-2.5-flash"), or a description for creating a new avatar.'
-        }
-      },
-      required: ['name']
-    };
-  }
-
-  /**
    * Returns the syntax of the tool.
    * @returns {string} The syntax.
    */
   async getSyntax() {
     return `${this.emoji} <avatar name or description>`;
-  }
-
-  async ensureDailySummonIndexes() {
-    if (this._dailySummonIndexEnsured) return;
-    try {
-      this.db = this.db || await this.databaseService.getDatabase();
-      await Promise.all([
-        this.db.collection('daily_summons').createIndex(
-          { timestamp: 1 },
-          { expireAfterSeconds: 30 * 24 * 60 * 60, name: 'daily_summons_ttl' }
-        ),
-        this.db.collection('daily_summons').createIndex(
-          { userId: 1, timestamp: 1 },
-          { name: 'daily_summons_user_day' }
-        )
-      ]);
-      this._dailySummonIndexEnsured = true;
-    } catch (error) {
-      this.logger?.warn?.(`[SummonTool] Failed to ensure daily summon indexes: ${error.message}`);
-    }
-  }
-
-  _getFallbackSummonCount(userId) {
-    if (!userId) return 0;
-    const midnight = new Date();
-    midnight.setHours(0, 0, 0, 0);
-    const entries = this._fallbackSummonTracking.get(userId);
-    if (!entries?.length) {
-      this._fallbackSummonTracking.delete(userId);
-      return 0;
-    }
-    const threshold = midnight.getTime();
-    const recent = entries.filter(ts => ts >= threshold);
-    if (recent.length) {
-      this._fallbackSummonTracking.set(userId, recent);
-      return recent.length;
-    }
-    this._fallbackSummonTracking.delete(userId);
-    return 0;
-  }
-
-  _recordFallbackSummon(userId) {
-    if (!userId) return;
-    const now = Date.now();
-    const entries = this._fallbackSummonTracking.get(userId) || [];
-    entries.push(now);
-    this._fallbackSummonTracking.set(userId, entries);
   }
 
   /**
@@ -295,16 +203,15 @@ export class SummonTool extends BasicTool {
    */
   async checkDailySummonLimit(userId) {
     try {
-      await this.ensureDailySummonIndexes();
-      this.db = this.db || await this.databaseService.getDatabase();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
-      const fallbackCount = this._getFallbackSummonCount(userId);
-      return (count + fallbackCount) < this.DAILY_SUMMON_LIMIT;
+  // Always ensure DB reference (in case called before execute sets this.db)
+  this.db = this.db || await this.databaseService.getDatabase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const count = await this.db.collection('daily_summons').countDocuments({ userId, timestamp: { $gte: today } });
+      return count < this.DAILY_SUMMON_LIMIT;
     } catch (error) {
       this.logger.error(`Error checking summon limit: ${error.message}`);
-      return true;
+      return false;
     }
   }
 
@@ -314,18 +221,13 @@ export class SummonTool extends BasicTool {
    */
   async trackSummon(userId) {
     try {
-      await this.ensureDailySummonIndexes();
-      this.db = this.db || await this.databaseService.getDatabase();
+  this.db = this.db || await this.databaseService.getDatabase();
       await this.db.collection('daily_summons').insertOne({
         userId,
         timestamp: new Date(),
       });
-      this._fallbackSummonTracking.delete(userId);
-      return true;
     } catch (error) {
       this.logger.error(`Error tracking summon: ${error.message}`);
-      this._recordFallbackSummon(userId);
-      return false;
     }
   }
 
@@ -339,436 +241,114 @@ export class SummonTool extends BasicTool {
   async execute(message, params = {}, _avatar) {
     try {
       this.db = await this.databaseService.getDatabase();
-      const channelId = message.channel.id;
-  const summonGuildId = message.guild?.id;
-      const guaranteedTurns = Math.max(1, this.SUMMON_INITIAL_TURNS || 3);
-
-      try {
-        await this.openrouterModelCatalogService?.refreshIfStale?.({ maxAgeMs: 60 * 60 * 1000 });
-      } catch (e) {
-        this.logger?.debug?.(`[SummonTool] OpenRouter catalog refresh failed: ${e?.message || e}`);
-      }
-
-      const resolveCatalogModelId = (query = '') => {
-        if (!query) return null;
-        const cleaned = String(query).trim().toLowerCase();
-        if (!cleaned) return null;
-        let models = [];
-        try {
-          const liveIds = this.openrouterModelCatalogService?.getAllModelIds?.();
-          if (Array.isArray(liveIds) && liveIds.length) {
-            models = liveIds.map(id => ({ model: id }));
-          }
-        } catch {}
-
-        if (!models.length) {
-          models = aiModelService?.getAllModels?.('openrouter') || [];
-        }
-        if (!models.length && Array.isArray(openrouterModelCatalog) && openrouterModelCatalog.length) {
-          models = openrouterModelCatalog;
-        }
-        if (!models.length) return null;
-        const tokens = cleaned.split(/[^a-z0-9]+/).filter(token => token && token.length >= 3);
-        let bestModel = null;
-        let bestScore = Infinity;
-        for (const entry of models) {
-          const modelId = entry?.model;
-          if (!modelId) continue;
-          const slug = String(modelId).toLowerCase();
-          const display = (formatModelDisplayName(modelId) || '').toLowerCase();
-          const candidates = [slug];
-          if (display) candidates.push(display.replace(/[()]/g, ''));
-          for (const candidateName of candidates) {
-            if (!candidateName) continue;
-            let score = levenshteinDistance(candidateName, cleaned);
-            if (candidateName.includes(cleaned)) score *= 0.05;
-            else if (candidateName.startsWith(cleaned)) score *= 0.1;
-            else if (tokens.length && tokens.some(token => candidateName.includes(token))) score *= 0.15;
-            if (score < bestScore) {
-              bestScore = score;
-              bestModel = modelId;
-            }
-          }
-        }
-        return bestModel;
-      };
       const ensureModel = async (av) => {
         try {
-          if (!av) return null;
-
-          const pickRandomExisting = async () => {
-            let picked = await this.aiService?.selectRandomModel?.();
-            // Hard guard: never assign a model that isn't in the OpenRouter catalog.
-            try {
-              if (picked && this.openrouterModelCatalogService?.modelExists) {
-                const ok = await this.openrouterModelCatalogService.modelExists(picked);
-                if (!ok && this.openrouterModelCatalogService?.pickRandomExistingModel) {
-                  picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
-                }
-              }
-            } catch {}
-            return picked || null;
-          };
-
-          // Missing model: assign and persist.
-          if (!av.model) {
-            const picked = await pickRandomExisting();
+          if (av && !av.model) {
+            const picked = await this.aiService.selectRandomModel();
             if (picked) {
               av.model = picked;
-              try {
-                await this.avatarService.updateAvatar(av);
-              } catch (updateErr) {
-                this.logger?.warn?.(`[AI][SummonTool] ensureModel update failed for ${av.name || av._id}: ${updateErr.message}`);
-              }
+              try { await this.avatarService.updateAvatar(av); } catch {}
               this.logger?.info?.(`[AI][SummonTool] assigned model='${picked}' to ${av.name || av._id}`);
             }
-            return av.model;
           }
-
-          // Invalid model: repair and persist.
-          try {
-            if (this.openrouterModelCatalogService?.modelExists) {
-              const ok = await this.openrouterModelCatalogService.modelExists(av.model);
-              if (!ok) {
-                const previous = av.model;
-                const picked = await pickRandomExisting();
-                if (picked && picked !== previous) {
-                  av.model = picked;
-                  try {
-                    await this.avatarService.updateAvatar(av);
-                  } catch (updateErr) {
-                    this.logger?.warn?.(`[AI][SummonTool] ensureModel repair update failed for ${av.name || av._id}: ${updateErr.message}`);
-                  }
-                  this.logger?.warn?.(`[AI][SummonTool] repaired missing model '${previous}' -> '${picked}' for ${av.name || av._id}`);
-                }
-              }
-            }
-          } catch {}
         } catch (e) { this.logger?.warn?.(`[AI][SummonTool] ensureModel failed: ${e.message}`); }
         return av?.model;
       };
+      // Parse command content robustly: remove leading emoji + optional word 'summon'
+      const raw = (message.content || '').trim();
+      const content = raw
+        .replace(/^<a?:\w+?:\d+>\s*/,'') // custom discord emoji
+        .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
+        .replace(/^(summon)\s+/i,'')
+        .trim();
+      const [avatarName] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
 
-      const ensureAvatarStatsAndSummonsday = async (avatar) => {
-        if (!avatar) return avatar;
-        let requiresUpdate = false;
-        const toDate = (raw) => {
-          if (raw instanceof Date) return raw;
-          if (!raw) return new Date();
-          const coerced = new Date(raw);
-          return Number.isNaN(coerced.getTime()) ? new Date() : coerced;
-        };
-        if (!this.statService?.validateStats?.(avatar.stats)) {
-          avatar.stats = this.statService.generateStatsFromDate(toDate(avatar.createdAt));
-          requiresUpdate = true;
-        }
-        if (!avatar.summonsday) {
-          const formatted = formatSummonsday(toDate(avatar.createdAt));
-          if (formatted) {
-            avatar.summonsday = formatted;
-            requiresUpdate = true;
-          }
-        }
-        if (requiresUpdate) {
-          try {
-            await this.avatarService.updateAvatar(avatar);
-          } catch (err) {
-            this.logger?.debug?.(`[SummonTool] Failed to sync stats/summonsday for ${avatar?.name || avatar?._id}: ${err?.message}`);
-          }
-        }
-        return avatar;
-      };
+      // If no textual description provided, but an image is attached, switch to image-based summoning
+      const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
+      if (!avatarName && !hasImageForSummon) {
+        await this.discordService.replyToMessage(message, 'Provide a name/description or attach an image to summon an avatar.');
+        return '-# [ Summon aborted: no description or image provided. ]';
+      }
 
-      const describeModelAppearance = async (modelId, displayName) => {
-        const ai = this.unifiedAIService || this.aiService;
-        if (!ai?.chat) return `${displayName} manifests as converging bands of light and code, shimmering with its signature inference energy.`;
-        const corrId = `model-self:${modelId}:${Date.now()}`;
-        const messages = [
-          {
-            role: 'system',
-            content: `You are ${displayName}, the literal AI model manifesting as an avatar. Describe your visual form in 2 concise sentences. Focus on colors, materials, aura, and symbolism. Do not mention lacking a body, and avoid disclaimers about being virtual.`
-          },
-          {
-            role: 'user',
-            content: 'Describe how you appear when you step into the world as an avatar.'
-          }
-        ];
+      // Try to sync avatar from configured collections first (if it doesn't exist in DB yet)
+      if (avatarName) {
         try {
-          // Use a faster, cheaper model for descriptions (if available)
-          const descriptionModel = process.env.FAST_MODEL || modelId;
-          const result = await ai.chat(messages, { 
-            model: descriptionModel,
-            corrId, 
-            returnEnvelope: true 
-          });
-          const rawText = typeof result === 'object' && result?.text ? result.text : result;
-          const cleaned = typeof rawText === 'string' ? stripHiddenTags(rawText) : '';
-          if (cleaned) return cleaned;
-        } catch (err) {
-          this.logger?.debug?.(`[SummonTool] describeModelAppearance failed for ${modelId}: ${err?.message}`);
+          const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
+          const syncedAvatar = await syncAvatarByNameFromCollections(avatarName);
+          if (syncedAvatar) {
+            this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection before summoning`);
+          }
+        } catch (e) {
+          this.logger.debug?.(`[SummonTool] Collection sync check failed: ${e.message}`);
+          // Continue anyway - not a critical failure
         }
-        return `${displayName} manifests as converging bands of light and code, shimmering with its signature inference energy.`;
-      };
+      }
 
-      const respondWithExistingAvatar = async (existingAvatar, { preface, enforceModelName = false, requestedModelId = null } = {}) => {
-        if (!existingAvatar) return null;
-        if (enforceModelName && isModelRosterAvatar(existingAvatar)) {
-          const targetModelId = normalizeModelIdentifier(requestedModelId) || normalizeModelIdentifier(existingAvatar?.model) || existingAvatar?.model || null;
-          const targetName = targetModelId ? formatModelDisplayName(targetModelId) : null;
-          let needsUpdate = false;
-          if (targetModelId && existingAvatar.model !== targetModelId) {
-            existingAvatar.model = targetModelId;
-            needsUpdate = true;
-          }
-          if (targetName && existingAvatar.name !== targetName) {
-            existingAvatar.name = targetName;
-            needsUpdate = true;
-          }
-          if (needsUpdate) {
-            try {
-              await this.avatarService.updateAvatar(existingAvatar);
-            } catch (err) {
-              this.logger?.debug?.(`[SummonTool] Failed to sync model avatar metadata: ${err?.message}`);
-            }
-          }
-        }
-        if (preface) {
-          try {
-            await this.discordService.replyToMessage(message, preface);
-          } catch (err) {
-            this.logger?.debug?.(`[SummonTool] preface send failed: ${err?.message}`);
-          }
-        }
-
-  const alreadyHere = existingAvatar.channelId === message.channel.id;
-        await ensureModel(existingAvatar);
-        if (isModelRosterAvatar(existingAvatar)) {
-          await ensureAvatarStatsAndSummonsday(existingAvatar);
-        }
-
+      // Check for existing avatar
+  const existingAvatar = avatarName ? await this.avatarService.getAvatarByName(avatarName) : null;
+      if (existingAvatar) {
+        const alreadyHere = existingAvatar.channelId === message.channel.id;
+  // Ensure model is set for any upcoming AI generation
+  await ensureModel(existingAvatar);
+        // Ensure avatar has an image
         if (!existingAvatar.imageUrl || typeof existingAvatar.imageUrl !== 'string' || existingAvatar.imageUrl.trim() === '') {
-          // Generate image asynchronously - don't block the summon
-          (async () => {
-            try {
-              this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating asynchronously.`);
-              const uploadOptions = {
-                source: 'avatar.summon',
-                avatarName: existingAvatar.name,
-                avatarEmoji: existingAvatar.emoji,
-                avatarId: existingAvatar._id,
-                prompt: existingAvatar.description,
-                context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
-              };
-              const imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
-
-              if (imageUrl) {
-                existingAvatar.imageUrl = imageUrl;
-                await this.avatarService.updateAvatar(existingAvatar);
-                this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${imageUrl}`);
-              }
-            } catch (e) {
-              this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
-            }
-          })();
-        }
-
-        if (!alreadyHere) {
           try {
+            this.logger.info(`Avatar ${existingAvatar.name} (${existingAvatar._id}) missing imageUrl. Regenerating.`);
+            // Pass metadata for proper event emission
+            const uploadOptions = {
+              source: 'avatar.summon',
+              avatarName: existingAvatar.name,
+              avatarEmoji: existingAvatar.emoji,
+              avatarId: existingAvatar._id,
+              prompt: existingAvatar.description,
+              context: `${existingAvatar.emoji || '✨'} ${existingAvatar.name} appears — ${existingAvatar.description}`.trim()
+            };
+            existingAvatar.imageUrl = await this.avatarService.generateAvatarImage(existingAvatar.description, uploadOptions);
+            
+            // Save the regenerated image to the database immediately
+            if (existingAvatar.imageUrl) {
+              await this.avatarService.updateAvatar(existingAvatar);
+              this.logger.info(`Avatar ${existingAvatar.name} imageUrl saved to database: ${existingAvatar.imageUrl}`);
+            }
+          } catch (e) {
+            this.logger.warn(`Failed to regenerate image for ${existingAvatar.name}: ${e.message}`);
+          }
+        }
+        if (!alreadyHere) {
+          // Move avatar to this channel
             await this.mapService.updateAvatarPosition(existingAvatar, message.channel.id);
             existingAvatar.channelId = message.channel.id;
             await this.avatarService.updateAvatar(existingAvatar);
-          } catch (err) {
-            this.logger?.warn?.(`[SummonTool] Failed to reposition ${existingAvatar.name}: ${err?.message}`);
-          }
         }
-
         await this.discordService.reactToMessage(message, existingAvatar.emoji || '🔮');
-
+        
+        // Generate greeting from the avatar
         const ai = this.unifiedAIService || this.aiService;
         const corrId = `summon-greeting:${existingAvatar._id}:${Date.now()}`;
         let greeting = null;
-        
-        // Check if avatar has an image-only model (e.g., FLUX)
-        let isImageOnlyModel = false;
         try {
-          if (this.openrouterModelCatalogService?.isImageOnlyAsync) {
-            isImageOnlyModel = await this.openrouterModelCatalogService.isImageOnlyAsync(existingAvatar.model);
-          }
+          const greetingPrompt = alreadyHere 
+            ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
+            : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
+          
+          const greetingResult = await ai.chat([
+            { 
+              role: 'system', 
+              content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}` 
+            },
+            { role: 'user', content: greetingPrompt }
+          ], { model: existingAvatar.model, corrId });
+          
+          greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
+          // Remove any <think> tags
+          if (typeof greeting === 'string') greeting = greeting.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         } catch (e) {
-          this.logger?.debug?.(`[SummonTool] Image-only check failed: ${e.message}`);
+          this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
+          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
         }
         
-        // For image-only models, generate an image as greeting
-        if (isImageOnlyModel) {
-          this.logger?.info?.(`[SummonTool] ${existingAvatar.name} has image-only model, generating image greeting`);
-          try {
-            // Build image prompt from avatar context
-            const imagePrompt = `${existingAvatar.imagePrompt || existingAvatar.appearance || existingAvatar.name}. ${alreadyHere ? 'Waving hello, already present' : 'Arriving dramatically, making an entrance'}. Fantasy art style.`;
-            
-            // Collect reference images (avatar's own image + recent user/avatar profile pics)
-            const referenceImages = [];
-            if (existingAvatar.imageUrl) {
-              referenceImages.push(existingAvatar.imageUrl);
-            }
-            
-            // Try to get recent channel context for reference images
-            try {
-              const channelHistory = await this.conversationManager?.getChannelContext?.(message.channel.id, 10);
-              if (channelHistory?.length > 0) {
-                const seenUrls = new Set(referenceImages);
-                for (const msg of channelHistory.slice(0, 5)) {
-                  // Add avatar profile pics
-                  if (msg.avatarImageUrl && !seenUrls.has(msg.avatarImageUrl)) {
-                    referenceImages.push(msg.avatarImageUrl);
-                    seenUrls.add(msg.avatarImageUrl);
-                  }
-                  // Add user avatars
-                  if (msg.authorAvatarUrl && !seenUrls.has(msg.authorAvatarUrl)) {
-                    referenceImages.push(msg.authorAvatarUrl);
-                    seenUrls.add(msg.authorAvatarUrl);
-                  }
-                  if (referenceImages.length >= 4) break;
-                }
-              }
-            } catch (e) {
-              this.logger?.debug?.(`[SummonTool] Failed to gather reference images: ${e.message}`);
-            }
-            
-            // Generate the image
-            const imageResult = await (ai.base?.generateImageViaOpenRouter || ai.generateImageViaOpenRouter)?.call(
-              ai.base || ai,
-              imagePrompt,
-              referenceImages.slice(0, 4),
-              { model: existingAvatar.model, source: `summon:${existingAvatar._id}` }
-            );
-            
-            if (imageResult?.url || imageResult?.data) {
-              let imageUrl = imageResult.url;
-              
-              // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
-              if (!imageUrl && imageResult.data && this.s3Service?.uploadBuffer) {
-                try {
-                  const buffer = Buffer.from(imageResult.data, 'base64');
-                  const s3Key = `summon-greetings/${existingAvatar._id}_${Date.now()}.png`;
-                  imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, 'image/png');
-                  this.logger?.debug?.(`[SummonTool] Uploaded image-only greeting to S3: ${imageUrl}`);
-                } catch (uploadErr) {
-                  this.logger?.warn?.(`[SummonTool] Failed to upload image to S3: ${uploadErr.message}`);
-                }
-              }
-              
-              if (imageUrl) {
-                // Send image as greeting embed
-                const embed = {
-                  color: 0x9b59b6,
-                  image: { url: imageUrl },
-                  footer: { text: alreadyHere ? `${existingAvatar.name} acknowledges the summon` : `${existingAvatar.name} arrives` }
-                };
-                
-                setTimeout(async () => {
-                  try {
-                    await this.discordService.sendEmbedAsWebhook(
-                      message.channel.id,
-                      embed,
-                      existingAvatar.name,
-                      existingAvatar.imageUrl
-                    );
-                    if (!alreadyHere) {
-                      await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
-                    }
-                  } catch (err) {
-                    this.logger?.warn?.(`[SummonTool] Failed to send image greeting: ${err?.message}`);
-                  }
-                }, 800);
-                
-                return alreadyHere
-                  ? `-# ${this.emoji} [ ${existingAvatar.name} is already here. ]`
-                  : `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
-              }
-            }
-            this.logger?.warn?.(`[SummonTool] Image generation failed for ${existingAvatar.name}, falling back`);
-          } catch (e) {
-            this.logger?.warn?.(`[SummonTool] Image greeting failed for ${existingAvatar.name}: ${e.message}`);
-          }
-          // Fallback for image-only models if image generation fails
-          greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
-        } else {
-          // Normal text greeting for text-capable models
-          try {
-            const greetingPrompt = alreadyHere
-              ? 'Someone summoned you again, but you\'re already here. Respond briefly (under 150 chars).'
-              : 'You\'ve just been summoned to a new location. Greet those present briefly (under 150 chars).';
-
-            const greetingResult = await ai.chat([
-              {
-                role: 'system',
-                content: `You are ${existingAvatar.name}. ${existingAvatar.description}. Personality: ${existingAvatar.personality || existingAvatar.dynamicPersonality || 'Mysterious'}`
-              },
-              { role: 'user', content: greetingPrompt }
-            ], { model: existingAvatar.model, corrId });
-
-            // Debug: log the greeting result structure
-            this.logger?.info?.(`[SummonTool] greetingResult for ${existingAvatar.name}: hasImages=${!!greetingResult?.images}, imagesLength=${greetingResult?.images?.length}, textLength=${greetingResult?.text?.length}, keys=${Object.keys(greetingResult || {}).join(',')}`);
-
-            // Check if the response includes images (for image-generating models)
-            if (greetingResult?.images?.length > 0) {
-              const img = greetingResult.images[0];
-              let imageUrl = img.url;
-              
-              this.logger?.info?.(`[SummonTool] Image found: hasUrl=${!!img.url}, hasData=${!!img.data}, dataLen=${img.data?.length}, hasS3Service=${!!this.s3Service?.uploadBuffer}`);
-              
-              // Upload base64 data to S3 if no URL provided (Discord has 2048 char URL limit)
-              if (!imageUrl && img.data && this.s3Service?.uploadBuffer) {
-                try {
-                  const buffer = Buffer.from(img.data, 'base64');
-                  const s3Key = `summon-greetings/${existingAvatar._id}_${Date.now()}.png`;
-                  imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, img.mimeType || 'image/png');
-                  this.logger?.debug?.(`[SummonTool] Uploaded greeting image to S3: ${imageUrl}`);
-                } catch (uploadErr) {
-                  this.logger?.warn?.(`[SummonTool] Failed to upload image to S3: ${uploadErr.message}`);
-                }
-              }
-              
-              if (imageUrl) {
-                this.logger?.info?.(`[SummonTool] ${existingAvatar.name} generated image greeting instead of text`);
-                const embed = {
-                  color: 0x9b59b6,
-                  image: { url: imageUrl },
-                  footer: { text: alreadyHere ? `${existingAvatar.name} acknowledges the summon` : `${existingAvatar.name} arrives` }
-                };
-                setTimeout(async () => {
-                  try {
-                    await this.discordService.sendEmbedAsWebhook(
-                      message.channel.id,
-                      embed,
-                      existingAvatar.name,
-                      existingAvatar.imageUrl
-                    );
-                    if (!alreadyHere) {
-                      await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
-                    }
-                  } catch (err) {
-                    this.logger?.warn?.(`[SummonTool] Failed to send image greeting: ${err?.message}`);
-                  }
-                }, 800);
-                return alreadyHere
-                  ? `-# ${this.emoji} [ ${existingAvatar.name} is already here. ]`
-                  : `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
-              }
-            }
-
-            greeting = typeof greetingResult === 'object' && greetingResult?.text ? greetingResult.text : greetingResult;
-            if (typeof greeting === 'string') greeting = stripHiddenTags(greeting);
-            // Fallback if we got an object without text (shouldn't happen, but safety check)
-            if (greeting && typeof greeting === 'object') {
-              greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
-            }
-          } catch (e) {
-            this.logger.warn(`Failed to generate greeting for ${existingAvatar.name}: ${e.message}`);
-            greeting = alreadyHere ? `*${existingAvatar.name} nods in acknowledgment.*` : `*${existingAvatar.name} arrives.*`;
-          }
-        }
-
         if (alreadyHere) {
+          // Resummon in same channel: send greeting then show profile
           if (greeting) {
             await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
           }
@@ -778,42 +358,15 @@ export class SummonTool extends BasicTool {
             this.logger.warn(`Failed to send avatar embed on resummon: ${e.message}`);
           }
           return `-# ${this.emoji} [ ${existingAvatar.name} is already here. Showing profile. ]`;
-        }
-
-        setTimeout(async () => {
-          try {
+        } else {
+          // Arrival: send greeting and mini embed
+          setTimeout(async () => {
             if (greeting) {
               await this.discordService.sendAsWebhook(message.channel.id, greeting, existingAvatar);
             }
             await this.discordService.sendMiniAvatarEmbed(existingAvatar, message.channel.id, `${existingAvatar.name} arrives.`);
-          } catch (err) {
-            this.logger?.warn?.(`[SummonTool] Failed to send arrival sequence for ${existingAvatar.name}: ${err?.message}`);
-          }
-        }, 800);
-        return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
-      };
-
-      const findModelAvatarForModelId = async (modelId, guildId) => {
-        const normalized = normalizeModelIdentifier(modelId);
-        if (!normalized) return null;
-        const baseFilters = {
-          status: { $ne: 'dead' },
-          isPartial: { $ne: true },
-          tags: 'model-roster',
-          model: { $regex: new RegExp(`^${escapeRegex(normalized)}(:|$)`, 'i') }
-        };
-        const trySample = async filters => {
-          try {
-            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 3 });
-            return Array.isArray(avatars) && avatars.length ? avatars[0] : null;
-          } catch (err) {
-            this.logger?.debug?.(`[SummonTool] findModelAvatarForModelId failed: ${err?.message}`);
-            return null;
-          }
-        };
-        let avatar = guildId ? await trySample({ ...baseFilters, guildId }) : null;
-        if (!avatar) {
-          avatar = await trySample(baseFilters);
+          }, 800);
+          return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
         }
         if (!avatar) {
           const friendlyName = formatModelDisplayName(normalized);
@@ -1271,15 +824,19 @@ export class SummonTool extends BasicTool {
       // Check summon limit (bypass for specific user ID, e.g., admin)
       const canSummon = message.author.id === '1175877613017895032' || (await this.checkDailySummonLimit(message.author.id));
       if (!canSummon) {
+        // Friendly singular message (avoid spam)
         await this.discordService.replyToMessage(message, `You've already summoned an avatar today. (Daily limit: ${this.DAILY_SUMMON_LIMIT})`);
         return '-# [ Summon rejected: daily limit reached. ]';
       }
 
+      // Get guild configuration
+      const guildId = message.guildId || message.guild?.id;
+      const guildConfig = await this.configService.getGuildConfig(guildId, true);
       let summonPrompt = guildConfig?.prompts?.summon || 'Create an avatar with the following description:';
-      let _arweavePrompt = null;
+  let _arweavePrompt = null;
       if (summonPrompt.match(/^(https:\/\/.*\.arweave\.net\/|ar:\/\/)/)) {
-        _arweavePrompt = summonPrompt;
-        summonPrompt = null;
+  _arweavePrompt = summonPrompt;
+  summonPrompt = null;
       }
       // Generate stats for the avatar
       const creationDate = new Date();
@@ -1303,9 +860,7 @@ export class SummonTool extends BasicTool {
       const avatarData = {
         prompt,
         channelId: message.channel.id,
-        imageUrl: imageUrlOverride,
-        guildId,
-        summoner: `user:${message.author.id}`
+        imageUrl: imageUrlOverride
       };
 
       // Create new avatar
@@ -1321,10 +876,8 @@ export class SummonTool extends BasicTool {
         createdAvatar.stats = stats;
         createdAvatar.createdAt = creationDate;
         createdAvatar.channelId = message.channel.id;
-        createdAvatar.summonsday = formatSummonsday(creationDate);
         await this.avatarService.updateAvatar(createdAvatar);
         await ensureModel(createdAvatar);
-        await ensureAvatarStatsAndSummonsday(createdAvatar);
       } else {
         // Ensure channel/location sync for existing avatar name collision
         if (createdAvatar.channelId !== message.channel.id) {
@@ -1333,7 +886,6 @@ export class SummonTool extends BasicTool {
           await this.avatarService.updateAvatar(createdAvatar);
         }
         await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
-        await ensureAvatarStatsAndSummonsday(createdAvatar);
         // Provide a lightweight acknowledgement instead of full intro/embed
         try {
           await ensureModel(createdAvatar);
@@ -1344,11 +896,7 @@ export class SummonTool extends BasicTool {
             { role: 'user', content: 'Someone attempted to summon you again, but you already exist. Acknowledge succinctly.' }
           ], { model: createdAvatar.model, corrId });
           let brief = typeof briefResult === 'object' && briefResult?.text ? briefResult.text : briefResult;
-          try {
-            if (typeof brief === 'string') brief = stripHiddenTags(brief);
-          } catch (stripErr) {
-            this.logger?.debug?.(`[SummonTool] Failed to strip hidden tags from brief: ${stripErr.message}`);
-          }
+          try { if (typeof brief === 'string') brief = brief.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
           await this.discordService.sendAsWebhook(message.channel.id, brief || `${createdAvatar.name} is already among you.`, createdAvatar);
         } catch (e) {
           this.logger.warn(`Re‑summon brief response failed: ${e.message}`);
@@ -1378,11 +926,7 @@ export class SummonTool extends BasicTool {
       );
   let intro = typeof introResult === 'object' && introResult?.text ? introResult.text : introResult;
       // Safety scrub in case provider leaked <think>
-      try {
-        if (typeof intro === 'string') intro = intro.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-      } catch (stripErr) {
-        this.logger?.debug?.(`[SummonTool] Failed to strip hidden tags from intro pre-clean: ${stripErr.message}`);
-      }
+      try { if (typeof intro === 'string') intro = intro.replace(/<think>[\s\S]*?<\/think>/g, '').trim(); } catch {}
       // Extract <think> tags from intro, store as thoughts & strip before sending
       try {
         const thinkRegex = /<think>(.*?)<\/think>/gs;
@@ -1401,122 +945,31 @@ export class SummonTool extends BasicTool {
       createdAvatar.dynamicPersonality = intro; // use cleaned intro as initial dynamic personality snapshot
 
       // Initialize avatar and react
-      await this.avatarService.initializeAvatar(createdAvatar, channelId);
+      await this.avatarService.initializeAvatar(createdAvatar, message.channel.id);
       // Presence priority: mark start session & grant guaranteed early turns
       try {
         if (this.presenceService?.startSession) {
-          await this.presenceService.startSession(channelId, `${createdAvatar._id}`);
-          await this.presenceService.grantNewSummonTurns(channelId, `${createdAvatar._id}`, guaranteedTurns);
-          if (this.presenceService.enableConversationMode) {
-            await this.presenceService.enableConversationMode(channelId, `${createdAvatar._id}`, {
-              duration: this.SUMMON_CONVERSATION_DURATION_MS,
-              maxTurns: Math.max(guaranteedTurns, 5),
-              source: 'summon',
-              proactive: true
-            });
-          }
+          await this.presenceService.startSession(message.channel.id, `${createdAvatar._id}`);
+          await this.presenceService.grantNewSummonTurns(message.channel.id, `${createdAvatar._id}`, 3);
         }
       } catch (e) { this.logger?.warn?.(`Failed to grant new summon priority: ${e.message}`); }
 
       // Ensure avatar's position is updated in the mapService
-      await this.mapService.updateAvatarPosition(createdAvatar, channelId);
-
-      let otherAvatars = [];
-      let summonThread = null;
-      try {
-  const present = await this.avatarService.getAvatarsInChannel(channelId, summonGuildId);
-        otherAvatars = (present || []).filter(av => String(av._id) !== String(createdAvatar._id));
-        if (this.conversationThreadService && otherAvatars.length > 0) {
-          summonThread = await this.conversationThreadService.startThread(
-            channelId,
-            [createdAvatar, ...otherAvatars],
-            {
-              mode: 'summon',
-              maxTurns: this.SUMMON_THREAD_MAX_TURNS,
-              duration: this.SUMMON_CONVERSATION_DURATION_MS,
-              proactive: true
-            }
-          );
-        }
-      } catch (err) {
-        this.logger?.debug?.(`[SummonTool] Failed to prepare summon thread: ${err.message}`);
-      }
-
-      if (this.SUMMON_PROACTIVE_ENABLED) {
-        this._scheduleSummonFollowups({
-          avatar: createdAvatar,
-          message,
-          otherAvatars,
-          thread: summonThread
-        });
-      }
+      await this.mapService.updateAvatarPosition(createdAvatar, message.channel.id);
 
       // Track summon if not breeding
-      if (!breed) {
-        const tracked = await this.trackSummon(message.author.id);
-        if (!tracked) {
-          this.logger?.warn?.(`[SummonTool] Summon for ${message.author.id} recorded via fallback cache; DB insert failed.`);
-        }
-      }
+      if (!breed) await this.trackSummon(message.author.id);
 
-      // Send avatar image and intro BEFORE returning result (so image displays prominently)
-      try {
-        // Post the avatar image as an embed for nice display
-        if (createdAvatar.imageUrl) {
-          const avatarEmbed = {
-            title: `${createdAvatar.emoji || '🔮'} ${createdAvatar.name}`,
-            description: createdAvatar.description || intro,
-            image: { url: createdAvatar.imageUrl },
-            color: 0x9B59B6, // Purple for summons
-            footer: { text: 'Newly summoned' }
-          };
-          await this.discordService.sendEmbedAsWebhook(
-            message.channel.id,
-            avatarEmbed,
-            createdAvatar.name,
-            createdAvatar.imageUrl
-          );
-        }
-        
-        // Send avatar intro message
-        if (intro) {
-          await this.discordService.sendAsWebhook(message.channel.id, intro, createdAvatar);
-        }
-        
+      // Send final response
+      setImmediate(async () => {
+        // Send profile and introduction
+        await this.discordService.sendAsWebhook(message.channel.id, createdAvatar.imageUrl, createdAvatar);
+        await this.discordService.sendAsWebhook(message.channel.id, intro, createdAvatar);
+        await this.discordService.sendAvatarEmbed(createdAvatar, message.channel.id, this.aiService);
+        // Ensure avatar has correct channelId before response
         createdAvatar.channelId = message.channel.id;
-        
-        // React to the original message
-        try {
-          await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
-        } catch (reactErr) {
-          this.logger?.debug?.(`[SummonTool] Could not react to message: ${reactErr.message}`);
-        }
-        
-        // Mark introduction as completed
-        try {
-          await this.avatarService.updateAvatar({
-            ...createdAvatar,
-            introductionCompletedAt: new Date()
-          });
-        } catch (err) {
-          this.logger?.warn?.(`[SummonTool] Failed to mark intro complete: ${err.message}`);
-        }
-      } catch (postErr) {
-        this.logger?.warn?.(`[SummonTool] Post-summon display failed: ${postErr.message}`);
-      }
-      
-      // Schedule proactive followups in background (non-blocking)
-      if (this.SUMMON_PROACTIVE_ENABLED) {
-        setImmediate(() => {
-          this._scheduleSummonFollowups({
-            avatar: createdAvatar,
-            message,
-            otherAvatars,
-            thread: summonThread
-          });
-        });
-      }
-
+        await this.discordService.reactToMessage(message, createdAvatar.emoji || '🔮');
+       });
       return `-# ${this.emoji} [ ${createdAvatar.name} has been summoned into existence. ]`;
     } catch (error) {
       this.logger.error(`Summon error: ${error.message}`);
@@ -1524,46 +977,5 @@ export class SummonTool extends BasicTool {
       await this.discordService.reactToMessage(message, '❌');
       return `-# [ ❌ Error: Failed to summon: ${error.message} ]`;
     }
-  }
-
-  _scheduleSummonFollowups({ avatar, message, otherAvatars = [], thread }) {
-    if (!this.conversationManager || !this.discordService?.client) return;
-    const firstDelay = Math.max(0, this.SUMMON_FIRST_FOLLOWUP_DELAY_MS);
-    const secondDelay = Math.max(0, this.SUMMON_SECOND_FOLLOWUP_DELAY_MS);
-    const channelId = message.channel.id;
-    const participantNames = otherAvatars.map(av => av?.name).filter(Boolean);
-    const promptContext = participantNames.length
-      ? `You just arrived. You notice ${participantNames.join(', ')} here. Respond naturally (under 200 chars).`
-      : 'You just arrived. Respond naturally and invite conversation (under 200 chars).';
-    const conversationThread = thread?.id || thread || null;
-
-    setTimeout(async () => {
-      try {
-        const channel = await this.discordService.client.channels.fetch(channelId);
-        if (!channel) return;
-        await this.conversationManager.sendResponse(channel, avatar, null, {
-          overrideCooldown: true,
-          tradeContext: promptContext,
-          conversationThread
-        });
-        const firstSentAt = Date.now();
-        setTimeout(async () => {
-          try {
-            const nextChannel = await this.discordService.client.channels.fetch(channelId);
-            if (!nextChannel) return;
-            const hasReplies = await this.conversationManager.checkForNewMessages(nextChannel, avatar, { since: firstSentAt });
-            if (!hasReplies) return;
-            await this.conversationManager.sendResponse(nextChannel, avatar, null, {
-              overrideCooldown: true,
-              conversationThread
-            });
-          } catch (err) {
-            this.logger?.debug?.(`[SummonTool] Secondary summon follow-up failed: ${err.message}`);
-          }
-        }, secondDelay);
-      } catch (err) {
-        this.logger?.debug?.(`[SummonTool] Summon follow-up failed: ${err.message}`);
-      }
-    }, firstDelay);
   }
 }

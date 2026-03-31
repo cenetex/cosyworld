@@ -45,10 +45,14 @@ export default (env, argv) => {
       entityManagement: './src/services/web/public/js/entity-management.js',
       adminLogin: './src/services/web/public/js/admin-login.js',
       adminDashboard: './src/services/web/public/js/admin-dashboard.js',
+      xAccountManagement: './src/services/web/public/js/x-account-management.js',
+      xGlobalPosting: './src/services/web/public/js/x-global-posting.js',
+      telegramGlobalPosting: './src/services/web/public/js/telegram-global-posting.js',
       adminCollections: './src/services/web/public/js/admin-collections.js',
+      adminSettings: './src/services/web/public/js/admin-settings.js',
       adminServers: './src/services/web/public/js/admin-servers.js',
-      adminUsers: './src/services/web/public/js/admin-users.js',
-      invite: './src/services/web/public/js/invite.js',
+      adminSecrets: './src/services/web/public/js/admin-secrets.js',
+      guildSettings: './src/services/web/public/js/guild-settings.js',
       'admin/adminBootstrap': './src/services/web/public/js/admin/admin-bootstrap.js',
       tailwind: './src/tailwind.css'
     },
@@ -63,7 +67,17 @@ export default (env, argv) => {
           test: /\.(js|mjs)$/,
           exclude: /node_modules/,
           use: {
-            loader: 'babel-loader'
+            loader: 'babel-loader',
+            options: {
+              presets: [
+                ['@babel/preset-env', {
+                  targets: '> 0.25%, not dead',
+                  useBuiltIns: 'usage',
+                  corejs: 3,
+                  modules: false
+                }]
+              ]
+            }
           }
         },
         {
@@ -100,7 +114,6 @@ export default (env, argv) => {
           { from: path.resolve(__dirname, 'src/services/web/public/checkout.html'), to: path.resolve(__dirname, 'dist/checkout.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/api-docs.html'), to: path.resolve(__dirname, 'dist/api-docs.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/link.html'), to: path.resolve(__dirname, 'dist/link.html'), transform: transformHtml },
-          { from: path.resolve(__dirname, 'src/services/web/public/wiki.html'), to: path.resolve(__dirname, 'dist/wiki.html'), transform: transformHtml },
           // Admin HTML
           { from: path.resolve(__dirname, 'src/services/web/public/admin/*.html'), to: path.resolve(__dirname, 'dist/admin/[name][ext]'), transform: transformHtml },
           // Other static files

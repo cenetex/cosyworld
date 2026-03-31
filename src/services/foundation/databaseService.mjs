@@ -77,12 +77,7 @@ export class DatabaseService {
 
     try {
       const messages = this.db.collection('messages');
-      // First try to find by messageId field (string), then fallback to _id (ObjectId)
-      let message = await messages.findOne({ messageId: messageId });
-      if (!message && ObjectId.isValid(messageId)) {
-        message = await messages.findOne({ _id: new ObjectId(messageId) });
-      }
-      return message;
+      return await messages.findOne({ _id: ObjectId.createFromTime(messageId) });
     } catch (error) {
       this.logger.error(`Error retrieving message by ID: ${error.message}`);
       return null;
@@ -228,7 +223,8 @@ export class DatabaseService {
           return false;
         }
       } catch (error) {
-        this.logger.error(`Error saving message to database: ${error.message}`, { stack: error.stack });
+        this.logger.error(`Error saving message to database: ${error.message}`);
+        console.error(error.stack);
       }
     }
 
@@ -337,8 +333,6 @@ export class DatabaseService {
           { key: { channelId: 1, timestamp: -1 }, name: 'messages_channel_timestamp', background: true },
           { key: { replyToMessageId: 1 }, name: 'messages_reply_to', background: true, sparse: true },
           { key: { messageId: 1, avatarId: 1 }, name: 'messages_id_avatar', background: true },
-          { key: { hasImages: 1 }, name: 'messages_has_images', background: true },
-          { key: { imageDescription: 1 }, name: 'messages_image_desc', background: true, sparse: true },
         ]),
         db.collection('agent_events').createIndexes([
           { key: { agent_id: 1, ts: -1 }, name: 'agent_events_agent_ts', background: true },
@@ -351,6 +345,7 @@ export class DatabaseService {
           { key: { emoji: 1 }, background: true },
           { key: { emoji: 1, _id: -1 }, name: 'avatars_emoji_id_desc', background: true },
           { key: { 'nft.collection': 1, _id: -1 }, name: 'avatars_nft_collection_id_desc', background: true },
+          { key: { collection: 1, _id: -1 }, name: 'avatars_collection_id_desc', background: true },
           { key: { parents: 1 }, background: true },
           { key: { createdAt: -1 }, background: true },
           { key: { channelId: 1 }, background: true },
@@ -374,7 +369,8 @@ export class DatabaseService {
           { key: { actor: 1 }, background: true },
           { key: { target: 1 }, background: true },
         ]),
-        // Note: hasImages and imageDescription indexes are included in the messages.createIndexes call above
+        db.collection('messages').createIndex({ hasImages: 1 }),
+        db.collection('messages').createIndex({ imageDescription: 1 }),
         db.collection('x_auth').createIndex({ avatarId: 1 }, { unique: true }),
         db.collection('social_posts').createIndex({ avatarId: 1, timestamp: -1 }),
         // Image analysis cache indexes
@@ -394,7 +390,7 @@ export class DatabaseService {
         db.collection('presence').createIndexes([
           { key: { channelId: 1, avatarId: 1 }, unique: true, name: 'presence_channel_avatar', background: true },
           { key: { channelId: 1, lastTurnAt: -1 }, name: 'presence_lastTurn', background: true },
-          // Note: updatedAt index is handled separately with TTL logic below
+          { key: { updatedAt: 1 }, name: 'presence_updatedAt', background: true },
         ]),
         db.collection('turn_leases').createIndexes([
           { key: { channelId: 1, avatarId: 1, tickId: 1 }, unique: true, name: 'leases_unique', background: true },
@@ -438,22 +434,11 @@ export class DatabaseService {
           { key: { significance: -1, createdAt: -1 }, name: 'story_mem_sig_created', background: true },
           { key: { lastUsed: -1 }, name: 'story_mem_used', background: true },
         ]),
-        (async () => {
-          await safeEnsureIndex('daily_summons', { timestamp: 1 }, {
-            expireAfterSeconds: 30 * 24 * 60 * 60,
-            name: 'daily_summons_ttl'
-          });
-        })(),
-        (async () => {
-          await safeEnsureIndex('daily_summons', { userId: 1, timestamp: 1 }, {
-            name: 'daily_summons_user_day'
-          });
-        })(),
-        // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
-        (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
-        (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
-        (async () => { await safeEnsureIndex('avatar_claims', { walletAddress: 1 }); })(),
-        (async () => { await safeEnsureIndex('avatar_claims', { avatarId: 1 }); })(),
+  // Wallet links and claims (prioritization support) — safe creation to avoid name conflicts
+  (async () => { await safeEnsureIndex('discord_wallet_links', { discordId: 1 }); })(),
+  (async () => { await safeEnsureIndex('discord_wallet_links', { address: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { walletAddress: 1 }); })(),
+  (async () => { await safeEnsureIndex('avatar_claims', { avatarId: 1 }); })(),
       ]);
       // Conditionally add TTL for presence.updatedAt only if no existing index on updatedAt
       try {

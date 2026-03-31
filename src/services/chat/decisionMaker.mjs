@@ -36,9 +36,7 @@ export class DecisionMaker  {
       ATTENTION_DECAY_RATE: 0.95,              // Decay rate per minute
   TOP_N: 8,
   RANDOM_N: 5,
-  STICKY_WINDOW_MS: Number(process.env.STICKY_WINDOW_MS || 15 * 60 * 1000),  // 15 minutes default (was 10)
-  STICKY_EXTENSION_MS: Number(process.env.STICKY_EXTENSION_MS || 5 * 60 * 1000), // Extend by 5 min on activity
-  STICKY_COOLDOWN_MS: Number(process.env.STICKY_COOLDOWN_MS || 20 * 1000)  // 20 seconds cooldown for sticky conversations
+  STICKY_WINDOW_MS: Number(process.env.STICKY_WINDOW_MS || 10 * 60 * 1000)
     };
 
     // Mind modes for varying behavior
@@ -141,34 +139,12 @@ export class DecisionMaker  {
   /**
    * Record a sticky affinity binding a human user to an avatar in a channel for a period.
    * Subsequent messages from that user will bias selection toward this avatar until expiry.
-   * If affinity already exists for same avatar, extends the TTL rather than replacing.
    */
-  _recordAffinity(channelId, userId, avatarId, ttlMs = this.config.STICKY_WINDOW_MS || 15 * 60 * 1000, strength = 1) {
+  _recordAffinity(channelId, userId, avatarId, ttlMs = this.config.STICKY_WINDOW_MS || 10 * 60 * 1000, strength = 1) {
     if (!channelId || !userId || !avatarId) return;
     const key = `${channelId}:${userId}`;
-    const existing = this.userAffinity.get(key);
-    const now = Date.now();
-    
-    // If affinity exists for the same avatar and is still active, extend it
-    if (existing && existing.avatarId === String(avatarId) && existing.until > now) {
-      const extensionMs = this.config.STICKY_EXTENSION_MS || 5 * 60 * 1000;
-      const newUntil = Math.max(existing.until, now + extensionMs);
-      existing.until = newUntil;
-      existing.strength = Math.max(existing.strength, strength);
-      existing.lastActivityAt = now;
-      this.logger?.debug?.(`[DecisionMaker] Extended affinity for user ${userId} -> avatar ${avatarId} until ${new Date(newUntil).toISOString()}`);
-      return;
-    }
-    
-    // New affinity or different avatar
-    const until = now + Math.max(5_000, ttlMs);
-    this.userAffinity.set(key, { 
-      avatarId: String(avatarId), 
-      until, 
-      strength: Math.max(1, strength),
-      createdAt: now,
-      lastActivityAt: now
-    });
+    const until = Date.now() + Math.max(5_000, ttlMs);
+    this.userAffinity.set(key, { avatarId: String(avatarId), until, strength: Math.max(1, strength) });
   }
 
   /**
@@ -333,8 +309,8 @@ export class DecisionMaker  {
     if (isHuman && effectiveUserId) {
       const favId = this._getAffinityAvatarId(channel.id, effectiveUserId);
       if (favId && (favId === avatar.id || favId === `${avatar._id}`)) {
-        // Use shorter cooldown for active sticky conversations to maintain engagement
-        const stickyCooldown = this.config.STICKY_COOLDOWN_MS || 20_000; // 20 seconds default
+        // Slightly relax cooldown window when sticky
+        const stickyCooldown = Math.max(10_000, Math.floor((this.config.PER_AVATAR_COOLDOWN || 120_000) * 0.6));
         const state = this._getAttentionState(avatar.id);
         const timeSinceLastResponse = Date.now() - state.lastResponse;
         
@@ -457,6 +433,7 @@ export class DecisionMaker  {
     const response = await ai.chat(prompt, {
         model: this.configService.getAIConfig().decisionMakerModel,
         temperature: 0.5,
+        max_tokens: 32,
         corrId
       });
   const text = typeof response === 'object' && response?.text ? response.text : (typeof response === 'string' ? response : '');

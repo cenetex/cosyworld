@@ -21,7 +21,6 @@ export class GlobalBotService {
     avatarService, 
     memoryService, 
     aiService,
-    googleAIService,
     xService,
     logger = console 
   }) {
@@ -29,58 +28,11 @@ export class GlobalBotService {
     this.avatarService = avatarService;
     this.memoryService = memoryService;
     this.aiService = aiService;
-    this.googleAIService = googleAIService;
     this.xService = xService;
     this.logger = logger;
     this.botId = null;
     this.bot = null;
     this.narrativeInterval = null;
-  }
-
-  buildDefaultGlobalBotConfig(universeName) {
-    const activeFromEnv = (process.env.GLOBAL_BOT_ACTIVE_PLATFORMS || 'x,telegram')
-      .split(',')
-      .map((p) => (typeof p === 'string' ? p.trim() : ''))
-      .filter(Boolean);
-    const uniqueActive = Array.from(new Set(activeFromEnv));
-
-    return {
-      universeName,
-      maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
-      preferredHashtags: [universeName],
-      xPostStyle: "Use a warm, engaging narrator voice. Be concise but descriptive. Never include links. Avoid corporate speak.",
-      systemPromptTemplate: `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nStyle Guide for X (Twitter):\n{{xPostStyle}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`,
-      avatarIntroPromptTemplate: `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`,
-      locationDiscoveryPromptTemplate: `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`,
-      scenePromptTemplate: `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.`,
-      combatPromptTemplate: `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.`,
-      genericPromptTemplate: `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes, hashtags, ticker symbols, @mentions, or links.`,
-      narrativeReflectionPromptTemplate: `Based on these recent events and introductions you've made:\n\n{{memories}}\n\nWrite 2-3 sentences about your evolving perspective on the {{universeName}} community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?\n\nBe thoughtful and introspective. This is for your own reflection, not for posting.`,
-      platformNarrativeSummaryTemplate: `Platform presence overview:\n{{platformStatus}}`,
-      activePlatforms: uniqueActive.length ? uniqueActive : ['x', 'telegram'],
-      platformHandles: {
-        x: process.env.GLOBAL_BOT_X_HANDLE || '',
-        telegram: process.env.GLOBAL_BOT_TELEGRAM_HANDLE || '',
-        discord: process.env.GLOBAL_BOT_DISCORD_HANDLE || ''
-      },
-      // Character consistency for image generation
-      characterDesign: {
-        enabled: false, // Set to true to use character in all image generations
-        referenceImageUrl: '', // URL of the character reference image
-        characterDescription: '', // Detailed description of the character (appearance, clothing, style)
-        imagePromptPrefix: 'Show {{characterName}} ({{characterDescription}}) in this situation: ', // Prefix added to all image prompts
-        characterName: universeName // Name to use when referring to the character in prompts
-      },
-      // Content filtering settings for messages and tweets
-      contentFilters: {
-        enabled: true, // Master switch for content filtering
-        blockCryptoAddresses: true, // Block messages containing ETH/SOL addresses
-        blockCashtags: true, // Block messages containing cashtags like $BTC
-        blockUrls: true, // Block AI-generated messages containing URLs
-        allowedCashtags: [], // List of allowed cashtags (e.g., ['$COSY', '$WORLD'])
-        allowedAddresses: [] // List of allowed crypto addresses
-      }
-    };
   }
 
   /**
@@ -96,14 +48,7 @@ export class GlobalBotService {
       const intervalHours = Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168); // 168 hours = 7 days
       this.scheduleNarrativeGeneration(intervalHours);
       
-      // Log character design configuration state for debugging
-      const charDesign = this.bot?.globalBotConfig?.characterDesign;
-      this.logger?.info?.(`[GlobalBotService] Initialized with bot ID: ${this.botId}`, {
-        hasCharacterDesign: !!charDesign,
-        characterDesignEnabled: charDesign?.enabled,
-        hasReferenceUrl: !!charDesign?.referenceImageUrl,
-        referenceUrlPreview: charDesign?.referenceImageUrl?.substring?.(0, 50)
-      });
+      this.logger?.info?.(`[GlobalBotService] Initialized with bot ID: ${this.botId}`);
     } catch (err) {
       this.logger?.error?.(`[GlobalBotService] Initialization failed: ${err.message}`);
       throw err;
@@ -121,20 +66,22 @@ export class GlobalBotService {
     if (!bot) {
       this.logger?.info?.('[GlobalBotService] Creating new global bot avatar');
       
-      const universeName = process.env.UNIVERSE_NAME || "CosyWorld";
-      
       const botDoc = {
-        name: universeName,
+        name: "CosyWorld",
         emoji: "🌍",
         type: "global_narrator",
-        personality: `I am the narrator of ${universeName}, a warm and welcoming guide who introduces new souls to our universe. I celebrate each arrival with genuine curiosity and help the community discover fascinating characters. I have a friendly, slightly whimsical tone and enjoy highlighting what makes each being unique.`,
-        dynamicPrompt: `I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to ${universeName}.`,
+        personality: "I am the narrator of CosyWorld, a warm and welcoming guide who introduces new souls to our universe. I celebrate each arrival with genuine curiosity and help the community discover fascinating characters. I have a friendly, slightly whimsical tone and enjoy highlighting what makes each being unique.",
+        dynamicPrompt: "I've been welcoming many interesting souls to our realm. Each one brings their own story and energy to CosyWorld.",
         model: process.env.GLOBAL_BOT_MODEL || "anthropic/claude-sonnet-4.5",
         status: "immortal",
-        content: `I am the narrator of ${universeName}, here to welcome every new arrival and share their stories with the community.`,
         createdAt: new Date(),
         updatedAt: new Date(),
-        globalBotConfig: this.buildDefaultGlobalBotConfig(universeName)
+        globalBotConfig: {
+          enabled: true,
+          maxIntrosPerDay: Number(process.env.GLOBAL_BOT_MAX_INTROS_PER_DAY || 20),
+          preferredHashtags: ["CosyWorld"],
+          narrativeIntervalHours: Number(process.env.GLOBAL_BOT_NARRATIVE_INTERVAL_HOURS || 168) // Default: once per week (7 days * 24 hours)
+        }
       };
       
       const result = await db.collection('avatars').insertOne(botDoc);
@@ -144,7 +91,7 @@ export class GlobalBotService {
       await this.memoryService.write({
         avatarId: result.insertedId,
         kind: 'system',
-        text: `I am ${universeName}, the narrator of this universe. My purpose is to welcome new arrivals and share their stories with the community.`,
+        text: 'I am CosyWorld, the narrator of this universe. My purpose is to welcome new arrivals and share their stories with the community.',
         weight: 2.0
       });
     }
@@ -219,96 +166,94 @@ export class GlobalBotService {
         .filter(Boolean)
         .join('\n');
       
-      // Get universe name from config or default
-      const universeName = this.bot.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
-      
-      // Helper to replace template variables
-      const fillTemplate = (template, vars) => {
-        let result = template;
-        for (const [key, value] of Object.entries(vars)) {
-          result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
-        }
-        return result;
-      };
-      
-      // Get system prompt template from config
-      const systemPromptTemplate = this.bot.globalBotConfig?.systemPromptTemplate || 
-        `You are {{botName}} {{botEmoji}}, the narrator of {{universeName}}.\n\n{{personality}}\n\nYour current thoughts and perspective:\n{{dynamicPrompt}}\n\nRecent memories and activities:\n{{memories}}\n\nStyle Guide for X (Twitter):\n{{xPostStyle}}\n\nYou have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
-      
-      const systemPrompt = fillTemplate(systemPromptTemplate, {
-        botName: this.bot.name,
-        botEmoji: this.bot.emoji || '',
-        universeName: universeName,
-        personality: this.bot.personality,
-        dynamicPrompt: this.bot.dynamicPrompt || '',
-        memories: memoryText || 'Just starting my journey as narrator.',
-        xPostStyle: this.bot.globalBotConfig?.xPostStyle || 'Use a warm, engaging narrator voice. Be concise.'
-      });
+      const systemPrompt = `You are ${this.bot.name} ${this.bot.emoji}, the narrator of CosyWorld.
+
+${this.bot.personality}
+
+Your current thoughts and perspective:
+${this.bot.dynamicPrompt || ''}
+
+Recent memories and activities:
+${memoryText || 'Just starting my journey as narrator.'}
+
+You have the ability to remember important moments using the 'remember' tool. Use it when you want to recall significant introductions, events, or interesting happenings. Your memories shape your perspective and help you tell better stories.`;
 
       let userPrompt;
       
       if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
         // Avatar introduction
-        const template = this.bot.globalBotConfig?.avatarIntroPromptTemplate ||
-          `A new soul has arrived in {{universeName}}: {{avatarEmoji}} {{avatarName}}\n\nDescription: {{description}}\n\nCreate a welcoming introduction tweet (max 240 chars) that:\n1. Captures their essence and what makes them unique\n2. Welcomes them warmly to the community\n3. Reflects your narrator personality\n4. Makes people curious to learn more about them\n5. Use *bold* for the avatar name using Markdown formatting\n\nBe conversational and genuine. Format the avatar name in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.\n\nIf this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`;
-        
-        userPrompt = fillTemplate(template, {
-          universeName: universeName,
-          avatarEmoji: mediaPayload.avatarEmoji || '',
-          avatarName: mediaPayload.avatarName,
-          description: mediaPayload.prompt || 'A mysterious new arrival'
-        });
+        userPrompt = `A new soul has arrived in CosyWorld: ${mediaPayload.avatarEmoji || ''} ${mediaPayload.avatarName}
+
+Description: ${mediaPayload.prompt || 'A mysterious new arrival'}
+
+Create a welcoming introduction tweet (max 240 chars) that:
+1. Captures their essence and what makes them unique
+2. Welcomes them warmly to the community
+3. Reflects your narrator personality
+4. Makes people curious to learn more about them
+5. Use *bold* for the avatar name using Markdown formatting
+
+Be conversational and genuine. Format the avatar name in *bold*. No quotes or extra hashtags.
+
+If this introduction feels significant, use the remember tool to store a memory of welcoming this new arrival.`;
       } else if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
         // New location discovery
-        const template = this.bot.globalBotConfig?.locationDiscoveryPromptTemplate ||
-          `A new location has been discovered in {{universeName}}: "{{locationName}}"\n\nDescription: {{locationDescription}}\n\nCreate an evocative announcement (max 240 chars) that:\n1. Highlights what makes this location unique and intriguing\n2. Invites adventurers to explore it\n3. Uses vivid, atmospheric language\n4. Reflects your narrator personality\n5. Use *bold* for the location name using Markdown formatting\n\nBe immersive and captivating. Format the location name in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.\n\nConsider using the remember tool if this location discovery is particularly noteworthy.`;
-        
-        userPrompt = fillTemplate(template, {
-          universeName: universeName,
-          locationName: mediaPayload.locationName,
-          locationDescription: mediaPayload.locationDescription || 'A mysterious new place'
-        });
+        userPrompt = `A new location has been discovered in CosyWorld: "${mediaPayload.locationName}"
+
+Description: ${mediaPayload.locationDescription || 'A mysterious new place'}
+
+Create an evocative announcement (max 240 chars) that:
+1. Highlights what makes this location unique and intriguing
+2. Invites adventurers to explore it
+3. Uses vivid, atmospheric language
+4. Reflects your narrator personality
+5. Use *bold* for the location name using Markdown formatting
+
+Be immersive and captivating. Format the location name in *bold*. No quotes or extra hashtags.
+
+Consider using the remember tool if this location discovery is particularly noteworthy.`;
       } else if (mediaPayload.source === 'scene.camera' && (mediaPayload.avatarName || mediaPayload.locationName)) {
         // Scene camera photo
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
         
-        const template = this.bot.globalBotConfig?.scenePromptTemplate ||
-          `A scene has been captured in {{universeName}}: {{who}}{{where}}\n\nScene description: {{sceneDescription}}\n\nCreate an engaging caption (max 240 chars) that:\n1. Describes the scene vividly\n2. Captures the mood and atmosphere\n3. Uses *bold* for names (avatar and location)\n4. Makes viewers curious about the moment\n5. Reflects your narrator personality\n\nBe atmospheric and engaging. Format names in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.`;
-        
-        userPrompt = fillTemplate(template, {
-          universeName: universeName,
-          who: who,
-          where: where,
-          sceneDescription: mediaPayload.context || mediaPayload.prompt || 'A cinematic moment'
-        });
+        userPrompt = `A scene has been captured in CosyWorld: ${who}${where}
+
+Scene description: ${mediaPayload.context || mediaPayload.prompt || 'A cinematic moment'}
+
+Create an engaging caption (max 240 chars) that:
+1. Describes the scene vividly
+2. Captures the mood and atmosphere
+3. Uses *bold* for names (avatar and location)
+4. Makes viewers curious about the moment
+5. Reflects your narrator personality
+
+Be atmospheric and engaging. Format names in *bold*. No quotes or extra hashtags.`;
       } else if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
         // Combat/battle images
         const combatType = mediaPayload.source === 'combat.poster' ? 'Pre-battle standoff' 
                          : mediaPayload.source === 'combat.summary' ? 'Battle concluded' 
                          : 'Combat action';
-        const combatants = mediaPayload.avatarName || 'Warriors clash';
-        const location = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
         
-        const template = this.bot.globalBotConfig?.combatPromptTemplate ||
-          `{{combatType}} in {{universeName}}: {{combatants}}{{location}}\n\nScene: {{sceneDescription}}\n\nCreate an intense, dramatic caption (max 240 chars) that:\n1. Captures the energy and stakes of the combat\n2. Highlights the combatants (use *bold* for names)\n3. Creates excitement and tension\n4. References the location if provided (use *bold*)\n5. Reflects your narrator personality\n\nBe dramatic and engaging. Format names in *bold*. No quotes, hashtags, ticker symbols, @mentions, or links.`;
-        
-        userPrompt = fillTemplate(template, {
-          combatType: combatType,
-          universeName: universeName,
-          combatants: combatants,
-          location: location,
-          sceneDescription: mediaPayload.context || mediaPayload.prompt || 'Epic battle moment'
-        });
+        userPrompt = `${combatType} in CosyWorld: ${mediaPayload.avatarName || 'Warriors clash'}${mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : ''}
+
+Scene: ${mediaPayload.context || mediaPayload.prompt || 'Epic battle moment'}
+
+Create an intense, dramatic caption (max 240 chars) that:
+1. Captures the energy and stakes of the combat
+2. Highlights the combatants (use *bold* for names)
+3. Creates excitement and tension
+4. References the location if provided (use *bold*)
+5. Reflects your narrator personality
+
+Be dramatic and engaging. Format names in *bold*. No quotes or extra hashtags.`;
       } else {
         // General media post
-        const template = this.bot.globalBotConfig?.genericPromptTemplate ||
-          `Describe this moment in {{universeName}} in an engaging way (max 240 chars).\n\nContext: {{context}}\n\nMake it compelling and reflect your narrator voice. No quotes, hashtags, ticker symbols, @mentions, or links.`;
-        
-        userPrompt = fillTemplate(template, {
-          universeName: universeName,
-          context: mediaPayload.context || mediaPayload.prompt || 'An interesting moment in our universe'
-        });
+        userPrompt = `Describe this moment in CosyWorld in an engaging way (max 240 chars).
+
+Context: ${mediaPayload.context || mediaPayload.prompt || 'An interesting moment in our universe'}
+
+Make it compelling and reflect your narrator voice. No quotes or extra hashtags.`;
       }
 
       // Define the remember tool for the bot to use
@@ -380,12 +325,9 @@ export class GlobalBotService {
     } catch (err) {
       this.logger?.error?.(`[GlobalBotService] generateContextualPost failed: ${err.message}`);
       
-      // Get universe name for fallback
-      const universeName = this.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
-      
       // Fallback to simple text
       if (mediaPayload.source === 'avatar.create' && mediaPayload.avatarName) {
-        return `${mediaPayload.avatarEmoji || '✨'} Meet *${mediaPayload.avatarName}* — ${mediaPayload.prompt || `a new arrival in ${universeName}`}`;
+        return `${mediaPayload.avatarEmoji || '✨'} Meet *${mediaPayload.avatarName}* — ${mediaPayload.prompt || 'a new arrival in CosyWorld'}`;
       }
       
       if (mediaPayload.source === 'location.create' && mediaPayload.locationName) {
@@ -395,16 +337,16 @@ export class GlobalBotService {
       if (mediaPayload.source === 'scene.camera') {
         const who = mediaPayload.avatarName ? `${mediaPayload.avatarEmoji || ''} *${mediaPayload.avatarName}*` : 'An adventurer';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
-        return `📸 ${who}${where} — ${mediaPayload.context || `A cinematic moment in ${universeName}`}`;
+        return `📸 ${who}${where} — ${mediaPayload.context || 'A cinematic moment in CosyWorld'}`;
       }
       
       if (mediaPayload.source && mediaPayload.source.startsWith('combat.')) {
         const emoji = mediaPayload.source === 'combat.poster' ? '⚔️' : '🏆';
         const where = mediaPayload.locationName ? ` at *${mediaPayload.locationName}*` : '';
-        return `${emoji} ${mediaPayload.avatarName || 'Battle'}${where} — ${mediaPayload.context || `Epic combat in ${universeName}`}`;
+        return `${emoji} ${mediaPayload.avatarName || 'Battle'}${where} — ${mediaPayload.context || 'Epic combat in CosyWorld'}`;
       }
       
-      return mediaPayload.context || mediaPayload.prompt || `A moment in ${universeName}`;
+      return mediaPayload.context || mediaPayload.prompt || 'A moment in CosyWorld';
     }
   }
 
@@ -484,251 +426,50 @@ export class GlobalBotService {
   }
 
   /**
-   * Gather balanced cross-platform context for narrative generation
-   * Collects recent activity from Discord, Telegram, X/Twitter, and memories
-   * with balanced sampling to avoid one platform crowding out others.
-   * @param {Object} options - Configuration options
-   * @param {number} options.maxPerPlatform - Max items per platform (default: 5)
-   * @param {number} options.maxMemories - Max memories to include (default: 5)
-   * @param {number} options.hoursBack - How many hours back to look (default: 48)
-   * @returns {Promise<Object>} - Cross-platform context object
-   */
-  async getCrossPlatformContext({ maxPerPlatform = 5, maxMemories = 5, hoursBack = 48 } = {}) {
-    const db = await this.databaseService.getDatabase();
-    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
-    const context = {
-      discord: [],
-      telegram: [],
-      x: [],
-      memories: [],
-      formatted: ''
-    };
-
-    try {
-      // 1. Discord messages - from the main messages collection
-      const discordMessages = await db.collection('messages')
-        .find({
-          timestamp: { $gte: cutoff },
-          $or: [
-            { platform: 'discord' },
-            { platform: { $exists: false } } // Default to Discord for legacy messages
-          ]
-        })
-        .sort({ timestamp: -1 })
-        .limit(maxPerPlatform * 3) // Get more to sample variety
-        .project({ content: 1, authorName: 1, channelName: 1, timestamp: 1 })
-        .toArray();
-
-      // Sample to get variety (different authors/channels)
-      const discordSampled = this._sampleMessages(discordMessages, maxPerPlatform, 'authorName');
-      context.discord = discordSampled.map(m => ({
-        text: m.content?.slice(0, 200) || '',
-        author: m.authorName || 'Someone',
-        channel: m.channelName || 'a channel',
-        timestamp: m.timestamp
-      }));
-
-      // 2. Telegram messages
-      const telegramMessages = await db.collection('telegram_messages')
-        .find({ date: { $gte: cutoff } })
-        .sort({ date: -1 })
-        .limit(maxPerPlatform * 3)
-        .project({ text: 1, from: 1, channelId: 1, date: 1 })
-        .toArray();
-
-      const telegramSampled = this._sampleMessages(telegramMessages, maxPerPlatform, 'from');
-      context.telegram = telegramSampled.map(m => ({
-        text: m.text?.slice(0, 200) || '',
-        author: m.from || 'Someone',
-        timestamp: m.date
-      }));
-
-      // 3. X/Twitter - recent posts/mentions from social_posts
-      const xPosts = await db.collection('social_posts')
-        .find({
-          createdAt: { $gte: cutoff },
-          $or: [
-            { platform: 'x' },
-            { platform: 'twitter' },
-            { tweetId: { $exists: true } }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .limit(maxPerPlatform)
-        .project({ content: 1, type: 1, createdAt: 1, metadata: 1 })
-        .toArray();
-
-      context.x = xPosts.map(p => ({
-        text: p.content?.slice(0, 200) || '',
-        type: p.type || 'post',
-        timestamp: p.createdAt
-      }));
-
-      // 4. Recent memories (balanced with platform content)
-      const memories = await this.memoryService.getMemories(this.botId, maxMemories);
-      context.memories = memories
-        .map(m => m.memory || m.text)
-        .filter(Boolean)
-        .slice(0, maxMemories);
-
-      // 5. Format into readable text with balanced sections
-      context.formatted = this._formatCrossPlatformContext(context);
-
-    } catch (err) {
-      this.logger?.warn?.(`[GlobalBotService] getCrossPlatformContext error: ${err.message}`);
-      // Fallback to just memories
-      const memories = await this.memoryService.getMemories(this.botId, maxMemories * 2);
-      context.memories = memories.map(m => m.memory || m.text).filter(Boolean);
-      context.formatted = context.memories.length > 0 
-        ? `Recent memories:\n${context.memories.join('\n')}`
-        : 'No recent activity recorded yet.';
-    }
-
-    return context;
-  }
-
-  /**
-   * Sample messages to get variety (avoid same author dominating)
-   */
-  _sampleMessages(messages, maxCount, authorField) {
-    if (!messages || messages.length <= maxCount) return messages || [];
-    
-    const byAuthor = new Map();
-    const sampled = [];
-    
-    // First pass: one per unique author
-    for (const msg of messages) {
-      const author = msg[authorField] || 'unknown';
-      if (!byAuthor.has(author)) {
-        byAuthor.set(author, msg);
-        sampled.push(msg);
-        if (sampled.length >= maxCount) break;
-      }
-    }
-    
-    // Second pass: fill remaining with most recent
-    if (sampled.length < maxCount) {
-      for (const msg of messages) {
-        if (!sampled.includes(msg)) {
-          sampled.push(msg);
-          if (sampled.length >= maxCount) break;
-        }
-      }
-    }
-    
-    return sampled;
-  }
-
-  /**
-   * Format cross-platform context into readable text
-   */
-  _formatCrossPlatformContext(context) {
-    const sections = [];
-
-    if (context.discord.length > 0) {
-      const discordText = context.discord
-        .map(m => `• ${m.author} in ${m.channel}: "${m.text.slice(0, 100)}${m.text.length > 100 ? '...' : ''}"`)
-        .join('\n');
-      sections.push(`Discord activity:\n${discordText}`);
-    }
-
-    if (context.telegram.length > 0) {
-      const telegramText = context.telegram
-        .map(m => `• ${m.author}: "${m.text.slice(0, 100)}${m.text.length > 100 ? '...' : ''}"`)
-        .join('\n');
-      sections.push(`Telegram conversations:\n${telegramText}`);
-    }
-
-    if (context.x.length > 0) {
-      const xText = context.x
-        .map(p => `• [${p.type}] "${p.text.slice(0, 100)}${p.text.length > 100 ? '...' : ''}"`)
-        .join('\n');
-      sections.push(`X/Twitter activity:\n${xText}`);
-    }
-
-    if (context.memories.length > 0) {
-      const memoryText = context.memories
-        .map(m => `• ${m.slice(0, 150)}${m.length > 150 ? '...' : ''}`)
-        .join('\n');
-      sections.push(`Recent memories:\n${memoryText}`);
-    }
-
-    return sections.length > 0 
-      ? sections.join('\n\n')
-      : 'No recent activity recorded yet.';
-  }
-
-  /**
    * Generate a new narrative reflection for the bot (persona evolution)
-   * Uses balanced cross-platform context instead of just memories
    */
   async generateNarrative() {
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
       
-      // Get balanced cross-platform context
-      const crossPlatformContext = await this.getCrossPlatformContext({
-        maxPerPlatform: 5,
-        maxMemories: 5,
-        hoursBack: 48
-      });
-      
-      // Also get recent memories as fallback
-      const memories = await this.memoryService.getMemories(this.botId, 10);
+      // Get recent memories
+      const memories = await this.memoryService.getMemories(this.botId, 20);
       const memoryText = memories
         .map(m => m.memory || m.text)
         .filter(Boolean)
         .join('\n');
       
-      // Combine context - prefer cross-platform if available
-      const contextText = crossPlatformContext.formatted || memoryText;
-      
-      if (!contextText || contextText.length < 50) {
-        this.logger?.debug?.('[GlobalBotService] Not enough context for narrative generation yet');
+      if (!memoryText || memoryText.length < 50) {
+        this.logger?.debug?.('[GlobalBotService] Not enough memories for narrative generation yet');
         return;
       }
       
       const personaSummary = this.bot?.personality ? this.bot.personality.trim() : null;
       const currentPerspective = this.bot?.dynamicPrompt ? this.bot.dynamicPrompt.trim() : null;
-      const universeName = this.bot.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
-      const platformStats = await this.getPlatformStats();
-      const platformSummaryTemplate = this.bot.globalBotConfig?.platformNarrativeSummaryTemplate
-        || 'Platform presence overview:\n{{platformStatus}}';
-      const platformStatusText = platformSummaryTemplate.replace(
-        /\{\{platformStatus\}\}/g,
-        platformStats.summaryText || 'No platform activity recorded yet.'
-      );
 
       const narrativePrompt = [{
         role: 'system',
-        content: `You are ${this.bot.name}${this.bot.emoji ? ` ${this.bot.emoji}` : ''}, the narrator of ${universeName}.
+        content: `You are ${this.bot.name}${this.bot.emoji ? ` ${this.bot.emoji}` : ''}, the narrator of CosyWorld.
 
 Core personality:
-${personaSummary || `A curious narrator who delights in describing the evolving tapestry of ${universeName}.`}
+${personaSummary || 'A curious narrator who delights in describing the evolving tapestry of CosyWorld.'}
 
 Your current guiding perspective:
-${currentPerspective || `You are always searching for patterns and meaning among the happenings in ${universeName}.`}
+${currentPerspective || 'You are always searching for patterns and meaning among the arrivals and happenings in CosyWorld.'}
 
-${platformStatusText}
-
-Reflect on your recent experiences across all platforms in that voice.`
+Reflect on your recent experiences in that voice.`
       }, {
         role: 'user',
-        content: this.bot.globalBotConfig?.narrativeReflectionPromptTemplate 
-          ? this.bot.globalBotConfig.narrativeReflectionPromptTemplate
-              .replace(/\{\{memories\}\}/g, contextText)
-              .replace(/\{\{universeName\}\}/g, universeName)
-              .replace(/\{\{crossPlatformContext\}\}/g, contextText)
-          : `Based on this recent activity across platforms:
+        content: `Based on these recent events and introductions you've made:
 
-${contextText}
+${memoryText}
 
-Write 2-3 sentences about your evolving perspective on the ${universeName} community. What patterns do you notice across Discord, Telegram, and X? What themes are emerging? What's the current vibe of the community?
+Write 2-3 sentences about your evolving perspective on the CosyWorld community. What patterns do you notice? What themes are emerging? How is your understanding of this universe deepening?
 
-Be thoughtful and introspective. Focus on the overall mood and connections you're observing, not specific events. This is for your own reflection, not for posting.`
+Be thoughtful and introspective. This is for your own reflection, not for posting.`
       }];
       
-      const response = await this.aiService.chat(narrativePrompt, { model: this.bot.model, temperature: 0.7 });
+        const response = await this.aiService.chat(narrativePrompt, { model: this.bot.model, temperature: 0.7 });
       
       const narrative = typeof response === 'object' ? response.text : response;
       const cleanNarrative = String(narrative || '')
@@ -755,218 +496,6 @@ Be thoughtful and introspective. Focus on the overall mood and connections you'r
     }
   }
 
-  async getPlatformStats() {
-    try {
-      const db = await this.databaseService.getDatabase();
-      const posts = db.collection('social_posts');
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-      const platformKeyExpression = {
-        $cond: [
-          {
-            $and: [
-              { $ne: ['$platform', null] },
-              { $ne: ['$platform', ''] }
-            ]
-          },
-          { $toLower: '$platform' },
-          {
-            $switch: {
-              branches: [
-                { case: { $ifNull: ['$metadata.platform', false] }, then: { $toLower: '$metadata.platform' } },
-                { case: { $ifNull: ['$tweetId', false] }, then: 'x' },
-                { case: { $ifNull: ['$messageId', false] }, then: 'telegram' },
-                { case: { $ifNull: ['$channelId', false] }, then: 'telegram' }
-              ],
-              default: 'unknown'
-            }
-          }
-        ]
-      };
-
-      const [totalRows, recentRows, latestRows] = await Promise.all([
-        posts.aggregate([
-          { $match: { global: true } },
-          { $addFields: { platformKey: platformKeyExpression } },
-          {
-            $group: {
-              _id: '$platformKey',
-              totalPosts: { $sum: 1 },
-              lastPostAt: { $max: '$createdAt' }
-            }
-          }
-        ]).toArray(),
-        posts.aggregate([
-          { $match: { global: true, createdAt: { $gte: sevenDaysAgo } } },
-          { $addFields: { platformKey: platformKeyExpression } },
-          {
-            $group: {
-              _id: '$platformKey',
-              countLast7d: { $sum: 1 }
-            }
-          }
-        ]).toArray(),
-        posts.aggregate([
-          { $match: { global: true } },
-          { $addFields: { platformKey: platformKeyExpression } },
-          { $sort: { createdAt: -1 } },
-          {
-            $group: {
-              _id: '$platformKey',
-              latest: { $first: '$$ROOT' }
-            }
-          }
-        ]).toArray()
-      ]);
-
-      const details = {};
-
-      for (const row of totalRows) {
-        const key = row?._id || 'unknown';
-        if (!details[key]) {
-          details[key] = {};
-        }
-        details[key].totalPosts = row.totalPosts || 0;
-        details[key].lastPostedAt = row.lastPostAt || null;
-      }
-
-      for (const row of recentRows) {
-        const key = row?._id || 'unknown';
-        if (!details[key]) {
-          details[key] = {};
-        }
-        details[key].recentPosts7d = row.countLast7d || 0;
-      }
-
-      for (const row of latestRows) {
-        const key = row?._id || 'unknown';
-        if (!details[key]) {
-          details[key] = {};
-        }
-        const latestDoc = row.latest || {};
-        details[key].lastPostedAt = latestDoc.createdAt || latestDoc.timestamp || details[key].lastPostedAt || null;
-        details[key].lastContent = latestDoc.content || null;
-        details[key].metadata = latestDoc.metadata || null;
-        details[key].tweetId = latestDoc.tweetId || null;
-        details[key].messageId = latestDoc.messageId || null;
-        details[key].channelId = latestDoc.channelId || null;
-      }
-
-      const config = this.bot?.globalBotConfig || {};
-      const summaryText = this.buildPlatformStatusText(details, config);
-
-      return {
-        summaryText,
-        active: Array.isArray(config.activePlatforms) ? config.activePlatforms : [],
-        handles: config.platformHandles || {},
-        details
-      };
-    } catch (err) {
-      this.logger?.warn?.(`[GlobalBotService] getPlatformStats error: ${err.message}`);
-      return {
-        summaryText: 'No platform activity recorded yet.',
-        active: Array.isArray(this.bot?.globalBotConfig?.activePlatforms) ? this.bot.globalBotConfig.activePlatforms : [],
-        handles: this.bot?.globalBotConfig?.platformHandles || {},
-        details: {}
-      };
-    }
-  }
-
-  buildPlatformStatusText(details = {}, config = {}) {
-    const active = new Set(Array.isArray(config.activePlatforms) ? config.activePlatforms : []);
-    const handles = config.platformHandles || {};
-    const knownOrder = ['x', 'telegram', 'discord'];
-    const keys = Array.from(new Set([...knownOrder, ...Object.keys(details), ...active]));
-    const lines = [];
-
-    for (const key of keys) {
-      if (!key) continue;
-      const info = details[key] || {};
-      const label = this.getPlatformLabel(key);
-      const segments = [];
-
-      segments.push(active.has(key) ? 'active' : 'inactive');
-
-      const handleRaw = handles[key];
-      if (handleRaw) {
-        segments.push(this.normalizeHandle(key, handleRaw));
-      }
-
-      if (typeof info.totalPosts === 'number') {
-        segments.push(`${info.totalPosts} total posts`);
-      }
-
-      if (typeof info.recentPosts7d === 'number' && info.recentPosts7d > 0) {
-        segments.push(`${info.recentPosts7d} in last 7d`);
-      }
-
-      if (info.lastPostedAt) {
-        segments.push(`last ${this.formatRelativeTime(info.lastPostedAt)}`);
-      }
-
-      if (!segments.length) {
-        segments.push('no recent activity');
-      }
-
-      lines.push(`${label}: ${segments.join(' • ')}`);
-    }
-
-    if (!lines.length) {
-      return 'No platform presence configured.';
-    }
-
-    return lines.join('\n');
-  }
-
-  getPlatformLabel(key) {
-    switch (key) {
-      case 'x':
-        return 'X (Twitter)';
-      case 'telegram':
-        return 'Telegram';
-      case 'discord':
-        return 'Discord';
-      case 'unknown':
-        return 'Unknown Platform';
-      default:
-        return key.charAt(0).toUpperCase() + key.slice(1);
-    }
-  }
-
-  normalizeHandle(key, value) {
-    if (!value) return '';
-    const trimmed = String(value).trim();
-    if (!trimmed) return '';
-    if (key === 'x') {
-      return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
-    }
-    return trimmed;
-  }
-
-  formatRelativeTime(input) {
-    if (!input) return '';
-    const date = input instanceof Date ? input : new Date(input);
-    if (Number.isNaN(date.getTime())) return '';
-    const diffMs = Date.now() - date.getTime();
-    const absMs = Math.abs(diffMs);
-
-    const units = [
-      { label: 'day', ms: 24 * 60 * 60 * 1000 },
-      { label: 'hour', ms: 60 * 60 * 1000 },
-      { label: 'minute', ms: 60 * 1000 },
-      { label: 'second', ms: 1000 }
-    ];
-
-    for (const unit of units) {
-      if (absMs >= unit.ms) {
-        const value = Math.round(absMs / unit.ms);
-        return value === 1 ? `${value} ${unit.label} ago` : `${value} ${unit.label}s ago`;
-      }
-    }
-
-    return 'just now';
-  }
-
   /**
    * Get the bot's current persona and stats
    * @returns {Promise<Object>} - Bot persona info
@@ -974,55 +503,20 @@ Be thoughtful and introspective. Focus on the overall mood and connections you'r
   async getPersona() {
     try {
       this.bot = await this.avatarService.getAvatarById(this.botId);
-      const universeName = this.bot?.globalBotConfig?.universeName || process.env.UNIVERSE_NAME || "CosyWorld";
-      const defaultConfig = this.buildDefaultGlobalBotConfig(universeName);
-      const existingConfig = this.bot?.globalBotConfig || {};
-      const mergedHandles = {
-        ...defaultConfig.platformHandles,
-        ...(existingConfig.platformHandles || {})
-      };
-      const existingActive = Array.isArray(existingConfig.activePlatforms) ? existingConfig.activePlatforms : [];
-      const normalizedActive = existingActive
-        .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
-        .filter(Boolean);
-      const mergedActive = normalizedActive.length
-        ? Array.from(new Set(normalizedActive))
-        : defaultConfig.activePlatforms;
-      this.bot.globalBotConfig = {
-        ...defaultConfig,
-        ...existingConfig,
-        platformHandles: mergedHandles,
-        activePlatforms: mergedActive
-      };
-      const rawMemories = await this.memoryService.getRecentMemoriesRaw(this.botId, 20);
-      const memoryCount = await this.memoryService.countMemories(this.botId);
-      const memories = rawMemories.map((mem) => ({
-        id: mem._id?.toString?.()
-          || mem.id
-          || mem._id
-          || null,
-        memory: mem.memory || mem.text || '',
-        text: mem.text || mem.memory || '',
-        kind: mem.kind || null,
-        timestamp: mem.timestamp instanceof Date ? mem.timestamp.toISOString() : mem.timestamp,
-        weight: mem.weight ?? null
-      }));
+      const memories = await this.memoryService.getMemories(this.botId, 20);
       
       const db = await this.databaseService.getDatabase();
       const postCount = await db.collection('social_posts').countDocuments({
         global: true,
         'metadata.type': 'introduction'
       });
-
-      const platformStats = await this.getPlatformStats();
       
       return {
         bot: this.bot,
-        memories,
+        memories: memories.slice(0, 10),
         stats: {
           totalIntroductions: postCount,
-          memoryCount,
-          platforms: platformStats
+          memoryCount: memories.length
         }
       };
     } catch (err) {
@@ -1063,62 +557,10 @@ Be thoughtful and introspective. Focus on the overall mood and connections you'r
       }
 
       if (updates.globalBotConfig && typeof updates.globalBotConfig === 'object') {
-        const existingConfig = this.bot.globalBotConfig || {};
-        const incomingConfig = { ...updates.globalBotConfig };
-
-        if (typeof incomingConfig.universeName === 'string') {
-          incomingConfig.universeName = incomingConfig.universeName.trim();
-        }
-
-        const universeName = incomingConfig.universeName
-          || existingConfig.universeName
-          || process.env.UNIVERSE_NAME
-          || 'CosyWorld';
-
-        const defaultConfig = this.buildDefaultGlobalBotConfig(universeName);
-
-        const mergedHandlesRaw = {
-          ...defaultConfig.platformHandles,
-          ...(existingConfig.platformHandles || {}),
-          ...(incomingConfig.platformHandles || {})
-        };
-        const platformHandles = Object.fromEntries(
-          Object.entries(mergedHandlesRaw).map(([key, value]) => [
-            key,
-            typeof value === 'string' ? value.trim() : (value || '')
-          ])
-        );
-
-        const activeFromIncoming = Array.isArray(incomingConfig.activePlatforms)
-          ? incomingConfig.activePlatforms
-          : [];
-        const activeFromExisting = Array.isArray(existingConfig.activePlatforms)
-          ? existingConfig.activePlatforms
-          : [];
-        const activeCandidates = activeFromIncoming.length ? activeFromIncoming : activeFromExisting;
-        const activePlatforms = Array.from(new Set(
-          activeCandidates
-            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
-            .filter(Boolean)
-        ));
-
         this.bot.globalBotConfig = {
-          ...defaultConfig,
-          ...existingConfig,
-          ...incomingConfig,
-          universeName,
-          platformHandles,
-          activePlatforms: activePlatforms.length ? activePlatforms : defaultConfig.activePlatforms
+          ...(this.bot.globalBotConfig || {}),
+          ...updates.globalBotConfig
         };
-        
-        // Log character design state after merge for debugging
-        const charDesign = this.bot.globalBotConfig?.characterDesign;
-        this.logger?.debug?.('[GlobalBotService] Character design after merge', {
-          enabled: charDesign?.enabled,
-          enabledType: typeof charDesign?.enabled,
-          hasReferenceUrl: !!charDesign?.referenceImageUrl,
-          referenceUrl: charDesign?.referenceImageUrl?.substring?.(0, 50)
-        });
       }
       
       await this.avatarService.updateAvatar(this.bot);
@@ -1138,171 +580,6 @@ Be thoughtful and introspective. Focus on the overall mood and connections you'r
     if (this.narrativeInterval) {
       clearInterval(this.narrativeInterval);
       this.logger?.info?.('[GlobalBotService] Stopped narrative generation');
-    }
-  }
-
-  /**
-   * Generate an image using the global bot's character design settings
-   * @param {string} prompt - The base prompt
-   * @param {Object} options - Generation options
-   * @param {string} [options.aspectRatio='1:1'] - Aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4)
-   * @returns {Promise<string>} - Generated image URL
-   */
-  async generateImage(prompt, options = {}) {
-    try {
-      // Ensure bot is loaded
-      if (!this.bot) {
-        this.botId = await this.getOrCreateGlobalBot();
-        this.bot = await this.avatarService.getAvatarById(this.botId);
-      }
-
-      // Use provided character design or fall back to bot config
-      const config = this.bot.globalBotConfig || {};
-      const {
-        enhanceWithDirector,
-        characterDesign: overrideCharacterDesign,
-        avatars: directorAvatars,
-        location: directorLocation,
-        referenceImages: passedReferenceImages,
-        aspectRatio = '1:1', // Default to square
-        ...forwardOptions
-      } = options;
-
-      const charDesign = overrideCharacterDesign || config.characterDesign || {};
-      
-      let enhancedPrompt = prompt;
-      // Start with any reference images passed from caller
-      const referenceImages = Array.isArray(passedReferenceImages) ? [...passedReferenceImages] : [];
-
-      // 0. Apply Director Mode (LLM Scene Composition) if requested
-      if (enhanceWithDirector) {
-        enhancedPrompt = await this.composeSceneDescription(prompt, {
-          avatars: directorAvatars || [],
-          location: directorLocation || null,
-          additionalContext: options.context || ''
-        });
-        this.logger?.info?.('[GlobalBotService] Enhanced prompt with Director Mode:', { original: prompt, enhanced: enhancedPrompt });
-      }
-
-      // Apply character design if enabled
-      if (charDesign.enabled) {
-        // 1. Apply prompt prefix
-        let characterPrefix = charDesign.imagePromptPrefix || 'Show {{characterName}} ({{characterDescription}}) in this situation: ';
-        characterPrefix = characterPrefix
-          .replace(/\{\{characterName\}\}/g, charDesign.characterName || config.universeName || '')
-          .replace(/\{\{characterDescription\}\}/g, charDesign.characterDescription || '');
-        
-        enhancedPrompt = characterPrefix + prompt;
-        
-        // 2. Add reference image if available and not already included
-        if (charDesign.referenceImageUrl && !referenceImages.includes(charDesign.referenceImageUrl)) {
-          referenceImages.push(charDesign.referenceImageUrl);
-        }
-        
-        this.logger?.info?.('[GlobalBotService] Applied character design to image generation', {
-          originalPrompt: prompt,
-          enhancedPrompt,
-          hasReferenceImage: referenceImages.length > 0
-        });
-      }
-
-      // Call AI service - use Gemini for all image generation
-      const hasReferenceImages = referenceImages.length > 0;
-
-      // If we have reference images, use Gemini composition for character consistency
-      if (hasReferenceImages && this.googleAIService?.composeImageWithGemini) {
-        try {
-          // Download the reference image for composition
-          const refUrl = referenceImages[0];
-          const response = await fetch(refUrl);
-          if (response.ok) {
-            const buffer = await response.arrayBuffer();
-            const base64 = Buffer.from(buffer).toString('base64');
-            const mimeType = response.headers.get('content-type') || 'image/png';
-            
-            const result = await this.googleAIService.composeImageWithGemini(
-              [{ data: base64, mimeType, label: 'character_reference' }],
-              enhancedPrompt,
-              { ...forwardOptions, source: 'global_bot', context: enhancedPrompt, aspectRatio, characterReference: true }
-            );
-            if (result) {
-              this.logger?.info?.('[GlobalBotService] Generated image with Gemini composition and character reference');
-              return result;
-            }
-          }
-        } catch (err) {
-          this.logger?.warn?.(`[GlobalBotService] Gemini composition failed: ${err.message}`);
-        }
-      }
-
-      // Standard generation without references (or composition failed)
-      if (this.googleAIService?.generateImage) {
-        return await this.googleAIService.generateImage(enhancedPrompt, aspectRatio, {
-          ...forwardOptions,
-          source: 'global_bot',
-          context: enhancedPrompt
-        });
-      }
-      
-      throw new Error('No image generation service available');
-    } catch (err) {
-      this.logger?.error?.(`[GlobalBotService] generateImage error: ${err.message}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Compose a cinematic scene description using an LLM (Director Mode)
-   * @param {string} userPrompt - The user's request or base prompt
-   * @param {Object} context - Context for the scene
-   * @param {Array} context.avatars - List of avatars present
-   * @param {Object} context.location - Location details
-   * @returns {Promise<string>} - Enhanced scene description
-   */
-  async composeSceneDescription(userPrompt, context = {}) {
-    try {
-      const avatars = context.avatars || [];
-      const location = context.location || null;
-      const additionalContext = context.additionalContext || '';
-      
-      const avatarDetails = avatars.map(a => `- ${a.name} (${a.emoji}): ${a.description || 'No description'}`).join('\n');
-      const locationDetails = location ? `${location.name}: ${location.description || ''}` : 'Unknown Location';
-      
-      const scenePrompt = `
-You are a cinematic director. Compose a visual scene description for an image generator.
-Context:
-Location: ${locationDetails}
-Characters present:
-${avatarDetails}
-${additionalContext ? `Additional Context:\n${additionalContext}` : ''}
-
-User Request: "${userPrompt || 'A candid moment'}"
-
-Instructions:
-- Describe the scene visually.
-- Position the characters naturally within the location.
-- Describe their actions or interactions based on their personalities.
-- Keep it under 100 words.
-- Focus on lighting, mood, and composition.
-- Do not include "Here is a description" or similar meta-text. Just the description.
-`.trim();
-
-      let response;
-      // Prefer Google AI for text generation if available (fast & capable)
-      if (this.googleAIService) {
-           response = await this.googleAIService.chat([
-              { role: 'user', content: scenePrompt }
-          ], { model: 'gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
-      } else if (this.aiService) {
-           response = await this.aiService.chat([
-              { role: 'user', content: scenePrompt }
-          ], { model: 'google/gemini-2.0-flash-lite-preview-02-05', temperature: 0.7 });
-      }
-      
-      return typeof response === 'string' ? response : response?.text || userPrompt;
-    } catch (e) {
-      this.logger?.warn?.(`[GlobalBotService] Scene composition failed: ${e.message}`);
-      return userPrompt;
     }
   }
 }

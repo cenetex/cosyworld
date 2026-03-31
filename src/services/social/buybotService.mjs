@@ -14,7 +14,6 @@
 import {
   DEFAULT_ORB_COLLECTION_ADDRESS,
   POLLING_INTERVAL_MS,
-  POLLING_JITTER_MS,
   MAX_TRACKED_TOKENS_PER_CHANNEL,
   MAX_TRACKED_COLLECTIONS_PER_CHANNEL,
   MAX_TOTAL_ACTIVE_WEBHOOKS,
@@ -22,8 +21,7 @@ import {
   API_RETRY_BASE_DELAY_MS,
   PRICE_CACHE_TTL_MS,
   RECENT_TRANSACTIONS_LIMIT,
-  RECENT_TRANSACTIONS_MAX_PAGES,
-  TELEGRAM_AI_RESPONSE_INTERVAL_MS
+  RECENT_TRANSACTIONS_MAX_PAGES
 } from '../../config/buybotConstants.mjs';
 import {
   formatTokenAmount,
@@ -68,14 +66,12 @@ const cloneDefaultTokenPreferences = () => JSON.parse(JSON.stringify(DEFAULT_TOK
 
 
 export class BuybotService {
-  constructor({ logger, databaseService, configService, getDiscordService, getTelegramService, getConversationManager, getResponseCoordinator, avatarService, avatarRelationshipService, walletInsights, services }) {
+  constructor({ logger, databaseService, configService, discordService, getTelegramService, avatarService, avatarRelationshipService, walletInsights, services }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
-    this.getDiscordService = getDiscordService || (() => null); // Late-bound to avoid circular dependency
+    this.discordService = discordService;
     this.getTelegramService = getTelegramService || (() => null); // Late-bound to avoid circular dependency
-    this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
-    this.getResponseCoordinator = typeof getResponseCoordinator === 'function' ? getResponseCoordinator : () => null;
     this.avatarService = avatarService;
     this.avatarRelationshipService = avatarRelationshipService;
     this.services = services; // Container for late-bound service resolution
@@ -85,26 +81,11 @@ export class BuybotService {
     this.activeWebhooks = new Map(); // channelId -> webhook data
     this.db = null;
     
-  // Price cache: tokenAddress -> { price, marketCap, timestamp }
-  this.priceCache = new Map();
+    // Price cache: tokenAddress -> { price, marketCap, timestamp }
+    this.priceCache = new Map();
     
-  // Token info cache: tokenAddress -> { tokenInfo, timestamp }
-  this.tokenInfoCache = new Map();
-
-  // Cache repeated "not found" lookups to avoid hammering DexScreener for fresh mints
-  this.tokenNotFoundCache = new Map(); // tokenAddress -> { timestamp, count }
-  this.TOKEN_NOT_FOUND_CACHE_TTL_MS = Number(process.env.BUYBOT_TOKEN_NOT_FOUND_TTL_MS || (30 * 60_000));
-
-  // Global rate limiter for DexScreener API to prevent overwhelming requests
-  this._dexScreenerRateLimit = {
-    lastRequestAt: 0,
-    minIntervalMs: 250, // Minimum 250ms between requests (4/sec max)
-    queue: [],
-    processing: false,
-  };
-
-  // Deduplication for in-flight token info requests
-  this.pendingTokenInfoRequests = new Map(); // tokenAddress -> Promise<tokenInfo>
+    // Token info cache: tokenAddress -> { tokenInfo, timestamp }
+    this.tokenInfoCache = new Map();
     
     // Wallet insights helper encapsulates Lambda polling + caching
     this.walletInsights = walletInsights || new WalletInsights({ logger: this.logger });
@@ -117,9 +98,6 @@ export class BuybotService {
       retryWithBackoff: (fn, maxAttempts = API_RETRY_MAX_ATTEMPTS, baseDelay = API_RETRY_BASE_DELAY_MS) => this.retryWithBackoff(fn, maxAttempts, baseDelay),
       getTokenInfo: (tokenAddress) => this.getTokenInfo(tokenAddress),
     });
-
-    // Late-bound discordService getter (avoids circular dependency)
-    this._discordService = null;
 
     // Cache for Discord channel context lookups (threads, parents, guild IDs)
     this.channelContextCache = new Map();
@@ -134,115 +112,11 @@ export class BuybotService {
   this.transferAggregationBuckets = new Map();
   this.TRANSFER_AGGREGATION_TTL_MS = 15 * 60_000; // Flush cached transfers after 15 minutes
     
-    // Avatar response batching to prevent reply storms from rapid swap notifications
-    // channelId -> { avatars: Map(avatarId -> {avatar, roles, events, tradeContexts}), flushTimer }
-    this.avatarResponseBatches = new Map();
-    this.AVATAR_RESPONSE_BATCH_WINDOW_MS = Number(process.env.BUYBOT_AVATAR_BATCH_WINDOW_MS || 5000); // 5 second batch window
-
-    // Telegram AI response batching - batch events and send hourly conversation instead of immediate responses
-    // channelId -> { events: [], lastFlushAt: timestamp, flushTimer }
-    this.telegramAIResponseBatches = new Map();
-    this.TELEGRAM_AI_RESPONSE_INTERVAL_MS = TELEGRAM_AI_RESPONSE_INTERVAL_MS;
-    
     // Collection names
     this.TRACKED_TOKENS_COLLECTION = 'buybot_tracked_tokens';
     this.TOKEN_EVENTS_COLLECTION = 'buybot_token_events';
     this.TRACKED_COLLECTIONS_COLLECTION = 'buybot_tracked_collections';
     this.ACTIVITY_SUMMARIES_COLLECTION = 'buybot_activity_summaries'; // New collection for Discord summaries
-    this.SPAM_TOKENS_COLLECTION = 'buybot_spam_tokens'; // Persistently blocked spam tokens
-
-    // Global failure/backoff tracking to avoid hammering upstream providers
-    this.globalFailureCount = 0;
-    this.globalBackoffActive = false;
-    this.globalBackoffUntil = null;
-    this.GLOBAL_FAILURE_THRESHOLD = Number(process.env.BUYBOT_GLOBAL_FAILURE_THRESHOLD || 3);
-    this.GLOBAL_BACKOFF_MS = Number(process.env.BUYBOT_GLOBAL_BACKOFF_MS || (24 * 60 * 60 * 1000));
-
-    // Spam token detection - mark tokens as spam after repeated lookup failures
-    this.spamTokenCache = new Map(); // tokenAddress -> true (in-memory cache of known spam tokens)
-    this.SPAM_TOKEN_FAILURE_THRESHOLD = Number(process.env.BUYBOT_SPAM_TOKEN_FAILURE_THRESHOLD || 3); // Mark as spam after N failures
-    this.SPAM_TOKEN_CACHE_LOADED = false; // Track if we've loaded the spam cache from DB
-  }
-
-  /**
-   * Late-bound getter for discordService to avoid circular dependency
-   * @returns {Object|null} The Discord service instance
-   */
-  get discordService() {
-    if (!this._discordService && this.getDiscordService) {
-      this._discordService = this.getDiscordService();
-    }
-    return this._discordService;
-  }
-
-  /**
-   * Compute jittered delay for buybot polling to prevent synchronized requests
-   * @param {Object} options
-   * @param {boolean} options.includeStartupJitter - Adds extra one-time delay for first poll
-   * @returns {number}
-   */
-  _getPollingDelayMs({ includeStartupJitter = false } = {}) {
-    const jitterWindow = Number(POLLING_JITTER_MS) || 0;
-    const randomJitter = jitterWindow > 0
-      ? Math.floor(Math.random() * (2 * jitterWindow + 1)) - jitterWindow
-      : 0;
-    const startupSpread = includeStartupJitter
-      ? Math.floor(Math.random() * Math.min(60000, Math.max(5000, jitterWindow || 60000)))
-      : 0;
-    const delay = POLLING_INTERVAL_MS + randomJitter + startupSpread;
-    return Math.max(1000, delay);
-  }
-
-  _getBackoffRemainingMs() {
-    if (!this.globalBackoffActive || !this.globalBackoffUntil) {
-      return 0;
-    }
-    return Math.max(0, this.globalBackoffUntil - Date.now());
-  }
-
-  _shouldTriggerGlobalBackoff(error) {
-    const message = (error?.message || error || '').toString().toLowerCase();
-    return message.includes('429') || message.includes('rate limited') || message.includes('max usage reached');
-  }
-
-  _registerGlobalSuccess() {
-    const hadIssues = this.globalFailureCount !== 0 || this.globalBackoffActive;
-    this.globalFailureCount = 0;
-    if (this.globalBackoffActive) {
-      this.globalBackoffActive = false;
-      this.globalBackoffUntil = null;
-    }
-    if (hadIssues) {
-      this.logger?.info?.('[BuybotService] Buybot polling recovered; clearing backoff state');
-    }
-  }
-
-  _registerGlobalFailure(error) {
-    if (!this._shouldTriggerGlobalBackoff(error)) {
-      return;
-    }
-
-    if (this.globalBackoffActive) {
-      this.globalBackoffUntil = Date.now() + this.GLOBAL_BACKOFF_MS;
-      const hours = Math.max(1, Math.round(this.GLOBAL_BACKOFF_MS / 36e5));
-      this.logger?.warn?.(`[BuybotService] Rate limit persists, next probe in ${hours}h`);
-      return;
-    }
-
-    this.globalFailureCount += 1;
-    this.logger?.warn?.(`[BuybotService] Upstream polling failure ${this.globalFailureCount}/${this.GLOBAL_FAILURE_THRESHOLD}: ${error?.message || error}`);
-
-    if (this.globalFailureCount >= this.GLOBAL_FAILURE_THRESHOLD) {
-      this._activateGlobalBackoff(error);
-    }
-  }
-
-  _activateGlobalBackoff(error) {
-    this.globalBackoffActive = true;
-    this.globalBackoffUntil = Date.now() + this.GLOBAL_BACKOFF_MS;
-    this.globalFailureCount = 0;
-    const hours = Math.max(1, Math.round(this.GLOBAL_BACKOFF_MS / 36e5));
-    this.logger?.error?.(`[BuybotService] Entering global backoff for ${hours}h due to repeated failures: ${error?.message || error}`);
   }
 
   /**
@@ -343,12 +217,6 @@ export class BuybotService {
         { key: { channelId: 1 }, name: 'collection_channel_lookup' },
         { key: { contextChannelId: 1 }, name: 'collection_context_lookup' },
         { key: { collectionAddress: 1 }, name: 'collection_lookup' },
-      ]);
-
-      // Index for spam tokens collection
-      await this.db.collection(this.SPAM_TOKENS_COLLECTION).createIndexes([
-        { key: { tokenAddress: 1 }, unique: true, name: 'spam_token_address' },
-        { key: { markedAt: -1 }, name: 'spam_marked_at' },
       ]);
 
       this.logger.info('[BuybotService] Database indexes created');
@@ -723,7 +591,6 @@ export class BuybotService {
             tokenName: tokenInfo.name,
             tokenSymbol: tokenInfo.symbol,
             tokenDecimals: tokenInfo.decimals,
-            tokenImage: tokenInfo.image || null, // Store token icon/logo for wallet avatar generation
             usdPrice: tokenInfo.usdPrice || null, // Store USD price if available
             marketCap: tokenInfo.marketCap || null, // Store market cap if available
             lastPriceUpdate: new Date(), // Track when price was last updated
@@ -737,8 +604,6 @@ export class BuybotService {
             },
             addedAt: new Date(),
             lastEventAt: null,
-            // Set lastSeenAt to now so we only track NEW transactions from this point forward
-            lastSeenAt: new Date(),
             errorCount: 0, // Initialize error counter
             lastErrorAt: null,
             warning: tokenInfo.warning || null, // Store any warnings about the token
@@ -1252,30 +1117,6 @@ export class BuybotService {
   }
 
   /**
-   * Check if a channel has buybot notifications enabled (has tracked tokens)
-   * @param {string} channelId - Discord channel ID
-   * @returns {Promise<boolean>} True if channel has active buybot tracking
-   */
-  async hasbuybotNotifications(channelId) {
-    try {
-      if (!channelId || !this.db) {
-        return false;
-      }
-
-      const count = await this.db.collection(this.TRACKED_TOKENS_COLLECTION)
-        .countDocuments({
-          channelId,
-          active: true
-        });
-
-      return count > 0;
-    } catch (error) {
-      this.logger.error('[BuybotService] Failed to check buybot notifications:', error);
-      return false;
-    }
-  }
-
-  /**
    * Validate Solana token address format
    * @param {string} address - Token address to validate
    * @returns {boolean}
@@ -1290,193 +1131,6 @@ export class BuybotService {
     return base58Regex.test(address);
   }
 
-  _isTokenTemporarilySuppressed(tokenAddress) {
-    if (!tokenAddress) return false;
-    const entry = this.tokenNotFoundCache.get(tokenAddress);
-    if (!entry) {
-      return false;
-    }
-
-    const age = Date.now() - entry.timestamp;
-    if (age > this.TOKEN_NOT_FOUND_CACHE_TTL_MS) {
-      this.tokenNotFoundCache.delete(tokenAddress);
-      return false;
-    }
-
-    return true;
-  }
-
-  async _markTokenAsNotFound(tokenAddress, reason = 'unknown') {
-    if (!tokenAddress) {
-      return;
-    }
-
-    const previous = this.tokenNotFoundCache.get(tokenAddress);
-    const entry = {
-      timestamp: Date.now(),
-      count: (previous?.count || 0) + 1,
-      reason,
-    };
-
-    this.tokenNotFoundCache.set(tokenAddress, entry);
-
-    const ttlMinutes = (this.TOKEN_NOT_FOUND_CACHE_TTL_MS / 60_000).toFixed(1);
-    if (!previous) {
-      // Log at debug level - spam/unknown tokens not being on DexScreener is expected behavior
-      this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} not found on DexScreener (${reason}); suppressing lookups for ~${ttlMinutes}m`);
-    } else {
-      this.logger?.debug?.(`[BuybotService] Token ${tokenAddress} still unavailable on DexScreener (${reason}); attempts=${entry.count}`);
-    }
-
-    // Check if we should mark this token as permanent spam
-    if (entry.count >= this.SPAM_TOKEN_FAILURE_THRESHOLD) {
-      await this._markTokenAsSpam(tokenAddress, reason);
-    }
-  }
-
-  /**
-   * Check if a token is known spam (in-memory cache backed by database)
-   * @param {string} tokenAddress - Token address
-   * @returns {Promise<boolean>}
-   */
-  async _isSpamToken(tokenAddress) {
-    if (!tokenAddress) return false;
-
-    // Check in-memory cache first
-    if (this.spamTokenCache.has(tokenAddress)) {
-      return true;
-    }
-
-    // Lazy-load spam token cache from database on first check
-    if (!this.SPAM_TOKEN_CACHE_LOADED && this.db) {
-      await this._loadSpamTokenCache();
-    }
-
-    return this.spamTokenCache.has(tokenAddress);
-  }
-
-  /**
-   * Load spam tokens from database into in-memory cache
-   * @private
-   */
-  async _loadSpamTokenCache() {
-    if (this.SPAM_TOKEN_CACHE_LOADED || !this.db) return;
-
-    try {
-      const spamTokens = await this.db
-        .collection(this.SPAM_TOKENS_COLLECTION)
-        .find({}, { projection: { tokenAddress: 1 } })
-        .toArray();
-
-      for (const doc of spamTokens) {
-        if (doc.tokenAddress) {
-          this.spamTokenCache.set(doc.tokenAddress, true);
-        }
-      }
-
-      this.SPAM_TOKEN_CACHE_LOADED = true;
-      this.logger?.debug?.(`[BuybotService] Loaded ${spamTokens.length} spam tokens from database`);
-    } catch (error) {
-      this.logger?.warn?.(`[BuybotService] Failed to load spam token cache: ${error.message}`);
-    }
-  }
-
-  /**
-   * Mark a token as permanent spam (persisted to database)
-   * @param {string} tokenAddress - Token address
-   * @param {string} reason - Why the token is spam
-   * @private
-   */
-  async _markTokenAsSpam(tokenAddress, reason = 'repeated-lookup-failures') {
-    if (!tokenAddress || this.spamTokenCache.has(tokenAddress)) {
-      return;
-    }
-
-    // Add to in-memory cache immediately
-    this.spamTokenCache.set(tokenAddress, true);
-
-    // Remove from temporary suppression cache - it's now permanently blocked
-    this.tokenNotFoundCache.delete(tokenAddress);
-
-    this.logger?.info?.(`[BuybotService] Marking token ${tokenAddress} as spam (${reason}); will be permanently skipped`);
-
-    // Persist to database
-    if (this.db) {
-      try {
-        await this.db.collection(this.SPAM_TOKENS_COLLECTION).updateOne(
-          { tokenAddress },
-          {
-            $set: {
-              tokenAddress,
-              reason,
-              markedAt: new Date(),
-            },
-            $setOnInsert: {
-              createdAt: new Date(),
-            },
-          },
-          { upsert: true }
-        );
-      } catch (error) {
-        this.logger?.warn?.(`[BuybotService] Failed to persist spam token to database: ${error.message}`);
-      }
-    }
-  }
-
-  /**
-   * Remove a token from the spam list (for manual rehabilitation)
-   * @param {string} tokenAddress - Token address
-   * @returns {Promise<boolean>} - True if the token was removed
-   */
-  async unmarkSpamToken(tokenAddress) {
-    if (!tokenAddress) return false;
-
-    this.spamTokenCache.delete(tokenAddress);
-    this.tokenNotFoundCache.delete(tokenAddress);
-
-    if (this.db) {
-      try {
-        const result = await this.db.collection(this.SPAM_TOKENS_COLLECTION).deleteOne({ tokenAddress });
-        if (result.deletedCount > 0) {
-          this.logger?.info?.(`[BuybotService] Removed token ${tokenAddress} from spam list`);
-          return true;
-        }
-      } catch (error) {
-        this.logger?.warn?.(`[BuybotService] Failed to remove spam token from database: ${error.message}`);
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Get statistics about spam tokens
-   * @returns {Promise<{ count: number, recentlyAdded: Array }>}
-   */
-  async getSpamTokenStats() {
-    const stats = {
-      inMemoryCount: this.spamTokenCache.size,
-      databaseCount: 0,
-      recentlyAdded: [],
-    };
-
-    if (this.db) {
-      try {
-        stats.databaseCount = await this.db.collection(this.SPAM_TOKENS_COLLECTION).countDocuments();
-        stats.recentlyAdded = await this.db
-          .collection(this.SPAM_TOKENS_COLLECTION)
-          .find({})
-          .sort({ markedAt: -1 })
-          .limit(10)
-          .toArray();
-      } catch (error) {
-        this.logger?.warn?.(`[BuybotService] Failed to get spam token stats: ${error.message}`);
-      }
-    }
-
-    return stats;
-  }
-
   /**
    * Get token price from DexScreener API with caching and retry
    * @param {string} tokenAddress - Token address
@@ -1484,12 +1138,6 @@ export class BuybotService {
    */
   async getPriceFromDexScreener(tokenAddress) {
     try {
-      // Skip known spam tokens entirely
-      if (await this._isSpamToken(tokenAddress)) {
-        this.logger.debug(`[BuybotService] Skipping DexScreener lookup for spam token ${tokenAddress}`);
-        return null;
-      }
-
       // Check cache first
       const cached = this.priceCache.get(tokenAddress);
       if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL_MS) {
@@ -1505,19 +1153,6 @@ export class BuybotService {
         };
       }
 
-      if (this._isTokenTemporarilySuppressed(tokenAddress)) {
-        this.logger.debug(`[BuybotService] Skipping DexScreener lookup for ${tokenAddress} (recently not found)`);
-        return null;
-      }
-
-      // Apply rate limiting to avoid overwhelming DexScreener
-      const timeSinceLastRequest = Date.now() - this._dexScreenerRateLimit.lastRequestAt;
-      if (timeSinceLastRequest < this._dexScreenerRateLimit.minIntervalMs) {
-        const waitMs = this._dexScreenerRateLimit.minIntervalMs - timeSinceLastRequest;
-        await new Promise(resolve => setTimeout(resolve, waitMs));
-      }
-      this._dexScreenerRateLimit.lastRequestAt = Date.now();
-
       // Fetch with retry and backoff
       const data = await this.retryWithBackoff(async () => {
         const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
@@ -1529,7 +1164,6 @@ export class BuybotService {
 
       if (!data || !data.pairs || data.pairs.length === 0) {
         this.logger.debug(`[BuybotService] No pairs found on DexScreener for ${tokenAddress}`);
-        await this._markTokenAsNotFound(tokenAddress, 'no-pairs');
         return null;
       }
 
@@ -1542,7 +1176,6 @@ export class BuybotService {
 
       if (!bestPair || !bestPair.priceUsd) {
         this.logger.debug(`[BuybotService] No valid price found on DexScreener for ${tokenAddress}`);
-        await this._markTokenAsNotFound(tokenAddress, 'no-price');
         return null;
       }
 
@@ -1582,9 +1215,7 @@ export class BuybotService {
         timestamp: Date.now()
       });
 
-      this.tokenNotFoundCache.delete(tokenAddress);
-
-      this.logger.debug(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
+      this.logger.info(`[BuybotService] Got price from DexScreener: ${result.usdPrice} USD for ${result.symbol} (${tokenAddress})`);
       
   return result;
     } catch (error) {
@@ -1600,23 +1231,11 @@ export class BuybotService {
    */
   async getTokenInfo(tokenAddress) {
     try {
-      // Skip known spam tokens entirely
-      if (await this._isSpamToken(tokenAddress)) {
-        this.logger.debug(`[BuybotService] Skipping token info lookup for spam token ${tokenAddress}`);
-        return null;
-      }
-
       // Check cache first
       const cached = this.tokenInfoCache.get(tokenAddress);
       if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL_MS) {
         this.logger.debug(`[BuybotService] Using cached token info for ${tokenAddress}`);
         return cached.tokenInfo;
-      }
-
-      // Check for pending request to avoid duplicate calls
-      if (this.pendingTokenInfoRequests.has(tokenAddress)) {
-        this.logger.debug(`[BuybotService] Reusing pending token info request for ${tokenAddress}`);
-        return this.pendingTokenInfoRequests.get(tokenAddress);
       }
       
       // First validate the address format
@@ -1625,72 +1244,57 @@ export class BuybotService {
         return null;
       }
 
-      // Create the promise for fetching data
-      const fetchPromise = (async () => {
-        try {
-          // Use DexScreener as primary source for token info
-          this.logger.debug(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
-          const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
-          
-          if (dexScreenerData) {
-            const tokenInfo = {
-              address: tokenAddress,
-              name: dexScreenerData.name || 'Unknown Token',
-              symbol: dexScreenerData.symbol || 'UNKNOWN',
-              decimals: 9, // Default for SPL tokens
-              supply: null,
-              image: dexScreenerData.image || null,
-              usdPrice: dexScreenerData.usdPrice || null,
-              marketCap: dexScreenerData.marketCap || null,
-              priceChange: dexScreenerData.priceChange || null,
-            };
-            
-            // Cache the token info
-            this.tokenInfoCache.set(tokenAddress, {
-              tokenInfo,
-              timestamp: Date.now()
-            });
-            
-            this.logger.debug(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
-            return tokenInfo;
-          }
-
-          // If DexScreener doesn't have the token, return minimal info
-          // This is expected behavior for spam/unknown tokens - log at debug level
-          this.logger.debug(`[BuybotService] Token ${tokenAddress} not found in DexScreener; returning fallback info`);
-          const tokenInfo = {
-            address: tokenAddress,
-            name: 'Unknown Token',
-            symbol: 'UNKNOWN',
-            decimals: 9, // Default for SPL tokens
-            supply: null,
-            image: null,
-            usdPrice: null,
-            marketCap: null,
-            priceChange: null,
-            warning: 'Token not found - may be newly created or invalid',
-          };
-          
-          // Cache the fallback token info
-          this.tokenInfoCache.set(tokenAddress, {
-            tokenInfo,
-            timestamp: Date.now()
-          });
-          
-          return tokenInfo;
-        } finally {
-          // Clean up pending request
-          this.pendingTokenInfoRequests.delete(tokenAddress);
-        }
-      })();
-
-      // Store the pending request
-      this.pendingTokenInfoRequests.set(tokenAddress, fetchPromise);
+      // Use DexScreener as primary source for token info
+      this.logger.info(`[BuybotService] Fetching token info from DexScreener for ${tokenAddress}...`);
+      const dexScreenerData = await this.getPriceFromDexScreener(tokenAddress);
       
-      return fetchPromise;
+      if (dexScreenerData) {
+        const tokenInfo = {
+          address: tokenAddress,
+          name: dexScreenerData.name || 'Unknown Token',
+          symbol: dexScreenerData.symbol || 'UNKNOWN',
+          decimals: 9, // Default for SPL tokens
+          supply: null,
+          image: dexScreenerData.image || null,
+          usdPrice: dexScreenerData.usdPrice || null,
+          marketCap: dexScreenerData.marketCap || null,
+          priceChange: dexScreenerData.priceChange || null,
+        };
+        
+        // Cache the token info
+        this.tokenInfoCache.set(tokenAddress, {
+          tokenInfo,
+          timestamp: Date.now()
+        });
+        
+        this.logger.info(`[BuybotService] Successfully fetched token info for ${tokenInfo.symbol} (${tokenAddress})`);
+        return tokenInfo;
+      }
+
+      // If DexScreener doesn't have the token, return minimal info
+      this.logger.warn(`[BuybotService] Token ${tokenAddress} not found in DexScreener`);
+      const tokenInfo = {
+        address: tokenAddress,
+        name: 'Unknown Token',
+        symbol: 'UNKNOWN',
+        decimals: 9, // Default for SPL tokens
+        supply: null,
+        image: null,
+        usdPrice: null,
+        marketCap: null,
+        priceChange: null,
+        warning: 'Token not found - may be newly created or invalid',
+      };
+      
+      // Cache the fallback token info
+      this.tokenInfoCache.set(tokenAddress, {
+        tokenInfo,
+        timestamp: Date.now()
+      });
+      
+      return tokenInfo;
     } catch (error) {
       this.logger.error(`[BuybotService] Failed to fetch token info for ${tokenAddress}:`, error);
-      this.pendingTokenInfoRequests.delete(tokenAddress);
       return null;
     }
   }
@@ -1738,28 +1342,23 @@ export class BuybotService {
       // Schedule next poll
       const webhookData = this.activeWebhooks.get(key);
       if (webhookData) {
-        const nextDelay = this._getPollingDelayMs();
-        webhookData.pollTimeout = setTimeout(doPoll, nextDelay);
+        webhookData.pollTimeout = setTimeout(doPoll, POLLING_INTERVAL_MS);
         webhookData.lastChecked = Date.now();
-        this.logger?.debug?.(`[BuybotService] Scheduled next poll for ${tokenAddress} in ${channelId} after ${Math.round(nextDelay / 1000)}s`);
       }
     };
-
-    // Add jitter to the initial poll so restored tokens do not hammer the API at once
-    const initialDelay = this._getPollingDelayMs({ includeStartupJitter: true });
 
     // Store webhook data
     const webhookData = {
       channelId,
       tokenAddress,
       platform,
-      pollTimeout: setTimeout(doPoll, initialDelay),
+      pollTimeout: setTimeout(doPoll, POLLING_INTERVAL_MS),
       lastChecked: Date.now(),
     };
     
     this.activeWebhooks.set(key, webhookData);
 
-    this.logger.info(`[BuybotService] Started polling for ${tokenAddress} in channel ${channelId} (${platform}) - first poll in ${Math.round(initialDelay/1000)}s`);
+    this.logger.info(`[BuybotService] Started polling for ${tokenAddress} in channel ${channelId} (${platform})`);
   }
 
   /**
@@ -1878,26 +1477,20 @@ export class BuybotService {
       
       // Update token with fresh price and market data
       if (freshTokenInfo && freshTokenInfo.usdPrice) {
-        const updateFields = { 
-          usdPrice: freshTokenInfo.usdPrice,
-          marketCap: freshTokenInfo.marketCap || null,
-          lastPriceUpdate: new Date(),
-        };
-        // Update token image if we got one and don't already have it
-        if (freshTokenInfo.image && !token.tokenImage) {
-          updateFields.tokenImage = freshTokenInfo.image;
-        }
         await this.db.collection(this.TRACKED_TOKENS_COLLECTION).updateOne(
           { channelId, tokenAddress },
-          { $set: updateFields }
+          { 
+            $set: { 
+              usdPrice: freshTokenInfo.usdPrice,
+              marketCap: freshTokenInfo.marketCap || null,
+              lastPriceUpdate: new Date(),
+            } 
+          }
         );
         
         // Merge fresh data into token object for notifications
         token.usdPrice = freshTokenInfo.usdPrice;
         token.marketCap = freshTokenInfo.marketCap;
-        if (freshTokenInfo.image && !token.tokenImage) {
-          token.tokenImage = freshTokenInfo.image;
-        }
       }
 
       // Build incremental parameters for Solana monitor queries
@@ -2144,19 +1737,8 @@ export class BuybotService {
         return;
       }
 
-      // Maximum age for transactions to process (prevent syncing old history)
-      const MAX_TX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
-      const cutoffTime = Date.now() - MAX_TX_AGE_MS;
-
       // Filter for token transfers and swaps
       for (const tx of transactions) {
-        // Skip transactions older than 24 hours to prevent processing historical data
-        const txTimestamp = tx.timestamp * 1000;
-        if (txTimestamp < cutoffTime) {
-          this.logger.debug(`[BuybotService] Skipping old transaction ${tx.signature} (${new Date(txTimestamp).toISOString()})`);
-          continue;
-        }
-
         // Skip if we've already processed this transaction
         const existing = await this.db.collection(this.TOKEN_EVENTS_COLLECTION).findOne({
           signature: tx.signature,
@@ -2378,44 +1960,27 @@ export class BuybotService {
    * @param {Object} token
    * @param {Object} tokenPreferences
    * @param {number|null} usdValue
-   * @param {Object} avatars - Object with senderAvatar and recipientAvatar
    * @returns {'continue'|'suppress'|'handled'}
    */
-  async handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue, avatars = {}) {
-    const { senderAvatar, recipientAvatar } = avatars;
+  async handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue) {
     const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
     const threshold = Number(thresholdRaw);
 
-    // Debug logging to understand why threshold isn't working
-    this.logger.debug?.(`[BuybotService] Transfer aggregation check:`, {
-      tokenSymbol: token?.tokenSymbol,
-      channelId,
-      thresholdRaw,
-      threshold,
-      usdValue,
-      hasNotificationsConfig: !!tokenPreferences?.notifications,
-      notificationsConfig: tokenPreferences?.notifications
-    });
-
     if (!Number.isFinite(threshold) || threshold <= 0) {
-      this.logger.debug?.(`[BuybotService] No valid threshold configured (${threshold}), continuing with normal notification`);
       return 'continue';
     }
 
     if (!Number.isFinite(usdValue) || usdValue <= 0) {
-      this.logger.debug?.(`[BuybotService] Invalid USD value (${usdValue}), continuing with normal notification`);
       return 'continue';
     }
 
     const key = this.getTransferAggregationKey(channelId, token, event);
     if (!key) {
-      this.logger.debug?.(`[BuybotService] Could not generate aggregation key, continuing with normal notification`);
       return 'continue';
     }
 
     // If this transfer alone exceeds the threshold, post immediately
     if (usdValue >= threshold) {
-      this.logger.debug?.(`[BuybotService] Transfer USD ${usdValue} >= threshold ${threshold}, posting immediately`);
       if (this.transferAggregationBuckets.has(key)) {
         this.transferAggregationBuckets.delete(key);
       }
@@ -2454,17 +2019,7 @@ export class BuybotService {
       usdValue,
       amount: event.amount,
       formattedAmount: formatTokenAmount(event.amount, decimals),
-      timestamp: event.timestamp instanceof Date ? event.timestamp : new Date(),
-      senderAvatar: senderAvatar ? { 
-        name: senderAvatar.name, 
-        emoji: senderAvatar.emoji,
-        walletAddress: senderAvatar.walletAddress 
-      } : null,
-      recipientAvatar: recipientAvatar ? { 
-        name: recipientAvatar.name, 
-        emoji: recipientAvatar.emoji,
-        walletAddress: recipientAvatar.walletAddress 
-      } : null
+      timestamp: event.timestamp instanceof Date ? event.timestamp : new Date()
     });
     bucket.lastTimestamp = now;
     bucket.expireAt = now + this.TRANSFER_AGGREGATION_TTL_MS;
@@ -2520,32 +2075,6 @@ export class BuybotService {
       const minUsd = bucket.events.reduce((min, evt) => Math.min(min, evt.usdValue), Number.POSITIVE_INFINITY);
       const maxUsd = bucket.events.reduce((max, evt) => Math.max(max, evt.usdValue), 0);
 
-      // Collect unique avatars involved
-      const senderAvatars = new Map();
-      const recipientAvatars = new Map();
-      
-      for (const evt of bucket.events) {
-        if (evt.senderAvatar && evt.senderAvatar.walletAddress) {
-          senderAvatars.set(evt.senderAvatar.walletAddress, evt.senderAvatar);
-        }
-        if (evt.recipientAvatar && evt.recipientAvatar.walletAddress) {
-          recipientAvatars.set(evt.recipientAvatar.walletAddress, evt.recipientAvatar);
-        }
-      }
-
-      // Build participant display with avatars
-      const senderDisplay = senderAvatars.size > 0
-        ? Array.from(senderAvatars.values())
-            .map(av => `${this.getDisplayEmoji(av.emoji)} **${av.name}**`)
-            .join(', ')
-        : `\`${formatAddress(bucket.from)}\``;
-      
-      const recipientDisplay = recipientAvatars.size > 0
-        ? Array.from(recipientAvatars.values())
-            .map(av => `${this.getDisplayEmoji(av.emoji)} **${av.name}**`)
-            .join(', ')
-        : `\`${formatAddress(bucket.to)}\``;
-
       const recentTransfers = bucket.events
         .slice(-5)
         .map(evt => `• $${evt.usdValue.toFixed(2)} (${evt.formattedAmount} ${token.tokenSymbol})`)
@@ -2553,7 +2082,7 @@ export class BuybotService {
 
       const embed = {
         title: `${transferEmoji} ${token.tokenSymbol} Transfer Summary`,
-        description: `Multiple low-value transfers from ${senderDisplay} to ${recipientDisplay} exceeded the configured $${threshold.toFixed(2)} threshold.`,
+        description: `Multiple low-value transfers between \`${formatAddress(bucket.from)}\` and \`${formatAddress(bucket.to)}\` exceeded the configured $${threshold.toFixed(2)} threshold.`,
         color: 0x0099ff,
         fields: [
           { name: 'Transfers', value: `${bucket.events.length}`, inline: true },
@@ -2675,16 +2204,6 @@ export class BuybotService {
   const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
       const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
 
-      // Debug: Log token preferences for transfer threshold debugging
-      if (effectiveType === 'transfer') {
-        this.logger.debug?.(`[BuybotService] Token preferences for ${token?.tokenSymbol}:`, {
-          hasPreferences: !!tokenPreferences,
-          hasNotifications: !!tokenPreferences?.notifications,
-          transferThreshold: tokenPreferences?.notifications?.transferAggregationUsdThreshold,
-          fullNotificationsConfig: tokenPreferences?.notifications
-        });
-      }
-
       const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
       const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
       const emoji = effectiveType === 'swap' ? swapEmoji : transferEmoji;
@@ -2693,7 +2212,29 @@ export class BuybotService {
       const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
       const tokenDecimals = event.decimals || token.tokenDecimals || 9;
 
-      // Get wallet avatars for addresses FIRST (before aggregation/embed building)
+      if (effectiveType === 'transfer') {
+        const aggregationOutcome = await this.handleTransferAggregation(channelId, event, token, tokenPreferences, usdValue);
+        if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
+          return;
+        }
+      } else {
+        const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
+        const threshold = Number(thresholdRaw);
+        if (Number.isFinite(threshold) && threshold > 0) {
+          if (!Number.isFinite(usdValue) || usdValue < threshold) {
+            this.logger?.info?.('[BuybotService] Suppressing low-value event below threshold', {
+              eventType: effectiveType,
+              channelId,
+              token: token?.tokenSymbol || token?.symbol,
+              usdValue,
+              threshold
+            });
+            return;
+          }
+        }
+      }
+
+      // Get wallet avatars for addresses FIRST (before building embed)
       let buyerAvatar = null;
       let senderAvatar = null;
       let recipientAvatar = null;
@@ -2707,7 +2248,6 @@ export class BuybotService {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             tokenDecimals,
-            tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
             amount: formattedAmount,
             currentBalance: null,
             usdValue: null,
@@ -2741,19 +2281,15 @@ export class BuybotService {
               this.logger.error(`[BuybotService] Failed to create buyer avatar for ${formatAddress(event.to)} - returned null`);
             }
           } catch (buyerError) {
-            if (buyerError?.message?.includes('Wallet avatars disabled')) {
-              this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping buyer avatar.`);
-            } else {
-              this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
-                error: buyerError.message,
-                stack: buyerError.stack,
-                wallet: formatAddress(event.to)
-              });
-            }
+            this.logger.error(`[BuybotService] Error creating buyer avatar:`, {
+              error: buyerError.message,
+              stack: buyerError.stack,
+              wallet: formatAddress(event.to)
+            });
           }
         } else if (effectiveType === 'transfer') {
           if (event.from) {
-            this.logger.debug?.(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
+            this.logger.info(`[BuybotService] Processing transfer from ${formatAddress(event.from)}`);
             const senderOrbCount = await this.getWalletNftCountForChannel(event.from, channelId);
             
             try {
@@ -2761,7 +2297,6 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 tokenDecimals,
-                tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
                 amount: formattedAmount,
                 currentBalance: null,
                 usdValue: null,
@@ -2776,10 +2311,10 @@ export class BuybotService {
               const senderTokenBalance = senderAvatar?.tokenBalances?.[token.tokenSymbol];
               const senderBalance = Number.isFinite(senderTokenBalance?.balance) ? senderTokenBalance.balance : null;
 
-              this.logger.debug?.(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance ?? 0} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
+              this.logger.info(`[BuybotService] Sender ${formatAddress(event.from)} balance: ${senderBalance ?? 0} ${token.tokenSymbol}, NFTs: ${senderOrbCount}`);
 
               if (senderAvatar) {
-                this.logger.debug?.(`[BuybotService] Created/retrieved sender avatar:`, {
+                this.logger.info(`[BuybotService] Created/retrieved sender avatar:`, {
                   emoji: senderAvatar.emoji,
                   name: senderAvatar.name,
                   hasImage: !!senderAvatar.imageUrl,
@@ -2789,19 +2324,15 @@ export class BuybotService {
                 this.logger.error(`[BuybotService] Failed to create sender avatar for ${formatAddress(event.from)} - returned null`);
               }
             } catch (senderError) {
-              if (senderError?.message?.includes('Wallet avatars disabled')) {
-                this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping sender avatar.`);
-              } else {
-                this.logger.error(`[BuybotService] Error creating sender avatar:`, {
-                  error: senderError.message,
-                  stack: senderError.stack,
-                  wallet: formatAddress(event.from)
-                });
-              }
+              this.logger.error(`[BuybotService] Error creating sender avatar:`, {
+                error: senderError.message,
+                stack: senderError.stack,
+                wallet: formatAddress(event.from)
+              });
             }
           }
           if (event.to) {
-            this.logger.debug?.(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
+            this.logger.info(`[BuybotService] Processing transfer to ${formatAddress(event.to)}`);
             const recipientOrbCount = await this.getWalletNftCountForChannel(event.to, channelId);
             
             try {
@@ -2809,7 +2340,6 @@ export class BuybotService {
                 tokenSymbol: token.tokenSymbol,
                 tokenAddress: token.tokenAddress,
                 tokenDecimals,
-                tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
                 amount: formattedAmount,
                 currentBalance: null,
                 usdValue: null,
@@ -2824,10 +2354,10 @@ export class BuybotService {
               const recipientTokenBalance = recipientAvatar?.tokenBalances?.[token.tokenSymbol];
               const recipientBalance = Number.isFinite(recipientTokenBalance?.balance) ? recipientTokenBalance.balance : null;
 
-              this.logger.debug?.(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance ?? 0} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
+              this.logger.info(`[BuybotService] Recipient ${formatAddress(event.to)} balance: ${recipientBalance ?? 0} ${token.tokenSymbol}, NFTs: ${recipientOrbCount}`);
 
               if (recipientAvatar) {
-                this.logger.debug?.(`[BuybotService] Created/retrieved recipient avatar:`, {
+                this.logger.info(`[BuybotService] Created/retrieved recipient avatar:`, {
                   emoji: recipientAvatar.emoji,
                   name: recipientAvatar.name,
                   hasImage: !!recipientAvatar.imageUrl,
@@ -2837,15 +2367,11 @@ export class BuybotService {
                 this.logger.error(`[BuybotService] Failed to create recipient avatar for ${formatAddress(event.to)} - returned null`);
               }
             } catch (recipientError) {
-              if (recipientError?.message?.includes('Wallet avatars disabled')) {
-                this.logger.info(`[BuybotService] Wallet avatars disabled for guild ${guildId}; skipping recipient avatar.`);
-              } else {
-                this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
-                  error: recipientError.message,
-                  stack: recipientError.stack,
-                  wallet: formatAddress(event.to)
-                });
-              }
+              this.logger.error(`[BuybotService] Error creating recipient avatar:`, {
+                error: recipientError.message,
+                stack: recipientError.stack,
+                wallet: formatAddress(event.to)
+              });
             }
           }
         }
@@ -2855,37 +2381,6 @@ export class BuybotService {
           stack: avatarError.stack,
           eventType: event.type
         });
-      }
-
-      // NOW handle transfer aggregation with avatar info available
-      if (effectiveType === 'transfer') {
-        const aggregationOutcome = await this.handleTransferAggregation(
-          channelId, 
-          event, 
-          token, 
-          tokenPreferences, 
-          usdValue,
-          { senderAvatar, recipientAvatar }
-        );
-        if (aggregationOutcome === 'suppress' || aggregationOutcome === 'handled') {
-          return;
-        }
-      } else {
-        // For non-transfer events (swaps), check threshold
-        const thresholdRaw = tokenPreferences?.notifications?.transferAggregationUsdThreshold;
-        const threshold = Number(thresholdRaw);
-        if (Number.isFinite(threshold) && threshold > 0) {
-          if (!Number.isFinite(usdValue) || usdValue < threshold) {
-            this.logger?.info?.('[BuybotService] Suppressing low-value swap below threshold', {
-              eventType: effectiveType,
-              channelId,
-              token: token?.tokenSymbol || token?.symbol,
-              usdValue,
-              threshold
-            });
-            return;
-          }
-        }
       }
 
     const buyerEmoji = buyerAvatar ? this.getDisplayEmoji(buyerAvatar.emoji) : null;
@@ -3139,7 +2634,6 @@ export class BuybotService {
         }
       }
 
-
       // Balance changes
       if (event.isNewHolder) {
         embed.fields.push({
@@ -3330,44 +2824,8 @@ export class BuybotService {
         this.logger.debug(`[BuybotService] No full avatars (with images) in trade, skipping responses`);
         return;
       }
-
-      const now = Date.now();
-      const eligibleAvatars = [];
-      const suppressedAvatars = [];
-
-      for (const entry of fullAvatars) {
-        const status = this._assessAvatarResponseEligibility(entry?.avatar, now);
-        if (status.eligible) {
-          eligibleAvatars.push(entry);
-        } else {
-          suppressedAvatars.push({ ...entry, reason: status.reason });
-        }
-      }
-
-      if (eligibleAvatars.length === 0) {
-        this.logger.info(`[BuybotService] All ${fullAvatars.length} avatar(s) were ineligible to respond (knocked out or inactive)`, {
-          suppressedReasons: suppressedAvatars.map(({ avatar, role, reason }) => ({
-            avatarId: avatar?._id?.toString?.(),
-            name: avatar?.name,
-            role,
-            reason,
-          })),
-        });
-        return;
-      }
-
-      if (suppressedAvatars.length > 0) {
-        this.logger.info(`[BuybotService] Skipping ${suppressedAvatars.length} avatar(s) that cannot currently speak`, {
-          suppressedReasons: suppressedAvatars.map(({ avatar, role, reason }) => ({
-            avatarId: avatar?._id?.toString?.(),
-            name: avatar?.name,
-            role,
-            reason,
-          })),
-        });
-      }
       
-      this.logger.info(`[BuybotService] Triggering responses for ${eligibleAvatars.length} eligible avatar(s) in trade`);
+      this.logger.info(`[BuybotService] Triggering responses for ${fullAvatars.length} full avatar(s) in trade`);
       
       // Get the channel object
       const channel = await this.discordService.client.channels.fetch(channelId);
@@ -3376,15 +2834,15 @@ export class BuybotService {
         return;
       }
       
-      // Get ResponseCoordinator
-      const responseCoordinator = this.getResponseCoordinator?.() || this.services?.cradle?.responseCoordinator || null;
+      // Get ResponseCoordinator from services
+      const responseCoordinator = this.services?.resolve?.('responseCoordinator');
       if (!responseCoordinator) {
         this.logger.warn(`[BuybotService] ResponseCoordinator not available for trade responses`);
         return;
       }
       
       // Get ConversationManager once for all avatars
-      const conversationManager = this.getConversationManager?.() || this.services?.cradle?.conversationManager || null;
+      const conversationManager = this.services?.resolve?.('conversationManager');
       if (!conversationManager) {
         this.logger.warn(`[BuybotService] ConversationManager not available for trade responses`);
         return;
@@ -3437,10 +2895,8 @@ export class BuybotService {
       };
 
       // Trigger each full avatar to respond with context about the trade
-      // BATCHING: Instead of immediately scheduling responses, accumulate avatars in a batch window
-      // and flush once to prevent reply storms from rapid swap notifications
-      for (let i = 0; i < eligibleAvatars.length; i++) {
-        const { avatar, role } = eligibleAvatars[i];
+      for (let i = 0; i < fullAvatars.length; i++) {
+        const { avatar, role } = fullAvatars[i];
         try {
           const targetChannel = await resolveChannelForAvatar(avatar);
           if (!targetChannel || (typeof targetChannel.isTextBased === 'function' && !targetChannel.isTextBased())) {
@@ -3458,13 +2914,32 @@ export class BuybotService {
             recipientAvatar
           });
           
-          this.logger.info(`[BuybotService] Adding avatar ${avatar.name} (${role}) to batch for channel ${targetChannel.id}`);
+          this.logger.info(`[BuybotService] Scheduling avatar ${avatar.name} to respond to trade as ${role}`);
           
-          // Add avatar to batch instead of immediately scheduling
-          this.addAvatarToBatch(targetChannel.id, avatar, role, event, token, tradeContext, targetChannel);
+          // Generate response with trade context
+          // Use a small delay to avoid rate limits and allow embeds to appear first
+          setTimeout(async () => {
+            try {
+              this.logger.info(`[BuybotService] Triggering response for avatar ${avatar.name}`);
+              
+              // Send response with trade context passed via options (not as preset message)
+              await conversationManager.sendResponse(targetChannel, avatar, null, {
+                overrideCooldown: true,
+                cascadeDepth: 0,
+                tradeContext: tradeContext  // Pass as additional context for AI
+              });
+              
+              this.logger.info(`[BuybotService] Successfully sent response for avatar ${avatar.name}`);
+            } catch (respError) {
+              this.logger.error(`[BuybotService] Failed to generate response for ${avatar.name}:`, {
+                error: respError.message,
+                stack: respError.stack
+              });
+            }
+          }, 3000 * (i + 1)); // Stagger responses by 3 seconds each (increased from 2s)
           
         } catch (error) {
-          this.logger.error(`[BuybotService] Error adding avatar to batch:`, {
+          this.logger.error(`[BuybotService] Error scheduling response for avatar:`, {
             error: error.message,
             stack: error.stack,
             avatarName: avatar.name
@@ -3476,175 +2951,6 @@ export class BuybotService {
       this.logger.error('[BuybotService] Failed to trigger avatar trade responses:', error);
     }
   }
-
-  /**
-   * Add an avatar to the response batch for a channel
-   * Batching ensures that if multiple swaps happen in quick succession,
-   * each avatar only responds once with combined context
-   * @param {string} channelId - Channel ID
-   * @param {Object} avatar - Avatar object
-   * @param {string} role - Avatar role (buyer/sender/recipient)
-   * @param {Object} event - Trade event
-   * @param {Object} token - Token info
-   * @param {string} tradeContext - Formatted trade context for AI
-   * @param {Object} channel - Discord channel object
-   */
-  addAvatarToBatch(channelId, avatar, role, event, token, tradeContext, channel) {
-    const avatarId = String(avatar._id || avatar.id);
-    
-    // Get or create batch for this channel
-    let batch = this.avatarResponseBatches.get(channelId);
-    if (!batch) {
-      batch = {
-        avatars: new Map(),
-        flushTimer: null,
-        channel: channel
-      };
-      this.avatarResponseBatches.set(channelId, batch);
-    }
-    
-    // Get or create entry for this avatar in the batch
-    let avatarEntry = batch.avatars.get(avatarId);
-    if (!avatarEntry) {
-      avatarEntry = {
-        avatar: avatar,
-        roles: new Set(),
-        events: [],
-        tradeContexts: [],
-        firstAddedAt: Date.now()
-      };
-      batch.avatars.set(avatarId, avatarEntry);
-    }
-    
-    // Accumulate data for this avatar
-    avatarEntry.roles.add(role);
-    avatarEntry.events.push({ event, token, timestamp: Date.now() });
-    avatarEntry.tradeContexts.push(tradeContext);
-    
-    // Clear existing timer and set new one
-    if (batch.flushTimer) {
-      clearTimeout(batch.flushTimer);
-    }
-    
-    // Schedule flush after batch window
-    batch.flushTimer = setTimeout(() => {
-      this.flushAvatarBatch(channelId);
-    }, this.AVATAR_RESPONSE_BATCH_WINDOW_MS);
-    
-    this.logger.debug(`[BuybotService] Avatar ${avatar.name} added to batch (${batch.avatars.size} avatars batched, flush in ${this.AVATAR_RESPONSE_BATCH_WINDOW_MS}ms)`);
-  }
-
-  /**
-   * Flush a batch and trigger responses for all accumulated avatars
-   * Each avatar will respond once with combined context from all their trades in the batch window
-   * @param {string} channelId - Channel ID
-   */
-  async flushAvatarBatch(channelId) {
-    const batch = this.avatarResponseBatches.get(channelId);
-    if (!batch || batch.avatars.size === 0) {
-      return;
-    }
-    
-    this.logger.info(`[BuybotService] Flushing avatar batch for channel ${channelId} (${batch.avatars.size} avatars)`);
-    
-    // Clear timer
-    if (batch.flushTimer) {
-      clearTimeout(batch.flushTimer);
-      batch.flushTimer = null;
-    }
-    
-    // Remove batch from map
-    this.avatarResponseBatches.delete(channelId);
-    
-    // Get conversation manager (prefer injected getter; fall back to cradle if available)
-    let conversationManager = this.getConversationManager?.() || null;
-    if (!conversationManager) conversationManager = this.services?.cradle?.conversationManager || null;
-    
-    if (!conversationManager) {
-      this.logger.error(`[BuybotService] ConversationManager not available for avatar responses`);
-      return;
-    }
-    
-    // Process each avatar in the batch
-    const avatarEntries = Array.from(batch.avatars.values());
-    for (let i = 0; i < avatarEntries.length; i++) {
-      const avatarEntry = avatarEntries[i];
-      const { avatar, roles, events, tradeContexts } = avatarEntry;
-      
-      try {
-        // Combine trade contexts if multiple trades in batch
-        let combinedContext;
-        if (tradeContexts.length === 1) {
-          combinedContext = tradeContexts[0];
-        } else {
-          // Multiple trades - create summary context
-          const rolesList = Array.from(roles).join(', ');
-          const eventCount = events.length;
-          combinedContext = `[Trade Context: You were involved in ${eventCount} recent trade(s) as ${rolesList}.\n\n${tradeContexts.join('\n\n')}]`;
-        }
-        
-        this.logger.info(`[BuybotService] Triggering batched response for avatar ${avatar.name} (${events.length} event(s), roles: ${Array.from(roles).join(', ')})`);
-        
-        // Send response with combined trade context
-        // Small stagger to avoid overwhelming the channel (but much less than before)
-        setTimeout(async () => {
-          try {
-            await conversationManager.sendResponse(batch.channel, avatar, null, {
-              overrideCooldown: false, // Let normal cooldown logic apply to batched responses
-              cascadeDepth: 0,
-              tradeContext: combinedContext
-            });
-            
-            this.logger.info(`[BuybotService] Successfully sent batched response for avatar ${avatar.name}`);
-          } catch (respError) {
-            this.logger.error(`[BuybotService] Failed to generate batched response for ${avatar.name}:`, {
-              error: respError.message,
-              stack: respError.stack
-            });
-          }
-        }, 500 * i); // Small stagger: 500ms per avatar (down from 3000ms)
-        
-      } catch (error) {
-        this.logger.error(`[BuybotService] Error processing batched avatar ${avatar.name}:`, {
-          error: error.message,
-          stack: error.stack
-        });
-      }
-    }
-  }
-
-      _assessAvatarResponseEligibility(avatar, now = Date.now()) {
-        if (!avatar) {
-          return { eligible: false, reason: 'avatar unavailable' };
-        }
-
-        if (avatar.status === 'dead') {
-          return { eligible: false, reason: 'status=dead' };
-        }
-
-        if (avatar.status === 'knocked_out') {
-          return { eligible: false, reason: 'status=knocked_out' };
-        }
-
-        if (typeof avatar.lives === 'number' && avatar.lives <= 0) {
-          return { eligible: false, reason: 'no lives remaining' };
-        }
-
-        if (avatar.knockedOutUntil) {
-          let untilTs = null;
-          if (avatar.knockedOutUntil instanceof Date) {
-            untilTs = avatar.knockedOutUntil.getTime();
-          } else {
-            const parsed = new Date(avatar.knockedOutUntil);
-            untilTs = Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
-          }
-          if (untilTs && untilTs > now) {
-            return { eligible: false, reason: `knocked out until ${new Date(untilTs).toISOString()}` };
-          }
-        }
-
-        return { eligible: true, reason: null };
-      }
 
   /**
    * Record trade relationships between avatars
@@ -3886,7 +3192,7 @@ export class BuybotService {
       // Skip individual transfer and swap notifications on Telegram
       // These are now summarized from Discord and posted periodically
       if (event.type === 'swap' || event.type === 'transfer') {
-        this.logger.debug(`[BuybotService] Skipping individual ${event.type} notification to Telegram ${channelId} (will be included in summary)`);
+        this.logger.info(`[BuybotService] Skipping individual ${event.type} notification to Telegram ${channelId} (will be included in summary)`);
         return;
       }
 
@@ -3901,8 +3207,6 @@ export class BuybotService {
     const usdValue = token.usdPrice ? this.calculateUsdValue(event.amount, event.decimals || token.tokenDecimals, token.usdPrice) : null;
     const tokenDecimals = event.decimals || token.tokenDecimals || 9;
     const tokenPreferences = token?.tokenPreferences || this.getTokenPreferences(token);
-    const swapEmoji = tokenPreferences?.displayEmoji || '💰';
-    const transferEmoji = tokenPreferences?.transferEmoji || '📤';
     const requireClaimedAvatar = Boolean(tokenPreferences?.walletAvatar?.requireClaimedAvatar);
     const requireCollectionOwnership = Boolean(tokenPreferences?.walletAvatar?.requireCollectionOwnership);
 
@@ -3931,7 +3235,6 @@ export class BuybotService {
             tokenSymbol: token.tokenSymbol,
             tokenAddress: token.tokenAddress,
             tokenDecimals,
-            tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
             amount: formattedAmount,
             currentBalance: null,
             usdValue: null,
@@ -3949,7 +3252,6 @@ export class BuybotService {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               tokenDecimals,
-              tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
               amount: formattedAmount,
               currentBalance: null,
               usdValue: null,
@@ -3967,7 +3269,6 @@ export class BuybotService {
               tokenSymbol: token.tokenSymbol,
               tokenAddress: token.tokenAddress,
               tokenDecimals,
-              tokenImage: token.tokenImage || null, // Token icon for avatar generation reference
               amount: formattedAmount,
               currentBalance: null,
               usdValue: null,
@@ -3987,6 +3288,9 @@ export class BuybotService {
   const senderEmoji = senderAvatar ? this.getDisplayEmoji(senderAvatar.emoji) : null;
   const recipientEmoji = recipientAvatar ? this.getDisplayEmoji(recipientAvatar.emoji) : null;
 
+  const swapEmoji = tokenPreferences.displayEmoji || '\uD83D\uDCB0';
+  const transferEmoji = tokenPreferences.transferEmoji || '\uD83D\uDCE4';
+
   // Build enhanced notification message with avatar names
       let message = '';
       
@@ -3994,39 +3298,39 @@ export class BuybotService {
       if (event.type === 'swap') {
         const emoji = swapEmoji;
         const multiplier = usdValue ? this.getBuyMultiplier(usdValue) : '';
-        message += `<b>${token.tokenSymbol} Buy</b>\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
+        message += `*${token.tokenSymbol} Buy*\n${emoji}${multiplier ? ' × ' + multiplier : ''}\n\n`;
         
         // Add description with avatar name
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
-          message += `${buyerEmoji} <b>${buyerAvatar.name}</b> (<code>${formatAddress(event.to)}</code>) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
+          message += `${buyerEmoji} *${buyerAvatar.name}* (\`${formatAddress(event.to)}\`) purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         } else {
           message += `Purchased ${formattedAmount} ${token.tokenSymbol}\n\n`;
         }
       } else {
         // Transfer
-  message += `${transferEmoji} <b>${token.tokenSymbol} Transfer</b>\n\n`;
+  message += `${transferEmoji} *${token.tokenSymbol} Transfer*\n\n`;
         
         // Add description with avatar names
         const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
-          ? `${senderEmoji} <b>${senderAvatar.name}</b> (<code>${formatAddress(event.from)}</code>)`
-          : `<code>${formatAddress(event.from)}</code>`;
+          ? `${senderEmoji} *${senderAvatar.name}* (\`${formatAddress(event.from)}\`)`
+          : `\`${formatAddress(event.from)}\``;
         
         const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
-          ? `${recipientEmoji} <b>${recipientAvatar.name}</b> (<code>${formatAddress(event.to)}</code>)`
-          : `<code>${formatAddress(event.to)}</code>`;
+          ? `${recipientEmoji} *${recipientAvatar.name}* (\`${formatAddress(event.to)}\`)`
+          : `\`${formatAddress(event.to)}\``;
         
         message += `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}\n\n`;
       }
 
       // Amount and USD value (for both swaps and transfers)
       if (usdValue) {
-        message += `💵 <b>$${usdValue.toFixed(2)}</b>\n\n`;
+        message += `💵 *$${usdValue.toFixed(2)}*\n\n`;
       }
 
       // Addresses - show wallet avatars with names/emojis
       if (event.type === 'swap') {
         if (buyerAvatar && buyerAvatar.name && buyerEmoji) {
-          message += `${buyerEmoji} Buyer: <b>${buyerAvatar.name}</b>\n`;
+          message += `${buyerEmoji} Buyer: *${buyerAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = buyerAvatar.tokenBalances?.[token.tokenSymbol];
@@ -4038,14 +3342,14 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    <code>${formatAddress(event.to)}</code>\n`;
+          message += `    \`${formatAddress(event.to)}\`\n`;
         } else {
-          message += `👤 Buyer: <code>${formatAddress(event.to)}</code>\n`;
+          message += `👤 Buyer: \`${formatAddress(event.to)}\`\n`;
         }
       } else {
         // Transfer - show both parties with avatars
         if (senderAvatar && senderAvatar.name && senderEmoji) {
-          message += `${senderEmoji} From: <b>${senderAvatar.name}</b>\n`;
+          message += `${senderEmoji} From: *${senderAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = senderAvatar.tokenBalances?.[token.tokenSymbol];
@@ -4057,13 +3361,13 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    <code>${formatAddress(event.from)}</code>\n`;
+          message += `    \`${formatAddress(event.from)}\`\n`;
         } else {
-          message += `📤 From: <code>${formatAddress(event.from)}</code>\n`;
+          message += `📤 From: \`${formatAddress(event.from)}\`\n`;
         }
         
         if (recipientAvatar && recipientAvatar.name && recipientEmoji) {
-          message += `${recipientEmoji} To: <b>${recipientAvatar.name}</b>\n`;
+          message += `${recipientEmoji} To: *${recipientAvatar.name}*\n`;
           
           // Get balance from flexible tokenBalances schema
           const tokenBalance = recipientAvatar.tokenBalances?.[token.tokenSymbol];
@@ -4075,16 +3379,16 @@ export class BuybotService {
             }
             message += `\n`;
           }
-          message += `    <code>${formatAddress(event.to)}</code>\n`;
+          message += `    \`${formatAddress(event.to)}\`\n`;
         } else {
-          message += `📥 To: <code>${formatAddress(event.to)}</code>\n`;
+          message += `📥 To: \`${formatAddress(event.to)}\`\n`;
         }
       }
 
 
       // Balance changes (new holder, increase, decrease)
       if (event.isNewHolder) {
-        message += `🆕 <b>New Holder!</b>\n`;
+        message += `🆕 *New Holder!*\n`;
       } else if (event.isIncrease && event.preAmountUi && event.postAmountUi) {
         const increasePercent = ((event.postAmountUi - event.preAmountUi) / event.preAmountUi * 100).toFixed(1);
         message += `📈 Balance increased ${increasePercent}%\n`;
@@ -4118,24 +3422,24 @@ export class BuybotService {
       message += `\n`;
       
       // Transaction link
-      message += `<a href="${event.txUrl}">Tx</a>`;
+      message += `[Tx](${event.txUrl})`;
       
       // DexScreener link
       const dexScreenerUrl = `https://dexscreener.com/solana/${token.tokenAddress}`;
-      message += ` • <a href="${dexScreenerUrl}">DexScreener</a>`;
+      message += ` • [DexScreener](${dexScreenerUrl})`;
 
   const telegramLink = tokenPreferences?.telegram || {};
       const telegramLinkUrl = this.resolveUrlTemplate(telegramLink.linkUrlTemplate, token) || `https://jup.ag/swap/SOL-${token.tokenAddress}`;
       const telegramLinkLabel = telegramLink.linkLabel || 'Swap';
       if (telegramLinkUrl) {
-        message += ` • <a href="${telegramLinkUrl}">${telegramLinkLabel}</a>`;
+        message += ` • [${telegramLinkLabel}](${telegramLinkUrl})`;
       }
 
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         message,
         {
-          parse_mode: 'HTML',
+          parse_mode: 'Markdown',
           disable_web_page_preview: true,
         }
       );
@@ -4188,31 +3492,9 @@ export class BuybotService {
         return cloneDefaultTokenPreferences();
       }
 
-      const lookupSymbol = token?.tokenSymbol || token?.symbol;
-      const lookupAddress = token?.tokenAddress || token?.mint;
-
-      this.logger.debug?.(`[BuybotService] getTokenPreferences lookup:`, {
-        lookupSymbol,
-        lookupAddress,
-        tokenObject: {
-          tokenSymbol: token?.tokenSymbol,
-          symbol: token?.symbol,
-          tokenAddress: token?.tokenAddress,
-          mint: token?.mint
-        }
-      });
-
       const preferences = this.configService.getTokenPreferences({
-        symbol: lookupSymbol,
-        address: lookupAddress
-      });
-
-      this.logger.debug?.(`[BuybotService] getTokenPreferences result:`, {
-        symbol: lookupSymbol,
-        hasPreferences: !!preferences,
-        hasNotifications: !!preferences?.notifications,
-        transferThreshold: preferences?.notifications?.transferAggregationUsdThreshold,
-        fullPreferences: preferences
+        symbol: token?.tokenSymbol || token?.symbol,
+        address: token?.tokenAddress || token?.mint
       });
 
       if (!preferences || typeof preferences !== 'object') {
@@ -4402,14 +3684,14 @@ export class BuybotService {
   async generateAndSendMedia(telegramService, channelId, prompt, mediaType, usdValue, tokenSymbol) {
     try {
       const message = mediaType === 'video'
-        ? `🚀 <b>HUGE ${tokenSymbol} BUY ALERT!</b>\n\n💵 <b>$${usdValue.toFixed(0)} purchase detected!</b>\n\nGenerating celebration video...`
-        : `💰 <b>BIG ${tokenSymbol} BUY!</b>\n\n💵 <b>$${usdValue.toFixed(0)} purchase!</b>\n\nGenerating celebration image...`;
+        ? `🚀 *HUGE ${tokenSymbol} BUY ALERT!*\n\n💵 *$${usdValue.toFixed(0)} purchase detected!*\n\nGenerating celebration video...`
+        : `💰 *BIG ${tokenSymbol} BUY!*\n\n💵 *$${usdValue.toFixed(0)} purchase!*\n\nGenerating celebration image...`;
 
       // Send initial message
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         message,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'Markdown' }
       );
 
       // Generate media using the appropriate service
@@ -4418,7 +3700,7 @@ export class BuybotService {
         
         const videoUrls = await telegramService.veoService.generateVideos({ 
           prompt, 
-          config: { numberOfVideos: 1, personGeneration: "allow_adult", durationSeconds: '8' } 
+          config: { numberOfVideos: 1, personGeneration: "allow_adult" } 
         });
         
         if (videoUrls && videoUrls.length > 0) {
@@ -4458,7 +3740,7 @@ export class BuybotService {
       await telegramService.globalBot.telegram.sendMessage(
         channelId,
         `⚠️ Couldn't generate ${mediaType}, but what a buy! 🚀`,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'Markdown' }
       );
     }
   }

@@ -20,24 +20,6 @@ export class TurnScheduler {
   // Suppress ambient chatter briefly after each human message to avoid pileups
   this.blockAmbientUntil = new Map(); // channelId -> timestamp
   this.HUMAN_SUPPRESSION_MS = Number(process.env.HUMAN_SUPPRESSION_MS || 4000);
-  // Dead channel detection
-  this.DEAD_CHANNEL_THRESHOLD = Number(process.env.DEAD_CHANNEL_THRESHOLD || 12);
-  this.DEAD_CHANNEL_CHECK_ENABLED = String(process.env.DEAD_CHANNEL_CHECK_ENABLED || 'true').toLowerCase() === 'true';
-
-  // Dead channel revive: even if a channel is "dead" (no recent human messages), allow an occasional
-  // ambient attempt (default: once/hour) to keep the swarm from going completely silent.
-  this.DEAD_CHANNEL_REVIVE_ENABLED = String(process.env.DEAD_CHANNEL_REVIVE_ENABLED || 'true').toLowerCase() === 'true';
-  this.DEAD_CHANNEL_REVIVE_INTERVAL_MS = Number(process.env.DEAD_CHANNEL_REVIVE_INTERVAL_MS || 60 * 60 * 1000);
-  this.DEAD_CHANNEL_REVIVE_PROBABILITY = (() => {
-    const raw = Number(process.env.DEAD_CHANNEL_REVIVE_PROBABILITY || 0.2);
-    if (!Number.isFinite(raw)) return 0.2;
-    return Math.max(0, Math.min(1, raw));
-  })();
-  this.deadChannelReviveAttemptAt = new Map(); // channelId -> timestamp(ms)
-  
-  // Turn lease timeout (how long an avatar has to complete their turn)
-  // Default: 10 minutes (600000ms) to accommodate video generation
-  this.TURN_LEASE_TIMEOUT_MS = Number(process.env.TURN_LEASE_TIMEOUT_MS || 600000);
   }
 
   async col(name) { return (await this.databaseService.getDatabase()).collection(name); }
@@ -94,15 +76,7 @@ export class TurnScheduler {
 
   async tryLease(channelId, avatarId, tickId, meta = {}) {
     const leases = await this.col('turn_leases');
-    const lease = { 
-      channelId, 
-      avatarId, 
-      tickId, 
-      createdAt: new Date(), 
-      leaseExpiresAt: new Date(Date.now() + this.TURN_LEASE_TIMEOUT_MS), 
-      status: 'pending', 
-      ...meta 
-    };
+    const lease = { channelId, avatarId, tickId, createdAt: new Date(), leaseExpiresAt: new Date(Date.now() + 90_000), status: 'pending', ...meta };
     try {
       await leases.insertOne(lease);
       this.logger.debug?.(`[TurnScheduler] lease granted ${channelId}:${avatarId}:${tickId} mode=${meta.mode || 'ambient'}`);
@@ -359,28 +333,23 @@ export class TurnScheduler {
       }
 
       // Record mentions for presence tracking
-      const mentionTargets = this.avatarService?.matchAvatarsByContent
-        ? this.avatarService.matchAvatarsByContent(message.content || '', avatars)
-        : (() => {
-            const lower = (message.content || '').toLowerCase();
-            return avatars.filter(av => {
-              const name = String(av.name || '').toLowerCase();
-              const emoji = String(av.emoji || '').toLowerCase();
-              return (name && lower.includes(name)) || (emoji && lower.includes(emoji));
-            });
-          })();
-      for (const av of mentionTargets) {
-        await this.presenceService.recordMention(channelId, `${av._id}`);
-        
-        // Grant priority turn if none pending
-        try {
-          const c = await this.presenceService.col();
-          const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
-          if (!doc?.newSummonTurnsRemaining) {
-            await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+      const content = (message.content || '').toLowerCase();
+      for (const av of avatars) {
+        const name = String(av.name || '').toLowerCase();
+        const emoji = String(av.emoji || '').toLowerCase();
+        if ((name && content.includes(name)) || (emoji && content.includes(emoji))) {
+          await this.presenceService.recordMention(channelId, `${av._id}`);
+          
+          // Grant priority turn if none pending
+          try {
+            const c = await this.presenceService.col();
+            const doc = await c.findOne({ channelId, avatarId: `${av._id}` }, { projection: { newSummonTurnsRemaining: 1 } });
+            if (!doc?.newSummonTurnsRemaining) {
+              await this.presenceService.grantNewSummonTurns(channelId, `${av._id}`, 1);
+            }
+          } catch (e) {
+            this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
           }
-        } catch (e) {
-          this.logger.warn(`[TurnScheduler] mention boost failed: ${e.message}`);
         }
       }
 

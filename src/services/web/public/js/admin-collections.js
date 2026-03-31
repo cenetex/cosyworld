@@ -4,14 +4,6 @@ let polling = window.AdminPolling;
 let api = window.AdminAPI;
 let ui = window.AdminUI;
 
-function setPageStatus(message, variant = 'info') {
-  const el = document.getElementById('status');
-  if (!el) return;
-  el.textContent = message || '';
-  const color = variant === 'error' ? '#b91c1c' : variant === 'success' ? '#047857' : '#4b5563';
-  el.style.color = color;
-}
-
 function ensureGlobals() {
   if (!api || !ui) {
     api = window.AdminAPI;
@@ -25,21 +17,9 @@ function ensureGlobals() {
 
 async function saveConfig(ev) {
   ev.preventDefault();
-  if (!ensureGlobals()) {
-    setPageStatus('Admin system not ready. Please refresh the page.', 'error');
-    return;
-  }
-  
   const status = document.getElementById('status');
   const btn = document.querySelector('#cfgForm button[type="submit"]');
-  
-  if (!status || !btn) {
-    console.error('[admin-collections] Form elements not found');
-    return;
-  }
-  
   status.textContent = 'Saving...';
-  setPageStatus('Saving...');
   const payload = {
     key: document.getElementById('key').value.trim(),
     type: document.getElementById('type').value,
@@ -54,58 +34,46 @@ async function saveConfig(ev) {
       fileSource: document.getElementById('fileSource').value || undefined
     }
   };
-  
-  if (!payload.key) {
-    status.textContent = 'Error: Collection key is required';
-    setPageStatus('Collection key is required', 'error');
-    return;
-  }
-  
-  const runWithLoading = ui.withButtonLoading(btn, async () => {
+  await ui.withButtonLoading(btn, async () => {
     try {
-      console.log('[admin-collections] Saving collection config:', payload.key);
       await api.apiFetch('/api/admin/collections/configs', {
         method: 'POST',
         sign: true,
         signMeta: { op: 'create_collection_config', key: payload.key },
-        body: payload,
+        body: JSON.stringify(payload),
         requireCsrf: true
       });
       status.textContent = 'Saved';
-      setPageStatus('Collection configuration saved', 'success');
+      ui.success('Collection configuration saved');
       await loadConfigs();
     } catch (e) {
-      console.error('[admin-collections] Save failed:', e);
-      status.textContent = e.message || 'Save failed';
-      setPageStatus(e.message || 'Failed to save collection', 'error');
+      status.textContent = e.message;
+      ui.error(e.message || 'Failed to save collection');
     }
   });
-  await runWithLoading();
 }
 
 function renderItem(cfg) {
   const div = document.createElement('div');
-  div.className = 'card';
-  div.style.cssText = 'padding: 0.75rem; display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center;';
+  div.className = 'border rounded p-3 grid md:grid-cols-[1fr_auto] gap-2 items-center';
   const meta = [cfg.type || 'avatar', cfg.chain || 'eth', cfg.provider || '-'].join(' • ');
   div.innerHTML = `
     <div>
-      <div style="font-family: monospace; font-size: 0.875rem; color: var(--color-text);">${cfg.key}</div>
-      <div style="font-size: 0.75rem; color: var(--color-text-muted);">${meta}</div>
-      <div style="font-size: 0.75rem; color: var(--color-text-muted);">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
-      <div style="font-size: 0.75rem; color: var(--color-text-muted);">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
-      <div style="font-size: 0.75rem; color: var(--color-text-muted);" data-count>avatars: <span data-count-value>loading...</span></div>
-      <div style="margin-top: 0.5rem;" data-prog>
-        <div style="height: 0.5rem; width: 100%; background: var(--color-surface); border-radius: 0.25rem; overflow: hidden;">
-          <div style="height: 100%; background: var(--color-accent-primary); width: 0%;" data-bar></div>
+      <div class="font-mono text-sm">${cfg.key}</div>
+      <div class="text-xs text-gray-600">${meta}</div>
+      <div class="text-xs text-gray-600">policy: ${cfg.claimPolicy || 'strictTokenOwner'}${cfg.gateTarget ? ' → ' + cfg.gateTarget : ''}</div>
+      <div class="text-xs text-gray-600">lastSync: ${cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : '—'}</div>
+      <div class="text-xs text-gray-600" data-count>avatars: <span data-count-value>loading...</span></div>
+      <div class="mt-2" data-prog>
+        <div class="h-2 w-full bg-gray-200 rounded overflow-hidden">
+          <div class="h-full bg-indigo-600" style="width:0%" data-bar></div>
         </div>
-        <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.25rem;" data-prog-meta></div>
+        <div class="text-xs text-gray-600 mt-1" data-prog-meta></div>
       </div>
     </div>
-    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-      <button class="btn btn-sm" data-act="status">Status</button>
-      <button class="btn btn-sm btn-primary" data-act="sync">Sync</button>
-      <button class="btn btn-sm btn-danger" data-act="delete">Delete</button>
+    <div class="flex gap-2 justify-end">
+      <button class="px-2 py-1 rounded bg-gray-100 text-sm" data-act="status">Status</button>
+      <button class="px-2 py-1 rounded bg-indigo-600 text-white text-sm" data-act="sync">Sync</button>
     </div>`;
   // hide progress by default until we have data
   const prog = div.querySelector('[data-prog]');
@@ -125,65 +93,35 @@ function renderItem(cfg) {
   
   div.querySelector('[data-act="status"]').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    const runWithLoading = ui.withButtonLoading(btn, async () => {
+    await ui.withButtonLoading(btn, async () => {
       try {
         const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/status`);
-        setPageStatus(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
+        ui.success(`${cfg.key}: ${r.count} avatars${r.lastSyncAt ? ' • last ' + new Date(r.lastSyncAt).toLocaleString() : ''}`);
       } catch (err) {
-        setPageStatus(err.message || 'Failed to fetch status', 'error');
+        ui.error(err.message || 'Failed to fetch status');
       }
     });
-    await runWithLoading();
   });
   div.querySelector('[data-act="sync"]').addEventListener('click', async (e) => {
     const ok = confirm(`Sync ${cfg.key} now?\n\nThis will update avatar metadata while preserving existing data (channelId, status, lives).`);
     if (!ok) return;
     const btn = e.currentTarget;
     startCardProgress(div, cfg.key);
-    const runWithLoading = ui.withButtonLoading(btn, async () => {
+    await ui.withButtonLoading(btn, async () => {
       try {
-  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, {
-    method: 'POST',
-    sign: true,
-    signMeta: { op: 'sync_collection', key: cfg.key },
-    body: { force: false },
-    requireCsrf: true
-  });
+  const r = await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}/sync`, { method: 'POST', sign: true, signMeta: { op: 'sync_collection', key: cfg.key }, body: JSON.stringify({ force: false }), requireCsrf: true });
         stopCardProgress(div, true);
         const processed = r.result?.processed || 0;
         const okCt = r.result?.success || 0;
         const failCt = r.result?.failures || 0;
-        setPageStatus(`Processed ${processed} (ok ${okCt}, fail ${failCt})`, 'success');
+        ui.success(`Processed ${processed} (ok ${okCt}, fail ${failCt})`);
         // Reload configs to update UI with new lastSyncAt timestamp
         await loadConfigs();
       } catch (err) {
         stopCardProgress(div, false);
-        setPageStatus(err.message || 'Sync failed', 'error');
+        ui.error(err.message || 'Sync failed');
       }
     });
-    await runWithLoading();
-  });
-  div.querySelector('[data-act="delete"]').addEventListener('click', async (e) => {
-    const ok = confirm(`Delete collection config "${cfg.key}"?\n\nThis will remove the configuration but NOT delete existing avatars from the database.`);
-    if (!ok) return;
-    const btn = e.currentTarget;
-    const runWithLoading = ui.withButtonLoading(btn, async () => {
-      try {
-        console.log('[admin-collections] Deleting collection config:', cfg.key);
-        await api.apiFetch(`/api/admin/collections/${encodeURIComponent(cfg.key)}`, { 
-          method: 'DELETE', 
-          sign: true, 
-          signMeta: { op: 'delete_collection_config', key: cfg.key }, 
-          requireCsrf: true 
-        });
-        setPageStatus(`Deleted collection config: ${cfg.key}`, 'success');
-        await loadConfigs();
-      } catch (err) {
-        console.error('[admin-collections] Delete failed:', err);
-        setPageStatus(err.message || 'Delete failed', 'error');
-      }
-    });
-    await runWithLoading();
   });
   return div;
 }
@@ -199,52 +137,27 @@ async function loadConfigs() {
   await hydrateProgressBars();
   } catch (e) {
     list.textContent = e.message;
-    setPageStatus(e.message || 'Failed to load configs', 'error');
+    ui.error(e.message || 'Failed to load configs');
   }
 }
+
+document.getElementById('cfgForm')?.addEventListener('submit', saveConfig);
+document.getElementById('refresh')?.addEventListener('click', loadConfigs);
 
 function initPage() {
   if (!ensureGlobals()) {
     // If still not ready, wait for event
     return;
   }
-  
-  // Initialize wallet for signing operations
-  try { 
-    console.log('[admin-collections] Initializing wallet...');
-    initializeWallet(); 
-  } catch (e) {
-    console.error('[admin-collections] Wallet initialization failed:', e);
-  }
-  
-  // Attach event listeners after DOM is ready
-  const cfgForm = document.getElementById('cfgForm');
-  const refreshBtn = document.getElementById('refresh');
-  const toggleBtn = document.getElementById('toggleForm');
-  
-  if (cfgForm) {
-    console.log('[admin-collections] Attaching form submit handler');
-    cfgForm.addEventListener('submit', saveConfig);
-  } else {
-    console.warn('[admin-collections] Form element #cfgForm not found');
-  }
-  
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', loadConfigs);
-  }
-  
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (cfgForm?.classList.contains('hidden')) {
-        cfgForm.classList.remove('hidden');
-      } else {
-        cfgForm?.classList.add('hidden');
-      }
-    });
-  }
-  
+  try { initializeWallet(); } catch {}
   loadConfigs();
+  const btn = document.getElementById('toggleForm');
+  const form = document.getElementById('cfgForm');
+  btn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (form?.classList.contains('hidden')) form.classList.remove('hidden');
+    else form?.classList.add('hidden');
+  });
   hydrateProgressBars();
 }
 

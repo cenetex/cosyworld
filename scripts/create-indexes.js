@@ -276,122 +276,6 @@ async function createIndexes() {
     } else {
       console.log('  ✓ Index already exists: createdAt (TTL)');
     }
-
-      // ========================================================================
-      // TELEGRAM RECENT MEDIA COLLECTION INDEXES
-      // ========================================================================
-      console.log('\n🖼️  Creating indexes for telegram_recent_media collection...');
-
-      const recentMediaCollection = db.collection('telegram_recent_media');
-      let existingRecentMediaNames = [];
-      try {
-        const indexes = await recentMediaCollection.indexes();
-        existingRecentMediaNames = indexes.map(idx => idx.name);
-      } catch (error) {
-        if (error.code === 26) {
-          console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
-          existingRecentMediaNames = [];
-        } else {
-          throw error;
-        }
-      }
-
-      if (!existingRecentMediaNames.includes('channelId_createdAt')) {
-        try {
-          await recentMediaCollection.createIndex(
-            { channelId: 1, createdAt: -1 },
-            { name: 'channelId_createdAt' }
-          );
-          console.log('  ✓ Created index: channelId + createdAt');
-        } catch (error) {
-          if (error.code === 85) {
-            console.log('  ℹ️  Index exists (different name): channelId + createdAt');
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        console.log('  ✓ Index already exists: channelId + createdAt');
-      }
-
-      if (!existingRecentMediaNames.includes('createdAt_ttl_recent_media')) {
-        try {
-          await recentMediaCollection.createIndex(
-            { createdAt: 1 },
-            {
-              name: 'createdAt_ttl_recent_media',
-              expireAfterSeconds: 3 * 24 * 60 * 60 // 3 days
-            }
-          );
-          console.log('  ✓ Created TTL index: createdAt (3 days)');
-        } catch (error) {
-          if (error.code === 85) {
-            console.log('  ℹ️  TTL index exists (different name): createdAt');
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        console.log('  ✓ Index already exists: createdAt (TTL)');
-      }
-
-    // ========================================================================
-    // TELEGRAM AGENT PLANS COLLECTION INDEXES
-    // ========================================================================
-    console.log('\n🧠  Creating indexes for telegram_agent_plans collection...');
-
-    const agentPlansCollection = db.collection('telegram_agent_plans');
-    let existingAgentPlanNames = [];
-    try {
-      const indexes = await agentPlansCollection.indexes();
-      existingAgentPlanNames = indexes.map(idx => idx.name);
-    } catch (error) {
-      if (error.code === 26) {
-        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
-        existingAgentPlanNames = [];
-      } else {
-        throw error;
-      }
-    }
-
-    if (!existingAgentPlanNames.includes('channelId_createdAt_agent_plan')) {
-      try {
-        await agentPlansCollection.createIndex(
-          { channelId: 1, createdAt: -1 },
-          { name: 'channelId_createdAt_agent_plan' }
-        );
-        console.log('  ✓ Created index: channelId + createdAt');
-      } catch (error) {
-        if (error.code === 85) {
-          console.log('  ℹ️  Index exists (different name): channelId + createdAt');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: channelId + createdAt');
-    }
-
-    if (!existingAgentPlanNames.includes('createdAt_ttl_agent_plan')) {
-      try {
-        await agentPlansCollection.createIndex(
-          { createdAt: 1 },
-          {
-            name: 'createdAt_ttl_agent_plan',
-            expireAfterSeconds: 3 * 24 * 60 * 60 // 3 days
-          }
-        );
-        console.log('  ✓ Created TTL index: createdAt (3 days)');
-      } catch (error) {
-        if (error.code === 85) {
-          console.log('  ℹ️  TTL index exists (different name): createdAt');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: createdAt (TTL)');
-    }
     
     // ========================================================================
     // TELEGRAM MEDIA USAGE COLLECTION INDEXES
@@ -456,99 +340,6 @@ async function createIndexes() {
       console.log('  ✓ Index already exists: createdAt (TTL)');
     }
     
-    // ========================================================================
-    // TELEGRAM MEMBERS COLLECTION INDEXES
-    // ========================================================================
-    console.log('\n📊 Creating indexes for telegram_members collection...');
-
-    const telegramMembersCollection = db.collection('telegram_members');
-
-    let existingMemberIndexes = [];
-    let existingMemberNames = [];
-    try {
-      existingMemberIndexes = await telegramMembersCollection.indexes();
-      existingMemberNames = existingMemberIndexes.map(idx => idx.name);
-    } catch (error) {
-      if (error.code === 26) {
-        console.log('  ℹ️  Collection does not exist yet, will be created on first insert');
-        existingMemberNames = [];
-      } else {
-        throw error;
-      }
-    }
-
-    if (!existingMemberNames.includes('channelId_userId_unique')) {
-      try {
-        await telegramMembersCollection.createIndex(
-          { channelId: 1, userId: 1 },
-          { unique: true, name: 'channelId_userId_unique' }
-        );
-        console.log('  ✓ Created unique index: channelId + userId');
-      } catch (error) {
-        if (error.code === 85 || error.codeName === 'IndexOptionsConflict') {
-          console.log('  ℹ️  Unique index already exists for channelId + userId');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: channelId + userId');
-    }
-
-    if (!existingMemberNames.includes('channelId_trustLevel')) {
-      try {
-        await telegramMembersCollection.createIndex(
-          { channelId: 1, trustLevel: 1 },
-          { name: 'channelId_trustLevel' }
-        );
-        console.log('  ✓ Created index: channelId + trustLevel');
-      } catch (error) {
-        if (error.code === 85) {
-          console.log('  ℹ️  Index exists (different name): channelId + trustLevel');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: channelId + trustLevel');
-    }
-
-    if (!existingMemberNames.includes('channelId_joinedAt')) {
-      try {
-        await telegramMembersCollection.createIndex(
-          { channelId: 1, joinedAt: 1 },
-          { name: 'channelId_joinedAt' }
-        );
-        console.log('  ✓ Created index: channelId + joinedAt');
-      } catch (error) {
-        if (error.code === 85) {
-          console.log('  ℹ️  Index exists (different name): channelId + joinedAt');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: channelId + joinedAt');
-    }
-
-    if (!existingMemberNames.includes('penaltyExpires')) {
-      try {
-        await telegramMembersCollection.createIndex(
-          { penaltyExpires: 1 },
-          { name: 'penaltyExpires' }
-        );
-        console.log('  ✓ Created index: penaltyExpires');
-      } catch (error) {
-        if (error.code === 85) {
-          console.log('  ℹ️  Index exists (different name): penaltyExpires');
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      console.log('  ✓ Index already exists: penaltyExpires');
-    }
-
     // ========================================================================
     // BUYBOT TRACKED TOKENS COLLECTION INDEXES
     // ========================================================================
@@ -903,17 +694,6 @@ async function createIndexes() {
         throw error;
       }
     }
-
-    try {
-      const memberIndexes = await telegramMembersCollection.indexes();
-      console.log(`  ✓ telegram_members: ${memberIndexes.length} indexes`);
-    } catch (error) {
-      if (error.code === 26) {
-        console.log(`  ℹ️  telegram_members: indexes will be created on first use`);
-      } else {
-        throw error;
-      }
-    }
     
     try {
       const summaryIndexes = await channelSummariesCollection.indexes();
@@ -966,7 +746,6 @@ async function createIndexes() {
     console.log('  - response_locks: 2 indexes (TTL, lookup)');
     console.log('  - telegram_messages: 2 indexes (channelId+date, TTL 30d)');
     console.log('  - telegram_media_usage: 2 indexes (userId+mediaType+date, TTL 30d)');
-  console.log('  - telegram_members: 4 indexes (unique member, trust lookup, joinedAt, penaltyExpires)');
     console.log('  - buybot_tracked_tokens: 2 indexes (channelId+active, tokenAddress)');
     console.log('  - buybot_token_events: 2 indexes (channelId+tokenAddress+timestamp, TTL 30d)');
     console.log('  - unified_channel_summaries: 4 indexes (unique compositeId, platform+channel, lastUpdated, avatarIds)');

@@ -71,39 +71,39 @@ function renderGuildCard(g) {
     const avatarModes = normalizeAvatarModes(g.avatarModes || {});
     // Authorized servers: improved wide-screen layout
     card.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="flex flex-col gap-4">
         <!-- Header Row -->
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <img src="${iconUrl(g)}" style="width: 3rem; height: 3rem; border-radius: 0.5rem; background: var(--color-surface); border: 2px solid var(--color-border); flex-shrink: 0;" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-              <h3 style="font-size: 1rem; font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${guildDisplayName(g)}">${guildDisplayName(g)}</h3>
+        <div class="flex items-center gap-3">
+          <img src="${iconUrl(g)}" class="w-12 h-12 rounded-lg bg-gray-200 border-2 border-gray-300 flex-shrink-0" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-base font-semibold text-gray-900 truncate" title="${guildDisplayName(g)}">${guildDisplayName(g)}</h3>
               ${statusBadge}
             </div>
-            <div style="font-size: 0.75rem; color: var(--color-text-muted);">
-              <code style="font-family: monospace; background: var(--color-surface); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">${g.guildId || g.id}</code>
+            <div class="text-xs text-gray-500">
+              <code class="font-mono bg-gray-100 px-1.5 py-0.5 rounded">${g.guildId || g.id}</code>
             </div>
           </div>
         </div>
         
         <!-- X Account Configuration Section -->
-        <div style="border-top: 1px solid var(--color-border-subtle); padding-top: 0.75rem;">
-          <div style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.5rem;">X Account Overrides</div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem;">
+        <div class="border-t pt-3 space-y-2">
+          <div class="text-xs font-semibold text-gray-700 mb-2">X Account Overrides</div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
             <div>
-              <label style="display: block; font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 0.25rem;">Image Posts</label>
-              <select class="form-select" style="width: 100%; font-size: 0.75rem;" data-x-image>
+              <label class="block text-xs text-gray-600 mb-1">Image Posts</label>
+              <select class="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-x-image>
                 <option value="">Auto (Default)</option>
               </select>
             </div>
             <div>
-              <label style="display: block; font-size: 0.75rem; color: var(--color-text-muted); margin-bottom: 0.25rem;">Video Posts</label>
-              <select class="form-select" style="width: 100%; font-size: 0.75rem;" data-x-video>
+              <label class="block text-xs text-gray-600 mb-1">Video Posts</label>
+              <select class="w-full text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" data-x-video>
                 <option value="">Auto (Default)</option>
               </select>
             </div>
           </div>
-          <button class="btn btn-sm" style="margin-top: 0.5rem;" data-act="save-x" title="Save X account overrides">
+          <button class="btn outline text-xs w-full sm:w-auto px-4" data-act="save-x" title="Save X account overrides">
             💾 Save X Accounts
           </button>
         </div>
@@ -123,14 +123,14 @@ function renderGuildCard(g) {
         </div>
         
         <!-- Action Buttons -->
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border-subtle);" data-actions>
-          <button class="btn btn-sm" data-act="cache">
+        <div class="flex flex-wrap gap-2 pt-2 border-t" data-actions>
+          <button class="btn outline text-xs flex-1 sm:flex-none" data-act="cache">
             🔄 Clear Cache
           </button>
-          <button class="btn btn-sm" data-act="deauth">
+          <button class="btn outline text-xs flex-1 sm:flex-none" data-act="deauth">
             🚫 Deauthorize
           </button>
-          <button class="btn btn-sm btn-danger" data-act="delete">
+          <button class="btn danger text-xs flex-1 sm:flex-none" data-act="delete">
             🗑️ Delete
           </button>
         </div>
@@ -140,21 +140,21 @@ function renderGuildCard(g) {
   } else {
     // Detected servers: simpler layout
     card.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0;">
-          <img src="${iconUrl(g)}" style="width: 3rem; height: 3rem; border-radius: 0.5rem; background: var(--color-surface); border: 2px solid var(--color-border); flex-shrink: 0;" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-              <h3 style="font-size: 1rem; font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${guildDisplayName(g)}">${guildDisplayName(g)}</h3>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+          <img src="${iconUrl(g)}" class="w-12 h-12 rounded-lg bg-gray-200 border-2 border-gray-300 flex-shrink-0" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-base font-semibold text-gray-900 truncate" title="${guildDisplayName(g)}">${guildDisplayName(g)}</h3>
               ${statusBadge}
             </div>
-            <div style="font-size: 0.75rem; color: var(--color-text-muted);">
-              <code style="font-family: monospace; background: var(--color-surface); padding: 0.125rem 0.375rem; border-radius: 0.25rem;">${g.id}</code>
+            <div class="text-xs text-gray-500">
+              <code class="font-mono bg-gray-100 px-1.5 py-0.5 rounded">${g.id}</code>
             </div>
           </div>
         </div>
-        <div style="display: flex; justify-content: flex-end;">
-          <button class="btn btn-sm btn-success" data-act="authorize">
+        <div class="flex justify-end sm:justify-start">
+          <button class="btn text-xs px-4 py-2 whitespace-nowrap" data-act="authorize" style="--btn-bg:#059669; --btn-bg-hover:#047857; --btn-border:#059669;">
             ✓ Authorize Server
           </button>
         </div>
@@ -172,8 +172,8 @@ async function loadAll() {
   const authList = document.getElementById('authorizedList');
   const detList = document.getElementById('detectedList');
   const counts = document.getElementById('serverCounts');
-  if (authList) authList.innerHTML = '<div style="font-size: 0.75rem; color: var(--color-text-muted);">Loading...</div>';
-  if (detList) detList.innerHTML = '<div style="font-size: 0.75rem; color: var(--color-text-muted);">Loading...</div>';
+  if (authList) authList.innerHTML = '<div class="text-xs text-gray-500">Loading...</div>';
+  if (detList) detList.innerHTML = '<div class="text-xs text-gray-500">Loading...</div>';
   if (counts) counts.textContent = '…';
   try {
     const [configs, detected] = await Promise.all([
@@ -198,19 +198,19 @@ async function loadAll() {
     // Render Authorized
     if (authList) {
       authList.innerHTML = '';
-      if (!authorized.length) authList.innerHTML = '<div style="font-size: 0.875rem; color: var(--color-text-muted); text-align: center; padding: 2rem; border: 2px dashed var(--color-border); border-radius: 0.5rem;">No authorized servers yet</div>';
+      if (!authorized.length) authList.innerHTML = '<div class="text-sm text-gray-500 text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">No authorized servers yet</div>';
       authorized.forEach(g => authList.appendChild(renderGuildCard(g)));
     }
     // Render Detected
     if (detList) {
       detList.innerHTML = '';
-      if (!detectedFiltered.length) detList.innerHTML = '<div style="font-size: 0.875rem; color: var(--color-text-muted); text-align: center; padding: 2rem; border: 2px dashed var(--color-border); border-radius: 0.5rem;">No detected servers</div>';
+      if (!detectedFiltered.length) detList.innerHTML = '<div class="text-sm text-gray-500 text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">No detected servers</div>';
       detectedFiltered.forEach(g => detList.appendChild(renderGuildCard(g)));
     }
   } catch (e) {
     console.error('Failed to load servers:', e);
-    if (authList) authList.innerHTML = '<div style="font-size: 0.875rem; color: var(--color-danger); background: var(--color-error-bg); border: 1px solid var(--color-danger); border-radius: 0.5rem; padding: 1rem;">Failed to load authorized servers</div>';
-    if (detList) detList.innerHTML = '<div style="font-size: 0.875rem; color: var(--color-danger); background: var(--color-error-bg); border: 1px solid var(--color-danger); border-radius: 0.5rem; padding: 1rem;">Failed to load detected servers</div>';
+    if (authList) authList.innerHTML = '<div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-4">Failed to load authorized servers</div>';
+    if (detList) detList.innerHTML = '<div class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-4">Failed to load detected servers</div>';
     ui.error(e.message || 'Failed to load servers');
   }
 }

@@ -1,17 +1,10 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { container, containerReady } from '../src/container.mjs';
+import { container } from '../src/container.mjs';
 
-const safeResolve = (name) => {
-  try { return container.resolve(name); } catch { return null; }
-};
+const logger = container.resolve('logger');
 
 async function main() {
-  // Wait for container to be fully initialized
-  await containerReady;
-  
-  const logger = safeResolve('logger') || console;
-  
   const [,, cmd, ...rest] = process.argv;
   const args = Object.fromEntries(rest.filter(a=>a.includes('=')).map(a=>{
     const i = a.indexOf('=');
@@ -25,22 +18,11 @@ async function main() {
       const collectionId = args.key || process.env.AVATAR_COLLECTION;
       const fileSource = args.file || process.env.AVATAR_COLLECTION_FILE;
       const force = flags.has('--force');
-      const guildId = args.guild || process.env.AVATAR_COLLECTION_GUILD || null;
       if (!collectionId) {
         console.error('Missing --key or AVATAR_COLLECTION');
         process.exit(1);
       }
-      const res = await syncAvatarsForCollection({ collectionId, fileSource, force, guildId }, null, {
-        logger,
-        databaseService: safeResolve('databaseService'),
-        s3Service: safeResolve('s3Service'),
-        aiService: safeResolve('aiService'),
-        unifiedAIService: safeResolve('unifiedAIService'),
-        openrouterAIService: safeResolve('openrouterAIService') || safeResolve('openRouterAIService'),
-        googleAIService: safeResolve('googleAIService'),
-        ollamaAIService: safeResolve('ollamaAIService'),
-        replicateAIService: safeResolve('replicateAIService'),
-      });
+      const res = await syncAvatarsForCollection({ collectionId, fileSource, force });
       logger.info(`Sync done: success ${res.success}/${res.processed}, failures ${res.failures}`);
       process.exit(res.failures ? 1 : 0);
     }

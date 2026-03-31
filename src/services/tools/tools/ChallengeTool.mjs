@@ -85,7 +85,7 @@ export class ChallengeTool extends BasicTool {
     if (!params || !params[0]) {
       return `-# [ ❌ Error: No target specified. ]`;
     }
-    const targetText = params.join(' ').trim();
+    const targetName = params.join(' ').trim();
 
     try {
       // ── Check for dungeon context first ──
@@ -131,31 +131,34 @@ export class ChallengeTool extends BasicTool {
       if (!locationResult || !Array.isArray(locationResult.avatars)) {
         return `-# 🤔 [ The avatar can't be found! ]`;
       }
-
-      // Use flexible matching similar to camera/summon tools
-      const attackerId = String(avatar?._id || avatar?.id || '');
-      const matches = this.avatarService.matchAvatarsByContent(
-        targetText,
-        locationResult.avatars,
-        {
-          limit: 1,
-          excludeAvatarIds: attackerId ? [attackerId] : []
-        }
-      );
-
-      const defender = matches.length > 0 ? matches[0] : null;
+      const defender = locationResult.avatars.find(a => a.name.toLowerCase() === targetName.toLowerCase());
       if (!defender) {
-        return `-# 🤔 [ The avatar can't be found! ]`;
+        return `-# � [ The avatar can't be found! ]`;
       }
 
-      // Additional safeguard: Block self-combat (should already be filtered by excludeAvatarIds)
-      const defenderId = String(defender?._id || defender?.id || '');
+      // Block self-combat - normalize both IDs properly
+      const normalizeId = (obj) => {
+        if (!obj) return '';
+        const id = obj._id || obj.id;
+        if (!id) return '';
+        // Handle ObjectId objects
+        if (typeof id === 'object' && id.toString) return id.toString();
+        return String(id);
+      };
+
+      const attackerId = normalizeId(avatar);
+      const defenderId = normalizeId(defender);
+
+      // Comprehensive debug logging
+      this.logger?.info?.(`[ChallengeTool] SELF-COMBAT CHECK:`);
+      this.logger?.info?.(`  Attacker: name="${avatar?.name}" id="${attackerId}" raw_id="${JSON.stringify(avatar?._id || avatar?.id)}"`);
+      this.logger?.info?.(`  Defender: name="${defender?.name}" id="${defenderId}" raw_id="${JSON.stringify(defender?._id || defender?.id)}"`);
+      this.logger?.info?.(`  Match: ${attackerId === defenderId}`);
+
       if (attackerId && defenderId && attackerId === defenderId) {
         this.logger?.warn?.(`[ChallengeTool] Self-combat blocked: ${avatar?.name} tried to challenge themselves`);
         return `-# 🤔 [ You cannot challenge yourself to combat! ]`;
-      }
-
-      // Defender state checks for clearer reasons
+      }      // Defender state checks for clearer reasons
       try {
         const now = Date.now();
         if (defender.status === 'dead') {

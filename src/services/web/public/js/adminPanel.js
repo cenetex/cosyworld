@@ -171,8 +171,7 @@ async function whitelistDetectedGuild(event) {
       features: {
         breeding: true,
         combat: true,
-        itemCreation: true,
-        moderation: true
+        itemCreation: true
       },
       rateLimit: {
         messages: 5,
@@ -414,8 +413,7 @@ async function whitelistDetectedGuild(guildId, guildName) {
       features: {
         breeding: false,
         combat: false,
-        itemCreation: false,
-        moderation: true
+        itemCreation: false
       },
       prompts: {
         introduction: '',

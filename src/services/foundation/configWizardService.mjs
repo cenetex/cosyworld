@@ -463,7 +463,6 @@ export class ConfigWizardService {
       })
     };
 
-
     const replicateCfg = config.optional?.replicate || null;
     if (replicateCfg) {
       const replicateVars = {};

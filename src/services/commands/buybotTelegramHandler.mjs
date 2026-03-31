@@ -54,11 +54,11 @@ export function setupBuybotTelegramCommands(bot, services) {
 
         if (trackedTokens.length === 0) {
           await ctx.reply(
-            '⚙️ <b>Buybot Settings</b>\n\n' +
+            '⚙️ *Buybot Settings*\n\n' +
             'No tokens are currently being tracked in your group.\n\n' +
             'Add your first token below:',
             {
-              parse_mode: 'HTML',
+              parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [
                   [{ text: '➕ Add Token', callback_data: `settings_add_token_${channelId}` }],
@@ -86,11 +86,11 @@ export function setupBuybotTelegramCommands(bot, services) {
         ]));
 
         await ctx.reply(
-          '⚙️ <b>Buybot Settings</b>\n\n' +
+          '⚙️ *Buybot Settings*\n\n' +
           `Managing ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''} for your group.\n\n` +
           'Select a token to configure:',
           {
-            parse_mode: 'HTML',
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 ...tokenButtons,
@@ -103,16 +103,16 @@ export function setupBuybotTelegramCommands(bot, services) {
       } else {
         // Regular /start without deep link - show welcome message
         await ctx.reply(
-          '👋 <b>Welcome to Buybot!</b>\n\n' +
+          '👋 *Welcome to Buybot!*\n\n' +
           '🤖 I track Solana token transactions and send real-time notifications.\n\n' +
-          '💡 <b>To get started:</b>\n' +
+          '💡 *To get started:*\n' +
           '1. Add me to your Telegram group\n' +
           '2. Type /settings in the group\n' +
           '3. Click the button to open settings here in DM\n' +
           '4. Add tokens to track\n\n' +
           '⚡ Powered by Helius\n\n' +
           'Type /help for more information.',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       }
     } catch (error) {
@@ -150,11 +150,11 @@ export function setupBuybotTelegramCommands(bot, services) {
         });
         
         await ctx.reply(
-          '⚙️ <b>Settings are available in DM only</b>\n\n' +
+          '⚙️ *Settings are available in DM only*\n\n' +
           'For security and privacy, please configure buybot settings in a private message.\n\n' +
-          `Click the button below to open settings for <b>${ctx.chat.title || 'this group'}</b>:`,
+          `Click the button below to open settings for **${ctx.chat.title || 'this group'}**:`,
           {
-            parse_mode: 'HTML',
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 [{ text: '📱 Open Settings in DM', url: `https://t.me/${botUsername}?start=group_${encodedChannelId}` }]
@@ -181,11 +181,11 @@ export function setupBuybotTelegramCommands(bot, services) {
 
       if (trackedTokens.length === 0) {
         await ctx.reply(
-          '⚙️ <b>Buybot Settings</b>\n\n' +
+          '⚙️ *Buybot Settings*\n\n' +
           'No tokens are currently being tracked in this chat.\n\n' +
           'To add tokens, use the button below or return to your group and add tokens there first.',
           {
-            parse_mode: 'HTML',
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 [{ text: '➕ Add Token', callback_data: 'add_token' }],
@@ -212,11 +212,11 @@ export function setupBuybotTelegramCommands(bot, services) {
       ]));
 
       await ctx.reply(
-        '⚙️ <b>Buybot Settings</b>\n\n' +
+        '⚙️ *Buybot Settings*\n\n' +
         `Managing ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''} for this group.\n\n` +
         'Select a token to configure:',
         {
-          parse_mode: 'HTML',
+          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               ...tokenButtons,
@@ -249,11 +249,11 @@ export function setupBuybotTelegramCommands(bot, services) {
         const channelId = state?.channelId || userChannels.get(userId) || String(ctx.chat.id);
         userStates.set(userId, { action: 'add_token', channelId });
         await ctx.reply(
-          '➕ <b>Add Token</b>\n\n' +
+          '➕ *Add Token*\n\n' +
           'Please send the Solana token address you want to track.\n\n' +
-          '<b>Example:</b> <code>EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v</code>\n\n' +
+          '*Example:* `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`\n\n' +
           '⏱️ Send the address in your next message...',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       } else if (data.startsWith('token_')) {
         // Format: token_<index> - look up from user state
@@ -276,13 +276,13 @@ export function setupBuybotTelegramCommands(bot, services) {
         const channelId = state.channelId;
         userStates.set(userId, { action: 'set_media_thresholds', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
-          '🎬 <b>Media Thresholds</b>\n\n' +
+          '🎬 *Media Thresholds*\n\n' +
           'Send two numbers separated by space:\n' +
-          '<code>&lt;image_threshold&gt; &lt;video_threshold&gt;</code>\n\n' +
-          '<b>Example:</b> <code>50 500</code>\n' +
+          '`<image_threshold> <video_threshold>`\n\n' +
+          '*Example:* `50 500`\n' +
           'This means: $50+ → image, $500+ → video\n\n' +
-          '💡 Use <code>0 0</code> to disable auto-generation.',
-          { parse_mode: 'HTML' }
+          '💡 Use `0 0` to disable auto-generation.',
+          { parse_mode: 'Markdown' }
         );
       } else if (data.startsWith('img_')) {
         // Format: img_<index>
@@ -295,10 +295,10 @@ export function setupBuybotTelegramCommands(bot, services) {
         const channelId = state.channelId;
         userStates.set(userId, { action: 'upload_custom_image', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
-          '📸 <b>Upload Custom Image</b>\n\n' +
+          '📸 *Upload Custom Image*\n\n' +
           'Send a photo to use for small purchases.\n\n' +
           '⏱️ Waiting for your image...',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       } else if (data.startsWith('vid_')) {
         // Format: vid_<index>
@@ -311,10 +311,10 @@ export function setupBuybotTelegramCommands(bot, services) {
         const channelId = state.channelId;
         userStates.set(userId, { action: 'upload_custom_video', tokenAddress: token.tokenAddress, channelId });
         await ctx.reply(
-          '🎬 <b>Upload Custom Video</b>\n\n' +
+          '🎬 *Upload Custom Video*\n\n' +
           'Send a video to use for small purchases.\n\n' +
           '⏱️ Waiting for your video...',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       } else if (data.startsWith('remove_')) {
         // Format: remove_<index>
@@ -329,7 +329,7 @@ export function setupBuybotTelegramCommands(bot, services) {
         if (result.success) {
           await ctx.editMessageText(
             `✅ ${result.message}\n\nUse /settings to manage other tokens.`,
-            { parse_mode: 'HTML' }
+            { parse_mode: 'Markdown' }
           );
         } else {
           await ctx.reply(`❌ ${result.message}`);
@@ -356,11 +356,11 @@ export function setupBuybotTelegramCommands(bot, services) {
         ]));
 
         await ctx.editMessageText(
-          '⚙️ <b>Buybot Settings</b>\n\n' +
+          '⚙️ *Buybot Settings*\n\n' +
           `Managing ${trackedTokens.length} token${trackedTokens.length !== 1 ? 's' : ''}.\n\n` +
           'Select a token to configure:',
           {
-            parse_mode: 'HTML',
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 ...tokenButtons,
@@ -380,19 +380,11 @@ export function setupBuybotTelegramCommands(bot, services) {
 
   // Handle text messages for interactive flows
   bot.on('text', async (ctx, next) => {
-    if (!ctx.from) {
-      return next();
-    }
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
     if (!state) {
-      try {
-        return await next(); // Not in a flow, continue to other handlers
-      } catch (err) {
-        logger?.error('[BuybotTelegram] Error in downstream handler:', err);
-        throw err; // Re-throw to let Telegraf global handler catch it
-      }
+      return next(); // Not in a flow, continue to other handlers
     }
 
     const channelId = state.channelId;
@@ -406,12 +398,12 @@ export function setupBuybotTelegramCommands(bot, services) {
         if (result.success) {
           let message = `✅ *Token Added*\n\n${result.message}\n\n`;
           if (result.tokenInfo) {
-            message += `<b>Address:</b> <code>${tokenAddress}</code>\n`;
-            message += `<b>Decimals:</b> ${result.tokenInfo.decimals}\n\n`;
+            message += `*Address:* \`${tokenAddress}\`\n`;
+            message += `*Decimals:* ${result.tokenInfo.decimals}\n\n`;
           }
           message += '🔔 You\'ll receive notifications when transactions occur!\n\n';
           message += 'Use /settings to configure media and thresholds.';
-          await ctx.reply(message, { parse_mode: 'HTML' });
+          await ctx.reply(message, { parse_mode: 'Markdown' });
         } else {
           await ctx.reply(`❌ ${result.message}`);
         }
@@ -420,7 +412,7 @@ export function setupBuybotTelegramCommands(bot, services) {
       } else if (state.action === 'set_media_thresholds') {
         const args = ctx.message.text.trim().split(/\s+/);
         if (args.length < 2) {
-          await ctx.reply('❌ Please send two numbers: <code>&lt;image_threshold&gt; &lt;video_threshold&gt;</code>', { parse_mode: 'HTML' });
+          await ctx.reply('❌ Please send two numbers: `<image_threshold> <video_threshold>`', { parse_mode: 'Markdown' });
           return;
         }
 
@@ -436,12 +428,12 @@ export function setupBuybotTelegramCommands(bot, services) {
         
         if (result.success) {
           await ctx.reply(
-            `✅ <b>Media Thresholds Updated</b>\n\n` +
+            `✅ *Media Thresholds Updated*\n\n` +
             `${result.message}\n\n` +
             `🖼️ Image: ${imageUsd > 0 ? '$' + imageUsd : 'Disabled'}\n` +
             `🎬 Video: ${videoUsd > 0 ? '$' + videoUsd : 'Disabled'}\n\n` +
             'Use /settings to configure other options.',
-            { parse_mode: 'HTML' }
+            { parse_mode: 'Markdown' }
           );
         } else {
           await ctx.reply(`❌ ${result.message}`);
@@ -456,14 +448,11 @@ export function setupBuybotTelegramCommands(bot, services) {
   });
 
   // Handle photo uploads for custom media
-  bot.on('photo', async (ctx, next) => {
+  bot.on('photo', async (ctx) => {
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
-    // If not in upload state, pass to next handler
-    if (!state || state.action !== 'upload_custom_image') {
-      return next();
-    }
+    if (!state || state.action !== 'upload_custom_image') return;
 
     try {
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
@@ -471,11 +460,11 @@ export function setupBuybotTelegramCommands(bot, services) {
       
       if (result.success) {
         await ctx.reply(
-          `✅ <b>Custom Image Set</b>\n\n` +
+          `✅ *Custom Image Set*\n\n` +
           `${result.message}\n\n` +
           'This image will be sent for small purchases.\n\n' +
           'Use /settings to configure other options.',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       } else {
         await ctx.reply(`❌ ${result.message}`);
@@ -489,25 +478,22 @@ export function setupBuybotTelegramCommands(bot, services) {
   });
 
   // Handle video uploads for custom media
-  bot.on('video', async (ctx, next) => {
+  bot.on('video', async (ctx) => {
     const userId = String(ctx.from.id);
     const state = userStates.get(userId);
 
-    // If not in upload state, pass to next handler
-    if (!state || state.action !== 'upload_custom_video') {
-      return next();
-    }
+    if (!state || state.action !== 'upload_custom_video') return;
 
     try {
       const result = await buybotService.setCustomMedia(state.channelId, state.tokenAddress, ctx.message.video.file_id, 'video');
       
       if (result.success) {
         await ctx.reply(
-          `✅ <b>Custom Video Set</b>\n\n` +
+          `✅ *Custom Video Set*\n\n` +
           `${result.message}\n\n` +
           'This video will be sent for small purchases.\n\n' +
           'Use /settings to configure other options.',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'Markdown' }
         );
       } else {
         await ctx.reply(`❌ ${result.message}`);
@@ -525,15 +511,15 @@ export function setupBuybotTelegramCommands(bot, services) {
     try {
       logger?.info?.('[BuybotTelegram] /help command received');
       await ctx.reply(
-        '🤖 <b>Buybot Help</b>\n\n' +
+        '� *Buybot Help*\n\n' +
         'Use /settings to manage all buybot configuration through an interactive menu.\n\n' +
-        '⚙️ <b>What you can do:</b>\n' +
+        '⚙️ *What you can do:*\n' +
         '• Track Solana tokens\n' +
         '• Set media generation thresholds\n' +
         '• Upload custom celebration media\n' +
         '• View transaction notifications\n\n' +
         '💡 Just type /settings to get started!',
-        { parse_mode: 'HTML' }
+        { parse_mode: 'Markdown' }
       );
     } catch (error) {
       logger?.error('[BuybotTelegram] /help command error:', error);
@@ -550,30 +536,30 @@ export function setupBuybotTelegramCommands(bot, services) {
  */
 async function showHelpMenu(ctx) {
   const helpMessage =
-    '🤖 <b>Buybot Help</b>\n\n' +
+    '🤖 *Buybot Help*\n\n' +
     'Track Solana token purchases and transfers in real-time.\n\n' +
-    '⚙️ <b>Using Settings:</b>\n' +
+    '⚙️ *Using Settings:*\n' +
     '1. Use /settings to open the menu\n' +
     '2. Select a token to configure\n' +
     '3. Use buttons to manage settings\n\n' +
-    '🎬 <b>Media Options:</b>\n' +
-    '• <b>Auto-Generation:</b> AI creates images/videos for big buys\n' +
-    '• <b>Custom Media:</b> Upload your own for small buys\n' +
-    '• <b>Thresholds:</b> Control when auto-generation triggers\n\n' +
-    '💰 <b>How It Works:</b>\n' +
-  'Buybot checks for transactions every 2 minutes and sends notifications with:\n' +
+    '🎬 *Media Options:*\n' +
+    '• *Auto-Generation:* AI creates images/videos for big buys\n' +
+    '• *Custom Media:* Upload your own for small buys\n' +
+    '• *Thresholds:* Control when auto-generation triggers\n\n' +
+    '💰 *How It Works:*\n' +
+    'Buybot checks for transactions every 30 seconds and sends notifications with:\n' +
     '• Transaction details and USD value\n' +
     '• Buyer information\n' +
     '• Market cap and links\n' +
     '• Celebratory media (when configured)\n\n' +
-    '🪙 <b>Popular Tokens:</b>\n' +
-    '• USDC: <code>EPjFW...Dt1v</code>\n' +
-    '• BONK: <code>DezXA...B263</code>\n' +
-    '• SOL: <code>So111...1112</code>\n\n' +
+    '🪙 *Popular Tokens:*\n' +
+    '• USDC: `EPjFW...Dt1v`\n' +
+    '• BONK: `DezXA...B263`\n' +
+    '• SOL: `So111...1112`\n\n' +
     '⚡ Powered by Helius';
 
   await ctx.editMessageText(helpMessage, {
-    parse_mode: 'HTML',
+    parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
         [{ text: '« Back to Settings', callback_data: 'back_to_settings' }]
@@ -617,15 +603,15 @@ async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, lo
     const hasCustomVideo = !!token.customMedia?.video;
 
     const message =
-      `⚙️ <b>${token.tokenSymbol} Settings</b>\n\n` +
-      `<b>Name:</b> ${token.tokenName}\n` +
-      `<b>Address:</b> <code>${tokenAddress}</code>\n\n` +
-      `📊 <b>Current Configuration:</b>\n` +
+      `⚙️ *${token.tokenSymbol} Settings*\n\n` +
+      `*Name:* ${token.tokenName}\n` +
+      `*Address:* \`${tokenAddress}\`\n\n` +
+      `📊 *Current Configuration:*\n` +
       `🖼️ Image Threshold: ${imageThreshold > 0 ? '$' + imageThreshold : 'Disabled'}\n` +
       `🎬 Video Threshold: ${videoThreshold > 0 ? '$' + videoThreshold : 'Disabled'}\n` +
       `📸 Custom Image: ${hasCustomImage ? '✅ Set' : '❌ Not set'}\n` +
       `🎥 Custom Video: ${hasCustomVideo ? '✅ Set' : '❌ Not set'}\n\n` +
-      `💡 <b>How it works:</b>\n` +
+      `💡 *How it works:*\n` +
       `• Buys ≥ $${videoThreshold}: Auto-generate video\n` +
       `• Buys ≥ $${imageThreshold}: Auto-generate image\n` +
       `• Buys < $${imageThreshold}: ${hasCustomImage || hasCustomVideo ? 'Send custom media' : 'Text only'}`;
@@ -656,7 +642,7 @@ async function showTokenSettings(ctx, buybotService, channelId, tokenAddress, lo
 
     try {
       await ctx.editMessageText(message, {
-        parse_mode: 'HTML',
+        parse_mode: 'Markdown',
         reply_markup: replyMarkup,
       });
     } catch (editError) {

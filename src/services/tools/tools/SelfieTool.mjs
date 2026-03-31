@@ -9,8 +9,6 @@ export class SelfieTool extends BasicTool {
   constructor({
     aiService,
     googleAIService,
-    openrouterAIService,
-    imageGenerationRateLimiter,
     imageProcessingService,
     xService,
     discordService,
@@ -25,8 +23,6 @@ export class SelfieTool extends BasicTool {
   this.logger = logger || console;
     this.aiService = aiService;
     this.googleAIService = googleAIService; // optional secondary provider w/ image support
-    this.openrouterAIService = openrouterAIService; // optional OpenRouter with image-capable models
-    this.imageGenerationRateLimiter = imageGenerationRateLimiter; // rate limiter for image generation
     this.imageProcessingService = imageProcessingService;
     this.xService = xService;
     this.discordService = discordService;
@@ -134,46 +130,6 @@ Context Subjects: ${contextPrompt}\nDesired emotional tone: ${prompt}`;
       if (!imageUrl && this.googleAIService) {
         imageUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
       }
-      
-      // Try OpenRouter image-capable models with rate limiting
-      if (!imageUrl && this.openrouterAIService) {
-        try {
-          const avatarId = avatar._id?.toString() || avatar.id?.toString();
-          const context = { avatarId, tool: 'selfie', message: params.join(' ') };
-          
-          // Check rate limiter if available
-          const rateLimitCheck = this.imageGenerationRateLimiter?.checkAllowed(avatarId);
-          if (!rateLimitCheck || rateLimitCheck.allowed) {
-            this.logger?.info?.(`[SelfieTool] Attempting OpenRouter image generation for ${avatar.name}`);
-            
-            const genPrompt = `Create a candid polaroid-style selfie photograph. ${contextPrompt}\nDesired mood/scene: ${prompt}`;
-            const result = await this.openrouterAIService.generateImageViaOpenRouter(genPrompt, images, { aspectRatio: '1:1' });
-            
-            // Handle both url and base64 data responses
-            if (result?.url || result?.data) {
-              if (result.url) {
-                imageUrl = result.url;
-              } else if (result.data) {
-                // Upload base64 data to S3
-                const buffer = Buffer.from(result.data, 'base64');
-                const s3Key = `selfies/${avatarId}_${Date.now()}.png`;
-                imageUrl = await this.s3Service.uploadBuffer(buffer, s3Key, 'image/png');
-              }
-              // Record generation in rate limiter
-              if (this.imageGenerationRateLimiter && imageUrl) {
-                const estimatedCost = result.cost || 0.05; // FLUX costs ~$0.07
-                this.imageGenerationRateLimiter.recordGeneration(avatarId, estimatedCost, context);
-              }
-              this.logger?.info?.(`[SelfieTool] OpenRouter image generated successfully for ${avatar.name}`);
-            }
-          } else {
-            this.logger?.debug?.(`[SelfieTool] Rate limited for ${avatar.name}: ${rateLimitCheck.reason}`);
-          }
-        } catch (e) {
-          this.logger?.warn?.('[SelfieTool] OpenRouter image generation failed: ' + e.message);
-        }
-      }
-      
       // Fallback: use avatarService schema image generator to synthesize a variant
       if (!imageUrl && this.avatarService?.generateAvatarImage) {
         try {
