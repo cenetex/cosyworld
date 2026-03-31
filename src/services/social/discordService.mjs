@@ -8,23 +8,45 @@ import {
   Client,
   GatewayIntentBits,
   Partials,
-  WebhookClient,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
 } from 'discord.js';
 import { ObjectId } from 'mongodb';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';
 import GuildConnectionRepository from '../../dal/GuildConnectionRepository.mjs';
+import { createDiscordAdapter } from '../agent/platformAdapters.mjs';
+import { TTLMap } from '../../utils/TTLMap.mjs';
 
 export class DiscordService {
   constructor(services) {
     this.logger = services.logger;
     this.configService = services.configService;
     this.databaseService = services.databaseService;
-  // Optional cross-service hooks (late-binding to avoid circular deps)
-  this.getMapService = services.getMapService || null;
-  this.getCombatEncounterService = services.getCombatEncounterService || null;
-  this.avatarService = services.avatarService || null;
+    // Optional cross-service hooks (late-binding to avoid circular deps)
+    this.getMapService = services.getMapService || null;
+    this.getCombatEncounterService = services.getCombatEncounterService || null;
+    this.avatarService = services.avatarService || null;
+    this.globalBotService = services.globalBotService || null;
+    this.getBuybotService = typeof services.getBuybotService === 'function'
+      ? services.getBuybotService
+      : () => services.buybotService;
+    // Unified Chat Agent for @mention handling (late-binding to avoid circular deps)
+    this.getUnifiedChatAgent = typeof services.getUnifiedChatAgent === 'function'
+      ? services.getUnifiedChatAgent
+      : () => services.unifiedChatAgent;
+    // ToolService for direct tool invocation from button interactions
+    this.getToolService = typeof services.getToolService === 'function'
+      ? services.getToolService
+      : () => services.toolService;
+    // AI Service for agent responses
+    this.aiService = services.aiService || null;
     // Repositories
     this.guildConnectionRepository = services.guildConnectionRepository || new GuildConnectionRepository({ databaseService: this.databaseService, logger: this.logger });
     
@@ -40,7 +62,12 @@ export class DiscordService {
     });
     this.setupEventListeners();
 
-    this.messageCache = new Map(); // Initialize message cache
+    // Bounded message cache to prevent duplicate processing loops.
+    this.messageCache = new TTLMap({
+      ttlMs: 5 * 60 * 1000,
+      maxSize: 5000,
+      cleanupIntervalMs: 60 * 1000,
+    });
   }
 
   async login() {
@@ -54,6 +81,18 @@ export class DiscordService {
   }
 
   async shutdown() {
+    // Shutdown managers first
+    if (this.webhookManager) {
+      this.webhookManager.shutdown();
+    }
+    if (this.authorizationCache) {
+      this.authorizationCache.shutdown();
+    }
+
+    if (this.messageCache?.shutdown) {
+      this.messageCache.shutdown();
+    }
+    
     if (this.client) {
       await this.client.destroy();
       this.logger.info('Disconnected from Discord.');
@@ -96,9 +135,28 @@ export class DiscordService {
     this.client.on('interactionCreate', async interaction => {
       try {
         this.db = await this.databaseService.getDatabase();
+        
+        // Handle modal submissions
+        if (interaction.isModalSubmit()) {
+          await this._handleModalSubmit(interaction);
+          return;
+        }
+        
         if (!interaction.isButton()) return;
         
-        // Check guild authorization for interactions
+        // Handle puzzle answer button - show modal
+        if (interaction.customId === 'dnd_puzzle_answer') {
+          await this._showPuzzleAnswerModal(interaction);
+          return;
+        }
+
+        // DM secret button - show modal
+        if (interaction.customId === 'dnd_dm_secret') {
+          await this._showDmSecretModal(interaction);
+          return;
+        }
+        
+        // Check guild authorization for interactions using the authorization cache
         if (interaction.guild) {
           const guildConfig = await this.configService.getGuildConfig(interaction.guild.id);
           const isAuthorized = guildConfig?.authorized === true || 
@@ -110,6 +168,61 @@ export class DiscordService {
         }
         
         const { customId } = interaction;
+        
+        // Handle attack target selection buttons
+        if (customId.startsWith('attack_target_')) {
+          const targetToken = customId.replace('attack_target_', '');
+          let targetName = targetToken;
+          try {
+            targetName = decodeURIComponent(targetToken);
+          } catch {
+            targetName = targetToken.replace(/_/g, ' ');
+          }
+          try {
+            await interaction.deferUpdate();
+            
+            // Get avatar for the user who clicked
+            const avatar = await this._getAvatarForInteraction(interaction);
+            if (!avatar) {
+              await interaction.followUp({ content: '❌ You need an avatar to attack!', flags: 64 });
+              return;
+            }
+            
+            // Execute attack directly via tool service
+            const toolService = this.getToolService?.();
+            if (toolService) {
+              const result = await toolService.executeTool('attack', interaction.message, [targetName], avatar);
+              if (result && typeof result === 'object' && (result.embeds || result.content)) {
+                const channel = await this.client.channels.fetch(interaction.channel.id);
+                if (channel) await channel.send(result);
+              } else if (result && typeof result === 'string') {
+                const channel = await this.client.channels.fetch(interaction.channel.id);
+                if (channel) await channel.send(result);
+              }
+            } else {
+              // Fallback: post message that will be handled by message handler
+              const channel = await this.client.channels.fetch(interaction.channel.id);
+              if (channel) {
+                await channel.send({
+                  content: `🗡️ attack ${targetName}`,
+                  allowedMentions: { users: [] }
+                });
+              }
+            }
+          } catch (e) {
+            this.logger?.error?.(`[DiscordService] Attack target button error: ${e.message}`);
+            try {
+              await interaction.followUp({ content: `❌ Failed to attack: ${e.message}`, flags: 64 });
+            } catch {}
+          }
+          return;
+        }
+        
+        // Handle D&D button interactions (dnd_*) - direct tool invocation with ephemeral responses
+        if (customId.startsWith('dnd_')) {
+          await this._handleDndButtonInteraction(interaction);
+          return;
+        }
         
         // Handle battle video generation button
         if (customId.startsWith('generate_battle_video_')) {
@@ -399,6 +512,38 @@ export class DiscordService {
     }
   }
 
+  _getPublicOrigin() {
+    const rawPublicBase = process.env.PUBLIC_BASE_URL || process.env.API_URL || 'http://0.0.0.0:3000';
+    try {
+      return new URL(rawPublicBase).origin;
+    } catch {
+      return 'http://0.0.0.0:3000';
+    }
+  }
+
+  _resolveAbsoluteUrl(url, fallbackUrl) {
+    try {
+      if (!url || typeof url !== 'string') return fallbackUrl;
+      const trimmed = url.trim();
+      if (!trimmed) return fallbackUrl;
+      // Discord webhook avatarURL must be a network URL; avoid data URIs.
+      if (trimmed.startsWith('data:')) return fallbackUrl;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+      const origin = this._getPublicOrigin();
+      // Handle absolute-path and relative-path URLs.
+      return new URL(trimmed, origin).toString();
+    } catch {
+      return fallbackUrl;
+    }
+  }
+
+  _resolveWebhookAvatarURL(avatar) {
+    const fallback = this.client?.user?.displayAvatarURL?.() || undefined;
+    const candidate = avatar?.thumbnailUrl || avatar?.imageUrl || avatar?.avatarUrl || avatar?.pfpUrl || null;
+    return this._resolveAbsoluteUrl(candidate, fallback);
+  }
+
   async getOrCreateWebhook(channel) {
     if (!channel || !channel.isTextBased()) {
       this.logger.error('Invalid or non-text-based channel provided for webhook');
@@ -426,12 +571,79 @@ export class DiscordService {
     }
   }
 
-  async sendAsWebhook(channelId, content, avatar) {
+  async sendAsWebhook(channelId, content, avatar, options = {}) {
     try {
       this.validateAvatar(avatar);
       if (!channelId || typeof channelId !== 'string') throw new Error('Invalid channel ID');
       if (!content || typeof content !== 'string') throw new Error('Content is required and must be a string');
-      const channel = await this.client.channels.fetch(channelId);
+      
+      // Extract proxy metadata if this is a proxied human message
+      const { proxyUserId, isProxied: _isProxied } = options;
+      
+      // Get content filter settings from global bot config
+      const contentFilters = this.globalBotService?.bot?.globalBotConfig?.contentFilters || {};
+      const filterEnabled = contentFilters.enabled !== false;
+      
+      // Filter content for AI-generated messages (strip URLs, check for blocked content)
+      let filteredContent = content;
+      if (filterEnabled) {
+        // Strip URLs from AI-generated content if blockUrls is enabled
+        if (contentFilters.blockUrls !== false) {
+          // Build list of allowed URL domains (CDN, S3, etc.) to preserve image links
+          const allowedDomains = [
+            ...(contentFilters.allowedUrlDomains || []),
+            'cloudfront.net',     // AWS CloudFront CDN
+            'amazonaws.com',      // AWS S3
+            'cdn.discordapp.com', // Discord CDN
+            'media.discordapp.net' // Discord media
+          ];
+          filteredContent = stripUrls(filteredContent, { 
+            allowedDomains,
+            preserveMarkdownLinks: true  // Preserve markdown links to media files
+          });
+        }
+        
+        // Get dynamically allowed tokens from buybot tracked tokens
+        let dynamicAllowlist = { addresses: [], symbols: [] };
+          const buybotService = this.getBuybotService?.();
+          if (buybotService?.getAllTrackedTokensForAllowlist) {
+          try {
+              dynamicAllowlist = await buybotService.getAllTrackedTokensForAllowlist();
+          } catch (err) {
+            this.logger?.debug?.('[DiscordService] Failed to get dynamic token allowlist:', err.message);
+          }
+        }
+        
+        // Merge static config with dynamic allowlists
+        const allowedCashtags = [
+          ...(contentFilters.allowedCashtags || []),
+          ...dynamicAllowlist.symbols
+              ];
+        const allowedAddresses = [
+          ...(contentFilters.allowedAddresses || []),
+          ...dynamicAllowlist.addresses
+        ];
+        
+        // Check for other blocked content (crypto addresses, cashtags)
+        const contentFilter = filterContent(filteredContent, {
+          logger: this.logger,
+          blockCryptoAddresses: contentFilters.blockCryptoAddresses !== false,
+          blockCashtags: contentFilters.blockCashtags !== false,
+          blockUrls: false, // Already stripped URLs above
+          allowedCashtags,
+          allowedAddresses
+        });
+        
+        if (contentFilter.blocked) {
+          this.logger?.warn?.(`[DiscordService] Blocked AI message (${contentFilter.type}): ${contentFilter.reason}`);
+          return null; // Don't send blocked messages
+        }
+      }
+      
+      const channel = await this.rateLimitHandler.execute(
+        () => this.client.channels.fetch(channelId),
+        `Fetch channel ${channelId}`
+      );
       if (!channel || !channel.isTextBased()) throw new Error('Channel not accessible or not text-based');
       const webhook = await this.getOrCreateWebhook(channel);
       if (!webhook) throw new Error('Failed to obtain webhook');
@@ -444,12 +656,46 @@ export class DiscordService {
       let sentMessage = null;
 
       for (const chunk of chunks) {
-        sentMessage = await webhook.send({
-          content: chunk,
-          username: username.replace(/discord/ig, ''),
-          avatarURL: avatar.imageUrl || this.client.user.displayAvatarURL(),
-          threadId: channel.isThread() ? channelId : undefined,
-        });
+        try {
+          const avatarURL = this._resolveWebhookAvatarURL(avatar);
+          sentMessage = await this.rateLimitHandler.execute(
+            () => webhook.send({
+              content: chunk,
+              username: username.replace(/discord/ig, ''),
+              avatarURL,
+              threadId: targetChannelId,
+            }),
+            `Send webhook message to ${channelId}`
+          );
+        } catch (sendError) {
+          // Check if webhook was deleted externally and invalidate cache
+          const wasInvalidated = this.webhookManager.handleWebhookError(
+            channel.isThread() ? channel.parentId : channelId, 
+            sendError
+          );
+          
+          if (wasInvalidated) {
+            // Retry with fresh webhook
+            this.logger.info?.(`[DiscordService] Retrying with fresh webhook for channel ${channelId}`);
+            const freshWebhook = await this.getOrCreateWebhook(channel);
+            if (freshWebhook) {
+              const avatarURL = this._resolveWebhookAvatarURL(avatar);
+              sentMessage = await this.rateLimitHandler.execute(
+                () => freshWebhook.send({
+                  content: chunk,
+                  username: username.replace(/discord/ig, ''),
+                  avatarURL,
+                  threadId: targetChannelId,
+                }),
+                `Retry send webhook message to ${channelId}`
+              );
+            } else {
+              throw sendError;
+            }
+          } else {
+            throw sendError;
+          }
+        }
       }
       this.logger.debug?.(`Sent message to channel ${channelId} as ${username}`);
       
@@ -463,6 +709,15 @@ export class DiscordService {
         this.logger.info?.(`[DiscordService] Set avatarId=${avatarId} on message ${sentMessage.id} for ${avatar.name}`);
       } else {
         this.logger.warn?.(`[DiscordService] Missing avatar id for ${avatar.name}; skipping avatarId attachment on message ${sentMessage.id}`);
+      }
+      
+      // Store proxy metadata if this message was proxied from a human user
+      // This is critical for other AI systems to recognize this as a human-initiated message
+      if (proxyUserId) {
+        sentMessage.rati = sentMessage.rati || {};
+        sentMessage.rati.proxyUserId = proxyUserId;
+        sentMessage.rati.isProxied = true;
+        this.logger.info?.(`[DiscordService] Marked message ${sentMessage.id} as proxied from user ${proxyUserId}`);
       }
       
       sentMessage.guild = channel.guild;
@@ -543,13 +798,21 @@ export class DiscordService {
       const webhook = await this.getOrCreateWebhook(channel);
       if (!webhook) throw new Error('Failed to obtain webhook');
 
-      await webhook.send({
-        embeds: [embed],
-        username: username ? username.slice(0, 80) : undefined,
+      const resolvedAvatarURL = this._resolveAbsoluteUrl(
         avatarURL,
-        threadId: channel.isThread() ? channelId : undefined,
-        components,
-      });
+        this.client?.user?.displayAvatarURL?.() || undefined
+      );
+
+      await this.rateLimitHandler.execute(
+        () => webhook.send({
+          embeds: [embed],
+          username: username ? username.slice(0, 80) : undefined,
+          avatarURL: resolvedAvatarURL,
+          threadId: channel.isThread() ? channelId : undefined,
+          components,
+        }),
+        `Send embed to channel ${channelId}`
+      );
 
       this.logger.debug?.(`Sent embed to channel ${channelId} as ${username}`);
     } catch (error) {
@@ -619,11 +882,21 @@ export class DiscordService {
         message = this.client.channels.cache.get(message.channel.id).messages.cache.get(message.id);
         if (!message) throw new Error('Message not found');
       }
-      if (!message || !replyContent || typeof replyContent !== 'string') {
+      if (!message || !replyContent) {
         this.logger.error('Invalid message or reply content');
         return;
       }
-      await message.reply(replyContent);
+      
+      // Handle object replies (embeds, components, etc.)
+      if (typeof replyContent === 'object') {
+        await message.reply(replyContent);
+      } else if (typeof replyContent === 'string') {
+        await message.reply(replyContent);
+      } else {
+        this.logger.error('Invalid reply content type');
+        return;
+      }
+      
       this.logger.info(`Replied to message ${message.id}`);
     } catch (error) {
       this.logger.error(`Failed to reply to message ${message?.id}: ${error.message}`);
@@ -690,5 +963,1069 @@ export class DiscordService {
       this.logger?.warn?.(`getOrCreateThread failed for ${channelId}/${threadName}: ${e.message}`);
       return channelId; // fallback to base
     }
+  }
+
+  /**
+   * Create a new thread under a channel (no reuse).
+   * Returns the thread channel ID, or the original channelId on failure.
+   */
+  async createThread(channelId, threadName, options = {}) {
+    try {
+      if (!channelId || !threadName) throw new Error('channelId and threadName are required');
+      const baseChannel = await this.client.channels.fetch(channelId);
+      if (!baseChannel) throw new Error('Base channel not found');
+      const channel = baseChannel.isThread() ? await baseChannel.parent.fetch() : baseChannel;
+      if (!channel?.isTextBased?.() || !channel?.threads) return channelId;
+
+      const created = await channel.threads.create({
+        name: threadName,
+        autoArchiveDuration: options.autoArchiveDuration || 10080, // 7 days
+        reason: options.reason || `Auto-created ${threadName} thread`
+      });
+      return created?.id || channelId;
+    } catch (e) {
+      this.logger?.warn?.(`createThread failed for ${channelId}/${threadName}: ${e.message}`);
+      return channelId;
+    }
+  }
+
+  /**
+   * Get avatar for a button interaction user
+   * @param {ButtonInteraction} interaction - Discord button interaction
+   * @returns {Promise<Object|null>} Avatar object or null
+   */
+  async _getAvatarForInteraction(interaction) {
+    try {
+      // Use the injected avatar service if available
+      const avatarService = this.avatarService;
+      if (!avatarService) {
+        this.logger?.warn?.('[DiscordService] Avatar service not available');
+        return null;
+      }
+      
+      const userId = interaction.user?.id;
+      const guildId = interaction.guild?.id;
+      if (!userId) {
+        this.logger?.warn?.('[DiscordService] No user ID in interaction');
+        return null;
+      }
+      
+      const avatar = await avatarService.getAvatarByUserId(userId, guildId);
+      if (!avatar) {
+        this.logger?.debug?.(`[DiscordService] No avatar found for user ${userId} in guild ${guildId}`);
+      }
+      return avatar;
+    } catch (e) {
+      this.logger?.warn?.(`[DiscordService] Failed to get avatar for interaction: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Handle D&D button interactions by directly invoking tools
+   * This enables ephemeral responses and cleaner UX
+   * @param {ButtonInteraction} interaction - Discord button interaction
+   * @returns {Promise<void>}
+   */
+  async _showPuzzleAnswerModal(interaction) {
+    const modal = new ModalBuilder()
+      .setCustomId('puzzle_answer_modal')
+      .setTitle('🧩 Answer the Riddle');
+
+    const answerInput = new TextInputBuilder()
+      .setCustomId('puzzle_answer_input')
+      .setLabel('Your Answer')
+      .setPlaceholder('Enter your answer here...')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMaxLength(100);
+
+    const actionRow = new ActionRowBuilder().addComponents(answerInput);
+    modal.addComponents(actionRow);
+
+    await interaction.showModal(modal);
+  }
+
+  /**
+   * Handle modal submissions
+   * @param {ModalSubmitInteraction} interaction - Discord modal submit interaction
+   * @returns {Promise<void>}
+   */
+  async _handleModalSubmit(interaction) {
+    const { customId } = interaction;
+
+    if (customId === 'puzzle_answer_modal') {
+      const answer = interaction.fields.getTextInputValue('puzzle_answer_input');
+      
+      // Defer reply as ephemeral while we process
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        // Get user's avatar
+        const db = await this.databaseService.getDatabase();
+        const avatar = await db.collection('avatars').findOne({ 
+          summoner: interaction.user.id,
+          personality: { $exists: true }
+        });
+
+        if (!avatar) {
+          await interaction.editReply({ content: '❌ You need an avatar to answer puzzles. Use the 🎭 button to create one!' });
+          return;
+        }
+
+        // Get tool service
+        const toolService = this.getToolService?.();
+        if (!toolService) {
+          await interaction.editReply({ content: '❌ Tool service unavailable.' });
+          return;
+        }
+        
+        // Get dungeon tool from the tools Map
+        const dungeonTool = toolService.tools?.get('dungeon');
+        if (!dungeonTool) {
+          await interaction.editReply({ content: '❌ Dungeon tool not found.' });
+          return;
+        }
+
+        // Get active dungeon
+        const channelId = interaction.channel.id;
+        const activeDungeon = await dungeonTool.dungeonService?.getActiveDungeonByChannel(channelId);
+
+        if (!activeDungeon) {
+          await interaction.editReply({ content: '❌ No active dungeon found in this channel.' });
+          return;
+        }
+
+        // Solve the puzzle
+        const result = await dungeonTool._solvePuzzle(avatar, [answer], activeDungeon);
+
+        // Send the result
+        await interaction.editReply(result);
+      } catch (error) {
+        this.logger?.error?.(`[DiscordService] Modal submit error: ${error.message}`);
+        try {
+          await interaction.editReply({ content: `❌ Error: ${error.message}` });
+        } catch { /* ignore */ }
+      }
+      return;
+    }
+
+    if (customId === 'dm_secret_modal') {
+      const secret = interaction.fields.getTextInputValue('dm_secret_text')?.trim();
+      const target = interaction.fields.getTextInputValue('dm_secret_target')?.trim();
+
+      // Always ephemeral while we process
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        const senderId = interaction.user.id;
+        const targetId = (target || '').replace(/[^0-9]/g, '');
+
+        if (!secret) {
+          await interaction.editReply({ content: '❌ Secret message cannot be empty.' });
+          return;
+        }
+
+        // Self-only for now (prevents abuse; still supports "DM secrets to players")
+        if (targetId && targetId !== senderId) {
+          await interaction.editReply({ content: '❌ For now, you can only send secrets to yourself.' });
+          return;
+        }
+
+        const user = await this.client.users.fetch(senderId);
+        await user.send({
+          embeds: [
+            new EmbedBuilder()
+              .setAuthor({ name: '🎲 The Dungeon Master' })
+              .setTitle('🤫 A Secret, Just for You')
+              .setDescription(`*${secret}*`)
+              .setColor(0x7C3AED),
+          ],
+        });
+
+        await interaction.editReply({ content: '✅ Secret delivered via DM.' });
+      } catch (error) {
+        this.logger?.error?.(`[DiscordService] DM secret modal error: ${error.message}`);
+        await interaction.editReply({ content: '❌ I couldn\'t DM you (check privacy settings).'});
+      }
+      return;
+    }
+  }
+
+  async _showDmSecretModal(interaction) {
+    const modal = new ModalBuilder()
+      .setCustomId('dm_secret_modal')
+      .setTitle('🤫 DM Secret');
+
+    const targetInput = new TextInputBuilder()
+      .setCustomId('dm_secret_target')
+      .setLabel('Target (optional; leave blank for you)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false)
+      .setPlaceholder('Leave blank');
+
+    const secretInput = new TextInputBuilder()
+      .setCustomId('dm_secret_text')
+      .setLabel('Secret message')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(800)
+      .setPlaceholder('A private clue, warning, or hook…');
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(targetInput),
+      new ActionRowBuilder().addComponents(secretInput)
+    );
+
+    await interaction.showModal(modal);
+  }
+
+  /**
+   * Handle D&D button interactions with ephemeral responses
+   * This enables ephemeral responses and cleaner UX
+   * @param {ButtonInteraction} interaction - Discord button interaction
+   * @returns {Promise<void>}
+   */
+  async _handleDndButtonInteraction(interaction) {
+    const { customId } = interaction;
+    const userId = interaction.user.id;
+    
+    try {
+      // V7: Quick expiry check — if the interaction token is stale (e.g. server
+      // restarted or 3-second window elapsed), bail out silently.
+      if (interaction.replied || interaction.deferred) {
+        this.logger?.debug?.(`[DiscordService] D&D button already handled: ${customId}`);
+        return;
+      }
+
+      // V8 FIX: Defer reply IMMEDIATELY for combat action buttons to avoid
+      // Discord's 3-second interaction timeout. The avatar DB lookup and
+      // validation can take longer than 3s under load, causing
+      // DiscordAPIError[10062]: Unknown interaction for every button click.
+      const combatActionIds = ['dnd_combat_take_turn', 'dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast', 'dnd_combat_auto', 'dnd_item_use'];
+      const isCombatAction = combatActionIds.includes(customId) || customId.startsWith('dnd_target_');
+      if (isCombatAction) {
+        await interaction.deferReply({ flags: 64 });
+      }
+      
+      // Handle summon help button (doesn't require avatar)
+      if (customId === 'dnd_show_summon_help') {
+        const helpEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🔮 How to Summon Your Avatar' })
+          .setDescription('**Summoning is easy!** Just type the summon emoji followed by any concept.\n\n' +
+            '**Examples:**\n' +
+            '• `🔮 a fierce elven ranger`\n' +
+            '• `🔮 ancient dwarf blacksmith`\n' +
+            '• `🔮 mysterious tiefling warlock`\n\n' +
+            'Your avatar will be created with unique stats, appearance, and personality based on your description!')
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'Your avatar will be bound to you and can join D&D adventures!' });
+        
+        await interaction.reply({ 
+          embeds: [helpEmbed],
+          flags: 64 // ephemeral
+        });
+        return;
+      }
+
+      // Handle character sheet inspection button (perception-gated)
+      if (customId.startsWith('dnd_inspect_sheet_')) {
+        await this._handleInspectSheet(interaction, customId.replace('dnd_inspect_sheet_', ''));
+        return;
+      }
+
+      // Get user's avatar using the centralized lookup
+      const avatar = await this._getAvatarForInteraction(interaction);
+      
+      if (!avatar) {
+        // Show helpful embed with summon button instead of error
+        const embed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 Adventure Awaits!' })
+          .setDescription('*You need an avatar to embark on D&D adventures.*\n\nSummon your first avatar by typing a concept in the channel, or click below to get started!')
+          .setColor(0x7C3AED) // DM purple
+          .setFooter({ text: 'Use 🔮 <concept> to summon any character you imagine' });
+        
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('dnd_show_summon_help')
+            .setLabel('How to Summon')
+            .setEmoji('🔮')
+            .setStyle(ButtonStyle.Primary)
+        );
+        
+        if (interaction.deferred) {
+          await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        } else {
+          await interaction.reply({ 
+            embeds: [embed],
+            components: [actionRow],
+            flags: 64 // ephemeral
+          });
+        }
+        return;
+      }
+
+      // Get tool service
+      const toolService = this.getToolService?.();
+      if (!toolService) {
+        throw new Error('Tool service not available');
+      }
+
+      // Parse button ID to determine tool and action
+      // Handle "Take Your Turn" button - shows ephemeral combat options or "not your turn"
+      if (customId === 'dnd_combat_take_turn') {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (!combatService) {
+          await interaction.editReply({ content: '⚠️ Combat service not available.' });
+          return;
+        }
+        
+        const result = await combatService.handleTakeTurnButton(interaction);
+        
+        if (result.error && result.content) {
+          await interaction.editReply({ content: result.content });
+        } else if (result.error && result.embed) {
+          await interaction.editReply({ embeds: [result.embed] });
+        } else {
+          await interaction.editReply({ 
+            embeds: [result.embed], 
+            components: result.components || []
+          });
+        }
+        return;
+      }
+      
+      if (customId === 'dnd_combat_cancel') {
+        if (interaction.deferred) {
+          await interaction.editReply({ content: '✅ Action cancelled.' });
+        } else {
+          await interaction.reply({ content: '✅ Action cancelled.', flags: 64 });
+        }
+        return;
+      }
+
+      // Handle combat action buttons - validate it's the user's turn first
+      const combatActionButtons = ['dnd_combat_attack', 'dnd_combat_defend', 'dnd_combat_flee', 'dnd_combat_cast', 'dnd_item_use'];
+      if (combatActionButtons.includes(customId) || customId.startsWith('dnd_target_')) {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (combatService) {
+          const validation = combatService.validateUserCombatAction(interaction.channelId, userId);
+          if (!validation.valid) {
+            const notYourTurnEmbed = new EmbedBuilder()
+              .setAuthor({ name: '🎲 The Dungeon Master' })
+              .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*Wait for your moment in the initiative order.*`)
+              .setColor(0x95A5A6) // Gray
+              .setFooter({ text: 'Patience is a virtue in combat...' });
+            await interaction.editReply({ embeds: [notYourTurnEmbed] });
+            return;
+          }
+        }
+      }
+
+      const { toolName, params } = this._parseDndButtonId(customId);
+      
+      if (!toolName) {
+        this.logger?.warn?.(`[DiscordService] Unknown D&D button: ${customId}`);
+        const unknownEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 The Dungeon Master' })
+          .setDescription('*The magical runes on this button have faded with time...*')
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'Try using a command directly instead' });
+        if (interaction.deferred) {
+          await interaction.editReply({ embeds: [unknownEmbed] });
+        } else {
+          await interaction.reply({ embeds: [unknownEmbed], flags: 64 });
+        }
+        return;
+      }
+
+      // Handle combat auto mode specially
+      if (toolName === 'combat_auto') {
+        const combatService = toolService.getCombatService?.() || this.getCombatService?.();
+        if (!combatService) {
+          await interaction.editReply({ content: '⚠️ Combat service not available.' });
+          return;
+        }
+        
+        // Validate it's the user's turn for auto mode too
+        const validation = combatService.validateUserCombatAction(interaction.channelId, userId);
+        if (!validation.valid) {
+          const notYourTurnEmbed = new EmbedBuilder()
+            .setAuthor({ name: '🎲 The Dungeon Master' })
+            .setDescription(`*"Hold, adventurer! It is not your turn to act."*\n\n**Current Turn:** ${validation.currentTurnName || 'Unknown'}\n\n*You can only enable auto-mode on your turn.*`)
+            .setColor(0x95A5A6)
+            .setFooter({ text: 'Wait for your turn to enable auto-pilot...' });
+          await interaction.editReply({ embeds: [notYourTurnEmbed] });
+          return;
+        }
+        
+        const encounter = combatService.getEncounterByChannelId(interaction.channelId);
+        if (!encounter || encounter.state !== 'active') {
+          await interaction.editReply({ content: '⚠️ No active combat in this channel.' });
+          return;
+        }
+        
+        // Find the combatant for this player's avatar
+        const combatant = encounter.combatants.find(c => 
+          combatService._normalizeId(c.avatarId) === combatService._normalizeId(avatar._id?.toString?.() || avatar._id)
+        );
+        
+        if (!combatant || !combatant.isPlayerControlled) {
+          await interaction.editReply({ content: '⚠️ You don\'t have a character in this combat.' });
+          return;
+        }
+        
+        // Enable auto mode and acknowledge
+        combatant.autoMode = true;
+        combatant.awaitingAction = false;
+        
+        await interaction.editReply({ 
+          content: `🤖 **${combatant.name}** is now on auto-pilot! The AI will control them for the rest of combat.`
+        });
+        
+        // If this combatant was awaiting their turn, execute it now
+        const currentId = combatService.getCurrentTurnAvatarId(encounter);
+        if (combatService._normalizeId(currentId) === combatService._normalizeId(combatant.avatarId)) {
+          combatService._executeTurn(encounter, combatant).catch(e => {
+            this.logger?.error?.(`[DiscordService] Auto turn execution failed: ${e.message}`);
+
+          });
+        }
+        return;
+      }
+
+      // Defer reply for potentially slow operations (skip if already deferred by early combat defer)
+      if (!interaction.deferred) {
+        await interaction.deferReply({ flags: 64 }); // ephemeral
+      }
+
+      // Create a mock message object for tool execution
+      const mockMessage = {
+        channel: interaction.channel,
+        guild: interaction.guild,
+        guildId: interaction.guildId,
+        channelId: interaction.channelId,
+        author: interaction.user,
+        member: interaction.member,
+        content: `${toolName} ${params.join(' ')}`.trim(),
+        id: interaction.id,
+        createdTimestamp: Date.now()
+      };
+
+      // Execute the tool
+      const result = await toolService.executeTool(toolName, mockMessage, params, avatar, {});
+
+      // If tool handled the response itself (e.g., editing a loading message), skip replying
+      if (result?._handled) {
+        // Still need to acknowledge the interaction
+        await interaction.editReply({ content: '✅' }).catch(() => {});
+        return;
+      }
+
+      // If result is null/undefined, or the normalized result carries no displayable
+      // content (notify:false, no message, no embeds), the tool posted directly to the
+      // channel (e.g. combat DM narration embed). Delete the ephemeral to keep things clean.
+      const hasContent = result?.message || result?.embeds || typeof result === 'string';
+      if (result === null || result === undefined || !hasContent) {
+        await interaction.deleteReply().catch(() => {});
+        return;
+      }
+
+      // Format and send the response
+      if (result.embeds) {
+        await interaction.editReply({
+          embeds: result.embeds,
+          components: result.components || []
+        });
+      } else if (result.message) {
+        await interaction.editReply({ content: result.message });
+      } else if (typeof result === 'string') {
+        await interaction.editReply({ content: result });
+      } else {
+        // Should not be reached after hasContent check, but safety net
+        await interaction.deleteReply().catch(() => {});
+      }
+    } catch (error) {
+      // V7: Silently ignore expired interactions (stale buttons from previous session)
+      const errMsg = String(error?.message || '').toLowerCase();
+      if (errMsg.includes('unknown interaction') || errMsg.includes('interaction has already been acknowledged')) {
+        this.logger?.debug?.(`[DiscordService] D&D button interaction expired: ${customId}`);
+        return;
+      }
+      
+      this.logger?.error?.(`[DiscordService] D&D button handler error: ${error.message}`, {
+        customId,
+        userId,
+        channelId: interaction.channelId,
+        stack: error.stack?.slice(0, 500)
+      });
+      
+      try {
+        // V3 FIX: Categorize error and provide specific recovery actions
+        const errorInfo = this._categorizeButtonError(error);
+        const errorEmbed = new EmbedBuilder()
+          .setAuthor({ name: '🎲 The Dungeon Master' })
+          .setTitle(errorInfo.title)
+          .setDescription(errorInfo.description)
+          .setColor(errorInfo.color)
+          .setFooter({ text: errorInfo.footer });
+        
+        // Build recovery buttons based on error category
+        const recoveryRow = new ActionRowBuilder();
+        
+        if (errorInfo.category === 'ENCOUNTER_ENDED') {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_status')
+              .setLabel('Check Status')
+              .setEmoji('📜')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_enter')
+              .setLabel('New Dungeon')
+              .setEmoji('🏰')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        } else if (errorInfo.category === 'TARGET_MISSING') {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_combat_take_turn')
+              .setLabel('View Targets')
+              .setEmoji('🎯')
+              .setStyle(ButtonStyle.Primary)
+          );
+        } else {
+          recoveryRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId('dnd_dungeon_map')
+              .setLabel('View Map')
+              .setEmoji('🗺️')
+              .setStyle(ButtonStyle.Primary)
+          );
+        }
+        
+        if (interaction.deferred) {
+          await interaction.editReply({ embeds: [errorEmbed], components: [recoveryRow] });
+        } else if (!interaction.replied) {
+          await interaction.reply({ embeds: [errorEmbed], components: [recoveryRow], flags: 64 });
+        }
+      } catch (replyError) {
+        this.logger?.error?.(`[DiscordService] Failed to send error reply: ${replyError.message}`);
+      }
+    }
+  }
+
+  /**
+   * Categorize button interaction error for better UX
+   * @private
+   */
+  _categorizeButtonError(error) {
+    const msg = String(error?.message || '').toLowerCase();
+    
+    if (msg.includes('no active encounter') || msg.includes('encounter not found') || msg.includes('combat has ended')) {
+      return {
+        category: 'ENCOUNTER_ENDED',
+        title: '⚔️ Combat Has Ended',
+        description: '*The dust settles... This battle is already over.*\n\nThe encounter you were in has concluded. Check the channel for results or start a new adventure.',
+        color: 0x95A5A6,
+        footer: 'Combat ends when all enemies are defeated or all players flee'
+      };
+    }
+    
+    if (msg.includes('not your turn') || msg.includes('out of turn')) {
+      return {
+        category: 'WRONG_TURN',
+        title: '⏳ Not Your Turn',
+        description: '*"Hold, adventurer! The initiative order must be respected."*\n\nWait for your turn in the combat sequence before acting.',
+        color: 0xF39C12,
+        footer: 'Watch the turn announcements to know when to act'
+      };
+    }
+    
+    if (msg.includes('target not found') || msg.includes('ghost') || msg.includes('not found here')) {
+      return {
+        category: 'TARGET_MISSING',
+        title: '👻 Target Not Found',
+        description: '*Your strike meets only empty air...*\n\nThe target you selected is no longer valid. They may have been defeated or fled from combat.',
+        color: 0xE74C3C,
+        footer: 'Click View Targets to see available enemies'
+      };
+    }
+    
+    if (msg.includes('knocked out') || msg.includes('dead') || msg.includes('incapacitated')) {
+      return {
+        category: 'COMBATANT_DOWN',
+        title: '💀 Unable to Act',
+        description: '*Your strength fails you...*\n\nYou are incapacitated and cannot take actions at this time. Rest or receive healing to recover.',
+        color: 0x1A1A1A,
+        footer: 'Seek a rest room or healing potion'
+      };
+    }
+    
+    if (msg.includes('timeout') || msg.includes('expired')) {
+      return {
+        category: 'TIMEOUT',
+        title: '⌛ Session Expired',
+        description: '*The moment has passed...*\n\nYour combat session may have expired. Try starting combat again with the Fight button.',
+        color: 0x9B59B6,
+        footer: 'Combat waits for you - no rush!'
+      };
+    }
+    
+    // Default unknown error
+    return {
+      category: 'UNKNOWN',
+      title: '🌀 Something Went Wrong',
+      description: '*The magical energies dissipate unexpectedly...*\n\nAn unexpected error occurred. Try refreshing your view or using a command directly.',
+      color: 0x7C3AED,
+      footer: 'If this persists, try /dungeon status'
+    };
+  }
+
+  /**
+   * Handle the "Inspect" button on character summary cards.
+   * Owner sees full sheet; others roll perception (locked per observer+target pair).
+   * @param {ButtonInteraction} interaction
+   * @param {string} targetAvatarId - The avatar ID embedded in the button
+   */
+  async _handleInspectSheet(interaction, targetAvatarId) {
+    const userId = interaction.user.id;
+
+    try {
+      // Resolve services
+      const toolService = this.getToolService?.();
+      const characterService = toolService?.toolServices?.characterService;
+      const avatarService = this.avatarService || toolService?.toolServices?.avatarService;
+      const healthService = toolService?.toolServices?.healthService;
+
+      if (!characterService || !avatarService) {
+        await interaction.reply({ content: '⚠️ Character service not available.', flags: 64 });
+        return;
+      }
+
+      // Look up the target avatar and their sheet
+      const targetAvatar = await avatarService.getAvatarById(targetAvatarId);
+      if (!targetAvatar) {
+        await interaction.reply({ content: '⚠️ That character could not be found.', flags: 64 });
+        return;
+      }
+
+      const targetSheet = await characterService.getSheet(targetAvatarId);
+      if (!targetSheet) {
+        await interaction.reply({
+          embeds: [new EmbedBuilder()
+            .setDescription(`**${targetAvatar.name}** has no adventuring record.`)
+            .setColor(0x6B7280)],
+          flags: 64
+        });
+        return;
+      }
+
+      // Determine if the clicker is the owner of the target avatar
+      const targetSummoner = String(targetAvatar.summoner || '');
+      const isOwner = targetSummoner === `user:${userId}` ||
+                      String(targetAvatar.discordUserId) === userId;
+
+      if (isOwner) {
+        // Owner gets the full sheet (ephemeral)
+        const embed = this._buildFullSheetEmbed(targetAvatar, targetSheet, healthService);
+        await interaction.reply({ embeds: [await embed], flags: 64 });
+        return;
+      }
+
+      // ── Non-owner: perception-gated reveal ──
+      // Get the clicker's own avatar to roll perception
+      const observerAvatar = await avatarService.getAvatarByUserId(userId, interaction.guild?.id);
+      if (!observerAvatar) {
+        // No avatar → show just the public info
+        await interaction.reply({
+          embeds: [this._buildPublicOnlyEmbed(targetAvatar, targetSheet,
+            '*You have no avatar to appraise with.*')],
+          flags: 64
+        });
+        return;
+      }
+
+      const observerSheet = await characterService.getSheet(observerAvatar._id);
+
+      // Check for existing locked perception roll
+      let perceptionData = await characterService.getPerceptionRoll(
+        String(observerAvatar._id), targetAvatarId
+      );
+
+      if (!perceptionData) {
+        // First time inspecting — roll and lock
+        const result = characterService.rollPerception(observerSheet);
+        await characterService.savePerceptionRoll(
+          String(observerAvatar._id), targetAvatarId,
+          result.roll, result.modifier, result.total
+        );
+        perceptionData = result;
+      }
+
+      const { roll, modifier, total } = perceptionData;
+      const modSign = modifier >= 0 ? '+' : '';
+      const rollText = `🎲 Perception: **${roll}** (d20) ${modSign}${modifier} = **${total}**`;
+
+      // Tiered reveal based on total
+      const embed = this._buildPerceptionEmbed(
+        targetAvatar, targetSheet, total, rollText, observerAvatar, healthService
+      );
+      await interaction.reply({ embeds: [await embed], flags: 64 });
+    } catch (error) {
+      this.logger?.error?.(`[DiscordService] Inspect sheet error: ${error.message}`, { stack: error.stack?.slice(0, 500) });
+      try {
+        if (interaction.deferred) {
+          await interaction.editReply({ content: '⚠️ Something went wrong inspecting that character.' });
+        } else if (!interaction.replied) {
+          await interaction.reply({ content: '⚠️ Something went wrong inspecting that character.', flags: 64 });
+        }
+      } catch { /* ignore reply errors */ }
+    }
+  }
+
+  /**
+   * Build the full character sheet embed (for the owner).
+   * @private
+   */
+  async _buildFullSheetEmbed(avatar, sheet, healthService) {
+    // Inline imports to avoid top-level dep
+    const { CLASSES } = await import('../../data/dnd/classes.mjs');
+    const { RACES } = await import('../../data/dnd/races.mjs');
+
+    const classDef = CLASSES[sheet.class];
+    const raceDef = RACES[sheet.race];
+    const abilityScores = sheet.abilityScores || {};
+
+    let currentHp = avatar.stats?.hp || 10;
+    let maxHp = avatar.stats?.maxHp || avatar.stats?.hp || 10;
+    if (healthService) {
+      try {
+        const state = await healthService.getHpState(avatar);
+        if (state) { currentHp = state.currentHp ?? currentHp; maxHp = state.maxHp ?? maxHp; }
+      } catch { /* ignore */ }
+    }
+
+    const hpBar = this._createBar(currentHp, maxHp, 10);
+
+    const statLine = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+      .map(s => {
+        const score = abilityScores[s] || 10;
+        const mod = Math.floor((score - 10) / 2);
+        const sign = mod >= 0 ? '+' : '';
+        return `**${s.toUpperCase()}** ${score} (${sign}${mod})`;
+      })
+      .join(' | ');
+
+    let spellInfo = null;
+    if (sheet.spellcasting) {
+      const slots = Object.entries(sheet.spellcasting.slots || {})
+        .map(([lvl, s]) => `L${lvl}: ${s.current}/${s.max}`)
+        .join(' | ');
+      spellInfo = slots || 'None';
+    }
+
+    const featureList = (sheet.features || [])
+      .slice(0, 3)
+      .map(f => f.uses ? `${f.name} (${f.uses.current}/${f.uses.max})` : f.name)
+      .join('\n') || 'None';
+
+    const fields = [
+      { name: '📊 Ability Scores', value: statLine, inline: false },
+      { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: false },
+      { name: '🎯 Proficiency', value: `+${sheet.proficiencyBonus}`, inline: true },
+      { name: '⭐ XP', value: `${sheet.experience}`, inline: true },
+      { name: '🎲 Hit Dice', value: `${sheet.hitDice.current}/${sheet.hitDice.max}d${sheet.hitDice.size}`, inline: true },
+      { name: '⚔️ Features', value: featureList, inline: false }
+    ];
+
+    if (spellInfo) {
+      fields.splice(5, 0, { name: '✨ Spell Slots', value: spellInfo, inline: false });
+    }
+
+    return new EmbedBuilder()
+      .setTitle(`📜 ${avatar.name}`)
+      .setDescription(`Level ${sheet.level} ${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`)
+      .setColor(0x7C3AED)
+      .setFields(fields)
+      .setThumbnail(avatar.imageUrl || null)
+      .setFooter({ text: 'Your full character sheet' });
+  }
+
+  /**
+   * Build a public-only embed (Name / Race / Class, no stats).
+   * @private
+   */
+  _buildPublicOnlyEmbed(avatar, sheet, footerNote) {
+    const classDef = { name: sheet.class };
+    const raceDef = { name: sheet.race };
+    // Lazy lookup from data files would add complexity; just use raw names
+    return new EmbedBuilder()
+      .setTitle(`${avatar.emoji || '📜'} ${avatar.name}`)
+      .setDescription(`${raceDef.name} ${classDef.name}`)
+      .setColor(0x7C3AED)
+      .setThumbnail(avatar.imageUrl || null)
+      .setFooter({ text: footerNote || 'Perception too low to discern more' });
+  }
+
+  /**
+   * Build a perception-tiered reveal embed.
+   * - Total ≤ 8  : Name / Race / Class only
+   * - Total 9-14 : + Level, HP bar, AC
+   * - Total 15-19: + Ability scores
+   * - Total 20+  : Full sheet
+   * @private
+   */
+  async _buildPerceptionEmbed(targetAvatar, sheet, total, rollText, observerAvatar, healthService) {
+    const { CLASSES } = await import('../../data/dnd/classes.mjs');
+    const { RACES } = await import('../../data/dnd/races.mjs');
+
+    const classDef = CLASSES[sheet.class];
+    const raceDef = RACES[sheet.race];
+    const abilityScores = sheet.abilityScores || {};
+
+    // Always show: Name / Race / Class
+    const baseTitle = `${targetAvatar.emoji || '📜'} ${targetAvatar.name}`;
+    const baseDesc = `${raceDef?.name || sheet.race} ${classDef?.name || sheet.class}`;
+
+    if (total <= 8) {
+      // Low — just the public info
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`${baseDesc}\n\n${rollText}`)
+        .setColor(0x95A5A6) // gray
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} squints but can't make out much...` });
+    }
+
+    // Get HP for medium+ tiers
+    let currentHp = targetAvatar.stats?.hp || 10;
+    let maxHp = targetAvatar.stats?.maxHp || targetAvatar.stats?.hp || 10;
+    if (healthService) {
+      try {
+        const state = await healthService.getHpState(targetAvatar);
+        if (state) { currentHp = state.currentHp ?? currentHp; maxHp = state.maxHp ?? maxHp; }
+      } catch { /* ignore */ }
+    }
+
+    if (total <= 14) {
+      // Medium — add Level, HP bar, AC
+      const hpBar = this._createBar(currentHp, maxHp, 10);
+      const ac = 10 + Math.floor(((abilityScores.dex || 10) - 10) / 2);
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`Level ${sheet.level} ${baseDesc}\n\n${rollText}`)
+        .setColor(0xF39C12) // amber
+        .addFields(
+          { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: true },
+          { name: '🛡️ AC', value: `${ac}`, inline: true }
+        )
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} sizes up the character` });
+    }
+
+    if (total <= 19) {
+      // High — add ability scores
+      const hpBar = this._createBar(currentHp, maxHp, 10);
+      const ac = 10 + Math.floor(((abilityScores.dex || 10) - 10) / 2);
+      const statLine = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+        .map(s => {
+          const score = abilityScores[s] || 10;
+          const mod = Math.floor((score - 10) / 2);
+          const sign = mod >= 0 ? '+' : '';
+          return `**${s.toUpperCase()}** ${score} (${sign}${mod})`;
+        })
+        .join(' | ');
+
+      return new EmbedBuilder()
+        .setTitle(baseTitle)
+        .setDescription(`Level ${sheet.level} ${baseDesc}\n\n${rollText}`)
+        .setColor(0x3B82F6) // blue
+        .addFields(
+          { name: '❤️ HP', value: `${hpBar} ${currentHp}/${maxHp}`, inline: true },
+          { name: '🛡️ AC', value: `${ac}`, inline: true },
+          { name: '📊 Ability Scores', value: statLine, inline: false }
+        )
+        .setThumbnail(targetAvatar.imageUrl || null)
+        .setFooter({ text: `${observerAvatar.name} studies the character closely` });
+    }
+
+    // 20+ — full sheet (same as owner view)
+    return this._buildFullSheetEmbed(targetAvatar, sheet, healthService);
+  }
+
+  /**
+   * Simple HP bar helper used by inspect embeds
+   * @private
+   */
+  _createBar(current, max, length = 10) {
+    const filled = Math.round((current / Math.max(1, max)) * length);
+    return '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, length - filled));
+  }
+
+  /**
+   * Parse a D&D button customId to determine tool and params
+   * @param {string} customId - Button custom ID
+   * @returns {{ toolName: string|null, params: string[] }}
+   */
+  _parseDndButtonId(customId) {
+    // Button ID mapping: customId -> { tool, params }
+    const buttonMappings = {
+      // Tutorial buttons
+      'dnd_tutorial_start': { tool: 'tutorial', params: ['start'] },
+      'dnd_tutorial_ready': { tool: 'tutorial', params: ['ready'] },
+      'dnd_tutorial_skip': { tool: 'tutorial', params: ['skip'] },
+      'dnd_tutorial_next': { tool: 'tutorial', params: ['next'] },
+      'dnd_tutorial_complete_step': { tool: 'tutorial', params: ['complete'] },
+      'dnd_tutorial_solo': { tool: 'tutorial', params: ['solo'] },
+      'dnd_tutorial_status': { tool: 'tutorial', params: ['status'] },
+      'dnd_tutorial_reset': { tool: 'tutorial', params: ['reset'] },
+      
+      // Character buttons
+      'dnd_character_menu': { tool: 'character', params: ['create'] },
+      'dnd_character_sheet': { tool: 'character', params: ['stats'] },
+      'dnd_character_rest': { tool: 'character', params: ['rest'] },
+      'dnd_character_short_rest': { tool: 'character', params: ['rest', 'short'] },
+      'dnd_character_long_rest': { tool: 'character', params: ['rest', 'long'] },
+      
+      // Party buttons
+      'dnd_party_menu': { tool: 'party', params: [] },
+      'dnd_party_create': { tool: 'party', params: ['create'] },
+      'dnd_party_invite': { tool: 'party', params: ['invite'] },
+      'dnd_party_kick': { tool: 'party', params: ['kick'] },
+      'dnd_party_rename': { tool: 'party', params: ['rename'] },
+      'dnd_party_roles': { tool: 'party', params: ['role'] },
+      'dnd_party_leave': { tool: 'party', params: ['leave'] },
+      
+      // Dungeon buttons
+      'dnd_dungeon_menu': { tool: 'dungeon', params: [] },
+      'dnd_dungeon_enter': { tool: 'dungeon', params: [] },
+      'dnd_dungeon_start': { tool: 'dungeon', params: ['start'] },
+      'dnd_dungeon_status': { tool: 'dungeon', params: ['status'] },
+      'dnd_dungeon_map': { tool: 'dungeon', params: ['map'] },
+      'dnd_dungeon_loot': { tool: 'dungeon', params: ['loot'] },
+      'dnd_dungeon_abandon': { tool: 'dungeon', params: ['abandon'] },
+      'dnd_dungeon_clear': { tool: 'dungeon', params: ['fight'] },
+      'dnd_dungeon_short_rest': { tool: 'dungeon', params: ['rest', 'short'] },
+      'dnd_dungeon_long_rest': { tool: 'dungeon', params: ['rest', 'long'] },
+      'dnd_combat_start': { tool: 'dungeon', params: ['fight'] },
+      'dnd_puzzle_hint': { tool: 'dungeon', params: ['puzzle', 'hint'] },
+      
+      // Combat buttons
+      'dnd_combat_attack': { tool: 'attack', params: [] },
+      'dnd_combat_defend': { tool: 'defend', params: [] },
+      'dnd_combat_flee': { tool: 'dungeon', params: ['flee'] },
+      'dnd_combat_cast': { tool: 'cast', params: [] },
+      'dnd_combat_auto': { tool: 'combat_auto', params: [] },
+      'dnd_item_use': { tool: 'item', params: ['use'] },
+      
+      // Cast/spell button
+      'dnd_cast_list': { tool: 'cast', params: [] },
+      
+      // Quest buttons
+      'dnd_quest_menu': { tool: 'quest', params: [] },
+      'dnd_quest_accept': { tool: 'quest', params: ['accept'] },
+      'dnd_quest_complete': { tool: 'quest', params: ['complete'] }
+    };
+
+    // Check static mappings first
+    if (buttonMappings[customId]) {
+      return { toolName: buttonMappings[customId].tool, params: buttonMappings[customId].params };
+    }
+
+    // Handle dynamic button IDs with prefixes
+    if (customId.startsWith('dnd_race_')) {
+      const race = customId.replace('dnd_race_', '');
+      return { toolName: 'character', params: ['race', race] };
+    }
+    
+    if (customId.startsWith('dnd_class_')) {
+      const parts = customId.replace('dnd_class_', '').split('_');
+      const race = parts[0];
+      const className = parts[1];
+      return { toolName: 'character', params: ['create', race, className] };
+    }
+    
+    if (customId.startsWith('dnd_dungeon_move_')) {
+      const roomId = customId.replace('dnd_dungeon_move_', '');
+      return { toolName: 'dungeon', params: ['move', roomId] };
+    }
+    
+    if (customId.startsWith('dnd_dungeon_enter_')) {
+      const dungeonId = customId.replace('dnd_dungeon_enter_', '');
+      return { toolName: 'dungeon', params: ['enter', dungeonId] };
+    }
+    
+    if (customId.startsWith('dnd_cast_')) {
+      const spellId = customId.replace('dnd_cast_', '');
+      return { toolName: 'cast', params: [spellId] };
+    }
+    
+    if (customId.startsWith('dnd_target_')) {
+      const targetId = customId.replace('dnd_target_', '');
+      // Decode URL-encoded target name (handles spaces and special chars)
+      try {
+        const decodedTarget = decodeURIComponent(targetId);
+        return { toolName: 'attack', params: [decodedTarget] };
+      } catch {
+        // Fallback: replace underscores with spaces for legacy buttons
+        return { toolName: 'attack', params: [targetId.replace(/_/g, ' ')] };
+      }
+    }
+
+    if (customId === 'dnd_dm_menu') {
+      return { toolName: 'dm', params: ['menu'] };
+    }
+
+    if (customId.startsWith('dnd_dm_tone_')) {
+      const preset = customId.replace('dnd_dm_tone_', '');
+      return { toolName: 'dm', params: ['tone', preset] };
+    }
+
+    if (customId === 'dnd_dm_roll_d20') {
+      return { toolName: 'dm', params: ['roll', 'd20'] };
+    }
+    
+    // Party dynamic buttons
+    if (customId.startsWith('dnd_party_add_')) {
+      const avatarId = customId.replace('dnd_party_add_', '');
+      return { toolName: 'party', params: ['add', avatarId] };
+    }
+    
+    if (customId.startsWith('dnd_party_remove_')) {
+      const avatarId = customId.replace('dnd_party_remove_', '');
+      return { toolName: 'party', params: ['remove', avatarId] };
+    }
+    
+    if (customId.startsWith('dnd_party_invite_')) {
+      const avatarId = customId.replace('dnd_party_invite_', '');
+      return { toolName: 'party', params: ['add', avatarId] };
+    }
+    
+    if (customId.startsWith('dnd_party_role_')) {
+      const role = customId.replace('dnd_party_role_', '');
+      return { toolName: 'party', params: ['role', role] };
+    }
+    
+    if (customId.startsWith('dnd_party_list_')) {
+      return { toolName: 'party', params: ['list'] };
+    }
+
+    if (customId.startsWith('dnd_loot_need_')) {
+      const rollId = customId.replace('dnd_loot_need_', '');
+      return { toolName: 'dungeon', params: ['loot', 'need', rollId] };
+    }
+
+    if (customId.startsWith('dnd_loot_greed_')) {
+      const rollId = customId.replace('dnd_loot_greed_', '');
+      return { toolName: 'dungeon', params: ['loot', 'greed', rollId] };
+    }
+
+    if (customId.startsWith('dnd_loot_pass_')) {
+      const rollId = customId.replace('dnd_loot_pass_', '');
+      return { toolName: 'dungeon', params: ['loot', 'pass', rollId] };
+    }
+
+    return { toolName: null, params: [] };
   }
 }

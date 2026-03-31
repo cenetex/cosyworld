@@ -5,6 +5,7 @@
 
 import fs from 'fs/promises';
 import Replicate from 'replicate';
+import crypto from 'crypto';
 import { SchemaValidator } from '../../utils/schemaValidator.mjs';
 
 export class SchemaService {
@@ -22,6 +23,7 @@ export class SchemaService {
     this.schemaValidator = new SchemaValidator();
     this._replicateClient = null;
     this._replicateToken = null;
+    this._imageCollection = null;
 
     this.rarityRanges = [
       { rarity: 'common', min: 1, max: 12 },
@@ -31,8 +33,104 @@ export class SchemaService {
     ];
   }
 
+  /**
+   * Get the generated_images collection with lazy initialization
+   * @returns {Promise<Collection>}
+   * @private
+   */
+  async _getImageCollection() {
+    if (!this._imageCollection) {
+      const db = await this.databaseService.getDatabase();
+      this._imageCollection = db.collection('generated_images');
+      // Ensure indexes exist
+      try {
+        await this._imageCollection.createIndex({ promptHash: 1 });
+        await this._imageCollection.createIndex({ purpose: 1 });
+        await this._imageCollection.createIndex({ category: 1 });
+        await this._imageCollection.createIndex({ createdAt: -1 });
+        await this._imageCollection.createIndex({ 'metadata.theme': 1, 'metadata.roomType': 1 });
+      } catch {
+        // Indexes may already exist
+      }
+    }
+    return this._imageCollection;
+  }
+
+  /**
+   * Generate a hash of a prompt for lookup
+   * @param {string} prompt - The prompt text
+   * @returns {string} - SHA256 hash
+   * @private
+   */
+  _hashPrompt(prompt) {
+    const normalized = (prompt || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s]/g, '');
+    return crypto.createHash('sha256').update(normalized).digest('hex');
+  }
+
+  /**
+   * Save a generated image to the database for future reuse
+   * @param {string} imageUrl - The S3 URL
+   * @param {string} prompt - The generation prompt
+   * @param {Object} [options] - Additional metadata
+   * @returns {Promise<Object>} - The saved document
+   */
+  async saveGeneratedImage(imageUrl, prompt, options = {}) {
+    const col = await this._getImageCollection();
+    const doc = {
+      imageUrl,
+      prompt,
+      promptHash: this._hashPrompt(prompt),
+      aspectRatio: options.aspectRatio || '1:1',
+      purpose: options.purpose || 'general',
+      category: options.category || 'general',
+      tags: options.tags || [],
+      metadata: options.metadata || {},
+      source: 'schemaService',
+      usageCount: 0,
+      createdAt: new Date(),
+      lastUsedAt: null
+    };
+    const result = await col.insertOne(doc);
+    return { ...doc, _id: result.insertedId };
+  }
+
+  /**
+   * Find an existing image by exact prompt match
+   * @param {string} prompt - The prompt to search for
+   * @returns {Promise<Object|null>} - Matching image or null
+   */
+  async findCachedImage(prompt) {
+    const col = await this._getImageCollection();
+    const promptHash = this._hashPrompt(prompt);
+    const image = await col.findOne({ promptHash });
+    if (image) {
+      // Update usage stats
+      await col.updateOne(
+        { _id: image._id },
+        { $inc: { usageCount: 1 }, $set: { lastUsedAt: new Date() } }
+      );
+    }
+    return image;
+  }
+
   async generateImage(prompt, aspectRatio = '1:1', uploadOptions = {}) {
     try {
+      // Check if caching is enabled and look for cached image
+      const useCache = uploadOptions.useCache !== false;
+      const cacheChance = uploadOptions.cacheChance ?? 0.0; // 0% chance to reuse by default (variety first)
+      
+      if (useCache && cacheChance > 0 && Math.random() < cacheChance) {
+        const cached = await this.findCachedImage(prompt);
+        if (cached?.imageUrl) {
+          console.log(`[SchemaService] Reusing cached image for prompt: ${prompt.slice(0, 50)}...`);
+          return cached.imageUrl;
+        }
+      }
+
       const replicateConfig = this.configService.getAIConfig('replicate') || {};
       const apiToken = replicateConfig.apiToken || process.env.REPLICATE_API_TOKEN;
       if (!apiToken) {
@@ -94,6 +192,22 @@ export class SchemaService {
       await fs.mkdir('./images', { recursive: true });
       await fs.writeFile(localFilename, imageBuffer);
       const s3url = await this.s3Service.uploadImage(localFilename, uploadOptions);
+      
+      // Save to database for future reference and potential reuse
+      try {
+        await this.saveGeneratedImage(s3url, prompt, {
+          aspectRatio,
+          purpose: uploadOptions.purpose || 'general',
+          category: uploadOptions.category || 'general',
+          tags: uploadOptions.tags || [],
+          metadata: uploadOptions.metadata || {}
+        });
+        console.log(`[SchemaService] Saved generated image to database: ${s3url.slice(-30)}`);
+      } catch (saveError) {
+        // Don't fail the generation if saving fails
+        console.error('[SchemaService] Failed to save image to database:', saveError.message);
+      }
+      
       return s3url;
     } catch (error) {
       console.error('Error generating image:', error);

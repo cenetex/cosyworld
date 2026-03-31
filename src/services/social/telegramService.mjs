@@ -77,10 +77,24 @@ class TelegramService {
       image: { hourly: 3, daily: 100 }
     };
     
-    // Performance optimization: caching layer
-    this._personaCache = { data: null, expiry: 0, ttl: 300000 }; // 5min TTL
-    this._buybotCache = new Map(); // channelId -> { data, expiry }
-    this.BUYBOT_CACHE_TTL = 60000; // 1min TTL
+    // Plan Execution
+    this.planExecutionService = new PlanExecutionService({
+      logger: this.logger,
+      executorRegistry: actionExecutorRegistry
+    });
+    
+    // Async video generation flag
+    const asyncVideoEnv = (process.env.TELEGRAM_ASYNC_VIDEO ?? 'true').toString().toLowerCase();
+    this.USE_ASYNC_VIDEO_GENERATION = asyncVideoEnv === 'true' || asyncVideoEnv === '1' || asyncVideoEnv === 'yes';
+
+    // Admin notification user ID (for sending detailed error logs)
+    this._adminUserId = process.env.TELEGRAM_ADMIN_USER_ID || null;
+
+    // Video progress tracking
+    this._setupVideoProgressListener();
+
+    this._videoGenerationLocks = new Map(); // channelId -> { traceId, expiresAt }
+    this.VIDEO_GENERATION_LOCK_MS = VIDEO_LOCK_TIMEOUT_MS;
   }
 
   /**
@@ -1914,10 +1928,212 @@ Create a warm, welcoming introduction message (max 200 chars) that:
       { $set: { ...patch, updatedAt: new Date() } },
       { upsert: true }
     );
+    return db.collection('telegram_post_config').findOne({ _id: 'global' });
+  }
+
+  async _buildPlanContext(channelId, limit = 3) {
+    return this.planManager.buildPlanContext(channelId, limit);
+  }
+
+  // Refactored helper for resolving media references (uses MediaManager directly)
+  async _collectReferenceImages(channelId, { explicitIds = [], fallbackId = null } = {}) {
+    const urls = [];
+    const recordIds = [];
+    const sources = [];
+    const seen = new Set();
+
+    const push = (url, src, id) => {
+      if (url && !seen.has(url) && urls.length < MAX_REFERENCE_IMAGES) {
+        seen.add(url); urls.push(url); sources.push(src); if (id) recordIds.push(id);
+      }
+    };
+
+    // Persona reference
+    const design = this.globalBotService?.bot?.globalBotConfig?.characterDesign;
+    if (design?.enabled && design.referenceImageUrl) {
+      push(design.referenceImageUrl, 'persona');
+    }
+
+    // Explicit IDs
+    for (const id of [...explicitIds, fallbackId].filter(Boolean)) {
+      const media = await this.mediaManager.getMediaById(channelId, id);
+      if (media?.mediaUrl && ['image', 'keyframe'].includes(media.type)) {
+        push(media.mediaUrl, 'history', media.id);
+      }
+    }
+
+    return { urls, recordIds, sources, personaReferenceUsed: !!design?.enabled };
+  }
+
+  // Legacy/Internal helpers
+  async registerBuybotCommands() {
+    if (this.globalBot) {
+      try {
+        await this.globalBot.telegram.setMyCommands([
+          { command: 'settings', description: '⚙️ Manage buybot settings' },
+          { command: 'help', description: '❓ Show help' }
+        ]);
+      } catch (cmdErr) {
+        this.logger?.debug?.('[TelegramService] Buybot command registration failed:', cmdErr.message);
+      }
+    }
+  }
+
+  async executeTokenStatsLookup(ctx, tokenSymbol, channelId) {
+    if (!this.buybotService) {
+      await ctx.reply('📊 Token tracking not available.');
+      return;
+    }
+    try {
+      const db = await this.databaseService.getDatabase();
+      const token = await db.collection('buybot_tracked_tokens').findOne({
+        channelId, active: true, tokenSymbol: { $regex: new RegExp(`^${tokenSymbol}$`, 'i') }
+      });
+      
+      if (!token) {
+        await ctx.reply(`📊 ${tokenSymbol} is not tracked here.`);
+        return;
+      }
+      
+      const priceData = await this.buybotService.getTokenPrice(token.tokenAddress);
+      await ctx.reply(formatTelegramMarkdown(
+        `📊 *${token.tokenSymbol}*\n💰 Price: $${priceData?.price || '?'}\n🔗 \`${token.tokenAddress}\``
+      ), { parse_mode: 'HTML' });
+    } catch (err) {
+      this.logger?.error?.('[TelegramService] Token stats lookup failed:', err);
+      await ctx.reply('❌ Failed to fetch stats.');
+    }
+  }
+
+  /**
+   * Send an admin notification message (for detailed error logs).
+   * Only sends if TELEGRAM_ADMIN_USER_ID is configured.
+   * @param {string} message - The message to send
+   * @returns {Promise<boolean>} - Whether the message was sent
+   */
+  async _sendAdminNotification(message) {
+    if (!this._adminUserId || !this.globalBot) {
+      return false;
+    }
+    try {
+      await this.globalBot.telegram.sendMessage(this._adminUserId, message, { parse_mode: 'HTML' });
+      return true;
+    } catch (err) {
+      this.logger?.debug?.('[TelegramService] Failed to send admin notification:', err.message);
+      return false;
+    }
+  }
+
+  async executeTweetPost(ctx, { text, mediaId, channelId, userId, username }) {
+    if (!this.xService) {
+      // Don't post error to channel - return context for bot
+      return { success: false, error: 'X service unavailable', botContext: 'X/Twitter service is not configured. Cannot post tweets at this time.' };
+    }
     
-    // Invalidate cache
-    this._globalPostCfg = null;
-    return this._loadGlobalPostingConfig(true);
+    // Resolve content filters
+    const effectiveContentFilters = await this._resolveContentFilters();
+
+    if (effectiveContentFilters.enabled) {
+      this.logger?.debug?.('[TelegramService] Effective content filters for X:', { 
+        allowedCashtags: effectiveContentFilters.allowedCashtags, 
+        text: text?.slice(0, 50) 
+      });
+
+      const contentFilter = filterContent(text || '', {
+        logger: this.logger,
+        blockCryptoAddresses: effectiveContentFilters.blockCryptoAddresses !== false,
+        blockCashtags: effectiveContentFilters.blockCashtags !== false,
+        allowedCashtags: effectiveContentFilters.allowedCashtags,
+        allowedAddresses: effectiveContentFilters.allowedAddresses
+      });
+      
+      if (contentFilter.blocked) {
+        this.logger?.info?.(`[TelegramService] Blocked tweet (${contentFilter.type}) from ${userId}: ${contentFilter.reason}`);
+        // Send detailed error to admin, not to channel
+        await this._sendAdminNotification(`🚫 <b>Tweet Blocked</b>\nReason: ${contentFilter.reason}\nUser: ${userId}\nText: ${text?.slice(0, 100)}`);
+        return { success: false, error: `Content blocked: ${contentFilter.reason}`, botContext: `Your tweet was blocked by content filters: ${contentFilter.reason}. Please rephrase without the blocked content.` };
+      }
+    }
+
+    const tweetLimits = await this.checkMediaGenerationLimit(null, 'tweet');
+    if (!tweetLimits.allowed) {
+      // Provide context to bot about cooldown - don't announce in channel
+      return { success: false, error: 'Rate limited', botContext: 'X/Twitter posting is on cooldown. The platform has rate limits. Wait a few minutes before trying again.' };
+    }
+    
+    const media = await this.mediaManager.findRecentMediaById(channelId, mediaId);
+    if (!media || !media.mediaUrl) {
+      return { success: false, error: 'Media not found or expired', botContext: 'The media I was trying to post has expired or was not found. I\'ll need to generate new content first.' };
+    }
+    
+    if (media.tweetedAt) {
+      return { success: false, error: 'Already tweeted', alreadyTweeted: true, botContext: 'This image/video has already been posted to X. I should generate something new if you want another post.' };
+    }
+    
+    const result = await this.xService.postGlobalMediaUpdate({
+      mediaUrl: media.mediaUrl,
+      text: text.slice(0, 270),
+      type: media.type === 'video' ? 'video' : 'image',
+      source: 'telegram.tweet_tool',
+      metadata: { telegramChannelId: channelId, telegramMediaId: media.id, requestedBy: userId },
+      contentFilters: effectiveContentFilters
+    }, { aiService: this.aiService });
+    
+    if (result?.tweetId) {
+      await this._markMediaAsTweeted(channelId, media.id, { tweetId: result.tweetId });
+      const linkText = (result.tweetUrl || '').trim();
+      let sentMessage;
+      if (linkText) {
+        try {
+          sentMessage = await ctx.reply(linkText, { disable_web_page_preview: false });
+        } catch {
+          sentMessage = await ctx.reply('🕊️ Posted to X (link unavailable).');
+        }
+      } else {
+        sentMessage = await ctx.reply('🕊️ Posted to X.');
+      }
+
+      // Add to conversation history
+      await this.conversationManager.addMessage(channelId, {
+        from: 'Bot', 
+        text: linkText || '🕊️ Posted to X.', 
+        date: Math.floor(Date.now() / 1000), 
+        isBot: true, 
+        messageId: sentMessage?.message_id
+      }, true);
+
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastBotResponseTime = Date.now();
+      this.pendingReplies.set(channelId, pending);
+      if (userId) await this._recordMediaUsage(userId, username, 'tweet');
+      return { success: true, tweetId: result.tweetId, tweetUrl: result.tweetUrl };
+    } else {
+      // Extract the actual error message - result.error may be boolean true, real message is in result.reason
+      const errorMessage = (typeof result?.reason === 'string' && result.reason) 
+        ? result.reason 
+        : (typeof result?.error === 'string' ? result.error : 'unknown error');
+      this.logger?.warn?.('[TelegramService] Tweet post failed:', { channelId, mediaId, reason: errorMessage, result });
+      
+      // Store the error in pending context so AI can see it without broadcasting
+      const pending = this.pendingReplies.get(channelId) || {};
+      pending.lastXError = { message: errorMessage, timestamp: Date.now(), mediaId };
+      this.pendingReplies.set(channelId, pending);
+      
+      // Send detailed error to admin only - not to the channel
+      await this._sendAdminNotification(`❌ <b>Tweet Failed</b>\nChannel: ${channelId}\nMedia: ${mediaId}\nError: ${errorMessage}\nUser: ${userId}`);
+      
+      // Determine user-friendly context for the bot based on error type
+      let botContext = 'Tweet posting failed due to a technical issue. I\'ll try again later.';
+      if (errorMessage.includes('401') || errorMessage.includes('auth')) {
+        botContext = 'X/Twitter authentication has expired. The admin needs to reconnect the account.';
+      } else if (errorMessage.includes('402') || errorMessage.includes('payment')) {
+        botContext = 'X/Twitter API access requires a paid subscription. The admin needs to upgrade the API tier.';
+      } else if (errorMessage.includes('429') || errorMessage.includes('rate')) {
+        botContext = 'X/Twitter rate limit reached. I need to wait before posting again.';
+      }
+      
+      return { success: false, error: errorMessage, botContext };
+    }
   }
 
   /**

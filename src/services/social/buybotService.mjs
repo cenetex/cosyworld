@@ -48,7 +48,8 @@ const DEFAULT_TOKEN_PREFERENCES = {
   },
   notifications: {
     onlySwapEvents: false,
-    transferAggregationUsdThreshold: 0
+    transferAggregationUsdThreshold: 0,
+    compactMode: false // When true, sends 1-line notifications with "View Details" button
   },
   walletAvatar: {
     createFullAvatar: false,
@@ -686,6 +687,103 @@ export class BuybotService {
     } catch (error) {
       this.logger.error('[BuybotService] Failed to get tracked tokens:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get channels that track a specific token address
+   * Used to validate wallet avatars are only hydrated in the correct channel
+   * @param {string} tokenAddress - Token mint address to search for
+   * @param {string} [platform] - Optional platform filter ('discord', 'telegram')
+   * @returns {Promise<Array<{channelId: string, tokenSymbol: string, tokenName: string}>>}
+   */
+  async getChannelsTrackingToken(tokenAddress, platform = null) {
+    try {
+      if (!tokenAddress) return [];
+      
+      const normalizedAddress = tokenAddress.toLowerCase();
+      const query = { 
+        tokenAddress: { $regex: new RegExp(`^${normalizedAddress}$`, 'i') },
+        active: true 
+      };
+      
+      if (platform) {
+        query.platform = platform;
+      }
+      
+      const results = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .find(query)
+        .project({ channelId: 1, tokenSymbol: 1, tokenName: 1, platform: 1 })
+        .toArray();
+      
+      return results;
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get channels tracking token:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a specific channel tracks a given token address
+   * @param {string} channelId - Channel ID to check
+   * @param {string} tokenAddress - Token mint address to search for
+   * @returns {Promise<boolean>}
+   */
+  async isTokenTrackedInChannel(channelId, tokenAddress) {
+    try {
+      if (!channelId || !tokenAddress) return false;
+      
+      const normalizedAddress = tokenAddress.toLowerCase();
+      const result = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .findOne({ 
+          channelId,
+          tokenAddress: { $regex: new RegExp(`^${normalizedAddress}$`, 'i') },
+          active: true 
+        });
+      
+      return Boolean(result);
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to check if token is tracked in channel:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all unique tracked tokens across all channels
+   * Returns unique addresses and symbols for content filter allowlists
+   * @returns {Promise<{addresses: string[], symbols: string[]}>}
+   */
+  async getAllTrackedTokensForAllowlist() {
+    try {
+      const tokens = await this.db
+        .collection(this.TRACKED_TOKENS_COLLECTION)
+        .find({ active: true })
+        .toArray();
+      
+      const addresses = new Set();
+      const symbols = new Set();
+      
+      for (const token of tokens) {
+        if (token.tokenAddress) {
+          addresses.add(token.tokenAddress.toLowerCase());
+        }
+        if (token.tokenSymbol) {
+          // Add both with and without $ prefix
+          const symbol = token.tokenSymbol.toUpperCase();
+          symbols.add(symbol);
+          symbols.add(`$${symbol}`);
+        }
+      }
+      
+      return {
+        addresses: [...addresses],
+        symbols: [...symbols]
+      };
+    } catch (error) {
+      this.logger.error('[BuybotService] Failed to get all tracked tokens for allowlist:', error);
+      return { addresses: [], symbols: [] };
     }
   }
 
@@ -2307,7 +2405,110 @@ export class BuybotService {
         customDescription = `${senderDisplay} transferred ${formattedAmount} ${token.tokenSymbol} to ${recipientDisplay}`;
       }
 
-      // Now create the embed with custom description
+      // Check for compact mode - send 1-line message instead of full embed
+      const compactMode = Boolean(tokenPreferences?.notifications?.compactMode);
+      
+      if (compactMode) {
+        // Build compact 1-line message
+        const usdDisplay = usdValue ? ` ($${usdValue.toFixed(2)})` : '';
+        let compactMessage;
+        
+        if (effectiveType === 'swap') {
+          const buyerDisplay = buyerAvatar && buyerAvatar.name && buyerEmoji
+            ? `${buyerEmoji} **${buyerAvatar.name}**`
+            : `\`${formatAddress(event.to)}\``;
+          compactMessage = `${emoji} ${buyerDisplay} bought **${formattedAmount} ${token.tokenSymbol}**${usdDisplay}`;
+        } else {
+          const senderDisplay = senderAvatar && senderAvatar.name && senderEmoji
+            ? `${senderEmoji} **${senderAvatar.name}**`
+            : `\`${formatAddress(event.from)}\``;
+          const recipientDisplay = recipientAvatar && recipientAvatar.name && recipientEmoji
+            ? `${recipientEmoji} **${recipientAvatar.name}**`
+            : `\`${formatAddress(event.to)}\``;
+          compactMessage = `${emoji} ${senderDisplay} → ${recipientDisplay}: **${formattedAmount} ${token.tokenSymbol}**${usdDisplay}`;
+        }
+
+        // Build compact components with View Details button
+        const baseUrl = process.env.BASE_URL || process.env.PUBLIC_URL || 'http://localhost:3000';
+        const detailsUrl = event.signature 
+          ? `${baseUrl}/api/buybot/events/${event.signature}`
+          : event.txUrl;
+        
+        const compactComponents = [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 5,
+                label: 'Details',
+                url: detailsUrl,
+              },
+              {
+                type: 2,
+                style: 5,
+                label: 'Tx',
+                url: event.txUrl,
+              }
+            ],
+          },
+        ];
+
+        // Send compact message
+        try {
+          const channel = await this.discordService.client.channels.fetch(channelId);
+          if (!channel) {
+            throw new Error(`Channel ${channelId} not found`);
+          }
+          if (!channel.isTextBased()) {
+            throw new Error(`Channel ${channelId} is not a text channel`);
+          }
+          
+          const sentMessage = await channel.send({ content: compactMessage, components: compactComponents });
+          this.logger.info(`[BuybotService] Sent compact Discord notification for ${token.tokenSymbol} ${event.type} to channel ${channelId} (message ID: ${sentMessage.id})`);
+          
+          // Track volume for activity summaries
+          if (usdValue) {
+            await this.trackVolumeAndCheckSummary(channelId, event, token, usdValue);
+          }
+        } catch (sendError) {
+          const isMissingPermissions =
+            sendError?.code === 50013 ||
+            sendError?.status === 403 ||
+            (typeof sendError?.message === 'string' && /missing permissions/i.test(sendError.message));
+
+          if (isMissingPermissions) {
+            this.logger.warn(`[BuybotService] Missing permissions to post compact trade message in channel ${channelId}; skipping notification.`, {
+              channelId,
+              tokenSymbol: token.tokenSymbol,
+              eventType: event.type
+            });
+          } else {
+            this.logger.error(`[BuybotService] Failed to send compact Discord message to channel ${channelId}:`, {
+              error: sendError.message,
+              code: sendError.code,
+              channelId,
+              tokenSymbol: token.tokenSymbol,
+              eventType: event.type
+            });
+            throw sendError;
+          }
+        }
+        
+        // Trigger avatar responses for compact mode too
+        const eventForResponses = { ...event, type: effectiveType, description: customDescription };
+        await this.triggerAvatarTradeResponses(channelId, eventForResponses, token, {
+          buyerAvatar,
+          senderAvatar,
+          recipientAvatar
+        }, {
+          requireClaimedOnly: requireClaimedAvatar
+        });
+        
+        return; // Exit early for compact mode
+      }
+
+      // Now create the embed with custom description (full mode)
       const embed = {
         title: `${emoji} ${token.tokenSymbol} ${effectiveType === 'swap' ? 'Purchase' : 'Transfer'}`,
         description: customDescription,

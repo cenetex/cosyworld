@@ -4,6 +4,22 @@ import { ObjectId } from 'mongodb';
  * Licensed under the MIT License.
  */
 
+/**
+ * Safely convert a value to ObjectId if it's a valid 24-character hex string.
+ * Returns the original value for synthetic IDs (monsters, etc.)
+ * @param {string|ObjectId} id - The ID to potentially convert
+ * @returns {ObjectId|string} - ObjectId if valid, original string otherwise
+ */
+function toSafeObjectId(id) {
+  if (!id) return id;
+  if (id instanceof ObjectId) return id;
+  if (typeof id === 'string' && /^[a-f\d]{24}$/i.test(id)) {
+    return new ObjectId(id);
+  }
+  // Return as-is for synthetic IDs (monster_*, unknown_*, etc.)
+  return id;
+}
+
 export class StatService {
   constructor({ databaseService, configService, logger }) {
     this.databaseService = databaseService;
@@ -137,11 +153,17 @@ export class StatService {
     if (!stats) return false;
 
     const requiredStats = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'hp'];
-    return requiredStats.every(stat => 
-      typeof stats[stat] === 'number' && 
-      stats[stat] >= 8 && 
-      stats[stat] <= 16
-    );
+    const abilityMin = 1;
+    const abilityMax = 30;
+    const hpMin = 1;
+    const hpMax = 10000;
+
+    return requiredStats.every(stat => {
+      const value = stats[stat];
+      if (typeof value !== 'number' || Number.isNaN(value)) return false;
+      if (stat === 'hp') return value >= hpMin && value <= hpMax;
+      return value >= abilityMin && value <= abilityMax;
+    });
   }
 
   validateStats = StatService.validateStats;
@@ -159,7 +181,7 @@ export class StatService {
     const now = new Date();
     const expiresAt = duration ? new Date(now.getTime() + duration) : null;
     const modifier = {
-      avatarId: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId,
+      avatarId: toSafeObjectId(avatarId),
       stat,
       value: Math.round(value), // Ensure whole number
       createdAt: now,
@@ -179,11 +201,12 @@ export class StatService {
   async getEffectiveStat(avatarId, stat) {
     if (!this.databaseService) throw new Error('StatService missing databaseService');
     const db = await this.databaseService.getDatabase();
-    const baseStats = await db.collection('dungeon_stats').findOne({ avatarId: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId });
+    const safeId = toSafeObjectId(avatarId);
+    const baseStats = await db.collection('dungeon_stats').findOne({ avatarId: safeId });
     const base = baseStats?.[stat] ?? 0;
     const now = new Date();
     const modifiers = await db.collection('dungeon_modifiers').find({
-      avatarId: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId,
+      avatarId: safeId,
       stat,
       $or: [
         { expiresAt: null },
@@ -204,9 +227,10 @@ export class StatService {
   async getTotalModifier(avatarId, stat) {
     if (!this.databaseService) throw new Error('StatService missing databaseService');
     const db = await this.databaseService.getDatabase();
+    const safeId = toSafeObjectId(avatarId);
     const now = new Date();
     const modifiers = await db.collection('dungeon_modifiers').find({
-      avatarId: typeof avatarId === 'string' ? new ObjectId(avatarId) : avatarId,
+      avatarId: safeId,
       stat,
       $or: [
         { expiresAt: null },

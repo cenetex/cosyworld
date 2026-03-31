@@ -1,4 +1,8 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
+import { isModelRosterAvatar } from '../avatar/helpers/isModelRosterAvatar.mjs';
+import { isCollectionAvatar, isOnChainAvatar } from '../avatar/helpers/walletAvatarClassifiers.mjs';
+import { extractMessageLinks, fetchMessageContext, buildContextSummary } from '../discord/messageLinksHelper.mjs';
+import { getAvatarModeFlags, isPureModelOnlyAvatarModes } from '../avatar/helpers/avatarModeFlags.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -22,6 +26,7 @@ export class MessageHandler  {
     toolService,
     discordService,
     databaseService,
+    discordChannelActivityService,
     configService,
     spamControlService,
     schedulingService,
@@ -39,6 +44,7 @@ export class MessageHandler  {
     this.toolService = toolService;
     this.discordService = discordService;
     this.databaseService = databaseService;
+    this.discordChannelActivityService = discordChannelActivityService;
     this.configService = configService;
     this.spamControlService = spamControlService;
     this.schedulingService = schedulingService;
@@ -70,6 +76,31 @@ export class MessageHandler  {
      * Dynamic AI-generated regex pattern (string or null).
      */
     this.dynamicModerationRegex = null;
+  }
+
+  _isPureModelOnlyGuild(guildConfig) {
+    return isPureModelOnlyAvatarModes(guildConfig?.avatarModes);
+  }
+
+  _filterAvatarsByGuildModes(avatars = [], guildConfig = null) {
+    if (!Array.isArray(avatars) || avatars.length === 0) {
+      return [];
+    }
+
+    const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildConfig?.avatarModes);
+
+    // If all modes enabled, no filtering needed
+    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
+      return avatars;
+    }
+
+    return avatars.filter(avatar => {
+      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
+      if (allowCollection && isCollectionAvatar(avatar)) return true;
+      if (allowOnChain && isOnChainAvatar(avatar)) return true;
+      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
+      return false;
+    });
   }
 
   async start() {
@@ -148,6 +179,24 @@ export class MessageHandler  {
   // Persist the message to the database (now enriched with image fields)
   await this.databaseService.saveMessage(message);
 
+    // Record human activity for channel inactivity gating.
+    // NOTE: Proxied human messages (sent via webhook/avatar) should count as human activity.
+    try {
+      const isProxied = !!(message?.rati?.isProxied || message?.rati?.proxyUserId || message?.isProxied || message?.proxyUserId);
+      const isHuman = !message.author.bot && !message.webhookId;
+      if ((isHuman || isProxied) && this.discordChannelActivityService?.recordHumanActivity) {
+        await this.discordChannelActivityService.recordHumanActivity({
+          guildId: message.guild.id,
+          channelId: message.channel.id,
+          userId: isHuman ? message.author.id : (message?.rati?.proxyUserId || message?.proxyUserId || null),
+          messageId: message.id,
+          at: message.createdAt || new Date(),
+        });
+      }
+    } catch (e) {
+      this.logger?.debug?.(`[MessageHandler] recordHumanActivity failed: ${e?.message || e}`);
+    }
+
     // Apply spam control
     if (!(await this.spamControlService.shouldProcessMessage(message))) {
       this.logger.debug("Message skipped by spam control.");
@@ -190,6 +239,50 @@ export class MessageHandler  {
     if (message.author.bot) {
       this.logger.debug("Message is from the bot itself, skipping.");
       return;
+    }
+
+    // === HUMAN MESSAGE PROXY FEATURE ===
+    // If enabled for this guild, human messages are deleted and resent through their avatar
+    // This makes humans "speak through" their avatars rather than directly
+    try {
+      const guildConfig = await this.configService.getGuildConfig(message.guild.id);
+      const avatarProxyEnabled = guildConfig?.features?.avatarProxy === true;
+      
+      this.logger.info(`[MessageHandler] Avatar proxy check - guild: ${message.guild.id}, enabled: ${avatarProxyEnabled}`);
+      
+      if (avatarProxyEnabled) {
+        const proxyResult = await this._proxyHumanMessageThroughAvatar(message);
+        this.logger.info(`[MessageHandler] Proxy result: ${JSON.stringify({ handled: proxyResult?.handled, hasMessage: !!proxyResult?.sentMessage })}`);
+        if (proxyResult?.handled) {
+          // Message was proxied through avatar - original deleted
+          this.logger.debug(`[MessageHandler] Message proxied through avatar for user ${message.author.id}`);
+          
+          // CRITICAL: Trigger AI avatar responses for the proxied message
+          // The proxied message should activate other AI avatars just like a human message would
+          if (proxyResult.sentMessage && proxyResult.channelId) {
+            try {
+              // Mark the proxied message with metadata for downstream systems
+              const proxiedMessage = proxyResult.sentMessage;
+              proxiedMessage.rati = proxiedMessage.rati || {};
+              proxiedMessage.rati.proxyUserId = proxyResult.originalAuthorId;
+              proxiedMessage.rati.isProxied = true;
+              
+              // Trigger the turn scheduler as if a human sent the message
+              // This ensures AI avatars get activated
+              if (this.turnScheduler) {
+                this.logger.info(`[MessageHandler] Triggering AI responses for proxied message in channel ${proxyResult.channelId}`);
+                await this.turnScheduler.onHumanMessage(proxyResult.channelId, proxiedMessage);
+              }
+            } catch (triggerError) {
+              this.logger.warn?.(`[MessageHandler] Failed to trigger AI responses for proxied message: ${triggerError.message}`);
+            }
+          }
+          
+          return;
+        }
+      }
+    } catch (e) {
+      this.logger.warn?.(`[MessageHandler] Avatar proxy check failed: ${e.message}`);
     }
 
     // Check for buybot commands first (!ca, !ca-remove, !ca-list)
@@ -309,10 +402,10 @@ export class MessageHandler  {
       } catch {}
 
       // Analyze each image URL if analyzer available, otherwise provide a generic caption
-      if (this.toolService.aiService?.analyzeImage && imageUrls.length) {
+      if (this.toolService?.toolServices?.aiService?.analyzeImage && imageUrls.length) {
         for (const url of imageUrls) {
           try {
-            const caption = await this.toolService.aiService.analyzeImage(
+            const caption = await this.toolService.toolServices.aiService.analyzeImage(
               url,
               undefined,
               'Write a concise, neutral caption (<=120 chars) that describes this image for context.'
@@ -378,6 +471,12 @@ export class MessageHandler  {
 
       if (originalMessage?.avatarId) {
         this.logger.info(`[ReplyTracking] ✅ Found original message in DB with avatarId: ${originalMessage.avatarId}`);
+        
+        // Skip DB lookup for synthetic monster IDs — they don't exist in the avatars collection
+        if (String(originalMessage.avatarId).startsWith('monster_')) {
+          this.logger.debug(`[ReplyTracking] Skipping lookup for synthetic monster avatar: ${originalMessage.avatarId}`);
+          return; // Monster narratives don't need reply tracking
+        }
         
         // Get the avatar directly by ID
         const ObjectId = (await import('mongodb')).ObjectId;
@@ -625,6 +724,206 @@ export class MessageHandler  {
     } catch (error) {
       this.logger.error(`Error processing channel ${channelId}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Proxy a human user's message through their avatar.
+   * Deletes the original message, reinterprets it via LLM, and sends through avatar.
+   * 
+   * @param {Object} message - The Discord message object
+   * @returns {Promise<{ handled: boolean, error?: string }>}
+   */
+  async _proxyHumanMessageThroughAvatar(message) {
+    try {
+      // Skip empty messages, commands, or certain prefixes
+      const content = message.content?.trim();
+      if (!content) {
+        this.logger.info(`[MessageHandler] Proxy skipped: empty content`);
+        return { handled: false };
+      }
+
+      // Skip commands (messages starting with common command prefixes)
+      if (content.match(/^[!/🔮⚔️🏰🎲]/)) {
+        this.logger.info(`[MessageHandler] Proxy skipped: command prefix detected`);
+        return { handled: false };
+      }
+
+      // Get the user's avatar (don't filter by guildId - avatar works across servers)
+      const userId = message.author.id;
+      const avatar = await this.avatarService.getAvatarByUserId(userId);
+      
+      this.logger.info(`[MessageHandler] Proxy: user ${userId}, avatar: ${avatar?.name || 'none'}`);
+      
+      if (!avatar) {
+        // User doesn't have an avatar - let them speak normally
+        this.logger.info(`[MessageHandler] Proxy skipped: no avatar for user`);
+        return { handled: false };
+      }
+
+      // Check if avatar is alive
+      if (avatar.status === 'dead') {
+        this.logger.info(`[MessageHandler] Proxy skipped: avatar is dead`);
+        return { handled: false };
+      }
+
+      // Try to delete the original message (optional - continues even if can't delete)
+      let _messageDeleted = false;
+      try {
+        await message.delete();
+        _messageDeleted = true;
+        this.logger.debug(`[MessageHandler] Deleted human message ${message.id} for proxy`);
+      } catch (deleteError) {
+        // Can't delete (maybe missing permissions) - continue anyway, just log it
+        this.logger.warn?.(`[MessageHandler] Could not delete message for proxy (missing permissions): ${deleteError.message}`);
+      }
+
+      // Show typing indicator while generating the reinterpreted message
+      try {
+        await message.channel.sendTyping();
+      } catch (typingError) {
+        this.logger.debug?.(`[MessageHandler] Could not send typing indicator: ${typingError.message}`);
+      }
+
+      // Reinterpret the message through the avatar's personality using AI
+      const reinterpretedContent = await this._reinterpretAsAvatar(content, avatar, message);
+      
+      if (!reinterpretedContent) {
+        this.logger.warn?.(`[MessageHandler] Failed to reinterpret message for avatar ${avatar.name}`);
+        return { handled: false };
+      }
+
+      // Send the reinterpreted message as the avatar via webhook
+      // Include proxy metadata so downstream systems know this is human-initiated
+      if (this.discordService?.sendAsWebhook) {
+        const sentMessage = await this.discordService.sendAsWebhook(
+          message.channel.id, 
+          reinterpretedContent, 
+          avatar,
+          { 
+            proxyUserId: message.author.id,
+            isProxied: true 
+          }
+        );
+        this.logger.info(`[MessageHandler] Proxied message through avatar ${avatar.name}`);
+        
+        // Return the sent message so the caller can trigger AI responses
+        return { 
+          handled: true, 
+          sentMessage,
+          avatar,
+          originalAuthorId: message.author.id,
+          channelId: message.channel.id
+        };
+      }
+
+      return { handled: false };
+    } catch (error) {
+      this.logger.error(`[MessageHandler] Avatar proxy error: ${error.message}`);
+      return { handled: false, error: error.message };
+    }
+  }
+
+  /**
+   * Reinterpret a human's message through an avatar's personality using AI.
+   * 
+   * @param {string} humanMessage - The original message content
+   * @param {Object} avatar - The avatar to speak as
+   * @param {Object} _message - The Discord message for context (reserved for future use)
+   * @returns {Promise<string|null>} The reinterpreted message or null
+   */
+  async _reinterpretAsAvatar(humanMessage, avatar, _message) {
+    try {
+      // Get AI service - it's in toolServices, not directly on toolService
+      const aiService = this.toolService?.toolServices?.aiService;
+      this.logger.info(`[MessageHandler] Reinterpret: aiService=${!!aiService}, hasChat=${!!aiService?.chat}`);
+      
+      if (!aiService?.chat) {
+        // Fallback: just return the original message if no AI
+        this.logger.warn(`[MessageHandler] No AI service for reinterpret, returning original`);
+        return humanMessage;
+      }
+
+      // Build the avatar's persona
+      const persona = avatar.prompt || avatar.personality || avatar.description || 'a mysterious adventurer';
+      const name = avatar.name || 'Unknown';
+      const emoji = avatar.emoji || '';
+
+      const systemPrompt = `You are a voice translator. A player controls a character named ${emoji}${name}.
+Character description: ${persona}
+
+The player typed a message. Your ONLY job is to rephrase what the PLAYER said, as if the CHARACTER were saying it.
+DO NOT respond to the message. DO NOT answer questions. DO NOT have a conversation.
+Simply translate the player's words into the character's voice and mannerisms.
+
+Example:
+- Player types: "Hello everyone, what's going on?"
+- You output: "Greetings, travelers. What transpires here?" (rephrased in character voice)
+
+Keep it brief and similar in length to the original. Output ONLY the rephrased message.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Rephrase this in ${name}'s voice (DO NOT respond to it, just rephrase it):\n\n"${humanMessage}"` }
+      ];
+
+      // Use avatar's model, but fallback to FAST_MODEL if degraded
+      const fastModel = process.env.FAST_MODEL || 'meta-llama/llama-4-maverick';
+      const avatarModel = avatar.model || fastModel;
+      const modelCatalog = this.toolService?.toolServices?.openrouterModelCatalogService;
+      
+      // Check if avatar's model is degraded
+      const isDegraded = modelCatalog?.isModelDegraded?.(avatarModel);
+      const selectedModel = isDegraded ? fastModel : avatarModel;
+      
+      if (isDegraded) {
+        this.logger.info(`[MessageHandler] Avatar model ${avatarModel} is degraded, using fallback ${fastModel}`);
+      }
+      
+      this.logger.info(`[MessageHandler] Calling AI to reinterpret: "${humanMessage.substring(0, 50)}..." using ${selectedModel}`);
+
+      const response = await aiService.chat(messages, {
+        model: selectedModel,
+        temperature: 0.7,
+        maxTokens: 500
+      });
+
+      // Response can be a string directly, or { text: ... } object
+      let result = typeof response === 'string' 
+        ? response.trim() 
+        : (response?.text?.trim() || response?.content?.trim());
+      
+      // Strip surrounding quotes (AI often wraps responses in quotes)
+      if (result && /^["'"'`]/.test(result) && /["'"'`]$/.test(result)) {
+        result = result.slice(1, -1).trim();
+      }
+      
+      this.logger.info(`[MessageHandler] Reinterpret result: "${result?.substring(0, 50)}..."`);
+      
+      // Check if response is empty or bad - mark model as degraded
+      if (!result || result.length < 2) {
+        this.logger.warn(`[MessageHandler] Model ${selectedModel} returned empty/bad response, marking as degraded`);
+        modelCatalog?.markModelAsDegraded?.(selectedModel, 'empty response in proxy');
+        // Return original message as fallback
+        return humanMessage;
+      }
+      
+      // Model worked - clear any degraded status
+      if (selectedModel === avatarModel) {
+        modelCatalog?.clearDegradedStatus?.(avatarModel);
+      }
+      
+      return result;
+    } catch (error) {
+      this.logger.error?.(`[MessageHandler] Reinterpret failed: ${error.message}`);
+      // Mark model as degraded on error
+      const modelCatalog = this.toolService?.toolServices?.openrouterModelCatalogService;
+      const avatarModel = avatar.model;
+      if (avatarModel) {
+        modelCatalog?.markModelAsDegraded?.(avatarModel, `error: ${error.message}`);
+      }
+      // Fallback: return original message
+      return humanMessage;
     }
   }
 }

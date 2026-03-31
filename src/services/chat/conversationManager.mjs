@@ -13,6 +13,7 @@ export class ConversationManager  {
     logger,
     databaseService,
     aiService,
+    aiRouterService,
   unifiedAIService,
     discordService,
     avatarService,
@@ -31,6 +32,7 @@ export class ConversationManager  {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.aiService = aiService;
+    this.aiRouterService = aiRouterService || null;
   this.unifiedAIService = unifiedAIService; // optional adapter
     this.discordService = discordService;
     this.avatarService = avatarService;
@@ -100,14 +102,67 @@ export class ConversationManager  {
   /** Ensure the avatar has a model assigned; persist if we pick one */
   async ensureAvatarModel(avatar) {
     try {
-      if (!avatar?.model) {
-        const picked = await this.aiService.selectRandomModel();
+      if (!avatar) return null;
+
+      const providerRaw = this.aiRouterService?.getProviderForAvatar?.(avatar) || avatar?.provider || null;
+      const provider = providerRaw ? String(providerRaw).trim().toLowerCase() : null;
+      const isSwarm = provider === 'swarm';
+      const isOpenRouter = !provider || provider === 'openrouter' || provider === 'open-router';
+
+      const SWARM_FALLBACK_MODEL = process.env.SWARM_MODEL || 'avatar:rati';
+
+      // Use FAST_MODEL for repairs (cost-effective fallback)
+      const FAST_MODEL = process.env.FAST_MODEL || 'meta-llama/llama-4-maverick';
+
+      const pickRandomExisting = async () => {
+        let picked = await this.aiService?.selectRandomModel?.();
+        try {
+          if (picked && this.openrouterModelCatalogService?.modelExists) {
+            const ok = await this.openrouterModelCatalogService.modelExists(picked);
+            if (!ok && this.openrouterModelCatalogService?.pickRandomExistingModel) {
+              picked = await this.openrouterModelCatalogService.pickRandomExistingModel();
+            }
+          }
+        } catch {}
+        return picked || null;
+      };
+
+      // Missing model: assign and persist.
+      if (!avatar.model) {
+        const picked = isSwarm ? SWARM_FALLBACK_MODEL : await pickRandomExisting();
         if (picked) {
           avatar.model = picked;
           try { await this.avatarService.updateAvatar(avatar); } catch {}
           this.logger.debug?.(`[AI] assigned model='${picked}' to avatar ${avatar?.name || avatar?._id}`);
         }
       }
+
+      // Special case: 'partial' model is a placeholder from incomplete avatar creation
+      // Provider-aware repair.
+      if (avatar.model === 'partial') {
+        const previous = avatar.model;
+        avatar.model = isSwarm ? SWARM_FALLBACK_MODEL : FAST_MODEL;
+        try { await this.avatarService.updateAvatar(avatar); } catch {}
+        this.logger.info?.(`[AI] repaired placeholder model '${previous}' -> '${avatar.model}' for avatar ${avatar?.name || avatar?._id}`);
+        return avatar.model;
+      }
+
+      // Invalid model: validate against OpenRouter catalog ONLY when provider is OpenRouter.
+      // Swarm models like 'avatar:rati' are not expected to exist in OpenRouter catalog.
+      try {
+        if (isOpenRouter && this.openrouterModelCatalogService?.modelExists) {
+          this.logger.debug?.(`[AI] ensureAvatarModel checking if model '${avatar.model}' exists for ${avatar?.name}`);
+          const ok = await this.openrouterModelCatalogService.modelExists(avatar.model);
+          this.logger.debug?.(`[AI] ensureAvatarModel model '${avatar.model}' exists: ${ok}`);
+          if (!ok) {
+            const previous = avatar.model;
+            // Use FAST_MODEL for repairs instead of random expensive models
+            avatar.model = FAST_MODEL;
+            try { await this.avatarService.updateAvatar(avatar); } catch {}
+            this.logger.warn?.(`[AI] repaired missing model '${previous}' -> '${avatar.model}' for avatar ${avatar?.name || avatar?._id}`);
+          }
+        }
+      } catch {}
     } catch (e) {
       this.logger.warn?.(`[AI] ensureAvatarModel failed: ${e.message}`);
     }
@@ -145,10 +200,7 @@ export class ConversationManager  {
       if (Date.now() - this.lastGlobalNarrativeTime < this.GLOBAL_NARRATIVE_COOLDOWN) {
         return null;
       }
-      if (!avatar.model) {
-        avatar.model = await this.aiService.selectRandomModel();
-        await this.avatarService.updateAvatar(avatar);
-      }
+      await this.ensureAvatarModel(avatar);
 
       const kgContext = await this.knowledgeService.queryKnowledgeGraph(avatar._id);
       const chatMessages = await this.promptService.getNarrativeChatMessages(avatar);
@@ -161,9 +213,10 @@ export class ConversationManager  {
         }
       }
 
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `narrative:${avatar._id}:${Date.now()}`;
-  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][generateNarrative] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId}`);
   let narrative = await ai.chat(chatMessages, { model: avatar.model, corrId, returnEnvelope: true });
   
   // Handle model not found fallback
@@ -452,9 +505,10 @@ export class ConversationManager  {
   ${messagesText}
       `.trim();
     }
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `summary:${avatar._id}:${channelId}`;
-  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId}`);
+  this.logger.debug?.(`[AI][getChannelSummary] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId}`);
   let summary = await ai.chat([
       { role: 'system', content: avatar.prompt || `You are ${avatar.name}. ${avatar.personality}` },
       { role: 'user', content: prompt }
@@ -699,13 +753,27 @@ export class ConversationManager  {
   await this.ensureAvatarModel(avatar);
       const messages = await channel.messages.fetch({ limit: 50 });
       const imagePromptParts = [];
-      let recentImageMessage = null;
-      for (const msg of Array.from(messages.values()).reverse()) {
-        if (msg.author.id === avatar._id) continue;
-        const hasImages = msg.attachments.some(a => a.contentType?.startsWith('image/')) || msg.embeds.some(e => e.image || e.thumbnail);
-        if (hasImages) {
-          recentImageMessage = msg;
-          break;
+      try {
+        const capSource = this.aiRouterService?.getBaseForAvatar?.(avatar) || (this.unifiedAIService?.base || this.aiService);
+        const supportsVision =
+          (typeof capSource?.supportsVisionModel === 'function' && capSource.supportsVisionModel(avatar.model)) ||
+          (typeof capSource?.modelSupportsVision === 'function' && capSource.modelSupportsVision(avatar.model)) ||
+          false;
+
+        if (supportsVision && Array.isArray(channelHistory) && channelHistory.length) {
+          const recentWithImages = [...channelHistory].reverse().find(m => m?.hasImages && (m?.imageUrls?.length || m?.primaryImageUrl));
+          const urls = Array.isArray(recentWithImages?.imageUrls) && recentWithImages.imageUrls.length
+            ? recentWithImages.imageUrls
+            : (recentWithImages?.primaryImageUrl ? [recentWithImages.primaryImageUrl] : []);
+
+          const maxImages = Number(process.env.MAX_VISION_IMAGES_PER_TURN || 3);
+          for (const url of urls.slice(0, Math.max(1, maxImages))) {
+            if (!url) continue;
+            imagePromptParts.push({ type: 'image_url', image_url: { url } });
+          }
+          if (imagePromptParts.length) {
+            this.logger.info?.(`[ConversationManager] Passing ${imagePromptParts.length} image(s) to vision model for ${avatar.name}`);
+          }
         }
       }
       if (recentImageMessage && this.aiService.supportsMultimodal) {
@@ -794,9 +862,10 @@ export class ConversationManager  {
         userContent = [...imagePromptParts, { type: 'text', text: userContent }];
         chatMessages = chatMessages.map(msg => msg.role === 'user' ? { role: 'user', content: userContent } : msg);
       }
-  const ai = this.unifiedAIService || this.aiService;
+  const aiCtx = this.aiRouterService?.getContextForAvatar?.(avatar);
+  const ai = aiCtx?.ai || (this.unifiedAIService || this.aiService);
   const corrId = `reply:${avatar._id}:${channel.id}:${Date.now()}`;
-  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${this.unifiedAIService ? 'unified' : 'core'} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
+  this.logger.debug?.(`[AI][sendResponse] model=${avatar.model} provider=${aiCtx?.provider || (this.unifiedAIService ? 'unified' : 'core')} corrId=${corrId} messages=${chatMessages?.length || 0} override=${overrideCooldown} toolsEnabled=${this.enableToolCalling}`);
   
   // Phase 2: Tool calling with universal meta-prompting approach
   let toolCalls = [];
@@ -940,10 +1009,15 @@ export class ConversationManager  {
         this.channelLastBotMessage.set(channel.id, Date.now());
         responders.add(avatar._id);
         
-        try {
-          await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
-        } catch (e) {
-          this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+        // Skip activity tracking for synthetic/monster avatars (non-ObjectId IDs)
+        const isSynthetic = avatar?.isMonster === true ||
+          String(avatar?._id || avatar?.id || '').startsWith('monster_');
+        if (!isSynthetic) {
+          try {
+            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+          } catch (e) {
+            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+          }
         }
         
         return null; // Early exit - no final response needed
@@ -1100,11 +1174,20 @@ export class ConversationManager  {
           
           this.logger.debug(`Updated bot rate limit for channel ${channel.id} (burst: ${burstInfo.count}/${this.BOT_BURST_ALLOWED})`);
           
+          // V8: Skip activity tracking and command handling for synthetic/monster
+          // avatars. Their IDs (e.g. "monster_lintel_warden_...") are not valid
+          // MongoDB ObjectIds and cause crashes in updateAvatarActivity and
+          // MapService.updateAvatarPosition.
+          const isSyntheticAvatar = avatar?.isMonster === true ||
+            String(avatar?._id || avatar?.id || '').startsWith('monster_');
+
           // Update avatar activity for active avatar management
-          try {
-            await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
-          } catch (e) {
-            this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+          if (!isSyntheticAvatar) {
+            try {
+              await this.avatarService.updateAvatarActivity(channel.id, String(avatar._id));
+            } catch (e) {
+              this.logger.warn(`Failed to update avatar activity: ${e.message}`);
+            }
           }
           
           // React with brain emoji if thoughts were detected
@@ -1124,14 +1207,18 @@ export class ConversationManager  {
           sentMessage.guildId = guild.id;
           sentMessage.channel = channel;
 
-          handleCommands(sentMessage, {
-            logger: this.logger,
-            mapService: this.mapService,
-            toolService: this.toolService,
-            avatarService: this.avatarService,
-            discordService: this.discordService,
-            configService: this.configService
-          }, avatar, await this.getChannelContext(channel.id, 50));
+          // Skip command handling for synthetic avatars — they don't need
+          // position updates or tool command processing.
+          if (!isSyntheticAvatar) {
+            handleCommands(sentMessage, {
+              logger: this.logger,
+              mapService: this.mapService,
+              toolService: this.toolService,
+              avatarService: this.avatarService,
+              discordService: this.discordService,
+              configService: this.configService
+            }, avatar, await this.getChannelContext(channel.id, 50));
+          }
 
           // After successfully sending a visible message, process bot->bot mentions (limited cascade)
           try {
@@ -1149,6 +1236,7 @@ export class ConversationManager  {
         }
       }
       this.channelLastMessage.set(channel.id, Date.now());
+      if (!this.channelResponders.has(channel.id)) this.channelResponders.set(channel.id, new Set());
       this.channelResponders.get(channel.id).add(avatar._id);
       setTimeout(() => this.channelResponders.set(channel.id, new Set()), this.CHANNEL_COOLDOWN);
       return response;

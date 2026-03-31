@@ -141,6 +141,15 @@ export class CombatNarrativeService {
       const speaker = combatant?.ref || null;
       if (!speaker) return;
 
+      // V9 FIX: Skip monsters with synthetic IDs (e.g. "monster_lintel_warden_...").
+      // sendResponse flows into services that call `new ObjectId(avatar._id)` which
+      // throws for non-24-char-hex strings. Monsters don't have real DB avatars.
+      const speakerIdStr = String(speaker._id || speaker.id || '');
+      if (combatant?.isMonster || speakerIdStr.startsWith('monster_')) {
+        this.logger.debug?.(`[CombatNarrative] skipping sendResponse for monster ${speaker.name} (synthetic ID)`);
+        return;
+      }
+
       // Get discord channel from encounter service (indirect to keep dependencies minimal)
       let channel = null;
       try { channel = this.combatEncounterService?._getChannel(encounter); } catch {}

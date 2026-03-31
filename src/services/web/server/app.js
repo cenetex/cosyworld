@@ -143,7 +143,17 @@ async function initializeApp(services) {
     app.use('/api/dungeon', (await import('./routes/dungeon.js')).default(db));
     app.use('/api/health', (await import('./routes/health.js')).default(db, services));
     app.use('/api/avatars', (await import('./routes/avatars.js')).default(db));
-    app.use('/api/nft', (await import('./routes/nft.js')).default);
+    app.use('/api/items', (await import('./routes/items.js')).default(db, { logger }));
+    app.use('/api/locations', (await import('./routes/locations.js')).default(db, { logger }));
+    app.use('/api/gallery', (await import('./routes/gallery.js')).default(db, { logger }));
+    app.use('/api/buybot', (await import('./routes/buybot.js')).createBuybotRouter({ databaseService: services.databaseService }));
+    const nftRouteServices = {
+      databaseService: services.databaseService,
+      nftMetadataService: services.nftMetadataService,
+      arweaveService: services.arweaveService,
+      logger,
+    };
+    app.use('/api/nft', (await import('./routes/nft.js')).default(nftRouteServices));
     app.use('/api/tokens', (await import('./routes/tokens.js')).default(db));
     app.use('/api/tribes', (await import('./routes/tribes.js')).default(db));
     app.use('/api/xauth', (await import('./routes/xauth.js')).default(services));
@@ -216,13 +226,25 @@ async function initializeApp(services) {
     logger.warn('[Web] Failed to register story public routes:', e.message);
   }
   
-  app.use('/api/secrets', (await import('./routes/secrets.js')).default(services));
-  app.use('/api/settings', (await import('./routes/settings.js')).default(services));
-  app.use('/api/payment', (await import('./routes/payment.js')).default(services));
-  app.use('/api/ai', (await import('./routes/ai.js')).default(services));
-  app.use('/api/models', (await import('./routes/models.js')).default(db, services));
-  app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(services));
-  app.use('/api/services', (await import('./routes/services.js')).default(services));
+  app.use('/api/config', (await import('./routes/config.js')).default(configRouteServices));
+  app.use('/api/secrets', (await import('./routes/secrets.js')).default(secretsRouteServices));
+  app.use('/api/settings', (await import('./routes/settings.js')).default(settingsRouteServices));
+  app.use('/api/payment', (await import('./routes/payment.js')).default(paymentRouteServices));
+  app.use('/api/ai', (await import('./routes/ai.js')).default(aiRouteServices));
+  app.use('/api/models', (await import('./routes/models.js')).default(db, modelsRouteServices));
+
+    // OpenAI-compatible Avatar API (Swarm Avatar API compatible)
+    const openaiAvatarRouteServices = {
+      logger,
+      avatarService: services.avatarService,
+      promptService: services.promptService,
+      aiService: services.aiService,
+      configService: services.configService,
+    };
+    app.use('/api/v1', (await import('./routes/openai-avatar.js')).default(db, openaiAvatarRouteServices));
+
+  app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(marketplaceRouteServices));
+  app.use('/api/services', (await import('./routes/services.js')).default(serviceRoutesServices));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));
   app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));

@@ -4,6 +4,147 @@
  */
 
 import { BasicTool } from '../BasicTool.mjs';
+import { buildAvatarQuery } from '../../../services/avatar/helpers/buildAvatarQuery.js';
+import { aiModelService } from '../../ai/aiModelService.mjs';
+import openrouterModelCatalog from '../../../models.openrouter.config.mjs';
+import { isModelRosterAvatar } from '../../avatar/helpers/isModelRosterAvatar.mjs';
+import { getAvatarModeFlags, isPureModelOnlyAvatarModes } from '../../avatar/helpers/avatarModeFlags.mjs';
+
+const levenshteinDistance = (a = '', b = '') => {
+  const s = a.toLowerCase();
+  const t = b.toLowerCase();
+  const m = s.length;
+  const n = t.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[m][n];
+};
+
+const MODEL_PROVIDER_LABELS = {
+  google: 'Google',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  meta: 'Meta',
+  'meta-llama': 'Meta',
+  cohere: 'Cohere',
+  perplexity: 'Perplexity',
+  qwen: 'Qwen',
+  nvidia: 'NVIDIA',
+  'x-ai': 'xAI',
+  x: 'xAI',
+  deepseek: 'DeepSeek',
+  baidu: 'Baidu',
+  ai21: 'AI21',
+  mistralai: 'Mistral',
+  inflection: 'Inflection',
+  'agentica-org': 'Agentica',
+  'microsoft': 'Microsoft',
+  'nomic-ai': 'Nomic AI'
+};
+
+const MODEL_PROVIDER_EMOJI = {
+  google: '📡',
+  openai: '🌀',
+  anthropic: '✨',
+  meta: '🧠',
+  'meta-llama': '🧠',
+  cohere: '🧩',
+  perplexity: '🔍',
+  qwen: '🕊️',
+  nvidia: '⚡',
+  'x-ai': '🚀',
+  x: '🚀',
+  deepseek: '🌊',
+  baidu: '🐉',
+  ai21: '🧮',
+  mistralai: '🌬️',
+  inflection: '🔶',
+  'agentica-org': '🛰️',
+  microsoft: '🪟',
+  'nomic-ai': '🧭'
+};
+
+const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:.-]*$/i;
+
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const formatSummonsday = (value) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  try {
+    return value.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch {
+    return value.toISOString().split('T')[0];
+  }
+};
+
+const stripHiddenTags = (text = '') => text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+const formatProviderLabel = (providerId = '') => {
+  if (!providerId) return '';
+  const lower = providerId.toLowerCase();
+  if (MODEL_PROVIDER_LABELS[lower]) return MODEL_PROVIDER_LABELS[lower];
+  return providerId
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ')
+    .trim();
+};
+
+const normalizeModelIdentifier = (value = '') => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/^["'`]+|["'`]+$/g, '');
+  if (!trimmed) return null;
+  if (!MODEL_SLUG_PATTERN.test(trimmed)) return null;
+  return trimmed.toLowerCase();
+};
+
+const humanizeSlugTokens = (segment = '') => {
+  if (!segment) return [];
+  return segment
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(token => {
+      const lower = token.toLowerCase();
+      if (/^[a-z]{1,3}$/.test(lower)) return lower.toUpperCase();
+      if (/^[a-z]+$/.test(lower)) return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return token;
+    });
+};
+
+const formatModelDisplayName = (modelId = '') => {
+  const normalized = normalizeModelIdentifier(modelId) || (typeof modelId === 'string' ? modelId.trim() : '');
+  if (!normalized || !normalized.includes('/')) return null;
+  const [providerRaw, restRaw] = normalized.split('/', 2);
+  if (!restRaw) return null;
+  const [slug, variantRaw] = restRaw.split(':');
+  const baseTokens = humanizeSlugTokens(slug);
+  const variantTokens = humanizeSlugTokens(variantRaw);
+  const displayTokens = [...baseTokens, ...variantTokens].filter(Boolean);
+  if (!displayTokens.length) return null;
+  const providerLabel = formatProviderLabel(providerRaw);
+  const displayName = displayTokens.join(' ');
+  return providerLabel ? `${displayName} (${providerLabel})` : displayName;
+};
 
 export class SummonTool extends BasicTool {
   constructor({
@@ -227,6 +368,455 @@ export class SummonTool extends BasicTool {
           }, 800);
           return `-# ${this.emoji} [ ${existingAvatar.name} moves to this location. ]`;
         }
+        if (!avatar) {
+          const friendlyName = formatModelDisplayName(normalized);
+          if (friendlyName) {
+            try {
+              avatar = await this.avatarService.getAvatarByName(friendlyName, { guildId });
+            } catch (err) {
+              this.logger?.debug?.(`[SummonTool] direct friendly lookup failed: ${err?.message}`);
+            }
+          }
+        }
+        return avatar;
+      };
+
+      const findClosestModelAvatar = async (query, guildId) => {
+        if (!query) return null;
+        const normalized = normalizeModelIdentifier(query);
+        if (normalized) {
+          const direct = await findModelAvatarForModelId(normalized, guildId);
+          if (direct) return direct;
+        }
+
+        const db = await this.avatarService._db();
+        const baseFilters = {
+          status: { $ne: 'dead' },
+          isPartial: { $ne: true },
+          tags: 'model-roster'
+        };
+
+        const fetchRosterAvatars = async (extraFilters = {}) => {
+          const rosterQuery = buildAvatarQuery({ ...baseFilters, ...extraFilters });
+          try {
+            return await db.collection(this.avatarService.AVATARS_COLLECTION)
+              .find(rosterQuery)
+              .project({
+                name: 1,
+                model: 1,
+                tags: 1,
+                description: 1,
+                guildId: 1,
+                stats: 1,
+                emoji: 1,
+                imageUrl: 1,
+                summoner: 1,
+                createdAt: 1,
+                summonsday: 1
+              })
+              .toArray();
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] roster lookup failed: ${err?.message}`);
+            return [];
+          }
+        };
+
+        let rosterAvatars = [];
+        if (guildId) {
+          rosterAvatars = await fetchRosterAvatars({ guildId });
+          if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) {
+            rosterAvatars = await fetchRosterAvatars({ guildId: 'global' });
+          }
+        }
+        if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) {
+          rosterAvatars = await fetchRosterAvatars();
+        }
+
+        if (!Array.isArray(rosterAvatars) || rosterAvatars.length === 0) return null;
+
+        const target = query.trim().toLowerCase();
+        const targetTokens = target.split(/\s+/).filter(Boolean);
+        let bestMatch = null;
+        let bestScore = Infinity;
+
+        const evaluate = (candidate, weight = 1) => {
+          if (!candidate) return;
+          const name = String(candidate.name || candidate.model || '').toLowerCase();
+          if (!name) return;
+          const containsTarget = target && name.includes(target);
+          const containsToken = targetTokens.some(token => token.length >= 3 && name.includes(token));
+          const startsWithToken = targetTokens.some(token => token.length >= 3 && name.startsWith(token));
+          let distance = levenshteinDistance(name, target) * weight;
+          if (containsTarget) distance *= 0.05;
+          else if (startsWithToken) distance *= 0.1;
+          else if (containsToken) distance *= 0.25;
+          if (distance < bestScore) {
+            bestScore = distance;
+            bestMatch = candidate;
+          }
+        };
+
+        for (const avatar of rosterAvatars) {
+          evaluate(avatar, 1);
+          if (avatar.model) {
+            evaluate({ ...avatar, name: avatar.model }, 0.8);
+            const display = formatModelDisplayName(avatar.model);
+            if (display) evaluate({ ...avatar, name: display }, 0.7);
+            const providerSlug = avatar.model.split('/', 2)[1] || '';
+            if (providerSlug) evaluate({ ...avatar, name: providerSlug.replace(/[:_-]+/g, ' ') }, 0.9);
+          }
+        }
+
+        if (!bestMatch) return null;
+        if (bestMatch.isPartial) return null;
+
+        try {
+          if (bestMatch.model && this.openrouterModelCatalogService?.modelExists) {
+            const ok = await this.openrouterModelCatalogService.modelExists(bestMatch.model, { refreshIfNeeded: false });
+            if (!ok) return null;
+          }
+        } catch {}
+
+        return bestMatch;
+      };
+
+      const pickRandomModelAvatar = async (guildId) => {
+        const baseFilters = {
+          status: { $ne: 'dead' },
+          model: { $exists: true },
+          isPartial: { $ne: true },
+          tags: 'model-roster'
+        };
+        const trySample = async filters => {
+          try {
+            const avatars = await this.avatarService.getAllAvatars({ filters, limit: 10 });
+            if (!Array.isArray(avatars) || !avatars.length) return null;
+
+            // Prefer roster avatars whose model still exists in the OpenRouter catalog.
+            for (const av of avatars) {
+              if (!av?.model) continue;
+              try {
+                if (this.openrouterModelCatalogService?.modelExists) {
+                  const ok = await this.openrouterModelCatalogService.modelExists(av.model, { refreshIfNeeded: false });
+                  if (!ok) continue;
+                }
+              } catch {}
+              return av;
+            }
+
+            return avatars[0] || null;
+          } catch (err) {
+            this.logger?.debug?.(`[SummonTool] random model avatar fetch failed: ${err?.message}`);
+            return null;
+          }
+        };
+
+        let avatar = null;
+        if (guildId) {
+          avatar = await trySample({ ...baseFilters, guildId });
+        }
+        if (!avatar) {
+          avatar = await trySample(baseFilters);
+        }
+        return avatar;
+      };
+
+  const ensureModelRosterAvatar = async (modelId, { guildId: lookupGuildId } = {}) => {
+        const normalized = normalizeModelIdentifier(modelId);
+        if (!normalized) return null;
+
+        // Hard block: never create roster avatars for models that aren't in OpenRouter.
+        try {
+          if (this.openrouterModelCatalogService?.assertModelExists) {
+            await this.openrouterModelCatalogService.assertModelExists(normalized);
+          }
+        } catch {
+          return null;
+        }
+
+        const existing = await findModelAvatarForModelId(normalized, lookupGuildId);
+        if (existing) {
+          await ensureAvatarStatsAndSummonsday(existing);
+          return { avatar: existing, created: false };
+        }
+
+        const displayName = formatModelDisplayName(normalized) || normalized;
+        const providerKey = normalized.split('/', 1)[0]?.toLowerCase?.() || '';
+        const emoji = MODEL_PROVIDER_EMOJI[providerKey] || '💠';
+        const description = await describeModelAppearance(normalized, displayName);
+        const personality = '';
+        const creationDate = new Date();
+        const stats = this.statService.generateStatsFromDate(creationDate);
+        const summonsday = formatSummonsday(creationDate);
+
+        const baseDoc = {
+          name: displayName,
+          emoji,
+          description,
+          personality,
+          model: normalized,
+          channelId: null,
+          guildId: lookupGuildId || 'global',
+          summoner: 'system:model-roster',
+          stats,
+          summonsday,
+          lives: 3,
+          status: 'alive',
+          createdAt: creationDate,
+          updatedAt: creationDate,
+          tags: ['model-roster']
+        };
+
+        let insertedAvatar = null;
+        try {
+          const db = await this.avatarService._db();
+          const res = await db.collection(this.avatarService.AVATARS_COLLECTION).insertOne(baseDoc);
+          insertedAvatar = { ...baseDoc, _id: res.insertedId };
+          
+          // Generate image asynchronously - don't block avatar creation
+          (async () => {
+            try {
+              const uploadOptions = {
+                source: 'avatar.model-roster',
+                avatarId: insertedAvatar._id?.toString?.(),
+                avatarName: insertedAvatar.name,
+                avatarEmoji: insertedAvatar.emoji,
+                prompt: insertedAvatar.description,
+                context: `${insertedAvatar.emoji || '💠'} ${insertedAvatar.name} embodies its core form.`.trim()
+              };
+              const imageUrl = await this.avatarService.generateAvatarImage(insertedAvatar.description, uploadOptions);
+              if (imageUrl) {
+                insertedAvatar.imageUrl = imageUrl;
+                await db.collection(this.avatarService.AVATARS_COLLECTION).updateOne(
+                  { _id: insertedAvatar._id },
+                  { $set: { imageUrl } }
+                );
+              }
+            } catch (imgErr) {
+              this.logger?.warn?.(`[SummonTool] Model roster image generation failed for ${displayName}: ${imgErr?.message}`);
+            }
+          })();
+        } catch (err) {
+          if (err?.code === 11000) {
+            const dup = await findModelAvatarForModelId(normalized, lookupGuildId);
+            if (dup) {
+              await ensureAvatarStatsAndSummonsday(dup);
+              return { avatar: dup, created: false };
+            }
+          }
+          this.logger?.error?.(`[SummonTool] Failed to seed model roster avatar for ${normalized}: ${err?.message}`);
+          return null;
+        }
+
+        await ensureAvatarStatsAndSummonsday(insertedAvatar);
+        return { avatar: insertedAvatar, created: true };
+      };
+      
+      // Handle params passed from AI tool calling (array of arguments)
+      // If params has content, use it instead of message.content
+      let paramContent = '';
+      if (Array.isArray(params) && params.length > 0 && typeof params[0] === 'string' && params[0].trim()) {
+        paramContent = params[0].trim();
+      } else if (typeof params === 'object' && !Array.isArray(params) && (params.name || params.description)) {
+        paramContent = (params.name || params.description || '').trim();
+      }
+      
+      // Parse command content robustly: remove leading emoji + optional word 'summon'
+      const raw = paramContent || (message.content || '').trim();
+      const content = raw
+        .replace(/^<a?:\w+?:\d+>\s*/,'') // custom discord emoji
+        .replace(/^\p{Extended_Pictographic}+\s*/u,'') // unicode emoji(s)
+        .replace(/^(summon)\s+/i,'')
+        .trim();
+      const slugCandidate = content.match(/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:.-]*/)?.[0] || null;
+  let requestedModelId = normalizeModelIdentifier(slugCandidate);
+      let avatarName = null;
+      if (requestedModelId) {
+        avatarName = slugCandidate.trim();
+      } else {
+        const [firstToken] = content.split(/\n|[,.;:]/).map(l => l.trim()).filter(Boolean);
+        avatarName = firstToken || '';
+      }
+      const guildId = message.guildId || message.guild?.id;
+
+      // If no textual description provided, but an image is attached, switch to image-based summoning
+      const hasImageForSummon = !avatarName && message.hasImages && (message.imageDescription || message.primaryImageUrl);
+      
+      const guildConfig = await this.configService.getGuildConfig(guildId, true);
+      const guildAvatarModes = guildConfig?.avatarModes || {};
+      const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildAvatarModes);
+      const _onChainDisabled = !allowOnChain;
+      const collectionDisabled = !allowCollection;
+      const freeSummonsDisabled = Boolean(guildId) && !allowFree;
+      const allowModelSummons = allowPureModel;
+      const pureModelOnly = isPureModelOnlyAvatarModes(guildAvatarModes);
+
+      // Always check for existing avatar by name FIRST, before trying to resolve to a catalog model
+      let existingAvatar = null;
+      if (avatarName) {
+        existingAvatar = await this.avatarService.getAvatarByName(avatarName, { guildId });
+        
+        // If avatar not found in DB and collection mode is enabled, try to sync from collections
+        if (!existingAvatar && !collectionDisabled) {
+          try {
+            const { syncAvatarByNameFromCollections } = await import('../../../services/collections/collectionSyncService.mjs');
+            const syncedAvatar = await syncAvatarByNameFromCollections(avatarName, guildId, {
+              logger: this.logger,
+              databaseService: this.databaseService,
+              aiService: this.unifiedAIService || this.aiService,
+              unifiedAIService: this.unifiedAIService,
+            });
+            if (syncedAvatar) {
+              this.logger.info?.(`[SummonTool] Synced ${avatarName} from collection`);
+              existingAvatar = syncedAvatar;
+            }
+          } catch (e) {
+            this.logger.debug?.(`[SummonTool] Collection sync failed: ${e.message}`);
+          }
+        }
+        
+        // Note: We no longer discard existing avatars based on type restrictions.
+        // If an avatar exists by name, we should find and use it regardless of its type.
+        // Type restrictions (freeSummonsDisabled, pureModelOnly, etc.) only apply to CREATING new avatars.
+      }
+
+      // Only try to resolve to a catalog model if we didn't find an existing avatar
+      if (!existingAvatar && !requestedModelId && avatarName) {
+        if (this._shouldResolveCatalogModel({ requestedModelId, avatarName, freeSummonsDisabled, pureModelOnly, allowModelSummons })) {
+          const catalogLookup = resolveCatalogModelId(avatarName);
+          if (catalogLookup) {
+            requestedModelId = catalogLookup;
+          }
+        }
+      }
+
+      if (existingAvatar) {
+        const handled = await respondWithExistingAvatar(existingAvatar);
+        if (handled) return handled;
+      }
+
+      if (requestedModelId) {
+        try {
+          if (this.openrouterModelCatalogService?.assertModelExists) {
+            requestedModelId = await this.openrouterModelCatalogService.assertModelExists(requestedModelId);
+          }
+        } catch {
+          await this.discordService.replyToMessage(
+            message,
+            `That model doesn't exist in the OpenRouter catalog: ${requestedModelId}`
+          );
+          requestedModelId = null;
+        }
+
+        if (requestedModelId) {
+          const ensured = await ensureModelRosterAvatar(requestedModelId, { guildId });
+          if (ensured?.avatar) {
+            const preface = ensured.created
+              ? `${ensured.avatar.name} manifests its core form, summoned straight from the model roster.`
+              : null;
+            const handled = await respondWithExistingAvatar(ensured.avatar, {
+              preface,
+              enforceModelName: true,
+              requestedModelId
+            });
+            if (handled) return handled;
+          }
+        }
+      }
+
+      if (freeSummonsDisabled) {
+        if (allowModelSummons) {
+          let fallbackAvatar = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
+          if (fallbackAvatar) {
+            const handled = await respondWithExistingAvatar(fallbackAvatar, {
+              preface: `Summoning new avatars is disabled here, so I'm recalling ${fallbackAvatar.name} from the model roster.`,
+              enforceModelName: Boolean(requestedModelId),
+              requestedModelId
+            });
+            if (handled) return handled;
+          }
+
+          if (!fallbackAvatar) {
+            const catalogModelId = resolveCatalogModelId(avatarName || requestedModelId || '');
+            if (catalogModelId) {
+              const ensured = await ensureModelRosterAvatar(catalogModelId, { guildId });
+              fallbackAvatar = ensured?.avatar || null;
+              if (fallbackAvatar) {
+                const handled = await respondWithExistingAvatar(fallbackAvatar, {
+                  preface: `Summoning new avatars is disabled here, so ${fallbackAvatar.name} answers from the model roster.`,
+                  enforceModelName: true,
+                  requestedModelId: fallbackAvatar.model
+                });
+                if (handled) return handled;
+              }
+            }
+          }
+
+          fallbackAvatar = await pickRandomModelAvatar(guildId);
+          if (fallbackAvatar) {
+            const handled = await respondWithExistingAvatar(fallbackAvatar, {
+              preface: avatarName
+                ? `Summoning is limited to catalog avatars. Couldn't find "${avatarName}", so ${fallbackAvatar.name} answers instead.`
+                : `${fallbackAvatar.name} materialises from the model roster.`,
+              enforceModelName: Boolean(requestedModelId),
+              requestedModelId
+            });
+            if (handled) return handled;
+          }
+
+          await this.discordService.replyToMessage(
+            message,
+            'Summoning is limited to catalog avatars, but none were available to match that request.'
+          );
+          return { message: '-# [ Summon disabled: server configuration blocks free-form avatars. ]', notify: false };
+        }
+
+        await this.discordService.replyToMessage(
+          message,
+          'Summoning is disabled for this server. An admin can enable it in the Avatar Modes settings.'
+        );
+        return { message: '-# [ Summon disabled: server configuration blocks free-form avatars. ]', notify: false };
+      }
+
+      if (!freeSummonsDisabled && (pureModelOnly || !allowFree)) {
+        let fallbackModel = avatarName ? await findClosestModelAvatar(avatarName, guildId) : null;
+        if (!fallbackModel && avatarName) {
+          const catalogModelId = resolveCatalogModelId(avatarName);
+          if (catalogModelId) {
+            const ensured = await ensureModelRosterAvatar(catalogModelId, { guildId });
+            fallbackModel = ensured?.avatar || null;
+          }
+        }
+
+        if (!fallbackModel) {
+          fallbackModel = await pickRandomModelAvatar(guildId);
+        }
+
+        if (fallbackModel) {
+          const handled = await respondWithExistingAvatar(fallbackModel, {
+            preface: 'This server is limited to pure model avatars, so a roster avatar steps forward instead.',
+            enforceModelName: true,
+            requestedModelId: fallbackModel.model
+          });
+          if (handled) return handled;
+        }
+        await this.discordService.replyToMessage(
+          message,
+          'Summoning is restricted to curated model avatars here. Try referencing a specific model from the roster.'
+        );
+        return '-# [ Summon blocked: pure model roster only. ]';
+      }
+
+      if (!avatarName && !hasImageForSummon) {
+        const randomAvatar = await pickRandomModelAvatar(guildId);
+        if (randomAvatar) {
+          const handled = await respondWithExistingAvatar(randomAvatar, {
+            preface: `${randomAvatar.name} answers the call of the crystal.`
+          });
+          if (handled) return handled;
+        }
+        await this.discordService.replyToMessage(message, 'Provide a name, description, or image to guide the summon.');
+        return '-# [ Summon aborted: no description or image provided. ]';
       }
 
       const breed = Boolean(params.breed);

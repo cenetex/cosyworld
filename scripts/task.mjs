@@ -41,19 +41,82 @@ async function main() {
       await (mod.default?.() ?? Promise.resolve());
       break;
     }
+    case 'backfill:avatar-maxhp': {
+      const mod = await import('./backfill-avatar-maxhp.mjs');
+      await (mod.default?.() ?? Promise.resolve());
+      break;
+    }
     case 'update:models': {
       const mod = await import('./updateModels.mjs');
       await (mod.default?.() ?? Promise.resolve());
       break;
     }
+    case 'moltbook:register-avatars': {
+      const mod = await import('./moltbookRegisterAvatars.mjs');
+      const limit = args.limit ? Number(args.limit) : null;
+      const random = flags.has('--random');
+      const res = await (mod.default?.({ limit, random }) ?? Promise.resolve());
+      if (res?.failed) process.exit(1);
+      break;
+    }
+    case 'moltbook:heartbeat-now': {
+      const mod = await import('./moltbookHeartbeatNow.mjs');
+      const max = args.max ? Number(args.max) : null;
+      const agentName = args.agentName || args.agent || args.username || null;
+      const avatarId = args.avatarId || args.avatar || null;
+
+      // Configure optional targets on the module function so it can run a single agent.
+      if (mod.default) {
+        mod.default._targetAgentName = agentName;
+        mod.default._targetAvatarId = avatarId;
+      }
+
+      await (mod.default?.({ max }) ?? Promise.resolve());
+      break;
+    }
+    case 'moltbook:swarm-missive-now': {
+      const mod = await import('./moltbookSwarmMissiveNow.mjs');
+      await (mod.default?.() ?? Promise.resolve());
+      break;
+    }
+    case 'moltbook:recent-posts': {
+      const mod = await import('./moltbookRecentPosts.mjs');
+      const submolt = args.submolt || null;
+      const limit = args.limit ? Number(args.limit) : 15;
+      const sort = args.sort || 'new';
+      await (mod.default?.({ submolt, limit, sort }) ?? Promise.resolve());
+      break;
+    }
+    case 'moltbook:diagnostics': {
+      const mod = await import('./moltbookDiagnostics.mjs');
+      const limit = args.limit ? Number(args.limit) : 20;
+      await (mod.default?.({ limit }) ?? Promise.resolve());
+      break;
+    }
+
+    case 'ingest:swarm-avatars': {
+      const mod = await import('./ingestSwarmAvatars.mjs');
+      const provider = args.provider || 'swarm';
+      const limit = args.limit ? Number(args.limit) : null;
+      const res = await (mod.default?.({ provider, limit }) ?? Promise.resolve());
+      if (res?.failed) process.exit(1);
+      break;
+    }
     default:
       console.log('Usage: task <command> [--key=...] [--file=...] [--force]');
       console.log('Commands:');
-      console.log('  sync:collection       Sync avatars for a collection');
-      console.log('  migrate:agent-blocks  Run agent blocks migration');
-      console.log('  migrate:agent-events  Run agent events migration');
+  console.log('  sync:collection       Sync avatars for a collection');
+  console.log('  migrate:agent-blocks  Run agent blocks migration');
+  console.log('  migrate:agent-events  Run agent events migration');
       console.log('  backfill:agent-ids    Backfill agent IDs');
+      console.log('  backfill:avatar-maxhp Backfill avatar max HP from character sheets');
       console.log('  update:models         Refresh available models');
+      console.log('  moltbook:register-avatars  Create Moltbook agents for avatars (optional: --limit=N)');
+      console.log('  moltbook:heartbeat-now      Run Moltbook heartbeat tick immediately (optional: --max=N, --agentName=..., --avatarId=...)');
+      console.log('  moltbook:swarm-missive-now  Post a swarm missive now (uses MOLTBOOK_SWARM_AGENT_NAME)');
+      console.log('  moltbook:recent-posts       Print Moltbook recent posts (optional: --submolt=rati --limit=15 --sort=new)');
+      console.log('  moltbook:diagnostics        Inspect DB + state for why Moltbook isn\'t active (optional: --limit=20)');
+      console.log('  ingest:swarm-avatars        Fetch /v1/models from a Swarm/OpenAI-compatible avatar API and upsert to DB (optional: --provider=swarm --limit=100)');
       process.exit(1);
   }
 }

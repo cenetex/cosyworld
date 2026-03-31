@@ -1,5 +1,5 @@
 export class TurnScheduler {
-  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator }) {
+  constructor({ logger, databaseService, schedulingService, presenceService, discordService, conversationManager, avatarService, responseCoordinator, discordChannelActivityService }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.schedulingService = schedulingService;
@@ -8,6 +8,7 @@ export class TurnScheduler {
     this.conversationManager = conversationManager;
     this.avatarService = avatarService;
     this.responseCoordinator = responseCoordinator;
+    this.discordChannelActivityService = discordChannelActivityService;
     
   // Default: 1 hour ticks with ±5 minutes jitter
   this.DELTA_MS = Number(process.env.CHANNEL_TICK_MS || 3600000);
@@ -133,6 +134,38 @@ export class TurnScheduler {
     const suppressedUntil = this.blockAmbientUntil.get(channelId) || 0;
     if (Date.now() < suppressedUntil) return 0;
 
+    // Human-activity inactivity gating: if no human has spoken for N days, don't run AI ambient turns.
+    // This also prevents dead-channel revive attempts from generating noise in long-inactive channels.
+    try {
+      let guildIdForGate = null;
+      try { guildIdForGate = (await this.discordService.getGuildByChannelId(channelId))?.id; } catch {}
+      if (this.discordChannelActivityService?.isChannelActiveForAI) {
+        const active = await this.discordChannelActivityService.isChannelActiveForAI({
+          guildId: guildIdForGate,
+          channelId,
+        });
+        if (!active) {
+          this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - inactive (no human within DISCORD_AI_INACTIVE_DAYS)`);
+          return 0;
+        }
+      }
+    } catch (e) {
+      this.logger.debug?.(`[TurnScheduler] inactivity gate check failed for ${channelId}: ${e?.message || e}`);
+    }
+
+    // Check for dead channel (no human activity)
+    if (this.DEAD_CHANNEL_CHECK_ENABLED) {
+      const isDeadChannel = await this.checkDeadChannel(channelId);
+      if (isDeadChannel) {
+        const allowRevive = this.DEAD_CHANNEL_REVIVE_ENABLED && this._shouldAllowDeadChannelRevive(channelId);
+        if (!allowRevive) {
+          this.logger.debug?.(`[TurnScheduler] Skipping ${channelId} - dead channel (no human activity)`);
+          return 0;
+        }
+        this.logger.info?.(`[TurnScheduler] Dead channel revive attempt allowed: ${channelId} (intervalMs=${this.DEAD_CHANNEL_REVIVE_INTERVAL_MS})`);
+      }
+    }
+
     try {
       let guildId = null;
       try { guildId = (await this.discordService.getGuildByChannelId(channelId))?.id; }
@@ -170,6 +203,119 @@ export class TurnScheduler {
     } catch (e) {
       this.logger.warn(`[TurnScheduler] onChannelTick failed for ${channelId}: ${e.message}`);
       return 0;
+    }
+  }
+
+  _shouldAllowDeadChannelRevive(channelId, now = Date.now()) {
+    const last = this.deadChannelReviveAttemptAt.get(channelId) || 0;
+    if (now - last < this.DEAD_CHANNEL_REVIVE_INTERVAL_MS) return false;
+
+    // Only roll once per interval; even if we decline, we still record the attempt
+    // to avoid repeatedly trying every tick.
+    const roll = Math.random();
+    const allow = roll < this.DEAD_CHANNEL_REVIVE_PROBABILITY;
+    this.deadChannelReviveAttemptAt.set(channelId, now);
+    if (!allow) {
+      this.logger.debug?.(`[TurnScheduler] Dead channel revive declined: ${channelId} roll=${roll.toFixed(3)} p=${this.DEAD_CHANNEL_REVIVE_PROBABILITY}`);
+    }
+    return allow;
+  }
+
+  /**
+   * Check if a message is a proxied human message
+   * @param {Object} msg - Discord message object
+   * @returns {boolean} True if proxied
+   */
+  isProxiedMessage(msg) {
+    if (!msg) return false;
+    return !!(msg.rati?.isProxied || msg.rati?.proxyUserId || msg.isProxied || msg.proxyUserId);
+  }
+
+  /**
+   * Check if a channel is "dead" (only bot messages, no human activity)
+   * NOTE: Proxied messages count as human activity since they're human-initiated
+   * @param {string} channelId - Channel ID
+   * @returns {Promise<boolean>} True if channel is dead
+   */
+  async checkDeadChannel(channelId) {
+    try {
+      // Prefer DB-backed detection because Discord fetches won't preserve our custom
+      // `rati.*` metadata across fresh fetches.
+      try {
+        const db = await this.databaseService.getDatabase();
+        const col = db.collection('messages');
+        const docs = await col
+          .find(
+            { channelId: String(channelId) },
+            { projection: { webhookId: 1, isProxied: 1, proxyUserId: 1, author: 1, authorId: 1, timestamp: 1 } }
+          )
+          .sort({ timestamp: -1 })
+          .limit(this.DEAD_CHANNEL_THRESHOLD + 5)
+          .toArray();
+
+        let consecutiveBots = 0;
+        for (const doc of docs) {
+          const isProxied = !!(doc?.isProxied || doc?.proxyUserId);
+          const authorIsBot = !!(doc?.author?.bot);
+          const isWebhook = !!doc?.webhookId;
+
+          if ((authorIsBot || isWebhook) && !isProxied) {
+            consecutiveBots++;
+            if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
+              this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
+              return true;
+            }
+          } else {
+            if (isProxied) {
+              this.logger.debug?.(`[TurnScheduler] Found proxied human message in ${channelId} (db) - channel is alive`);
+            }
+            return false;
+          }
+        }
+
+        if (consecutiveBots >= Math.floor(this.DEAD_CHANNEL_THRESHOLD * 0.75)) {
+          this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages, partial batch)`);
+          return true;
+        }
+
+        return false;
+      } catch (dbErr) {
+        this.logger.debug?.(`[TurnScheduler] DB dead-channel check failed for ${channelId}: ${dbErr?.message || dbErr}`);
+      }
+
+      // Fallback: fetch from Discord (best-effort).
+      const channel = this.discordService.client.channels.cache.get(channelId);
+      if (!channel) return true; // Can't fetch = treat as dead
+
+      const messages = await channel.messages.fetch({ limit: this.DEAD_CHANNEL_THRESHOLD + 5 });
+      let consecutiveBots = 0;
+
+      for (const msg of messages.values()) {
+        const isProxied = this.isProxiedMessage(msg);
+        if ((msg.author.bot || msg.webhookId) && !isProxied) {
+          consecutiveBots++;
+          if (consecutiveBots >= this.DEAD_CHANNEL_THRESHOLD) {
+            this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages)`);
+            return true;
+          }
+        } else {
+          if (isProxied) {
+            this.logger.debug?.(`[TurnScheduler] Found proxied human message in ${channelId} - channel is alive`);
+          }
+          return false;
+        }
+      }
+      
+      // If we exhausted messages and all were bots, mark as dead if we have enough samples
+      if (consecutiveBots >= Math.floor(this.DEAD_CHANNEL_THRESHOLD * 0.75)) {
+        this.logger.info?.(`[TurnScheduler] Dead channel detected: ${channelId} (${consecutiveBots} consecutive bot messages, partial batch)`);
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      this.logger.warn?.(`[TurnScheduler] checkDeadChannel failed for ${channelId}: ${e.message}`);
+      return false; // Fail open - allow ambient responses on error
     }
   }
 

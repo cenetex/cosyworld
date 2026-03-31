@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import { randomUUID } from 'crypto';
+
 import { ActionLog } from './ActionLog.mjs';
 import { AttackTool } from './tools/AttackTool.mjs';
 import { ChallengeTool } from './tools/ChallengeTool.mjs';
@@ -24,6 +26,51 @@ import { DevilTool } from './tools/DevilTool.mjs';
 import { HideTool } from './tools/HideTool.mjs';
 import { FleeTool } from './tools/FleeTool.mjs';
 import { PotionTool } from './tools/PotionTool.mjs';
+import { WikiTool } from './tools/WikiTool.mjs';
+
+// D&D Tools
+import { CharacterTool } from './tools/CharacterTool.mjs';
+import { PartyTool } from './tools/PartyTool.mjs';
+import { DungeonTool } from './tools/DungeonTool.mjs';
+import { CastTool } from './tools/CastTool.mjs';
+import { QuestTool } from './tools/QuestTool.mjs';
+import { TutorialTool } from './tools/TutorialTool.mjs';
+import { DMTool } from './tools/DMTool.mjs';
+
+function normalizeToolResult(rawResult) {
+  const base = { message: null, content: null, notify: true, embeds: null, components: null, ephemeral: false };
+  if (rawResult === undefined || rawResult === null) {
+    return { ...base, notify: false };
+  }
+  if (typeof rawResult === 'object' && !Array.isArray(rawResult)) {
+    const notify = rawResult.notify === undefined ? true : Boolean(rawResult.notify);
+    const ephemeral = rawResult.ephemeral === true;
+    
+    // Check for embed responses with optional components
+    if (rawResult.embeds && Array.isArray(rawResult.embeds)) {
+      return { 
+        message: null,
+        content: null,
+        embeds: rawResult.embeds, 
+        components: rawResult.components || null,
+        notify,
+        ephemeral
+      };
+    }
+    
+    let message = rawResult.message ?? rawResult.result ?? rawResult.text ?? null;
+    if (message !== null && message !== undefined && typeof message !== 'string') {
+      try {
+        message = JSON.stringify(message);
+      } catch {
+        message = String(message);
+      }
+    }
+    return { message, content: message, embeds: null, components: rawResult.components || null, notify, ephemeral };
+  }
+  const message = typeof rawResult === 'string' ? rawResult : String(rawResult);
+  return { message, content: message, embeds: null, components: null, notify: true, ephemeral: false };
+}
 
 export class ToolService {
   constructor({
@@ -47,15 +94,28 @@ export class ToolService {
     locationService,
     battleService,
   combatEncounterService,
+  combatTargetRegistry,
   battleMediaService,
     xService,
     itemService,
     statService,
+    healthService,
     schemaService,
     knowledgeService,
     veoService,
     videoJobService,
-    presenceService
+    presenceService,
+    conversationThreadService,
+    wikiService,
+    // D&D Services
+    characterService,
+    spellService,
+    partyService,
+    dungeonService,
+    questService,
+    tutorialQuestService,
+    dungeonMasterService,
+    dmProfileService
   }) {
     this.toolServices = {
       logger,
@@ -64,6 +124,7 @@ export class ToolService {
       imageProcessingService,
       battleService,
   combatEncounterService,
+  combatTargetRegistry,
   battleMediaService,
       locationService,
       configService,
@@ -79,14 +140,26 @@ export class ToolService {
       avatarService,
       riskManagerService,
       s3Service,
-      xService,
-      itemService,
-      statService,
-      schemaService,
+    xService,
+    itemService,
+    statService,
+    healthService,
+    schemaService,
       knowledgeService,
       veoService,
       videoJobService,
-      presenceService
+      presenceService,
+      conversationThreadService,
+      wikiService,
+      // D&D Services
+      characterService,
+      spellService,
+      partyService,
+      dungeonService,
+      questService,
+      tutorialQuestService,
+      dungeonMasterService,
+      dmProfileService
     }
 
     this.logger = logger || console;
@@ -112,52 +185,58 @@ export class ToolService {
     this.defaultCooldownMs = 60 * 60 * 1000; // 1 hour cooldown
     this.cooldownService = this.cooldownService || new CooldownService();
 
-    // Initialize tools
-    const toolClasses = {
-      summon: SummonTool,
-      breed: BreedTool,
-      // Keep AttackTool for explicit attack command, but move ⚔️ to 'challenge'
-      attack: AttackTool,
-      challenge: ChallengeTool,
-  hide: HideTool,
-      defend: DefendTool,
-  flee: FleeTool,
-      move: MoveTool,
-      remember: RememberTool,
-      create: CreationTool,
-      x: XSocialTool,
-      item: ItemTool,
-      potion: PotionTool,
-      respond: ThinkTool,
-      search: WebSearchTool,
-      selfie: SelfieTool,
-      camera: SceneCameraTool,
-      'video camera': VideoCameraTool,
-      devil: DevilTool
-    };
+    // Used for distributed scheduler leases (e.g., X auto-post) so we can safely release only our own lock.
+    this._instanceId = randomUUID();
 
-  Object.entries(toolClasses).forEach(([name, ToolClass]) => {
+    // Initialize tools - each tool defines its own name and emoji
+    const toolClasses = [
+      SummonTool,
+      BreedTool,
+      AttackTool,
+      ChallengeTool,
+      HideTool,
+      DefendTool,
+      FleeTool,
+      MoveTool,
+      RememberTool,
+      CreationTool,
+      XSocialTool,
+      ItemTool,
+      PotionTool,
+      ThinkTool,
+      WebSearchTool,
+      SelfieTool,
+      SceneCameraTool,
+      VideoCameraTool,
+      DevilTool,
+      WikiTool,
+      // D&D Tools
+      CharacterTool,
+      PartyTool,
+      DungeonTool,
+      CastTool,
+      QuestTool,
+      TutorialTool,
+      DMTool
+    ];
+
+    // Instantiate and register all tools - names and emojis are inferred from tool instances
+    toolClasses.forEach(ToolClass => {
       const tool = new ToolClass(this.toolServices);
-      this.tools.set(name, tool);
-      if (tool.emoji) this.toolEmojis.set(tool.emoji, name);
+      if (tool.name) {
+        this.tools.set(tool.name, tool);
+        if (tool.emoji) this.toolEmojis.set(tool.emoji, tool.name);
+      }
     });
 
-    // Load emoji mappings from config
-  const configEmojis = this.configService.get('toolEmojis') || {};
+    // Load emoji mappings from config (allows runtime overrides)
+    const configEmojis = this.configService.get('toolEmojis') || {};
     Object.entries(configEmojis).forEach(([emoji, toolName]) => {
       this.toolEmojis.set(emoji, toolName);
     });
 
-  // Ensure ⚔️ maps to 'challenge' by default for neutral initiation
-  this.toolEmojis.set('⚔️', 'challenge');
-  // Map 🧪 to the new potion tool
-  this.toolEmojis.set('🧪', 'potion');
-  // Camera tools emojis
-  this.toolEmojis.set('🤳', 'selfie');
-  this.toolEmojis.set('📷', 'camera');
-  this.toolEmojis.set('🎥', 'video camera');
-  // Legacy spiderweb emoji now maps to web search tool
-  this.toolEmojis.set('🕸️', 'search');
+    // Override: ⚔️ maps to 'challenge' for neutral initiation (not 'attack')
+    this.toolEmojis.set('⚔️', 'challenge');
   }
 
   registerTool(tool) {
@@ -190,10 +269,69 @@ export class ToolService {
       this.logger?.warn?.('[ToolService] Scheduled X posting not started: missing dependencies');
       return;
     }
+
+    const minIntervalMs = 60 * 60 * 1000; // Minimum 1 hour between posts
+    const leaseMs = 5 * 60 * 1000; // Enough time to fetch timeline + post
+
     schedulingService.addTask('x-auto-post', async () => {
+      let db = null;
+      let lockAcquired = false;
+      const lockId = 'x-auto-post';
+      const now = new Date();
       try {
-        const db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
+        // Check optimal timing
+        if (!this._isOptimalXPostingTime()) {
+          this.logger?.debug?.('[ToolService] Skipping X post: not optimal time');
+          return;
+        }
+
+        db = this.databaseService.getDatabase ? await this.databaseService.getDatabase() : null;
         if (!db) return;
+
+        // Distributed lock + minimum interval enforcement (safe across multiple instances)
+        const lockCol = db.collection('scheduling_locks');
+        const minLastPostAt = new Date(Date.now() - minIntervalMs);
+        const leaseUntil = new Date(Date.now() + leaseMs);
+        const leaseOwner = `toolService:${this._instanceId}`;
+
+        const lockRes = await lockCol.findOneAndUpdate(
+          {
+            _id: lockId,
+            $and: [
+              {
+                $or: [
+                  { leaseUntil: { $exists: false } },
+                  { leaseUntil: { $lte: now } },
+                ],
+              },
+              {
+                $or: [
+                  { lastPostedAt: { $exists: false } },
+                  { lastPostedAt: { $lte: minLastPostAt } },
+                ],
+              },
+            ],
+          },
+          {
+            $set: {
+              leaseUntil,
+              leaseOwner,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              createdAt: now,
+              lastPostedAt: new Date(0),
+            },
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
+
+        lockAcquired = Boolean(lockRes?.value && lockRes.value.leaseOwner === leaseOwner);
+        if (!lockAcquired) {
+          this.logger?.debug?.('[ToolService] Skipping X post: lock not acquired or interval not met');
+          return;
+        }
+
         // Get all authenticated avatars
         const xAuths = await db.collection('x_auth').find({ accessToken: { $exists: true, $ne: null } }).toArray();
         if (!xAuths.length) return;
@@ -216,9 +354,28 @@ export class ToolService {
         if (!postAction) return;
         // Post to X
         await xSocialTool.xService.postToX(avatar, postAction.content);
+
+        // Record successful post (and release lease)
+        try {
+          await db.collection('scheduling_locks').updateOne(
+            { _id: lockId, leaseOwner },
+            { $set: { lastPostedAt: new Date(), leaseUntil: new Date(0), updatedAt: new Date() } }
+          );
+        } catch {}
+
         this.logger?.info?.(`[ToolService] Scheduled X post for avatar ${avatar.name}`);
       } catch (err) {
         this.logger?.error?.('[ToolService] Scheduled X posting error:', err);
+      } finally {
+        // Ensure lease is released even if we exit early
+        if (db && lockAcquired) {
+          try {
+            await db.collection('scheduling_locks').updateOne(
+              { _id: lockId, leaseOwner: `toolService:${this._instanceId}` },
+              { $set: { leaseUntil: new Date(0), updatedAt: new Date() } }
+            );
+          } catch {}
+        }
       }
     }, intervalMs);
     this.logger?.info?.('[ToolService] Scheduled X posting enabled');
@@ -232,25 +389,49 @@ export class ToolService {
     const emojis = Array.from(this.toolEmojis.keys()).map(e => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     if (emojis.length === 0) return { commands: [], cleanText: text, commandLines: [] };
 
-    // Define the regex pattern to match commands and their parameters
-    const pattern = new RegExp(`(^|\\s)(${emojis.join('|')})(?:\\s+((?:(?!${emojis.join('|')}).)*))?`, 'g');
-
-    let match;
+    // Build emoji pattern
+    const emojiPattern = emojis.join('|');
+    
+    // Split text by emoji patterns, preserving the emojis
+    // Find all positions where emojis appear
+    const emojiRegex = new RegExp(`(${emojiPattern})`, 'g');
     const commands = [];
     const commandLines = [];
     let cleanText = text;
-
-    // Iterate through all matches in the text
-    while ((match = pattern.exec(text)) !== null) {
-      const emoji = match[2];
-      const paramsString = match[3] || '';
-      const params = paramsString.trim().split(/\s+/).filter(Boolean);
-      const toolName = this.toolEmojis.get(emoji);
-      const fullMatch = match[0];
-      commands.push({ command: toolName, emoji, params });
-      commandLines.push(fullMatch.trim());
-      // Remove the matched command from cleanText
-      cleanText = cleanText.replace(fullMatch, '').trim();
+    
+    // Find all emoji matches with their positions
+    const emojiMatches = [];
+    let emojiMatch;
+    while ((emojiMatch = emojiRegex.exec(text)) !== null) {
+      emojiMatches.push({
+        emoji: emojiMatch[1],
+        index: emojiMatch.index,
+        endIndex: emojiMatch.index + emojiMatch[1].length
+      });
+    }
+    
+    // For each emoji, extract its parameters (text until next emoji or end)
+    for (let i = 0; i < emojiMatches.length; i++) {
+      const current = emojiMatches[i];
+      const next = emojiMatches[i + 1];
+      
+      // Parameters are everything from after this emoji to before next emoji (or end)
+      const paramsStart = current.endIndex;
+      const paramsEnd = next ? next.index : text.length;
+      const paramsString = text.slice(paramsStart, paramsEnd).trim();
+      const params = paramsString.split(/\s+/).filter(Boolean);
+      
+      const toolName = this.toolEmojis.get(current.emoji);
+      if (toolName) {
+        const fullMatch = text.slice(
+          Math.max(0, current.index - 1), // Include preceding space if any
+          paramsEnd
+        ).trim();
+        
+        commands.push({ command: toolName, emoji: current.emoji, params });
+        commandLines.push(fullMatch);
+        cleanText = cleanText.replace(fullMatch, '').trim();
+      }
     }
 
     return { commands, cleanText, commandLines };
@@ -321,14 +502,19 @@ export class ToolService {
   async executeTool(toolName, message, params, avatar, _guildConfig_or_context = {}, maybeContext) {
     const tool = this.tools.get(toolName);
     if (!tool) {
-      return `Tool '${toolName}' not found.`;
+      return normalizeToolResult({ message: `Tool '${toolName}' not found.` });
+    }
+
+    // Check if this is a D&D tool and send welcome message if first time
+    if (tool.isDndTool) {
+      await this._sendDndWelcomeIfNeeded(message);
     }
 
     const cooldownMs = tool.cooldownMs ?? this.defaultCooldownMs;
     const remaining = this.cooldownService.getRemainingCooldown(toolName, avatar._id, cooldownMs);
     if (remaining > 0) {
       const minutes = Math.ceil(remaining / 60000);
-      return `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]`;
+      return normalizeToolResult({ message: `-# [ Please wait ${minutes} more minute(s) before using '${toolName}' again. ]` });
     }
 
     // Back-compat: detect where `context` was provided.
@@ -337,10 +523,49 @@ export class ToolService {
   const context = (typeof maybeContext !== 'undefined') ? (maybeContext || {}) : (_guildConfig_or_context || {});
 
     // Global gating: KO/dead cannot use tools; in-combat restrict tools
+    // Note: KO should only block while knockedOutUntil is still in the future.
+    // If the KO cooldown has elapsed but status remains 'knocked_out', auto-clear it.
     try {
       const now = Date.now();
-      if (avatar?.status === 'dead' || avatar?.status === 'knocked_out' || (avatar?.knockedOutUntil && now < avatar.knockedOutUntil)) {
+      if (avatar?.status === 'dead') {
         return null; // silent block
+      }
+
+      const rawUntil = avatar?.knockedOutUntil;
+      let koUntilTs = null;
+      if (rawUntil) {
+        if (rawUntil instanceof Date) {
+          koUntilTs = rawUntil.getTime();
+        } else if (typeof rawUntil === 'number') {
+          koUntilTs = rawUntil;
+        } else {
+          const asNumber = Number(rawUntil);
+          if (Number.isFinite(asNumber)) {
+            koUntilTs = asNumber;
+          } else {
+            const parsed = new Date(rawUntil);
+            const parsedTs = parsed.getTime();
+            if (!Number.isNaN(parsedTs)) koUntilTs = parsedTs;
+          }
+        }
+      }
+
+      // Still knocked out: block.
+      if (koUntilTs && now < koUntilTs) {
+        return null; // silent block
+      }
+
+      // KO cooldown elapsed (or missing): clear stale KO status so tools work again.
+      if (avatar?.status === 'knocked_out') {
+        avatar.status = 'alive';
+        avatar.knockedOutUntil = null;
+        try {
+          if (this.avatarService?.updateAvatar) {
+            await this.avatarService.updateAvatar(avatar);
+          }
+        } catch (e) {
+          this.logger?.warn?.(`[ToolService] Failed to auto-clear KO for ${avatar?._id || avatar?.id}: ${e?.message || e}`);
+        }
       }
     } catch {}
 
@@ -348,10 +573,10 @@ export class ToolService {
     const inCombat = (() => {
       try { return ces?.isInActiveCombat?.(message.channel.id, avatar.id || avatar._id) || false; } catch { return false; }
     })();
-  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee']);
+  const combatAllowed = new Set(['attack', 'defend', 'hide', 'flee', 'cast', 'challenge']);
   const isItemUse = toolName === 'item' && Array.isArray(params) && params[0] && String(params[0]).toLowerCase() === 'use';
   if (inCombat && !combatAllowed.has(toolName) && !isItemUse) {
-      return `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🛡️ defend, 🫥 hide, or 🏃 flee. ]`;
+      return normalizeToolResult({ message: `-# [ '${toolName}' not available during combat. Use 🗡️ attack, 🪄 cast, 🛡️ defend, 🫥 hide, or 🏃 flee. ]` });
     }
 
     let result;
@@ -360,12 +585,24 @@ export class ToolService {
       if (this.toolServices?.combatEncounterService) {
         context.combatEncounterService = context.combatEncounterService || this.toolServices.combatEncounterService;
       }
+      if (this.toolServices?.combatTargetRegistry) {
+        context.combatTargetRegistry = context.combatTargetRegistry || this.toolServices.combatTargetRegistry;
+      }
       if (this.toolServices?.battleMediaService) {
         context.battleMediaService = context.battleMediaService || this.toolServices.battleMediaService;
       }
+      // D&D services for dungeon combat integration
+      if (this.toolServices?.dungeonService) {
+        context.dungeonService = context.dungeonService || this.toolServices.dungeonService;
+      }
+      if (this.toolServices?.characterService) {
+        context.characterService = context.characterService || this.toolServices.characterService;
+      }
       // Provide discordService for downstream actions (e.g., KO movement)
       if (this.discordService && !context.discordService) context.discordService = this.discordService;
-      result = await tool.execute(message, params, avatar, context);
+      // V6: Provide toolService ref so tools can delegate (e.g., challenge → attack in combat)
+      if (!context.toolService) context.toolService = this;
+      rawResult = await tool.execute(message, params, avatar, context);
       this.cooldownService.setUsed(toolName, avatar._id);
     } catch (error) {
       result = `Error executing ${toolName}: ${error.message}`;
@@ -391,5 +628,45 @@ export class ToolService {
     }
 
     return result;
+  }
+
+  /**
+   * Get the combat encounter service instance
+   * @returns {Object|null} Combat encounter service or null
+   */
+  getCombatService() {
+    return this.toolServices?.combatEncounterService || null;
+  }
+
+  /**
+   * Send a D&D welcome DM to first-time users
+   * @private
+   */
+  async _sendDndWelcomeIfNeeded(message) {
+    try {
+      const questService = this.toolServices?.questService;
+      if (!questService) return;
+
+      const discordUserId = message.author?.id;
+      if (!discordUserId) return;
+
+      // Check if already seen
+      const hasSeen = await questService.hasSeenWelcome?.(discordUserId);
+      if (hasSeen) return;
+
+      // Send welcome DM as embed
+      const welcomeEmbed = questService.getWelcomeEmbed?.();
+      if (welcomeEmbed) {
+        await message.author.send(welcomeEmbed);
+      }
+      
+      // Mark as seen
+      await questService.markWelcomeSeen?.(discordUserId);
+      
+      this.logger?.info?.(`[ToolService] Sent D&D welcome DM to user ${discordUserId}`);
+    } catch (err) {
+      // User may have DMs disabled - that's fine
+      this.logger?.debug?.(`[ToolService] Could not send D&D welcome DM: ${err.message}`);
+    }
   }
 }

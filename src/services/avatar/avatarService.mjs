@@ -1,5 +1,8 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.mjs';
+import { isModelRosterAvatar } from './helpers/isModelRosterAvatar.mjs';
+import { isCollectionAvatar, isOnChainAvatar } from './helpers/walletAvatarClassifiers.mjs';
+import { getAvatarModeFlags } from './helpers/avatarModeFlags.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -106,6 +109,7 @@ export class AvatarService {
     databaseService,
     configService,
     getMapService,
+    getPartyService,
     aiService,
     schedulingService,
     statService,
@@ -117,6 +121,7 @@ export class AvatarService {
     this.configService = configService;
     // late‑bound to avoid cyclic deps
     this.getMapService = getMapService;
+    this.getPartyService = getPartyService;
     this.aiService = aiService;
     this.schedulingService = schedulingService;
     this.statService = statService;
@@ -193,6 +198,33 @@ export class AvatarService {
     return filters;
   }
 
+  /**
+   * Filter avatars by guild avatar modes (free, onChain, collection, pureModel)
+   * @param {Array} avatars - Avatars to filter
+   * @param {Object} guildConfig - Guild configuration
+   * @returns {Array} Filtered avatars
+   */
+  _filterByAvatarModes(avatars, guildConfig) {
+    if (!Array.isArray(avatars) || avatars.length === 0) {
+      return [];
+    }
+
+    const { allowOnChain, allowCollection, allowFree, allowPureModel } = getAvatarModeFlags(guildConfig?.avatarModes);
+
+    // If all modes enabled, no filtering needed
+    if (allowFree && allowOnChain && allowCollection && allowPureModel) {
+      return avatars;
+    }
+
+    return avatars.filter(avatar => {
+      if (allowPureModel && isModelRosterAvatar(avatar)) return true;
+      if (allowCollection && isCollectionAvatar(avatar)) return true;
+      if (allowOnChain && isOnChainAvatar(avatar)) return true;
+      if (allowFree && !isModelRosterAvatar(avatar) && !isCollectionAvatar(avatar) && !isOnChainAvatar(avatar)) return true;
+      return false;
+    });
+  }
+
   /* -------------------------------------------------- */
   /*  GENERIC DB QUERIES                                */
   /* -------------------------------------------------- */
@@ -217,12 +249,24 @@ export class AvatarService {
   /* -------------------------------------------------- */
 
   async getAvatarStats(avatarId) {
-    const db = await this._db();
-    const objectId = toObjectId(avatarId);
-    const stats = await db.collection('dungeon_stats').findOne({ avatarId: objectId });
-    return (
-      stats || { hp: 100, attack: 10, defense: 5, avatarId: objectId }
-    );
+    // Handle non-ObjectId IDs (e.g., monster IDs like "monster_mortar_mite_6idl_2_...")
+    // These are synthetic combatants that don't have persistent stats in the DB
+    if (typeof avatarId === 'string' && (avatarId.startsWith('monster_') || avatarId.startsWith('unknown_'))) {
+      this.logger.debug?.(`[AvatarService] getAvatarStats: skipping DB lookup for monster ID ${avatarId}`);
+      return null; // Let caller use embedded stats
+    }
+    
+    try {
+      const db = await this._db();
+      const objectId = toObjectId(avatarId);
+      const stats = await db.collection('dungeon_stats').findOne({ avatarId: objectId });
+      return (
+        stats || { hp: 100, attack: 10, defense: 5, avatarId: objectId }
+      );
+    } catch {
+      this.logger.debug?.(`[AvatarService] getAvatarStats: invalid ID ${avatarId}, returning null`);
+      return null;
+    }
   }
 
   async updateAvatarStats(avatar, stats) {
@@ -255,12 +299,26 @@ export class AvatarService {
   }
 
   async getOrCreateStats(avatar) {
-    let stats = avatar.stats || (await this.getAvatarStats(avatar._id));
+    // For monsters/synthetic combatants with embedded stats, use those directly
+    const avatarId = avatar?._id || avatar?.id;
+    const isMonster = typeof avatarId === 'string' && (avatarId.startsWith('monster_') || avatarId.startsWith('unknown_'));
+    
+    if (isMonster && avatar.stats) {
+      // Monsters come with pre-built stats from MonsterService
+      return avatar.stats;
+    }
+    
+    let stats = avatar.stats || (await this.getAvatarStats(avatarId));
     if (!stats || !this.statService.constructor.validateStats(stats)) {
       stats = this.statService.generateStatsFromDate(avatar?.createdAt || new Date());
-      await this.updateAvatarStats(avatar, stats);
-      avatar.stats = stats;
-      await this.updateAvatar(avatar);
+      // Only persist stats for real avatars (not monsters)
+      if (!isMonster) {
+        await this.updateAvatarStats(avatar, stats);
+        avatar.stats = stats;
+        await this.updateAvatar(avatar);
+      } else {
+        avatar.stats = stats;
+      }
     }
     return stats;
   }
@@ -427,6 +485,11 @@ export class AvatarService {
    */
   async updateAvatarActivity(channelId, avatarId) {
     try {
+      // Skip synthetic/monster avatar IDs — they're not in the avatars collection
+      if (!avatarId || !ObjectId.isValid(avatarId)) {
+        this.logger.debug?.(`[AvatarService] Skipping updateAvatarActivity for non-ObjectId: ${avatarId}`);
+        return;
+      }
       const db = await this._db();
       const presenceCol = db.collection('channel_avatar_presence');
       const avatarsCol = db.collection(this.AVATARS_COLLECTION);
@@ -1343,7 +1406,64 @@ export class AvatarService {
   }
 
   async generateAvatarImage(prompt, uploadOptions = {}) {
-    return this.schemaService.generateImage(prompt, '1:1', uploadOptions);
+    const { referenceImageUrl, ...cleanUploadOptions } = uploadOptions;
+    
+    // If we have a reference image and aiService supports composition, try that first
+    if (referenceImageUrl && this.aiService?.composeImageWithGemini && this.aiService?.s3Service?.downloadImage) {
+      try {
+        this.logger?.info?.(`[AvatarService] Attempting image composition with reference: ${referenceImageUrl.substring(0, 60)}...`);
+        
+        // Download the reference image
+        const refBuffer = await this.aiService.s3Service.downloadImage(referenceImageUrl);
+        if (refBuffer) {
+          const images = [{
+            data: refBuffer.toString('base64'),
+            mimeType: 'image/png',
+            label: 'token_icon'
+          }];
+          
+          // Build enhanced prompt that incorporates the token icon
+          const compositionPrompt = `Create a unique character avatar inspired by and incorporating visual elements from the attached token icon image. 
+The character should:
+- Reflect the token's visual identity, colors, and themes
+- Be a full character portrait suitable for a profile image
+- Maintain the essence and color palette of the token icon
+- Have a complete character design with face, expression, and personality
+
+Character prompt: ${prompt}
+
+Style: Fantasy character portrait, 1:1 square format, detailed, expressive, suitable for avatar use. 
+The token icon's colors and motifs should be visible in the character's design.`;
+
+          const compositionOptions = {
+            ...cleanUploadOptions,
+            source: cleanUploadOptions.source || 'avatar.wallet.composed',
+            characterReference: false, // Token icon is design inspiration, not a character to replicate
+          };
+          
+          const composedUrl = await this.aiService.composeImageWithGemini(images, compositionPrompt, compositionOptions);
+          
+          if (composedUrl) {
+            this.logger?.info?.(`[AvatarService] Successfully composed avatar with token reference: ${composedUrl.substring(0, 60)}...`);
+            return composedUrl;
+          }
+        }
+      } catch (composeError) {
+        this.logger?.warn?.(`[AvatarService] Image composition with reference failed, falling back to standard generation: ${composeError.message}`);
+      }
+    }
+    
+    // Fall back to standard generation via schemaService
+    const avatarUploadOptions = {
+      ...cleanUploadOptions,
+      purpose: 'avatar',
+      category: 'character',
+      tags: ['avatar', 'character', 'portrait'].filter(Boolean),
+      metadata: {
+        source: cleanUploadOptions.source || 'avatar.generate'
+      }
+    };
+    return this.schemaService.generateImage(prompt, '1:1', avatarUploadOptions);
   }
 
   _canGenerateAvatarImages() {
@@ -1358,7 +1478,41 @@ export class AvatarService {
     }
   }
 
-  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false } = {}) {
+  /**
+   * Extract token mint addresses from a wallet avatar's token balances and wallet context
+   * @param {Object} avatar - The wallet avatar
+   * @returns {string[]} Array of token mint addresses
+   */
+  _getWalletAvatarTokenMints(avatar) {
+    const mints = new Set();
+    
+    // Check tokenBalances for mint addresses
+    if (avatar.tokenBalances && typeof avatar.tokenBalances === 'object') {
+      for (const [, balanceData] of Object.entries(avatar.tokenBalances)) {
+        if (balanceData?.mint) {
+          mints.add(balanceData.mint);
+        }
+      }
+    }
+    
+    // Check walletTopTokens for mint addresses
+    if (Array.isArray(avatar.walletTopTokens)) {
+      for (const token of avatar.walletTopTokens) {
+        if (token?.mint) {
+          mints.add(token.mint);
+        }
+      }
+    }
+    
+    // Check walletContext for token address if available
+    if (avatar.walletContext?.tokenAddress) {
+      mints.add(avatar.walletContext.tokenAddress);
+    }
+    
+    return [...mints].filter(Boolean);
+  }
+
+  async _ensureAvatarImage(avatar, { reason = 'hydrate', prompt = null, force = false, forceHydratePartial = false, referenceImageUrl = null } = {}) {
     if (!avatar) return null;
     if (!force && avatar.imageUrl) return avatar;
     if (!force && avatar.isPartial === true) return avatar;
@@ -1431,6 +1585,170 @@ export class AvatarService {
     }
 
     return avatar;
+  }
+
+  /**
+   * Hydrate a partial avatar when it's selected to speak.
+   * This upgrades the avatar with a generated image and posts an announcement embed.
+   * For wallet avatars, validates they are in the correct CA-tracked channel and redirects if needed.
+   * @param {Object} avatar - The partial avatar to hydrate
+   * @param {string} channelId - Channel where the avatar will speak
+   * @param {Object} options - Additional options
+   * @param {Object} options.discordService - Discord service for posting embeds
+   * @param {string} [options.redirectChannelId] - If set, indicates we're already redirecting
+   * @returns {Promise<{avatar: Object|null, redirectChannelId: string|null}>} - The hydrated avatar and redirect channel if applicable
+   */
+  async hydratePartialAvatarForSpeaking(avatar, channelId, options = {}) {
+    if (!avatar) return { avatar: null, redirectChannelId: null };
+    
+    // Track if we've been redirected to a different channel
+    const redirectChannelId = options.redirectChannelId || null;
+    
+    // Skip if already has an image
+    if (avatar.imageUrl) return { avatar, redirectChannelId };
+    
+    // Skip if not a partial avatar (shouldn't happen, but safety check)
+    if (avatar.isPartial !== true && avatar.model !== 'partial') return { avatar, redirectChannelId: null };
+    
+    // For wallet avatars, validate that the channel tracks their associated CA
+    // Wallet avatars should only be hydrated in channels where their token is tracked
+    const isWalletAvatar = Boolean(avatar.walletAddress || avatar.summoner?.startsWith('wallet:'));
+    if (isWalletAvatar && this.configService?.services?.buybotService) {
+      const buybotService = this.configService.services.buybotService;
+      
+      // Get the wallet avatar's primary token mint address
+      const walletTokenMints = this._getWalletAvatarTokenMints(avatar);
+      
+      if (walletTokenMints.length > 0) {
+        // Check if any of the wallet's tokens are tracked in this channel
+        let hasTrackedToken = false;
+        for (const mint of walletTokenMints) {
+          try {
+            const isTracked = await buybotService.isTokenTrackedInChannel(channelId, mint);
+            if (isTracked) {
+              hasTrackedToken = true;
+              break;
+            }
+          } catch (e) {
+            this.logger?.debug?.(`[AvatarService] Error checking token tracking: ${e.message}`);
+          }
+        }
+        
+        if (!hasTrackedToken) {
+          // Find where the token IS tracked - redirect avatar there
+          let correctChannelInfo = null;
+          for (const mint of walletTokenMints) {
+            try {
+              const trackingChannels = await buybotService.getChannelsTrackingToken(mint, 'discord');
+              if (trackingChannels?.length > 0) {
+                correctChannelInfo = trackingChannels[0];
+                break;
+              }
+            } catch (e) {
+              this.logger?.debug?.(`[AvatarService] Error finding tracking channel: ${e.message}`);
+            }
+          }
+          
+          if (correctChannelInfo) {
+            this.logger?.info?.(`[AvatarService] Wallet avatar ${avatar.name} redirecting from channel ${channelId} to CA-tracked channel ${correctChannelInfo.channelId} (${correctChannelInfo.tokenSymbol || 'unknown token'})`);
+            
+            // Recursively call hydration with the correct channel
+            return this.hydratePartialAvatarForSpeaking(avatar, correctChannelInfo.channelId, {
+              ...options,
+              redirectChannelId: correctChannelInfo.channelId
+            });
+          } else {
+            this.logger?.warn?.(`[AvatarService] Wallet avatar ${avatar.name} cannot be hydrated - no channel is tracking their CA. Avatar will not speak.`);
+            // Return null to indicate avatar should not speak
+            return { avatar: null, redirectChannelId: null };
+          }
+        }
+      }
+    }
+    
+    this.logger?.info?.(`[AvatarService] Hydrating partial avatar ${avatar.name} for speaking in channel ${channelId}`);
+    
+    // Get token image reference if this is a wallet avatar
+    let referenceImageUrl = null;
+    if (avatar.walletContext?.tokenImage) {
+      referenceImageUrl = avatar.walletContext.tokenImage;
+    } else if (avatar.walletAddress && this.configService?.services?.buybotService) {
+      // Try to find the tracked token for this channel to get its image
+      try {
+        const trackedTokens = await this.configService.services.buybotService.getTrackedTokens(channelId);
+        if (trackedTokens?.length > 0 && trackedTokens[0]?.tokenImage) {
+          referenceImageUrl = trackedTokens[0].tokenImage;
+        }
+      } catch (e) {
+        this.logger?.debug?.(`[AvatarService] Could not fetch token image for hydration: ${e.message}`);
+      }
+    }
+    
+    // Hydrate the avatar image
+    const hydratedAvatar = await this._ensureAvatarImage(avatar, {
+      reason: 'speaking',
+      forceHydratePartial: true,
+      referenceImageUrl,
+    });
+    
+    // Update the model if it was 'partial'
+    if (hydratedAvatar.imageUrl && (hydratedAvatar.model === 'partial' || !hydratedAvatar.model)) {
+      try {
+        const newModel = await this._resolveHydratedModel(hydratedAvatar.model);
+        const db = await this._db();
+        await db.collection(this.AVATARS_COLLECTION).updateOne(
+          { _id: hydratedAvatar._id },
+          { $set: { model: newModel, upgradedAt: new Date() } }
+        );
+        hydratedAvatar.model = newModel;
+        this.logger?.info?.(`[AvatarService] Upgraded ${hydratedAvatar.name} model to ${newModel}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to upgrade model for ${hydratedAvatar.name}: ${e.message}`);
+      }
+    }
+    
+    // Post announcement embed if we successfully generated an image
+    if (hydratedAvatar.imageUrl && options.discordService) {
+      try {
+        const isWalletAvatar = Boolean(hydratedAvatar.walletAddress || hydratedAvatar.summoner?.startsWith('wallet:'));
+        const announceMessage = isWalletAvatar 
+          ? `🎨 New trader avatar ready!`
+          : `🎨 ${hydratedAvatar.name} has emerged!`;
+        
+        await options.discordService.sendMiniAvatarEmbed(
+          hydratedAvatar,
+          channelId,
+          announceMessage
+        );
+        
+        this.logger?.info?.(`[AvatarService] Posted hydration announcement for ${hydratedAvatar.name}`);
+      } catch (embedError) {
+        this.logger?.warn?.(`[AvatarService] Failed to post hydration embed: ${embedError.message}`);
+      }
+    }
+    
+    // If hydration failed (no image), partial avatars should not speak
+    if (!hydratedAvatar.imageUrl) {
+      this.logger?.warn?.(`[AvatarService] Hydration failed for ${avatar.name} - avatar will not speak`);
+      return { avatar: null, redirectChannelId };
+    }
+    
+    // Update avatar's channelId if we redirected them
+    if (redirectChannelId && String(hydratedAvatar.channelId) !== String(channelId)) {
+      try {
+        const db = await this._db();
+        await db.collection(this.AVATARS_COLLECTION).updateOne(
+          { _id: hydratedAvatar._id },
+          { $set: { channelId, lastActivityAt: new Date() } }
+        );
+        hydratedAvatar.channelId = channelId;
+        this.logger?.info?.(`[AvatarService] Moved wallet avatar ${hydratedAvatar.name} to channel ${channelId}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to update avatar channelId: ${e.message}`);
+      }
+    }
+    
+    return { avatar: hydratedAvatar, redirectChannelId };
   }
 
   /**
@@ -1570,6 +1888,21 @@ export class AvatarService {
     const db = await this._db();
     const { insertedId } = await db.collection(this.AVATARS_COLLECTION).insertOne(doc);
     const createdAvatar = { ...doc, _id: insertedId };
+
+    // Emit event for new avatar creation (used by CharacterService for auto-sheet generation)
+    try {
+      eventBus.emit('AVATAR.CREATED', {
+        avatarId: createdAvatar._id,
+        name: createdAvatar.name,
+        description: createdAvatar.description,
+        personality: createdAvatar.personality,
+        emoji: createdAvatar.emoji,
+        guildId: normalizedGuildId,
+        createdAt: new Date()
+      });
+    } catch (e) {
+      this.logger?.debug?.(`[AvatarService] Failed to emit AVATAR.CREATED: ${e.message}`);
+    }
 
     if (!createdAvatar.imageUrl) {
       await this._ensureAvatarImage(createdAvatar, { reason: 'post-create', force: true });
@@ -1782,12 +2115,51 @@ export class AvatarService {
   /*  UNIQUE‑FOR‑USER SUMMONING                          */
   /* -------------------------------------------------- */
 
+  /**
+   * Get or create a unique avatar for a user.
+   * Handles the case where a user's previous avatar died and they need a new one.
+   * @param {string} summonerId - The summoner ID in format "user:discordId"
+   * @param {string} summonPrompt - The prompt to use when creating a new avatar
+   * @param {string} channelId - The channel ID where the avatar is being summoned
+   * @returns {Promise<{ avatar: Object|null, new: boolean, previouslyDead?: boolean }>}
+   */
   async getOrCreateUniqueAvatarForUser(summonerId, summonPrompt, channelId) {
     const db = await this._db();
+    
+    // First, check for an existing ALIVE avatar
     const existing = await db.collection(this.AVATARS_COLLECTION)
       .findOne({ summoner: summonerId, status: 'alive' });
     if (existing) return { avatar: existing, new: false };
 
+    // Check if there's a dead avatar for this user that needs to be properly disconnected
+    const deadAvatar = await db.collection(this.AVATARS_COLLECTION)
+      .findOne({ summoner: summonerId, status: 'dead' });
+    
+    if (deadAvatar) {
+      // Properly disconnect the dead avatar by clearing the summoner field
+      // This ensures the old dead avatar doesn't interfere with the new one
+      this.logger?.info?.(`[AvatarService] Disconnecting dead avatar ${deadAvatar.name} (${deadAvatar._id}) from user ${summonerId}`);
+      await db.collection(this.AVATARS_COLLECTION).updateOne(
+        { _id: deadAvatar._id },
+        { 
+          $set: { 
+            previousSummoner: summonerId, // Keep a record of who owned this avatar
+            summoner: `deceased:${summonerId}`, // Mark as disconnected from the user
+            updatedAt: new Date()
+          }
+        }
+      );
+      
+      // Also delete any character sheet associated with the dead avatar
+      try {
+        await db.collection('character_sheets').deleteOne({ avatarId: deadAvatar._id });
+        this.logger?.info?.(`[AvatarService] Deleted character sheet for dead avatar ${deadAvatar._id}`);
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to delete character sheet for dead avatar: ${e.message}`);
+      }
+    }
+
+    // Create new avatar for the user
     const stats = this.statService.generateStatsFromDate(new Date());
     const prompt = `Stats: ${JSON.stringify(stats)}\n\n${summonPrompt}`;
     const avatar = await this.createAvatar({ prompt, summoner: summonerId, channelId });
@@ -1799,7 +2171,60 @@ export class AvatarService {
     }
     
     avatar.stats = stats;
-    return { avatar, new: true };
+
+    // If the dead avatar was in a party, swap the new avatar in automatically
+    if (deadAvatar) {
+      try {
+        const partyService = this.getPartyService?.();
+        if (partyService) {
+          const updatedParty = await partyService.replacePartyMember(
+            String(deadAvatar._id),
+            String(avatar._id)
+          );
+          if (updatedParty) {
+            this.logger?.info?.(
+              `[AvatarService] Auto-swapped party member: ${deadAvatar.name} → ${avatar.name} in party ${updatedParty._id}`
+            );
+          }
+        }
+      } catch (e) {
+        this.logger?.warn?.(`[AvatarService] Failed to auto-swap party member: ${e.message}`);
+      }
+    }
+
+    this.logger?.info?.(`[AvatarService] Created new avatar ${avatar.name} for user ${summonerId}${deadAvatar ? ' (replacing dead avatar)' : ''}`);
+    return { avatar, new: true, previouslyDead: !!deadAvatar };
+  }
+
+  /**
+   * Get an avatar by Discord user ID
+   * @param {string} discordUserId - Discord user ID
+   * @param {string} [guildId] - Optional guild ID for scope
+   * @returns {Promise<Object|null>} Avatar or null
+   */
+  async getAvatarByUserId(discordUserId, guildId = null) {
+    const db = await this._db();
+    // Query for alive avatars, but also accept avatars without explicit status (default to alive)
+    const baseQuery = { 
+      summoner: `user:${discordUserId}`, 
+      $or: [
+        { status: 'alive' },
+        { status: { $exists: false } },
+        { status: null }
+      ]
+    };
+    
+    // If guildId provided, try guild-specific first, then fall back to any matching avatar
+    if (guildId) {
+      const guildAvatar = await db.collection(this.AVATARS_COLLECTION).findOne({
+        ...baseQuery,
+        guildId
+      });
+      if (guildAvatar) return guildAvatar;
+    }
+    
+    // Fall back to any avatar for this user (handles avatars without guildId)
+    return db.collection(this.AVATARS_COLLECTION).findOne(baseQuery);
   }
 
   async summonUserAvatar(message, customPrompt = null) {
@@ -1807,7 +2232,8 @@ export class AvatarService {
     const { id: userId, username } = message.author;
     const channelId = message.channel.id;
     const prompt = customPrompt || `Create an avatar that represents ${username}.`;
-    const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(userId, prompt, channelId);
+    const summoner = `user:${userId}`;
+    const { avatar, new: isNewAvatar } = await this.getOrCreateUniqueAvatarForUser(summoner, prompt, channelId);
 
     if (avatar.channelId !== channelId)
       await this.getMapService().updateAvatarPosition(avatar, channelId, avatar.channelId);
@@ -1930,6 +2356,27 @@ export class AvatarService {
    * @returns {Promise<Avatar>} Avatar document
    */
   async createAvatarForWallet(walletAddress, context = {}) {
+    const guildIdForWallet = context?.guildId;
+    if (guildIdForWallet && this.configService?.getGuildConfig) {
+      try {
+        const guildConfig = await this.configService.getGuildConfig(guildIdForWallet);
+        const guildAvatarModes = guildConfig?.avatarModes || {};
+        const { allowOnChain, allowCollection } = getAvatarModeFlags(guildAvatarModes);
+        const onChainDisabled = !allowOnChain;
+        const collectionDisabled = !allowCollection;
+        
+        // Block only if both on-chain and collection modes are disabled
+        if (onChainDisabled && collectionDisabled) {
+          const reason = `Wallet avatars disabled for guild ${guildIdForWallet}`;
+          this.logger?.info?.(`[AvatarService] ${reason}`);
+          throw new Error(reason);
+        }
+      } catch (modeError) {
+        if (modeError?.message?.includes('disabled for guild')) throw modeError;
+        this.logger?.warn?.(`[AvatarService] Failed to evaluate wallet avatar mode for guild ${guildIdForWallet}: ${modeError.message}`);
+      }
+    }
+
     const db = await this._db();
     
     const walletShort = formatAddress(walletAddress);
@@ -2198,13 +2645,22 @@ export class AvatarService {
         }));
       }
       
+      // NOTE: Do NOT update the avatar's channelId for existing wallet avatars.
+      // Wallet avatars are global and their presence in channels should be managed
+      // through channel_avatar_presence (via activateAvatarInChannel), not by
+      // changing the avatar's stored channelId. Updating channelId would cause
+      // avatars to "move" to random channels when the same wallet trades in
+      // different channels tracking different tokens.
+      // 
+      // Only update channelId if the avatar doesn't have one yet (first-time setup)
       const nextChannelId = context.discordChannelId || context.channelId || null;
-      if (nextChannelId && nextChannelId !== avatar.channelId) {
+      if (nextChannelId && !avatar.channelId) {
         updateData.channelId = nextChannelId;
       }
 
+      // Similarly for guildId - only set if not already set
       const nextGuildId = context.guildId || context.discordGuildId || null;
-      if (nextGuildId && nextGuildId !== avatar.guildId) {
+      if (nextGuildId && !avatar.guildId) {
         updateData.guildId = nextGuildId;
       }
 

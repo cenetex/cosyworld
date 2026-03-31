@@ -197,10 +197,12 @@ function createRouter(db, services) {
       personality,
       emoji,
       imageUrl,
+      thumbnailUrl,
       locationId,
       lives,
       status,
-      model
+      model,
+      provider
     } = req.body;
 
     // Validate required fields
@@ -215,10 +217,12 @@ function createRouter(db, services) {
       personality: personality || '',
       emoji: emoji || '✨',
       imageUrl: imageUrl || '',
+      thumbnailUrl: thumbnailUrl || '',
       status: status || 'active',
       lives: lives || 3,
       locationId: locationId || null,
       model: model || 'gpt-4',
+      provider: provider || null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -263,10 +267,12 @@ function createRouter(db, services) {
       personality,
       emoji,
       imageUrl,
+      thumbnailUrl,
       locationId,
       lives,
       status,
-      model
+      model,
+      provider
     } = req.body;
 
     // Create update object with only provided fields
@@ -276,10 +282,12 @@ function createRouter(db, services) {
     if (personality !== undefined) updateObj.personality = personality;
     if (emoji !== undefined) updateObj.emoji = emoji;
     if (imageUrl !== undefined) updateObj.imageUrl = imageUrl;
+    if (thumbnailUrl !== undefined) updateObj.thumbnailUrl = thumbnailUrl;
     if (locationId !== undefined) updateObj.locationId = locationId;
     if (lives !== undefined) updateObj.lives = lives;
     if (status !== undefined) updateObj.status = status;
     if (model !== undefined) updateObj.model = model;
+    if (provider !== undefined) updateObj.provider = provider;
 
     // Add updated timestamp
     updateObj.updatedAt = new Date();
@@ -711,6 +719,29 @@ function createRouter(db, services) {
       if (adminRoles) config.adminRoles = adminRoles;
 
       await saveUserConfig(config);
+
+      // Also sync to MongoDB global_settings for configService to pick up
+      try {
+        const updateDoc = {};
+        if (features) updateDoc['config.features'] = features;
+        if (rateLimit) updateDoc['config.rateLimit'] = rateLimit;
+        if (prompts) updateDoc['config.prompts'] = prompts;
+        if (adminRoles) updateDoc['config.adminRoles'] = adminRoles;
+        updateDoc.updatedAt = new Date();
+        
+        await db.collection('global_settings').updateOne(
+          { _id: 'guild_defaults' },
+          { $set: updateDoc },
+          { upsert: true }
+        );
+        
+        // Clear configService cache so changes take effect immediately
+        services?.configService?.clearGlobalDefaultsCache?.();
+        services?.configService?.clearCache?.();
+      } catch (dbError) {
+        console.warn('[admin/settings] Failed to sync to MongoDB:', dbError.message);
+        // Continue anyway - file save succeeded
+      }
 
       res.json({
         success: true,

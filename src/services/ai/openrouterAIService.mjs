@@ -611,8 +611,8 @@ export class OpenRouterAIService {
       }
 
       if (!response.choices || response.choices.length === 0) {
-  this.logger.error('Unexpected response format from OpenRouter:', response);
-  this.logger.info('Response:', JSON.stringify(response, null, 2));
+  this.logger.error('Unexpected response format from OpenRouter:', sanitizeForLogging(response));
+  this.logger.info('Response:', JSON.stringify(sanitizeForLogging(response), null, 2));
   return options.returnEnvelope ? { text: '', raw: response, model: mergedOptions.model, provider: 'openrouter', error: { code: 'FORMAT', message: 'No choices' } } : null;
       }
       const result = response.choices[0].message;
@@ -624,7 +624,29 @@ export class OpenRouterAIService {
         this.logger.warn(`[OpenRouter][Chat] Response truncated - hit max_tokens limit${limitMsg}. Consider increasing or removing max_tokens.`);
       }
       this.logger.debug?.(`[OpenRouter][Chat] finish_reason=${finishReason} usage=${JSON.stringify(response.usage)}`);
-
+      
+      // Debug logging for image models to understand response structure
+      const isImageModel = /flux|imagen|dall-?e|stable.?diffusion/i.test(mergedOptions.model);
+      if (isImageModel) {
+        this.logger.info?.(`[OpenRouter][Chat] Image model ${mergedOptions.model} response keys: ${JSON.stringify(Object.keys(result))}`);
+        this.logger.info?.(`[OpenRouter][Chat] result.images exists: ${!!result.images}, type: ${typeof result.images}, isArray: ${Array.isArray(result.images)}, length: ${result.images?.length}`);
+        this.logger.debug?.(`[OpenRouter][Chat] Image model response structure: ${JSON.stringify({
+          contentType: typeof result.content,
+          contentIsArray: Array.isArray(result.content),
+          contentLength: typeof result.content === 'string' ? result.content.length : (Array.isArray(result.content) ? result.content.length : 'N/A'),
+          hasData: !!response.data,
+          hasImages: !!result.images,
+          imagesCount: result.images?.length || 0,
+          keys: Object.keys(result)
+        })}`);
+        // Log first 500 chars of content for debugging (sanitized to avoid base64 data)
+        if (result.content) {
+          const preview = typeof result.content === 'string' 
+            ? sanitizeForLogging(result.content, 500)
+            : JSON.stringify(sanitizeForLogging(result.content), null, 0).slice(0, 500);
+          this.logger.debug?.(`[OpenRouter][Chat] Image model content preview: ${preview}`);
+        }
+      }
       // If response is meant to be structured JSON, preserve it
       if (mergedOptions.response_format?.type === 'json_object') {
         return result.content;
@@ -969,10 +991,133 @@ export class OpenRouterAIService {
       const imageArr = Array.isArray(images) ? images : images ? [images] : [];
       return await this.services.replicateService.generateImage(prompt, imageArr, options);
     }
-    // Fallback to OpenRouter's own image generation (if supported)
-    // ...existing code for OpenRouter image generation (if any)...
-    this.logger?.warn?.('No image generation implemented for this model in OpenRouterAIService.');
-    return null;
+    
+    // Check if model is image-capable via OpenRouter
+    const catalogService = this.openrouterModelCatalogService;
+    const isImageCapable = catalogService?.isImageCapable?.(model);
+    
+    if (isImageCapable) {
+      return await this.generateImageViaOpenRouter(prompt, images, { ...options, model });
+    }
+    
+    // Fallback to default image model instead of failing
+    const defaultImageModel = 'google/gemini-3-pro-image-preview';
+    this.logger?.debug?.(`[OpenRouter] Model '${model}' is not image-capable, using default: ${defaultImageModel}`);
+    return await this.generateImageViaOpenRouter(prompt, images, { ...options, model: defaultImageModel });
+  }
+
+  /**
+   * Generate an image using OpenRouter's native image generation models.
+   * These models return images as part of the chat response.
+   * @param {string} prompt 
+   * @param {array} [referenceImages] - Optional reference images to include
+   * @param {object} [options]
+   * @returns {Promise<{url?: string, data?: string, text?: string}|null>}
+   */
+  async generateImageViaOpenRouter(prompt, referenceImages = [], options = {}) {
+    const model = options.model || 'google/gemini-3-pro-image-preview';
+    
+    // Build message content with optional reference images
+    const content = [];
+    
+    // Dynamically check if this model accepts image input
+    // Image-output-only models like FLUX don't accept image inputs - check via API
+    let acceptsImageInput = true; // Default to true for safety
+    if (this.openrouterModelCatalogService?.acceptsImageInputAsync) {
+      try {
+        acceptsImageInput = await this.openrouterModelCatalogService.acceptsImageInputAsync(model);
+        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Model ${model} acceptsImageInput=${acceptsImageInput}`);
+      } catch {
+        // Fallback to pattern-based check if API check fails
+        const isImageOnlyPattern = /black-forest-labs\/flux|stabilityai\/stable-diffusion/i.test(model);
+        acceptsImageInput = !isImageOnlyPattern;
+        this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] API check failed, using pattern: acceptsImageInput=${acceptsImageInput}`);
+      }
+    }
+    
+    // Add reference images if provided AND the model supports image input
+    if (acceptsImageInput) {
+      const imageArr = Array.isArray(referenceImages) ? referenceImages : referenceImages ? [referenceImages] : [];
+      for (const img of imageArr.slice(0, 4)) { // Limit to 4 reference images
+        if (typeof img === 'string' && img.startsWith('http')) {
+          content.push({ type: 'image_url', image_url: { url: img } });
+        } else if (typeof img === 'string' && img.startsWith('data:')) {
+          content.push({ type: 'image_url', image_url: { url: img } });
+        }
+      }
+    } else {
+      this.logger?.debug?.(`[OpenRouter][generateImageViaOpenRouter] Skipping reference images - model ${model} doesn't accept image input`);
+    }
+    
+    // Add the generation prompt
+    // For image-only models, just use the prompt directly (they don't need "Generate an image:" prefix)
+    const promptText = acceptsImageInput ? `Generate an image: ${prompt}` : prompt;
+    content.push({ type: 'text', text: promptText });
+    
+    const messages = [
+      { role: 'user', content }
+    ];
+    
+    this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] About to call chat() with model=${model}, contentParts=${content.length}, acceptsImageInput=${acceptsImageInput}`);
+    
+    try {
+      const response = await this.chat(messages, {
+        ...options,
+        model,
+        returnEnvelope: true,
+      });
+      
+      this.logger?.info?.(`[OpenRouter][generateImageViaOpenRouter] chat() returned: hasResponse=${!!response}, hasImages=${!!response?.images}, imagesLen=${response?.images?.length}, hasText=${!!response?.text}, hasError=${!!response?.error}`);
+      if (response?.error) {
+        this.logger?.warn?.(`[OpenRouter][generateImageViaOpenRouter] chat() error: code=${response.error.code}, message=${response.error.message}`);
+      }
+      
+      if (response?.images && response.images.length > 0) {
+        const image = response.images[0];
+        return {
+          url: image.url || null,
+          data: image.data || null,
+          text: response.text || null,
+          model,
+        };
+      }
+      
+      // Some models might return image URL in text
+      if (response?.text) {
+        const urlMatch = response.text.match(/https?:\/\/[^\s"'<>]+\.(png|jpg|jpeg|gif|webp)/i);
+        if (urlMatch) {
+          return {
+            url: urlMatch[0],
+            text: response.text,
+            model,
+          };
+        }
+      }
+      
+      this.logger?.warn?.(`[OpenRouter] Image model ${model} did not return image data`);
+      return response?.text ? { text: response.text, model } : null;
+      
+    } catch (e) {
+      this.logger?.error?.(`[OpenRouter] Image generation failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a model supports image output generation.
+   * @param {string} modelId 
+   * @returns {boolean}
+   */
+  isImageCapableModel(modelId) {
+    return this.openrouterModelCatalogService?.isImageCapable?.(modelId) || false;
+  }
+
+  /**
+   * Get list of available image-capable models.
+   * @returns {string[]}
+   */
+  getImageCapableModels() {
+    return this.openrouterModelCatalogService?.getImageCapableModels?.() || [];
   }
 
   /**

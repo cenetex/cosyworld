@@ -126,19 +126,44 @@ export default function dungeonRoutes(db) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }
 
+      function asObjectId(value) {
+        try {
+          if (!value) return null;
+          if (value instanceof ObjectId) return value;
+          if (typeof value === 'string' && ObjectId.isValid(value)) return new ObjectId(value);
+          return null;
+        } catch {
+          return null;
+        }
+      }
+
+      function buildAvatarLookupOr({ idValue, nameValue }) {
+        const or = [];
+        const oid = asObjectId(idValue);
+        if (oid) or.push({ _id: oid });
+        if (typeof nameValue === 'string' && nameValue.trim()) {
+          or.push({ name: new RegExp(escapeRegex(nameValue.trim()), 'i') });
+        }
+        return or;
+      }
+
       const enrichedLog = await Promise.all(combatLog.map(async (entry) => {
-        const actorNameRegex = entry.actorName ? new RegExp(escapeRegex(entry.actorName), "i") : null;
-        const targetNameRegex = entry.target ? new RegExp(escapeRegex(entry.target), "i") : null;
+        const actorOr = buildAvatarLookupOr({ idValue: entry.actorId, nameValue: entry.actorName });
+        const targetOr = entry.target ? buildAvatarLookupOr({ idValue: entry.targetId, nameValue: entry.target }) : [];
 
         const [actor, target] = await Promise.all([
-          db.collection('avatars').findOne(
-            { $or: [{ _id: entry.actorId }, { name: actorNameRegex }] },
-            { projection: { _id: 1, name: 1, imageUrl: 1, emoji: 1 } }
-          ),
-          entry.target ? db.collection('avatars').findOne(
-            { $or: [{ _id: entry.targetId }, { name: targetNameRegex }] },
-            { projection: { _id: 1, name: 1, imageUrl: 1, emoji: 1 } }
-          ) : null
+          actorOr.length
+            ? db.collection('avatars').findOne(
+                { $or: actorOr },
+                { projection: { _id: 1, name: 1, imageUrl: 1, emoji: 1 } }
+              )
+            : null,
+          entry.target && targetOr.length
+            ? db.collection('avatars').findOne(
+                { $or: targetOr },
+                { projection: { _id: 1, name: 1, imageUrl: 1, emoji: 1 } }
+              )
+            : null
         ]);
 
         const [actorThumb, targetThumb] = await Promise.all([

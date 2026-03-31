@@ -143,9 +143,51 @@ export class SceneCameraTool extends BasicTool {
         return null;
       };
 
-      imageUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
-      if (!imageUrl && this.googleAIService) {
-        imageUrl = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
+      let result = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
+      if (!result && this.googleAIService) {
+        result = await tryCompose(this.googleAIService) || await tryGenerate(this.googleAIService);
+      }
+
+      // Handle both string URLs and object responses (e.g., { url, data, text, model })
+      // If we get an object with base64 data or a temporary URL, persist to S3
+      if (result && typeof result === 'object') {
+        // If we have base64 data, upload it to S3
+        if (result.data && this.s3Service) {
+          try {
+            const fs = await import('fs/promises');
+            const buffer = Buffer.from(result.data, 'base64');
+            await fs.mkdir('./images', { recursive: true });
+            const tempFile = `./images/scene_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            await fs.writeFile(tempFile, buffer);
+            imageUrl = await this.s3Service.uploadImage(tempFile, metadata);
+            await fs.unlink(tempFile);
+            this.logger?.info?.('[SceneCamera] Uploaded base64 image to S3');
+          } catch (e) {
+            this.logger?.warn?.('[SceneCamera] Failed to upload base64 to S3: ' + e.message);
+            imageUrl = result.url || result.imageUrl || null;
+          }
+        } 
+        // If we have a URL but no data, download and re-upload to S3 for persistence
+        else if ((result.url || result.imageUrl) && this.s3Service) {
+          const tempUrl = result.url || result.imageUrl;
+          try {
+            const buffer = await this.s3Service.downloadImage(tempUrl);
+            const fs = await import('fs/promises');
+            await fs.mkdir('./images', { recursive: true });
+            const tempFile = `./images/scene_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            await fs.writeFile(tempFile, buffer);
+            imageUrl = await this.s3Service.uploadImage(tempFile, metadata);
+            await fs.unlink(tempFile);
+            this.logger?.info?.('[SceneCamera] Re-uploaded temporary URL to S3');
+          } catch (e) {
+            this.logger?.warn?.('[SceneCamera] Failed to persist URL to S3, using original: ' + e.message);
+            imageUrl = tempUrl;
+          }
+        } else {
+          imageUrl = result.url || result.imageUrl || null;
+        }
+      } else {
+        imageUrl = result;
       }
 
       if (!imageUrl) return '-# [ ❌ Error: Failed to capture scene. ]';

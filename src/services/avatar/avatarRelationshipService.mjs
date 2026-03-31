@@ -58,10 +58,11 @@
  */
 
 export class AvatarRelationshipService {
-  constructor({ logger, databaseService, configService }) {
+  constructor({ logger, databaseService, configService, unifiedAIService }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
     this.configService = configService;
+    this.unifiedAIService = unifiedAIService; // For generating relationship summaries
     
     this.db = null;
     this.RELATIONSHIPS_COLLECTION = 'avatar_relationships';
@@ -423,19 +424,22 @@ export class AvatarRelationshipService {
       // Build context for LLM
       const context = this.buildRelationshipContext(relationship);
 
-      // Get LLM service
-      const llmService = this.configService?.services?.llmService;
-      if (!llmService) {
-        this.logger.warn('[AvatarRelationshipService] LLM service not available for summary generation');
+      // Get AI service - prefer injected unifiedAIService, fall back to container lookup
+      const aiService = this.unifiedAIService || this.configService?.services?.unifiedAIService;
+      if (!aiService?.chat) {
+        this.logger.warn('[AvatarRelationshipService] AI service not available for summary generation');
         return;
       }
 
-      // Generate summary with structured output
+      // Generate summary using chat API
       const prompt = this.buildSummaryPrompt(context);
       
-      const response = await llmService.generateResponse({
-        prompt,
-        systemPrompt: 'You are an AI assistant that analyzes relationships between avatars in a trading community. Provide concise, insightful summaries.',
+      const messages = [
+        { role: 'system', content: 'You are an AI assistant that analyzes relationships between avatars in a trading community. Provide concise, insightful summaries.' },
+        { role: 'user', content: prompt }
+      ];
+      
+      const response = await aiService.chat(messages, {
         temperature: 0.7,
         maxTokens: 500
       });

@@ -160,6 +160,33 @@ async function main() {
     await messageHandler.start();
     logger.log('[startup] MessageHandler started');
 
+    // Initialize unified social platform service
+    try {
+      const socialPlatformService = container.resolve('socialPlatformService');
+      await socialPlatformService.initialize();
+      logger.log('[startup] SocialPlatformService initialized');
+    } catch (e) {
+      logger.warn(`[startup] SocialPlatformService not initialized: ${e.message}`);
+    }
+
+    // Start Moltbook heartbeat (periodic feed check + optional comment)
+    try {
+      const moltbookHeartbeatService = container.resolve('moltbookHeartbeatService');
+      await moltbookHeartbeatService?.start?.();
+      logger.log('[startup] MoltbookHeartbeatService started');
+    } catch (e) {
+      logger.warn(`[startup] MoltbookHeartbeatService not started: ${e.message}`);
+    }
+
+    // Start Moltbook swarm missives (global account posts to a submolt)
+    try {
+      const moltbookSwarmMissiveService = container.resolve('moltbookSwarmMissiveService');
+      await moltbookSwarmMissiveService?.start?.();
+      logger.log('[startup] MoltbookSwarmMissiveService started');
+    } catch (e) {
+      logger.warn(`[startup] MoltbookSwarmMissiveService not started: ${e.message}`);
+    }
+
     // Start DM Planner (lightweight periodic planner)
     try {
       const dmPlannerService = container.resolve('dmPlannerService');

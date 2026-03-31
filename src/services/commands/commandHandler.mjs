@@ -28,7 +28,10 @@ export async function handleCommands(message, services = {
 
   if (isToolCommand) {
     try {
-      await services.mapService.updateAvatarPosition(avatar, message.channel.id);
+      // Skip position update for synthetic/monster avatars (non-ObjectId IDs)
+      if (avatar?._id && !String(avatar._id).startsWith('monster_')) {
+        await services.mapService.updateAvatarPosition(avatar, message.channel.id);
+      }
 
       const { commands } = services.toolService.extractToolCommands(content);
       // Only execute the first detected tool command to reduce spam / chaining
@@ -41,9 +44,21 @@ export async function handleCommands(message, services = {
           ? params.slice(1)
           : params;
         await services.discordService.reactToMessage(message, tool.emoji);
-        const result = await services.toolService.executeTool(command, message, args, avatar, context);
-        if (tool.replyNotification && result) {
-          await services.discordService.replyToMessage(message, `${avatar.name} used ${tool.name} ${tool.emoji ||''}\n${result}`);
+        const toolResult = await services.toolService.executeTool(command, message, args, avatar, context);
+        const resultMessage = toolResult?.message ?? (typeof toolResult === 'string' ? toolResult : null);
+        const resultEmbeds = toolResult?.embeds ?? null;
+        const resultComponents = toolResult?.components ?? null;
+        const shouldNotify = toolResult?.notify !== false;
+        if (tool.replyNotification && shouldNotify) {
+          if (resultEmbeds) {
+            // Send embed response with optional button components
+            await services.discordService.replyToMessage(message, { 
+              embeds: resultEmbeds,
+              components: resultComponents
+            });
+          } else if (resultMessage) {
+            await services.discordService.replyToMessage(message, `${avatar.name} used ${tool.name} ${tool.emoji ||''}\n${resultMessage}`);
+          }
         }
         await services.discordService.reactToMessage(message, tool.emoji);
       } else {

@@ -22,6 +22,10 @@ export class ResponseCoordinator {
     avatarService,
     decisionMaker,
     discordService,
+    conversationThreadService,
+    encounterService,
+    avatarAgentService,
+    discordChannelActivityService,
   }) {
     this.logger = logger || console;
     this.databaseService = databaseService;
@@ -30,6 +34,10 @@ export class ResponseCoordinator {
     this.avatarService = avatarService;
     this.decisionMaker = decisionMaker;
     this.discordService = discordService;
+    this.conversationThreadService = conversationThreadService;
+    this.encounterService = encounterService;
+    this.avatarAgentService = avatarAgentService;
+    this.discordChannelActivityService = discordChannelActivityService;
 
     // Configuration
     this.MAX_RESPONSES_PER_MESSAGE = Number(process.env.MAX_RESPONSES_PER_MESSAGE || 1);
@@ -64,6 +72,41 @@ export class ResponseCoordinator {
   async coordinateResponse(channel, message, context = {}) {
     try {
       const channelId = channel.id;
+
+      // Channel inactivity gating:
+      // - If triggered by a human (or proxied-human) message, mark channel active and proceed.
+      // - If triggered by ambient/bot events and no human has spoken for N days, suppress AI-avatar output.
+      try {
+        const guildIdForGate = context.guildId || channel?.guild?.id || message?.guild?.id || null;
+        const isHumanTrigger = !!(
+          message &&
+          ((message?.author && !message.author.bot && !message.webhookId) || this.isProxiedHumanMessage(message))
+        );
+
+        if (isHumanTrigger && this.discordChannelActivityService?.recordHumanActivity) {
+          await this.discordChannelActivityService.recordHumanActivity({
+            guildId: guildIdForGate,
+            channelId,
+            userId: message?.author?.id || message?.rati?.proxyUserId || message?.proxyUserId || null,
+            messageId: message?.id || null,
+            at: message?.createdAt || new Date(),
+          });
+        }
+
+        if (!isHumanTrigger && this.discordChannelActivityService?.isChannelActiveForAI) {
+          const active = await this.discordChannelActivityService.isChannelActiveForAI({
+            guildId: guildIdForGate,
+            channelId,
+          });
+          if (!active) {
+            this.logger?.debug?.(`[ResponseCoordinator] Suppressing responses in inactive channel ${channelId}`);
+            return [];
+          }
+        }
+      } catch (e) {
+        // Fail open if gating can't be evaluated.
+        this.logger?.debug?.(`[ResponseCoordinator] inactivity gate check failed: ${e?.message || e}`);
+      }
       
       // 1. Classify the trigger type
       const trigger = this.classifyTrigger(message, context);
@@ -152,6 +195,24 @@ export class ResponseCoordinator {
   }
 
   /**
+   * Check if a message is a proxied human message (sent through avatar webhook)
+   * @param {Object} message - Discord message object
+   * @returns {boolean} True if this is a proxied human message
+   */
+  isProxiedHumanMessage(message) {
+    if (!message) return false;
+    // Check rati metadata for proxy flag
+    if (message.rati?.isProxied || message.rati?.proxyUserId) {
+      return true;
+    }
+    // Also check if message has proxy fields set directly
+    if (message.isProxied || message.proxyUserId) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Classify the type of trigger that initiated this response
    * @param {Object} message - Discord message or null
    * @param {Object} context - Additional context
@@ -166,6 +227,14 @@ export class ResponseCoordinator {
     // No message = ambient/scheduled
     if (!message) {
       return { type: 'ambient', source: 'scheduler' };
+    }
+
+    // CRITICAL: Check for proxied human messages BEFORE checking author.bot
+    // Proxied messages come through webhooks (author.bot=true) but are actually human-initiated
+    if (this.isProxiedHumanMessage(message)) {
+      this.logger.debug?.(`[ResponseCoordinator] Detected proxied human message from user ${message.rati?.proxyUserId || message.proxyUserId}`);
+      // Treat as human message with medium priority
+      return { type: 'human_message', source: 'proxy', priority: 'medium', proxyUserId: message.rati?.proxyUserId || message.proxyUserId };
     }
 
     // Human message
@@ -291,9 +360,13 @@ export class ResponseCoordinator {
     }
 
     // PRIORITY 2: Sticky affinity (user has been talking to specific avatar)
-    if (message && !message.author.bot && this.STICKY_AFFINITY_EXCLUSIVE) {
+    // For proxied messages, use the proxyUserId for affinity lookup
+    const isHumanOrProxied = !message?.author?.bot || this.isProxiedHumanMessage(message);
+    const effectiveUserId = message?.rati?.proxyUserId || message?.proxyUserId || message?.author?.id;
+    
+    if (message && isHumanOrProxied && this.STICKY_AFFINITY_EXCLUSIVE && effectiveUserId) {
       try {
-        const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, message.author.id);
+        const stickyAvatarId = this.decisionMaker._getAffinityAvatarId(channelId, effectiveUserId);
         if (stickyAvatarId) {
           const stickyAvatar = eligibleAvatars.find(
             av => `${av._id || av.id}` === `${stickyAvatarId}`
@@ -304,8 +377,14 @@ export class ResponseCoordinator {
             if (shouldRespond) {
               // CRITICAL: Extend the sticky affinity TTL since user is still actively engaging
               // This keeps the avatar "locked on" to this user as long as they keep talking
-              this.decisionMaker._recordAffinity(channelId, message.author.id, stickyAvatarId);
-              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed)`);
+              this.decisionMaker._recordAffinity(channelId, effectiveUserId, stickyAvatarId);
+              this.logger.info?.(`[ResponseCoordinator] Sticky affinity: ${stickyAvatar.name} (TTL refreshed, user: ${effectiveUserId})`);
+              
+              // Ensure sticky avatar is in the encounter
+              if (this.encounterService) {
+                await this.encounterService.joinEncounter(channelId, stickyAvatar);
+              }
+              
               return [stickyAvatar];
             }
           }
@@ -323,10 +402,10 @@ export class ResponseCoordinator {
           // Take first mentioned avatar
           const mentioned = mentionedAvatars[0];
           
-          // Record sticky affinity for future
-          if (!message.author.bot && this.decisionMaker._recordAffinity) {
+          // Record sticky affinity for future (use proxyUserId for proxied messages)
+          if (isHumanOrProxied && effectiveUserId && this.decisionMaker._recordAffinity) {
             try {
-              this.decisionMaker._recordAffinity(channelId, message.author.id, mentioned._id || mentioned.id);
+              this.decisionMaker._recordAffinity(channelId, effectiveUserId, mentioned._id || mentioned.id);
             } catch (e) {
               this.logger.debug?.(`[ResponseCoordinator] Failed to record affinity: ${e.message}`);
             }
@@ -946,6 +1025,56 @@ export class ResponseCoordinator {
             channel = newChannel;
           } else {
             this.logger.warn?.(`[ResponseCoordinator] Could not fetch new channel ${freshAvatar.channelId}, using original`);
+          }
+        }
+        
+        // Check if this is a partial avatar without an image - hydrate it before speaking
+        if (freshAvatar && !freshAvatar.imageUrl && (freshAvatar.isPartial === true || freshAvatar.model === 'partial')) {
+          this.logger.info?.(`[ResponseCoordinator] Detected partial avatar ${avatar.name} without image, hydrating before speaking`);
+          try {
+            const hydrationResult = await this.avatarService.hydratePartialAvatarForSpeaking(
+              freshAvatar,
+              channel.id,
+              { discordService: this.discordService }
+            );
+            
+            // Handle new return format: { avatar, redirectChannelId }
+            const hydratedAvatar = hydrationResult?.avatar ?? hydrationResult;
+            const redirectChannelId = hydrationResult?.redirectChannelId;
+            
+            // If hydration returned null avatar, the avatar should not speak
+            if (!hydratedAvatar) {
+              this.logger.warn?.(`[ResponseCoordinator] Hydration blocked for ${avatar.name} - unhydrated avatars cannot speak`);
+              return null;
+            }
+            
+            if (hydratedAvatar?.imageUrl) {
+              avatar = hydratedAvatar;
+              this.logger.info?.(`[ResponseCoordinator] Successfully hydrated ${avatar.name} with image`);
+              
+              // If redirected to a different channel, fetch that channel
+              if (redirectChannelId && String(redirectChannelId) !== String(channel.id)) {
+                this.logger.info?.(`[ResponseCoordinator] Wallet avatar ${avatar.name} redirected to CA channel ${redirectChannelId}`);
+                try {
+                  const redirectedChannel = await this.discordService.client.channels.fetch(redirectChannelId);
+                  if (redirectedChannel) {
+                    channel = redirectedChannel;
+                    this.logger.info?.(`[ResponseCoordinator] Switched to redirected channel ${redirectChannelId} for ${avatar.name}`);
+                  }
+                } catch (fetchError) {
+                  this.logger.warn?.(`[ResponseCoordinator] Could not fetch redirected channel ${redirectChannelId}: ${fetchError.message}`);
+                  return null; // Can't speak if we can't access the correct channel
+                }
+              }
+            } else {
+              // Partial avatar that couldn't be hydrated should not speak
+              this.logger.warn?.(`[ResponseCoordinator] Avatar ${avatar.name} could not be hydrated - blocking speech`);
+              return null;
+            }
+          } catch (hydrateError) {
+            this.logger.warn?.(`[ResponseCoordinator] Failed to hydrate partial avatar: ${hydrateError.message}`);
+            // Unhydrated avatars should not speak
+            return null;
           }
         }
       } catch (e) {

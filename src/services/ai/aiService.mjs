@@ -7,6 +7,7 @@
 import { GoogleAIService } from "./googleAIService.mjs";
 import { OpenRouterAIService } from "./openrouterAIService.mjs";
 import { OllamaService } from "./ollamaService.mjs";
+import { SwarmAIService } from "./swarmAIService.mjs";
 
 let AIService = OpenRouterAIService;
 
@@ -19,6 +20,9 @@ switch (process.env.AI_SERVICE) {
         break;
     case 'openrouter':
         AIService = OpenRouterAIService;
+        break;
+    case 'swarm':
+        AIService = SwarmAIService;
         break;
     default:
         console.warn(`Unknown AI_SERVICE: ${process.env.AI_SERVICE}. Defaulting to OpenRouterAIService.`);

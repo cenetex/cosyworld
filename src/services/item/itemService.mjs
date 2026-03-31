@@ -65,10 +65,23 @@ export class ItemService {
   #rarities     = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
   #today() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+  #toMaybeObjectId(value) {
+    if (!value) return value;
+    if (value instanceof ObjectId) return value;
+    if (typeof value === 'string' && /^[a-f\\d]{24}$/i.test(value)) {
+      return new ObjectId(value);
+    }
+    return value;
+  }
 
   /*──────────────────────  Generation helpers  ─────────────────────*/
   async #generateImage(name, desc) {
-    return this.schemaService.generateImage(`${name}: ${desc}`, '1:1');
+    return this.schemaService.generateImage(`${name}: ${desc}`, '1:1', {
+      purpose: 'item',
+      category: 'game',
+      tags: ['item', name?.toLowerCase()].filter(Boolean),
+      metadata: { itemName: name }
+    });
   }
 
   async #executePipeline(prompt, schema) {
@@ -100,7 +113,17 @@ export class ItemService {
 
     const cleanName = this.#cleanName(data.name);
     const imageUrl = await this.schemaService.generateImage(
-      `${cleanName}: ${data.description}`, '1:1'
+      `${cleanName}: ${data.description}`, '1:1', {
+        purpose: 'item',
+        category: 'game',
+        tags: ['item', data.type, data.rarity, cleanName?.toLowerCase()].filter(Boolean),
+        metadata: { 
+          itemName: cleanName,
+          itemType: data.type,
+          rarity: data.rarity,
+          locationId
+        }
+      }
     );
 
     const now = new Date();
@@ -124,10 +147,85 @@ export class ItemService {
     return newItem;
   }
 
+  /**
+   * Create a deterministic DnD loot item from a static definition.
+   */
+  async createDndItemFromDefinition(itemId, definition, { ownerId = null, locationId = null, source = 'dnd.loot', rarity = null, emoji = null } = {}) {
+    if (!definition) return null;
+    const itemsCol = await this.items();
+    const now = new Date();
+    const cleanName = this.#cleanName(definition.name || 'Dungeon Loot');
+    const resolvedType = this.#allowedTypes.includes(definition.type) ? definition.type : 'artifact';
+    const resolvedRarity = rarity || definition.rarity || 'common';
+    const doc = {
+      uuid: uuidv4(),
+      name: cleanName,
+      description: definition.description || `Loot recovered from a dungeon: ${cleanName}.`,
+      type: resolvedType,
+      rarity: resolvedRarity,
+      emoji: emoji || definition.emoji || '🎁',
+      properties: {
+        dnd: {
+          id: itemId,
+          source,
+          subtype: definition.subtype || null,
+          value: definition.value || null,
+          weight: definition.weight || null
+        }
+      },
+      owner: ownerId ? this.#toMaybeObjectId(ownerId) : null,
+      locationId: locationId || null,
+      createdAt: now,
+      updatedAt: now,
+      version: this.CURRENT_SCHEMA_VERSION
+    };
+
+    if (definition.type === 'weapon') {
+      doc.weaponType = itemId;
+      doc.subtype = definition.subtype || null;
+      if (definition.damage) {
+        doc.damage = definition.damage;
+        doc.damageType = definition.damage.type;
+      }
+      if (definition.properties) {
+        doc.properties.weaponProperties = definition.properties;
+      }
+    }
+
+    if (definition.type === 'armor') {
+      doc.armorType = itemId;
+      doc.subtype = definition.subtype || null;
+      if (typeof definition.ac === 'number') doc.ac = definition.ac;
+      if (typeof definition.acBonus === 'number') doc.acBonus = definition.acBonus;
+      if (typeof definition.maxDex === 'number') doc.maxDexBonus = definition.maxDex;
+      if (typeof definition.stealthDisadvantage === 'boolean') {
+        doc.stealthDisadvantage = definition.stealthDisadvantage;
+      }
+      if (definition.subtype === 'shield') {
+        doc.slot = 'shield';
+      }
+    }
+
+    if (definition.type === 'consumable' && definition.effect) {
+      doc.properties.effect = definition.effect;
+    }
+
+    const { insertedId } = await itemsCol.insertOne(doc);
+    return { ...doc, _id: insertedId };
+  }
+
   /** Fetch item by id (string or ObjectId) */
   async getItem(id) {
     const objId = typeof id === 'string' ? new ObjectId(id) : id;
     return (await this.items()).findOne({ _id: objId });
+  }
+
+  /** Fetch all items owned by an avatar */
+  async getAvatarItems(avatarId) {
+    const itemsCol = await this.items();
+    const ownerId = this.#toMaybeObjectId(avatarId);
+    const ids = ownerId ? [ownerId, String(ownerId)] : [];
+    return itemsCol.find({ owner: { $in: ids } }).toArray();
   }
 
   /** Assigns item ownership to avatar */
@@ -372,6 +470,27 @@ export class ItemService {
       };
       const { insertedId } = await itemsCol.insertOne(doc);
       return { ...doc, _id: insertedId };
+    }
+
+    /** Consume a charge from a soulbound potion and update recharge timers */
+    async consumeSoulboundPotion(potion, { rechargeMs = null } = {}) {
+      if (!potion?._id) return potion;
+      const itemsCol = await this.items();
+      const charges = Number(potion?.properties?.charges ?? 0);
+      const rechargeDelay = Number(potion?.properties?.rechargeMs || rechargeMs || 48 * 60 * 60 * 1000);
+      const newCharges = Math.max(0, charges - 1);
+      const newRechargeAt = newCharges <= 0 ? Date.now() + rechargeDelay : null;
+      await itemsCol.updateOne(
+        { _id: potion._id },
+        { $set: { 'properties.charges': newCharges, 'properties.rechargeAt': newRechargeAt, updatedAt: new Date() } }
+      );
+      potion.properties = {
+        ...(potion.properties || {}),
+        charges: newCharges,
+        rechargeAt: newRechargeAt,
+        rechargeMs: rechargeDelay
+      };
+      return potion;
     }
 
     /*──────────────────── Crafting (combine items) ───────────────────*/

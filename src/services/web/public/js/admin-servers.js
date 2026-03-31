@@ -2,6 +2,12 @@
 // Relies on admin-bootstrap for globals
 const api = window.AdminAPI;
 const ui = window.AdminUI;
+const DEFAULT_AVATAR_MODES = {
+  free: true,
+  onChain: true,
+  collection: true,
+  pureModel: true
+};
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -21,6 +27,39 @@ function iconUrl(g) {
   return 'https://cdn.discordapp.com/embed/avatars/0.png';
 }
 
+function normalizeAvatarModes(modes = {}) {
+  const hasLegacyWallet = Object.prototype.hasOwnProperty.call(modes, 'wallet');
+  return {
+    free: modes.free !== false,
+    onChain: hasLegacyWallet ? modes.wallet !== false : modes.onChain !== false,
+    collection: hasLegacyWallet ? modes.wallet !== false : modes.collection !== false,
+    pureModel: modes.pureModel !== false
+  };
+}
+
+function renderAvatarModeToggle(key, label, enabled) {
+  return `
+    <div class="toggle-group" style="justify-content: space-between;">
+      <span class="toggle-label">${label}</span>
+      <label class="toggle-switch">
+        <input type="checkbox" data-avatar-mode="${key}" ${enabled ? 'checked' : ''} />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `;
+}
+
+function collectAvatarModes(card) {
+  const modes = { ...DEFAULT_AVATAR_MODES };
+  card.querySelectorAll('[data-avatar-mode]').forEach(input => {
+    const key = input.dataset.avatarMode;
+    if (Object.prototype.hasOwnProperty.call(modes, key)) {
+      modes[key] = input.checked;
+    }
+  });
+  return modes;
+}
+
 function renderGuildCard(g) {
   const authorized = !!(g.authorized || g.whitelisted);
   const card = el('div','p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow');
@@ -29,6 +68,7 @@ function renderGuildCard(g) {
     : '<span class="text-xs px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium whitespace-nowrap">⚠ Detected</span>';
   
   if (authorized) {
+    const avatarModes = normalizeAvatarModes(g.avatarModes || {});
     // Authorized servers: improved wide-screen layout
     card.innerHTML = `
       <div class="flex flex-col gap-4">
@@ -65,6 +105,20 @@ function renderGuildCard(g) {
           </div>
           <button class="btn outline text-xs w-full sm:w-auto px-4" data-act="save-x" title="Save X account overrides">
             💾 Save X Accounts
+          </button>
+        </div>
+
+        <!-- Avatar Modes Section -->
+        <div style="border-top: 1px solid var(--color-border-subtle); padding-top: 0.75rem;">
+          <div style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Avatar Modes</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem;">
+            ${renderAvatarModeToggle('free', 'Free Avatars', avatarModes.free)}
+            ${renderAvatarModeToggle('onChain', 'On-chain', avatarModes.onChain)}
+            ${renderAvatarModeToggle('collection', 'Collections', avatarModes.collection)}
+            ${renderAvatarModeToggle('pureModel', 'Pure Models', avatarModes.pureModel)}
+          </div>
+          <button class="btn btn-sm" style="margin-top: 0.5rem;" data-act="save-modes" title="Save avatar mode settings">
+            💾 Save Avatar Modes
           </button>
         </div>
         
@@ -256,6 +310,31 @@ function bindAuthorizedActions(card, g) {
       finally { 
         btn.innerHTML = originalHTML;
         btn.disabled = false; 
+      }
+    });
+  }
+
+  // Save avatar mode overrides
+  const saveModesBtn = card.querySelector('[data-act="save-modes"]');
+  if (saveModesBtn) {
+    const originalHTML = saveModesBtn.innerHTML;
+    saveModesBtn.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.innerHTML = '⏳ Saving...';
+      btn.disabled = true;
+      try {
+        const avatarModes = collectAvatarModes(card);
+        await apiWrap(`/api/guilds/${encodeURIComponent(id)}`, {
+          method:'PATCH',
+          body: JSON.stringify({ avatarModes })
+        });
+        ui.success('Avatar modes saved');
+      } catch (err) {
+        console.error('Save avatar modes error:', err);
+        ui.error(err.message || 'Failed to save avatar modes');
+      } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
       }
     });
   }

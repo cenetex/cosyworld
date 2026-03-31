@@ -110,12 +110,14 @@ export class LocationService  {
   async generateLocationImage(locationName, description, metadata = {}) {
     // Pass metadata through to the upload service so social media posts have context
     const uploadOptions = {
-      source: 'location.create',
       purpose: 'location',
-      locationName: locationName,
-      locationDescription: description,
-      context: `New location discovered: ${locationName}. ${description}`,
-      ...metadata
+      category: 'world',
+      tags: ['location', locationName?.toLowerCase()].filter(Boolean),
+      metadata: {
+        locationName: locationName,
+        locationDescription: description,
+        ...metadata
+      }
     };
     
     return await this.schemaService.generateImage(
@@ -152,6 +154,19 @@ export class LocationService  {
           currentLocation.name,
           locDescription
         );
+        
+        // Persist the generated imageUrl to database (N-8 fix)
+        if (currentLocation.imageUrl && currentLocation._id) {
+          try {
+            await this.ensureDbConnection();
+            await this.db.collection('locations').updateOne(
+              { _id: currentLocation._id },
+              { $set: { imageUrl: currentLocation.imageUrl, updatedAt: new Date().toISOString() } }
+            );
+          } catch (e) {
+            console.warn('[LocationService] Failed to persist imageUrl:', e.message);
+          }
+        }
       }
 
       // Generate the AI text

@@ -54,6 +54,40 @@ export class DecisionMaker  {
   this.userAffinity = new Map();
   }
 
+  /**
+   * Check if a message is a proxied human message (sent through avatar webhook)
+   * These should be treated as human messages for response purposes
+   * @param {Object} message - Discord message object
+   * @returns {boolean} True if this is a proxied human message
+   */
+  isProxiedHumanMessage(message) {
+    if (!message) return false;
+    // Check rati metadata for proxy flag
+    if (message.rati?.isProxied || message.rati?.proxyUserId) {
+      return true;
+    }
+    // Also check if message has proxy fields set directly
+    if (message.isProxied || message.proxyUserId) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get the effective user ID for a message (handles proxied messages)
+   * @param {Object} message - Discord message object
+   * @returns {string|null} The user ID who initiated the message
+   */
+  getEffectiveUserId(message) {
+    if (!message) return null;
+    // For proxied messages, use the proxy user ID
+    if (this.isProxiedHumanMessage(message)) {
+      return message.rati?.proxyUserId || message.proxyUserId;
+    }
+    // For regular messages, use author ID
+    return message.author?.id || null;
+  }
+
   /** Get or reset human response count for daily limits */
   _getHumanResponseCount(userId) {
     const now = Date.now();
@@ -259,12 +293,21 @@ export class DecisionMaker  {
     if (!messages.size) return false;
 
     const lastMessage = messages.first();
-    const isBot = lastMessage.author.bot;
-    const isHuman = !isBot;
+    
+    // CRITICAL: Check for proxied messages - these should be treated as human messages
+    // Proxied messages come through webhooks (author.bot=true) but are actually human-initiated
+    const isProxiedMessage = this.isProxiedHumanMessage(lastMessage);
+    const isBot = lastMessage.author.bot && !isProxiedMessage;
+    const isHuman = !lastMessage.author.bot || isProxiedMessage;
+    const effectiveUserId = this.getEffectiveUserId(lastMessage);
+    
+    if (isProxiedMessage) {
+      this.logger.debug?.(`[DecisionMaker] Detected proxied message from user ${effectiveUserId}`);
+    }
 
     // Sticky bias: if this human has affinity to this avatar, strongly bias response (respect cooldown)
-    if (isHuman) {
-      const favId = this._getAffinityAvatarId(channel.id, lastMessage.author.id);
+    if (isHuman && effectiveUserId) {
+      const favId = this._getAffinityAvatarId(channel.id, effectiveUserId);
       if (favId && (favId === avatar.id || favId === `${avatar._id}`)) {
         // Slightly relax cooldown window when sticky
         const stickyCooldown = Math.max(10_000, Math.floor((this.config.PER_AVATAR_COOLDOWN || 120_000) * 0.6));
@@ -275,6 +318,8 @@ export class DecisionMaker  {
           this.logger.debug?.(`[DecisionMaker] ${avatar.name} responding via sticky affinity (${Math.round(timeSinceLastResponse/1000)}s since last)`);
           this._updateAttention(avatar.id, 20);
           this._updateConversation(channel.id, avatar.id);
+          // Extend affinity since we're actively engaging with this human
+          this._recordAffinity(channel.id, effectiveUserId, avatar.id);
           return true;
         } else {
           this.logger.debug?.(`[DecisionMaker] ${avatar.name} sticky cooldown active (${Math.round(timeSinceLastResponse/1000)}s/${Math.round(stickyCooldown/1000)}s)`);
@@ -290,8 +335,8 @@ export class DecisionMaker  {
       this._updateConversation(channel.id, avatar.id);
       // Refresh/extend sticky affinity on subsequent mentions
       try {
-        if (lastMessage.author && !lastMessage.author.bot) {
-          this._recordAffinity(channel.id, lastMessage.author.id, avatar.id);
+        if (effectiveUserId && isHuman) {
+          this._recordAffinity(channel.id, effectiveUserId, avatar.id);
         }
       } catch {}
       return true;
@@ -305,15 +350,16 @@ export class DecisionMaker  {
     }
 
     // Handle human interactions with daily limits and quick response boost
-    if (isHuman) {
-      const record = this._getHumanResponseCount(lastMessage.author.id);
+    // Use effectiveUserId for proxied messages
+    if (isHuman && effectiveUserId) {
+      const record = this._getHumanResponseCount(effectiveUserId);
       if (record.count >= DAILY_RESPONSE_LIMIT) return false;
 
       const timeSinceMessage = Date.now() - lastMessage.createdTimestamp;
       if (timeSinceMessage < 30000) {
         this._updateAttention(avatar.id, 30);
         if (Math.random() < 0.8) {
-          this.logger.debug(`Quick response to human message within 30s`);
+          this.logger.debug(`Quick response to human message within 30s${isProxiedMessage ? ' (proxied)' : ''}`);
           state.lastResponse = Date.now() - this.config.PER_AVATAR_COOLDOWN + 1000;
           return true;
         }
@@ -325,8 +371,8 @@ export class DecisionMaker  {
 
     // Use AI for contextual decision
     const shouldReply = await this._evaluateContextualResponse(avatar, messages, isBot);
-    if (shouldReply && isHuman) {
-      const record = this._getHumanResponseCount(lastMessage.author.id);
+    if (shouldReply && isHuman && effectiveUserId) {
+      const record = this._getHumanResponseCount(effectiveUserId);
       record.count += 1;
     }
 

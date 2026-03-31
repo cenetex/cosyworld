@@ -10,6 +10,29 @@
  */
 export function registerStoryPublicRoutes(app, services) {
   const { storyStateService, logger } = services;
+  const clipUrls = (videoClips = []) => videoClips.map(clip => clip.url);
+  const buildVideoEntry = (videoClips, extra = {}) => ({
+    videoClips,
+    videoUrls: clipUrls(videoClips),
+    ...extra
+  });
+  const normalizeVideoClips = (entry, { startBeat = 0 } = {}) => {
+    if (entry?.videoClips?.length) return entry.videoClips;
+    const urls = entry?.videoUrls || [];
+    return urls.map((url, i) => ({
+      url,
+      fromBeat: startBeat + i,
+      toBeat: startBeat + i + 1
+    }));
+  };
+  const resolveVideoUrls = (entry = {}) =>
+    entry.videoClips?.map(clip => clip.url) || entry.videoUrls || [];
+  const buildVideoResponse = (videoClips, extra = {}) => ({
+    success: true,
+    videoClips,
+    videoUrls: clipUrls(videoClips),
+    ...extra
+  });
 
   /**
    * GET /api/stories
@@ -335,20 +358,15 @@ export function registerStoryPublicRoutes(app, services) {
 
       // Store generated videos in arc metadata for future reference
       const chapterVideos = arc.chapterVideos || {};
-      chapterVideos[`chapter_${chapterNum}`] = {
-        videoClips: allVideoClips, // [{url, fromBeat, toBeat}, ...]
-        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
+      chapterVideos[`chapter_${chapterNum}`] = buildVideoEntry(allVideoClips, {
         generatedAt: new Date(),
         beatCount: chapterBeats.length
-      };
+      });
       
       await storyStateService.updateArc(arcId, { chapterVideos });
       logger.info(`[StoryPublicAPI] Stored chapter ${chapterNum} videos in arc metadata`);
 
-      res.json({
-        success: true,
-        videoClips: allVideoClips,
-        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
+      res.json(buildVideoResponse(allVideoClips, {
         videoUrl: allVideoClips[0].url,
         clipCount: allVideoClips.length,
         chapter: {
@@ -357,7 +375,7 @@ export function registerStoryPublicRoutes(app, services) {
           beatCount: chapterBeats.length,
           title: arc.title
         }
-      });
+      }));
 
     } catch (error) {
       logger.error('[StoryPublicAPI] Error animating chapter:', error);
@@ -481,9 +499,10 @@ export function registerStoryPublicRoutes(app, services) {
       
       for (let chapterNum = 1; chapterNum <= totalChapters; chapterNum++) {
         const chapterKey = `chapter_${chapterNum}`;
-        if (chapterVideos[chapterKey] && chapterVideos[chapterKey].videoUrls) {
-          existingChapterVideos.push(...chapterVideos[chapterKey].videoUrls);
-          logger.info(`[StoryPublicAPI] Reusing ${chapterVideos[chapterKey].videoUrls.length} existing video(s) for chapter ${chapterNum}`);
+        const existingVideoUrls = resolveVideoUrls(chapterVideos[chapterKey]);
+        if (existingVideoUrls.length > 0) {
+          existingChapterVideos.push(...existingVideoUrls);
+          logger.info(`[StoryPublicAPI] Reusing ${existingVideoUrls.length} existing video(s) for chapter ${chapterNum}`);
         } else {
           // Mark this chapter's transitions for generation
           const startIdx = (chapterNum - 1) * beatsPerChapter;
@@ -510,18 +529,10 @@ export function registerStoryPublicRoutes(app, services) {
       // Add existing chapter videos with their beat mapping
       for (let chapterNum = 1; chapterNum <= totalChapters; chapterNum++) {
         const chapterKey = `chapter_${chapterNum}`;
-        if (chapterVideos[chapterKey] && chapterVideos[chapterKey].videoClips) {
-          allVideoClips.push(...chapterVideos[chapterKey].videoClips);
-        } else if (chapterVideos[chapterKey] && chapterVideos[chapterKey].videoUrls) {
-          // Backward compatibility: convert old format to new format
-          const startBeat = (chapterNum - 1) * beatsPerChapter;
-          chapterVideos[chapterKey].videoUrls.forEach((url, i) => {
-            allVideoClips.push({
-              url,
-              fromBeat: startBeat + i,
-              toBeat: startBeat + i + 1
-            });
-          });
+        const startBeat = (chapterNum - 1) * beatsPerChapter;
+        const existingClips = normalizeVideoClips(chapterVideos[chapterKey], { startBeat });
+        if (existingClips.length > 0) {
+          allVideoClips.push(...existingClips);
         }
       }
       
@@ -596,34 +607,27 @@ export function registerStoryPublicRoutes(app, services) {
       // Merge new chapter videos with existing ones
       const updatedChapterVideos = { ...(arc.chapterVideos || {}) };
       for (const [chapterKey, videoClips] of Object.entries(newChapterVideos)) {
-        updatedChapterVideos[chapterKey] = {
-          videoClips: videoClips,
-          videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
+        updatedChapterVideos[chapterKey] = buildVideoEntry(videoClips, {
           generatedAt: new Date(),
           beatCount: beatsPerChapter
-        };
+        });
         logger.info(`[StoryPublicAPI] Stored ${videoClips.length} video(s) for ${chapterKey}`);
       }
 
       // Store both episode videos and updated chapter videos
       await storyStateService.updateArc(arcId, {
         chapterVideos: updatedChapterVideos,
-        episodeVideos: {
-          videoClips: allVideoClips,
-          videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
+        episodeVideos: buildVideoEntry(allVideoClips, {
           generatedAt: new Date(),
           totalBeats: arc.beats?.length || 0,
           reusedCount: existingChapterVideos.length,
           newCount: newTransitionsNeeded.length
-        }
+        })
       });
       logger.info(`[StoryPublicAPI] Stored episode videos and ${Object.keys(newChapterVideos).length} new chapter video(s) in arc metadata`);
 
-      res.json({
-        success: true,
-        videoClips: allVideoClips,
-        videoUrls: allVideoClips.map(clip => clip.url), // Backward compatibility
-        videoUrl: allVideoClips[0]?.url, // First transition for backwards compatibility
+      res.json(buildVideoResponse(allVideoClips, {
+        videoUrl: allVideoClips[0]?.url,
         clipCount: allVideoClips.length,
         totalDuration: allVideoClips.length * clipDuration,
         reusedCount: existingChapterVideos.length,
@@ -635,7 +639,7 @@ export function registerStoryPublicRoutes(app, services) {
           keyframesUsed: keyframes.length,
           chapterCount: Math.ceil((arc.beats?.length || 0) / 3)
         }
-      });
+      }));
 
     } catch (error) {
       logger.error('[StoryPublicAPI] Error animating episode:', error);
@@ -675,21 +679,14 @@ export function registerStoryPublicRoutes(app, services) {
       }
 
       // Support both new format (videoClips) and old format (videoUrls)
-      const videoClips = chapterVideos.videoClips || chapterVideos.videoUrls?.map((url, i) => ({
-        url,
-        fromBeat: i,
-        toBeat: i + 1
-      })) || [];
+      const videoClips = normalizeVideoClips(chapterVideos);
 
-      res.json({
-        success: true,
+      res.json(buildVideoResponse(videoClips, {
         hasVideos: true,
         status: 'complete',
-        videoClips: videoClips,
-        videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
         generatedAt: chapterVideos.generatedAt,
         clipCount: videoClips.length
-      });
+      }));
 
     } catch (error) {
       logger.error('[StoryPublicAPI] Error checking chapter video status:', error);
@@ -727,23 +724,16 @@ export function registerStoryPublicRoutes(app, services) {
       }
 
       // Support both new format (videoClips) and old format (videoUrls)
-      const videoClips = episodeVideos.videoClips || episodeVideos.videoUrls?.map((url, i) => ({
-        url,
-        fromBeat: i,
-        toBeat: i + 1
-      })) || [];
+      const videoClips = normalizeVideoClips(episodeVideos);
 
-      res.json({
-        success: true,
+      res.json(buildVideoResponse(videoClips, {
         hasVideos: true,
         status: 'complete',
-        videoClips: videoClips,
-        videoUrls: videoClips.map(clip => clip.url), // Backward compatibility
         generatedAt: episodeVideos.generatedAt,
         clipCount: videoClips.length,
         reusedCount: episodeVideos.reusedCount,
         newCount: episodeVideos.newCount
-      });
+      }));
 
     } catch (error) {
       logger.error('[StoryPublicAPI] Error checking episode video status:', error);
@@ -781,7 +771,7 @@ export function registerStoryPublicRoutes(app, services) {
       }
 
       // Get video URLs
-      const videoUrls = chapterVideos.videoClips?.map(clip => clip.url) || chapterVideos.videoUrls || [];
+      const videoUrls = resolveVideoUrls(chapterVideos);
 
       if (videoUrls.length === 0) {
         return res.status(404).json({
@@ -905,7 +895,7 @@ export function registerStoryPublicRoutes(app, services) {
       }
 
       // Get video URLs
-      const videoUrls = episodeVideos.videoClips?.map(clip => clip.url) || episodeVideos.videoUrls || [];
+      const videoUrls = resolveVideoUrls(episodeVideos);
 
       if (videoUrls.length === 0) {
         return res.status(404).json({

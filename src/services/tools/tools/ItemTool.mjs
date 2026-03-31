@@ -73,10 +73,17 @@ export class ItemTool extends BasicTool {
     const subcommand = params[0].toLowerCase();
     const locationId = message.channel.id;
     const db = this.avatarService.db;
+    const encounterService = services?.combatEncounterService;
 
     try {
       switch (subcommand) {
         case 'use': {
+          if (!message?.channel?.isThread?.() && encounterService?.getEncounterByParentChannelId) {
+            const parentEncounter = encounterService.getEncounterByParentChannelId(message.channel.id);
+            if (parentEncounter && parentEncounter.state !== 'ended') {
+              return `-# [ Combat is active in <#${parentEncounter.channelId}>. ]`;
+            }
+          }
           if (!avatar.selectedItemId) {
             return `-# [${this.emoji} You have no selected item to use.]`;
           }
@@ -84,10 +91,33 @@ export class ItemTool extends BasicTool {
           if (!item) {
             return `-# [${this.emoji} Selected item not found in inventory.]`;
           }
+          if (encounterService) {
+            try {
+              const encounter = encounterService.getEncounter?.(message.channel.id);
+              if (encounter?.state === 'active') {
+                const avatarId = avatar._id || avatar.id;
+                if (!encounterService.isTurn(encounter, avatarId)) {
+                  return null; // silent out-of-turn
+                }
+              }
+            } catch {}
+          }
           const extraContext = params.slice(1).join(' ').trim();
           const response = await this.itemService.useItem(avatar, item, message.channel.id, extraContext, services);
           // Activity bump
           try { avatar.lastActiveAt = new Date(); await this.avatarService.updateAvatar(avatar); } catch {}
+          if (encounterService) {
+            try {
+              const encounter = encounterService.getEncounter?.(message.channel.id);
+              if (encounter?.state === 'active' && encounterService.completePlayerAction) {
+                const avatarId = avatar._id || avatar.id;
+                await encounterService.completePlayerAction(message.channel.id, avatarId, {
+                  actionType: 'item',
+                  targetId: avatarId
+                });
+              }
+            } catch {}
+          }
           return response;
         }
         case 'take': {

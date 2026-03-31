@@ -304,7 +304,18 @@ export class StoryPostingService {
           }
           if (location?.imageUrl) imageUrls.unshift(location.imageUrl);
           const promptForSchema = typeof beat.visualPrompt === 'string' ? beat.visualPrompt : compositePrompt;
-          return await this.schemaService.generateImage(promptForSchema, '1:1', { images: imageUrls, ...metadata });
+          const storyMetadata = {
+            images: imageUrls,
+            purpose: 'story',
+            category: 'narrative',
+            tags: ['story', 'beat', location?.name?.toLowerCase()].filter(Boolean),
+            metadata: {
+              locationName: location?.name,
+              avatarCount: avatars.length,
+              ...metadata
+            }
+          };
+          return await this.schemaService.generateImage(promptForSchema, '1:1', storyMetadata);
         } catch (e) {
           this.logger.warn('[StoryPosting] schemaService.generateImage failed: ' + (e?.message || e));
           return null;
@@ -312,12 +323,54 @@ export class StoryPostingService {
       };
       
       // Try composition first on primary AI service, then google, then fallback to generation
-      imageUrl = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
-      if (!imageUrl && this.googleAI) {
-        imageUrl = await tryCompose(this.googleAI) || await tryGenerate(this.googleAI);
+      let result = await tryCompose(this.aiService) || await tryGenerate(this.aiService);
+      if (!result && this.googleAI) {
+        result = await tryCompose(this.googleAI) || await tryGenerate(this.googleAI);
       }
-      if (!imageUrl) {
-        imageUrl = await trySchemaService();
+      if (!result) {
+        result = await trySchemaService();
+      }
+      
+      // Handle both string URLs and object responses (e.g., { url, data, text, model })
+      // If we get an object with base64 data or a temporary URL, persist to S3
+      if (result && typeof result === 'object') {
+        // If we have base64 data, upload it to S3
+        if (result.data && this.s3Service) {
+          try {
+            const fs = await import('fs/promises');
+            const buffer = Buffer.from(result.data, 'base64');
+            await fs.mkdir('./images', { recursive: true });
+            const tempFile = `./images/story_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            await fs.writeFile(tempFile, buffer);
+            imageUrl = await this.s3Service.uploadImage(tempFile, metadata);
+            await fs.unlink(tempFile);
+            this.logger.info('[StoryPosting] Uploaded base64 image to S3');
+          } catch (e) {
+            this.logger.warn('[StoryPosting] Failed to upload base64 to S3: ' + e.message);
+            imageUrl = result.url || result.imageUrl || null;
+          }
+        } 
+        // If we have a URL but no data, download and re-upload to S3 for persistence
+        else if ((result.url || result.imageUrl) && this.s3Service) {
+          const tempUrl = result.url || result.imageUrl;
+          try {
+            const buffer = await this.s3Service.downloadImage(tempUrl);
+            const fs = await import('fs/promises');
+            await fs.mkdir('./images', { recursive: true });
+            const tempFile = `./images/story_${Date.now()}_${Math.floor(Math.random()*10000)}.png`;
+            await fs.writeFile(tempFile, buffer);
+            imageUrl = await this.s3Service.uploadImage(tempFile, metadata);
+            await fs.unlink(tempFile);
+            this.logger.info('[StoryPosting] Re-uploaded temporary URL to S3');
+          } catch (e) {
+            this.logger.warn('[StoryPosting] Failed to persist URL to S3, using original: ' + e.message);
+            imageUrl = tempUrl;
+          }
+        } else {
+          imageUrl = result.url || result.imageUrl || null;
+        }
+      } else {
+        imageUrl = result;
       }
       
       if (!imageUrl) {
@@ -464,14 +517,15 @@ export class StoryPostingService {
       };
       
       let imageUrl = null;
+      let result = null;
       
       // Try composition first (preferred for title cards with multiple characters)
       if (images.length > 0) {
         try {
           if (this.aiService?.composeImageWithGemini) {
-            imageUrl = await this.aiService.composeImageWithGemini(images, compositePrompt, metadata);
+            result = await this.aiService.composeImageWithGemini(images, compositePrompt, metadata);
           } else if (this.googleAI?.composeImageWithGemini) {
-            imageUrl = await this.googleAI.composeImageWithGemini(images, compositePrompt, metadata);
+            result = await this.googleAI.composeImageWithGemini(images, compositePrompt, metadata);
           }
         } catch (e) {
           this.logger.warn('[StoryPosting] Title card composition failed: ' + (e?.message || e));
@@ -479,16 +533,23 @@ export class StoryPostingService {
       }
       
       // Fallback to standard generation
-      if (!imageUrl) {
+      if (!result) {
         try {
           if (this.googleAI?.generateImage) {
-            imageUrl = await this.googleAI.generateImage(compositePrompt, '16:9', metadata);
+            result = await this.googleAI.generateImage(compositePrompt, '16:9', metadata);
           } else if (this.aiService?.generateImage) {
-            imageUrl = await this.aiService.generateImage(compositePrompt, images, { aspectRatio: '16:9', ...metadata });
+            result = await this.aiService.generateImage(compositePrompt, images, { aspectRatio: '16:9', ...metadata });
           }
         } catch (e) {
           this.logger.warn('[StoryPosting] Title card generation failed: ' + (e?.message || e));
         }
+      }
+      
+      // Handle both string URLs and object responses (e.g., { url, data, text, model })
+      if (result && typeof result === 'object') {
+        imageUrl = result.url || result.imageUrl || null;
+      } else {
+        imageUrl = result;
       }
       
       if (!imageUrl) {

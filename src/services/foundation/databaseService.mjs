@@ -147,14 +147,19 @@ export class DatabaseService {
           replyToMessageId: message.reference?.messageId || null,
           replyToChannelId: message.reference?.channelId || null,
           replyToGuildId: message.reference?.guildId || null,
+          webhookId: message.webhookId || null,
           // Track which avatar sent this message (for webhook messages)
           avatarId: message.rati?.avatarId || message.avatarId || null,
+          // Track proxied messages (human messages sent through avatar webhook)
+          // These should be treated as human-initiated for AI response purposes
+          proxyUserId: message.rati?.proxyUserId || null,
+          isProxied: message.rati?.isProxied || false,
           timestamp: message.createdTimestamp,
         };
 
         // Debug logging for avatarId tracking
         if (message.author.bot || message.webhookId) {
-          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, rati=${JSON.stringify(message.rati || {})}`);
+          this.logger.info(`[saveMessage] Bot/webhook message ${messageData.messageId}: avatarId=${messageData.avatarId}, webhookId=${message.webhookId}, isProxied=${messageData.isProxied}, rati=${JSON.stringify(message.rati || {})}`);
         }
   
         if (!messageData.messageId || !messageData.channelId) {
@@ -167,19 +172,37 @@ export class DatabaseService {
         // Use $setOnInsert for most fields (only set when creating new document)
         // Use $set for avatarId (update even if message already exists)
         
-        // Extract avatarId from messageData to handle separately
+        // Extract fields that might arrive later (race condition) to handle separately
         const avatarId = messageData.avatarId;
+        const proxyUserId = messageData.proxyUserId;
+        const isProxied = messageData.isProxied;
+        const webhookId = messageData.webhookId;
         const messageDataWithoutAvatarId = { ...messageData };
         delete messageDataWithoutAvatarId.avatarId;
+        delete messageDataWithoutAvatarId.proxyUserId;
+        delete messageDataWithoutAvatarId.isProxied;
+        delete messageDataWithoutAvatarId.webhookId;
         
         const updateOps = {
           $setOnInsert: messageDataWithoutAvatarId,
         };
         
-        // If avatarId is present, always update it (even for existing messages)
+        // If avatarId/proxy data/webhookId are present, always update them (even for existing messages)
         // This handles the race condition where messageCreate fires before we set avatarId
         if (avatarId) {
           updateOps.$set = { avatarId };
+        }
+
+        if (proxyUserId) {
+          updateOps.$set = { ...(updateOps.$set || {}), proxyUserId };
+        }
+
+        if (isProxied) {
+          updateOps.$set = { ...(updateOps.$set || {}), isProxied: true };
+        }
+
+        if (webhookId) {
+          updateOps.$set = { ...(updateOps.$set || {}), webhookId };
         }
         
         const result = await messagesCollection.updateOne(
