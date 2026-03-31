@@ -2,65 +2,191 @@ import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
 import { publishEvent } from '../../events/envelope.mjs';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import eventBus from '../../utils/eventBus.mjs';
-import { COMBAT_CONSTANTS } from './CombatConstants.mjs';
-import { CombatRateLimiter } from './CombatRateLimiter.mjs';
-import { CombatCoreHelpers } from './CombatCoreHelpers.mjs';
-import { CombatValidation } from './CombatValidation.mjs';
-import { CombatStateManager } from './CombatStateManager.mjs';
-import { CombatTurnManager } from './CombatTurnManager.mjs';
 
 /**
- * CombatEncounterService - Orchestrator
+ * Combat system constants - extracted from magic numbers for maintainability
+ */
+const COMBAT_CONSTANTS = {
+  // Turn Management
+  DEFAULT_TURN_TIMEOUT_MS: 30_000,
+  DEFAULT_AUTO_ACT_DELAY_MS: 1500,
+  DEFAULT_MIN_TURN_GAP_MS: 4000,
+  DEFAULT_ROUND_COOLDOWN_MS: 3000,
+  
+  // Encounter Management
+  DEFAULT_MAX_ENCOUNTERS_PER_GUILD: 5,
+  DEFAULT_STALE_ENCOUNTER_MS: 60 * 60 * 1000, // 1 hour
+  DEFAULT_IDLE_END_ROUNDS: 3,
+  DEFAULT_MAX_ROUNDS: 3, // Maximum rounds before combat ends
+  
+  // Media Generation
+  DEFAULT_MEDIA_WAIT_TIMEOUT_MS: 45_000,
+  DEFAULT_POSTER_WAIT_TIMEOUT_MS: 15_000,
+  DEFAULT_ROUND_PLANNING_TIMEOUT_MS: 3500,
+  
+  // Cooldowns
+  KNOCKOUT_COOLDOWN_MS: 24 * 60 * 60 * 1000, // 24 hours
+  FLEE_COOLDOWN_MS: 24 * 60 * 60 * 1000, // 24 hours
+  
+  // Combat Mechanics
+  LOW_HP_THRESHOLD: 0.3,
+  DEFEND_AC_BONUS: 2,
+  DEFAULT_AC: 10,
+  DEFAULT_HP: 10,
+  DEFAULT_DEX: 10,
+  
+  // Cleanup
+  CLEANUP_INTERVAL_MS: 60 * 1000,
+  
+  // Rate Limiting
+  DEFAULT_MAX_ACTIONS_PER_MINUTE: 10,
+  RATE_LIMIT_WINDOW_MS: 60 * 1000,
+};
+
+/**
+ * Rate limiter for combat actions to prevent spam
+ */
+class CombatRateLimiter {
+  constructor(maxActionsPerMinute = COMBAT_CONSTANTS.DEFAULT_MAX_ACTIONS_PER_MINUTE) {
+    this.actions = new Map(); // avatarId -> [timestamps]
+    this.maxActions = maxActionsPerMinute;
+    this.windowMs = COMBAT_CONSTANTS.RATE_LIMIT_WINDOW_MS;
+    this.cleanupInterval = null;
+    
+    // Cleanup old entries every minute
+    this.cleanupInterval = setInterval(() => {
+      this._cleanup();
+    }, this.windowMs);
+    
+    if (this.cleanupInterval.unref) {
+      this.cleanupInterval.unref();
+    }
+  }
+
+  /**
+   * Check if an avatar can perform a combat action
+   * @param {string} avatarId - The avatar ID
+   * @returns {boolean} - True if action is allowed, false if rate limited
+   */
+  canAct(avatarId) {
+    if (!avatarId) return false;
+    
+    const now = Date.now();
+    const actions = this.actions.get(avatarId) || [];
+    
+    // Remove actions outside the time window
+    const recentActions = actions.filter(timestamp => now - timestamp < this.windowMs);
+    
+    if (recentActions.length >= this.maxActions) {
+      return false; // Rate limited
+    }
+    
+    // Record this action
+    recentActions.push(now);
+    this.actions.set(avatarId, recentActions);
+    
+    return true;
+  }
+
+  /**
+   * Get remaining actions for an avatar in current window
+   * @param {string} avatarId - The avatar ID
+   * @returns {number} - Number of remaining actions allowed
+   */
+  getRemainingActions(avatarId) {
+    if (!avatarId) return 0;
+    
+    const now = Date.now();
+    const actions = this.actions.get(avatarId) || [];
+    const recentActions = actions.filter(timestamp => now - timestamp < this.windowMs);
+    
+    return Math.max(0, this.maxActions - recentActions.length);
+  }
+
+  /**
+   * Reset rate limit for an avatar
+   * @param {string} avatarId - The avatar ID
+   */
+  reset(avatarId) {
+    if (avatarId) {
+      this.actions.delete(avatarId);
+    }
+  }
+
+  /**
+   * Clean up old entries from memory
+   * @private
+   */
+  _cleanup() {
+    const now = Date.now();
+    const threshold = now - this.windowMs;
+    
+    for (const [avatarId, actions] of this.actions.entries()) {
+      const recentActions = actions.filter(timestamp => timestamp > threshold);
+      
+      if (recentActions.length === 0) {
+        this.actions.delete(avatarId);
+      } else {
+        this.actions.set(avatarId, recentActions);
+      }
+    }
+  }
+
+  /**
+   * Destroy the rate limiter and cleanup resources
+   */
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.actions.clear();
+  }
+}
+
+/**
+ * CombatEncounterService
  * Manages turn-based D&D style combat encounters (initiative, turn order, state) for AI + tool driven actions.
- * Delegates to specialized modules:
- * - CombatRateLimiter: Action rate limiting
- * - CombatCoreHelpers: State queries & helpers
- * - CombatValidation: Encounter integrity checks
- * - CombatStateManager: Damage, healing, state changes
- * - CombatTurnManager: Turn order & end conditions
+ * Human slash/chat command layer intentionally deferred (per implementation request).
  */
 export class CombatEncounterService {
   constructor({ logger, diceService, avatarService, mapService, battleService, battleMediaService, databaseService, unifiedAIService, discordService, configService, promptAssembler, getConversationManager, veoService }) {
-    this.logger = logger || console;
+  this.logger = logger || console;
     this.diceService = diceService;
     this.avatarService = avatarService;
     this.mapService = mapService;
     this.battleService = battleService;
+    // Prefer direct injection of battleMediaService (container-registered); fall back to any instance hung off battleService
     this.battleMediaService = battleMediaService || (battleService && battleService.battleMediaService) || null;
     this.databaseService = databaseService;
     this.unifiedAIService = unifiedAIService; // optional
     this.discordService = discordService; // for embeds / announcements
     this.configService = configService;
-    this.promptAssembler = promptAssembler || null;
-    this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
+  this.promptAssembler = promptAssembler || null;
+  this.getConversationManager = typeof getConversationManager === 'function' ? getConversationManager : () => null;
     this.veoService = veoService || null; // For battle recap videos
-
-    // Initialize helper modules
-    this.coreHelpers = new CombatCoreHelpers({ logger: this.logger, avatarService: this.avatarService });
-    this.validation = new CombatValidation({ logger: this.logger });
-    this.stateManager = new CombatStateManager({ logger: this.logger, coreHelpers: this.coreHelpers });
-    this.turnManager = new CombatTurnManager({ logger: this.logger, coreHelpers: this.coreHelpers });
 
     // channelId -> encounter object (active encounters)
     this.encounters = new Map();
     // Sorted list of encounters by age for efficient cleanup: [{channelId, createdAt}]
     this.encountersByAge = [];
-
+    
     // channelId -> completed encounter object (for video generation after combat ends)
+    // Stores battleRecap data for 24 hours after combat completion
     this.completedEncounters = new Map();
 
     // Configurable knobs (using COMBAT_CONSTANTS for defaults)
-    this.turnTimeoutMs = Number(process.env.COMBAT_TURN_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_TURN_TIMEOUT_MS);
-    this.idleEndRounds = Number(process.env.COMBAT_IDLE_END_ROUNDS || COMBAT_CONSTANTS.DEFAULT_IDLE_END_ROUNDS);
-    this.enableTurnEnforcement = true;
-    this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || COMBAT_CONSTANTS.DEFAULT_MAX_ENCOUNTERS_PER_GUILD);
-    this.staleEncounterMs = Number(process.env.COMBAT_STALE_ENCOUNTER_MS || COMBAT_CONSTANTS.DEFAULT_STALE_ENCOUNTER_MS);
-    this._initCleanupInterval();
+  this.turnTimeoutMs = Number(process.env.COMBAT_TURN_TIMEOUT_MS || COMBAT_CONSTANTS.DEFAULT_TURN_TIMEOUT_MS);
+  this.idleEndRounds = Number(process.env.COMBAT_IDLE_END_ROUNDS || COMBAT_CONSTANTS.DEFAULT_IDLE_END_ROUNDS);
+  this.enableTurnEnforcement = true;
+  this.maxEncountersPerGuild = Number(process.env.MAX_ENCOUNTERS_PER_GUILD || COMBAT_CONSTANTS.DEFAULT_MAX_ENCOUNTERS_PER_GUILD);
+  this.staleEncounterMs = Number(process.env.COMBAT_STALE_ENCOUNTER_MS || COMBAT_CONSTANTS.DEFAULT_STALE_ENCOUNTER_MS);
+  this._initCleanupInterval();
 
-    // Rate limiting for combat actions
-    const maxActionsPerMin = Number(process.env.COMBAT_MAX_ACTIONS_PER_MINUTE || COMBAT_CONSTANTS.DEFAULT_MAX_ACTIONS_PER_MINUTE);
-    this.rateLimiter = new CombatRateLimiter(maxActionsPerMin);
-    this.enableRateLimiting = (process.env.COMBAT_RATE_LIMITING_ENABLED || 'true').toLowerCase() === 'true';
+  // Rate limiting for combat actions
+  const maxActionsPerMin = Number(process.env.COMBAT_MAX_ACTIONS_PER_MINUTE || COMBAT_CONSTANTS.DEFAULT_MAX_ACTIONS_PER_MINUTE);
+  this.rateLimiter = new CombatRateLimiter(maxActionsPerMin);
+  this.enableRateLimiting = (process.env.COMBAT_RATE_LIMITING_ENABLED || 'true').toLowerCase() === 'true';
 
   // Auto-action system removed - combat follows pure D&D initiative rules
 
@@ -105,40 +231,134 @@ export class CombatEncounterService {
   // Removed in-channel AI chat builders; combat now delegates speaking to ConversationManager
   
   /** Helper: compute DEX modifier from stats, defaulting to 10 */
-  /** Delegate: Calculate DEX modifier from stats */
   _dexModFromStats(stats) {
-    return this.coreHelpers.dexModFromStats(stats);
+    const dex = Number(stats?.dexterity ?? COMBAT_CONSTANTS.DEFAULT_DEX);
+    return Math.floor((dex - COMBAT_CONSTANTS.DEFAULT_DEX) / 2);
   }
 
-  /** Delegate: Check if combatant is knocked out */
+  /** Helper: check if a combatant is knocked out or dead */
   _isKnockedOut(combatant) {
-    return this.coreHelpers.isKnockedOut(combatant);
+    if (!combatant) return true;
+    const now = Date.now();
+    return (combatant.currentHp || 0) <= 0 ||
+           combatant.conditions?.includes('unconscious') ||
+           combatant.ref?.status === 'dead' ||
+           combatant.ref?.status === 'knocked_out' ||
+           (combatant.ref?.knockedOutUntil && now < combatant.ref.knockedOutUntil);
   }
 
-  /** Delegate: Validate encounter state */
+  /**
+   * Validate encounter state integrity before critical operations
+   * @param {Object} encounter - The encounter to validate
+   * @param {string} operation - Name of the operation (for logging)
+   * @returns {boolean} - True if valid, false otherwise
+   */
   _validateEncounter(encounter, operation = 'unknown') {
-    return this.validation.validateEncounter(encounter, operation);
+    const errors = [];
+    
+    if (!encounter) {
+      errors.push('Encounter is null or undefined');
+    } else {
+      // Required fields
+      if (!encounter.channelId) {
+        errors.push('Missing channelId');
+      }
+      if (!Array.isArray(encounter.combatants)) {
+        errors.push('Invalid combatants (not an array)');
+      }
+      if (!Array.isArray(encounter.initiativeOrder)) {
+        errors.push('Invalid initiativeOrder (not an array)');
+      }
+      
+      // State-specific validation
+      if (encounter.state === 'active') {
+        if (encounter.initiativeOrder.length === 0) {
+          errors.push('Active encounter with empty initiative order');
+        }
+        if (!encounter.startedAt) {
+          errors.push('Active encounter without startedAt timestamp');
+        }
+        if (typeof encounter.currentTurnIndex !== 'number') {
+          errors.push('Active encounter without valid currentTurnIndex');
+        }
+        if (encounter.round < 1) {
+          errors.push('Active encounter with invalid round number');
+        }
+      }
+      
+      // Combatant validation
+      if (Array.isArray(encounter.combatants)) {
+        encounter.combatants.forEach((c, i) => {
+          if (!c.avatarId) errors.push(`Combatant ${i} missing avatarId`);
+          if (!c.name) errors.push(`Combatant ${i} missing name`);
+          if (!c.ref) errors.push(`Combatant ${i} missing ref`);
+        });
+      }
+    }
+    
+    if (errors.length > 0) {
+      this.logger.error?.(
+        `[CombatEncounter] Validation failed for operation '${operation}': ${errors.join(', ')}`
+      );
+      return false;
+    }
+    
+    return true;
   }
 
-  /** Delegate: Check if in active combat */
+  /** Public: is avatar an active combatant in channel's encounter */
   isInActiveCombat(channelId, avatarId) {
     try {
       const enc = this.getEncounter(channelId);
       if (!enc || enc.state !== 'active') return false;
-      return this.coreHelpers.isInActiveCombat(enc, avatarId);
-    } catch {
+      return !!this.getCombatant(enc, avatarId);
+    } catch { return false; }
+  }
+
+  /** Public: can avatar enter combat (blocks KO/death & KO cooldown & flee cooldown) */
+  canEnterCombat(avatar) {
+    try {
+      if (!avatar) {
+        this.logger.debug?.('[CombatEncounter] canEnterCombat: avatar is null');
+        return false;
+      }
+      
+      const now = Date.now();
+      
+      if (avatar.status === 'dead' || avatar.status === 'knocked_out') {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} has status ${avatar.status}`);
+        return false;
+      }
+      
+      if (avatar.knockedOutUntil && now < avatar.knockedOutUntil) {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} on KO cooldown until ${new Date(avatar.knockedOutUntil)}`);
+        return false;
+      }
+      
+      if (avatar.combatCooldownUntil && now < avatar.combatCooldownUntil) {
+        this.logger.debug?.(`[CombatEncounter] canEnterCombat: ${avatar.name} on flee cooldown until ${new Date(avatar.combatCooldownUntil)}`);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      this.logger.warn?.(`[CombatEncounter] canEnterCombat error: ${error.message}`);
       return false;
     }
   }
 
-  /** Delegate: Check if avatar can enter combat */
-  canEnterCombat(avatar) {
-    return this.coreHelpers.canEnterCombat(avatar);
-  }
-
-  /** Delegate: Rebuild initiative order */
+  /** Helper: rebuild initiative order; optionally preserve current turn avatar when inserting */
   _rebuildInitiativeOrder(encounter, { preserveCurrent = false } = {}) {
-    return this.turnManager.rebuildInitiativeOrder(encounter, { preserveCurrent });
+    if (!encounter) return;
+    const currentId = preserveCurrent ? this._normalizeId(this.getCurrentTurnAvatarId(encounter)) : null;
+    encounter.initiativeOrder = encounter.combatants
+      .slice()
+      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0))
+      .map(c => this._normalizeId(c.avatarId));
+    if (preserveCurrent && currentId) {
+      const idx = encounter.initiativeOrder.indexOf(currentId);
+      encounter.currentTurnIndex = Math.max(0, idx);
+    }
   }
 
   /** Helper: clear all timers associated with an encounter */
@@ -183,14 +403,15 @@ export class CombatEncounterService {
   }
 
   /** Normalize any avatar identifier to a string */
-  /** Delegate: Normalize ID */
   _normalizeId(id) {
-    return this.coreHelpers.normalizeId(id);
+    if (!id) return null;
+    try { return typeof id === 'string' ? id : id.toString(); } catch { return null; }
   }
 
-  /** Delegate: Get avatar ID */
+  /** Safely extract an avatarId from an avatar object */
   _getAvatarId(avatar) {
-    return this.coreHelpers.getAvatarId(avatar);
+    if (!avatar) return null;
+    return this._normalizeId(avatar.id || avatar._id);
   }
 
   /** Returns active encounter for channel or null */
@@ -836,48 +1057,41 @@ One-liner (no quotes):`;
     });
   }
 
-  /** Delegate: Mark hostile action */
+  /** Marks a hostile action (attack) to prevent idle end */
   markHostile(encounter) {
-    this.turnManager.markHostile(encounter);
+    encounter.lastHostileAt = Date.now();
   }
 
-  /** Delegate: Evaluate end conditions */
+  /** Called after each action to see if combat should end (e.g., one side remains, idle) */
   evaluateEnd(encounter) {
-    // Check using turn manager logic
-    const shouldEnd = this.turnManager.evaluateEnd(encounter, {
-      turnTimeoutMs: this.turnTimeoutMs,
-      idleEndRounds: this.idleEndRounds,
-      logger: this.logger
-    });
-
-    // If should end, handle the actual ending
-    if (shouldEnd) {
-      // Determine reason and end appropriately
-      const reasons = {
-        max_rounds: 'max_rounds',
-        single_combatant: 'single_combatant',
-        idle: 'idle',
-        all_defending: 'all_defending'
-      };
-
-      // Check which reason applies
-      const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
-      if (encounter.round >= maxRounds) {
-        this.endEncounter(encounter, { reason: 'max_rounds' });
-      } else {
-        const alive = encounter.combatants.filter(c => !this._isKnockedOut(c));
-        if (alive.length <= 1) {
-          this.endEncounter(encounter, { reason: 'single_combatant' });
-        } else if (alive.length >= 2 && alive.every(c => c.isDefending)) {
-          this.endEncounter(encounter, { reason: 'all_defending' });
-        } else if (encounter.lastHostileAt) {
-          const roundsSince = (Date.now() - encounter.lastHostileAt) / this.turnTimeoutMs;
-          if (roundsSince >= this.idleEndRounds) {
-            this.endEncounter(encounter, { reason: 'idle' });
-          }
-        }
-      }
+    if (encounter.state !== 'active') return false;
+    
+    // Maximum rounds limit - END COMBAT AFTER 3 ROUNDS
+    const maxRounds = Number(process.env.COMBAT_MAX_ROUNDS || COMBAT_CONSTANTS.DEFAULT_MAX_ROUNDS);
+    if (encounter.round >= maxRounds) {
+      this.logger?.info?.(`[CombatEncounter][${encounter.channelId}] Max rounds (${maxRounds}) reached - ending combat`);
+      this.endEncounter(encounter, { reason: 'max_rounds' });
       return true;
+    }
+    
+    // Basic rule: if <=1 conscious combatant remains
+    const alive = encounter.combatants.filter(c => !this._isKnockedOut(c));
+    if (alive.length <= 1) {
+      this.endEncounter(encounter, { reason: 'single_combatant' });
+      return true;
+    }
+    // End if all alive combatants are defending
+    if (alive.length >= 2 && alive.every(c => c.isDefending)) {
+      this.endEncounter(encounter, { reason: 'all_defending' });
+      return true;
+    }
+    // Idle logic: if no hostile actions for N rounds after at least one hostile
+    if (encounter.lastHostileAt) {
+      const roundsSince = (Date.now() - encounter.lastHostileAt) / (this.turnTimeoutMs);
+      if (roundsSince >= this.idleEndRounds) {
+        this.endEncounter(encounter, { reason: 'idle' });
+        return true;
+      }
     }
     return false;
   }
@@ -1104,19 +1318,81 @@ One-liner (no quotes):`;
     return encounter;
   }
 
-  /** Delegate: Apply damage */
+  /** Record damage to a combatant and evaluate for end conditions */
   applyDamage(encounter, avatarId, amount) {
-    return this.stateManager.applyDamage(encounter, avatarId, amount);
+    const c = this.getCombatant(encounter, avatarId);
+    if (!c) return;
+    c.currentHp = Math.max(0, (c.currentHp ?? 0) - amount);
+    if (c.currentHp === 0 && !c.conditions.includes('unconscious')) {
+      c.conditions.push('unconscious');
+    }
   }
 
-  /** Delegate: Apply healing */
+  /** Convenience: apply healing to a combatant if present; returns actual healed amount */
   applyHeal(encounter, avatarId, amount) {
-    return this.stateManager.applyHeal(encounter, avatarId, amount);
+    try {
+      const c = this.getCombatant(encounter, avatarId);
+      if (!c || typeof amount !== 'number' || amount <= 0) return 0;
+      const before = Math.max(0, c.currentHp || 0);
+      const maxHp = Math.max(1, c.maxHp || c.ref?.stats?.hp || COMBAT_CONSTANTS.DEFAULT_HP);
+      c.currentHp = Math.min(maxHp, before + amount);
+      return c.currentHp - before;
+    } catch { return 0; }
   }
 
-  /** Delegate: Apply attack state */
+  /**
+   * Apply attack state changes without turn advancement (used by event-driven architecture)
+   * @private
+   */
   _applyAttackState(encounter, { attackerId, defenderId, result }) {
-    return this.stateManager.applyAttackState(encounter, { attackerId, defenderId, result });
+    try {
+      const attId = this._normalizeId(attackerId);
+      const defId = this._normalizeId(defenderId);
+      
+      // Apply damage
+      if (result?.damage && (result.result === 'hit' || result.result === 'knockout' || result.result === 'dead')) {
+        this.applyDamage(encounter, defId, result.damage);
+        this.markHostile(encounter);
+      }
+      
+      // Apply knockout state
+      if (result?.result === 'knockout' || result?.result === 'dead') {
+        try {
+          encounter.knockout = { attackerId: attId, defenderId: defId, result: result?.result };
+          const def = this.getCombatant(encounter, defId);
+          if (def) {
+            def.currentHp = 0;
+            if (!def.conditions?.includes('unconscious')) {
+              def.conditions = [...(def.conditions || []), 'unconscious'];
+            }
+          }
+        } catch (e) {
+          this.logger.warn?.(`[CombatEncounter] Failed to apply KO state: ${e.message}`);
+        }
+      }
+      
+      // Record last action
+      try {
+        const attacker = this.getCombatant(encounter, attId);
+        const defender = this.getCombatant(encounter, defId);
+        encounter.lastAction = {
+          attackerId: attId,
+          attackerName: attacker?.name,
+          defenderId: defId,
+          defenderName: defender?.name,
+          result: result?.result,
+          damage: result?.damage || 0,
+          attackRoll: result?.attackRoll,
+          armorClass: result?.armorClass,
+          critical: !!result?.critical,
+        };
+        encounter.lastActionAt = Date.now();
+      } catch (e) {
+        this.logger.warn?.(`[CombatEncounter] Failed to record last action: ${e.message}`);
+      }
+    } catch (e) {
+      this.logger.error?.(`[CombatEncounter] _applyAttackState error: ${e.message}`);
+    }
   }
 
   /** Central handler after an attack result for turn advancement & damage application */
@@ -1909,10 +2185,9 @@ Message: ${messageContent}`;
     return heuristic;
   }
 
-  /** Delegate: Check if it's avatar's turn */
   isTurn(encounter, avatarId) {
     if (!this.enableTurnEnforcement) return true;
-    return this.coreHelpers.isTurn(encounter, avatarId);
+  return this._normalizeId(this.getCurrentTurnAvatarId(encounter)) === this._normalizeId(avatarId);
   }
 
   /** Initiative embed intentionally removed */
@@ -2688,14 +2963,25 @@ Write a brief, punchy summary with dramatic flair. No quotes.`;
   }
 
   /** Get the avatarId whose turn it is, or null */
-  /** Delegate: Get current turn avatar ID */
   getCurrentTurnAvatarId(encounter) {
-    return this.coreHelpers.getCurrentTurnAvatarId(encounter);
+    try {
+      if (!encounter) return null;
+      const order = Array.isArray(encounter.initiativeOrder) ? encounter.initiativeOrder : [];
+      if (order.length === 0) return null;
+      const idx = Math.max(0, Math.min(order.length - 1, Number(encounter.currentTurnIndex) || 0));
+      const id = order[idx];
+      return this._normalizeId(id);
+    } catch { return null; }
   }
 
-  /** Delegate: Find combatant by ID */
+  /** Find a combatant by avatarId (string or object with id/_id) */
   getCombatant(encounter, avatarId) {
-    return this.coreHelpers.getCombatant(encounter, avatarId);
+    try {
+      if (!encounter) return null;
+      const id = this._normalizeId(avatarId);
+      const list = Array.isArray(encounter.combatants) ? encounter.combatants : [];
+      return list.find(c => this._normalizeId(c.avatarId) === id) || null;
+    } catch { return null; }
   }
 
   /** Advance to the next turn; handle round wrap and narrative pacing hooks */
