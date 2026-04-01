@@ -5,7 +5,7 @@
 
 // Audit logs API endpoint to retrieve guild access logs
 import express from "express";
-import { isAuthenticated as authMiddleware } from "../services/authService.mjs";
+import { isAuthenticated as authMiddleware } from "../services/authService.js";
 
 const router = express.Router();
 
