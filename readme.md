@@ -1,4 +1,4 @@
-# CosyWorld - Unified AI Community Management Platform
+# CosyWorld Swarm Orchestrator
 
 **A next-generation community management system that unifies Discord, X (Twitter), Telegram, and other platforms with built-in AI agents**
 
@@ -416,9 +416,20 @@ npm run lint
 
 ---
 
-## � License
+## License & Copyright
 
-CosyWorld is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Copyright © 2024–2026 **RATi Open Software Foundation / Fondation RATi pour les logiciels libres**. All rights reserved.
+
+The work titled *CosyWorld Swarm Orchestrator* is registered with the Canadian Intellectual Property Office (CIPO) under the *Copyright Act* (R.S.C., 1985, c. C-42), sections 49 and 53:
+
+- **Registration number:** 1244510
+- **Category:** Literary
+- **Author:** Jonathan Beckwith
+- **Owner:** RATi Open Software Foundation / Fondation RATi pour les logiciels libres
+- **First publication:** 14 October 2024, Vancouver, British Columbia, Canada
+- **Date of registration / issuance:** 17 April 2026
+
+Distributed under the terms of the applicable RATi Open Software Foundation license — see [LICENSE](LICENSE) for details.
 
 ---
 
