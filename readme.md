@@ -416,20 +416,25 @@ npm run lint
 
 ---
 
-## License & Copyright
+## License
 
-Copyright © 2024–2026 **RATi Open Software Foundation / Fondation RATi pour les logiciels libres**. All rights reserved.
+CosyWorld Swarm Orchestrator is licensed under the **MIT License** by the **RATi Open Software Foundation / Fondation RATi pour les logiciels libres**. See [LICENSE](LICENSE) for the full text.
 
-The work titled *CosyWorld Swarm Orchestrator* is registered with the Canadian Intellectual Property Office (CIPO) under the *Copyright Act* (R.S.C., 1985, c. C-42), sections 49 and 53:
+Copyright © 2024–2026 RATi Open Software Foundation.
 
-- **Registration number:** 1244510
-- **Category:** Literary
-- **Author:** Jonathan Beckwith
-- **Owner:** RATi Open Software Foundation / Fondation RATi pour les logiciels libres
-- **First publication:** 14 October 2024, Vancouver, British Columbia, Canada
-- **Date of registration / issuance:** 17 April 2026
+### Canadian Copyright Registration
 
-Licensed under the **MIT License** — see [LICENSE](LICENSE) for the full text. MIT permits broad reuse while the Canadian copyright registration above establishes authorship and ownership on the public record.
+The work is registered with the Canadian Intellectual Property Office (CIPO) under the *Copyright Act* (R.S.C., 1985, c. C-42), sections 49 and 53:
+
+| Field | Value |
+| --- | --- |
+| Registration number | **1244510** |
+| Title | COSYWORLD SWARM ORCHESTRATOR |
+| Category | Literary |
+| Author | Jonathan Beckwith |
+| Owner | RATi Open Software Foundation / Fondation RATi pour les logiciels libres |
+| First publication | 14 October 2024, Vancouver, British Columbia, Canada |
+| Date of registration / issuance | 17 April 2026 |
 
 ---
 
