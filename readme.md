@@ -416,6 +416,16 @@ npm run lint
 
 ---
 
+## Token
+
+The on-chain token for CosyWorld Swarm Orchestrator lives on Solana:
+
+- **Mint address:** `Ci6Y1UX8bY4jxn6YiogJmdCxFEu2jmZhCcG65PStpump`
+- **Network:** Solana (SPL)
+- **Launch date:** 14 October 2024 (first publication of the Swarm Orchestrator)
+
+---
+
 ## License
 
 CosyWorld Swarm Orchestrator is licensed under the **MIT License** by the **RATi Open Software Foundation / Fondation RATi pour les logiciels libres**. See [LICENSE](LICENSE) for the full text.
