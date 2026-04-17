@@ -429,7 +429,7 @@ The work titled *CosyWorld Swarm Orchestrator* is registered with the Canadian I
 - **First publication:** 14 October 2024, Vancouver, British Columbia, Canada
 - **Date of registration / issuance:** 17 April 2026
 
-Distributed under the terms of the applicable RATi Open Software Foundation license — see [LICENSE](LICENSE) for details.
+Licensed under the **MIT License** — see [LICENSE](LICENSE) for the full text. MIT permits broad reuse while the Canadian copyright registration above establishes authorship and ownership on the public record.
 
 ---
 
