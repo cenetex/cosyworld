@@ -225,49 +225,33 @@ cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events) {
   if (status != CW_OK) return status;
   status = add_location(world, 15, 0);
   if (status != CW_OK) return status;
+  status = add_location(world, 40, 0);
+  if (status != CW_OK) return status;
 
-  status = add_exit(world, 1, 2, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 10, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 11, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 12, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 13, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 14, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 1, 15, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 2, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 2, 3, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 3, 2, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 10, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 11, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 12, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 13, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 14, 1, 0);
-  if (status != CW_OK) return status;
-  status = add_exit(world, 15, 1, 0);
-  if (status != CW_OK) return status;
+  const cw_id seed_exits[][2] = {
+    {1, 2},   {2, 1},   {1, 11},  {11, 1},
+    {2, 3},   {3, 2},   {2, 40},  {40, 2},
+    {10, 11}, {11, 10}, {11, 12}, {12, 11},
+    {11, 13}, {13, 11}, {11, 15}, {15, 11},
+    {10, 14}, {14, 10}, {10, 15}, {15, 10},
+    {13, 15}, {15, 13}, {14, 15}, {15, 14},
+  };
+  for (size_t i = 0; i < sizeof(seed_exits) / sizeof(seed_exits[0]); ++i) {
+    status = add_exit(world, seed_exits[i][0], seed_exits[i][1], 0);
+    if (status != CW_OK) return status;
+  }
 
   cw_stat_block rati = {8, 14, 11, 13, 15, 16, 10, 1};
   cw_stat_block whiskerwind = {8, 16, 10, 12, 14, 12, 10, 1};
   cw_stat_block skull = {14, 13, 13, 8, 12, 9, 11, 1};
   cw_stat_block moonlit_echo = {10, 12, 10, 8, 10, 8, 6, 1};
+  cw_stat_block old_oak = {16, 6, 18, 14, 18, 13, 16, 1};
 
   add_actor(world, 1001, CW_ACTOR_NPC, 1, rati);
   add_actor(world, 1002, CW_ACTOR_NPC, 1, whiskerwind);
   add_actor(world, 1003, CW_ACTOR_NPC, 1, skull);
   add_actor(world, 1004, CW_ACTOR_NPC, 3, moonlit_echo);
+  add_actor(world, 1005, CW_ACTOR_NPC, 40, old_oak);
   add_item(world, 2001, CW_ITEM_POTION, 1, 1);
   add_item(world, 2002, CW_ITEM_EVOLUTION, 2, 1);
   add_item(world, 2003, CW_ITEM_EVOLUTION, 3, 1);
@@ -780,19 +764,22 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
 
   const cw_location *location = find_location_const(world, actor->location_id);
   if (location && (location->flags & CW_LOCATION_ALLOW_COMBAT)) {
-    out_offers->option_flags |= CW_OFFER_DEFEND;
+    int has_active_combat_target = 0;
     for (size_t i = 0; i < world->actor_count; ++i) {
       const cw_actor *other = &world->actors[i];
       if (other->id != actor->id && other->location_id == actor->location_id && actor_is_active(other)) {
-        out_offers->option_flags |= CW_OFFER_ATTACK;
+        has_active_combat_target = 1;
         break;
       }
     }
-    for (size_t i = 0; i < world->exit_count; ++i) {
-      const cw_exit *exit = &world->exits[i];
-      if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
-        out_offers->option_flags |= CW_OFFER_FLEE;
-        break;
+    if (has_active_combat_target) {
+      out_offers->option_flags |= CW_OFFER_ATTACK | CW_OFFER_DEFEND;
+      for (size_t i = 0; i < world->exit_count; ++i) {
+        const cw_exit *exit = &world->exits[i];
+        if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
+          out_offers->option_flags |= CW_OFFER_FLEE;
+          break;
+        }
       }
     }
   }

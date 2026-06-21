@@ -39,6 +39,12 @@ pub const CW_ACTION_DEFEND: u8 = 8;
 pub const CW_ACTION_GIVE_ITEM: u8 = 9;
 pub const CW_ACTION_FLEE: u8 = 10;
 
+pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
+pub const CW_EVENT_ITEM_USED: u8 = 8;
+pub const CW_EVENT_COMBAT_ATTACK_HIT: u8 = 11;
+pub const CW_EVENT_COMBAT_KNOCKOUT: u8 = 13;
+pub const CW_EVENT_AVATAR_EVOLVED: u8 = 17;
+
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;
 pub const CW_OFFER_PICK_UP: u32 = 1 << 2;

@@ -558,6 +558,18 @@ async function main() {
     });
   }
 
+  async function leaveTrailTo(name) {
+    steps.push({ label: `focus ${name} from trail`, primary: await focusRoute(name) });
+    const action = (await primaryText()).toLowerCase();
+    assert(action.includes("flee") || action.includes("travel"), `${name} focus should leave Moonlit Trail`);
+    await clickPrimary(`${action.includes("flee") ? "flee" : "travel"} ${name}`);
+    await waitForLocation(name);
+    await page.waitForFunction((destination) => {
+      const text = document.querySelector("#log")?.textContent || "";
+      return text.includes(`flees to ${destination}`) || text.includes(`to ${destination}.`);
+    }, name);
+  }
+
   async function takeItem(name) {
     steps.push({ label: `focus ${name}`, primary: await focusChip(name) });
     assert((await primaryText()).toLowerCase().includes("take"), `${name} focus should take item`);
@@ -688,6 +700,53 @@ async function main() {
     assert(science?.accessible === true, "Science Class should be public in world projection");
     assert(library?.accessible === true && library.card?.owned === false, "Library should be public without requiring its NFT");
     assert(trail?.actors.some((actor) => actor.name === "Moonlit Echo"), "Moonlit Trail projection should include the sparring target");
+  }
+
+  async function assertMudCommandApiAvailable() {
+    const result = await page.evaluate(async () => {
+      const actorId = Number(localStorage.getItem("cosyworld.actorId") || 0);
+      const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
+      const run = async (command) => {
+        const response = await fetch("/commands", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            actor_id: actorId,
+            actor_session: actorSession,
+            wallet_address: "dev-wallet",
+            command,
+          }),
+        });
+        return response.json();
+      };
+      return {
+        look: await run("look"),
+        search: await run("search scarf"),
+        who: await run("who"),
+        say: await run("say hello room"),
+        primaryCommand: document.querySelector("#primary")?.dataset.command || "",
+      };
+    });
+    assert(result.look.ok === true && result.look.output.includes("The Cosy Cottage"), `look command should describe the current room: ${JSON.stringify(result.look)}`);
+    assert(result.look.output.includes("Features:") && result.search.ok === true && result.search.output.includes("Scarf Basket"), `search command should inspect room features: ${JSON.stringify(result)}`);
+    assert(result.who.ok === true && result.who.output.includes("human"), `who command should list room occupants: ${JSON.stringify(result.who)}`);
+    assert(result.say.ok === false && result.say.status === 410 && result.say.output.includes("recognized"), `say command should be recognized but disabled: ${JSON.stringify(result.say)}`);
+    assert(result.primaryCommand.length > 0, `primary button should expose command metadata: ${JSON.stringify(result)}`);
+    steps.push({ label: "mud command api", primaryCommand: result.primaryCommand });
+  }
+
+  async function assertMudCommandPaletteAvailable() {
+    await page.keyboard.press("/");
+    await page.waitForSelector("#command-palette:not([hidden]) #command-input");
+    await page.locator("#command-input").fill("look");
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#log")?.textContent || "";
+      return text.includes("The Cosy Cottage") && text.includes("Exits:");
+    });
+    await assertNoComposerOrDebugChrome();
+    steps.push({ label: "mud command palette", command: "look" });
   }
 
   async function assertReloadContinuity(expectedLocation, expectedLogText) {
@@ -1276,6 +1335,8 @@ async function main() {
   await assertSeedArtAvailable();
   await assertFirstBellCatalogAssetsAvailable();
   await assertWorldProjectionAvailable();
+  await assertMudCommandApiAvailable();
+  await assertMudCommandPaletteAvailable();
   await listenAtCurrentLocation();
   await assertBoundedEventReplay();
 
@@ -1288,7 +1349,7 @@ async function main() {
   await travelTo("Moonlit Trail");
   await attackTarget("Moonlit Echo");
   await takeItem("Wolfprint Charm");
-  await fleeTo("Rain-Soft Garden");
+  await leaveTrailTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
 
   steps.push({ label: "focus wrong resident", primary: await focusChip("Skull") });
@@ -1300,7 +1361,7 @@ async function main() {
   await takeItem("Watch Bell");
   await travelTo("Moonlit Trail");
   await takeItem("Hearthstone Tag");
-  await fleeTo("Rain-Soft Garden");
+  await leaveTrailTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
   await evolveResident("Skull");
   await travelTo("Homeroom");
@@ -1340,6 +1401,12 @@ async function main() {
     const fleeEvents = events
       .filter((event) => event.type === "combat.flee.success")
       .map((event) => event.destination_location_name);
+    const trailExitEvents = events
+      .filter((event) => (
+        event.type === "combat.flee.success"
+        || (event.type === "actor.moved" && event.location_name === "Moonlit Trail")
+      ))
+      .map((event) => event.destination_location_name);
     return {
       actorId,
       location: state.location.name,
@@ -1349,6 +1416,7 @@ async function main() {
       avatarMessages,
       branchEvents,
       fleeEvents,
+      trailExitEvents,
       buttons: [...document.querySelectorAll("footer.prompt button")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " ")),
@@ -1361,7 +1429,7 @@ async function main() {
   }
   assert(finalState.avatarMessages.length >= 2, "Chat should emit server-authored avatar messages");
   assert(finalState.branchEvents.length === 0, `Chat should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
-  assert(finalState.fleeEvents.includes("Rain-Soft Garden"), "fleeing from Moonlit Trail should emit combat.flee.success");
+  assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
   assert(finalState.buttons.length === 1, "chat should finish in one-button mode");
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });

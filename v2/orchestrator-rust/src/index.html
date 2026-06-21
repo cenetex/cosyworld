@@ -655,6 +655,39 @@
       font-size: 13px;
     }
     .status.ok { color: var(--green); }
+    .command-palette {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(76px + var(--safe-bot));
+      z-index: 20;
+      border: 1px solid var(--line-strong);
+      background: rgba(8, 11, 9, 0.98);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.44);
+    }
+    .command-palette[hidden] { display: none; }
+    .command-form {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+    .command-caret {
+      color: var(--green);
+      font-weight: 900;
+      text-align: center;
+    }
+    .command-input {
+      min-width: 0;
+      min-height: 36px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-weight: 800;
+    }
     .card-modal,
     .wallet-modal,
     .ai-modal {
@@ -946,6 +979,12 @@
       <button class="cmd secondary" id="secondary"></button>
     </footer>
   </div>
+  <div class="command-palette" id="command-palette" hidden>
+    <form class="command-form" id="command-form">
+      <span class="command-caret">&gt;</span>
+      <input class="command-input" id="command-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="MUD command" />
+    </form>
+  </div>
   <div class="card-modal" id="card-modal" hidden>
     <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name">
       <button class="card-close" type="button" data-card-close aria-label="Close card">x</button>
@@ -1199,6 +1238,7 @@
         return [{
           label: "generate avatar",
           detail: "",
+          command: "create avatar",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
@@ -1216,7 +1256,7 @@
       const residentTargets = (view.actors || []).filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active");
       const giveTargetIds = new Set();
       const attackTargetIds = new Set((view.actors || [])
-        .filter((actor) => actor.id !== actorId && actor.status === "active")
+        .filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active")
         .map((actor) => actor.id));
       if (options.has("give_item")) {
         for (const target of residentTargets) {
@@ -1226,6 +1266,7 @@
             built.push({
               label: "give item",
               detail: `${item.name} to ${actorLabel(target)}`,
+              command: `give ${item.name} to ${actorLabel(target)}`,
               focusKey: `actor:${target.id}`,
               card: cardForItem(item.id),
               shape: "item",
@@ -1239,6 +1280,7 @@
           built.push({
             label: "give item",
             detail: `${item.name} to ${actorLabel(defaultTarget)}`,
+            command: `give ${item.name} to ${actorLabel(defaultTarget)}`,
             focusKey: `item:${item.id}`,
             card: cardForItem(item.id),
             shape: "item",
@@ -1248,11 +1290,13 @@
       }
       for (const actor of view.actors || []) {
         if (actor.id === actorId || actor.kind !== "npc") continue;
+        if (actor.status !== "active") continue;
         if (!canChat) continue;
         const actorCard = cardForActor(actor.id);
         built.push({
           label: "chat",
           detail: actorCard?.title ? `${actorLabel(actor)} / ${actorCard.title}` : actorLabel(actor),
+          command: `chat ${actorLabel(actor)}`,
           focusKey: giveTargetIds.has(actor.id) || options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`,
           card: actorCard,
           shape: "avatar",
@@ -1265,6 +1309,7 @@
           built.push({
             label: "take",
             detail: item.name,
+            command: `take ${item.name}`,
             focusKey: `item:${item.id}`,
             card: cardForItem(item.id),
             shape: "item",
@@ -1279,6 +1324,7 @@
             built.push({
               label: "connect wallet",
               detail: exit.destination_location_name,
+              command: "connect wallet",
               focusKey: `wallet:${exit.destination_location_id}`,
               card: cardForLocation(exit.destination_location_id),
               shape: "location",
@@ -1292,6 +1338,7 @@
           built.push({
             label: escaping ? "flee" : "travel",
             detail: exit.destination_location_name,
+            command: `${escaping ? "flee" : "go"} ${exit.destination_location_name}`,
             focusKey: `exit:${exit.destination_location_id}`,
             card: cardForLocation(exit.destination_location_id),
             shape: "location",
@@ -1305,6 +1352,7 @@
             built.push({
               label: "use",
               detail: `${item.name} on ${actorLabel(target)}`,
+              command: `use ${item.name} on ${actorLabel(target)}`,
               focusKey: index === 0 ? `item:${item.id}` : `use:${item.id}:${target.id}`,
               card: cardForItem(item.id),
               shape: "item",
@@ -1319,6 +1367,7 @@
           built.push({
             label: "attack",
             detail: actorLabel(actor),
+            command: `attack ${actorLabel(actor)}`,
             focusKey: `actor:${actor.id}`,
             card: cardForActor(actor.id),
             shape: "avatar",
@@ -1327,23 +1376,24 @@
         }
       }
       if (options.has("defend")) {
-        built.push({ label: "defend", detail: "Brace.", focusKey: "defend", card: cardForActor(actorId), shape: "avatar", run: () => action("/actions/defend", { actor_id: actorId }) });
+        built.push({ label: "defend", detail: "Brace.", command: "defend", focusKey: "defend", card: cardForActor(actorId), shape: "avatar", run: () => action("/actions/defend", { actor_id: actorId }) });
       }
       const listenCanHelp = canChat || economy.listen_reward_claimable !== false;
       if (options.has("check") && listenCanHelp) {
-        built.push({ label: "listen", detail: "for clues", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+        built.push({ label: "listen", detail: "for clues", command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
       }
       if (!canChat && options.has("chat") && !built.length) {
         built.push({
           label: "connect ai",
           detail: "OpenRouter or earn Orbs",
+          command: "connect ai",
           focusKey: "connect-ai",
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           run: () => connectOpenRouter(),
         });
       }
-      if (!built.length) built.push({ label: "wait", detail: "", focusKey: "wait", run: async () => {} });
+      if (!built.length) built.push({ label: "wait", detail: "", command: "wait", focusKey: "wait", run: async () => {} });
       return built;
     }
 
@@ -1605,6 +1655,39 @@
       focusIndex = 0;
       focusedKey = "";
       await refresh();
+    }
+
+    async function runCommandText(commandText) {
+      const command = String(commandText || "").trim();
+      if (!command) return;
+      if (!actorId || !actorSession) {
+        setError("Generate an avatar first.");
+        return;
+      }
+      setError("");
+      const result = await post("/commands", withAccess({
+        actor_id: actorId,
+        command,
+        ...(hasOpenRouterKey() ? { openrouter_api_key: openrouterApiKey } : {}),
+      }));
+      if (result.output) pushCommandOutput(result.command || command, result.output, result.ok);
+      pushEvents(result.events || []);
+      if (!result.ok) setError(result.output || "That command does not work here.");
+      focusIndex = 0;
+      focusedKey = "";
+      await refresh();
+    }
+
+    function pushCommandOutput(command, output, ok) {
+      logEvents.push({
+        seq: `command-${Date.now()}-${Math.random()}`,
+        type: "command.output",
+        actor_name: ok ? ">" : "command",
+        content: output,
+        command,
+      });
+      logEvents = logEvents.slice(-60);
+      renderLog();
     }
 
     function pushEvents(events) {
@@ -1975,6 +2058,7 @@
     }
 
     function eventText(event) {
+      if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
       if (event.type === "world.reset") return "the world returns to its first page.";
       if (event.type === "actor.created") return `enters ${event.location_name}.`;
@@ -1993,12 +2077,15 @@
       if (event.type === "branch.resolved") return `settles a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "ability_check.rolled") return listenEventText(event);
-      if (event.type === "combat.defend") return `defends.`;
-      if (event.type === "combat.attack.attempt") return `attacks ${event.target_actor_name}. roll ${event.total} vs ac ${event.dc}.`;
-      if (event.type === "combat.attack.hit") return `hits ${event.target_actor_name} for ${event.damage} damage. ${event.current_hp} hp remains.`;
-      if (event.type === "combat.attack.miss") return `misses ${event.target_actor_name}.`;
-      if (event.type === "combat.knockout") return `${event.target_actor_name} is knocked out.`;
-      if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}.`;
+      if (event.type === "combat.defend") return `raises a careful guard.`;
+      if (event.type === "combat.attack.attempt") return `tests ${event.target_actor_name}'s guard: roll ${event.total} vs ac ${event.dc}.`;
+      if (event.type === "combat.attack.hit") {
+        const hp = Number.isFinite(Number(event.current_hp)) ? `${event.current_hp} hp remains.` : "";
+        return `breaks through ${event.target_actor_name}'s guard for ${event.damage} damage. ${hp}`.trim();
+      }
+      if (event.type === "combat.attack.miss") return `${event.target_actor_name} turns the strike aside.`;
+      if (event.type === "combat.knockout") return `${event.target_actor_name}'s light falls quiet at 0 hp.`;
+      if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}, carrying the trail's silver hush.`;
       if (event.type === "rule.rejected") return `hesitates.`;
       return event.type;
     }
@@ -2240,12 +2327,15 @@
       if (!action) {
         button.disabled = true;
         button.removeAttribute("aria-busy");
+        button.removeAttribute("data-command");
         button.innerHTML = `<span class="cmd-copy"><span class="cmd-label">wait</span></span>`;
         return;
       }
       button.disabled = Boolean(action.busy);
       if (action.busy) button.setAttribute("aria-busy", "true");
       else button.removeAttribute("aria-busy");
+      if (action.command) button.dataset.command = action.command;
+      else button.removeAttribute("data-command");
       const count = id === "primary" && !state?.branch && actions.length > 1 ? ` ${focusIndex + 1}/${actions.length}` : "";
       const detail = `${action.detail || ""}${count}`.trim();
       button.innerHTML = `${thumbnailHtml(action)}<span class="cmd-copy"><span class="cmd-label">${escapeHtml(action.label.toLowerCase())}</span>${detail ? `<span class="detail">${escapeHtml(detail)}</span>` : ""}</span>`;
@@ -2271,6 +2361,20 @@
       renderButton("primary", choiceMode ? actions[0] : focusedAction());
       renderButton("secondary", choiceMode ? actions[1] : null);
       $("secondary").style.display = choiceMode && actions[1] ? "flex" : "none";
+    }
+
+    function openCommandPalette(seed = "") {
+      if (actionBusy) return;
+      const palette = $("command-palette");
+      const input = $("command-input");
+      palette.hidden = false;
+      input.value = seed;
+      window.setTimeout(() => input.focus(), 0);
+    }
+
+    function closeCommandPalette() {
+      $("command-palette").hidden = true;
+      $("command-input").value = "";
     }
 
     async function runAction(action) {
@@ -2539,8 +2643,33 @@
       if (state?.branch && actions[1]) runAction(actions[1]);
     });
 
+    $("command-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const value = $("command-input").value;
+      closeCommandPalette();
+      actionBusy = true;
+      pendingAction = { label: "...", detail: value, command: value };
+      renderCommands();
+      try {
+        await runCommandText(value);
+      } catch (error) {
+        setError(String(error.message || error));
+      } finally {
+        actionBusy = false;
+        pendingAction = null;
+        render();
+      }
+    });
+
     document.addEventListener("keydown", (event) => {
       if (event.defaultPrevented) return;
+      if (!$("command-palette").hidden) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeCommandPalette();
+        }
+        return;
+      }
       if (!$("ai-key-modal").hidden) {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -2560,6 +2689,11 @@
           event.preventDefault();
           closeCardModal();
         }
+        return;
+      }
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        openCommandPalette();
         return;
       }
       if (event.key === "Enter") {

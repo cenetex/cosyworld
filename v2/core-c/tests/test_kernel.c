@@ -10,9 +10,9 @@ static void test_seed_and_chat(void) {
   cw_world_init(&world);
 
   assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
-  assert(world.location_count == 9);
-  assert(world.exit_count == 16);
-  assert(world.actor_count == 4);
+  assert(world.location_count == 10);
+  assert(world.exit_count == 24);
+  assert(world.actor_count == 5);
   assert(world.item_count == 7);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_WORLD_BOOTSTRAPPED);
@@ -22,7 +22,7 @@ static void test_seed_and_chat(void) {
   create.actor_id = 5001;
   create.location_id = 1;
   assert(cw_world_apply(&world, &create, 42, &events) == CW_OK);
-  assert(world.actor_count == 5);
+  assert(world.actor_count == 6);
   assert(events.count == 2);
   assert(events.events[0].type == CW_EVENT_ACTOR_CREATED);
   assert(events.events[1].type == CW_EVENT_ACTOR_ENTERED_LOCATION);
@@ -115,15 +115,26 @@ static void test_items_and_combat_gate(void) {
   assert(cw_world_apply(&world, &move, 56, &events) == CW_OK);
   move.destination_location_id = 3;
   assert(cw_world_apply(&world, &move, 57, &events) == CW_OK);
+
+  cw_action_offers offers = {0};
+  assert(cw_get_action_offers(&world, 1003, &offers) == CW_OK);
+  assert(offers.option_flags & CW_OFFER_ATTACK);
+  assert(offers.option_flags & CW_OFFER_DEFEND);
+  assert(offers.option_flags & CW_OFFER_FLEE);
+
   attack.target_actor_id = 1004;
   assert(cw_world_apply(&world, &attack, 55, &events) == CW_OK);
   assert(events.count >= 2);
   assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
   assert(events.events[0].target_actor_id == 1004);
-
-  cw_action_offers offers = {0};
-  assert(cw_get_action_offers(&world, 1003, &offers) == CW_OK);
-  assert(offers.option_flags & CW_OFFER_FLEE);
+  if (world.actors[3].status == CW_ACTOR_KNOCKED_OUT) {
+    assert(cw_get_action_offers(&world, 1003, &offers) == CW_OK);
+    assert(!(offers.option_flags & CW_OFFER_ATTACK));
+    assert(!(offers.option_flags & CW_OFFER_DEFEND));
+    assert(!(offers.option_flags & CW_OFFER_FLEE));
+    world.actors[3].status = CW_ACTOR_ACTIVE;
+    world.actors[3].damage = 0;
+  }
 
   cw_action flee = {0};
   flee.kind = CW_ACTION_FLEE;

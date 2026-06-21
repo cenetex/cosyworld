@@ -75,6 +75,10 @@ struct ResidentReplyPlan {
     npc_name: String,
     speech_mode: String,
     location_name: String,
+    location_title: String,
+    location_description: String,
+    location_persona: String,
+    location_memory: Vec<String>,
     cast: Vec<String>,
     recent_lines: Vec<String>,
     user_text: String,
@@ -89,6 +93,10 @@ struct AvatarChatPlan {
     target_actor_name: String,
     target_title: String,
     location_name: String,
+    location_title: String,
+    location_description: String,
+    location_persona: String,
+    location_memory: Vec<String>,
     cast: Vec<String>,
     recent_lines: Vec<String>,
     missing_need: Option<String>,
@@ -200,6 +208,15 @@ struct ActorMeta {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+struct LocationMeta {
+    title: String,
+    description: String,
+    persona: String,
+    #[serde(default)]
+    memory: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct ItemMeta {
     name: String,
     description: String,
@@ -212,6 +229,8 @@ struct SeedContent {
     actors: Vec<SeedActorContent>,
     items: Vec<SeedItemContent>,
     locations: Vec<SeedLocationContent>,
+    #[serde(default)]
+    room_features: Vec<SeedRoomFeatureContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
 }
 
@@ -236,7 +255,34 @@ struct SeedLocationContent {
     id: u64,
     name: String,
     #[serde(default)]
+    title: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    persona: String,
+    #[serde(default)]
+    memory: Vec<String>,
+    #[serde(default)]
     allow_combat: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRoomFeatureContent {
+    location_id: u64,
+    key: String,
+    name: String,
+    #[serde(default)]
+    aliases: Vec<String>,
+    look: String,
+    search: String,
+    #[serde(default)]
+    uses: Vec<SeedFeatureUseContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedFeatureUseContent {
+    item_id: u64,
+    text: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +297,7 @@ struct RuntimeWorld {
     actors: BTreeMap<u64, ActorMeta>,
     items: BTreeMap<u64, ItemMeta>,
     locations: BTreeMap<u64, String>,
+    location_meta: BTreeMap<u64, LocationMeta>,
     content: BTreeMap<u64, String>,
     branches: BTreeMap<u64, DialogueBranch>,
     orb_balances: BTreeMap<u64, i32>,
@@ -275,6 +322,8 @@ struct RuntimeSnapshot {
     actor_meta: BTreeMap<u64, ActorMeta>,
     item_meta: BTreeMap<u64, ItemMeta>,
     location_names: BTreeMap<u64, String>,
+    #[serde(default)]
+    location_meta: BTreeMap<u64, LocationMeta>,
     content: BTreeMap<u64, String>,
     #[serde(default)]
     branches: BTreeMap<u64, DialogueBranch>,
@@ -578,6 +627,10 @@ struct WorldResponse {
 struct WorldLocationView {
     id: u64,
     name: String,
+    title: String,
+    description: String,
+    persona: String,
+    memory: Vec<String>,
     public: bool,
     accessible: bool,
     required_card_id: Option<String>,
@@ -596,6 +649,10 @@ struct WorldLocationView {
 struct LocationView {
     id: u64,
     name: String,
+    title: String,
+    description: String,
+    persona: String,
+    memory: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -730,6 +787,7 @@ struct DialogueOptionView {
 struct PrimaryAction {
     kind: String,
     label: String,
+    command: String,
     disabled: bool,
     options: Vec<ActionOption>,
 }
@@ -738,6 +796,7 @@ struct PrimaryAction {
 struct ActionOption {
     kind: String,
     label: String,
+    command: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -772,6 +831,61 @@ struct ActionResponse {
     ok: bool,
     status: u32,
     events: Vec<EventView>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommandResponse {
+    ok: bool,
+    status: u32,
+    command: String,
+    verb: String,
+    output: Option<String>,
+    action: Option<CommandActionView>,
+    events: Vec<EventView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CommandActionView {
+    kind: String,
+    label: String,
+    command: String,
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedCommand {
+    command: String,
+    verb: String,
+    action: Option<CommandActionView>,
+    dispatch: CommandDispatch,
+}
+
+#[derive(Clone, Debug)]
+enum CommandDispatch {
+    Read { output: String },
+    Disabled { status: u32, output: String },
+    Move { destination_location_id: u64 },
+    Flee { destination_location_id: u64 },
+    Check,
+    PickUp { item_id: u64 },
+    UseItem { item_id: u64, target_actor_id: u64 },
+    GiveItem { item_id: u64, target_actor_id: u64 },
+    Attack { target_actor_id: u64 },
+    Defend,
+    Chat { target_actor_id: u64 },
+}
+
+#[derive(Debug)]
+struct CommandError {
+    command: String,
+    verb: String,
+    status: u32,
+    output: String,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CommandActorFilter {
+    Any,
+    ActiveNpc,
 }
 
 #[derive(Debug, Serialize)]
@@ -819,6 +933,19 @@ struct MoveRequest {
     actor_id: u64,
     actor_session: Option<String>,
     destination_location_id: u64,
+    wallet_address: Option<String>,
+    wallet: Option<String>,
+    wallet_session: Option<String>,
+    owned_card_ids: Option<String>,
+    cards: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommandRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    command: String,
+    openrouter_api_key: Option<String>,
     wallet_address: Option<String>,
     wallet: Option<String>,
     wallet_session: Option<String>,
@@ -1305,6 +1432,50 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         if location.name.trim().is_empty() {
             return Err(format!("seed location {} is missing name", location.id));
         }
+        if location.title.trim().is_empty()
+            || location.description.trim().is_empty()
+            || location.persona.trim().is_empty()
+        {
+            return Err(format!(
+                "seed location {} is missing title, description, or persona",
+                location.id
+            ));
+        }
+    }
+
+    let mut feature_keys = BTreeSet::new();
+    for feature in &content.room_features {
+        if !location_ids.contains(&feature.location_id) {
+            return Err(format!(
+                "room feature {} references missing location {}",
+                feature.key, feature.location_id
+            ));
+        }
+        if feature.key.trim().is_empty()
+            || feature.name.trim().is_empty()
+            || feature.look.trim().is_empty()
+            || feature.search.trim().is_empty()
+        {
+            return Err(format!(
+                "room feature for location {} is missing key, name, look, or search text",
+                feature.location_id
+            ));
+        }
+        let feature_key = (feature.location_id, command_key(&feature.key));
+        if feature_key.1.is_empty() || !feature_keys.insert(feature_key) {
+            return Err(format!(
+                "duplicate or invalid room feature key {} in location {}",
+                feature.key, feature.location_id
+            ));
+        }
+        for use_case in &feature.uses {
+            if !item_ids.contains(&use_case.item_id) || use_case.text.trim().is_empty() {
+                return Err(format!(
+                    "room feature {} has invalid use item {}",
+                    feature.key, use_case.item_id
+                ));
+            }
+        }
     }
 
     let mut tracked_actors = BTreeSet::new();
@@ -1372,6 +1543,24 @@ fn seed_location_names() -> BTreeMap<u64, String> {
         .locations
         .iter()
         .map(|location| (location.id, location.name.clone()))
+        .collect()
+}
+
+fn seed_location_meta() -> BTreeMap<u64, LocationMeta> {
+    seed_content()
+        .locations
+        .iter()
+        .map(|location| {
+            (
+                location.id,
+                LocationMeta {
+                    title: location.title.clone(),
+                    description: location.description.clone(),
+                    persona: location.persona.clone(),
+                    memory: location.memory.clone(),
+                },
+            )
+        })
         .collect()
 }
 
@@ -1794,6 +1983,33 @@ impl AccessContext {
 
     fn from_move_request(
         payload: &MoveRequest,
+        ownership: &OwnershipIndex,
+        trust_client_card_ids: bool,
+        wallet_sessions: &StdMutex<WalletSessions>,
+        allow_unsigned_wallet_claims: bool,
+    ) -> Self {
+        Self::from_request_parts(
+            payload.wallet_session.as_deref(),
+            payload
+                .wallet_address
+                .as_deref()
+                .or(payload.wallet.as_deref()),
+            [
+                trust_client_card_ids
+                    .then_some(payload.owned_card_ids.as_deref())
+                    .flatten(),
+                trust_client_card_ids
+                    .then_some(payload.cards.as_deref())
+                    .flatten(),
+            ],
+            ownership,
+            wallet_sessions,
+            allow_unsigned_wallet_claims,
+        )
+    }
+
+    fn from_command_request(
+        payload: &CommandRequest,
         ownership: &OwnershipIndex,
         trust_client_card_ids: bool,
         wallet_sessions: &StdMutex<WalletSessions>,
@@ -2740,6 +2956,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/actions/attack", post(attack))
         .route("/actions/defend", post(defend))
         .route("/actions/flee", post(flee))
+        .route("/commands", post(command))
         .route("/stream", get(stream))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
@@ -3289,6 +3506,7 @@ impl RuntimeSnapshot {
             actor_meta: runtime.actors.clone(),
             item_meta: runtime.items.clone(),
             location_names: runtime.locations.clone(),
+            location_meta: runtime.location_meta.clone(),
             content: runtime.content.clone(),
             branches: runtime.branches.clone(),
             orb_balances: runtime.orb_balances.clone(),
@@ -3368,6 +3586,7 @@ impl RuntimeSnapshot {
             actors: self.actor_meta,
             items: self.item_meta,
             locations: self.location_names,
+            location_meta: self.location_meta,
             content: self.content,
             branches: self.branches,
             orb_balances: self.orb_balances,
@@ -3382,6 +3601,119 @@ impl RuntimeSnapshot {
             runtime.backfill_generated_avatar_flavor();
             runtime
         })
+    }
+}
+
+fn normalize_command_text(input: &str) -> String {
+    input
+        .trim()
+        .trim_start_matches('/')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn command_verb_and_rest(command: &str) -> (String, &str) {
+    command
+        .split_once(' ')
+        .map(|(verb, rest)| (verb.to_lowercase(), rest.trim()))
+        .unwrap_or_else(|| (command.to_lowercase(), ""))
+}
+
+fn canonical_command_verb(verb: &str) -> String {
+    match verb {
+        "l" | "look" | "examine" | "inspect" => "look",
+        "search" | "find" => "search",
+        "i" | "inv" | "inventory" => "inventory",
+        "who" | "where" => "who",
+        "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "go" | "move" | "travel" => {
+            "go"
+        }
+        "get" | "take" | "pick" => "take",
+        "give" | "gift" => "give",
+        "use" | "drink" | "ring" => "use",
+        "talk" | "chat" | "speak" => "chat",
+        "listen" | "check" => "listen",
+        "hit" | "attack" | "strike" => "attack",
+        "guard" | "defend" => "defend",
+        "run" | "flee" | "escape" => "flee",
+        "say" => "say",
+        "emote" | "me" => "emote",
+        "drop" => "drop",
+        "help" | "?" => "help",
+        other => other,
+    }
+    .to_string()
+}
+
+fn command_key(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
+}
+
+fn command_match_score(candidate: &str, query_key: &str) -> Option<u8> {
+    let candidate_key = command_key(candidate);
+    if candidate_key.is_empty() || query_key.is_empty() {
+        None
+    } else if candidate_key == query_key {
+        Some(0)
+    } else if candidate_key.starts_with(query_key) {
+        Some(1)
+    } else if candidate_key.contains(query_key) {
+        Some(2)
+    } else {
+        None
+    }
+}
+
+fn trim_command_filler(value: &str) -> &str {
+    value
+        .trim()
+        .trim_start_matches("at ")
+        .trim_start_matches("to ")
+        .trim_start_matches("with ")
+        .trim_start_matches("the ")
+        .trim()
+}
+
+fn split_direct_indirect<'a>(value: &'a str, separator: &str) -> Option<(&'a str, &'a str)> {
+    let needle = format!(" {separator} ");
+    value
+        .split_once(&needle)
+        .map(|(direct, indirect)| (direct.trim(), indirect.trim()))
+        .filter(|(direct, indirect)| !direct.is_empty() && !indirect.is_empty())
+}
+
+fn command_list_or_none(values: &[String]) -> String {
+    if values.is_empty() {
+        "none".to_string()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn command_action(kind: &str, label: &str, command: &str) -> CommandActionView {
+    CommandActionView {
+        kind: kind.to_string(),
+        label: label.to_string(),
+        command: normalize_command_text(command),
+    }
+}
+
+fn command_error(
+    command: &str,
+    verb: &str,
+    status: u32,
+    output: impl Into<String>,
+) -> CommandError {
+    CommandError {
+        command: normalize_command_text(command),
+        verb: verb.to_string(),
+        status,
+        output: output.into(),
     }
 }
 
@@ -3412,6 +3744,7 @@ impl RuntimeWorld {
             actors: seed_actor_meta(),
             items: seed_item_meta(),
             locations: seed_location_names(),
+            location_meta: seed_location_meta(),
             content: BTreeMap::new(),
             branches: BTreeMap::new(),
             orb_balances: BTreeMap::new(),
@@ -3430,6 +3763,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_topology(&mut self) {
+        self.ensure_seed_metadata();
         for location in &seed_content().locations {
             let flags = if location.allow_combat {
                 CW_LOCATION_ALLOW_COMBAT
@@ -3514,6 +3848,42 @@ impl RuntimeWorld {
         ] {
             self.ensure_exit(from_location_id, to_location_id, 0);
         }
+        self.ensure_seed_residents();
+    }
+
+    fn ensure_seed_metadata(&mut self) {
+        for (actor_id, meta) in seed_actor_meta() {
+            self.actors.entry(actor_id).or_insert(meta);
+        }
+        for (item_id, meta) in seed_item_meta() {
+            self.items.entry(item_id).or_insert(meta);
+        }
+        for location in &seed_content().locations {
+            self.locations
+                .entry(location.id)
+                .or_insert_with(|| location.name.clone());
+        }
+        for (location_id, meta) in seed_location_meta() {
+            self.location_meta.entry(location_id).or_insert(meta);
+        }
+    }
+
+    fn ensure_seed_residents(&mut self) {
+        self.ensure_actor(
+            1005,
+            CW_ACTOR_NPC,
+            40,
+            CwStatBlock {
+                strength: 16,
+                dexterity: 6,
+                constitution: 18,
+                intelligence: 14,
+                wisdom: 18,
+                charisma: 13,
+                hp_base: 16,
+                level: 1,
+            },
+        );
     }
 
     fn ensure_location(&mut self, location_id: u64, flags: u32) {
@@ -3531,6 +3901,30 @@ impl RuntimeWorld {
             flags,
         };
         self.world.location_count += 1;
+    }
+
+    fn ensure_actor(&mut self, actor_id: u64, kind: u8, location_id: u64, stats: CwStatBlock) {
+        if self.world.actors[..self.world.actor_count]
+            .iter()
+            .any(|actor| actor.id == actor_id)
+        {
+            return;
+        }
+        if self.world.actor_count >= CW_MAX_ACTORS {
+            return;
+        }
+        if self.location_name(location_id).is_none() {
+            return;
+        }
+        self.world.actors[self.world.actor_count] = CwActor {
+            id: actor_id,
+            kind,
+            status: CW_ACTOR_ACTIVE,
+            location_id,
+            stats,
+            ..CwActor::default()
+        };
+        self.world.actor_count += 1;
     }
 
     fn ensure_exit(&mut self, from_location_id: u64, to_location_id: u64, flags: u32) {
@@ -3854,7 +4248,7 @@ impl RuntimeWorld {
             total: opt_i16(event.total),
             dc: opt_i16(event.dc),
             damage: opt_i16(event.damage),
-            current_hp: opt_i16(event.current_hp),
+            current_hp: event_current_hp(event),
         }
     }
 
@@ -3868,6 +4262,36 @@ impl RuntimeWorld {
 
     fn location_name(&self, location_id: u64) -> Option<String> {
         self.locations.get(&location_id).cloned()
+    }
+
+    fn location_meta_for(&self, location_id: u64) -> LocationMeta {
+        let name = self
+            .location_name(location_id)
+            .unwrap_or_else(|| "Unknown Location".to_string());
+        self.location_meta
+            .get(&location_id)
+            .cloned()
+            .unwrap_or_else(|| LocationMeta {
+                title: name.clone(),
+                description: format!("{name} has not settled its description yet."),
+                persona: format!("{name} listens quietly until its persona is written."),
+                memory: Vec::new(),
+            })
+    }
+
+    fn location_view(&self, location_id: u64) -> LocationView {
+        let name = self
+            .location_name(location_id)
+            .unwrap_or_else(|| "Unknown Location".to_string());
+        let meta = self.location_meta_for(location_id);
+        LocationView {
+            id: location_id,
+            name,
+            title: meta.title,
+            description: meta.description,
+            persona: meta.persona,
+            memory: meta.memory,
+        }
     }
 
     fn actor_by_id(&self, actor_id: u64) -> Option<CwActor> {
@@ -3986,14 +4410,7 @@ impl RuntimeWorld {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
         let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
-        let location = LocationView {
-            id: location_id,
-            name: self
-                .locations
-                .get(&location_id)
-                .cloned()
-                .unwrap_or_else(|| "Unknown Location".to_string()),
-        };
+        let location = self.location_view(location_id);
 
         let actors: Vec<ActorView> = self.world.actors[..self.world.actor_count]
             .iter()
@@ -4120,6 +4537,7 @@ impl RuntimeWorld {
                 let name = self
                     .location_name(location.id)
                     .unwrap_or_else(|| format!("Location {}", location.id));
+                let meta = self.location_meta_for(location.id);
                 let access_rule = location_access_rule(location.id);
                 let accessible = location_access_allowed(location.id, access);
                 let actors_in_location: Vec<CwActor> = self.world.actors[..self.world.actor_count]
@@ -4186,6 +4604,10 @@ impl RuntimeWorld {
                 WorldLocationView {
                     id: location.id,
                     name,
+                    title: meta.title,
+                    description: meta.description,
+                    persona: meta.persona,
+                    memory: meta.memory,
                     public: access_rule.required_card_id.is_none(),
                     accessible,
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
@@ -4315,6 +4737,7 @@ impl RuntimeWorld {
             return PrimaryAction {
                 kind: "create_avatar".to_string(),
                 label: "Create Avatar".to_string(),
+                command: "create avatar".to_string(),
                 disabled: false,
                 options: Vec::new(),
             };
@@ -4324,6 +4747,7 @@ impl RuntimeWorld {
             return PrimaryAction {
                 kind: "create_avatar".to_string(),
                 label: "Create Avatar".to_string(),
+                command: "create avatar".to_string(),
                 disabled: false,
                 options: Vec::new(),
             };
@@ -4335,77 +4759,102 @@ impl RuntimeWorld {
             return PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
+                command: "wait".to_string(),
                 disabled: true,
                 options: Vec::new(),
             };
         }
 
+        let has_chat_target = self.has_active_chat_target(actor_id);
+        let has_combat_target = self.has_active_combat_target(actor_id);
+        let has_matching_gift = self.has_matching_evolution_gift(actor_id);
+
         let mut options = Vec::new();
-        if offers.option_flags & CW_OFFER_CHAT != 0 {
+        if offers.option_flags & CW_OFFER_CHAT != 0 && has_chat_target {
             options.push(ActionOption {
                 kind: "chat".to_string(),
                 label: "Chat".to_string(),
+                command: "chat".to_string(),
             });
         }
         if offers.option_flags & CW_OFFER_CHECK != 0 {
             options.push(ActionOption {
                 kind: "check".to_string(),
                 label: "Check".to_string(),
+                command: "listen".to_string(),
             });
         }
         if offers.option_flags & CW_OFFER_MOVE != 0 && self.has_accessible_exit(actor_id, access) {
             options.push(ActionOption {
                 kind: "move".to_string(),
                 label: "Move".to_string(),
+                command: "go".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_FLEE != 0 && self.has_accessible_exit(actor_id, access) {
+        if offers.option_flags & CW_OFFER_FLEE != 0
+            && has_combat_target
+            && self.has_accessible_exit(actor_id, access)
+        {
             options.push(ActionOption {
                 kind: "flee".to_string(),
                 label: "Flee".to_string(),
+                command: "flee".to_string(),
             });
         }
         if offers.option_flags & CW_OFFER_PICK_UP != 0 {
             options.push(ActionOption {
                 kind: "pick_up".to_string(),
                 label: "Pick Up".to_string(),
+                command: "take".to_string(),
             });
         }
         if offers.option_flags & CW_OFFER_USE_ITEM != 0 && self.has_useful_usable_item(actor_id) {
             options.push(ActionOption {
                 kind: "use_item".to_string(),
                 label: "Use".to_string(),
+                command: "use".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_GIVE_ITEM != 0 {
+        if offers.option_flags & CW_OFFER_GIVE_ITEM != 0 && has_matching_gift {
             options.push(ActionOption {
                 kind: "give_item".to_string(),
                 label: "Give Item".to_string(),
+                command: "give".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_DEFEND != 0 {
+        if offers.option_flags & CW_OFFER_DEFEND != 0 && has_combat_target {
             options.push(ActionOption {
                 kind: "defend".to_string(),
                 label: "Defend".to_string(),
+                command: "defend".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_ATTACK != 0 {
+        if offers.option_flags & CW_OFFER_ATTACK != 0 && has_combat_target {
             options.push(ActionOption {
                 kind: "attack".to_string(),
                 label: "Attack".to_string(),
+                command: "attack".to_string(),
             });
         }
 
         let label = if options.iter().any(|o| o.kind == "give_item") {
             "Give Item"
-        } else if options.iter().any(|o| o.kind == "chat") {
-            "Chat"
         } else if options.iter().any(|o| o.kind == "use_item") {
             "Use"
+        } else if options.iter().any(|o| o.kind == "attack") {
+            "Attack"
+        } else if options.iter().any(|o| o.kind == "defend") {
+            "Defend"
         } else if options.iter().any(|o| o.kind == "flee") {
             "Flee"
+        } else if options.iter().any(|o| o.kind == "chat") {
+            "Chat"
+        } else if options.iter().any(|o| o.kind == "pick_up") {
+            "Take"
         } else if options.iter().any(|o| o.kind == "move") {
             "Travel"
+        } else if options.iter().any(|o| o.kind == "check") {
+            "Listen"
         } else {
             "Act"
         };
@@ -4417,10 +4866,27 @@ impl RuntimeWorld {
                 "Flee" => "flee",
                 "Give Item" => "give_item",
                 "Use" => "use_item",
+                "Attack" => "attack",
+                "Defend" => "defend",
+                "Take" => "pick_up",
+                "Listen" => "check",
                 _ => "act",
             }
             .to_string(),
             label: label.to_string(),
+            command: match label {
+                "Chat" => "chat",
+                "Travel" => "go",
+                "Flee" => "flee",
+                "Give Item" => "give",
+                "Use" => "use",
+                "Attack" => "attack",
+                "Defend" => "defend",
+                "Take" => "take",
+                "Listen" => "listen",
+                _ => "look",
+            }
+            .to_string(),
             disabled: false,
             options,
         }
@@ -4436,6 +4902,59 @@ impl RuntimeWorld {
                 exit.from_location_id == actor.location_id
                     && exit.flags & CW_EXIT_LOCKED == 0
                     && location_access_allowed(exit.to_location_id, access)
+            })
+    }
+
+    fn has_active_chat_target(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        self.world.actors[..self.world.actor_count]
+            .iter()
+            .any(|target| {
+                target.id != actor_id
+                    && target.kind == CW_ACTOR_NPC
+                    && target.status == CW_ACTOR_ACTIVE
+                    && target.location_id == actor.location_id
+            })
+    }
+
+    fn has_active_combat_target(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        let location_allows_combat = self.world.locations[..self.world.location_count]
+            .iter()
+            .any(|location| {
+                location.id == actor.location_id && (location.flags & CW_LOCATION_ALLOW_COMBAT) != 0
+            });
+        location_allows_combat
+            && self.world.actors[..self.world.actor_count]
+                .iter()
+                .any(|target| {
+                    target.id != actor_id
+                        && target.kind == CW_ACTOR_NPC
+                        && target.status == CW_ACTOR_ACTIVE
+                        && target.location_id == actor.location_id
+                })
+    }
+
+    fn has_matching_evolution_gift(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        self.world.items[..self.world.item_count]
+            .iter()
+            .filter(|item| item.holder_actor_id == actor_id && item.kind == CW_ITEM_EVOLUTION)
+            .any(|item| {
+                self.world.actors[..self.world.actor_count]
+                    .iter()
+                    .any(|target| {
+                        target.kind == CW_ACTOR_NPC
+                            && target.status == CW_ACTOR_ACTIVE
+                            && target.location_id == actor.location_id
+                            && evolution_item_matches_resident(item.id, target.id)
+                    })
             })
     }
 
@@ -4456,6 +4975,594 @@ impl RuntimeWorld {
                         && (target.status == CW_ACTOR_KNOCKED_OUT
                             || (target.status == CW_ACTOR_ACTIVE && target.damage > 0))
                 })
+    }
+
+    fn resolve_command(
+        &self,
+        payload: &CommandRequest,
+        access: &AccessContext,
+    ) -> Result<ResolvedCommand, CommandError> {
+        let command = normalize_command_text(&payload.command);
+        if command.is_empty() {
+            return Err(command_error("", "", 400, "Try a command like look, who, inventory, go Rain-Soft Garden, take Story Button, or chat Rati."));
+        }
+        let (verb, rest) = command_verb_and_rest(&command);
+        let verb = canonical_command_verb(&verb);
+        let Some(actor) = self.actor_by_id(payload.actor_id) else {
+            return Err(command_error(
+                &command,
+                &verb,
+                404,
+                "That avatar is not in the world.",
+            ));
+        };
+        if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
+            return Err(command_error(
+                &command,
+                &verb,
+                403,
+                "Only an active player avatar can use MUD commands.",
+            ));
+        }
+
+        match verb.as_str() {
+            "help" => Ok(ResolvedCommand {
+                command,
+                verb,
+                action: None,
+                dispatch: CommandDispatch::Read {
+                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, attack <target>, defend, flee <room>.".to_string(),
+                },
+            }),
+            "look" => Ok(ResolvedCommand {
+                command: command.clone(),
+                verb,
+                action: None,
+                dispatch: CommandDispatch::Read {
+                    output: self.look_command_output(actor, rest, access).map_err(|output| {
+                        command_error(&command, "look", 404, output)
+                    })?,
+                },
+            }),
+            "search" => Ok(ResolvedCommand {
+                command: command.clone(),
+                verb,
+                action: Some(command_action("search", "Search", &command)),
+                dispatch: CommandDispatch::Read {
+                    output: self
+                        .search_command_output(actor, rest)
+                        .map_err(|output| command_error(&command, "search", 404, output))?,
+                },
+            }),
+            "inventory" => Ok(ResolvedCommand {
+                command,
+                verb,
+                action: None,
+                dispatch: CommandDispatch::Read {
+                    output: self.inventory_command_output(actor.id),
+                },
+            }),
+            "who" => Ok(ResolvedCommand {
+                command,
+                verb,
+                action: None,
+                dispatch: CommandDispatch::Read {
+                    output: self.who_command_output(actor.location_id),
+                },
+            }),
+            "go" => {
+                let destination = self.resolve_exit_destination(actor, rest, access).map_err(|output| {
+                    command_error(&command, "go", 404, output)
+                })?;
+                Ok(ResolvedCommand {
+                    command: format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())),
+                    verb,
+                    action: Some(command_action("move", "Travel", &format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())))),
+                    dispatch: CommandDispatch::Move {
+                        destination_location_id: destination,
+                    },
+                })
+            }
+            "flee" => {
+                let destination = if rest.trim().is_empty() {
+                    self.first_accessible_exit(actor.location_id, access)
+                        .ok_or_else(|| command_error(&command, "flee", 404, "There is nowhere clear to flee."))?
+                } else {
+                    self.resolve_exit_destination(actor, rest, access).map_err(|output| {
+                        command_error(&command, "flee", 404, output)
+                    })?
+                };
+                Ok(ResolvedCommand {
+                    command: format!("flee {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())),
+                    verb,
+                    action: Some(command_action("flee", "Flee", &format!("flee {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())))),
+                    dispatch: CommandDispatch::Flee {
+                        destination_location_id: destination,
+                    },
+                })
+            }
+            "take" => {
+                let item = self
+                    .resolve_room_item(actor.location_id, rest)
+                    .map_err(|output| command_error(&command, "take", 404, output))?;
+                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
+                Ok(ResolvedCommand {
+                    command: format!("take {item_name}"),
+                    verb,
+                    action: Some(command_action("pick_up", "Take", &format!("take {item_name}"))),
+                    dispatch: CommandDispatch::PickUp { item_id: item.id },
+                })
+            }
+            "give" => {
+                let (item_query, target_query) = split_direct_indirect(rest, "to")
+                    .ok_or_else(|| command_error(&command, "give", 400, "Use: give <item> to <resident>."))?;
+                let item = self
+                    .resolve_held_item(actor.id, item_query)
+                    .map_err(|output| command_error(&command, "give", 404, output))?;
+                let target = self
+                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
+                    .map_err(|output| command_error(&command, "give", 404, output))?;
+                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
+                let target_name = self.actor_view(target).name;
+                Ok(ResolvedCommand {
+                    command: format!("give {item_name} to {target_name}"),
+                    verb,
+                    action: Some(command_action("give_item", "Give Item", &format!("give {item_name} to {target_name}"))),
+                    dispatch: CommandDispatch::GiveItem {
+                        item_id: item.id,
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "use" => {
+                let (item_query, target_query) = split_direct_indirect(rest, "on")
+                    .or_else(|| split_direct_indirect(rest, "with"))
+                    .unwrap_or((rest, "self"));
+                let item = self
+                    .resolve_held_item(actor.id, item_query)
+                    .map_err(|output| command_error(&command, "use", 404, output))?;
+                let target = if target_query.trim().eq_ignore_ascii_case("self")
+                    || target_query.trim().is_empty()
+                {
+                    actor
+                } else if let Some(output) = self.feature_use_output(actor.location_id, target_query, item.id) {
+                    let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
+                    let feature_name = self
+                        .resolve_room_feature(actor.location_id, target_query)
+                        .map(|feature| feature.name.clone())
+                        .unwrap_or_else(|_| trim_command_filler(target_query).to_string());
+                    return Ok(ResolvedCommand {
+                        command: format!("use {item_name} on {feature_name}"),
+                        verb,
+                        action: Some(command_action(
+                            "use_feature",
+                            "Use",
+                            &format!("use {item_name} on {feature_name}"),
+                        )),
+                        dispatch: CommandDispatch::Read { output },
+                    });
+                } else {
+                    self.resolve_room_actor(actor, target_query, CommandActorFilter::Any)
+                        .map_err(|output| command_error(&command, "use", 404, output))?
+                };
+                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
+                let target_name = self.actor_view(target).name;
+                Ok(ResolvedCommand {
+                    command: format!("use {item_name} on {target_name}"),
+                    verb,
+                    action: Some(command_action("use_item", "Use", &format!("use {item_name} on {target_name}"))),
+                    dispatch: CommandDispatch::UseItem {
+                        item_id: item.id,
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "chat" => {
+                let target = self
+                    .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
+                    .map_err(|output| command_error(&command, "chat", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                Ok(ResolvedCommand {
+                    command: format!("chat {target_name}"),
+                    verb,
+                    action: Some(command_action("chat", "Chat", &format!("chat {target_name}"))),
+                    dispatch: CommandDispatch::Chat {
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "listen" => Ok(ResolvedCommand {
+                command: "listen".to_string(),
+                verb,
+                action: Some(command_action("check", "Listen", "listen")),
+                dispatch: CommandDispatch::Check,
+            }),
+            "attack" => {
+                let target = self
+                    .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
+                    .map_err(|output| command_error(&command, "attack", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                Ok(ResolvedCommand {
+                    command: format!("attack {target_name}"),
+                    verb,
+                    action: Some(command_action("attack", "Attack", &format!("attack {target_name}"))),
+                    dispatch: CommandDispatch::Attack {
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "defend" => Ok(ResolvedCommand {
+                command: "defend".to_string(),
+                verb,
+                action: Some(command_action("defend", "Defend", "defend")),
+                dispatch: CommandDispatch::Defend,
+            }),
+            "say" | "emote" => Ok(ResolvedCommand {
+                command,
+                verb: verb.clone(),
+                action: Some(command_action(&verb, if verb == "say" { "Say" } else { "Emote" }, &payload.command)),
+                dispatch: CommandDispatch::Disabled {
+                    status: CLIENT_SPEECH_DISABLED_STATUS,
+                    output: "Player-authored speech commands are recognized, but disabled until moderation and room-presence rules are ready.".to_string(),
+                },
+            }),
+            "drop" => Ok(ResolvedCommand {
+                command,
+                verb,
+                action: Some(command_action("drop", "Drop", &payload.command)),
+                dispatch: CommandDispatch::Disabled {
+                    status: 501,
+                    output: "Drop is part of the command grammar, but the kernel does not support dropping items yet.".to_string(),
+                },
+            }),
+            _ => Err(command_error(
+                &command,
+                &verb,
+                404,
+                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, attack, defend, or flee.",
+            )),
+        }
+    }
+
+    fn look_command_output(
+        &self,
+        actor: CwActor,
+        query: &str,
+        access: &AccessContext,
+    ) -> Result<String, &'static str> {
+        let query = trim_command_filler(query);
+        if query.is_empty()
+            || matches!(
+                command_key(query).as_str(),
+                "room" | "here" | "around" | "location"
+            )
+        {
+            return Ok(self.room_command_output(actor.location_id, access));
+        }
+        if let Some(feature) = self.resolve_room_feature(actor.location_id, query).ok() {
+            return Ok(format!("{} - {}", feature.name, feature.look));
+        }
+        if let Some(actor) = self
+            .resolve_room_actor(actor, query, CommandActorFilter::Any)
+            .ok()
+        {
+            let view = self.actor_view(actor);
+            let state = if actor.status == CW_ACTOR_ACTIVE {
+                "active"
+            } else {
+                "not active"
+            };
+            return Ok(format!(
+                "{} - {}\n{}\nStatus: {state}. HP: {}/{}.",
+                view.name, view.title, view.description, view.hp, view.stats.hp_base
+            ));
+        }
+        if let Some(item) = self
+            .resolve_room_item(actor.location_id, query)
+            .or_else(|_| self.resolve_held_item(actor.id, query))
+            .ok()
+        {
+            let view = self.item_view(item);
+            let where_text = if item.holder_actor_id == actor.id {
+                "You are carrying it."
+            } else {
+                "It is here."
+            };
+            return Ok(format!(
+                "{} - {}\n{where_text}",
+                view.name, view.description
+            ));
+        }
+        if let Some(destination) = self.resolve_exit_destination(actor, query, access).ok() {
+            let name = self
+                .location_name(destination)
+                .unwrap_or_else(|| format!("Location {destination}"));
+            let meta = self.location_meta_for(destination);
+            return Ok(format!("{name} - {}\n{}", meta.title, meta.description));
+        }
+        Err("Nothing nearby matches that look command.")
+    }
+
+    fn search_command_output(&self, actor: CwActor, query: &str) -> Result<String, &'static str> {
+        let query = trim_command_filler(query);
+        if query.is_empty()
+            || matches!(
+                command_key(query).as_str(),
+                "room" | "here" | "around" | "location"
+            )
+        {
+            let features = self
+                .room_features(actor.location_id)
+                .into_iter()
+                .map(|feature| feature.name.clone())
+                .collect::<Vec<_>>();
+            if features.is_empty() {
+                return Ok(
+                    "You search the room, but nothing asks for closer attention yet.".to_string(),
+                );
+            }
+            return Ok(format!(
+                "Searchable features: {}.",
+                command_list_or_none(&features)
+            ));
+        }
+        let feature = self.resolve_room_feature(actor.location_id, query)?;
+        Ok(format!("{} - {}", feature.name, feature.search))
+    }
+
+    fn feature_use_output(&self, location_id: u64, query: &str, item_id: u64) -> Option<String> {
+        let feature = self.resolve_room_feature(location_id, query).ok()?;
+        let item_name = self
+            .item_name(item_id)
+            .unwrap_or_else(|| item_id.to_string());
+        if let Some(use_case) = feature
+            .uses
+            .iter()
+            .find(|use_case| use_case.item_id == item_id)
+        {
+            return Some(format!("{} - {}", feature.name, use_case.text));
+        }
+        Some(format!(
+            "{} - The {item_name} does not wake anything in this feature yet.",
+            feature.name
+        ))
+    }
+
+    fn room_command_output(&self, location_id: u64, access: &AccessContext) -> String {
+        let location = self.location_view(location_id);
+        let actors = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
+            .map(|actor| self.actor_view(actor).name)
+            .collect::<Vec<_>>();
+        let items = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.location_id == location_id)
+            .map(|item| self.item_view(item).name)
+            .collect::<Vec<_>>();
+        let exits = self
+            .exit_views(location_id, access)
+            .into_iter()
+            .filter(|exit| exit.accessible)
+            .map(|exit| exit.destination_location_name)
+            .collect::<Vec<_>>();
+        let features = self
+            .room_features(location_id)
+            .into_iter()
+            .map(|feature| feature.name.clone())
+            .collect::<Vec<_>>();
+        format!(
+            "{} - {}\n{}\nHere: {}.\nItems: {}.\nExits: {}.\nFeatures: {}.",
+            location.name,
+            location.title,
+            location.description,
+            command_list_or_none(&actors),
+            command_list_or_none(&items),
+            command_list_or_none(&exits),
+            command_list_or_none(&features)
+        )
+    }
+
+    fn inventory_command_output(&self, actor_id: u64) -> String {
+        let items = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.holder_actor_id == actor_id)
+            .map(|item| self.item_view(item).name)
+            .collect::<Vec<_>>();
+        if items.is_empty() {
+            "You are not carrying anything.".to_string()
+        } else {
+            format!("You are carrying: {}.", command_list_or_none(&items))
+        }
+    }
+
+    fn who_command_output(&self, location_id: u64) -> String {
+        let actors = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
+            .map(|actor| {
+                let view = self.actor_view(actor);
+                format!("{} ({})", view.name, view.kind)
+            })
+            .collect::<Vec<_>>();
+        format!("Here: {}.", command_list_or_none(&actors))
+    }
+
+    fn room_features(&self, location_id: u64) -> Vec<&'static SeedRoomFeatureContent> {
+        seed_content()
+            .room_features
+            .iter()
+            .filter(|feature| feature.location_id == location_id)
+            .collect()
+    }
+
+    fn resolve_room_feature(
+        &self,
+        location_id: u64,
+        query: &str,
+    ) -> Result<&'static SeedRoomFeatureContent, &'static str> {
+        let candidates = self.room_features(location_id);
+        let query = trim_command_filler(query);
+        if query.is_empty() && candidates.len() == 1 {
+            return candidates
+                .first()
+                .copied()
+                .ok_or("No feature here matches that command.");
+        }
+        let query_key = command_key(query);
+        if query_key.is_empty() {
+            return Err("Name a feature to inspect or search.");
+        }
+        candidates
+            .into_iter()
+            .filter_map(|feature| {
+                command_match_score(&feature.name, &query_key)
+                    .or_else(|| command_match_score(&feature.key, &query_key))
+                    .or_else(|| {
+                        feature
+                            .aliases
+                            .iter()
+                            .filter_map(|alias| command_match_score(alias, &query_key))
+                            .min()
+                    })
+                    .map(|score| (score, feature.name.len(), feature))
+            })
+            .min_by_key(|(score, len, _)| (*score, *len))
+            .map(|(_, _, feature)| feature)
+            .ok_or("No feature here matches that command.")
+    }
+
+    fn resolve_room_actor(
+        &self,
+        actor: CwActor,
+        query: &str,
+        filter: CommandActorFilter,
+    ) -> Result<CwActor, &'static str> {
+        let candidates = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|candidate| {
+                candidate.id != actor.id && candidate.location_id == actor.location_id
+            })
+            .filter(|candidate| match filter {
+                CommandActorFilter::Any => true,
+                CommandActorFilter::ActiveNpc => {
+                    candidate.kind == CW_ACTOR_NPC && candidate.status == CW_ACTOR_ACTIVE
+                }
+            })
+            .collect::<Vec<_>>();
+        self.best_actor_match(candidates, query)
+            .ok_or("No nearby actor matches that command.")
+    }
+
+    fn best_actor_match(&self, candidates: Vec<CwActor>, query: &str) -> Option<CwActor> {
+        let query = trim_command_filler(query);
+        if query.is_empty() && candidates.len() == 1 {
+            return candidates.first().copied();
+        }
+        let query_key = command_key(query);
+        if query_key.is_empty() {
+            return None;
+        }
+        candidates
+            .into_iter()
+            .filter_map(|actor| {
+                let view = self.actor_view(actor);
+                command_match_score(&view.name, &query_key)
+                    .or_else(|| command_match_score(&view.title, &query_key))
+                    .map(|score| (score, view.name.len(), actor))
+            })
+            .min_by_key(|(score, len, _)| (*score, *len))
+            .map(|(_, _, actor)| actor)
+    }
+
+    fn resolve_room_item(&self, location_id: u64, query: &str) -> Result<CwItem, &'static str> {
+        let candidates = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.location_id == location_id)
+            .collect::<Vec<_>>();
+        self.best_item_match(candidates, query)
+            .ok_or("No item here matches that command.")
+    }
+
+    fn resolve_held_item(&self, actor_id: u64, query: &str) -> Result<CwItem, &'static str> {
+        let candidates = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.holder_actor_id == actor_id)
+            .collect::<Vec<_>>();
+        self.best_item_match(candidates, query)
+            .ok_or("You are not carrying an item that matches that command.")
+    }
+
+    fn best_item_match(&self, candidates: Vec<CwItem>, query: &str) -> Option<CwItem> {
+        let query = trim_command_filler(query);
+        if query.is_empty() && candidates.len() == 1 {
+            return candidates.first().copied();
+        }
+        let query_key = command_key(query);
+        if query_key.is_empty() {
+            return None;
+        }
+        candidates
+            .into_iter()
+            .filter_map(|item| {
+                let view = self.item_view(item);
+                command_match_score(&view.name, &query_key)
+                    .or_else(|| command_match_score(&view.description, &query_key))
+                    .map(|score| (score, view.name.len(), item))
+            })
+            .min_by_key(|(score, len, _)| (*score, *len))
+            .map(|(_, _, item)| item)
+    }
+
+    fn resolve_exit_destination(
+        &self,
+        actor: CwActor,
+        query: &str,
+        access: &AccessContext,
+    ) -> Result<u64, &'static str> {
+        let exits = self
+            .exit_views(actor.location_id, access)
+            .into_iter()
+            .filter(|exit| exit.accessible)
+            .collect::<Vec<_>>();
+        if query.trim().is_empty() && exits.len() == 1 {
+            return exits
+                .first()
+                .map(|exit| exit.destination_location_id)
+                .ok_or("No accessible exit matches that command.");
+        }
+        let query_key = command_key(query);
+        if query_key.is_empty() {
+            return Err("Name a room to go to.");
+        }
+        exits
+            .into_iter()
+            .filter_map(|exit| {
+                command_match_score(&exit.destination_location_name, &query_key).map(|score| {
+                    (
+                        score,
+                        exit.destination_location_name.len(),
+                        exit.destination_location_id,
+                    )
+                })
+            })
+            .min_by_key(|(score, len, _)| (*score, *len))
+            .map(|(_, _, id)| id)
+            .ok_or("No accessible exit matches that command.")
+    }
+
+    fn first_accessible_exit(&self, location_id: u64, access: &AccessContext) -> Option<u64> {
+        self.exit_views(location_id, access)
+            .into_iter()
+            .find(|exit| exit.accessible)
+            .map(|exit| exit.destination_location_id)
     }
 
     fn apply_wallet_overlap_placements(&mut self, ownership: &OwnershipIndex, day_index: u64) {
@@ -4719,6 +5826,7 @@ impl RuntimeWorld {
             target_actor_id,
             missing_need.as_deref(),
         );
+        let location_meta = self.location_meta_for(actor.location_id);
 
         Some(AvatarChatPlan {
             actor_name: self
@@ -4740,6 +5848,10 @@ impl RuntimeWorld {
             location_name: self
                 .location_name(actor.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
+            location_title: location_meta.title,
+            location_description: location_meta.description,
+            location_persona: location_meta.persona,
+            location_memory: location_meta.memory,
             cast: self.room_cast_names(actor.location_id),
             recent_lines: self.recent_room_lines(actor.location_id, 8),
             missing_need,
@@ -4755,6 +5867,10 @@ impl RuntimeWorld {
             }
             1002 => "🌧️🫖✨🧶".to_string(),
             1003 => "*Skull lifts his head toward the low doorway.*".to_string(),
+            1005 => {
+                "Root: I remember your footstep before you named it. Leaf: Ask softly."
+                    .to_string()
+            }
             _ => "They listen carefully.".to_string(),
         }
     }
@@ -4791,6 +5907,7 @@ impl RuntimeWorld {
             return None;
         }
         let npc_meta = self.actors.get(&target_actor_id);
+        let location_meta = self.location_meta_for(npc.location_id);
         Some(ResidentReplyPlan {
             npc_actor_id: target_actor_id,
             npc_name: self
@@ -4802,6 +5919,10 @@ impl RuntimeWorld {
             location_name: self
                 .location_name(npc.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
+            location_title: location_meta.title,
+            location_description: location_meta.description,
+            location_persona: location_meta.persona,
+            location_memory: location_meta.memory,
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             user_text: text.to_string(),
@@ -4837,15 +5958,29 @@ impl RuntimeWorld {
 
     fn ambient_line(&self) -> Option<(u64, String)> {
         let actor = self.ambient_actor()?;
+        let pick = |lines: &[&str]| -> String {
+            let index = ((self.world.tick / 2) as usize) % lines.len();
+            lines[index].to_string()
+        };
         let text = match actor.id {
-            1001 => {
-                "Rati smooths the blue scarf, leaving one stitch loose for the next noticed thing."
-                    .to_string()
-            }
-            1002 => "🫖✨🌧️".to_string(),
-            1003 => "*Skull shifts closer to the low doorway, silent and awake.*".to_string(),
+            1001 => pick(&[
+                "Rati smooths the blue scarf, leaving one stitch loose for the next noticed thing.",
+                "Rati taps her needles together, then listens as if the rain answered back.",
+                "Rati folds a scrap of story into her knitting basket for later.",
+            ]),
+            1002 => pick(&["🫖✨🌧️", "🌙🧶☁️", "🌿🫧✨"]),
+            1003 => pick(&[
+                "*Skull shifts closer to the low doorway, silent and awake.*",
+                "*Skull lowers his head beside the hearth, listening past the rain.*",
+                "*Skull's ears turn toward the door before the room does.*",
+            ]),
+            1005 => pick(&[
+                "Root: The path remembers. Ring: The question has been here before.",
+                "Leaf: Something changed today. Hollow: Not everything has answered yet.",
+                "Ring: Years make patient witnesses. Root: Step carefully.",
+            ]),
             _ => format!(
-                "{} waits with the room.",
+                "{} settles into the room's quiet rhythm.",
                 self.actor_name(actor.id)
                     .unwrap_or_else(|| "Someone".to_string())
             ),
@@ -4889,6 +6024,12 @@ fn evolution_track_item_ids(actor_id: u64) -> Option<[u64; 2]> {
         .iter()
         .find(|track| track.actor_id == actor_id)
         .map(|track| [track.item_ids[0], track.item_ids[1]])
+}
+
+fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
+    evolution_track_item_ids(actor_id)
+        .map(|items| items.contains(&item_id))
+        .unwrap_or(false)
 }
 
 fn actor_location_from_overlap(
@@ -5306,6 +6447,18 @@ fn card_for_actor(
             rarity: "seed",
             title: "Sparring Reflection",
             blurb: "A soft practice shape on the trail, bright enough to test courage.",
+            aspect: "tall",
+            source: "cosyworld_seed",
+            asset_status: "pending_art",
+            image_url: None,
+        }),
+        1005 => seed_card(SeedCardSpec {
+            card_id: "cosy-old-oak",
+            display_name: "Old Oak Tree",
+            role: "stranger",
+            rarity: "free",
+            title: "Four-Voice Elder",
+            blurb: "A rooted stranger whose leaves, rings, roots, and hollow remember different truths.",
             aspect: "tall",
             source: "cosyworld_seed",
             asset_status: "pending_art",
@@ -8023,6 +9176,233 @@ async fn say(
     client_speech_disabled_response()
 }
 
+async fn command(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<CommandRequest>,
+) -> Json<CommandResponse> {
+    let ownership = state.ownership_snapshot().await;
+    let access = AccessContext::from_command_request(
+        &payload,
+        &ownership,
+        state.trust_client_card_ids,
+        &state.wallet_sessions,
+        state.allow_unsigned_wallet_claims,
+    );
+    let resolved = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return Json(CommandResponse {
+                ok: false,
+                status: 403,
+                command: normalize_command_text(&payload.command),
+                verb: String::new(),
+                output: Some("That command needs an active avatar session.".to_string()),
+                action: None,
+                events: Vec::new(),
+            });
+        }
+        runtime.resolve_command(&payload, &access)
+    };
+
+    let resolved = match resolved {
+        Ok(resolved) => resolved,
+        Err(error) => {
+            return Json(CommandResponse {
+                ok: false,
+                status: error.status,
+                command: error.command,
+                verb: error.verb,
+                output: Some(error.output),
+                action: None,
+                events: Vec::new(),
+            });
+        }
+    };
+
+    match resolved.dispatch.clone() {
+        CommandDispatch::Read { output } => Json(CommandResponse {
+            ok: true,
+            status: CW_OK,
+            command: resolved.command,
+            verb: resolved.verb,
+            output: Some(output),
+            action: resolved.action,
+            events: Vec::new(),
+        }),
+        CommandDispatch::Disabled { status, output } => Json(CommandResponse {
+            ok: false,
+            status,
+            command: resolved.command,
+            verb: resolved.verb,
+            output: Some(output),
+            action: resolved.action,
+            events: Vec::new(),
+        }),
+        CommandDispatch::Move {
+            destination_location_id,
+        } => {
+            let Json(response) = move_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(MoveRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    destination_location_id,
+                    wallet_address: payload.wallet_address,
+                    wallet: payload.wallet,
+                    wallet_session: payload.wallet_session,
+                    owned_card_ids: payload.owned_card_ids,
+                    cards: payload.cards,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Flee {
+            destination_location_id,
+        } => {
+            let Json(response) = flee(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(MoveRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    destination_location_id,
+                    wallet_address: payload.wallet_address,
+                    wallet: payload.wallet,
+                    wallet_session: payload.wallet_session,
+                    owned_card_ids: payload.owned_card_ids,
+                    cards: payload.cards,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Check => {
+            let Json(response) = ability_check(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(CheckRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    ability: "wisdom".to_string(),
+                    dc: Some(LISTEN_DC),
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::PickUp { item_id } => {
+            let Json(response) = pick_up_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_actor_id: None,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::UseItem {
+            item_id,
+            target_actor_id,
+        } => {
+            let Json(response) = use_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_actor_id: Some(target_actor_id),
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::GiveItem {
+            item_id,
+            target_actor_id,
+        } => {
+            let Json(response) = give_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_actor_id: Some(target_actor_id),
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Attack { target_actor_id } => {
+            let Json(response) = attack(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(AttackRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Defend => {
+            let Json(response) = defend(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Chat { target_actor_id } => {
+            let Json(response) = chat(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ChatRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                    openrouter_api_key: payload.openrouter_api_key,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+    }
+}
+
+fn command_action_response(
+    resolved: ResolvedCommand,
+    response: ActionResponse,
+) -> Json<CommandResponse> {
+    Json(CommandResponse {
+        ok: response.ok,
+        status: response.status,
+        command: resolved.command,
+        verb: resolved.verb,
+        output: None,
+        action: resolved.action,
+        events: response.events,
+    })
+}
+
 fn schedule_resident_reply(
     state: AppState,
     plan: ResidentReplyPlan,
@@ -8127,7 +9507,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
     if state.quiet_for() < state.ambient.quiet_after {
         return;
     }
-    let record = if runtime.world.tick % 4 == 0 {
+    let record = if runtime.world.tick % 7 == 0 {
         let Some(action) = runtime.ambient_autonomy_action() else {
             return;
         };
@@ -8204,6 +9584,7 @@ async fn request_ai_avatar_chat(
     } else {
         plan.recent_lines.join("\n")
     };
+    let location_memory = format_location_memory(&plan.location_memory);
     let need = plan
         .missing_need
         .as_ref()
@@ -8211,11 +9592,15 @@ async fn request_ai_avatar_chat(
         .unwrap_or_else(|| "No current resident item need is known.".to_string());
     let system = "You write one in-character line for the player avatar after the human presses Chat. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words.";
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location}\nTarget resident: {target} / {target_title}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nTarget resident: {target} / {target_title}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
         location = plan.location_name,
+        location_title = plan.location_title,
+        location_description = plan.location_description,
+        location_persona = plan.location_persona,
+        location_memory = location_memory,
         target = plan.target_actor_name,
         target_title = plan.target_title,
         cast = plan.cast.join(", "),
@@ -8326,9 +9711,14 @@ async fn request_ai_resident_reply(
     } else {
         plan.recent_lines.join("\n")
     };
+    let location_memory = format_location_memory(&plan.location_memory);
     let user = format!(
-        "Location: {location}\nCast present: {cast}\nRecent room lines:\n{recent}\nHuman line to respond to:\n{line}\nRespond as {name}, once, for the shared room timeline.",
+        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCast present: {cast}\nRecent room lines:\n{recent}\nHuman line to respond to:\n{line}\nRespond as {name}, once, for the shared room timeline.",
         location = plan.location_name,
+        location_title = plan.location_title,
+        location_description = plan.location_description,
+        location_persona = plan.location_persona,
+        location_memory = location_memory,
         cast = plan.cast.join(", "),
         recent = recent,
         line = plan.user_text,
@@ -8367,6 +9757,20 @@ async fn request_ai_resident_reply(
         .ok_or_else(|| "AI response did not include message content".to_string())
 }
 
+fn format_location_memory(memory: &[String]) -> String {
+    if memory.is_empty() {
+        return "No fixed location memories.".to_string();
+    }
+    memory
+        .iter()
+        .filter_map(|line| {
+            let line = line.trim();
+            (!line.is_empty()).then(|| format!("- {line}"))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn avatar_chat_fallback_text(
     _actor_id: u64,
     target_actor_name: &str,
@@ -8380,6 +9784,9 @@ fn avatar_chat_fallback_text(
             1003 => {
                 format!("{target_actor_name}, should I listen for {item_name} beyond the door?")
             }
+            1005 => {
+                format!("{target_actor_name}, which of your four voices remembers {item_name}?")
+            }
             _ => format!("{target_actor_name}, what should I notice about {item_name}?"),
         };
     }
@@ -8387,6 +9794,7 @@ fn avatar_chat_fallback_text(
         1001 => "Rati, what story is hiding in the cottage tonight?".to_string(),
         1002 => "Whiskerwind, what weather is passing through this room?".to_string(),
         1003 => "Skull, what should I listen for by the door?".to_string(),
+        1005 => "Old Oak, which voice should I follow through the forest?".to_string(),
         _ => format!("{target_actor_name}, what should we notice next?"),
     }
 }
@@ -8429,6 +9837,9 @@ fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
         ),
         1003 => format!(
             "You are Skull, the silent wolf. Output only one third-person emote wrapped in asterisks. No quoted speech, no inner monologue, no gore. {base}"
+        ),
+        1005 => format!(
+            "You are the Old Oak Tree, a rooted stranger in the Lonely Forest. You may answer through four short voices: Root remembers paths, Ring remembers years, Leaf notices the present, Hollow keeps secrets. Keep replies under 65 words. {base}"
         ),
         _ => format!("You are {} in CosyWorld. Keep replies concise. {base}", plan.npc_name),
     }
@@ -8696,6 +10107,18 @@ async fn attack(
         GENERAL_ACTION_LIMIT,
     ) {
         return action_rate_limited_response();
+    }
+    {
+        let runtime = state.inner.lock().await;
+        if let Some(target) = runtime.actor_by_id(payload.target_actor_id) {
+            if target.kind != CW_ACTOR_NPC {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 403,
+                    events: Vec::new(),
+                });
+            }
+        }
     }
     apply_and_broadcast(
         state,
@@ -10738,6 +12161,17 @@ fn opt_i16(value: i16) -> Option<i16> {
     }
 }
 
+fn event_current_hp(event: &CwEvent) -> Option<i16> {
+    match event.type_ {
+        CW_EVENT_ACTOR_CREATED
+        | CW_EVENT_ITEM_USED
+        | CW_EVENT_COMBAT_ATTACK_HIT
+        | CW_EVENT_COMBAT_KNOCKOUT
+        | CW_EVENT_AVATAR_EVOLVED => Some(event.current_hp),
+        _ => opt_i16(event.current_hp),
+    }
+}
+
 fn now_seed() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -10796,6 +12230,20 @@ mod tests {
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
             allow_unsigned_wallet_claims: false,
+        }
+    }
+
+    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+        CommandRequest {
+            actor_id,
+            actor_session: None,
+            command: command.to_string(),
+            openrouter_api_key: None,
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
         }
     }
 
@@ -11592,6 +13040,84 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_backfills_seed_location_meta_and_old_oak_resident() {
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.location_meta.clear();
+        snapshot.world_actors.retain(|actor| actor.id != 1005);
+        snapshot.world_exits[0] = CwExit {
+            from_location_id: 1,
+            to_location_id: 10,
+            flags: 0,
+        };
+
+        let runtime = snapshot.into_runtime().expect("legacy snapshot migrates");
+
+        let old_oak = runtime
+            .actor_by_id(1005)
+            .expect("Old Oak resident backfilled");
+        assert_eq!(old_oak.location_id, 40);
+        let meta = runtime.location_meta_for(40);
+        assert!(meta.persona.contains("Root"));
+        assert!(meta.memory.iter().any(|line| line.contains("Hollow")));
+        let cottage_exits: BTreeSet<u64> = runtime
+            .state_response(None, &AccessContext::default())
+            .exits
+            .iter()
+            .map(|exit| exit.destination_location_id)
+            .collect();
+        assert_eq!(cottage_exits, BTreeSet::from([2, 11]));
+    }
+
+    #[test]
+    fn old_oak_tree_exposes_stranger_persona_chat_context() {
+        let mut runtime = RuntimeWorld::seeded();
+
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 40;
+        let mut record = JournalRecord::new(create, 9150);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Forest Guest".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Listener at Roots".to_string(),
+                description: "A test avatar visiting a stranger-place persona.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(state.location.id, 40);
+        assert_eq!(state.location.title, "Lonely Forest");
+        assert!(state.location.persona.contains("Root"));
+        assert!(state
+            .location
+            .memory
+            .iter()
+            .any(|line| line.contains("Hollow remembers")));
+        let old_oak = state
+            .actors
+            .iter()
+            .find(|actor| actor.id == 1005)
+            .expect("Old Oak is present");
+        assert_eq!(old_oak.kind, "npc");
+        assert_eq!(state.cards.actors[&1005].role, "stranger");
+
+        let plan = runtime
+            .resident_reply_plan_for_target(5000, 1005, "What does the forest remember?")
+            .expect("Old Oak can answer");
+        assert_eq!(plan.location_name, "Old Oak Tree");
+        assert!(plan.location_persona.contains("different truth"));
+        assert!(plan
+            .location_memory
+            .iter()
+            .any(|line| line.contains("Leaf")));
+        assert!(resident_system_prompt(&plan).contains("four short voices"));
+    }
+
+    #[test]
     fn state_projection_follows_actor_location() {
         let mut runtime = RuntimeWorld::seeded();
 
@@ -12213,9 +13739,10 @@ mod tests {
     #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
-        assert_eq!(content.actors.len(), 4);
+        assert_eq!(content.actors.len(), 5);
         assert_eq!(content.items.len(), 7);
         assert_eq!(content.locations.len(), 25);
+        assert_eq!(content.room_features.len(), 13);
         assert_eq!(content.evolution_tracks.len(), 3);
 
         let runtime = RuntimeWorld::seeded();
@@ -12239,6 +13766,14 @@ mod tests {
                 runtime.locations.get(&location.id).map(String::as_str),
                 Some(location.name.as_str())
             );
+            let meta = runtime
+                .location_meta
+                .get(&location.id)
+                .expect("seed location meta");
+            assert_eq!(meta.title, location.title);
+            assert_eq!(meta.description, location.description);
+            assert_eq!(meta.persona, location.persona);
+            assert_eq!(meta.memory, location.memory);
             let world_location = runtime.world.locations[..runtime.world.location_count]
                 .iter()
                 .find(|world_location| world_location.id == location.id)
@@ -12248,10 +13783,15 @@ mod tests {
                 location.allow_combat
             );
         }
+        assert!(content
+            .room_features
+            .iter()
+            .any(|feature| feature.location_id == 1 && feature.key == "scarf_basket"));
         assert_eq!(evolution_track_item_ids(1001), Some([2004, 2005]));
         assert_eq!(evolution_track_item_ids(1002), Some([2002, 2003]));
         assert_eq!(evolution_track_item_ids(1003), Some([2006, 2007]));
         assert_eq!(evolution_track_item_ids(1004), None);
+        assert_eq!(evolution_track_item_ids(1005), None);
     }
 
     #[test]
@@ -12495,6 +14035,289 @@ mod tests {
     }
 
     #[test]
+    fn contextual_verbs_require_real_targets() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 7820);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Context Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Verb Wrangler".to_string(),
+                description: "A test avatar checking contextual action offers.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let access = AccessContext::default();
+        let mut move_action = CwAction::default();
+        move_action.kind = CW_ACTION_MOVE;
+        move_action.actor_id = 5000;
+        move_action.destination_location_id = 2;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7821))
+                .0,
+            CW_OK
+        );
+
+        let garden = runtime.state_response(Some(5000), &access);
+        assert_eq!(garden.location.name, "Rain-Soft Garden");
+        assert!(!garden
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "chat"));
+
+        let mut pickup = CwAction::default();
+        pickup.kind = CW_ACTION_PICK_UP_ITEM;
+        pickup.actor_id = 5000;
+        pickup.item_id = 2007;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(pickup, 7822))
+                .0,
+            CW_OK
+        );
+
+        move_action.destination_location_id = 3;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7823))
+                .0,
+            CW_OK
+        );
+        let trail = runtime.state_response(Some(5000), &access);
+        assert_eq!(trail.location.name, "Moonlit Trail");
+        assert_eq!(trail.primary_action.kind, "attack");
+        assert!(!trail
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "give_item"));
+        assert!(trail
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "attack"));
+        assert!(trail
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "defend"));
+        assert!(trail
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "flee"));
+
+        let echo = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 1004)
+            .expect("Moonlit Echo exists");
+        echo.status = CW_ACTOR_KNOCKED_OUT;
+        echo.damage = echo.stats.hp_base;
+
+        let resolved = runtime.state_response(Some(5000), &access);
+        assert!(!resolved
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "chat"));
+        assert!(!resolved
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "attack"));
+        assert!(!resolved
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "defend"));
+        assert!(!resolved
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "flee"));
+    }
+
+    #[test]
+    fn mud_commands_resolve_to_world_actions_and_readonly_output() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 7830);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Command Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "MUD Verb Tester".to_string(),
+                description: "A test avatar checking the command grammar.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let access = AccessContext::default();
+        let look = runtime
+            .resolve_command(&command_request(5000, "look"), &access)
+            .expect("look resolves");
+        match look.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("The Cosy Cottage"));
+                assert!(output.contains("Exits:"));
+                assert!(output.contains("Features:"));
+                assert!(output.contains("Scarf Basket"));
+            }
+            other => panic!("look should be read-only, got {other:?}"),
+        }
+
+        let search = runtime
+            .resolve_command(&command_request(5000, "search scarf"), &access)
+            .expect("search resolves");
+        match search.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Scarf Basket"));
+                assert!(output.contains("round notch"));
+            }
+            other => panic!("search should be read-only, got {other:?}"),
+        }
+
+        let go = runtime
+            .resolve_command(&command_request(5000, "go garden"), &access)
+            .expect("go resolves");
+        assert_eq!(
+            go.action.as_ref().map(|action| action.command.as_str()),
+            Some("go Rain-Soft Garden")
+        );
+        match go.dispatch {
+            CommandDispatch::Move {
+                destination_location_id,
+            } => assert_eq!(destination_location_id, 2),
+            other => panic!("go should map to movement, got {other:?}"),
+        }
+
+        let mut move_action = CwAction::default();
+        move_action.kind = CW_ACTION_MOVE;
+        move_action.actor_id = 5000;
+        move_action.destination_location_id = 2;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7831))
+                .0,
+            CW_OK
+        );
+
+        let take = runtime
+            .resolve_command(&command_request(5000, "take dewbright"), &access)
+            .expect("take resolves");
+        match take.dispatch {
+            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
+            other => panic!("take should map to pick-up, got {other:?}"),
+        }
+
+        let mut pickup = CwAction::default();
+        pickup.kind = CW_ACTION_PICK_UP_ITEM;
+        pickup.actor_id = 5000;
+        pickup.item_id = 2002;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(pickup, 7832))
+                .0,
+            CW_OK
+        );
+
+        let inventory = runtime
+            .resolve_command(&command_request(5000, "inventory"), &access)
+            .expect("inventory resolves");
+        match inventory.dispatch {
+            CommandDispatch::Read { output } => assert!(output.contains("Dewbright Button")),
+            other => panic!("inventory should be read-only, got {other:?}"),
+        }
+
+        move_action.destination_location_id = 1;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7833))
+                .0,
+            CW_OK
+        );
+
+        pickup.item_id = 2005;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(pickup, 7834))
+                .0,
+            CW_OK
+        );
+        let use_feature = runtime
+            .resolve_command(
+                &command_request(5000, "use Story Button on scarf basket"),
+                &access,
+            )
+            .expect("use feature resolves");
+        assert_eq!(
+            use_feature
+                .action
+                .as_ref()
+                .map(|action| action.kind.as_str()),
+            Some("use_feature")
+        );
+        match use_feature.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Story Button"));
+                assert!(output.contains("first word"));
+            }
+            other => panic!("feature use should be read-only, got {other:?}"),
+        }
+
+        let give = runtime
+            .resolve_command(&command_request(5000, "give dewbright to whisker"), &access)
+            .expect("give resolves");
+        assert_eq!(
+            give.action.as_ref().map(|action| action.command.as_str()),
+            Some("give Dewbright Button to Whiskerwind")
+        );
+        match give.dispatch {
+            CommandDispatch::GiveItem {
+                item_id,
+                target_actor_id,
+            } => {
+                assert_eq!(item_id, 2002);
+                assert_eq!(target_actor_id, 1002);
+            }
+            other => panic!("give should map to give-item, got {other:?}"),
+        }
+
+        let chat = runtime
+            .resolve_command(&command_request(5000, "talk rati"), &access)
+            .expect("chat resolves");
+        match chat.dispatch {
+            CommandDispatch::Chat { target_actor_id } => assert_eq!(target_actor_id, 1001),
+            other => panic!("talk should map to chat, got {other:?}"),
+        }
+
+        let say = runtime
+            .resolve_command(&command_request(5000, "say hello room"), &access)
+            .expect("say is recognized");
+        match say.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, CLIENT_SPEECH_DISABLED_STATUS);
+                assert!(output.contains("recognized"));
+            }
+            other => panic!("say should be recognized but disabled, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn normal_play_primary_action_is_chat_first() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -12517,16 +14340,17 @@ mod tests {
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.primary_action.kind, "chat");
         assert_eq!(state.primary_action.label, "Chat");
+        assert_eq!(state.primary_action.command, "chat");
         assert!(state
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "chat"));
+            .any(|option| option.kind == "chat" && option.command == "chat"));
         assert!(state
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "move"));
+            .any(|option| option.kind == "move" && option.command == "go"));
         let homeroom = state
             .exits
             .iter()
@@ -12755,6 +14579,10 @@ mod tests {
             npc_name: "Whiskerwind".to_string(),
             speech_mode: "emoji_only".to_string(),
             location_name: "The Cosy Cottage".to_string(),
+            location_title: "Rainlit Hearth".to_string(),
+            location_description: "A warm room of firelight.".to_string(),
+            location_persona: "The cottage is a careful host.".to_string(),
+            location_memory: Vec::new(),
             cast: vec!["Whiskerwind".to_string()],
             recent_lines: Vec::new(),
             user_text: "weather?".to_string(),
