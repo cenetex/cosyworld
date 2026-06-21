@@ -2832,11 +2832,7 @@ impl AppState {
             moderation_token.is_some(),
             box_burn_verifier.is_some(),
         )?;
-        let mut ownership_index = if deployment.profile.is_production() {
-            ownership_feed.load_strict().await?
-        } else {
-            ownership_feed.load_best_effort().await
-        };
+        let mut ownership_index = ownership_feed.load_best_effort().await;
         if let Some(path) = event_store_path.as_deref() {
             match load_receipt_ownership_index(path) {
                 Ok(receipt_index) => ownership_index.merge(receipt_index),
@@ -14093,6 +14089,34 @@ mod tests {
         assert!(index
             .cards_for_wallet("remote-wallet")
             .contains("location-courtyard"));
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn ownership_feed_best_effort_tolerates_remote_http_errors() {
+        let app = Router::new().route(
+            "/ownership",
+            get(|| async { (StatusCode::BAD_GATEWAY, "feed unavailable") }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind failing ownership test server");
+        let addr = listener
+            .local_addr()
+            .expect("failing ownership test server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let feed = OwnershipFeedConfig {
+            remote_url: Some(format!("http://{addr}/ownership")),
+            remote_bearer: Some("secret-token".to_string()),
+            ..OwnershipFeedConfig::default()
+        };
+        assert!(feed.load_strict().await.is_err());
+        let index = feed.load_best_effort().await;
+        assert!(index.cards_for_wallet("remote-wallet").is_empty());
 
         server.abort();
     }
