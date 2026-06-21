@@ -10680,6 +10680,9 @@ mod tests {
         assert!(INDEX_HTML.contains("/wallet/qr/start"));
         assert!(INDEX_HTML.contains("Scan this with your phone"));
         assert!(INDEX_HTML.contains("generate avatar"));
+        assert!(INDEX_HTML.contains("id=\"ai-key-modal\""));
+        assert!(INDEX_HTML.contains("data-ai-key-input"));
+        assert!(!INDEX_HTML.contains("prompt("));
         assert!(!INDEX_HTML.contains("<textarea"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));

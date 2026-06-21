@@ -364,7 +364,7 @@ async function main() {
   async function assertNoComposerOrDebugChrome() {
     const offenders = await page.evaluate(() => {
       const selector = [
-        "input:not([type='hidden'])",
+        "input:not([type='hidden']):not([data-ai-key-input])",
         "textarea",
         "[contenteditable='true']",
         "table",
