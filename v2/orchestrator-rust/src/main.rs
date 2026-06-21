@@ -12,6 +12,7 @@ use axum::{
 };
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
+use qrcode::{render::svg, QrCode};
 use rand::{rngs::OsRng, RngCore};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,7 @@ struct AppState {
     ownership_feed: Arc<OwnershipFeedConfig>,
     last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
+    qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
     wallet_actor_links: Arc<StdMutex<BTreeMap<String, u64>>>,
     actor_sessions: Arc<StdMutex<ActorSessions>>,
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
@@ -91,6 +93,13 @@ struct AvatarChatPlan {
     recent_lines: Vec<String>,
     missing_need: Option<String>,
     fallback_text: String,
+}
+
+#[derive(Clone, Debug)]
+struct GeneratedAvatarIdentity {
+    name: String,
+    title: String,
+    description: String,
 }
 
 #[derive(Clone, Debug)]
@@ -155,6 +164,8 @@ const WALLET_AUTH_LIMIT: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
 };
+const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
+const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
 const RATE_LIMITED_STATUS: u32 = 429;
 const CLIENT_SPEECH_DISABLED_STATUS: u32 = 410;
@@ -834,12 +845,42 @@ struct WalletSessionRequest {
     wallet_address: String,
     nonce: String,
     signature: Vec<u8>,
+    qr_login_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 struct WalletSessionResponse {
     ok: bool,
     status: u16,
+    wallet_address: Option<String>,
+    wallet_session: Option<String>,
+    expires_at_unix: Option<u64>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletQrStartResponse {
+    ok: bool,
+    status: u16,
+    login_id: Option<String>,
+    poll_token: Option<String>,
+    mobile_path: Option<String>,
+    qr_svg_path: Option<String>,
+    expires_at_unix: Option<u64>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WalletQrStatusQuery {
+    login_id: String,
+    poll_token: String,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletQrStatusResponse {
+    ok: bool,
+    status: u16,
+    state: String,
     wallet_address: Option<String>,
     wallet_session: Option<String>,
     expires_at_unix: Option<u64>,
@@ -996,6 +1037,21 @@ struct WalletSession {
 struct WalletSessions {
     challenges: BTreeMap<String, WalletChallenge>,
     sessions: BTreeMap<String, WalletSession>,
+}
+
+#[derive(Clone, Debug)]
+struct QrWalletLogin {
+    poll_token: String,
+    expires_at: Instant,
+    expires_at_unix: u64,
+    wallet_address: Option<String>,
+    wallet_session: Option<String>,
+    completed_at: Option<Instant>,
+}
+
+#[derive(Debug, Default)]
+struct QrWalletLogins {
+    logins: BTreeMap<String, QrWalletLogin>,
 }
 
 #[derive(Clone, Debug)]
@@ -2253,6 +2309,139 @@ fn avatar_name_is_reserved(name: &str) -> bool {
     )
 }
 
+fn compact_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn fallback_generated_avatar_name(actor_id: u64) -> String {
+    const FIRST: [&str; 8] = [
+        "Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle",
+    ];
+    const SECOND: [&str; 8] = [
+        "Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend",
+    ];
+    let first = FIRST[(actor_id as usize) % FIRST.len()];
+    let second = SECOND[((actor_id / FIRST.len() as u64) as usize) % SECOND.len()];
+    format!("{first} {second}")
+}
+
+fn fallback_avatar_identity(actor_id: u64) -> GeneratedAvatarIdentity {
+    let name = fallback_generated_avatar_name(actor_id);
+    let (title, description) = generated_avatar_flavor(actor_id, &name);
+    GeneratedAvatarIdentity {
+        name,
+        title,
+        description,
+    }
+}
+
+fn sanitize_avatar_title(value: Option<&str>, fallback: &str) -> String {
+    let normalized = value.map(compact_whitespace).unwrap_or_default();
+    if normalized.is_empty()
+        || normalized.chars().count() > 48
+        || !human_message_is_cozy_safe(&normalized)
+        || normalized
+            .chars()
+            .any(|ch| ch.is_control() && !ch.is_whitespace())
+    {
+        fallback.to_string()
+    } else {
+        normalized
+    }
+}
+
+fn sanitize_avatar_description(value: Option<&str>, fallback: &str) -> String {
+    let normalized = value.map(compact_whitespace).unwrap_or_default();
+    if normalized.is_empty()
+        || normalized.chars().count() > 220
+        || !human_message_is_cozy_safe(&normalized)
+        || normalized
+            .chars()
+            .any(|ch| ch.is_control() && !ch.is_whitespace())
+    {
+        fallback.to_string()
+    } else {
+        normalized
+    }
+}
+
+fn avatar_identity_from_json_value(
+    value: &serde_json::Value,
+    actor_id: u64,
+) -> GeneratedAvatarIdentity {
+    let fallback = fallback_avatar_identity(actor_id);
+    let raw_name = value.get("name").and_then(|value| value.as_str());
+    let normalized_name = raw_name
+        .map(|name| normalize_avatar_name(Some(name), actor_id))
+        .unwrap_or_else(|| fallback.name.clone());
+    let name = if normalized_name == fallback_avatar_name(actor_id) {
+        fallback.name.clone()
+    } else {
+        normalized_name
+    };
+    GeneratedAvatarIdentity {
+        name,
+        title: sanitize_avatar_title(
+            value.get("title").and_then(|value| value.as_str()),
+            &fallback.title,
+        ),
+        description: sanitize_avatar_description(
+            value.get("description").and_then(|value| value.as_str()),
+            &fallback.description,
+        ),
+    }
+}
+
+fn parse_avatar_identity_json(text: &str, actor_id: u64) -> Option<GeneratedAvatarIdentity> {
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let json_text = if cleaned.starts_with('{') {
+        cleaned
+    } else {
+        let start = cleaned.find('{')?;
+        let end = cleaned.rfind('}')?;
+        cleaned.get(start..=end)?
+    };
+    serde_json::from_str::<serde_json::Value>(json_text)
+        .ok()
+        .map(|value| avatar_identity_from_json_value(&value, actor_id))
+}
+
+async fn generate_avatar_identity(
+    config: Option<&AiConfig>,
+    actor_id: u64,
+    requested_name: Option<&str>,
+) -> GeneratedAvatarIdentity {
+    if let Some(name) = requested_name {
+        let name = normalize_avatar_name(Some(name), actor_id);
+        let (title, description) = generated_avatar_flavor(actor_id, &name);
+        return GeneratedAvatarIdentity {
+            name,
+            title,
+            description,
+        };
+    }
+
+    let fallback = fallback_avatar_identity(actor_id);
+    let Some(config) = config else {
+        return fallback;
+    };
+    match request_ai_avatar_identity(config, actor_id).await {
+        Ok(identity) => identity,
+        Err(error) => {
+            warn!(
+                "AI avatar identity generation failed; using deterministic fallback: {}",
+                error
+            );
+            fallback
+        }
+    }
+}
+
 fn wallet_challenge_message(wallet_address: &str, nonce: &str, issued_at_unix: u64) -> String {
     format!(
         "CosyWorld wallet access\nWallet: {wallet_address}\nNonce: {nonce}\nIssued: {issued_at_unix}\nPurpose: unlock shared Ruby High locations"
@@ -2520,6 +2709,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/ai/openrouter/verify", post(openrouter_verify))
         .route("/wallet/challenge", get(wallet_challenge))
         .route("/wallet/session", post(wallet_session))
+        .route("/wallet/qr/start", post(wallet_qr_start))
+        .route("/wallet/qr/status", get(wallet_qr_status))
+        .route("/wallet/qr/{login_id}/code.svg", get(wallet_qr_code))
+        .route("/wallet/qr/{login_id}", get(wallet_qr_page))
         .route("/nft/boxes/burn-prepare", post(box_burn_prepare))
         .route("/nft/boxes/burn-confirm", post(box_burn_confirm))
         .route("/nft/packs/open", post(pack_open))
@@ -2750,6 +2943,7 @@ impl AppState {
             ownership_feed: Arc::new(ownership_feed),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
+            qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(wallet_actor_links)),
             actor_sessions: Arc::new(StdMutex::new(actor_sessions)),
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
@@ -3709,25 +3903,19 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|exit| exit.from_location_id == location_id)
+            .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
+            .filter(|exit| location_access_allowed(exit.to_location_id, access))
             .map(|exit| {
                 let access_rule = location_access_rule(exit.to_location_id);
-                let access_locked = access_rule
-                    .required_card_id
-                    .map(|card_id| !access.owns_card(card_id))
-                    .unwrap_or(false);
                 ExitView {
                     destination_location_id: exit.to_location_id,
                     destination_location_name: self
                         .location_name(exit.to_location_id)
                         .unwrap_or_else(|| format!("Location {}", exit.to_location_id)),
-                    locked: exit.flags & CW_EXIT_LOCKED != 0,
-                    accessible: (exit.flags & CW_EXIT_LOCKED == 0) && !access_locked,
+                    locked: false,
+                    accessible: true,
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
-                    access_reason: if access_locked {
-                        Some("Ruby High card required in connected wallet.".to_string())
-                    } else {
-                        None
-                    },
+                    access_reason: None,
                 }
             })
             .collect()
@@ -3852,9 +4040,19 @@ impl RuntimeWorld {
         let current_location_id = client_actor_id
             .and_then(|id| self.actor_by_id(id))
             .map(|actor| actor.location_id);
+        let visible_location_ids: BTreeSet<u64> = self.world.locations[..self.world.location_count]
+            .iter()
+            .filter_map(|location| {
+                let is_current = current_location_id == Some(location.id);
+                (is_current || location_access_allowed(location.id, access)).then_some(location.id)
+            })
+            .collect();
 
         let mut location_cards = BTreeMap::new();
-        for location in &self.world.locations[..self.world.location_count] {
+        for location in self.world.locations[..self.world.location_count]
+            .iter()
+            .filter(|location| visible_location_ids.contains(&location.id))
+        {
             let name = self
                 .location_name(location.id)
                 .unwrap_or_else(|| format!("Location {}", location.id));
@@ -3867,6 +4065,7 @@ impl RuntimeWorld {
 
         let locations = self.world.locations[..self.world.location_count]
             .iter()
+            .filter(|location| visible_location_ids.contains(&location.id))
             .map(|location| {
                 let name = self
                     .location_name(location.id)
@@ -5807,6 +6006,370 @@ async fn openrouter_verify(
     }
 }
 
+fn clean_qr_token(value: &str, expected_len: usize) -> Option<String> {
+    let token = value.trim();
+    (token.len() == expected_len && token.chars().all(|ch| ch.is_ascii_hexdigit()))
+        .then(|| token.to_ascii_lowercase())
+}
+
+fn cleanup_qr_wallet_logins(logins: &mut QrWalletLogins) {
+    let now = Instant::now();
+    logins.logins.retain(|_, login| {
+        login.expires_at > now
+            || login.completed_at.is_some_and(|completed_at| {
+                now.duration_since(completed_at) <= QR_WALLET_COMPLETE_GRACE
+            })
+    });
+}
+
+fn qr_wallet_login_is_pending(state: &AppState, login_id: &str) -> bool {
+    let Some(login_id) = clean_qr_token(login_id, 32) else {
+        return false;
+    };
+    let Ok(mut logins) = state.qr_wallet_logins.lock() else {
+        return false;
+    };
+    cleanup_qr_wallet_logins(&mut logins);
+    logins
+        .logins
+        .get(&login_id)
+        .is_some_and(|login| login.expires_at > Instant::now() && login.completed_at.is_none())
+}
+
+fn complete_qr_wallet_login(
+    state: &AppState,
+    login_id: &str,
+    wallet_address: &str,
+    wallet_session: &str,
+) -> Result<(), &'static str> {
+    let Some(login_id) = clean_qr_token(login_id, 32) else {
+        return Err("QR login is invalid");
+    };
+    let Ok(mut logins) = state.qr_wallet_logins.lock() else {
+        return Err("QR login unavailable");
+    };
+    cleanup_qr_wallet_logins(&mut logins);
+    let Some(login) = logins.logins.get_mut(&login_id) else {
+        return Err("QR login expired");
+    };
+    if login.expires_at <= Instant::now() {
+        return Err("QR login expired");
+    }
+    login.wallet_address = Some(wallet_address.to_string());
+    login.wallet_session = Some(wallet_session.to_string());
+    login.completed_at = Some(Instant::now());
+    Ok(())
+}
+
+fn request_origin(headers: &HeaderMap) -> String {
+    let proto = headers
+        .get("x-forwarded-proto")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("http")
+        .split(',')
+        .next()
+        .unwrap_or("http")
+        .trim();
+    let host = headers
+        .get("x-forwarded-host")
+        .or_else(|| headers.get(header::HOST))
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("127.0.0.1:3102")
+        .split(',')
+        .next()
+        .unwrap_or("127.0.0.1:3102")
+        .trim();
+    format!("{proto}://{host}")
+}
+
+fn html_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+async fn wallet_qr_start(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+) -> Json<WalletQrStartResponse> {
+    if !state.allow_rate_limit(
+        rate_limit_key("wallet-qr-ip", client_ip_key(client_addr)),
+        WALLET_AUTH_LIMIT,
+    ) {
+        return Json(WalletQrStartResponse {
+            ok: false,
+            status: RATE_LIMITED_STATUS as u16,
+            login_id: None,
+            poll_token: None,
+            mobile_path: None,
+            qr_svg_path: None,
+            expires_at_unix: None,
+            error: Some("wallet QR authorization rate limited".to_string()),
+        });
+    }
+
+    let login_id = random_hex(16);
+    let poll_token = random_hex(32);
+    let expires_at_unix = now_unix_secs() + QR_WALLET_LOGIN_TTL.as_secs();
+    if let Ok(mut logins) = state.qr_wallet_logins.lock() {
+        cleanup_qr_wallet_logins(&mut logins);
+        logins.logins.insert(
+            login_id.clone(),
+            QrWalletLogin {
+                poll_token: poll_token.clone(),
+                expires_at: Instant::now() + QR_WALLET_LOGIN_TTL,
+                expires_at_unix,
+                wallet_address: None,
+                wallet_session: None,
+                completed_at: None,
+            },
+        );
+    } else {
+        return Json(WalletQrStartResponse {
+            ok: false,
+            status: 500,
+            login_id: None,
+            poll_token: None,
+            mobile_path: None,
+            qr_svg_path: None,
+            expires_at_unix: None,
+            error: Some("wallet QR login unavailable".to_string()),
+        });
+    }
+
+    Json(WalletQrStartResponse {
+        ok: true,
+        status: 200,
+        login_id: Some(login_id.clone()),
+        poll_token: Some(poll_token),
+        mobile_path: Some(format!("/wallet/qr/{login_id}")),
+        qr_svg_path: Some(format!("/wallet/qr/{login_id}/code.svg")),
+        expires_at_unix: Some(expires_at_unix),
+        error: None,
+    })
+}
+
+async fn wallet_qr_status(
+    State(state): State<AppState>,
+    Query(query): Query<WalletQrStatusQuery>,
+) -> Json<WalletQrStatusResponse> {
+    let Some(login_id) = clean_qr_token(&query.login_id, 32) else {
+        return Json(WalletQrStatusResponse {
+            ok: false,
+            status: 400,
+            state: "invalid".to_string(),
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("invalid QR login id".to_string()),
+        });
+    };
+    let Some(poll_token) = clean_qr_token(&query.poll_token, 64) else {
+        return Json(WalletQrStatusResponse {
+            ok: false,
+            status: 400,
+            state: "invalid".to_string(),
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("invalid QR poll token".to_string()),
+        });
+    };
+
+    let Ok(mut logins) = state.qr_wallet_logins.lock() else {
+        return Json(WalletQrStatusResponse {
+            ok: false,
+            status: 500,
+            state: "error".to_string(),
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("wallet QR login unavailable".to_string()),
+        });
+    };
+    cleanup_qr_wallet_logins(&mut logins);
+    let Some(login) = logins.logins.get(&login_id) else {
+        return Json(WalletQrStatusResponse {
+            ok: false,
+            status: 404,
+            state: "expired".to_string(),
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: None,
+            error: Some("QR login expired".to_string()),
+        });
+    };
+    if login.poll_token != poll_token {
+        return Json(WalletQrStatusResponse {
+            ok: false,
+            status: 403,
+            state: "forbidden".to_string(),
+            wallet_address: None,
+            wallet_session: None,
+            expires_at_unix: Some(login.expires_at_unix),
+            error: Some("QR poll token rejected".to_string()),
+        });
+    }
+    let complete = login.wallet_session.is_some();
+    Json(WalletQrStatusResponse {
+        ok: true,
+        status: 200,
+        state: if complete { "complete" } else { "pending" }.to_string(),
+        wallet_address: login.wallet_address.clone(),
+        wallet_session: login.wallet_session.clone(),
+        expires_at_unix: Some(login.expires_at_unix),
+        error: None,
+    })
+}
+
+async fn wallet_qr_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(login_id): AxumPath<String>,
+) -> impl IntoResponse {
+    let Some(login_id) = clean_qr_token(&login_id, 32) else {
+        return (StatusCode::BAD_REQUEST, "invalid QR login id").into_response();
+    };
+    if !qr_wallet_login_is_pending(&state, &login_id) {
+        return (StatusCode::NOT_FOUND, "QR login expired").into_response();
+    }
+    let mobile_url = format!("{}/wallet/qr/{login_id}", request_origin(&headers));
+    let Ok(code) = QrCode::new(mobile_url.as_bytes()) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "QR generation failed").into_response();
+    };
+    let image = code
+        .render::<svg::Color<'_>>()
+        .min_dimensions(320, 320)
+        .dark_color(svg::Color("#0d140f"))
+        .light_color(svg::Color("#f5f8ef"))
+        .build();
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
+        image,
+    )
+        .into_response()
+}
+
+async fn wallet_qr_page(
+    State(state): State<AppState>,
+    AxumPath(login_id): AxumPath<String>,
+) -> impl IntoResponse {
+    let Some(login_id) = clean_qr_token(&login_id, 32) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Html("invalid QR login id".to_string()),
+        )
+            .into_response();
+    };
+    if !qr_wallet_login_is_pending(&state, &login_id) {
+        return (StatusCode::NOT_FOUND, Html("QR login expired".to_string())).into_response();
+    }
+    let login_json = serde_json::to_string(&login_id).unwrap_or_else(|_| "\"\"".to_string());
+    let title = html_escape("CosyWorld Wallet Sign-In");
+    let page = format!(
+        r##"<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080b09" />
+  <title>{title}</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    html, body {{ margin: 0; min-height: 100%; background: #080b09; color: #d8f7dc; font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }}
+    body {{ display: grid; place-items: center; padding: 18px; }}
+    main {{ width: min(420px, 100%); border: 1px solid rgba(239,201,107,.36); background: #0d140f; padding: 18px; box-shadow: 0 20px 70px rgba(0,0,0,.55); }}
+    h1 {{ margin: 0 0 8px; color: #efc96b; font-size: 20px; }}
+    p {{ margin: 0 0 14px; color: #85a58a; }}
+    button {{ width: 100%; min-height: 54px; border: 1px solid rgba(239,201,107,.55); background: rgba(101,230,138,.12); color: #65e68a; font: inherit; font-weight: 900; border-radius: 5px; }}
+    button[disabled] {{ opacity: .55; }}
+    .wallet-links {{ display: grid; gap: 8px; margin-top: 12px; }}
+    .wallet-links a {{ display: grid; place-items: center; min-height: 46px; border: 1px solid rgba(139,183,255,.38); color: #8bb7ff; text-decoration: none; border-radius: 5px; font-weight: 850; }}
+    .status {{ min-height: 24px; margin-top: 14px; color: #8bb7ff; overflow-wrap: anywhere; }}
+    .error {{ color: #ff8d8d; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CosyWorld</h1>
+    <p>Sign one message to connect this wallet. No transaction, no fee.</p>
+    <button id="sign">sign in</button>
+    <div class="wallet-links" id="wallet-links" hidden>
+      <a id="solflare-link" href="#" rel="noreferrer">open in Solflare</a>
+      <a id="phantom-link" href="#" rel="noreferrer">open in Phantom</a>
+    </div>
+    <div class="status" id="status"></div>
+  </main>
+  <script>
+    const loginId = {login_json};
+    const statusNode = document.getElementById("status");
+    const button = document.getElementById("sign");
+    const walletLinks = document.getElementById("wallet-links");
+    function provider() {{ return window.solana || window.phantom?.solana || window.solflare?.solana || window.solflare || null; }}
+    function status(text, error = false) {{
+      statusNode.textContent = text;
+      statusNode.classList.toggle("error", error);
+    }}
+    function configureWalletLinks() {{
+      const pageUrl = window.location.href;
+      const ref = window.location.origin;
+      document.getElementById("solflare-link").href = `https://solflare.com/ul/v1/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
+      document.getElementById("phantom-link").href = `https://phantom.app/ul/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
+      walletLinks.hidden = false;
+    }}
+    async function api(path, options) {{
+      const response = await fetch(path, options);
+      return response.json();
+    }}
+    configureWalletLinks();
+    button.addEventListener("click", async () => {{
+      const wallet = provider();
+      if (!wallet?.connect || !wallet?.signMessage) {{
+        status("Open this page in a Solana wallet browser, then tap sign in.", true);
+        return;
+      }}
+      button.disabled = true;
+      try {{
+        status("Connect the wallet.");
+        const connected = await wallet.connect();
+        const publicKey = connected?.publicKey || wallet.publicKey;
+        const walletAddress = publicKey?.toString?.() || "";
+        if (!walletAddress) throw new Error("Wallet did not return an address.");
+        status("Sign the CosyWorld message.");
+        const challenge = await api(`/wallet/challenge?wallet_address=${{encodeURIComponent(walletAddress)}}`);
+        if (!challenge.ok) throw new Error("Challenge failed.");
+        const signed = await wallet.signMessage(new TextEncoder().encode(challenge.message), "utf8");
+        const signature = Array.from(signed?.signature || signed || []);
+        const session = await api("/wallet/session", {{
+          method: "POST",
+          headers: {{ "content-type": "application/json" }},
+          body: JSON.stringify({{
+            wallet_address: walletAddress,
+            nonce: challenge.nonce,
+            signature,
+            qr_login_id: loginId,
+          }}),
+        }});
+        if (!session.ok) throw new Error(session.error || "Wallet signature rejected.");
+        status("Connected. Return to the CosyWorld tab.");
+      }} catch (error) {{
+        status(String(error?.message || error || "Sign-in failed."), true);
+        button.disabled = false;
+      }}
+    }});
+  </script>
+</body>
+</html>"##
+    );
+    (StatusCode::OK, Html(page)).into_response()
+}
+
 async fn wallet_challenge(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -5889,6 +6452,18 @@ async fn wallet_session(
             error: Some("invalid wallet address".to_string()),
         });
     };
+    if let Some(login_id) = payload.qr_login_id.as_deref() {
+        if !qr_wallet_login_is_pending(&state, login_id) {
+            return Json(WalletSessionResponse {
+                ok: false,
+                status: 410,
+                wallet_address: None,
+                wallet_session: None,
+                expires_at_unix: None,
+                error: Some("QR login expired".to_string()),
+            });
+        }
+    }
     let nonce = payload.nonce.trim().to_string();
     let now = Instant::now();
     let Some(challenge) = state.wallet_sessions.lock().ok().and_then(|mut sessions| {
@@ -5932,6 +6507,20 @@ async fn wallet_session(
                 expires_at: now + Duration::from_secs(12 * 60 * 60),
             },
         );
+    }
+    if let Some(login_id) = payload.qr_login_id.as_deref() {
+        if let Err(error) =
+            complete_qr_wallet_login(&state, login_id, &wallet_address, &session_token)
+        {
+            return Json(WalletSessionResponse {
+                ok: false,
+                status: 410,
+                wallet_address: None,
+                wallet_session: None,
+                expires_at_unix: None,
+                error: Some(error.to_string()),
+            });
+        }
     }
 
     Json(WalletSessionResponse {
@@ -6904,16 +7493,25 @@ async fn create_avatar(
         }
     }
 
-    let mut runtime = state.inner.lock().await;
-    let actor_id = runtime.next_actor_id;
-    let requested_name = normalize_avatar_name(payload.name.as_deref(), actor_id);
-    let (title, description) = generated_avatar_flavor(actor_id, &requested_name);
-    let actor_meta = ActorMeta {
-        name: requested_name,
-        speech_mode: "prose".to_string(),
-        title,
-        description,
+    let actor_id = {
+        let mut runtime = state.inner.lock().await;
+        let actor_id = runtime.next_actor_id;
+        runtime.next_actor_id = runtime.next_actor_id.saturating_add(1);
+        actor_id
     };
+    let identity = generate_avatar_identity(
+        state.ai_config.as_ref().as_ref(),
+        actor_id,
+        payload.name.as_deref(),
+    )
+    .await;
+    let actor_meta = ActorMeta {
+        name: identity.name,
+        speech_mode: "prose".to_string(),
+        title: identity.title,
+        description: identity.description,
+    };
+    let mut runtime = state.inner.lock().await;
     let action = CwAction {
         kind: CW_ACTION_CREATE_ACTOR,
         actor_id,
@@ -7453,6 +8051,62 @@ async fn request_ai_avatar_chat(
         .filter(|text| !text.is_empty())
         .map(ToString::to_string)
         .ok_or_else(|| "AI response did not include message content".to_string())
+}
+
+async fn request_ai_avatar_identity(
+    config: &AiConfig,
+    actor_id: u64,
+) -> Result<GeneratedAvatarIdentity, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(14))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let url = format!("{}/chat/completions", config.base_url);
+    let fallback = fallback_avatar_identity(actor_id);
+    let system = "You generate compact JSON for a player avatar in a cozy shared MUD. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
+    let user = format!(
+        "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
+         Tone: cozy, specific, storybook-MUD, a little strange, safe for all ages.\n\
+         Avoid existing resident names: Rati, Whiskerwind, Skull, Moonlit Echo.\n\
+         Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"short card title, 48 chars max\",\"description\":\"one third-person persona sentence, 220 chars max\"}}\n\
+         If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
+        name = fallback.name,
+        title = fallback.title,
+        description = fallback.description,
+    );
+
+    let response = client
+        .post(url)
+        .bearer_auth(&config.api_key)
+        .header("HTTP-Referer", "https://cosyworld.fly.dev")
+        .header("X-OpenRouter-Title", "CosyWorld v2")
+        .header("X-Title", "CosyWorld v2")
+        .json(&serde_json::json!({
+            "model": config.model,
+            "messages": [
+                { "role": "system", "content": system },
+                { "role": "user", "content": user }
+            ],
+            "temperature": 1.0,
+            "max_tokens": 180
+        }))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?;
+    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
+    let content = body
+        .get("choices")
+        .and_then(|choices| choices.get(0))
+        .and_then(|choice| choice.get("message"))
+        .and_then(|message| message.get("content"))
+        .and_then(|content| content.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .ok_or_else(|| "AI avatar identity response did not include message content".to_string())?;
+    parse_avatar_identity_json(content, actor_id)
+        .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
 async fn request_ai_resident_reply(
@@ -9705,6 +10359,7 @@ mod tests {
             ownership_feed: Arc::new(OwnershipFeedConfig::default()),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
+            qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(BTreeMap::new())),
             actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
@@ -10016,10 +10671,15 @@ mod tests {
         assert!(INDEX_HTML.contains("openrouter_api_key"));
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
+        assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
         assert!(INDEX_HTML.contains("data-card-key"));
         assert!(INDEX_HTML.contains("data-room-more"));
+        assert!(INDEX_HTML.contains("id=\"wallet-modal\""));
+        assert!(INDEX_HTML.contains("/wallet/qr/start"));
+        assert!(INDEX_HTML.contains("Scan this with your phone"));
+        assert!(INDEX_HTML.contains("generate avatar"));
         assert!(!INDEX_HTML.contains("<textarea"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));
@@ -10549,7 +11209,7 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 1));
-        assert!(state
+        assert!(!state
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 3));
@@ -11037,7 +11697,9 @@ mod tests {
     #[test]
     fn cosy_seed_cards_have_server_art_urls() {
         let runtime = RuntimeWorld::seeded();
-        let state = runtime.state_response(None, &AccessContext::default());
+        let ownership = OwnershipIndex::parse("wallet-1:cosy-rain-soft-garden");
+        let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
+        let state = runtime.state_response(None, &access);
 
         let whiskerwind = &state.cards.actors[&1002];
         assert_eq!(whiskerwind.asset_status, "seed_art");
@@ -11410,11 +12072,12 @@ mod tests {
         assert_eq!(gate.location.id, 1);
         assert_eq!(gate.location.name, "The Cosy Cottage");
         assert_eq!(gate.primary_action.kind, "create_avatar");
-        assert!(gate.exits.iter().any(|exit| {
-            exit.destination_location_id == 2
-                && !exit.accessible
-                && exit.required_card_id.as_deref() == Some("cosy-rain-soft-garden")
-        }));
+        assert!(gate.exits.iter().all(|exit| exit.accessible));
+        assert!(!gate
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == 2));
+        assert!(!gate.cards.locations.contains_key(&2));
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -11929,22 +12592,11 @@ mod tests {
         assert!(cottage.public);
         assert!(cottage.accessible);
         assert!(cottage.actors.iter().any(|actor| actor.name == "Rati"));
-        let library = public
-            .locations
-            .iter()
-            .find(|location| location.id == 12)
-            .expect("library world location");
-        assert!(!library.public);
-        assert!(!library.accessible);
-        assert_eq!(
-            library.required_card_id.as_deref(),
-            Some("location-library")
-        );
-        assert_eq!(library.actor_count, 1);
-        assert!(library.actors.is_empty());
-        assert!(library.items.is_empty());
-        assert!(library.exits.is_empty());
-        assert!(!library.card.accessible);
+        assert!(!public.locations.iter().any(|location| location.id == 12));
+        assert!(!public
+            .access
+            .locked_card_ids
+            .contains(&"location-library".to_string()));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
@@ -12078,24 +12730,21 @@ mod tests {
         let runtime = RuntimeWorld::seeded();
         let no_wallet = AccessContext::default();
         let state = runtime.state_response(None, &no_wallet);
-        for (location_id, card_id, source) in [
-            (2, "cosy-rain-soft-garden", "cosyworld_seed"),
-            (10, "location-science-lab", "ruby_high_first_bell"),
-            (11, "location-homeroom", "ruby_high_first_bell"),
-            (12, "location-library", "ruby_high_first_bell"),
-            (13, "location-cafeteria", "ruby_high_first_bell"),
-            (14, "location-greenhouse", "ruby_high_first_bell"),
-            (15, "location-courtyard", "ruby_high_first_bell"),
+        for (location_id, card_id) in [
+            (2, "cosy-rain-soft-garden"),
+            (10, "location-science-lab"),
+            (11, "location-homeroom"),
+            (12, "location-library"),
+            (13, "location-cafeteria"),
+            (14, "location-greenhouse"),
+            (15, "location-courtyard"),
         ] {
-            let exit = state
+            assert!(!state
                 .exits
                 .iter()
-                .find(|exit| exit.destination_location_id == location_id)
-                .expect("ruby high exit");
-            assert!(!exit.accessible);
-            assert_eq!(exit.required_card_id.as_deref(), Some(card_id));
-            assert!(!state.cards.locations[&location_id].accessible);
-            assert_eq!(state.cards.locations[&location_id].source, source);
+                .any(|exit| exit.destination_location_id == location_id));
+            assert!(!state.cards.locations.contains_key(&location_id));
+            assert!(!state.access.locked_card_ids.contains(&card_id.to_string()));
         }
 
         let ownership = OwnershipIndex::parse(
@@ -12109,7 +12758,7 @@ mod tests {
         assert!(state.cards.locations[&12].owned);
         assert!(state.cards.locations[&14].accessible);
         assert!(state.cards.locations[&14].owned);
-        assert!(!state.cards.locations[&10].accessible);
+        assert!(!state.cards.locations.contains_key(&10));
         assert_eq!(
             state.cards.locations[&12].set_number.as_deref(),
             Some("FB-021")
@@ -13011,6 +13660,7 @@ mod tests {
             ownership_feed: Arc::new(feed),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
+            qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
             wallet_actor_links: Arc::new(StdMutex::new(BTreeMap::new())),
             actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),

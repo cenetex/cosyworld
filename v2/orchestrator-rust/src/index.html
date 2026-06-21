@@ -454,7 +454,8 @@
       font-size: 13px;
     }
     .status.ok { color: var(--green); }
-    .card-modal {
+    .card-modal,
+    .wallet-modal {
       position: fixed;
       inset: 0;
       z-index: 30;
@@ -463,8 +464,10 @@
       padding: 18px;
       background: rgba(3, 5, 4, 0.76);
     }
-    .card-modal[hidden] { display: none; }
-    .card-dialog {
+    .card-modal[hidden],
+    .wallet-modal[hidden] { display: none; }
+    .card-dialog,
+    .wallet-dialog {
       width: min(420px, calc(100vw - 28px));
       max-height: calc(100vh - 36px);
       overflow: auto;
@@ -473,7 +476,8 @@
       box-shadow: 0 22px 80px rgba(0, 0, 0, 0.72);
       padding: 12px;
     }
-    .card-close {
+    .card-close,
+    .wallet-close {
       float: right;
       width: 30px;
       height: 30px;
@@ -483,6 +487,44 @@
       border-radius: 4px;
       font-weight: 900;
     }
+    .wallet-title {
+      clear: both;
+      color: var(--amber);
+      font-weight: 900;
+      font-size: 17px;
+      margin: 4px 0 4px;
+    }
+    .wallet-copy {
+      color: var(--dim);
+      margin-bottom: 12px;
+    }
+    .wallet-qr {
+      width: min(300px, 100%);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: #f5f8ef;
+      padding: 10px;
+    }
+    .wallet-qr img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .wallet-link {
+      margin-top: 10px;
+      color: var(--blue);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .wallet-status {
+      min-height: 22px;
+      margin-top: 10px;
+      color: var(--green);
+    }
+    .wallet-status.error { color: var(--red); }
     .card-art {
       clear: both;
       width: 100%;
@@ -626,9 +668,17 @@
       <div class="card-meta" id="card-modal-meta"></div>
     </section>
   </div>
+  <div class="wallet-modal" id="wallet-modal" hidden>
+    <section class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
+      <button class="wallet-close" type="button" data-wallet-close aria-label="Close wallet sign-in">x</button>
+      <div class="wallet-title" id="wallet-modal-title">wallet sign-in</div>
+      <div class="wallet-copy">Scan this with your phone. Sign one message. No transaction, no fee.</div>
+      <div class="wallet-qr"><img id="wallet-qr-image" alt="Wallet sign-in QR code" /></div>
+      <div class="wallet-link" id="wallet-mobile-url"></div>
+      <div class="wallet-status" id="wallet-status"></div>
+    </section>
+  </div>
   <script>
-    const namesA = ["Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle"];
-    const namesB = ["Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend"];
     const avatarGateVersion = "2";
     const walletRequestTimeoutMs = 20000;
     const bootParams = new URLSearchParams(window.location.search);
@@ -655,6 +705,8 @@
     let accountPanelPinned = false;
     let roomCopyExpanded = false;
     let lastRoomCopyLocationId = null;
+    let walletQrPollTimer = null;
+    let walletQrResolve = null;
     const $ = (id) => document.getElementById(id);
     let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
     let walletSession = bootParams.get("wallet_session") || localStorage.getItem("cosyworld.walletSession") || "";
@@ -669,12 +721,6 @@
       localStorage.removeItem("cosyworld.actorId");
       localStorage.removeItem("cosyworld.actorSession");
       localStorage.removeItem("cosyworld.avatarGateVersion");
-    }
-
-    function generatedName() {
-      const a = namesA[Math.floor(Math.random() * namesA.length)];
-      const b = namesB[Math.floor(Math.random() * namesB.length)];
-      return `${a} ${b}`;
     }
 
     async function api(path, options = {}) {
@@ -692,7 +738,7 @@
     }
 
     async function createAvatar() {
-      const avatar = await post("/avatar", withAccess({ name: generatedName() }));
+      const avatar = await post("/avatar", withAccess({}));
       actorId = avatar.actor.id;
       actorSession = avatar.actor_session || "";
       localStorage.setItem("cosyworld.actorId", String(actorId));
@@ -814,7 +860,7 @@
     }
 
     function solanaProvider() {
-      return window.solana || window.phantom?.solana || null;
+      return window.solana || window.phantom?.solana || window.solflare?.solana || window.solflare || null;
     }
 
     function withTimeout(promise, ms, message) {
@@ -842,7 +888,7 @@
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
         return [{
-          label: "create avatar",
+          label: "generate avatar",
           detail: "",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
@@ -856,6 +902,7 @@
       const economy = view.economy || {};
       const canChat = hasOpenRouterKey() || economy.can_chat_with_orbs !== false;
       const accountActions = buildAccountActions(view);
+      const hasSignedWallet = view.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
       const heldEvolutionItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "evolution");
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
       const usableTargets = (view.actors || []).filter((actor) => actorNeedsHealing(actor));
@@ -921,19 +968,7 @@
       }
       for (const exit of view.exits || []) {
         if (exit.locked) continue;
-        if (exit.accessible === false) {
-          if (!view.access?.owner_wallet_address) {
-            built.push({
-              label: "connect wallet",
-              detail: exit.destination_location_name,
-              focusKey: `wallet:${exit.destination_location_id}`,
-              card: cardForLocation(exit.destination_location_id),
-              shape: "location",
-              run: () => connectWallet(),
-            });
-          }
-          continue;
-        }
+        if (exit.accessible === false) continue;
         const escaping = options.has("flee");
         if (escaping || options.has("move")) {
           built.push({
@@ -990,6 +1025,16 @@
           run: () => connectOpenRouter(),
         });
       }
+      if (!hasSignedWallet) {
+        built.push({
+          label: "connect wallet",
+          detail: "discover cards",
+          focusKey: "wallet:connect",
+          card: accountCard("Wallet"),
+          shape: "item",
+          run: () => connectWallet(),
+        });
+      }
       if (!built.length) built.push({ label: "wait", detail: "", focusKey: "wait", run: async () => {} });
       return built;
     }
@@ -1026,11 +1071,76 @@
       return actions;
     }
 
+    function setWalletQrStatus(message, kind = "ok") {
+      const node = $("wallet-status");
+      node.textContent = message;
+      node.classList.toggle("error", kind === "error");
+    }
+
+    function stopWalletQrPolling() {
+      if (walletQrPollTimer) window.clearInterval(walletQrPollTimer);
+      walletQrPollTimer = null;
+    }
+
+    function closeWalletQrModal(result = false) {
+      stopWalletQrPolling();
+      $("wallet-modal").hidden = true;
+      $("wallet-qr-image").removeAttribute("src");
+      if (walletQrResolve) {
+        const resolve = walletQrResolve;
+        walletQrResolve = null;
+        resolve(result);
+      }
+    }
+
+    async function openQrWalletLogin() {
+      setStatus("Scan the wallet sign-in QR.", "ok");
+      const started = await post("/wallet/qr/start", {});
+      if (!started.ok || !started.login_id || !started.poll_token) {
+        setError(started.error || "Wallet QR sign-in could not start.");
+        return false;
+      }
+      const mobileUrl = new URL(started.mobile_path || `/wallet/qr/${started.login_id}`, window.location.href).toString();
+      const qrSvgUrl = new URL(started.qr_svg_path || `/wallet/qr/${started.login_id}/code.svg`, window.location.href).toString();
+      $("wallet-qr-image").src = qrSvgUrl;
+      $("wallet-mobile-url").textContent = mobileUrl;
+      setWalletQrStatus("Waiting for a phone signature.");
+      $("wallet-modal").hidden = false;
+      $("wallet-modal").querySelector(".wallet-close")?.focus();
+
+      return new Promise((resolve) => {
+        walletQrResolve = resolve;
+        const poll = async () => {
+          try {
+            const status = await api(`/wallet/qr/status?login_id=${encodeURIComponent(started.login_id)}&poll_token=${encodeURIComponent(started.poll_token)}`);
+            if (status.ok && status.state === "complete" && status.wallet_session) {
+              walletAddress = status.wallet_address || walletAddress;
+              walletSession = status.wallet_session;
+              if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
+              localStorage.setItem("cosyworld.walletSession", walletSession);
+              setStatus("Wallet connected.", "ok");
+              focusIndex = 0;
+              focusedKey = "";
+              await refresh();
+              connectStream();
+              closeWalletQrModal(true);
+            } else if (!status.ok && status.state === "expired") {
+              setWalletQrStatus("QR sign-in expired. Try connect wallet again.", "error");
+              closeWalletQrModal(false);
+            }
+          } catch (error) {
+            setWalletQrStatus(String(error.message || error), "error");
+          }
+        };
+        walletQrPollTimer = window.setInterval(poll, 1400);
+        poll();
+      });
+    }
+
     async function connectWallet() {
       const provider = solanaProvider();
       if (!provider?.connect || !provider?.signMessage) {
-        setError("Solana wallet is not available. Install or unlock Phantom, then try again.");
-        return false;
+        return openQrWalletLogin();
       }
       try {
         setStatus("Confirm wallet access in your Solana wallet.", "ok");
@@ -1841,6 +1951,13 @@
       }
     });
 
+    $("wallet-modal").addEventListener("click", (event) => {
+      if (event.target.closest("[data-wallet-close]") || event.target.id === "wallet-modal") {
+        event.preventDefault();
+        closeWalletQrModal(false);
+      }
+    });
+
     $("presence").addEventListener("click", (event) => {
       const chip = event.target.closest("[data-focus-index]");
       if (!chip) return;
@@ -1904,6 +2021,9 @@
       } else if (event.key === "Escape" && !$("card-modal").hidden) {
         event.preventDefault();
         closeCardModal();
+      } else if (event.key === "Escape" && !$("wallet-modal").hidden) {
+        event.preventDefault();
+        closeWalletQrModal(false);
       }
     });
 

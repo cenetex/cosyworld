@@ -448,6 +448,16 @@ async function main() {
     return primaryText();
   }
 
+  async function focusPrimaryMatching(label, predicate, attempts = 24) {
+    for (let i = 0; i < attempts; i += 1) {
+      const text = await primaryText();
+      if (predicate(text.toLowerCase())) return text;
+      await page.keyboard.press("Tab");
+      await page.waitForTimeout(75);
+    }
+    throw new Error(`${label} was not reachable; primary was ${await primaryText()}`);
+  }
+
   async function focusAccountInventory() {
     await page.locator("#economy").click();
     await page.waitForTimeout(75);
@@ -609,7 +619,7 @@ async function main() {
     });
     assert(world.shared_world === true, "world projection should identify the shared world");
     assert(world.current_actor_id, "world projection should preserve the current actor");
-    assert((world.locations || []).length >= 9, `world projection should include seeded rooms: ${JSON.stringify(world)}`);
+    assert((world.locations || []).length >= 3, `world projection should include discovered rooms: ${JSON.stringify(world)}`);
     const cottage = world.locations.find((location) => location.name === "The Cosy Cottage");
     const science = world.locations.find((location) => location.name === "Science Class");
     const library = world.locations.find((location) => location.name === "Library");
@@ -620,7 +630,7 @@ async function main() {
       "Cottage projection should include the current avatar when accessible",
     );
     assert(science?.accessible === true, "dev wallet should unlock Science Class in world projection");
-    assert(library?.accessible === false && library.actors.length === 0, "locked Library details should be hidden from dev wallet");
+    assert(!library, "locked Library should not be visible before its location card is discovered");
     assert(trail?.actors.some((actor) => actor.name === "Moonlit Echo"), "Moonlit Trail projection should include the sparring target");
   }
 
@@ -866,12 +876,41 @@ async function main() {
     await page.goto(withoutWalletUrl(targetUrl), { waitUntil: "domcontentloaded", timeout: 10_000 });
     await page.waitForSelector("#primary");
     assert((await visibleCommandButtons()).length === 1, "walletless avatar gate must show one command button");
-    assert((await primaryText()).toLowerCase().includes("create avatar"), "walletless first command should create avatar");
-    await clickPrimary("walletless create avatar");
+    assert((await primaryText()).toLowerCase().includes("generate avatar"), "walletless first command should generate an avatar");
+    await clickPrimary("walletless generate avatar");
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "focus locked location without wallet", primary: await focusChip("Rain-Soft Garden") });
-    assert((await visibleCommandButtons()).length === 1, "walletless locked location focus must stay one-button");
-    assert((await primaryText()).toLowerCase().includes("connect wallet"), "locked location focus should offer connect wallet");
+    steps.push({ label: "focus wallet connect without wallet", primary: await focusPrimaryMatching("walletless connect wallet", (text) => text.includes("connect wallet")) });
+    assert((await visibleCommandButtons()).length === 1, "walletless wallet focus must stay one-button");
+    assert((await primaryText()).toLowerCase().includes("connect wallet"), "generic wallet focus should offer connect wallet");
+    await page.evaluate(() => {
+      window.cosySmokeProvider = window.solana;
+      window.solana = undefined;
+      window.phantom = undefined;
+    });
+    await page.locator("#primary").click();
+    await page.waitForSelector("#wallet-modal:not([hidden])");
+    const qrProbe = await page.evaluate(async () => {
+      const image = document.querySelector("#wallet-qr-image");
+      const mobileUrl = document.querySelector("#wallet-mobile-url")?.textContent || "";
+      const response = await fetch(image?.src || "");
+      return {
+        imageSrc: image?.src || "",
+        mobileUrl,
+        ok: response.ok,
+        contentType: response.headers.get("content-type") || "",
+        svgPrefix: (await response.text()).slice(0, 80),
+      };
+    });
+    assert(qrProbe.imageSrc.includes("/wallet/qr/") && qrProbe.imageSrc.endsWith("/code.svg"), `QR image should come from the server QR route: ${JSON.stringify(qrProbe)}`);
+    assert(qrProbe.mobileUrl.includes("/wallet/qr/"), `QR modal should show the mobile sign-in URL: ${JSON.stringify(qrProbe)}`);
+    assert(qrProbe.ok && qrProbe.contentType.includes("image/svg+xml") && qrProbe.svgPrefix.includes("<svg"), `QR SVG should be fetchable: ${JSON.stringify(qrProbe)}`);
+    steps.push({ label: "wallet QR fallback", qr: "visible" });
+    await page.locator("[data-wallet-close]").click();
+    await page.waitForFunction(() => document.querySelector("#wallet-modal")?.hidden === true && !document.querySelector("#primary")?.disabled);
+    await page.evaluate(() => {
+      window.solana = window.cosySmokeProvider;
+      delete window.cosySmokeProvider;
+    });
     await clickPrimary("connect signed wallet");
     await page.waitForFunction(
       (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
@@ -896,10 +935,10 @@ async function main() {
     });
     await page.goto(withoutWalletUrl(targetUrl), { waitUntil: "domcontentloaded", timeout: 10_000 });
     await page.waitForSelector("#primary");
-    await clickPrimary("box flow create avatar");
+    await clickPrimary("box flow generate avatar");
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "box flow focus locked location", primary: await focusChip("Rain-Soft Garden") });
-    assert((await primaryText()).toLowerCase().includes("connect wallet"), "Box flow should connect the signed wallet from a locked room");
+    steps.push({ label: "box flow focus wallet connect", primary: await focusPrimaryMatching("box flow connect wallet", (text) => text.includes("connect wallet")) });
+    assert((await primaryText()).toLowerCase().includes("connect wallet"), "Box flow should connect the signed wallet from the account action cycle");
     await clickPrimary("box flow connect signed wallet");
     await page.waitForFunction(
       (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
@@ -1130,9 +1169,9 @@ async function main() {
   await assertNoVisibleOverflow();
   await assertNoComposerOrDebugChrome();
   assert((await visibleCommandButtons()).length === 1, "avatar gate must show one command button");
-  assert((await primaryText()).toLowerCase().includes("create avatar"), "first command should create avatar");
+  assert((await primaryText()).toLowerCase().includes("generate avatar"), "first command should generate avatar");
 
-  await clickPrimary("create avatar");
+  await clickPrimary("generate avatar");
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
   assert((await visibleCommandButtons()).length === 1, "normal play must show one command button");
   await assertNoComposerOrDebugChrome();
