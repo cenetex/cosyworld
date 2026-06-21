@@ -497,6 +497,7 @@
     const namesA = ["Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle"];
     const namesB = ["Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend"];
     const avatarGateVersion = "2";
+    const walletRequestTimeoutMs = 20000;
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
     if (wantsReset) clearLocalSession();
@@ -675,6 +676,32 @@
 
     function hasOpenRouterKey() {
       return openrouterApiKey.trim().length > 0;
+    }
+
+    function solanaProvider() {
+      return window.solana || window.phantom?.solana || null;
+    }
+
+    function withTimeout(promise, ms, message) {
+      return new Promise((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error(message)), ms);
+        Promise.resolve(promise)
+          .then((value) => {
+            window.clearTimeout(timer);
+            resolve(value);
+          })
+          .catch((error) => {
+            window.clearTimeout(timer);
+            reject(error);
+          });
+      });
+    }
+
+    function walletRequestError(error, fallback) {
+      const message = String(error?.message || error || "").trim();
+      if (/reject|denied|cancel/i.test(message)) return "Wallet request cancelled.";
+      if (/timed out/i.test(message)) return message;
+      return message ? `${fallback}: ${message}` : fallback;
     }
 
     function buildActions(view) {
@@ -865,43 +892,60 @@
     }
 
     async function connectWallet() {
-      const provider = window.solana;
+      const provider = solanaProvider();
       if (!provider?.connect || !provider?.signMessage) {
-        setError("Solana wallet is not available.");
-        return;
+        setError("Solana wallet is not available. Install or unlock Phantom, then try again.");
+        return false;
       }
-      const connected = await provider.connect();
-      const publicKey = connected?.publicKey || provider.publicKey;
-      const nextWallet = publicKey?.toString?.() || "";
-      if (!nextWallet) {
-        setError("Wallet connection failed.");
-        return;
+      try {
+        setStatus("Confirm wallet access in your Solana wallet.", "ok");
+        const connected = await withTimeout(
+          provider.connect(),
+          walletRequestTimeoutMs,
+          "Wallet connection timed out."
+        );
+        const publicKey = connected?.publicKey || provider.publicKey;
+        const nextWallet = publicKey?.toString?.() || "";
+        if (!nextWallet) {
+          setError("Wallet connection failed.");
+          return false;
+        }
+        const challenge = await api(`/wallet/challenge?wallet_address=${encodeURIComponent(nextWallet)}`);
+        if (!challenge.ok) {
+          setError("Wallet challenge failed.");
+          return false;
+        }
+        setStatus("Sign the CosyWorld wallet challenge.", "ok");
+        const encoded = new TextEncoder().encode(challenge.message);
+        const signed = await withTimeout(
+          provider.signMessage(encoded, "utf8"),
+          walletRequestTimeoutMs,
+          "Wallet signature timed out."
+        );
+        const signature = Array.from(signed?.signature || signed || []);
+        const session = await post("/wallet/session", {
+          wallet_address: nextWallet,
+          nonce: challenge.nonce,
+          signature,
+        });
+        if (!session.ok || !session.wallet_session) {
+          setError(session.error || "Wallet signature rejected.");
+          return false;
+        }
+        walletAddress = session.wallet_address || nextWallet;
+        walletSession = session.wallet_session;
+        localStorage.setItem("cosyworld.wallet", walletAddress);
+        localStorage.setItem("cosyworld.walletSession", walletSession);
+        setStatus("Wallet connected.", "ok");
+        focusIndex = 0;
+        focusedKey = "";
+        await refresh();
+        connectStream();
+        return true;
+      } catch (error) {
+        setError(walletRequestError(error, "Wallet connection failed"));
+        return false;
       }
-      const challenge = await api(`/wallet/challenge?wallet_address=${encodeURIComponent(nextWallet)}`);
-      if (!challenge.ok) {
-        setError("Wallet challenge failed.");
-        return;
-      }
-      const encoded = new TextEncoder().encode(challenge.message);
-      const signed = await provider.signMessage(encoded, "utf8");
-      const signature = Array.from(signed?.signature || signed || []);
-      const session = await post("/wallet/session", {
-        wallet_address: nextWallet,
-        nonce: challenge.nonce,
-        signature,
-      });
-      if (!session.ok || !session.wallet_session) {
-        setError(session.error || "Wallet signature rejected.");
-        return;
-      }
-      walletAddress = session.wallet_address || nextWallet;
-      walletSession = session.wallet_session;
-      localStorage.setItem("cosyworld.wallet", walletAddress);
-      localStorage.setItem("cosyworld.walletSession", walletSession);
-      focusIndex = 0;
-      focusedKey = "";
-      await refresh();
-      connectStream();
     }
 
     async function connectOpenRouter() {
@@ -922,8 +966,8 @@
 
     async function openBox(boxAssetAddress) {
       if (!walletSession) {
-        await connectWallet();
-        return;
+        const connected = await connectWallet();
+        if (!connected) return;
       }
       setError("");
       const prepared = await post("/nft/boxes/burn-prepare", {
@@ -952,8 +996,8 @@
 
     async function openPack(packId) {
       if (!walletSession) {
-        await connectWallet();
-        return;
+        const connected = await connectWallet();
+        if (!connected) return;
       }
       setError("");
       const opened = await post("/nft/packs/open", {
@@ -972,12 +1016,16 @@
     }
 
     async function signWalletMessage(message) {
-      const provider = window.solana;
+      const provider = solanaProvider();
       if (!provider?.signMessage) {
         throw new Error("Solana wallet signature is needed to open a Box.");
       }
       const encoded = new TextEncoder().encode(message);
-      const signed = await provider.signMessage(encoded, "utf8");
+      const signed = await withTimeout(
+        provider.signMessage(encoded, "utf8"),
+        walletRequestTimeoutMs,
+        "Wallet signature timed out."
+      );
       const bytes = Array.from(signed?.signature || signed || []);
       if (!bytes.length) throw new Error("Wallet did not return a signature.");
       return bytesToHex(bytes);
