@@ -1,0 +1,29 @@
+app = "cosyworld"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  COSYWORLD_V2_ADDR = "0.0.0.0:3000"
+  COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
+  COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"
+  RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
+
+[[mounts]]
+  source = "cosyworld_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = false
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/health"

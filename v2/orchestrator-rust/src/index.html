@@ -1,0 +1,1621 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080b09" />
+  <title>CosyWorld</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b09;
+      --terminal: #0d140f;
+      --terminal-2: #101912;
+      --line: rgba(129, 255, 167, 0.18);
+      --line-strong: rgba(239, 201, 107, 0.34);
+      --text: #d8f7dc;
+      --dim: #85a58a;
+      --green: #65e68a;
+      --amber: #efc96b;
+      --blue: #8bb7ff;
+      --red: #ff8d8d;
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.48 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(180deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 4px);
+      opacity: 0.11;
+      z-index: 10;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    .shell {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: 42px minmax(0, 1fr) auto;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(101, 230, 138, 0.09), transparent 25%),
+        radial-gradient(circle at 78% 8%, rgba(239, 201, 107, 0.08), transparent 26%),
+        var(--bg);
+      overflow: hidden;
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 8, 6, 0.96);
+    }
+    .brand {
+      min-width: 0;
+      color: var(--green);
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .brand::before { content: "cosyworld://"; color: var(--dim); }
+    .economy {
+      flex: 0 0 auto;
+      color: var(--dim);
+      font-size: 13px;
+      white-space: nowrap;
+      max-width: 150px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .economy strong {
+      color: var(--amber);
+      font-weight: 850;
+    }
+    .economy.focused,
+    .economy:focus-visible {
+      color: var(--green);
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+    .location-pill {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 9px;
+      min-width: 0;
+      color: var(--amber);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-align: right;
+      cursor: pointer;
+    }
+    .location-pill:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+    .location-pill img {
+      width: 58px;
+      height: 32px;
+      border-radius: 5px;
+      object-fit: cover;
+      border: 1px solid var(--line-strong);
+      flex: 0 0 auto;
+    }
+    .location-pill span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .terminal {
+      min-height: 0;
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      margin: 12px;
+      border: 1px solid var(--line);
+      background: rgba(13, 20, 15, 0.94);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.48), inset 0 0 0 1px rgba(255,255,255,0.018);
+      overflow: hidden;
+    }
+    .room {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(16, 25, 18, 0.98), rgba(11, 17, 12, 0.96));
+    }
+    .room-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+      color: var(--amber);
+      font-weight: 850;
+      font-size: 16px;
+    }
+    .room-title span { min-width: 0; }
+    #location-name {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    #avatar {
+      flex: 0 1 auto;
+      max-width: 46%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-align: right;
+      color: var(--blue);
+    }
+    .room-copy {
+      margin-top: 8px;
+      color: var(--text);
+      max-width: 980px;
+    }
+    .presence {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--dim);
+    }
+    .chip {
+      min-width: 0;
+      max-width: 220px;
+      border: 1px solid var(--line);
+      background: var(--terminal-2);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .chip.focusable { cursor: pointer; }
+    .chip.focused {
+      border-color: rgba(101, 230, 138, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(101, 230, 138, 0.22);
+    }
+    .chip.you { color: var(--blue); border-color: rgba(139, 183, 255, 0.34); }
+    .chip.evolved { color: var(--amber); border-color: rgba(239, 201, 107, 0.52); }
+    .chip.item { color: var(--amber); border-color: rgba(239, 201, 107, 0.28); }
+    .chip.path { color: var(--green); }
+    .chip.locked {
+      color: var(--dim);
+      opacity: 0.62;
+    }
+    .chip-thumb {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      background-size: cover;
+      background-position: center;
+      background-color: rgba(101, 230, 138, 0.08);
+    }
+    .chip-thumb.avatar {
+      border-radius: 999px;
+      background-size: 137%;
+      background-position: center top;
+    }
+    .chip-thumb.item {
+      border-radius: 4px;
+      background-size: 137%;
+      background-position: center top;
+    }
+    .chip-thumb.location {
+      width: 34px;
+      border-radius: 4px;
+    }
+    .log {
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      scroll-behavior: smooth;
+    }
+    .line {
+      display: grid;
+      grid-template-columns: minmax(12ch, 20ch) minmax(0, 1fr);
+      gap: 12px;
+      align-items: baseline;
+    }
+    .speaker {
+      display: block;
+      color: var(--dim);
+      text-align: right;
+      white-space: nowrap;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .speaker::before { content: "["; color: var(--line-strong); }
+    .speaker::after { content: "]"; color: var(--line-strong); }
+    .line.you .speaker { color: var(--blue); }
+    .line.npc .speaker { color: var(--amber); }
+    .line.world .speaker { color: var(--green); }
+    .text {
+      display: block;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .account-panel {
+      border: 1px solid var(--line);
+      background: rgba(16, 25, 18, 0.72);
+      margin-bottom: 8px;
+      padding: 10px 12px;
+    }
+    .account-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--amber);
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .account-wallet {
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-row {
+      display: grid;
+      grid-template-columns: minmax(9ch, 14ch) minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 2px 0;
+    }
+    .account-key {
+      color: var(--dim);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .account-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      color: var(--text);
+    }
+    .account-empty { color: var(--dim); }
+    .prompt {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 9px;
+      align-items: stretch;
+      padding: 10px 12px calc(10px + var(--safe-bot));
+      border-top: 1px solid var(--line);
+      background: rgba(5, 8, 6, 0.98);
+    }
+    .prompt.choice-mode {
+      grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .caret {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      color: var(--green);
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .cmd {
+      min-width: 0;
+      min-height: 50px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--text);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cmd.primary {
+      background: rgba(101, 230, 138, 0.12);
+      color: var(--green);
+    }
+    .cmd.secondary {
+      color: var(--amber);
+    }
+    .thumb {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      background: rgba(101, 230, 138, 0.08);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+    }
+    .thumb.avatar,
+    .thumb.item {
+      background-size: 137%;
+      background-position: center top;
+    }
+    .thumb.avatar {
+      border-radius: 999px;
+    }
+    .thumb.item { border-radius: 6px; }
+    .thumb.location {
+      width: 54px;
+      border-radius: 5px;
+    }
+    .cmd-copy {
+      min-width: 0;
+      display: block;
+      overflow: hidden;
+    }
+    .cmd-label {
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .cmd:disabled {
+      opacity: 0.42;
+      cursor: default;
+    }
+    .detail {
+      display: block;
+      margin-top: 2px;
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+    }
+    .status {
+      position: fixed;
+      left: 18px;
+      bottom: calc(72px + var(--safe-bot));
+      z-index: 5;
+      color: var(--red);
+      min-height: 18px;
+      font-size: 13px;
+    }
+    .status.ok { color: var(--green); }
+    @media (max-width: 900px) {
+      html, body { font-size: 13px; }
+      .shell { grid-template-rows: 38px minmax(0, 1fr) auto; }
+      .topbar {
+        grid-template-columns: minmax(0, 0.7fr) auto minmax(0, 1.3fr);
+        gap: 8px;
+        padding: 0 8px;
+      }
+      .brand::before { content: ""; }
+      .economy { font-size: 12px; max-width: 92px; }
+      .terminal { margin: 8px; }
+      .room { padding: 11px 12px; }
+      .room-title {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      #avatar {
+        max-width: 100%;
+        text-align: left;
+      }
+      .line {
+        grid-template-columns: 1fr;
+        gap: 1px;
+      }
+      .account-panel { padding: 9px 10px; }
+      .account-title {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+      .account-row {
+        grid-template-columns: 1fr;
+        gap: 1px;
+      }
+      .account-key { text-align: left; }
+      .speaker {
+        text-align: left;
+        max-width: 100%;
+      }
+      .text { padding-left: 1ch; }
+      .prompt {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 7px;
+        padding: 8px;
+      }
+      .prompt.choice-mode {
+        grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+      }
+      .cmd { min-height: 48px; padding: 7px 8px; }
+      .thumb { width: 30px; height: 30px; }
+      .thumb.location { width: 44px; }
+      .detail { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand" id="brand">cosyworld</div>
+      <div class="economy" id="economy" role="button" tabindex="0" aria-label="Focus account inventory"></div>
+      <div class="location-pill" role="button" tabindex="0" aria-label="Focus current location">
+        <img id="location-image" alt="" />
+        <span id="subtitle">booting</span>
+      </div>
+    </header>
+    <main class="terminal">
+      <section class="room">
+        <div class="room-title">
+          <span id="location-name">The Cosy Cottage</span>
+          <span id="avatar">...</span>
+        </div>
+        <div class="room-copy" id="location-copy"></div>
+        <div class="presence" id="presence"></div>
+      </section>
+      <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room timeline"></section>
+    </main>
+    <div class="status" id="error"></div>
+    <footer class="prompt">
+      <div class="caret">&gt;</div>
+      <button class="cmd primary" id="primary"></button>
+      <button class="cmd secondary" id="secondary"></button>
+    </footer>
+  </div>
+  <script>
+    const namesA = ["Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle"];
+    const namesB = ["Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend"];
+    const avatarGateVersion = "2";
+    const bootParams = new URLSearchParams(window.location.search);
+    const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
+    if (wantsReset) clearLocalSession();
+    const hasExplicitAvatar = localStorage.getItem("cosyworld.avatarGateVersion") === avatarGateVersion;
+    let actorId = hasExplicitAvatar ? Number(localStorage.getItem("cosyworld.actorId") || 0) : 0;
+    let actorSession = hasExplicitAvatar ? (localStorage.getItem("cosyworld.actorSession") || "") : "";
+    if (!hasExplicitAvatar) {
+      localStorage.removeItem("cosyworld.actorId");
+      localStorage.removeItem("cosyworld.actorSession");
+    }
+    let state = null;
+    let actions = [];
+    let focusIndex = 0;
+    let focusedKey = "";
+    let logEvents = [];
+    const seenSeq = new Set();
+    let stream = null;
+    let refreshInFlight = null;
+    let refreshQueued = false;
+    let actionBusy = false;
+    let pendingAction = null;
+    let accountPanelPinned = false;
+    const $ = (id) => document.getElementById(id);
+    let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
+    let walletSession = bootParams.get("wallet_session") || localStorage.getItem("cosyworld.walletSession") || "";
+    let ownedCardIds = parseCardIds(bootParams.get("cards") || bootParams.get("owned_card_ids") || localStorage.getItem("cosyworld.cards") || "");
+    if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
+    if (walletSession) localStorage.setItem("cosyworld.walletSession", walletSession);
+    if (ownedCardIds.length) localStorage.setItem("cosyworld.cards", ownedCardIds.join(","));
+    let openrouterApiKey = localStorage.getItem("cosyworld.openrouterApiKey") || "";
+    let openrouterLabel = localStorage.getItem("cosyworld.openrouterLabel") || "";
+
+    function clearLocalSession() {
+      localStorage.removeItem("cosyworld.actorId");
+      localStorage.removeItem("cosyworld.actorSession");
+      localStorage.removeItem("cosyworld.avatarGateVersion");
+    }
+
+    function generatedName() {
+      const a = namesA[Math.floor(Math.random() * namesA.length)];
+      const b = namesB[Math.floor(Math.random() * namesB.length)];
+      return `${a} ${b}`;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return response.json();
+    }
+
+    async function post(path, payload) {
+      return api(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    async function createAvatar() {
+      const avatar = await post("/avatar", withAccess({ name: generatedName() }));
+      actorId = avatar.actor.id;
+      actorSession = avatar.actor_session || "";
+      localStorage.setItem("cosyworld.actorId", String(actorId));
+      if (actorSession) localStorage.setItem("cosyworld.actorSession", actorSession);
+      localStorage.setItem("cosyworld.avatarGateVersion", avatarGateVersion);
+      pushEvents(avatar.events || []);
+      focusIndex = 0;
+      focusedKey = "";
+      await refresh();
+      connectStream();
+    }
+
+    async function requestDevResetIfNeeded() {
+      if (!wantsReset) return;
+      try {
+        await post("/dev/reset", {});
+      } catch {
+        // The reset endpoint is dev-gated; clearing the local avatar is still useful.
+      }
+      bootParams.delete("reset");
+      const qs = bootParams.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
+
+    async function refresh() {
+      const previousLocationId = state?.location?.id || null;
+      const requestedActorId = actorId;
+      const nextState = await api(statePath());
+      if (requestedActorId !== actorId) return;
+      state = nextState;
+      if (actorId && state.primary_action?.kind === "create_avatar") {
+        actorId = 0;
+        clearLocalSession();
+      }
+      const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
+      if (logEvents.length === 0 || locationChanged) {
+        rebuildLog([...(state.recent_events || [])].reverse());
+      }
+      actions = buildActions(state);
+      restoreFocusedAction();
+      render();
+    }
+
+    function queueRefresh() {
+      if (refreshInFlight) {
+        refreshQueued = true;
+        return refreshInFlight;
+      }
+      refreshInFlight = refresh()
+        .catch((error) => setError(String(error.message || error)))
+        .finally(() => {
+          refreshInFlight = null;
+          if (refreshQueued) {
+            refreshQueued = false;
+            queueRefresh();
+          }
+        });
+      return refreshInFlight;
+    }
+
+    function requestParams() {
+      const params = new URLSearchParams();
+      if (actorId) params.set("actor_id", String(actorId));
+      if (actorSession) params.set("actor_session", actorSession);
+      if (walletSession) params.set("wallet_session", walletSession);
+      if (walletAddress) params.set("wallet_address", walletAddress);
+      if (ownedCardIds.length) params.set("owned_card_ids", ownedCardIds.join(","));
+      if (hasOpenRouterKey()) params.set("openrouter_connected", "1");
+      return params;
+    }
+
+    function statePath() {
+      const params = requestParams();
+      const qs = params.toString();
+      return `/state${qs ? `?${qs}` : ""}`;
+    }
+
+    function streamPath() {
+      const params = requestParams();
+      const qs = params.toString();
+      return `/stream${qs ? `?${qs}` : ""}`;
+    }
+
+    function withAccess(payload) {
+      return {
+        ...payload,
+        ...(actorSession ? { actor_session: actorSession } : {}),
+        ...(walletSession ? { wallet_session: walletSession } : {}),
+        ...(walletAddress ? { wallet_address: walletAddress } : {}),
+        ...(ownedCardIds.length ? { owned_card_ids: ownedCardIds.join(",") } : {}),
+      };
+    }
+
+    function leavePresence() {
+      if (!actorId || !actorSession) return;
+      const payload = JSON.stringify({ actor_id: actorId, actor_session: actorSession });
+      if (navigator.sendBeacon) {
+        const body = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon("/presence/leave", body);
+        return;
+      }
+      fetch("/presence/leave", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    function parseCardIds(value) {
+      return String(value || "")
+        .split(/[\s,;]+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    function hasOpenRouterKey() {
+      return openrouterApiKey.trim().length > 0;
+    }
+
+    function buildActions(view) {
+      if (view.primary_action?.kind === "create_avatar") {
+        return [{
+          label: "create avatar",
+          detail: "",
+          focusKey: "create-avatar",
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          run: () => createAvatar(),
+        }];
+      }
+
+      const options = new Set((view.primary_action?.options || []).map((option) => option.kind));
+      const built = [];
+      const economy = view.economy || {};
+      const canChat = hasOpenRouterKey() || economy.can_chat_with_orbs !== false;
+      const accountActions = buildAccountActions(view);
+      const heldEvolutionItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "evolution");
+      const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
+      const usableTargets = (view.actors || []).filter((actor) => actorNeedsHealing(actor));
+      const residentTargets = (view.actors || []).filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active");
+      const giveTargetIds = new Set();
+      const attackTargetIds = new Set((view.actors || [])
+        .filter((actor) => actor.id !== actorId && actor.status === "active")
+        .map((actor) => actor.id));
+      if (options.has("give_item")) {
+        for (const target of residentTargets) {
+          const targetItems = heldEvolutionItems.filter((item) => evolutionItemMatchesResident(item.id, target.id));
+          for (const item of targetItems) {
+            giveTargetIds.add(target.id);
+            built.push({
+              label: "give item",
+              detail: `${item.name} to ${actorLabel(target)}`,
+              focusKey: `actor:${target.id}`,
+              card: cardForItem(item.id),
+              shape: "item",
+              run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: target.id }),
+            });
+          }
+        }
+        for (const item of heldEvolutionItems) {
+          const defaultTarget = residentTargets.find((target) => evolutionItemMatchesResident(item.id, target.id));
+          if (!defaultTarget) continue;
+          built.push({
+            label: "give item",
+            detail: `${item.name} to ${actorLabel(defaultTarget)}`,
+            focusKey: `item:${item.id}`,
+            card: cardForItem(item.id),
+            shape: "item",
+            run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: defaultTarget.id }),
+          });
+        }
+      }
+      for (const actor of view.actors || []) {
+        if (actor.id === actorId || actor.kind !== "npc") continue;
+        if (!canChat) continue;
+        const actorCard = cardForActor(actor.id);
+        built.push({
+          label: "chat",
+          detail: actorCard?.title ? `${actorLabel(actor)} / ${actorCard.title}` : actorLabel(actor),
+          focusKey: giveTargetIds.has(actor.id) || options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`,
+          card: actorCard,
+          shape: "avatar",
+          run: () => chatWith(actor.id),
+        });
+      }
+      built.push(...accountActions);
+      if (options.has("pick_up")) {
+        for (const item of view.items || []) {
+          if (!item.location_id) continue;
+          built.push({
+            label: "take",
+            detail: item.name,
+            focusKey: `item:${item.id}`,
+            card: cardForItem(item.id),
+            shape: "item",
+            run: () => action("/actions/pick-up", { actor_id: actorId, item_id: item.id }),
+          });
+        }
+      }
+      for (const exit of view.exits || []) {
+        if (exit.locked) continue;
+        if (exit.accessible === false) {
+          if (!view.access?.owner_wallet_address) {
+            built.push({
+              label: "connect wallet",
+              detail: exit.destination_location_name,
+              focusKey: `wallet:${exit.destination_location_id}`,
+              card: cardForLocation(exit.destination_location_id),
+              shape: "location",
+              run: () => connectWallet(),
+            });
+          }
+          continue;
+        }
+        const escaping = options.has("flee");
+        if (escaping || options.has("move")) {
+          built.push({
+            label: escaping ? "flee" : "travel",
+            detail: exit.destination_location_name,
+            focusKey: `exit:${exit.destination_location_id}`,
+            card: cardForLocation(exit.destination_location_id),
+            shape: "location",
+            run: () => action(escaping ? "/actions/flee" : "/actions/move", { actor_id: actorId, destination_location_id: exit.destination_location_id }),
+          });
+        }
+      }
+      if (options.has("use_item")) {
+        for (const item of heldUsableItems) {
+          usableTargets.forEach((target, index) => {
+            built.push({
+              label: "use",
+              detail: `${item.name} on ${actorLabel(target)}`,
+              focusKey: index === 0 ? `item:${item.id}` : `use:${item.id}:${target.id}`,
+              card: cardForItem(item.id),
+              shape: "item",
+              run: () => action("/actions/use-item", { actor_id: actorId, item_id: item.id, target_actor_id: target.id }),
+            });
+          });
+        }
+      }
+      if (options.has("attack")) {
+        for (const actor of view.actors || []) {
+          if (!attackTargetIds.has(actor.id)) continue;
+          built.push({
+            label: "attack",
+            detail: actorLabel(actor),
+            focusKey: `actor:${actor.id}`,
+            card: cardForActor(actor.id),
+            shape: "avatar",
+            run: () => action("/actions/attack", { actor_id: actorId, target_actor_id: actor.id }),
+          });
+        }
+      }
+      if (options.has("defend")) {
+        built.push({ label: "defend", detail: "Brace.", focusKey: "defend", card: cardForActor(actorId), shape: "avatar", run: () => action("/actions/defend", { actor_id: actorId }) });
+      }
+      const listenCanHelp = canChat || economy.listen_reward_claimable !== false;
+      if (options.has("check") && listenCanHelp) {
+        built.push({ label: "listen", detail: "Read the room.", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+      }
+      if (!canChat && options.has("chat") && !built.length) {
+        built.push({
+          label: "connect ai",
+          detail: "OpenRouter or earn Orbs",
+          focusKey: "connect-ai",
+          card: cardForActor(actorId) || cardForLocation(view.location?.id),
+          shape: "avatar",
+          run: () => connectOpenRouter(),
+        });
+      }
+      if (!built.length) built.push({ label: "wait", detail: "", focusKey: "wait", run: async () => {} });
+      return built;
+    }
+
+    function buildAccountActions(view) {
+      const access = view.access || {};
+      const signed = access.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
+      if (!signed) return [];
+      const boxes = Array.isArray(access.owned_box_ids) ? access.owned_box_ids : [];
+      const packs = Array.isArray(access.unopened_pack_ids) ? access.unopened_pack_ids : [];
+      const actions = [];
+      for (const packId of packs) {
+        actions.push({
+          label: "open pack",
+          detail: compactAssetId(packId),
+          focusKey: `account:pack:${packId}`,
+          card: accountCard("Avatar Pack"),
+          shape: "item",
+          account: true,
+          run: () => openPack(packId),
+        });
+      }
+      for (const boxId of boxes) {
+        actions.push({
+          label: "open box",
+          detail: compactAssetId(boxId),
+          focusKey: `account:box:${boxId}`,
+          card: accountCard("Wooden Box"),
+          shape: "item",
+          account: true,
+          run: () => openBox(boxId),
+        });
+      }
+      return actions;
+    }
+
+    async function connectWallet() {
+      const provider = window.solana;
+      if (!provider?.connect || !provider?.signMessage) {
+        setError("Solana wallet is not available.");
+        return;
+      }
+      const connected = await provider.connect();
+      const publicKey = connected?.publicKey || provider.publicKey;
+      const nextWallet = publicKey?.toString?.() || "";
+      if (!nextWallet) {
+        setError("Wallet connection failed.");
+        return;
+      }
+      const challenge = await api(`/wallet/challenge?wallet_address=${encodeURIComponent(nextWallet)}`);
+      if (!challenge.ok) {
+        setError("Wallet challenge failed.");
+        return;
+      }
+      const encoded = new TextEncoder().encode(challenge.message);
+      const signed = await provider.signMessage(encoded, "utf8");
+      const signature = Array.from(signed?.signature || signed || []);
+      const session = await post("/wallet/session", {
+        wallet_address: nextWallet,
+        nonce: challenge.nonce,
+        signature,
+      });
+      if (!session.ok || !session.wallet_session) {
+        setError(session.error || "Wallet signature rejected.");
+        return;
+      }
+      walletAddress = session.wallet_address || nextWallet;
+      walletSession = session.wallet_session;
+      localStorage.setItem("cosyworld.wallet", walletAddress);
+      localStorage.setItem("cosyworld.walletSession", walletSession);
+      focusIndex = 0;
+      focusedKey = "";
+      await refresh();
+      connectStream();
+    }
+
+    async function connectOpenRouter() {
+      const key = window.prompt("Paste an OpenRouter API key for CosyWorld Chat.");
+      if (!key || !key.trim()) return;
+      setError("");
+      const verified = await post("/ai/openrouter/verify", { api_key: key.trim() });
+      if (!verified.ok) {
+        setError(verified.error || "OpenRouter key could not be verified.");
+        return;
+      }
+      openrouterApiKey = key.trim();
+      openrouterLabel = verified.label || "OpenRouter";
+      localStorage.setItem("cosyworld.openrouterApiKey", openrouterApiKey);
+      localStorage.setItem("cosyworld.openrouterLabel", openrouterLabel);
+      await refresh();
+    }
+
+    async function openBox(boxAssetAddress) {
+      if (!walletSession) {
+        await connectWallet();
+        return;
+      }
+      setError("");
+      const prepared = await post("/nft/boxes/burn-prepare", {
+        wallet_session: walletSession,
+        box_asset_address: boxAssetAddress,
+      });
+      if (!prepared.ok) {
+        throw new Error(prepared.error || "Box cannot be opened.");
+      }
+      let packId = prepared.pack_id || "";
+      if (!String(prepared.burn_message || "").startsWith("Box already")) {
+        const burnSignature = await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
+        const confirmed = await post("/nft/boxes/burn-confirm", {
+          wallet_session: walletSession,
+          box_asset_address: boxAssetAddress,
+          burn_signature: burnSignature,
+        });
+        if (!confirmed.ok) {
+          throw new Error(confirmed.error || "Box burn could not be recorded.");
+        }
+        packId = confirmed.receipt?.pack_id || packId;
+      }
+      if (!packId) throw new Error("Box did not create a pack.");
+      await openPack(packId);
+    }
+
+    async function openPack(packId) {
+      if (!walletSession) {
+        await connectWallet();
+        return;
+      }
+      setError("");
+      const opened = await post("/nft/packs/open", {
+        wallet_session: walletSession,
+        pack_id: packId,
+      });
+      if (!opened.ok) {
+        throw new Error(opened.error || "Pack could not be opened.");
+      }
+      const cards = opened.opening?.card_ids || [];
+      setStatus(cards.length ? `Opened pack: ${cards.join(", ")}` : "Opened pack.", "ok");
+      focusIndex = 0;
+      focusedKey = "";
+      accountPanelPinned = true;
+      await refresh();
+    }
+
+    async function signWalletMessage(message) {
+      const provider = window.solana;
+      if (!provider?.signMessage) {
+        throw new Error("Solana wallet signature is needed to open a Box.");
+      }
+      const encoded = new TextEncoder().encode(message);
+      const signed = await provider.signMessage(encoded, "utf8");
+      const bytes = Array.from(signed?.signature || signed || []);
+      if (!bytes.length) throw new Error("Wallet did not return a signature.");
+      return bytesToHex(bytes);
+    }
+
+    function bytesToHex(bytes) {
+      return bytes
+        .map((byte) => Number(byte).toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function chatWith(targetActorId) {
+      await action("/actions/chat", {
+        actor_id: actorId,
+        target_actor_id: targetActorId,
+        ...(hasOpenRouterKey() ? { openrouter_api_key: openrouterApiKey } : {}),
+      });
+    }
+
+    async function action(path, payload) {
+      setError("");
+      const result = await post(path, withAccess(payload));
+      pushEvents(result.events || []);
+      if (!result.ok) {
+        if (result.status === 402) setError("Chat needs Orbs or a connected OpenRouter key.");
+        else if (result.status === 502) setError("OpenRouter could not answer that turn.");
+        else setError("That does not work here.");
+      }
+      focusIndex = 0;
+      focusedKey = "";
+      await refresh();
+    }
+
+    function pushEvents(events) {
+      let changed = false;
+      for (const event of events) {
+        if (!event || seenSeq.has(event.seq)) continue;
+        seenSeq.add(event.seq);
+        if (event.type === "world.bootstrapped") continue;
+        logEvents.push(event);
+        changed = true;
+      }
+      logEvents = logEvents.slice(-60);
+      return changed;
+    }
+
+    function rebuildLog(events) {
+      logEvents = [];
+      for (const event of events) {
+        if (!event || event.type === "world.bootstrapped") continue;
+        seenSeq.add(event.seq);
+        logEvents.push(event);
+      }
+      logEvents = logEvents.slice(-60);
+    }
+
+    function eventMatchesCurrentLocation(event) {
+      const locationId = state?.location?.id;
+      if (!locationId || !event) return true;
+      return event.location_id === locationId || event.destination_location_id === locationId;
+    }
+
+    function eventShouldRefreshState(event) {
+      if (!event) return false;
+      return event.type === "world.reset"
+        || event.type === "actor.created"
+        || event.type === "actor.entered_location"
+        || event.type === "actor.moved"
+        || event.type === "move.blocked"
+        || event.type === "item.picked_up"
+        || event.type === "item.used"
+        || event.type === "item.given"
+        || event.type === "avatar.evolved"
+        || event.type === "rule.rejected"
+        || event.type === "combat.defend"
+        || event.type === "combat.attack.attempt"
+        || event.type === "combat.attack.hit"
+        || event.type === "combat.attack.miss"
+        || event.type === "combat.knockout"
+        || event.type === "combat.flee.success";
+    }
+
+    function connectStream() {
+      if (stream) stream.close();
+      stream = new EventSource(streamPath());
+      stream.addEventListener("world", (message) => {
+        let event = null;
+        try {
+          event = JSON.parse(message.data);
+        } catch {
+          return;
+        }
+        if (event.type === "world.reset") {
+          seenSeq.clear();
+          rebuildLog([event]);
+          renderLog();
+          queueRefresh();
+          return;
+        }
+        if (eventMatchesCurrentLocation(event)) {
+          const changed = pushEvents([event]);
+          if (changed) renderLog();
+        }
+        if (eventShouldRefreshState(event)) queueRefresh();
+      });
+      stream.onerror = () => setError("Live connection is retrying.");
+    }
+
+    function render() {
+      const location = state.location || {};
+      const me = (state.actors || []).find((actor) => actor.id === actorId);
+      const locationCard = cardForLocation(location.id);
+      const locationImage = $("location-image");
+      locationImage.src = cardImage(locationCard) || fallbackCardImage(locationCard || { display_name: location.name || "Location", aspect: "wide", role: "location" });
+      locationImage.alt = locationCard?.display_name || location.name || "";
+      $("subtitle").textContent = location.name || "Unknown";
+      $("brand").textContent = channelName(location.name || "cosyworld");
+      renderEconomy();
+      $("avatar").textContent = me ? `${actorLabel(me)} / ${me.title || "traveler"}` : "";
+      $("location-name").textContent = location.name || "Unknown";
+      $("location-copy").textContent = copyForLocation(location.id);
+      $("presence").innerHTML = presenceHtml(state, me);
+      renderLog();
+      renderCommands();
+    }
+
+    function renderEconomy() {
+      const economy = state?.economy || {};
+      const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
+      const boxes = state?.access?.owned_box_ids?.length || 0;
+      const packs = state?.access?.unopened_pack_ids?.length || 0;
+      const parts = [`<strong>${orbs}</strong> orbs`];
+      if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
+      if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
+      const economyNode = $("economy");
+      economyNode.innerHTML = parts.join(" · ");
+      economyNode.setAttribute("aria-label", boxes || packs
+        ? `Focus account inventory with ${orbs} Orbs, ${boxes} Boxes, and ${packs} unopened packs`
+        : `Account has ${orbs} Orbs`);
+      economyNode.classList.toggle("focused", Boolean(focusedAction()?.account || accountPanelPinned));
+    }
+
+    function presenceHtml(view, me) {
+      const parts = [];
+      for (const actor of view.actors || []) {
+        const you = actor.id === actorId;
+        const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
+        const evolved = actor.stats?.level > 1;
+        const key = you ? "" : `actor:${actor.id}`;
+        parts.push(chipHtml({
+          label,
+          classes: `${you ? " you" : ""}${evolved ? " evolved" : ""}`,
+          key,
+          card: cardForActor(actor.id),
+          shape: "avatar",
+        }));
+      }
+      for (const item of view.items || []) {
+        if (item.location_id || item.holder_actor_id === actorId) {
+          const held = item.holder_actor_id === actorId;
+          parts.push(chipHtml({
+            label: held ? `${item.name} (held)` : item.name,
+            classes: " item",
+            key: `item:${item.id}`,
+            card: cardForItem(item.id),
+            shape: "item",
+          }));
+        }
+      }
+      for (const exit of view.exits || []) {
+        if (!exit.locked) {
+        parts.push(chipHtml({
+          label: exit.destination_location_name,
+          classes: ` path${exit.accessible === false ? " locked" : ""}`,
+          key: exit.accessible === false
+            ? (!view.access?.owner_wallet_address ? `wallet:${exit.destination_location_id}` : "")
+            : `exit:${exit.destination_location_id}`,
+          card: cardForLocation(exit.destination_location_id),
+          shape: "location",
+        }));
+        }
+      }
+      if (!parts.length && me) parts.push(chipHtml({ label: me.name, classes: " you", card: cardForActor(me.id), shape: "avatar" }));
+      return parts.join("");
+    }
+
+    function chipHtml({ label, classes = "", key = "", card = null, shape = "item" }) {
+      const index = key ? actions.findIndex((action) => action.focusKey === key) : -1;
+      const selectable = index >= 0;
+      const focused = selectable && index === focusIndex && !state?.branch;
+      const attrs = selectable ? ` data-focus-index="${index}" role="button" tabindex="0"` : "";
+      const image = cardImage(card) || (card ? fallbackCardImage(card) : "");
+      const thumb = image ? `<span class="chip-thumb ${escapeAttr(shape)}" style="background-image:url('${escapeAttr(image)}')"></span>` : "";
+      return `<span class="chip${classes}${selectable ? " focusable" : ""}${focused ? " focused" : ""}"${attrs}>${thumb}<span>${escapeHtml(label)}</span></span>`;
+    }
+
+    function renderLog() {
+      const log = $("log");
+      const accountPanel = accountPanelHtml();
+      if (!logEvents.length) {
+        log.innerHTML = `${accountPanel}<div class="line world"><span class="speaker">world</span><span class="text">${escapeHtml(openingBeat(state))}</span></div>`;
+        if (accountPanel) log.scrollTop = 0;
+        return;
+      }
+      log.innerHTML = `${accountPanel}${logEvents.map(messageHtml).join("")}`;
+      log.scrollTop = accountPanel ? 0 : log.scrollHeight;
+    }
+
+    function accountPanelHtml() {
+      if (!focusedAction()?.account && !accountPanelPinned) return "";
+      if (!hasAccountPanelContent()) return "";
+      const account = state?.account || {};
+      const wallet = account.wallet_address || state?.access?.owner_wallet_address || "";
+      const boxes = Array.isArray(account.active_box_ids) ? account.active_box_ids : [];
+      const packs = Array.isArray(account.unopened_pack_ids) ? account.unopened_pack_ids : [];
+      const receipts = Array.isArray(account.recent_box_receipts) ? account.recent_box_receipts : [];
+      const openings = Array.isArray(account.recent_pack_openings) ? account.recent_pack_openings : [];
+      const rows = [
+        accountRow("boxes", boxes.length ? boxes.map(compactAssetId).join(", ") : "none"),
+        accountRow("packs", packs.length ? packs.map(compactAssetId).join(", ") : "none"),
+      ];
+      for (const receipt of receipts.slice(0, 3)) {
+        rows.push(accountRow("burn", `${compactAssetId(receipt.box_asset_address)} -> ${compactAssetId(receipt.pack_id)} / ${receipt.verification_status || "receipt"}`));
+      }
+      for (const opening of openings.slice(0, 3)) {
+        const cards = (opening.card_ids || []).map(cardDisplayName).join(", ");
+        rows.push(accountRow("reveal", `${compactAssetId(opening.pack_id)} -> ${cards || "cards"}`));
+      }
+      if (!rows.length) rows.push(accountRow("account", "nothing waiting"));
+      return `<div class="account-panel" aria-label="Account inventory and provenance"><div class="account-title"><span>account inventory</span><span class="account-wallet">${escapeHtml(compactAssetId(wallet) || "wallet")}</span></div>${rows.join("")}</div>`;
+    }
+
+    function accountRow(key, value) {
+      const empty = value === "none" || value === "nothing waiting";
+      return `<div class="account-row"><span class="account-key">${escapeHtml(key)}</span><span class="account-value${empty ? " account-empty" : ""}">${escapeHtml(value)}</span></div>`;
+    }
+
+    function cardDisplayName(cardId) {
+      for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations]) {
+        if (!group) continue;
+        for (const card of Object.values(group)) {
+          if (card?.card_id === cardId) return card.display_name || cardId;
+        }
+      }
+      return cardId;
+    }
+
+    function hasAccountPanelContent() {
+      const account = state?.account || {};
+      return Boolean(
+        account.wallet_address
+          || (account.active_box_ids || []).length
+          || (account.unopened_pack_ids || []).length
+          || (account.recent_box_receipts || []).length
+          || (account.recent_pack_openings || []).length
+      );
+    }
+
+    function openingBeat(view) {
+      const locationId = view?.location?.id;
+      if (locationId === 1) {
+        const names = new Set((view.actors || []).map((actor) => actor.name));
+        const pieces = ["Firelight warms The Cosy Cottage; rain taps the windows and the low doorway waits."];
+        if (names.has("Rati")) pieces.push("Rati knits a blue scarf near the hearth.");
+        else pieces.push("Rati's blue scarf basket marks the chair where she often sits.");
+        if (names.has("Whiskerwind")) pieces.push("Whiskerwind gathers weather into bright little symbols.");
+        if (names.has("Skull")) pieces.push("Skull keeps silent watch by the door.");
+        return pieces.join(" ");
+      }
+      if (locationId === 2) return "Rain beads on the garden leaves. A small pearled button catches the light.";
+      if (locationId === 3) return "Moonlight silvers the trail. The air here is sharper, and choices carry farther.";
+      if (locationId === 10) return "Science Class hums with shared observations, bright benches, and questions waiting to be tested.";
+      if (locationId === 11) return "Homeroom waits with front-door morning light and the sense that every question gets a seat.";
+      if (locationId === 12) return "Library quiet gathers around the shelves; if it matters, someone wrote it down.";
+      if (locationId === 13) return "Cafeteria tables hold the soft thunder of commons diplomacy.";
+      if (locationId === 14) return "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
+      if (locationId === 15) return "Courtyard paths cross under open sky; every hallway seems to lead back here.";
+      return "The shard hums softly.";
+    }
+
+    function messageHtml(event) {
+      const speaker = event.actor_name || "CosyWorld";
+      const body = eventText(event);
+      const kind = event.actor_id === actorId ? "you" : event.actor_id ? "npc" : "world";
+      const label = eventAriaLabel(event, speaker, body);
+      const attrs = label ? ` aria-label="${escapeAttr(label)}"` : "";
+      return `<div class="line ${kind}"${attrs}><span class="speaker">${escapeHtml(speaker)}</span><span class="text">${escapeHtml(body)}</span></div>`;
+    }
+
+    function eventAriaLabel(event, speaker, body) {
+      if (event.type === "message.created" && event.actor_id === 1002) {
+        return `${speaker} speaks in emoji-only weather symbols: ${emojiWords(body)}`;
+      }
+      return "";
+    }
+
+    function emojiWords(value) {
+      const names = {
+        "🌧️": "rain cloud",
+        "🌧": "rain cloud",
+        "🫖": "teapot",
+        "✨": "sparkles",
+        "🧶": "yarn",
+        "☁️": "cloud",
+        "☁": "cloud",
+        "🫧": "bubbles",
+        "🌙": "moon",
+        "🪡": "needle",
+        "🧵": "thread",
+        "❄️": "snowflake",
+        "❄": "snowflake",
+        "🌿": "leaf",
+      };
+      const parts = [];
+      for (const [emoji, label] of Object.entries(names)) {
+        if (value.includes(emoji)) parts.push(label);
+      }
+      return parts.length ? parts.join(", ") : "symbols";
+    }
+
+    function eventText(event) {
+      if (event.type === "message.created") return event.content || "";
+      if (event.type === "world.reset") return "the world returns to its first page.";
+      if (event.type === "actor.created") return `enters ${event.location_name}.`;
+      if (event.type === "actor.entered_location") return `arrives in ${event.location_name}.`;
+      if (event.type === "actor.moved") return `moves from ${event.location_name} to ${event.destination_location_name}.`;
+      if (event.type === "move.blocked") return `cannot reach ${event.destination_location_name}.`;
+      if (event.type === "item.picked_up") return `takes ${event.item_name}.`;
+      if (event.type === "item.used") {
+        const target = event.target_actor_name ? ` on ${event.target_actor_name}` : "";
+        const healed = event.damage < 0 ? ` restores ${Math.abs(event.damage)} hp.` : ".";
+        return `uses ${event.item_name}${target}.${healed}`;
+      }
+      if (event.type === "item.given") return `gives ${event.item_name} to ${event.target_actor_name}.`;
+      if (event.type === "avatar.evolved") return `${event.target_actor_name} evolves to level ${event.total || 2}.`;
+      if (event.type === "branch.opened") return `opens a choice with ${event.target_actor_name}.`;
+      if (event.type === "branch.resolved") return `settles a choice with ${event.target_actor_name}.`;
+      if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
+      if (event.type === "ability_check.rolled") return `listens carefully. roll ${event.total} vs dc ${event.dc}.`;
+      if (event.type === "combat.defend") return `defends.`;
+      if (event.type === "combat.attack.attempt") return `attacks ${event.target_actor_name}. roll ${event.total} vs ac ${event.dc}.`;
+      if (event.type === "combat.attack.hit") return `hits ${event.target_actor_name} for ${event.damage} damage. ${event.current_hp} hp remains.`;
+      if (event.type === "combat.attack.miss") return `misses ${event.target_actor_name}.`;
+      if (event.type === "combat.knockout") return `${event.target_actor_name} is knocked out.`;
+      if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}.`;
+      if (event.type === "rule.rejected") return `hesitates.`;
+      return event.type;
+    }
+
+    function cardForActor(id) {
+      return state?.cards?.actors?.[String(id)] || null;
+    }
+
+    function cardForItem(id) {
+      return state?.cards?.items?.[String(id)] || null;
+    }
+
+    function cardForLocation(id) {
+      return state?.cards?.locations?.[String(id)] || null;
+    }
+
+    function accountCard(displayName) {
+      return {
+        display_name: displayName,
+        role: "item",
+        aspect: "square",
+        image_url: "",
+      };
+    }
+
+    function cardImage(card) {
+      return card?.image_url || "";
+    }
+
+    function shapeForCard(card, fallback = "item") {
+      if (card?.aspect === "wide" || card?.role === "location") return "location";
+      if (card?.aspect === "tall" || card?.role === "avatar" || card?.role === "resident" || card?.role === "teacher") return "avatar";
+      if (card?.aspect === "square" || card?.role === "item") return "item";
+      return fallback;
+    }
+
+    function thumbnailHtml(action) {
+      const card = action.card || null;
+      const shape = action.shape || shapeForCard(card);
+      const image = cardImage(card);
+      const label = initials(card?.display_name || action.label || "?");
+      if (image) {
+        return `<span class="thumb ${escapeAttr(shape)}" style="background-image:url('${escapeAttr(image)}')"></span>`;
+      }
+      return `<span class="thumb ${escapeAttr(shape)}">${escapeHtml(label)}</span>`;
+    }
+
+    function fallbackCardImage(card) {
+      const name = card?.display_name || "CosyWorld";
+      const role = card?.role || "card";
+      const color = role === "location" ? "#1a3d2a" : role === "item" ? "#3b2f1a" : "#203047";
+      const text = initials(name);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="${color}"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4"/><text x="160" y="104" text-anchor="middle" font-family="monospace" font-size="56" font-weight="800" fill="#d8f7dc">${escapeSvg(text)}</text></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
+    function initials(value) {
+      const words = String(value || "?").trim().split(/\s+/).filter(Boolean);
+      if (!words.length) return "?";
+      return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+    }
+
+    function compactAssetId(value) {
+      const text = String(value || "");
+      if (text.length <= 18) return text;
+      return `${text.slice(0, 8)}...${text.slice(-6)}`;
+    }
+
+    function actorLabel(actor) {
+      const level = actor?.stats?.level || 1;
+      return `${actor?.name || "Someone"}${level > 1 ? ` lv${level}` : ""}`;
+    }
+
+    function actorNeedsHealing(actor) {
+      const hp = Number(actor?.hp ?? 0);
+      const maxHp = Number(actor?.stats?.hp_base ?? 0);
+      return actor?.status === "knocked_out" || (actor?.status === "active" && maxHp > 0 && hp < maxHp);
+    }
+
+    function evolutionItemMatchesResident(itemId, actorId) {
+      if (actorId === 1001) return itemId === 2004 || itemId === 2005;
+      if (actorId === 1002) return itemId === 2002 || itemId === 2003;
+      if (actorId === 1003) return itemId === 2006 || itemId === 2007;
+      return false;
+    }
+
+    function focusedAction() {
+      if (!actions.length) return null;
+      if (focusIndex < 0 || focusIndex >= actions.length) focusIndex = 0;
+      return actions[focusIndex] || actions[0] || null;
+    }
+
+    function restoreFocusedAction() {
+      if (!actions.length) {
+        focusIndex = 0;
+        focusedKey = "";
+        return;
+      }
+      if (focusedKey) {
+        const index = actions.findIndex((action) => action.focusKey === focusedKey);
+        if (index >= 0) {
+          focusIndex = index;
+          return;
+        }
+      }
+      if (focusIndex >= actions.length) focusIndex = 0;
+      focusedKey = actions[focusIndex]?.focusKey || "";
+    }
+
+    function focusAction(index) {
+      if (!actions.length) return;
+      accountPanelPinned = false;
+      focusIndex = ((index % actions.length) + actions.length) % actions.length;
+      focusedKey = actions[focusIndex]?.focusKey || "";
+      render();
+    }
+
+    function focusActionByKey(key) {
+      const index = actions.findIndex((action) => action.focusKey === key);
+      if (index < 0) return false;
+      focusAction(index);
+      return true;
+    }
+
+    function renderButton(id, action) {
+      const button = $(id);
+      if (!action) {
+        button.disabled = true;
+        button.removeAttribute("aria-busy");
+        button.innerHTML = `<span class="cmd-copy"><span class="cmd-label">wait</span></span>`;
+        return;
+      }
+      button.disabled = Boolean(action.busy);
+      if (action.busy) button.setAttribute("aria-busy", "true");
+      else button.removeAttribute("aria-busy");
+      const count = id === "primary" && !state?.branch && actions.length > 1 ? ` ${focusIndex + 1}/${actions.length}` : "";
+      const detail = `${action.detail || ""}${count}`.trim();
+      button.innerHTML = `${thumbnailHtml(action)}<span class="cmd-copy"><span class="cmd-label">${escapeHtml(action.label.toLowerCase())}</span>${detail ? `<span class="detail">${escapeHtml(detail)}</span>` : ""}</span>`;
+    }
+
+    function renderCommands() {
+      const prompt = document.querySelector(".prompt");
+      if (actionBusy) {
+        prompt.classList.remove("choice-mode");
+        const detail = pendingAction?.detail || pendingAction?.label || "working";
+        renderButton("primary", {
+          ...(pendingAction || {}),
+          label: "...",
+          detail,
+          busy: true,
+        });
+        renderButton("secondary", null);
+        $("secondary").style.display = "none";
+        return;
+      }
+      const choiceMode = Boolean(state?.branch && actions.length > 1);
+      prompt.classList.toggle("choice-mode", choiceMode);
+      renderButton("primary", choiceMode ? actions[0] : focusedAction());
+      renderButton("secondary", choiceMode ? actions[1] : null);
+      $("secondary").style.display = choiceMode && actions[1] ? "flex" : "none";
+    }
+
+    async function runAction(action) {
+      if (actionBusy) return;
+      actionBusy = true;
+      pendingAction = action;
+      renderCommands();
+      try {
+        await action.run();
+      } catch (error) {
+        setError(String(error.message || error));
+      } finally {
+        actionBusy = false;
+        pendingAction = null;
+        render();
+      }
+    }
+
+    function copyForLocation(id) {
+      if (id === 1) return "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.";
+      if (id === 2) return "Rain beads on broad leaves. Something small and pearled waits in the grass.";
+      if (id === 3) return "The path shines under cold moonlight. The air permits sharper choices.";
+      return "The shard hums softly.";
+    }
+
+    function channelName(name) {
+      return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+
+    function setError(message) {
+      setStatus(message, "error");
+    }
+
+    function setStatus(message, kind = "error") {
+      const node = $("error");
+      node.textContent = message;
+      node.classList.toggle("ok", Boolean(message) && kind === "ok");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("'", "&#39;");
+    }
+
+    function escapeSvg(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    $("presence").addEventListener("click", (event) => {
+      const chip = event.target.closest("[data-focus-index]");
+      if (!chip) return;
+      focusAction(Number(chip.getAttribute("data-focus-index") || 0));
+    });
+
+    const locationPill = document.querySelector(".location-pill");
+    locationPill.addEventListener("click", () => {
+      focusActionByKey("check");
+    });
+    locationPill.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      focusActionByKey("check");
+    });
+
+    const economyPill = $("economy");
+    economyPill.addEventListener("click", () => {
+      focusFirstAccountAction();
+    });
+    economyPill.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      focusFirstAccountAction();
+    });
+
+    function focusFirstAccountAction() {
+      const accountAction = actions.find((action) => action.account);
+      if (accountAction) return focusActionByKey(accountAction.focusKey);
+      if (!hasAccountPanelContent()) return false;
+      accountPanelPinned = true;
+      render();
+      return true;
+    }
+
+    $("primary").addEventListener("click", () => {
+      const action = state?.branch ? actions[0] : focusedAction();
+      if (action) runAction(action);
+    });
+
+    $("secondary").addEventListener("click", () => {
+      if (state?.branch && actions[1]) runAction(actions[1]);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const action = state?.branch ? actions[0] : focusedAction();
+        if (action) runAction(action);
+      } else if (event.key === " ") {
+        event.preventDefault();
+        if (state?.branch && actions[1]) runAction(actions[1]);
+      } else if (event.key === "Tab" || event.key === "ArrowRight") {
+        event.preventDefault();
+        focusAction(focusIndex + 1);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        focusAction(focusIndex - 1);
+      }
+    });
+
+    window.addEventListener("pagehide", leavePresence);
+    window.addEventListener("beforeunload", leavePresence);
+
+    (async function boot() {
+      try {
+        await requestDevResetIfNeeded();
+        await refresh();
+        connectStream();
+      } catch (error) {
+        setError(String(error.message || error));
+      }
+    })();
+  </script>
+</body>
+</html>

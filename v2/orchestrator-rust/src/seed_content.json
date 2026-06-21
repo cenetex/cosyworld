@@ -1,0 +1,85 @@
+{
+  "actors": [
+    {
+      "id": 1001,
+      "name": "Rati",
+      "speech_mode": "prose",
+      "title": "Knitter of Blue Stories",
+      "description": "A warm mouse who collects small noticed things into stories."
+    },
+    {
+      "id": 1002,
+      "name": "Whiskerwind",
+      "speech_mode": "emoji_only",
+      "title": "Emoji Weather Tongue",
+      "description": "A wind-bright resident who speaks only in symbols."
+    },
+    {
+      "id": 1003,
+      "name": "Skull",
+      "speech_mode": "emote_only",
+      "title": "Silent Hearth Wolf",
+      "description": "A watchful wolf whose silence is part of the room."
+    },
+    {
+      "id": 1004,
+      "name": "Moonlit Echo",
+      "speech_mode": "silent",
+      "title": "Sparring Reflection",
+      "description": "A soft practice shape on the trail, bright enough to test courage."
+    }
+  ],
+  "items": [
+    {
+      "id": 2001,
+      "name": "Hearth Tonic",
+      "description": "A warm, soulbound potion with one gentle charge."
+    },
+    {
+      "id": 2002,
+      "name": "Dewbright Button",
+      "description": "A tiny pearled button that hums with first-step magic."
+    },
+    {
+      "id": 2003,
+      "name": "Wolfprint Charm",
+      "description": "A cool iron charm marked with a careful pawprint."
+    },
+    {
+      "id": 2004,
+      "name": "Moonwool Thread",
+      "description": "A silvery strand that remembers stories told after rain."
+    },
+    {
+      "id": 2005,
+      "name": "Story Button",
+      "description": "A warm wooden button with a tiny tale tucked under its rim."
+    },
+    {
+      "id": 2006,
+      "name": "Hearthstone Tag",
+      "description": "A smooth tag cut from warm stone and quiet promises."
+    },
+    {
+      "id": 2007,
+      "name": "Watch Bell",
+      "description": "A mute little bell that rings only for those keeping watch."
+    }
+  ],
+  "locations": [
+    { "id": 1, "name": "The Cosy Cottage", "allow_combat": false },
+    { "id": 2, "name": "Rain-Soft Garden", "allow_combat": false },
+    { "id": 3, "name": "Moonlit Trail", "allow_combat": true },
+    { "id": 10, "name": "Science Class", "allow_combat": false },
+    { "id": 11, "name": "Homeroom", "allow_combat": false },
+    { "id": 12, "name": "Library", "allow_combat": false },
+    { "id": 13, "name": "Cafeteria", "allow_combat": false },
+    { "id": 14, "name": "Greenhouse", "allow_combat": false },
+    { "id": 15, "name": "Courtyard", "allow_combat": false }
+  ],
+  "evolution_tracks": [
+    { "actor_id": 1001, "item_ids": [2004, 2005] },
+    { "actor_id": 1002, "item_ids": [2002, 2003] },
+    { "actor_id": 1003, "item_ids": [2006, 2007] }
+  ]
+}

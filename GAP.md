@@ -1,0 +1,431 @@
+# CosyWorld 2.0 Code Gap Analysis
+
+## Scope
+
+This compares the current `v2/` implementation against `PRD.md`, `ENG.md`, and the current product direction:
+
+- humans generate an avatar before play;
+- humans do not type or choose dialogue text;
+- `Chat` asks the server to author one in-character player-avatar line;
+- locations are shared channels;
+- cards/NFT ownership unlocks shared locations rather than private rooms;
+- world mutation passes through the C kernel.
+
+The legacy Node/Discord app remains useful reference material. The current MVP implementation lives in `v2/core-c`, `v2/orchestrator-rust`, `v2/cli`, and `v2/scripts`.
+
+## Status Legend
+
+- `Proven`: implemented and covered by tests or smoke.
+- `Partial`: implemented enough for local MVP, but not production complete.
+- `Missing`: not meaningfully implemented.
+- `Risk`: current behavior could undermine the product direction if left unchanged.
+
+## Executive Summary
+
+CosyWorld v2 has crossed from sketch to playable local MVP. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, one-button browser MUD UI, terminal client, avatar gate, server-authored Chat, Ruby High card projection, wallet-gated shared locations, item pickup/gifting, level 2 resident evolution, combat primitives, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
+
+The biggest remaining gaps are production hardening and product polish rather than missing core loop:
+
+- Replace local/dev ownership feeds with the production Ruby High wallet export path in deployment.
+- Continue splitting Rust domain/projection code into modules before adding larger systems.
+- Add production moderation/abuse controls for a single shared world.
+- Move generated human avatar art from deterministic SVG into the OpenRouter/card media pipeline.
+- Extend the current combat/challenge loop beyond the Moonlit Trail sparring slice.
+- Add production burn transaction building, reconciliation against Ruby High/chain state, and account UI for Box burns and avatar pack reveals.
+- Move resident placement from boot/refresh recalculation toward scheduled audited world actions.
+- Expand combat/conditions only where they serve the MUD experience, not as a dashboard.
+
+## Proven MVP Surfaces
+
+### C Kernel Rules
+
+Status: `Proven`.
+
+Evidence:
+
+- `v2/core-c/include/cosy_kernel.h`
+- `v2/core-c/src/cosy_kernel.c`
+- `v2/core-c/tests/test_kernel.c`
+- `./v2/mvp.sh check` compiles and runs the kernel test.
+
+Implemented:
+
+- World bootstrap.
+- Actor creation with stats.
+- Room speech events by content id.
+- Movement through declared exits.
+- Gated/blocked movement.
+- Ability checks with auditable rolls.
+- Item pickup.
+- Potion use.
+- Evolution item handoff.
+- Level 2 evolution after two unique resident-specific items.
+- Safe-room combat rejection.
+- Attack, defend, and flee primitives.
+- Primary action option flags.
+
+Gap:
+
+- Combat is still intentionally small. There is no full initiative scheduler, hidden state, challenge action, or long-running encounter state beyond the current sparring loop.
+
+### Rust Orchestrator
+
+Status: `Proven`.
+
+Evidence:
+
+- `v2/orchestrator-rust/src/main.rs`
+- `cargo test --manifest-path v2/orchestrator-rust/Cargo.toml`
+- `./v2/mvp.sh check`
+
+Implemented:
+
+- HTTP API and SSE stream.
+- Minimal `/health` readiness and `/meta` runtime metadata for deploy/smoke checks.
+- Snapshot persistence and SQLite action journal/event feed.
+- Actor sessions for generated human avatars.
+- Durable wallet-to-avatar links for signed wallet recovery.
+- Server-side public avatar name hygiene with neutral fallback for unsafe names.
+- Wallet challenge/session flow.
+- Server-owned ownership index from inline, file, or remote JSON feed.
+- Ruby High First Bell card projection and card image serving.
+- CosyWorld seed card projection and generated seed art.
+- Room-scoped `/state`, replayable `/events`, shared `/world`, and filtered `/stream`.
+- Rate limits for public mutations.
+- Ambient resident lines and auditable ambient checks.
+- Presence leave and stale-human filtering.
+- `./v2/mvp.sh status` prints health plus non-secret runtime metadata.
+- `/events` replay defaults to a bounded visible tail and caps explicit `limit` requests.
+- Token-protected `/moderation/events` returns bounded all-room audit replay for operators.
+- Token-protected actor suspension/unsuspension blocks abusive human avatars from further public actions.
+
+Gap:
+
+- This is still one Rust file. It should be split into modules before adding many more systems.
+- SQLite is local-process durability. Production deployment needs explicit backup/migration/retention decisions.
+- `/meta` is a deploy smoke surface, not a full observability stack.
+- Public moderation is still policy-light; bounded replay and protected suspension reduce blast radius but do not replace moderation queues, reporting, richer mute/ban tools, or retention policy.
+
+### Human Avatar Gate
+
+Status: `Proven`.
+
+Evidence:
+
+- Browser smoke asserts first command is `create avatar`.
+- Rust tests cover public entry defaulting to Cottage and actor-session rejection.
+- `v2/README.md` documents returning actor sessions.
+
+Implemented:
+
+- New users see Cottage plus `Create Avatar`.
+- `/avatar` creates a human actor and opaque actor session.
+- `/avatar` recovers the existing linked human actor when called with a signed wallet session.
+- `/avatar` sanitizes public display names before they can appear in presence, events, card projections, or prompts.
+- Returning players reuse local actor/session.
+- Actor id without matching session falls back to the avatar gate.
+- Resident actors cannot be controlled as client avatars.
+
+Gap:
+
+- Generated human avatar visuals are deterministic local SVGs, not yet minted/card-pipeline images.
+- Wallet recovery is now server-backed, but there is not yet a full account management UX for device lists, revocation, or wallet changes.
+- Name hygiene is an MVP guardrail, not a complete moderation system for public traffic.
+
+### Server-Authored Chat
+
+Status: `Proven`.
+
+Evidence:
+
+- `POST /actions/chat`.
+- `POST /actions/say` returns `410`.
+- Rust tests cover avatar chat planning/commit.
+- Browser smoke asserts no branch events, disabled client-authored speech, and duplicate Chat rejection.
+
+Implemented:
+
+- Humans do not submit text.
+- `Chat` validates actor session, target resident, rate limit, and shared location.
+- Server authors one player-avatar line using configured AI or deterministic fallback.
+- Avatar line commits through the C `SAY` event path.
+- Resident reply is scheduled and committed as another shared event.
+- Per-actor Chat in-flight lock rejects overlapping turns with `409`.
+
+Gap:
+
+- AI output policy is prompt/sanitizer based. Broader moderation is still required before open public traffic.
+- Moderators can inspect all-room event history and suspend actors through protected endpoints, but there is no report queue or player-facing appeal/account flow.
+- Avatar line generation is one-shot. There is no retry UX beyond fallback.
+
+### One-Button Browser MUD UI
+
+Status: `Proven` for local MVP, `Partial` for long-term maintainability.
+
+Evidence:
+
+- Browser UI lives in `v2/orchestrator-rust/src/index.html` and is served by `include_str!`.
+- Smoke asserts one visible command button through avatar creation, chat, travel, item pickup, gifting, combat, and reload.
+- Smoke checks mobile and desktop viewport fit, shell regions, transcript presence, one-button mode, card thumbnails, and location image rendering.
+- A Rust source-level contract test checks for the transcript/prompt shell and absence of composer/table UI.
+
+Implemented:
+
+- Terminal-style shared room timeline.
+- Sticky top location tab with location art.
+- Compact presence chips with avatar/item/location imagery.
+- One bottom command in normal play.
+- Context focus through room chips changes the one command to `Chat`, `Take`, `Give Item`, `Travel`, `Flee`, `Attack`, `Use`, `Listen`, or `Connect Wallet`.
+- No chat text box.
+- No debug spreadsheet/table UI.
+- Whiskerwind emoji lines include accessible aria labels.
+
+Gap:
+
+- The HTML/CSS/JS is source-separated, but not yet split into frontend modules.
+- Browser smoke preserves mobile and desktop runtime screenshots in `.runtime/visual-smoke` and compares them against committed pixel-diff baselines.
+- Multi-option future branch scenes are intentionally not implemented.
+
+### Cards, NFTs, And Shared Location Access
+
+Status: `Proven` for dev/prod-shaped feed, `Partial` for deployed production ownership.
+
+Evidence:
+
+- Ruby High catalog/card asset tests.
+- Signed wallet smoke unlocks `Library`.
+- World projection tests prove shared/public/gated access behavior.
+- Ownership refresh test repositions residents from the refreshed feed.
+
+Implemented:
+
+- Every visible actor, item, and location has a card projection.
+- Ruby High First Bell cards serve metadata and images from `../app-ruby-high` during development.
+- CosyWorld seed cards serve generated SVG art.
+- Location card ownership unlocks shared global rooms.
+- Client-provided card ids are ignored unless dev trust is enabled.
+- Signed Solana wallet sessions unlock server-owned card access.
+- Remote JSON ownership feed shape is implemented.
+- `COSYWORLD_DEPLOY_PROFILE=production` requires the protected remote Ruby High feed, bearer token, event store, moderation token, and disabled dev shortcuts before startup succeeds.
+- `./v2/mvp.sh check` runs a hermetic production-profile smoke with a bearer-protected local Ruby High-style ownership feed.
+
+Gap:
+
+- Production profile wiring is smoke-tested locally, but a hosted/staging deployment still needs an environment-level smoke against Ruby High's actual protected export endpoint.
+- CosyWorld-only seed art is placeholder-grade until minted or replaced by the content pipeline.
+
+### Orbs, Wooden Boxes, And Avatar Packs
+
+Status: `Partial` in implementation, `Designed` in `ECONOMY.md`.
+
+Evidence:
+
+- Legacy CosyWorld has item, quest, combat, external payment, and claim-gate systems.
+- Ruby High has Solana pack purchase, pack opening, card burn, card ownership export, and reveal provenance systems.
+- V2 currently has wallet sessions, ownership feed parsing, card projection, SQLite event storage, one-button chat, Orb balances, durable Orb and AI usage ledgers, player OpenRouter verification, server-paid Chat spend, combat/listen rewards, signed-wallet Box/pack routes, and production confirm-side Solana/Core burn verification.
+
+Implemented:
+
+- MVP Orb balances are stored in the replayable runtime snapshot/action journal and projected into `orb_ledger` when the event store is enabled.
+- Human avatar creation grants starter Orbs.
+- `/state` reports Orb balance, Chat cost, Orb affordability, and player OpenRouter connection state.
+- Server-paid `/actions/chat` requires and spends one Orb only after a line commits.
+- Player OpenRouter-paid `/actions/chat` spends zero Orbs and keeps the output public.
+- Player OpenRouter keys are held by the browser and sent only with explicit player Chat actions; the server verifies and uses them transiently.
+- `ai_usage_ledger` records non-secret Chat payer/provider/model/status metadata.
+- Existing listen/combat actions can award Orbs from committed kernel events.
+- Automatic Orb awards are claim-key gated by actor/context so repeated identical Listen/combat/flee actions cannot farm duplicate ledger rows.
+- `/state` exposes whether the current room's `Listen` reward remains claimable, so the browser only prefers `Listen` over AI setup when it can still be a real earning action.
+- The current Moonlit Trail loop exposes `Attack`, `Defend`, `Flee`, and meaningful potion `Use` actions through the one-button focus rail.
+- Trusted ownership feeds can project active Intricately Carved Wooden Boxes and unopened avatar packs into `/state` counts and access metadata.
+- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` are implemented behind signed wallet sessions, trusted ownership checks, idempotent SQLite receipts, deterministic reveal provenance, and wallet card grants.
+- Production profile requires a configured Solana RPC URL and Box Core collection address; `burn-confirm` verifies a confirmed Metaplex Core burn instruction for the Box asset, connected wallet, and collection before writing a production receipt.
+- Startup and ownership refresh both merge durable local Box/pack receipts into the effective ownership index, so pack-open card grants survive Ruby High feed refreshes.
+- Current `OwnershipIndex` can parse Ruby High-style wallet/card exports and is the right starting point for Box/card projection.
+- Current SQLite event store already hosts action journal, projected events, actor sessions, wallet-avatar links, and suspensions; it is the right persistence boundary for economy tables.
+
+Gap:
+
+- Player OpenRouter keys are browser-held and transient; no PKCE account flow yet.
+- No durable AI account link table.
+- Orb reward claims prevent obvious replay farming, but richer balance tuning, daily/encounter cooldown policy, and operator review tools are still needed.
+- Local Box burn confirmation can still trust the ownership feed plus submitted burn signature for staging. Production `burn-confirm` verifies the submitted Solana/Core burn, but production `burn-prepare` still needs real transaction construction.
+- Minimal Box/pack account focus exists in the top economy chip, including wallet-scoped burn/reveal provenance in the terminal panel, but there is no rich card gallery, full burn-state history, pack art surface, or support-grade provenance viewer.
+- No economy reconciliation against Ruby High's actual chain/export state.
+
+Migration points:
+
+- Use legacy `ItemService` for item semantics and evolution-item inspiration.
+- Use legacy `QuestService` for non-typed challenge conditions and Orb award triggers.
+- Use legacy `CombatEncounterService` for D&D-shaped outcome rewards.
+- Do not reuse legacy `orbGate` as Orbs; it is a collection ownership gate.
+- Do not mix legacy x402/USDC pricing into Orbs; external payment rails can later buy Boxes or bundles through a separate bridge.
+- Use Ruby High's `billing.ts`, `nft.ts`, `core-pack-nfts.ts`, `hall-pass-nfts.ts`, and `ruby-high-service.ts` as the burn/pack/provenance reference.
+
+### Real AI, Player Payer, And Media
+
+Status: `Partial`.
+
+Evidence:
+
+- V2 has `AiConfig`, `request_ai_avatar_chat`, and `request_ai_resident_reply`.
+- V2 can use a single server OpenAI-compatible/OpenRouter key or deterministic fallback.
+- Legacy CosyWorld has text AI services, Gemini composition, Selfie/Scene camera tools, and battle media prompts.
+- Ruby High has OpenRouter PKCE, transient browser-held user keys, avatar-line generation, portrait generation, and reference-based class/graduation photos.
+- `AI.md` now defines the target gateway, media jobs, payer modes, and swarm pipeline.
+
+Implemented:
+
+- Server-key text generation for avatar lines and resident replies.
+- Player OpenRouter API-key verification through `/ai/openrouter/verify`.
+- Transient player OpenRouter key use for explicit `Chat`, with zero Orb spend.
+- One-to-many resident replies as room events.
+- Prompt-level constraint that the human operator is silent.
+- Deterministic fallback when no model key is configured.
+
+Gap:
+
+- No `ai_gateway` Rust module; AI calls are still inline in `main.rs`.
+- No usage ledger, per-feature model accounting, or payer-mode audit.
+- No OpenRouter model capability discovery.
+- No OpenRouter image generation in v2.
+- No `media_jobs` or `media_assets` table.
+- No avatar portrait generation beyond deterministic SVG.
+- No battle/photo/media job migration from legacy CosyWorld.
+- No swarm proposal/curation/content-pack pipeline.
+
+Migration points:
+
+- Use Ruby High's OpenRouter PKCE and transient browser-key pattern as the first player payer implementation.
+- Use Ruby High's `character-generation.ts` and `yearbook-image.ts` response parsing for OpenRouter image generation and reference composition.
+- Use legacy `SelfieTool`, `SceneCameraTool`, and `BattleMediaService` as media-intent references.
+- Keep player-paid AI scoped to explicit player actions; ambient residents and swarm jobs stay server-paid.
+
+### Shared Live Rooms
+
+Status: `Proven`.
+
+Evidence:
+
+- `/state`, `/world`, `/events`, `/stream`.
+- Browser uses `EventSource`.
+- Smoke exercises travel, reload continuity, room transcript changes, and shared event replay.
+
+Implemented:
+
+- Locations are one shared channel each.
+- Room timelines are scoped by current location and access context.
+- SSE streams accepted world events after visibility filtering.
+- Resident replies and ambient beats are one-to-many world events.
+- Moving rooms swaps to that room's transcript.
+
+Gap:
+
+- The MVP uses browser local storage for fast return and signed wallet recovery for lost storage, but true multi-device account management is not solved.
+- Protected moderation replay and actor suspension exist; no live moderator stream or action queue exists yet.
+
+### Items And Evolution
+
+Status: `Proven` for level 2 tracks.
+
+Evidence:
+
+- Kernel tests cover unique-item evolution.
+- Browser smoke evolves Rati, Whiskerwind, and Skull.
+
+Implemented:
+
+- Items are world objects, not local UI badges.
+- Players can pick up items and carry them.
+- Matching evolution gifts are offered through the one-button command.
+- Wrong-resident gifts are rejected by the kernel.
+- Two unique required items evolve a resident to level 2.
+- Evolved state updates card projections and room chips.
+- Seed actor/item/location labels and level 2 evolution tracks live in `v2/orchestrator-rust/src/seed_content.json` and are validated by Rust tests.
+
+Gap:
+
+- Seed content is data-backed for the current MVP, but there is not yet a world-designer editor, migration story, or generated content pipeline.
+- Higher-level evolution, reusable items, trading, and NPC item handling are not implemented.
+
+### Stats And Combat
+
+Status: `Partial`.
+
+Evidence:
+
+- Kernel test covers combat primitives.
+- Browser smoke covers Moonlit Trail attack and flee.
+- README documents compact combat transcript events.
+
+Implemented:
+
+- Actor stats exist.
+- Ability checks emit visible roll/DC events.
+- The Cottage rejects combat.
+- Moonlit Trail supports a simple sparring target.
+- Attack, hit/miss, damage, HP remaining, defend, knockout, and flee are projected as transcript events.
+
+Gap:
+
+- No initiative order or full encounter lifecycle.
+- No challenge/hide commands.
+- No condition duration UI beyond the current simple rules.
+
+### CLI
+
+Status: `Proven` for local no-typing play.
+
+Evidence:
+
+- `python3 -m py_compile v2/cli/cosy_cli.py`.
+- `./v2/mvp.sh check` runs a terminal smoke.
+
+Implemented:
+
+- Default mode is JRPG-style button play.
+- Enter activates the primary contextual action.
+- Space activates a secondary contextual action when available.
+- The debug command shell is opt-in with `--command-mode`.
+- Typed `say` is disabled.
+
+Gap:
+
+- Command mode still exposes typed debug actions for developers. That is acceptable as long as the product/browser/default CLI remain no-typing.
+
+## Remaining MVP Risks
+
+1. `v2/orchestrator-rust/src/main.rs` is still too large.
+   The browser asset has been extracted, but world projection, card projection, AI, persistence, and route handlers should still be split into modules once the MVP behavior stabilizes.
+
+2. Production identity is still thin.
+   Signed wallet recovery can restore the linked avatar after local storage loss, but production still needs account management, session revocation, wallet-change policy, and support tooling.
+
+3. Moderation is shallow.
+   A single shared global world now has protected all-room audit replay and actor suspension, but still needs content filtering, reports, richer mute/ban primitives, and retention rules before broad traffic.
+
+4. AI payer and cost controls are MVP-grade.
+   Player OpenRouter verification, Orb-paid server fallback, and usage ledgers now work, but production still needs an `ai_gateway` module, richer model latency/failure telemetry, and per-room spend budgets.
+
+5. Content authoring is still basic.
+   Seed labels and level 2 evolution tracks are now data-backed, but the content pipeline still needs designer tooling, migrations, and higher-level evolution data.
+
+6. Visual QA is baseline-gated for the core shell, but still narrow.
+   The current smoke checks mobile and desktop shell geometry, preserves local screenshots, and compares them against committed PNG baselines. It does not yet cover a broader viewport/browser matrix or page-state matrix.
+
+7. Economy still needs production guardrails.
+   MVP Orbs, claim-gated automatic rewards, claim-aware zero-Orb recovery commands, OpenRouter payer mode, durable ledgers, trusted Box/pack projection, signed-wallet Box/pack flows, Solana/Core burn confirmation verification, replayable pack/card grants, and protected economy audit are implemented. Real wallet burns still need production burn transaction construction, reconciliation, richer balance policy, and fuller operator tooling.
+
+## Current Best Next Steps
+
+1. Keep `./v2/mvp.sh check` green as the MVP gate.
+2. Split Rust card/world projection, persistence, AI, and route handlers into modules.
+3. Run the production profile in staging against Ruby High's actual protected ownership feed.
+4. Extract `ai_gateway` from inline Rust AI calls and promote player OpenRouter linking beyond browser-held keys.
+5. Add richer balance policy and operator workflows over the existing economy audit tables.
+6. Add OpenRouter media jobs for avatar portraits and combat scenes.
+7. Extend the ownership feed contract with production Box, pack, and card status reconciliation fields.
+8. Add production Box burn transaction construction to pair with verified Solana/Core burn confirmation.
+9. Add an explicit moderation/audit plan before public shared-world traffic.
+10. Expand the seed content manifest into a fuller content pipeline while keeping C kernel ids stable.
+11. Broaden visual baselines beyond the core narrow and desktop MUD layouts.
