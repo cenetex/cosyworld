@@ -384,6 +384,42 @@ async function main() {
     assert(offenders.length === 0, `normal product UI should not expose text composers or debug chrome: ${offenders.join(", ")}`);
   }
 
+  async function closeCardModal() {
+    await page.locator("[data-card-close]").click();
+    await page.waitForFunction(() => document.querySelector("#card-modal")?.hidden === true);
+  }
+
+  async function assertCompactDescriptionAndCardModal() {
+    const collapsed = await page.locator("#location-copy").evaluate((node) => ({
+      tags: [...node.querySelectorAll(".room-tag")].map((tag) => tag.textContent),
+      more: node.querySelector("[data-room-more]")?.textContent,
+      wraps: node.scrollHeight > node.clientHeight + 4,
+    }));
+    assert(collapsed.tags.length >= 3, `room copy should collapse into tags: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.more === "...", `room copy should expose ellipsis expansion: ${JSON.stringify(collapsed)}`);
+    assert(!collapsed.wraps, `collapsed room copy should stay one line: ${JSON.stringify(collapsed)}`);
+
+    await page.locator("#location-copy [data-room-more]").click();
+    await page.waitForFunction(() => document.querySelector("#location-copy")?.classList.contains("expanded"));
+    const expandedText = await page.locator("#location-copy").innerText();
+    assert(expandedText.includes("firelight"), `expanded room copy should show the full description: ${expandedText}`);
+    await page.locator("#location-copy [data-room-more]").click();
+
+    await page.locator("#location-image[data-card-key]").click();
+    await page.waitForSelector("#card-modal:not([hidden])");
+    const locationCardName = await page.locator("#card-modal-name").innerText();
+    assert(locationCardName.includes("Cosy Cottage"), `location image should open location card modal: ${locationCardName}`);
+    steps.push({ label: "location card modal", card: locationCardName });
+    await closeCardModal();
+
+    await page.locator(".chip-thumb[data-card-key]").first().click();
+    await page.waitForSelector("#card-modal:not([hidden])");
+    const actorCardName = await page.locator("#card-modal-name").innerText();
+    assert(actorCardName.length > 0, `avatar image should open a card modal: ${actorCardName}`);
+    steps.push({ label: "avatar card modal", card: actorCardName });
+    await closeCardModal();
+  }
+
   async function assertTimelineAccessibilityBase() {
     const attrs = await page.locator("#log").evaluate((node) => ({
       role: node.getAttribute("role"),
@@ -1103,6 +1139,7 @@ async function main() {
   assert((await primaryText()).toLowerCase().includes("chat"), "normal resident focus should use the Chat verb");
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
   await assertZeroOrbModePrefersWorldEarningAction();
+  await assertCompactDescriptionAndCardModal();
   await assertMudShellVisualContract("mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertHumanActionRequiresActorSession();

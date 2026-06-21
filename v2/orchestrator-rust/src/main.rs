@@ -10017,6 +10017,9 @@ mod tests {
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
+        assert!(INDEX_HTML.contains("id=\"card-modal\""));
+        assert!(INDEX_HTML.contains("data-card-key"));
+        assert!(INDEX_HTML.contains("data-room-more"));
         assert!(!INDEX_HTML.contains("<textarea"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
         assert!(!INDEX_HTML.contains("class=\"composer\""));

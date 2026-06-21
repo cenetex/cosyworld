@@ -169,6 +169,49 @@
       margin-top: 8px;
       color: var(--text);
       max-width: 980px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+    .room-tags {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .room-tag {
+      flex: 0 0 auto;
+      border: 1px solid rgba(129, 255, 167, 0.16);
+      background: rgba(101, 230, 138, 0.06);
+      color: var(--dim);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .room-more {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      background: rgba(16, 25, 18, 0.72);
+      color: var(--amber);
+      border-radius: 4px;
+      padding: 2px 7px;
+      line-height: 1.2;
+    }
+    .room-more:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .room-copy.expanded {
+      align-items: flex-start;
+      white-space: normal;
+    }
+    .room-full {
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .presence {
       margin-top: 10px;
@@ -213,6 +256,7 @@
       background-size: cover;
       background-position: center;
       background-color: rgba(101, 230, 138, 0.08);
+      cursor: zoom-in;
     }
     .chip-thumb.avatar {
       border-radius: 999px;
@@ -359,6 +403,7 @@
       overflow: hidden;
       background-size: cover;
       background-position: center;
+      cursor: zoom-in;
     }
     .thumb.avatar,
     .thumb.item {
@@ -409,6 +454,83 @@
       font-size: 13px;
     }
     .status.ok { color: var(--green); }
+    .card-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(3, 5, 4, 0.76);
+    }
+    .card-modal[hidden] { display: none; }
+    .card-dialog {
+      width: min(420px, calc(100vw - 28px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      border: 1px solid var(--line-strong);
+      background: #0a100c;
+      box-shadow: 0 22px 80px rgba(0, 0, 0, 0.72);
+      padding: 12px;
+    }
+    .card-close {
+      float: right;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line);
+      background: var(--terminal-2);
+      color: var(--amber);
+      border-radius: 4px;
+      font-weight: 900;
+    }
+    .card-art {
+      clear: both;
+      width: 100%;
+      min-height: 220px;
+      max-height: 62vh;
+      border: 1px solid var(--line);
+      background: rgba(101, 230, 138, 0.06);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .card-art img {
+      width: 100%;
+      max-height: 62vh;
+      object-fit: contain;
+      display: block;
+    }
+    .card-name {
+      margin-top: 10px;
+      color: var(--amber);
+      font-weight: 900;
+      font-size: 17px;
+    }
+    .card-title {
+      margin-top: 2px;
+      color: var(--blue);
+      font-size: 13px;
+    }
+    .card-blurb {
+      margin-top: 8px;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .card-meta {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .card-meta span {
+      border: 1px solid var(--line);
+      background: var(--terminal-2);
+      color: var(--dim);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    [data-card-key] { cursor: zoom-in; }
     @media (max-width: 900px) {
       html, body { font-size: 13px; }
       .shell { grid-template-rows: 38px minmax(0, 1fr) auto; }
@@ -421,6 +543,7 @@
       .economy { font-size: 12px; max-width: 92px; }
       .terminal { margin: 8px; }
       .room { padding: 11px 12px; }
+      .room-tag { font-size: 11px; padding: 2px 6px; }
       .room-title {
         display: grid;
         grid-template-columns: 1fr;
@@ -493,6 +616,16 @@
       <button class="cmd secondary" id="secondary"></button>
     </footer>
   </div>
+  <div class="card-modal" id="card-modal" hidden>
+    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name">
+      <button class="card-close" type="button" data-card-close aria-label="Close card">x</button>
+      <div class="card-art"><img id="card-modal-image" alt="" /></div>
+      <div class="card-name" id="card-modal-name"></div>
+      <div class="card-title" id="card-modal-title"></div>
+      <div class="card-blurb" id="card-modal-blurb"></div>
+      <div class="card-meta" id="card-modal-meta"></div>
+    </section>
+  </div>
   <script>
     const namesA = ["Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle"];
     const namesB = ["Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend"];
@@ -520,6 +653,8 @@
     let actionBusy = false;
     let pendingAction = null;
     let accountPanelPinned = false;
+    let roomCopyExpanded = false;
+    let lastRoomCopyLocationId = null;
     const $ = (id) => document.getElementById(id);
     let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
     let walletSession = bootParams.get("wallet_session") || localStorage.getItem("cosyworld.walletSession") || "";
@@ -1141,12 +1276,17 @@
       const locationImage = $("location-image");
       locationImage.src = cardImage(locationCard) || fallbackCardImage(locationCard || { display_name: location.name || "Location", aspect: "wide", role: "location" });
       locationImage.alt = locationCard?.display_name || location.name || "";
+      setCardTarget(locationImage, locationCard);
       $("subtitle").textContent = location.name || "Unknown";
       $("brand").textContent = channelName(location.name || "cosyworld");
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)} / ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
-      $("location-copy").textContent = copyForLocation(location.id);
+      if (lastRoomCopyLocationId !== location.id) {
+        roomCopyExpanded = false;
+        lastRoomCopyLocationId = location.id || null;
+      }
+      renderRoomCopy(location.id);
       $("presence").innerHTML = presenceHtml(state, me);
       renderLog();
       renderCommands();
@@ -1218,7 +1358,7 @@
       const focused = selectable && index === focusIndex && !state?.branch;
       const attrs = selectable ? ` data-focus-index="${index}" role="button" tabindex="0"` : "";
       const image = cardImage(card) || (card ? fallbackCardImage(card) : "");
-      const thumb = image ? `<span class="chip-thumb ${escapeAttr(shape)}" style="background-image:url('${escapeAttr(image)}')"></span>` : "";
+      const thumb = image ? `<span class="chip-thumb ${escapeAttr(shape)}"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>` : "";
       return `<span class="chip${classes}${selectable ? " focusable" : ""}${focused ? " focused" : ""}"${attrs}>${thumb}<span>${escapeHtml(label)}</span></span>`;
     }
 
@@ -1400,6 +1540,62 @@
       return card?.image_url || "";
     }
 
+    function cardKey(card) {
+      const id = card?.card_id || card?.display_name || card?.title || "";
+      if (!id) return "";
+      return `${card?.role || "card"}:${id}`;
+    }
+
+    function cardDataAttr(card) {
+      const key = cardKey(card);
+      return key ? ` data-card-key="${escapeAttr(key)}"` : "";
+    }
+
+    function setCardTarget(node, card) {
+      const key = cardKey(card);
+      if (!key) {
+        node.removeAttribute("data-card-key");
+        return;
+      }
+      node.setAttribute("data-card-key", key);
+    }
+
+    function cardByKey(key) {
+      for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations]) {
+        if (!group) continue;
+        for (const card of Object.values(group)) {
+          if (cardKey(card) === key) return card;
+        }
+      }
+      return null;
+    }
+
+    function openCardModal(card) {
+      if (!card) return;
+      const image = cardImage(card) || fallbackCardImage(card);
+      $("card-modal-image").src = image;
+      $("card-modal-image").alt = card.display_name || "CosyWorld card";
+      $("card-modal-name").textContent = card.display_name || "CosyWorld Card";
+      $("card-modal-title").textContent = card.title || card.role || "";
+      $("card-modal-blurb").textContent = card.blurb || "";
+      const meta = [
+        card.rarity,
+        card.role,
+        card.level ? `lv ${card.level}` : "",
+        card.source,
+        card.owned ? "owned" : "",
+        card.accessible === false ? "locked" : "",
+      ].filter(Boolean);
+      $("card-modal-meta").innerHTML = meta.map((value) => `<span>${escapeHtml(value)}</span>`).join("");
+      $("card-modal").hidden = false;
+      $("card-modal").querySelector(".card-close")?.focus();
+    }
+
+    function closeCardModal() {
+      $("card-modal").hidden = true;
+      $("card-modal-image").removeAttribute("src");
+    }
+
     function shapeForCard(card, fallback = "item") {
       if (card?.aspect === "wide" || card?.role === "location") return "location";
       if (card?.aspect === "tall" || card?.role === "avatar" || card?.role === "resident" || card?.role === "teacher") return "avatar";
@@ -1413,7 +1609,7 @@
       const image = cardImage(card);
       const label = initials(card?.display_name || action.label || "?");
       if (image) {
-        return `<span class="thumb ${escapeAttr(shape)}" style="background-image:url('${escapeAttr(image)}')"></span>`;
+        return `<span class="thumb ${escapeAttr(shape)}"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>`;
       }
       return `<span class="thumb ${escapeAttr(shape)}">${escapeHtml(label)}</span>`;
     }
@@ -1549,10 +1745,41 @@
       }
     }
 
+    function renderRoomCopy(id) {
+      const node = $("location-copy");
+      node.classList.toggle("expanded", roomCopyExpanded);
+      if (roomCopyExpanded) {
+        node.innerHTML = `<span class="room-full">${escapeHtml(copyForLocation(id))}</span><button class="room-more" type="button" data-room-more aria-expanded="true">less</button>`;
+        return;
+      }
+      const tags = roomTagsForLocation(id);
+      const tagHtml = tags.map((tag) => `<span class="room-tag">${escapeHtml(tag)}</span>`).join("");
+      node.innerHTML = `<span class="room-tags">${tagHtml}</span><button class="room-more" type="button" data-room-more aria-expanded="false">...</button>`;
+    }
+
+    function roomTagsForLocation(id) {
+      if (id === 1) return ["firelight", "scarves", "symbols", "silence"];
+      if (id === 2) return ["rain", "leaves", "pearled button"];
+      if (id === 3) return ["moonlight", "trail", "combat"];
+      if (id === 10) return ["science", "benches", "questions"];
+      if (id === 11) return ["homeroom", "morning", "seats"];
+      if (id === 12) return ["library", "shelves", "quiet"];
+      if (id === 13) return ["cafeteria", "tables", "commons"];
+      if (id === 14) return ["greenhouse", "glass", "leaves"];
+      if (id === 15) return ["courtyard", "paths", "sky"];
+      return ["shard", "hum", "unknown"];
+    }
+
     function copyForLocation(id) {
       if (id === 1) return "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.";
       if (id === 2) return "Rain beads on broad leaves. Something small and pearled waits in the grass.";
       if (id === 3) return "The path shines under cold moonlight. The air permits sharper choices.";
+      if (id === 10) return "Science Class hums with shared observations, bright benches, and questions waiting to be tested.";
+      if (id === 11) return "Homeroom waits with front-door morning light and the sense that every question gets a seat.";
+      if (id === 12) return "Library quiet gathers around the shelves; if it matters, someone wrote it down.";
+      if (id === 13) return "Cafeteria tables hold the soft thunder of commons diplomacy.";
+      if (id === 14) return "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
+      if (id === 15) return "Courtyard paths cross under open sky; every hallway seems to lead back here.";
       return "The shard hums softly.";
     }
 
@@ -1588,6 +1815,31 @@
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
     }
+
+    document.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-card-key]");
+      if (!target) return;
+      const card = cardByKey(target.getAttribute("data-card-key") || "");
+      if (!card) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openCardModal(card);
+    }, true);
+
+    $("location-copy").addEventListener("click", (event) => {
+      const control = event.target.closest("[data-room-more]");
+      if (!control) return;
+      event.preventDefault();
+      roomCopyExpanded = !roomCopyExpanded;
+      renderRoomCopy(state?.location?.id);
+    });
+
+    $("card-modal").addEventListener("click", (event) => {
+      if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {
+        event.preventDefault();
+        closeCardModal();
+      }
+    });
 
     $("presence").addEventListener("click", (event) => {
       const chip = event.target.closest("[data-focus-index]");
@@ -1649,6 +1901,9 @@
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         focusAction(focusIndex - 1);
+      } else if (event.key === "Escape" && !$("card-modal").hidden) {
+        event.preventDefault();
+        closeCardModal();
       }
     });
 
