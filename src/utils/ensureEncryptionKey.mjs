@@ -19,6 +19,13 @@ const __dirname = path.dirname(__filename);
  * @returns {string} The encryption key (existing or newly generated)
  */
 export function ensureEncryptionKey() {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const envPath = getWritableEnvPath(projectRoot);
+
+  // ConfigService loads this for normal startup, but this utility can run before
+  // a newly mounted production env file has been read in older entry paths.
+  hydrateKeyFromEnvFile(envPath);
+
   // Check if key already exists
   let key = process.env.ENCRYPTION_KEY || process.env.APP_SECRET;
   
@@ -34,9 +41,6 @@ export function ensureEncryptionKey() {
   
   // Try to save to .env file
   try {
-    const projectRoot = path.resolve(__dirname, '../..');
-    const envPath = path.join(projectRoot, '.env');
-    
     let envContent = '';
     
     // Read existing .env if it exists
@@ -81,6 +85,35 @@ NODE_ENV="development"
   process.env.ENCRYPTION_KEY = key;
   
   return key;
+}
+
+function getWritableEnvPath(projectRoot) {
+  if (process.env.ENV_FILE || process.env.CONFIG_ENV_FILE) {
+    return process.env.ENV_FILE || process.env.CONFIG_ENV_FILE;
+  }
+
+  const flyDataDir = '/data';
+  if (process.env.NODE_ENV === 'production' && fs.existsSync(flyDataDir)) {
+    return path.join(flyDataDir, '.env');
+  }
+
+  return path.join(projectRoot, '.env');
+}
+
+function hydrateKeyFromEnvFile(envPath) {
+  if (process.env.ENCRYPTION_KEY || process.env.APP_SECRET || !envPath || !fs.existsSync(envPath)) {
+    return;
+  }
+
+  try {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const match = envContent.match(/^(ENCRYPTION_KEY|APP_SECRET)=["']?([^"'\n]+)["']?/m);
+    if (match?.[2]) {
+      process.env.ENCRYPTION_KEY = match[2];
+    }
+  } catch {
+    // Best-effort bootstrap only; generation below handles missing keys.
+  }
 }
 
 /**

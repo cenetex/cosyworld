@@ -8,6 +8,11 @@ import crypto from 'crypto';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
+const DEFAULT_DATA_BACKEND = 'sqlite';
+const DEFAULT_SQLITE_DB_PATH = process.env.NODE_ENV === 'production' ? '/data/cosyworld.sqlite' : 'data/cosyworld.sqlite';
+const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
+const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
+
 /**
  * Setup routes for first-time application configuration
  * Accessible without authentication until setup is complete
@@ -54,9 +59,13 @@ export default function createSetupRouter(services) {
           hasKey: !!process.env.ENCRYPTION_KEY,
           keyLength: process.env.ENCRYPTION_KEY?.length || 0
         },
+        storage: {
+          backend: process.env.DATA_BACKEND || process.env.STORAGE_DATA_BACKEND || DEFAULT_DATA_BACKEND,
+          sqliteDbPath: process.env.SQLITE_DB_PATH || DEFAULT_SQLITE_DB_PATH
+        },
         mongo: {
-          uri: process.env.MONGO_URI ? maskSecret(process.env.MONGO_URI) : null,
-          dbName: process.env.MONGO_DB_NAME || 'cosyworld8',
+          uri: process.env.MONGO_URI ? maskSecret(process.env.MONGO_URI) : DEFAULT_MONGO_URI,
+          dbName: process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME,
           configured: !!process.env.MONGO_URI
         },
         discord: {
@@ -89,7 +98,9 @@ export default function createSetupRouter(services) {
             loraTrigger: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || null
           },
           s3: { 
-            configured: !!(process.env.S3_API_ENDPOINT && process.env.S3_API_KEY),
+            configured: true,
+            backend: process.env.FILE_STORAGE_BACKEND || process.env.STORAGE_BACKEND || 'local',
+            localMediaDir: process.env.LOCAL_MEDIA_DIR || (process.env.NODE_ENV === 'production' ? '/data/media' : 'data/media'),
             endpoint: process.env.S3_API_ENDPOINT || null,
             uploadBaseUrl: process.env.UPLOAD_API_BASE_URL || null,
             cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN || null
@@ -346,9 +357,13 @@ async function saveConfiguration(config, secretsService, logger) {
     ENCRYPTION_KEY: config.encryption?.key === 'KEEP_EXISTING' ? process.env.ENCRYPTION_KEY : (config.encryption?.key || process.env.ENCRYPTION_KEY),
     SERVER_SECRET_KEY: config.encryption?.serverKey === 'KEEP_EXISTING' ? process.env.SERVER_SECRET_KEY : (config.encryption?.serverKey || process.env.SERVER_SECRET_KEY || crypto.randomBytes(32).toString('hex')),
     
-    // MongoDB
-    MONGO_URI: config.mongo?.uri === 'KEEP_EXISTING' ? process.env.MONGO_URI : (config.mongo?.uri || process.env.MONGO_URI),
-    MONGO_DB_NAME: config.mongo?.dbName || 'cosyworld8',
+    // Data storage
+    DATA_BACKEND: config.storage?.backend || process.env.DATA_BACKEND || DEFAULT_DATA_BACKEND,
+    SQLITE_DB_PATH: config.storage?.sqliteDbPath || process.env.SQLITE_DB_PATH || DEFAULT_SQLITE_DB_PATH,
+    ...(String(config.storage?.backend || process.env.DATA_BACKEND || DEFAULT_DATA_BACKEND).toLowerCase().startsWith('mongo') && {
+      MONGO_URI: config.storage?.mongoUri || config.mongo?.uri || process.env.MONGO_URI || DEFAULT_MONGO_URI,
+      MONGO_DB_NAME: config.storage?.mongoDbName || config.mongo?.dbName || process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME
+    }),
     
     // Discord
     DISCORD_BOT_TOKEN: config.discord?.botToken === 'KEEP_EXISTING' ? process.env.DISCORD_BOT_TOKEN : (config.discord?.botToken || process.env.DISCORD_BOT_TOKEN),
@@ -373,6 +388,8 @@ async function saveConfiguration(config, secretsService, logger) {
     }),
     
     // Optional services
+    FILE_STORAGE_BACKEND: config.optional?.s3?.backend || process.env.FILE_STORAGE_BACKEND || 'local',
+    LOCAL_MEDIA_DIR: config.optional?.s3?.localMediaDir || process.env.LOCAL_MEDIA_DIR || (process.env.NODE_ENV === 'production' ? '/data/media' : 'data/media'),
     
     ...(config.optional?.s3?.endpoint && {
       S3_API_ENDPOINT: config.optional.s3.endpoint,

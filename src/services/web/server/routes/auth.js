@@ -7,15 +7,37 @@ import express from 'express';
 import crypto from 'crypto';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { issueAuthCookie } from '../middleware/authCookie.js';
+import { issueAuthCookie, issueSessionAuthCookie } from '../middleware/authCookie.js';
 
 const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-export default function createAuthRouter(db) {
+export default function createAuthRouter(input) {
   const router = express.Router();
-  const nonces = db.collection('wallet_nonces');
-  const users = db.collection('users');
+  const services = input?.dataLayer ? input : null;
+  const db = services ? null : input;
+  const identityStore = services?.dataLayer?.identity || null;
+  const nonces = db?.collection?.('wallet_nonces');
+  const users = db?.collection?.('users');
+
+  const envAdminsFor = () => {
+    const envAdminRaw = (process.env.ADMIN_WALLETS || process.env.ADMIN_WALLET || '').trim();
+    return envAdminRaw
+      ? envAdminRaw.split(/[,\s]+/).filter(Boolean).map(a => a.toLowerCase())
+      : [];
+  };
+
+  const resolveAdmin = async (address, user) => {
+    const envAdmins = envAdminsFor();
+    if (envAdmins.length > 0) {
+      return envAdmins.includes(String(address).toLowerCase());
+    }
+    if (identityStore) {
+      return !!user?.isAdmin || !await identityStore.hasAdminUser?.();
+    }
+    const existingAdmin = await users.findOne({ isAdmin: true });
+    return !existingAdmin || !!user?.isAdmin;
+  };
 
   // Issue a short-lived nonce for a wallet address
   router.post('/nonce', asyncHandler(async (req, res) => {
@@ -27,28 +49,41 @@ export default function createAuthRouter(db) {
     const nonce = crypto.randomBytes(16).toString('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    await nonces.updateOne(
-      { address },
-      { $set: { address, nonce, scope: scope || 'login', expiresAt, updatedAt: new Date() } },
-      { upsert: true }
-    );
+    if (identityStore) {
+      await identityStore.createWalletChallenge({
+        address,
+        chain: req.body?.chain || 'solana',
+        purpose: scope || 'login',
+        nonce,
+        message: nonce,
+        expiresAt
+      });
+    } else {
+      await nonces.updateOne(
+        { address },
+        { $set: { address, nonce, scope: scope || 'login', expiresAt, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    }
 
     res.json({ nonce, scope: scope || 'login', expiresAt });
   }));
 
   // Verify a signed nonce and upsert the user
   router.post('/verify', asyncHandler(async (req, res) => {
-  const { address, nonce, signature } = req.body || {};
+  const { address, nonce, signature, chain = 'solana' } = req.body || {};
     if (!address || !nonce || !signature) {
       return res.status(400).json({ error: 'address, nonce, signature are required' });
     }
 
-  const nonceDoc = await nonces.findOne({ address });
-    if (!nonceDoc || nonceDoc.nonce !== nonce) {
-      return res.status(400).json({ error: 'Invalid nonce' });
-    }
-    if (nonceDoc.expiresAt && new Date(nonceDoc.expiresAt).getTime() < Date.now()) {
-      return res.status(400).json({ error: 'Nonce expired' });
+    if (!identityStore) {
+      const nonceDoc = await nonces.findOne({ address });
+      if (!nonceDoc || nonceDoc.nonce !== nonce) {
+        return res.status(400).json({ error: 'Invalid nonce' });
+      }
+      if (nonceDoc.expiresAt && new Date(nonceDoc.expiresAt).getTime() < Date.now()) {
+        return res.status(400).json({ error: 'Nonce expired' });
+      }
     }
 
     // Prepare data for verification
@@ -73,6 +108,31 @@ export default function createAuthRouter(db) {
     const ok = nacl.sign.detached.verify(message, sigBytes, pubKeyBytes);
     if (!ok) {
       return res.status(401).json({ error: 'Signature verification failed' });
+    }
+
+    if (identityStore) {
+      const consumed = await identityStore.consumeWalletChallenge({
+        address,
+        chain,
+        purpose: 'login',
+        nonce
+      });
+      if (!consumed) {
+        return res.status(400).json({ error: 'Invalid nonce' });
+      }
+
+      const { user } = await identityStore.upsertWalletUser({ address, chain });
+      const shouldBeAdmin = await resolveAdmin(address, user);
+      const currentUser = user.isAdmin === shouldBeAdmin
+        ? user
+        : await identityStore.setAdminStatus({ userId: user.id, isAdmin: shouldBeAdmin });
+      const session = await identityStore.createSession({
+        userId: currentUser.id,
+        metadata: { walletAddress: address, chain }
+      });
+
+      issueSessionAuthCookie(res, { sessionId: session.id });
+      return res.json({ ok: true, user: { walletAddress: address, isAdmin: !!currentUser.isAdmin } });
     }
 
     // Clear nonce after successful verify
@@ -127,15 +187,22 @@ export default function createAuthRouter(db) {
 
   // Return current session user
   router.get('/me', (req, res) => {
-    const u = req.user ? { walletAddress: req.user.walletAddress, isAdmin: !!req.user.isAdmin } : null;
+    const u = req.user ? {
+      userId: req.user.userId || null,
+      walletAddress: req.user.walletAddress,
+      isAdmin: !!req.user.isAdmin
+    } : null;
     res.json({ user: u });
   });
 
   // Logout: clear cookie
-  router.post('/logout', (req, res) => {
+  router.post('/logout', asyncHandler(async (req, res) => {
+    if (req.user?.sessionId && identityStore) {
+      await identityStore.revokeSession(req.user.sessionId);
+    }
     res.clearCookie('authToken', { path: '/' });
     res.json({ ok: true });
-  });
+  }));
 
   return router;
 }

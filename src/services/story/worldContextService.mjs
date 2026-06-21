@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 
 /**
  * WorldContextService

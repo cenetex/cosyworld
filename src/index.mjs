@@ -3,10 +3,84 @@
  * Licensed under the MIT License.
  */
 
-import { container, containerReady } from './container.mjs';
+import fsSync from 'fs';
+import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { ConfigWizardService } from './services/foundation/configWizardService.mjs';
+import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
 
-async function checkConfiguration() {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function hydrateEnv() {
+  const projectRoot = path.resolve(__dirname, '..');
+  const envPath = process.env.ENV_FILE || process.env.CONFIG_ENV_FILE || (
+    process.env.NODE_ENV === 'production' && fsSync.existsSync('/data')
+      ? '/data/.env'
+      : path.join(projectRoot, '.env')
+  );
+
+  if (envPath && fsSync.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+  dotenv.config();
+}
+
+async function launchConfigurationWizard({ logger = console, secretsService = null, configService = null } = {}) {
+  const wizard = new ConfigWizardService({
+    logger,
+    secretsService,
+    configService
+  });
+
+  await wizard.start();
+
+  return new Promise(() => {
+    // Never resolves - wizard mode
+  });
+}
+
+async function startBootServer() {
+  if (process.env.DISABLE_BOOT_SERVER === '1') return null;
+
+  const port = Number(process.env.WEB_PORT || process.env.PORT || 3000);
+  const server = http.createServer((req, res) => {
+    const body = JSON.stringify({
+      status: 'starting',
+      timestamp: new Date().toISOString(),
+      uptime: Math.round(process.uptime())
+    });
+
+    res.writeHead(req.url === '/api/health/live' ? 200 : 503, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(body);
+  });
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '0.0.0.0', () => {
+      server.off('error', reject);
+      console.info(`[startup] Boot health server listening on 0.0.0.0:${port}`);
+      resolve();
+    });
+  });
+
+  return server;
+}
+
+async function stopBootServer(server) {
+  if (!server) return;
+
+  await new Promise((resolve) => {
+    server.close(() => resolve());
+  });
+}
+
+async function checkConfiguration(container) {
   const logger = container.resolve('logger');
   const secretsService = container.resolve('secretsService');
   const configService = container.resolve('configService');
@@ -23,13 +97,8 @@ async function checkConfiguration() {
     logger.warn('[startup] Configuration incomplete or missing');
     logger.warn(`[startup] ${status.details}`);
     logger.info('[startup] Launching configuration wizard...');
-    
-    await wizard.start();
-    
-    // Keep the process alive
-    return new Promise(() => {
-      // Never resolves - wizard mode
-    });
+
+    return launchConfigurationWizard({ logger, secretsService, configService });
   }
   
   logger.info('[startup] Configuration check passed ✓');
@@ -39,6 +108,22 @@ async function checkConfiguration() {
 async function main() {
   const startTime = Date.now();
   const logTiming = (label) => console.log(`[startup:timing] ${label}: +${Date.now() - startTime}ms`);
+
+  hydrateEnv();
+  ensureEncryptionKey();
+
+  const preflightWizard = new ConfigWizardService({ logger: console });
+  const preflightStatus = await preflightWizard.checkConfigurationStatus();
+  if (!preflightStatus.configured) {
+    console.warn('[startup] Configuration incomplete or missing');
+    console.warn(`[startup] ${preflightStatus.details}`);
+    console.info('[startup] Launching configuration wizard before service container initialization...');
+    return launchConfigurationWizard({ logger: console });
+  }
+
+  console.info('[startup] Configuration preflight passed; initializing service container...');
+  const bootServer = await startBootServer();
+  const { container, containerReady } = await import('./container.mjs');
   
   // Ensure container finished async initialization
   await containerReady;
@@ -48,7 +133,7 @@ async function main() {
 
   try {
     // Check if configuration is complete FIRST before any service initialization
-    const configured = await checkConfiguration();
+    const configured = await checkConfiguration(container);
     logTiming('Configuration checked');
     if (!configured) {
       // Wizard is running, exit main startup
@@ -101,6 +186,21 @@ async function main() {
     await db.createIndexes();
     logTiming('Database indexes created');
     logger.log('[startup] Database indexes created');
+
+    // Start HTTP before bot/background services so Fly health checks can pass
+    // while the rest of the runtime finishes warming up.
+    try {
+      logger.info('[startup] Starting web service...');
+      await stopBootServer(bootServer);
+      const web = container.resolve('webService');
+      await web.start?.();
+      logTiming('Web service started');
+      logger.log('[startup] Web service started');
+    } catch (e) {
+      logger.error(`[startup] Web service failed to start: ${e.message}`);
+      logger.error(e.stack);
+      logTiming('Web service failed');
+    }
 
     // Step 4: Initialize core services
     const toolService = container.resolve('toolService');
@@ -187,19 +287,6 @@ async function main() {
         logTiming('Telegram bot failed');
       }
     });
-
-    // Start the Web Service
-    try {
-      logger.info('[startup] Starting web service...');
-      const web = container.resolve('webService');
-      await web.start?.();
-      logTiming('Web service started');
-      logger.log('[startup] Web service started');
-    } catch (e) {
-      logger.error(`[startup] Web service failed to start: ${e.message}`);
-      logger.error(e.stack);
-      logTiming('Web service failed');
-    }
 
   } catch (err) {
     logger.error(`[fatal] Startup failed: ${err.message}\n${err.stack}`);

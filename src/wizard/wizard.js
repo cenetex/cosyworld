@@ -4,9 +4,10 @@
 
 let currentStep = 1;
 const totalSteps = 7;
+const DEFAULT_SQLITE_DB_PATH = '/data/cosyworld.sqlite';
 let configData = {
   encryption: {},
-  mongo: {},
+  storage: {},
   discord: {},
   ai: { openrouter: {}, google: {} },
   optional: {}
@@ -26,9 +27,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       encryption: {
         key: existingConfig.encryption?.hasKey ? '' : '' // Will be populated or generated
       },
-      mongo: {
-        uri: '', // Will be populated if exists
-        dbName: existingConfig.mongo?.dbName || 'cosyworld8'
+      storage: {
+        backend: existingConfig.storage?.backend || 'sqlite',
+        sqliteDbPath: existingConfig.storage?.sqliteDbPath || DEFAULT_SQLITE_DB_PATH
       },
       discord: {
         botToken: '',
@@ -60,9 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Populate non-secret fields (like clientId, dbName, models)
-    if (existingConfig.mongo?.dbName) {
-      document.getElementById('mongoDbName').value = existingConfig.mongo.dbName;
-    }
+    document.getElementById('storageBackend').value = configData.storage.backend || 'sqlite';
+    document.getElementById('sqliteDbPath').value = configData.storage.sqliteDbPath || DEFAULT_SQLITE_DB_PATH;
     if (existingConfig.discord?.clientId) {
       document.getElementById('discordClientId').value = existingConfig.discord.clientId;
     }
@@ -78,12 +78,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // For masked secrets, show placeholders to indicate they exist
     // Also remove 'required' attribute to allow keeping existing values
-    if (existingConfig.mongo?.uri && existingConfig.mongo.configured) {
-      const mongoUriField = document.getElementById('mongoUri');
-      mongoUriField.placeholder = 'Already configured - leave empty to keep existing';
-      mongoUriField.setAttribute('data-existing', 'true');
-      mongoUriField.removeAttribute('required');
-    }
     if (existingConfig.discord?.botToken && existingConfig.discord.configured) {
       const discordTokenField = document.getElementById('discordBotToken');
       discordTokenField.placeholder = 'Already configured - leave empty to keep existing';
@@ -158,13 +152,12 @@ async function validateAndNext(section) {
       configData.encryption = data;
       break;
       
-    case 'mongo':
-      const mongoUriField = document.getElementById('mongoUri');
+    case 'storage':
       data = {
-        uri: mongoUriField.value || (mongoUriField.getAttribute('data-existing') ? 'KEEP_EXISTING' : ''),
-        dbName: document.getElementById('mongoDbName').value
+        backend: document.getElementById('storageBackend').value || 'sqlite',
+        sqliteDbPath: document.getElementById('sqliteDbPath').value || DEFAULT_SQLITE_DB_PATH
       };
-      configData.mongo = data;
+      configData.storage = data;
       break;
       
     case 'discord':
@@ -265,11 +258,11 @@ function populateFields() {
   if (configData.encryption?.key) {
     document.getElementById('encryptionKey').value = configData.encryption.key;
   }
-  if (configData.mongo?.uri) {
-    document.getElementById('mongoUri').value = configData.mongo.uri;
+  if (configData.storage?.backend) {
+    document.getElementById('storageBackend').value = configData.storage.backend;
   }
-  if (configData.mongo?.dbName) {
-    document.getElementById('mongoDbName').value = configData.mongo.dbName;
+  if (configData.storage?.sqliteDbPath) {
+    document.getElementById('sqliteDbPath').value = configData.storage.sqliteDbPath;
   }
   if (configData.discord?.botToken) {
     document.getElementById('discordBotToken').value = configData.discord.botToken;
@@ -305,7 +298,7 @@ function showConfigSummary() {
   const items = [];
   
   items.push(`<p><strong>🔐 Encryption:</strong> Configured (${configData.encryption.key?.length || 0} chars)</p>`);
-  items.push(`<p><strong>🗄️ Database:</strong> ${maskValue(configData.mongo.uri)} / ${configData.mongo.dbName}</p>`);
+  items.push(`<p><strong>🗄️ Data:</strong> ${configData.storage?.backend || 'sqlite'} at ${configData.storage?.sqliteDbPath || DEFAULT_SQLITE_DB_PATH}</p>`);
   items.push(`<p><strong>🤖 Discord:</strong> Bot configured with client ID ${configData.discord.clientId}</p>`);
   
   const aiService = configData.ai.service || 'openrouter';
@@ -342,9 +335,9 @@ async function saveConfiguration() {
     encryption: {
       key: document.getElementById('encryptionKey').value,
     },
-    mongo: {
-      uri: document.getElementById('mongoUri').value,
-      dbName: document.getElementById('mongoDbName').value
+    storage: {
+      backend: document.getElementById('storageBackend').value || 'sqlite',
+      sqliteDbPath: document.getElementById('sqliteDbPath').value || DEFAULT_SQLITE_DB_PATH
     },
     discord: {
       botToken: document.getElementById('discordBotToken').value,
@@ -379,8 +372,14 @@ async function saveConfiguration() {
   
   if (document.getElementById('enableS3')?.checked) {
     config.optional.s3 = {
+      backend: 's3',
       endpoint: document.getElementById('s3Endpoint').value,
       apiKey: document.getElementById('s3ApiKey').value
+    };
+  } else {
+    config.optional.s3 = {
+      backend: 'local',
+      localMediaDir: '/data/media'
     };
   }
   

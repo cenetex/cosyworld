@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 
 /**
  * StoryStateService
@@ -614,4 +614,3 @@ export class StoryStateService {
 }
 
 export default StoryStateService;
-

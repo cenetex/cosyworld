@@ -41,7 +41,7 @@ flowchart TD
     end
     
     subgraph SL["Storage Layer"]
-        MONGO["MongoDB"]
+        SQLITE["SQLite"]
         S3["S3 Storage"]
     end
     
@@ -102,10 +102,10 @@ flowchart TD
     AIS --> REP
     
     %% Storage connections
-    AS --> MONGO
-    IS --> MONGO
-    LS --> MONGO
-    MS --> MONGO
+    AS --> SQLITE
+    IS --> SQLITE
+    LS --> SQLITE
+    MS --> SQLITE
     
     AS --> S3
     IS --> S3
@@ -140,7 +140,7 @@ flowchart TD
     class DS,TB,XB,WI blue
     class CHAT,AS,IS,LS,MS,AIS,TS green
     class AM,IM,LM,DW,EV purple
-    class MONGO,S3 brown
+    class SQLITE,S3 brown
     class ARW,SOL,IPFS,NFT orange
     class DISCORD,TG,X,WEB,OR,GAI,OL,REP gold
     

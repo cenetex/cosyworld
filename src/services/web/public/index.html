@@ -1,424 +1,942 @@
 <!--
-  Copyright (c) 2019-2025 Cenetex Inc.
+  Copyright (c) 2019-2026 Cenetex Inc.
   Licensed under the MIT License.
 -->
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RATi Swarm Orchestrator :: Moonstone Sanctum Edition</title>
+  <title>CosyWorld - The Cosy Cottage</title>
   <style>
+    :root {
+      color-scheme: dark;
+      --ink: #0b1212;
+      --panel: rgba(13, 24, 24, 0.88);
+      --panel-strong: rgba(16, 34, 32, 0.94);
+      --line: rgba(235, 216, 179, 0.18);
+      --line-strong: rgba(235, 216, 179, 0.34);
+      --text: #f7efe1;
+      --muted: #c9c0ac;
+      --soft: #968d7d;
+      --ember: #e6a85d;
+      --moss: #7fb174;
+      --teal: #6ec8bd;
+      --rosewood: #8f5141;
+      --danger: #ef8a74;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
     }
 
+    html,
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
       min-height: 100vh;
+      background: #111d1d url("/images/cosy-cottage.png") center / cover fixed no-repeat;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      content: "";
+      background: rgba(8, 14, 14, 0.42);
+    }
+
+    body::after {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      content: "";
+      background:
+        linear-gradient(90deg, rgba(8, 14, 14, 0.78), rgba(8, 14, 14, 0.34) 36%, rgba(8, 14, 14, 0.72)),
+        linear-gradient(180deg, rgba(8, 14, 14, 0.4), rgba(8, 14, 14, 0.84));
+    }
+
+    button,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+      padding: 18px;
+      gap: 14px;
+    }
+
+    .topbar {
       display: flex;
       align-items: center;
-      justify-content: center;
-      overflow-x: hidden;
-      position: relative;
+      justify-content: space-between;
+      min-height: 54px;
+      padding: 0 12px;
     }
 
-    /* Animated background particles */
-    .particles {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 0;
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 12px;
     }
 
-    .particle {
-      position: absolute;
-      width: 4px;
-      height: 4px;
-      background: rgba(147, 51, 234, 0.5);
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(230, 168, 93, 0.9), rgba(127, 177, 116, 0.75)),
+        #182321;
+      color: #17201d;
+      font-weight: 900;
+      box-shadow: 0 12px 34px var(--shadow);
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1.1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .brand-copy p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .server-state {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .server-dot {
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
-      animation: float 15s infinite ease-in-out;
+      background: var(--moss);
+      box-shadow: 0 0 0 4px rgba(127, 177, 116, 0.16);
     }
 
-    @keyframes float {
-      0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
-      10% { opacity: 1; }
-      90% { opacity: 1; }
-      100% { transform: translateY(-100vh) translateX(100px); opacity: 0; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(180px, 230px) minmax(0, 1fr) minmax(250px, 320px);
+      min-height: 0;
+      gap: 14px;
     }
 
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 500px;
-      width: 90%;
-      padding: 20px;
+    .sidebar,
+    .chat-panel,
+    .residents-panel {
+      min-height: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 18px 60px var(--shadow);
+      backdrop-filter: blur(16px);
     }
 
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      padding: 48px 40px;
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-      text-align: center;
-      animation: slideUp 0.6s ease-out;
+    .sidebar,
+    .residents-panel {
+      padding: 14px;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .logo-container {
-      margin-bottom: 32px;
-      position: relative;
-    }
-
-    .logo {
-      width: 120px;
-      height: 120px;
-      border-radius: 24px;
-      box-shadow: 0 0 40px rgba(147, 51, 234, 0.4);
-      animation: pulse 3s ease-in-out infinite;
-      margin: 0 auto;
-    }
-
-    @keyframes pulse {
-      0%, 100% { 
-        box-shadow: 0 0 40px rgba(147, 51, 234, 0.4);
-        transform: scale(1);
-      }
-      50% { 
-        box-shadow: 0 0 60px rgba(147, 51, 234, 0.6);
-        transform: scale(1.02);
-      }
-    }
-
-    .title {
-      font-size: 28px;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 8px;
-      background: linear-gradient(135deg, #9333ea 0%, #c084fc 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .subtitle {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 32px;
-      letter-spacing: 2px;
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      color: var(--soft);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .tagline {
-      font-size: 16px;
-      color: rgba(255, 255, 255, 0.8);
-      margin-bottom: 40px;
-      line-height: 1.6;
+    .channel-list {
+      display: grid;
+      gap: 8px;
     }
 
-    .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .btn {
-      padding: 16px 32px;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-decoration: none;
-      display: inline-block;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
+    .channel-button {
+      display: grid;
+      grid-template-columns: auto 1fr;
       width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .btn:hover::before {
-      left: 100%;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
-      color: white;
-      box-shadow: 0 4px 20px rgba(147, 51, 234, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 30px rgba(147, 51, 234, 0.5);
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
-      transform: translateY(-2px);
-    }
-
-    .features {
-      margin-top: 40px;
-      padding-top: 32px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .feature {
-      display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 0;
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 14px;
+      gap: 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 11px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
       text-align: left;
     }
 
-    .feature-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
+    .channel-button[aria-current="true"] {
+      border-color: rgba(230, 168, 93, 0.44);
+      background: rgba(230, 168, 93, 0.14);
+      color: var(--text);
     }
 
-    .status-indicator {
-      position: absolute;
-      top: 24px;
-      right: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.6);
+    .channel-mark {
+      color: var(--teal);
+      font-weight: 900;
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #10b981;
-      animation: blink 2s infinite;
+    .channel-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .footer {
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 12px;
-    }
-
-    .footer a {
-      color: #9333ea;
-      text-decoration: none;
-      transition: color 0.3s;
-    }
-
-    .footer a:hover {
-      color: #c084fc;
-    }
-
-    @media (max-width: 600px) {
-      .card {
-        padding: 32px 24px;
-      }
-
-      .title {
-        font-size: 24px;
-      }
-
-      .subtitle {
-        font-size: 12px;
-      }
-
-      .logo {
-        width: 100px;
-        height: 100px;
-      }
-    }
-
-    /* Loading animation */
-    .loading {
-      display: none;
+    .room-card {
       margin-top: 16px;
-      color: rgba(255, 255, 255, 0.6);
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .room-card h2 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .room-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .chat-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .room-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: end;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(16, 34, 32, 0.9), rgba(16, 34, 32, 0.68)),
+        url("/images/cosy-cottage.png") center 46% / cover no-repeat;
+    }
+
+    .room-header h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 28px;
+      line-height: 1.05;
+    }
+
+    .room-header p {
+      max-width: 66ch;
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .room-meta {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 9px;
+      background: rgba(8, 14, 14, 0.5);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .messages {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 11px;
+      max-width: 780px;
+      margin-bottom: 13px;
+    }
+
+    .message.player {
+      grid-template-columns: minmax(0, 1fr) 42px;
+      margin-left: auto;
+    }
+
+    .message.system {
+      display: block;
+      max-width: none;
+      margin: 14px 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(230, 168, 93, 0.22);
+      border-radius: 8px;
+      background: rgba(230, 168, 93, 0.08);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .avatar {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      background: var(--avatar-color, var(--teal));
+      color: #10201d;
+      font-weight: 900;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    .message.player .avatar {
+      grid-column: 2;
+      grid-row: 1;
+      background: linear-gradient(135deg, var(--rosewood), var(--ember));
+    }
+
+    .message-body {
+      min-width: 0;
+    }
+
+    .message.player .message-body {
+      grid-column: 1;
+      grid-row: 1;
+      text-align: right;
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--soft);
+      font-size: 12px;
+    }
+
+    .message.player .message-meta {
+      justify-content: flex-end;
+    }
+
+    .message-name {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .bubble {
+      display: inline-block;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
+
+    .player .bubble {
+      background: rgba(111, 198, 177, 0.15);
+      border-color: rgba(111, 198, 177, 0.34);
+    }
+
+    .emote .bubble {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .emoji-speech .bubble {
+      font-size: 26px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) auto auto;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid var(--line);
+      background: var(--panel-strong);
+    }
+
+    .name-input,
+    .message-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      outline: none;
+    }
+
+    .name-input {
+      min-height: 44px;
+      padding: 0 11px;
+    }
+
+    .message-input {
+      min-height: 44px;
+      max-height: 130px;
+      resize: vertical;
+      padding: 11px 12px;
+      line-height: 1.35;
+    }
+
+    .name-input:focus,
+    .message-input:focus {
+      border-color: rgba(111, 198, 189, 0.72);
+      box-shadow: 0 0 0 3px rgba(111, 198, 189, 0.16);
+    }
+
+    .send-button,
+    .icon-button {
+      min-height: 44px;
+      border: 1px solid rgba(230, 168, 93, 0.46);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(230, 168, 93, 0.95), rgba(176, 103, 63, 0.95));
+      color: #1c1510;
+      font-weight: 900;
+    }
+
+    .send-button {
+      min-width: 86px;
+      padding: 0 18px;
+    }
+
+    .icon-button {
+      width: 44px;
+      padding: 0;
+      font-size: 19px;
+    }
+
+    .send-button:disabled,
+    .icon-button:disabled {
+      cursor: progress;
+      filter: grayscale(0.35);
+      opacity: 0.7;
+    }
+
+    .resident-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .resident {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      gap: 11px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .resident-copy {
+      min-width: 0;
+    }
+
+    .resident-name {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .resident-name strong,
+    .resident-status,
+    .resident-role {
+      overflow-wrap: anywhere;
+    }
+
+    .resident-name strong {
+      color: var(--text);
       font-size: 14px;
     }
 
-    .loading.active {
+    .resident-name span {
+      color: var(--soft);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .resident-role {
+      margin: 0 0 4px;
+      color: var(--teal);
+      font-size: 12px;
+    }
+
+    .resident-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .legend {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 9px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .legend-row strong {
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .error {
+      display: none;
+      margin: 0 14px 12px;
+      border: 1px solid rgba(239, 138, 116, 0.5);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: rgba(239, 138, 116, 0.12);
+      color: #ffd0c7;
+      font-size: 13px;
+    }
+
+    .error.visible {
       display: block;
     }
 
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #9333ea;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-right: 8px;
-      vertical-align: middle;
+    @media (max-width: 1120px) {
+      .layout {
+        grid-template-columns: 190px minmax(0, 1fr);
+      }
+
+      .residents-panel {
+        grid-column: 1 / -1;
+      }
+
+      .resident-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @media (max-width: 780px) {
+      .app-shell {
+        padding: 10px;
+      }
+
+      .topbar,
+      .room-header,
+      .composer {
+        align-items: stretch;
+      }
+
+      .topbar,
+      .layout,
+      .room-header,
+      .composer {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        display: grid;
+        gap: 10px;
+      }
+
+      .server-state {
+        justify-content: flex-start;
+      }
+
+      .layout {
+        display: grid;
+      }
+
+      .sidebar {
+        order: 2;
+      }
+
+      .chat-panel {
+        order: 1;
+        min-height: 68vh;
+      }
+
+      .residents-panel {
+        order: 3;
+      }
+
+      .resident-list {
+        grid-template-columns: 1fr;
+      }
+
+      .room-header h2 {
+        font-size: 24px;
+      }
+
+      .room-meta {
+        justify-content: flex-start;
+      }
+
+      .composer {
+        display: grid;
+      }
+
+      .send-button,
+      .icon-button {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Animated particles -->
-  <div class="particles" id="particles"></div>
-
-  <div class="container">
-    <div class="card">
-      <div class="status-indicator">
-        <div class="status-dot"></div>
-        <span>ONLINE</span>
-      </div>
-
-      <div class="logo-container">
-        <img src="/images/image.png" alt="RATi Logo" class="logo" onerror="this.style.display='none'">
-      </div>
-
-      <h1 class="title">RATi Swarm Orchestrator</h1>
-      <div class="subtitle">Moonstone Sanctum Edition</div>
-
-      <p class="tagline">
-        Autonomous AI entities. Real-time trading. Decentralized intelligence.<br>
-        Enter the swarm.
-      </p>
-
-      <div class="button-group">
-        <a href="/admin" class="btn btn-primary">
-          🔐 Enter Admin Portal
-        </a>
-        <a href="/console" class="btn btn-secondary">
-          🌐 Launch Swarm Interface
-        </a>
-        <a href="/health" class="btn btn-secondary">
-          📊 System Health Dashboard
-        </a>
-      </div>
-
-      <div class="features">
-        <div class="feature">
-          <div class="feature-icon">🤖</div>
-          <span>AI-Powered Avatar Management</span>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">💰</div>
-          <span>Real-Time Trading & Buybot</span>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🌐</div>
-          <span>Multi-Platform Integration</span>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🧠</div>
-          <span>Advanced Relationship Memory</span>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">CW</div>
+        <div class="brand-copy">
+          <h1>CosyWorld</h1>
+          <p>Locations as channels. Avatars as residents.</p>
         </div>
       </div>
-
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        Connecting to the swarm...
+      <div class="server-state">
+        <span class="server-dot" aria-hidden="true"></span>
+        <span id="room-status">Connecting</span>
       </div>
+    </header>
 
-      <div class="footer">
-        &copy; 2019-2025 Cenetex Inc. | <a href="https://github.com/cenetex/cosyworld" target="_blank">GitHub</a>
-      </div>
+    <div class="layout">
+      <aside class="sidebar" aria-label="Locations">
+        <div class="panel-title">
+          <span>Locations</span>
+        </div>
+        <div id="channel-list" class="channel-list"></div>
+        <section class="room-card" aria-labelledby="room-card-title">
+          <h2 id="room-card-title">The Cosy Cottage</h2>
+          <p id="room-card-description">A firelit cottage with rain-soft windows and a low doorway waiting for future paths.</p>
+        </section>
+      </aside>
+
+      <main class="chat-panel" aria-label="The Cosy Cottage chat">
+        <section class="room-header">
+          <div>
+            <h2 id="room-title">The Cosy Cottage</h2>
+            <p id="room-description">A firelit cottage with rain-soft windows, shelves of storybooks, and a low doorway waiting for future paths.</p>
+          </div>
+          <div class="room-meta">
+            <span class="pill" id="channel-pill">#cosy-cottage</span>
+            <span class="pill" id="resident-pill">3 residents</span>
+          </div>
+        </section>
+
+        <section id="messages" class="messages" aria-live="polite"></section>
+        <p id="error" class="error"></p>
+
+        <form id="composer" class="composer">
+          <input id="sender-name" class="name-input" name="senderName" type="text" maxlength="40" value="Traveler" aria-label="Name">
+          <textarea id="message-input" class="message-input" name="content" maxlength="1200" rows="1" placeholder="Speak into the room" aria-label="Message"></textarea>
+          <button id="refresh-button" class="icon-button" type="button" title="Refresh room" aria-label="Refresh room">↻</button>
+          <button id="send-button" class="send-button" type="submit">Send</button>
+        </form>
+      </main>
+
+      <aside class="residents-panel" aria-label="Residents">
+        <div class="panel-title">
+          <span>Residents</span>
+        </div>
+        <div id="resident-list" class="resident-list"></div>
+        <section class="legend" aria-label="Room state">
+          <p class="legend-row"><strong>Active channel</strong><span id="active-channel">#cosy-cottage</span></p>
+          <p class="legend-row"><strong>Open exits</strong><span id="exit-count">0</span></p>
+          <p class="legend-row"><strong>Mode</strong><span>MUD chat</span></p>
+        </section>
+      </aside>
     </div>
   </div>
 
   <script>
-    // Create animated particles
-    function createParticles() {
-      const particlesContainer = document.getElementById('particles');
-      const particleCount = 50;
+    const apiBase = '/api/cosyworld';
+    const elements = {
+      status: document.getElementById('room-status'),
+      channelList: document.getElementById('channel-list'),
+      roomTitle: document.getElementById('room-title'),
+      roomDescription: document.getElementById('room-description'),
+      roomCardTitle: document.getElementById('room-card-title'),
+      roomCardDescription: document.getElementById('room-card-description'),
+      channelPill: document.getElementById('channel-pill'),
+      residentPill: document.getElementById('resident-pill'),
+      messages: document.getElementById('messages'),
+      residents: document.getElementById('resident-list'),
+      composer: document.getElementById('composer'),
+      senderName: document.getElementById('sender-name'),
+      input: document.getElementById('message-input'),
+      refresh: document.getElementById('refresh-button'),
+      send: document.getElementById('send-button'),
+      error: document.getElementById('error'),
+      activeChannel: document.getElementById('active-channel'),
+      exitCount: document.getElementById('exit-count'),
+    };
 
-      for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 15 + 's';
-        particle.style.animationDuration = (15 + Math.random() * 10) + 's';
-        particlesContainer.appendChild(particle);
+    let roomState = null;
+
+    elements.senderName.value = localStorage.getItem('cosyworld.senderName') || 'Traveler';
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatTime(value) {
+      try {
+        return new Intl.DateTimeFormat([], {
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(new Date(value));
+      } catch {
+        return '';
       }
     }
 
-    createParticles();
-
-    // Show loading state
-    function showLoading() {
-      document.getElementById('loading').classList.add('active');
+    function getAvatar(authorId) {
+      return roomState?.avatars?.find((avatar) => avatar.id === authorId) || null;
     }
 
-    // Add click effect to buttons
-    document.querySelectorAll('.btn-primary').forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        showLoading();
+    function isEmojiOnly(value) {
+      return /^[\p{Extended_Pictographic}\p{Emoji_Component}\s\uFE0F]+$/u.test(value || '');
+    }
+
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options,
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Request failed (${response.status})`);
+      }
+      return payload;
+    }
+
+    function setBusy(isBusy) {
+      elements.send.disabled = isBusy;
+      elements.refresh.disabled = isBusy;
+      elements.status.textContent = isBusy ? 'Listening' : 'Connected';
+    }
+
+    function showError(message) {
+      elements.error.textContent = message || '';
+      elements.error.classList.toggle('visible', Boolean(message));
+    }
+
+    function renderChannels() {
+      const activeId = roomState.activeLocationId;
+      elements.channelList.innerHTML = roomState.locations.map((location) => `
+        <button class="channel-button" type="button" aria-current="${location.id === activeId ? 'true' : 'false'}">
+          <span class="channel-mark">#</span>
+          <span class="channel-name">${escapeHtml(location.name)}</span>
+        </button>
+      `).join('');
+    }
+
+    function renderRoom() {
+      const location = roomState.locations.find((entry) => entry.id === roomState.activeLocationId);
+      const residentCount = roomState.avatars.filter((avatar) => avatar.locationId === location.id).length;
+
+      elements.roomTitle.textContent = location.name;
+      elements.roomDescription.textContent = location.description;
+      elements.roomCardTitle.textContent = location.name;
+      elements.roomCardDescription.textContent = location.description;
+      elements.channelPill.textContent = location.channelName;
+      elements.activeChannel.textContent = location.channelName;
+      elements.exitCount.textContent = String(location.exits?.length || 0);
+      elements.residentPill.textContent = `${residentCount} ${residentCount === 1 ? 'resident' : 'residents'}`;
+    }
+
+    function renderResidents() {
+      const activeId = roomState.activeLocationId;
+      const residents = roomState.avatars.filter((avatar) => avatar.locationId === activeId);
+
+      elements.residents.innerHTML = residents.map((avatar) => `
+        <article class="resident">
+          <div class="avatar" style="--avatar-color:${escapeHtml(avatar.color)}">${escapeHtml(avatar.icon)}</div>
+          <div class="resident-copy">
+            <div class="resident-name">
+              <strong>${escapeHtml(avatar.name)}</strong>
+              <span>${escapeHtml(avatar.species)}</span>
+            </div>
+            <p class="resident-role">${escapeHtml(avatar.role)}</p>
+            <p class="resident-status">${escapeHtml(avatar.status)}</p>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderMessage(message) {
+      if (message.kind === 'system') {
+        return `<article class="message system">${escapeHtml(message.content)}</article>`;
+      }
+
+      const avatar = getAvatar(message.authorId);
+      const initials = avatar?.icon || (message.authorName || '?').slice(0, 1).toUpperCase();
+      const avatarColor = avatar?.color || '#6ec8bd';
+      const isPlayer = message.authorType === 'player';
+      const emojiClass = isEmojiOnly(message.content) ? ' emoji-speech' : '';
+      const emoteClass = message.kind === 'emote' ? ' emote' : '';
+
+      return `
+        <article class="message ${isPlayer ? 'player' : 'avatar-message'}${emojiClass}${emoteClass}">
+          <div class="avatar" style="--avatar-color:${escapeHtml(avatarColor)}">${escapeHtml(initials)}</div>
+          <div class="message-body">
+            <div class="message-meta">
+              <span class="message-name">${escapeHtml(message.authorName)}</span>
+              <span>${escapeHtml(formatTime(message.createdAt))}</span>
+            </div>
+            <div class="bubble">${escapeHtml(message.content)}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderMessages() {
+      elements.messages.innerHTML = roomState.messages.map(renderMessage).join('');
+      elements.messages.scrollTop = elements.messages.scrollHeight;
+    }
+
+    function render() {
+      renderChannels();
+      renderRoom();
+      renderResidents();
+      renderMessages();
+    }
+
+    async function loadState() {
+      showError('');
+      const payload = await fetchJson(`${apiBase}/state`);
+      roomState = payload;
+      render();
+      elements.status.textContent = 'Connected';
+    }
+
+    async function postMessage(content, senderName) {
+      setBusy(true);
+      showError('');
+      try {
+        const payload = await fetchJson(`${apiBase}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ content, senderName }),
+        });
+        roomState = payload.state;
+        render();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    elements.composer.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const content = elements.input.value.trim();
+      const senderName = elements.senderName.value.trim() || 'Traveler';
+      if (!content) return;
+
+      localStorage.setItem('cosyworld.senderName', senderName);
+      elements.input.value = '';
+
+      try {
+        await postMessage(content, senderName);
+        elements.input.focus();
+      } catch (error) {
+        showError(error.message || 'Message failed');
+      }
     });
 
-    // Check if user is already authenticated
-    fetch('/api/setup/status', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        console.log('Setup status:', data);
-        // Could redirect authenticated users directly
-        if (data.setupComplete && data.isAuthenticated) {
-          // Optionally auto-redirect to admin panel
-          // window.location.href = '/admin';
-        }
-      })
-      .catch(err => {
-        console.log('Setup status check failed:', err);
-      });
+    elements.refresh.addEventListener('click', async () => {
+      setBusy(true);
+      try {
+        await loadState();
+      } catch (error) {
+        showError(error.message || 'Refresh failed');
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    elements.input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        elements.composer.requestSubmit();
+      }
+    });
+
+    loadState().catch((error) => {
+      elements.status.textContent = 'Offline';
+      showError(error.message || 'Could not connect');
+    });
   </script>
 </body>
 </html>

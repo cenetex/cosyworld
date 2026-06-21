@@ -393,7 +393,7 @@
         <div class="form-group">
           <label for="encryptionKey">Encryption Key *</label>
           <textarea id="encryptionKey" placeholder="Auto-generated 64-character hex key" rows="2"></textarea>
-          <small>Used to encrypt secrets in MongoDB (AES-256-GCM)</small>
+          <small>Used to encrypt persisted secrets (AES-256-GCM)</small>
           <button class="btn-generate" onclick="generateKey('encryptionKey')">Generate Secure Key</button>
         </div>
 
@@ -414,23 +414,26 @@
         </div>
       </div>
 
-      <!-- Step 3: MongoDB Configuration -->
+      <!-- Step 3: Data Storage Configuration -->
       <div class="step" id="step3">
-        <h2 class="step-title">MongoDB Database</h2>
+        <h2 class="step-title">Data Storage</h2>
         <p class="step-description">
-          Connect to your MongoDB database. All application data will be stored here.
+          Choose where application data will be stored. SQLite is the self-contained default.
         </p>
 
         <div class="form-group">
-          <label for="mongoUri">MongoDB Connection URI *</label>
-          <textarea id="mongoUri" placeholder="mongodb://localhost:27017" rows="2"></textarea>
-          <small>MongoDB connection string (e.g., mongodb+srv://user:pass@cluster.mongodb.net)</small>
+          <label for="storageBackend">Storage Backend</label>
+          <select id="storageBackend">
+            <option value="sqlite" selected>SQLite</option>
+            <option value="mongo">MongoDB (advanced)</option>
+          </select>
+          <small>SQLite stores data in one local file and is recommended for Fly.</small>
         </div>
 
         <div class="form-group">
-          <label for="mongoDbName">Database Name</label>
-          <input type="text" id="mongoDbName" value="cosyworld8" placeholder="cosyworld8">
-          <small>Default: cosyworld8</small>
+          <label for="sqliteDbPath">SQLite Database Path</label>
+          <input type="text" id="sqliteDbPath" value="/data/cosyworld.sqlite" placeholder="/data/cosyworld.sqlite">
+          <small>Use /data/cosyworld.sqlite on Fly so data persists on the mounted volume.</small>
         </div>
 
         <div class="btn-container">
@@ -692,10 +695,10 @@
           return false;
         }
       } else if (currentStep === 3) {
-        const mongoUriField = document.getElementById('mongoUri');
-        const hasExisting = mongoUriField.placeholder && mongoUriField.placeholder.includes('Currently set');
-        if (!mongoUriField.value && !hasExisting) {
-          alert('Please enter your MongoDB connection URI');
+        const backend = document.getElementById('storageBackend').value;
+        const sqlitePath = document.getElementById('sqliteDbPath').value.trim();
+        if (backend === 'sqlite' && !sqlitePath) {
+          alert('Please enter your SQLite database path');
           return false;
         }
       } else if (currentStep === 4) {
@@ -816,7 +819,7 @@
       
       html += '<div class="config-item"><span class="config-key">Admin Wallet:</span><span class="config-status">' + adminWallet + '</span></div>';
       html += '<div class="config-item"><span class="config-key">Encryption Key:</span><span class="config-status">✓ Set</span></div>';
-      html += '<div class="config-item"><span class="config-key">MongoDB:</span><span class="config-status">✓ Configured</span></div>';
+      html += '<div class="config-item"><span class="config-key">Data:</span><span class="config-status">' + (config.storage?.backend || 'sqlite') + '</span></div>';
       html += '<div class="config-item"><span class="config-key">Discord Bot:</span><span class="config-status">✓ Configured</span></div>';
       html += '<div class="config-item"><span class="config-key">AI Service:</span><span class="config-status">' + config.ai.service + '</span></div>';
       
@@ -845,9 +848,9 @@
           key: getFieldValue('encryptionKey'),
           serverKey: getFieldValue('serverSecretKey')
         },
-        mongo: {
-          uri: getFieldValue('mongoUri'),
-          dbName: document.getElementById('mongoDbName').value || 'cosyworld8'
+        storage: {
+          backend: document.getElementById('storageBackend').value || 'sqlite',
+          sqliteDbPath: document.getElementById('sqliteDbPath').value || '/data/cosyworld.sqlite'
         },
         discord: {
           botToken: getFieldValue('discordBotToken'),
@@ -998,13 +1001,12 @@
           console.log('Encryption key already set');
         }
         
-        // Pre-fill MongoDB
-        if (config.mongo?.uri) {
-          // Show masked URI but allow editing
-          document.getElementById('mongoUri').placeholder = 'Currently set: ' + config.mongo.uri;
+        // Pre-fill storage
+        if (config.storage?.backend) {
+          document.getElementById('storageBackend').value = config.storage.backend;
         }
-        if (config.mongo?.dbName) {
-          document.getElementById('mongoDbName').value = config.mongo.dbName;
+        if (config.storage?.sqliteDbPath) {
+          document.getElementById('sqliteDbPath').value = config.storage.sqliteDbPath;
         }
         
         // Pre-fill Discord

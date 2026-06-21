@@ -4,15 +4,23 @@
  */
 
 import path from 'path';
+import fsSync from 'fs';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 
 import dotenv from 'dotenv';
+
+const envFile = process.env.ENV_FILE || process.env.CONFIG_ENV_FILE;
+if (envFile && fsSync.existsSync(envFile)) {
+  dotenv.config({ path: envFile });
+}
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
+const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
+const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
 
 export class ConfigService {
   constructor({ logger, secretsService } = {}) {
@@ -109,8 +117,8 @@ export class ConfigService {
         },
       },
       mongo: {
-        uri: this.secrets?.get('MONGO_URI') || process.env.MONGO_URI,
-        dbName: process.env.MONGO_DB_NAME || 'discord-bot',
+        uri: this.secrets?.get('MONGO_URI') || process.env.MONGO_URI || DEFAULT_MONGO_URI,
+        dbName: process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME,
         collections: {
           avatars: 'avatars',
           imageUrls: 'image_urls',
@@ -350,18 +358,22 @@ export class ConfigService {
 
     let dbConnection = explicitDb;
     try {
-      if (!dbConnection) {
+      if (!this.dataLayer?.config && !dbConnection) {
         dbConnection = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
       }
 
-      if (!dbConnection) {
+      if (!this.dataLayer?.config && !dbConnection) {
         this.logger?.warn?.('[ConfigService] Unable to load prompt defaults from database – no connection available');
         return { ...this.config.prompt };
       }
 
-      this.db = this.db || dbConnection;
+      if (dbConnection) {
+        this.db = this.db || dbConnection;
+      }
 
-      const globalSettings = await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
+      const globalSettings = this.dataLayer?.config
+        ? { config: await this.dataLayer.config.getSetting('guild_defaults', { scope: 'global_settings', fallback: null }) }
+        : await dbConnection.collection('global_settings').findOne({ _id: 'guild_defaults' });
       const promptsFromDb = globalSettings?.config?.prompts;
 
       if (promptsFromDb && typeof promptsFromDb === 'object') {
@@ -464,6 +476,17 @@ export class ConfigService {
       return this.guildConfigCache.get(guildId);
     }
 
+    if (this.dataLayer?.config) {
+      try {
+        const guildConfig = await this.dataLayer.config.getGuildConfig(guildId);
+        const mergedConfig = this.mergeWithDefaults(guildConfig, guildId);
+        this.guildConfigCache.set(guildId, mergedConfig);
+        return mergedConfig;
+      } catch (error) {
+        this.logger?.warn?.(`[ConfigService] V2 guild config fetch failed for ${guildId}: ${error.message}`);
+      }
+    }
+
     // Resolve database connection
     let db = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
     if (!db) {
@@ -486,6 +509,18 @@ export class ConfigService {
   // Update guild configuration
   async updateGuildConfig(guildId, updates) {
     if (!guildId) throw new Error('guildId is required');
+
+    if (this.dataLayer?.config) {
+      try {
+        const result = await this.dataLayer.config.saveGuildConfig(guildId, updates);
+        const newGuildConfig = await this.dataLayer.config.getGuildConfig(guildId);
+        const mergedConfig = this.mergeWithDefaults(newGuildConfig, guildId);
+        this.guildConfigCache.set(guildId, mergedConfig);
+        return result;
+      } catch (error) {
+        this.logger?.warn?.(`[ConfigService] V2 guild config update failed for ${guildId}: ${error.message}`);
+      }
+    }
 
     // Resolve database connection
     let db = this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
@@ -513,6 +548,10 @@ export class ConfigService {
 
   // Get all guild configurations
   async getAllGuildConfigs(db) {
+    if (this.dataLayer?.config && !db) {
+      return await this.dataLayer.config.listGuildConfigs();
+    }
+
     db = db || this.db || (this.client?.db) || (global.databaseService ? await global.databaseService.getDatabase() : null);
     if (!db) throw new Error('No database connection available');
 

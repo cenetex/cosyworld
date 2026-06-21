@@ -5,7 +5,7 @@
 
 import Fuse from 'fuse.js';
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 import { SchemaValidator } from '../../utils/schemaValidator.mjs';
 
 

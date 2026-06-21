@@ -4,6 +4,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'; // Use 'node:' prefix for built-in modules
+import { ensureEncryptionKey } from './ensureEncryptionKey.mjs';
 
 // Constants
 const ALGORITHM = 'aes-256-gcm';
@@ -12,10 +13,7 @@ const KEY_LENGTH = 32; // AES-256 requires 32 bytes
 
 // Validate encryption key at startup
 const ENCRYPTION_KEY = (() => {
-  const key = process.env.ENCRYPTION_KEY;
-  if (!process.env.ENCRYPTION_KEY) {
-    throw new Error('ENCRYPTION_KEY environment variable not set using randomly generated key');
-  }
+  const key = ensureEncryptionKey();
   
   const buffer = Buffer.from(key, 'hex');
   if (buffer.length !== KEY_LENGTH) {

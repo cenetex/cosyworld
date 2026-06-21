@@ -10,7 +10,7 @@ import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.m
 
 /**
  * @typedef {Object} Avatar
- * @property {import('mongodb').ObjectId} _id - Unique avatar ID
+ * @property {import('../../utils/objectId.mjs').ObjectId} _id - Unique avatar ID
  * @property {string} name - Avatar name (2-50 characters)
  * @property {string} emoji - Avatar emoji (1-10 characters)
  * @property {string} description - Avatar description
@@ -97,7 +97,7 @@ import { formatAddress, formatLargeNumber } from '../../utils/walletFormatters.m
 import process from 'process';
 import eventBus from '../../utils/eventBus.mjs';
 import Fuse from 'fuse.js';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 import { toObjectId } from '../../utils/toObjectId.mjs';
 import { buildAvatarQuery } from './helpers/buildAvatarQuery.js';
 

@@ -4,7 +4,7 @@
  */
 
 // services/entity/itemService.mjs
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 import { SchemaValidator } from '../../utils/schemaValidator.mjs';
 import { v4 as uuidv4 } from 'uuid';
 

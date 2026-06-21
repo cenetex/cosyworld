@@ -9,7 +9,7 @@ import { useNonce, issueNonce } from '../middleware/nonceStore.js';
 import crypto from 'crypto';
 import { TwitterApi } from 'twitter-api-v2';
 import { encrypt, decrypt } from '../../../../utils/encryption.mjs';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 
 const DEFAULT_TOKEN_EXPIRY = 7200; // 2 hours in seconds
 const AUTH_SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds

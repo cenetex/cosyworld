@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import { thumbnailService } from '../services/thumbnailService.js';
 import fs from 'fs/promises';
 import path from 'path';

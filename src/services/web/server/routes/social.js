@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 
 export default function socialRoutes(db) {
   const router = Router();

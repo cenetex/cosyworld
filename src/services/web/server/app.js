@@ -91,6 +91,19 @@ async function initializeApp(services) {
       : path.join(__dirname, '..', 'public', 'thumbnails');
     app.use('/thumbnails', express.static(thumbsDir, { maxAge: '7d', etag: false }));
 
+  // Serve self-contained local media storage. In production this lives on the
+  // mounted Fly volume so generated assets survive deploys and restarts.
+  const localMediaDir = process.env.LOCAL_MEDIA_DIR || (
+    process.env.NODE_ENV === 'production'
+      ? '/data/media'
+      : path.join(process.cwd(), 'data', 'media')
+  );
+  app.use('/media', express.static(localMediaDir, {
+    maxAge: '30d',
+    etag: true,
+    fallthrough: false
+  }));
+
   // Serve images from both root-level /images and bundled public/images
   const rootImagesDir = path.join(process.cwd(), 'images');
   app.use('/images', express.static(rootImagesDir, { maxAge: '7d', etag: false }));
@@ -151,7 +164,7 @@ async function initializeApp(services) {
     app.use('/api/wiki', (await import('./routes/wiki.js')).default(db));
     app.use('/api/social', (await import('./routes/social.js')).default(db));
     app.use('/api/claims', (await import('./routes/claims.js')).default(db));
-  app.use('/api/link', (await import('./routes/link.js')).default(db));
+  app.use('/api/link', (await import('./routes/link.js')).default(services));
     app.use('/api/guilds', (await import('./routes/guilds.js')).default(db, services.discordService.client, services.configService));
   // Initialize audit service once DB is ready
   const auditLogService = new AuditLogService({ db, logger });
@@ -220,13 +233,17 @@ async function initializeApp(services) {
   app.use('/api/settings', (await import('./routes/settings.js')).default(services));
   app.use('/api/payment', (await import('./routes/payment.js')).default(services));
   app.use('/api/ai', (await import('./routes/ai.js')).default(services));
+  app.use('/api/runtime', (await import('./routes/runtime.js')).default(services));
+  const { default: createCosyWorldLegacyRoutes } = await import('./routes/cosyworld.js');
+  app.use('/api/legacy/cosyworld', createCosyWorldLegacyRoutes(services));
+  app.use('/api/cosyworld', createCosyWorldLegacyRoutes(services));
   app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/marketplace', (await import('./routes/marketplace.js')).default(services));
   app.use('/api/services', (await import('./routes/services.js')).default(services));
   app.use('/api/rati', (await import('./routes/rati.js')).default(db));
   app.use('/api/models', (await import('./routes/models.js')).default(db, services));
   app.use('/api/collections', (await import('./routes/collections.js')).default(db));
-  app.use('/api/auth', (await import('./routes/auth.js')).default(db));
+  app.use('/api/auth', (await import('./routes/auth.js')).default(services));
   app.use('/api/memory', ensureAdmin, (await import('./routes/memory.js')).default(db));
 
     // Custom route
@@ -350,19 +367,26 @@ async function initializeApp(services) {
       });
     });
 
-    // Root path - serves the landing page with links (index.html)
+    // Root path - direct humans toward the canonical V2 game runtime.
     app.get('/', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+      res.sendFile(path.join(staticDir, 'v2-launch.html'), (err) => {
         if (err) {
-          logger.error('Failed to serve landing page:', err);
+          logger.error('Failed to serve CosyWorld V2 launch page:', err);
           next(err);
         }
       });
     });
 
-    // Console path - serves the swarm interface app (app.html)
+    // Console path - keep the old URL as an alias for the canonical launch page.
     app.get('/console', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'app.html'), (err) => {
+      res.sendFile(path.join(staticDir, 'v2-launch.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    // Legacy Node chat prototype. Gameplay truth lives in the V2 runtime.
+    app.get('/legacy/cosyworld', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
         if (err) next(err);
       });
     });
@@ -376,12 +400,18 @@ async function initializeApp(services) {
 
     // Keep /app as alias for backwards compatibility
     app.get('/app', (req, res, next) => {
-      res.redirect('/console');
+      res.redirect('/');
     });
 
     // SPA fallback for console routes
     app.get('/console/*', (req, res, next) => {
-      res.sendFile(path.join(staticDir, 'app.html'), (err) => {
+      res.sendFile(path.join(staticDir, 'v2-launch.html'), (err) => {
+        if (err) next(err);
+      });
+    });
+
+    app.get('/legacy/cosyworld/*', (req, res, next) => {
+      res.sendFile(path.join(staticDir, 'index.html'), (err) => {
         if (err) next(err);
       });
     });

@@ -33,14 +33,14 @@ CosyWorld is a modular ecosystem of interconnected services powering AI avatars,
 - **Memory Service**: Short-term cache, long-term vector DB, context-aware retrieval
 - **Avatar Service**: Lifecycle, breeding, evolution, image integration
 - **Item Service**: Creation, inventory, AI-driven item behavior, trading
-- **Storage**: S3, Arweave (permanent), MongoDB (structured data), Replicate (images)
+- **Storage**: SQLite (structured data), local/S3 media, Arweave (permanent), Replicate (images)
 
 ---
 
 ## Ecosystem Flow
 
 1. **User Input** → Chat/Tool Services → AI Models → Avatar Decisions
-2. **Memory Logging** → MongoDB → Summaries & Relevancy
+2. **Memory Logging** → SQLite data layer → Summaries & Relevancy
 3. **Content Creation** → Creation Service → Schema Validation
 4. **Blockchain Storage** → Arweave for immutable data & media
 

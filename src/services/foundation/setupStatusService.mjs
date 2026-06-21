@@ -7,14 +7,16 @@
  * SetupStatusService
  * 
  * Manages the application's setup state and determines if first-time configuration is needed.
- * Stores setup completion state in MongoDB to persist across restarts.
+ * Stores setup completion state through the V2 config store to persist across restarts.
  */
 export class SetupStatusService {
-  constructor({ logger, databaseService, secretsService }) {
+  constructor({ logger, databaseService, secretsService, dataLayer }) {
     this.logger = logger;
     this.db = null;
     this.databaseService = databaseService;
     this.secrets = secretsService;
+    this.dataLayer = dataLayer;
+    this.configStore = dataLayer?.config || null;
     this.collection = null;
     this._initPromise = null;
   }
@@ -24,6 +26,11 @@ export class SetupStatusService {
   }
 
   async _ensureInitialized() {
+    if (this.configStore) {
+      await this.configStore.initialize?.();
+      return this.configStore;
+    }
+
     if (this.collection) return this.collection;
     if (this._initPromise) {
       try {
@@ -70,6 +77,16 @@ export class SetupStatusService {
   async getSetupStatus() {
     try {
       await this._ensureInitialized();
+      if (this.configStore) {
+        const status = await this.configStore.getSetupStatus();
+        if (status.setupComplete) return status;
+
+        return {
+          ...status,
+          hasPartialConfig: this._hasMinimalConfiguration()
+        };
+      }
+
       const doc = await this.collection?.findOne({ key: 'setup_complete' });
       
       if (doc && doc.value === true) {
@@ -103,7 +120,6 @@ export class SetupStatusService {
   _hasMinimalConfiguration() {
     const required = [
       'ENCRYPTION_KEY',
-      'MONGO_URI',
       'DISCORD_BOT_TOKEN',
       'DISCORD_CLIENT_ID'
     ];
@@ -128,22 +144,26 @@ export class SetupStatusService {
   async markSetupComplete(adminWallet) {
     try {
       await this._ensureInitialized();
-      if (!this.collection) {
-        throw new Error('Setup status store unavailable');
+      if (this.configStore) {
+        await this.configStore.markSetupComplete({ adminWallet, completedAt: new Date() });
+      } else {
+        if (!this.collection) {
+          throw new Error('Setup status store unavailable');
+        }
+        await this.collection?.updateOne(
+          { key: 'setup_complete' },
+          {
+            $set: {
+              key: 'setup_complete',
+              value: true,
+              adminWallet: adminWallet,
+              setupDate: new Date(),
+              lastModified: new Date()
+            }
+          },
+          { upsert: true }
+        );
       }
-      await this.collection?.updateOne(
-        { key: 'setup_complete' },
-        {
-          $set: {
-            key: 'setup_complete',
-            value: true,
-            adminWallet: adminWallet,
-            setupDate: new Date(),
-            lastModified: new Date()
-          }
-        },
-        { upsert: true }
-      );
 
       // Also set ADMIN_WALLET in secrets
       if (adminWallet && this.secrets) {
@@ -166,6 +186,12 @@ export class SetupStatusService {
   async resetSetup() {
     try {
       await this._ensureInitialized();
+      if (this.configStore) {
+        await this.configStore.resetSetup();
+        this.logger?.warn?.('[SetupStatus] Setup status reset - will require re-configuration');
+        return true;
+      }
+
       if (!this.collection) {
         throw new Error('Setup status store unavailable');
       }
@@ -186,18 +212,22 @@ export class SetupStatusService {
   async updateAdminWallet(newWallet) {
     try {
       await this._ensureInitialized();
-      if (!this.collection) {
-        throw new Error('Setup status store unavailable');
-      }
-      await this.collection.updateOne(
-        { key: 'setup_complete' },
-        {
-          $set: {
-            adminWallet: newWallet,
-            lastModified: new Date()
-          }
+      if (this.configStore) {
+        await this.configStore.updateAdminWallet(newWallet);
+      } else {
+        if (!this.collection) {
+          throw new Error('Setup status store unavailable');
         }
-      );
+        await this.collection.updateOne(
+          { key: 'setup_complete' },
+          {
+            $set: {
+              adminWallet: newWallet,
+              lastModified: new Date()
+            }
+          }
+        );
+      }
 
       if (this.secrets) {
         await this.secrets.set('ADMIN_WALLET', newWallet);
@@ -243,10 +273,15 @@ export class SetupStatusService {
         required: true,
         description: 'Encryption key for securing secrets'
       },
-      'MONGO_URI': {
-        value: process.env.MONGO_URI,
+      'DATA_BACKEND': {
+        value: process.env.DATA_BACKEND || process.env.STORAGE_DATA_BACKEND || 'sqlite',
         required: true,
-        description: 'MongoDB connection string'
+        description: 'Data storage backend'
+      },
+      'SQLITE_DB_PATH': {
+        value: process.env.SQLITE_DB_PATH || (process.env.NODE_ENV === 'production' ? '/data/cosyworld.sqlite' : 'data/cosyworld.sqlite'),
+        required: true,
+        description: 'SQLite database path'
       },
       'DISCORD_BOT_TOKEN': {
         value: process.env.DISCORD_BOT_TOKEN,

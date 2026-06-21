@@ -3,27 +3,23 @@
  * Licensed under the MIT License.
  */
 
-import { MongoClient } from 'mongodb';
 import { StatService } from '../battle/statService.mjs';
+import { openDatabase } from '../lib/openDatabase.mjs';
 
 // Recommended: Ensure proper indexes, e.g. { authorUsername: 1 } 
 // in the "messages" collection to speed up the countDocuments query.
 
-const client = new MongoClient(process.env.MONGO_URI, {
-  // For example, increase the pool size if necessary
-  maxPoolSize: 20
-});
-
 let db;
+let dbHandle;
 let isUpdating = false;
 const RUN_INTERVAL_MS = 60 * 1000; // 1 minute
 const BATCH_SIZE = 5;
 
 async function initDb() {
   if (!db) {
-    await client.connect();
-    db = client.db(process.env.MONGO_DB_NAME || 'discord-bot');
-    console.log('Connected to MongoDB.');
+    dbHandle = await openDatabase();
+    db = dbHandle.db;
+    console.log(`Connected to ${dbHandle.backend} database.`);
   }
   return db;
 }

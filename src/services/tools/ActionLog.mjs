@@ -3,20 +3,20 @@
  * Licensed under the MIT License.
  */
 
-import { MongoClient } from 'mongodb';
-
 export class ActionLog {
-  constructor(logger) {
-    this.logger = logger;
+  constructor({ logger, databaseService } = {}) {
+    this.logger = logger || console;
+    this.databaseService = databaseService || null;
+  }
+
+  async collection() {
+    const db = await this.databaseService?.getDatabase?.();
+    if (!db) throw new Error('Database unavailable');
+    return db.collection('dungeon_log');
   }
 
   async logAction(action) {
-    const client = new MongoClient(process.env.MONGO_URI);
     try {
-      await client.connect();
-      const db = client.db(process.env.MONGO_DB_NAME);
-
-      // Structure the action log entry
       const logEntry = {
         channelId: action.channelId,
         action: action.action,
@@ -34,26 +34,22 @@ export class ActionLog {
         timestamp: Date.now()
       };
 
-      await db.collection('dungeon_log').insertOne(logEntry);
+      await (await this.collection()).insertOne(logEntry);
     } catch (error) {
       this.logger.error(`Error logging dungeon action: ${error.message}`);
-    } finally {
-      await client.close();
     }
   }
 
   async getRecentActions(channelId, limit = 5) {
-    const client = new MongoClient(process.env.MONGO_URI);
     try {
-      await client.connect();
-      const db = client.db(process.env.MONGO_DB_NAME);
-      return await db.collection('dungeon_log')
+      return await (await this.collection())
         .find({ channelId })
         .sort({ timestamp: -1 })
         .limit(limit)
         .toArray();
-    } finally {
-      await client.close();
+    } catch (error) {
+      this.logger.error(`Error retrieving dungeon actions: ${error.message}`);
+      return [];
     }
   }
 }

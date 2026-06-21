@@ -4,12 +4,17 @@
  */
 
 import express from 'express';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const DEFAULT_DATA_BACKEND = 'sqlite';
+const DEFAULT_SQLITE_DB_PATH = process.env.NODE_ENV === 'production' ? '/data/cosyworld.sqlite' : 'data/cosyworld.sqlite';
+const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
+const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
 
 /**
  * ConfigWizardService
@@ -25,7 +30,12 @@ export class ConfigWizardService {
     this.config = configService;
     this.setupStatus = setupStatusService;
     this.server = null;
-    this.wizardPort = 3100;
+    this.wizardPort = Number(process.env.WEB_PORT || process.env.PORT || 3100);
+    this.envPath = process.env.ENV_FILE || process.env.CONFIG_ENV_FILE || (
+      process.env.NODE_ENV === 'production' && fsSync.existsSync('/data')
+        ? '/data/.env'
+        : path.resolve(__dirname, '../../../.env')
+    );
   }
 
   /**
@@ -36,13 +46,11 @@ export class ConfigWizardService {
     const missing = [];
     const checks = {
       encryption: !process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 32,
-      mongo: !process.env.MONGO_URI,
       discord: !process.env.DISCORD_BOT_TOKEN || !process.env.DISCORD_CLIENT_ID,
       ai: !process.env.OPENROUTER_API_KEY && !process.env.GOOGLE_API_KEY
     };
 
     if (checks.encryption) missing.push('ENCRYPTION_KEY (32+ characters)');
-    if (checks.mongo) missing.push('MONGO_URI');
     if (checks.discord) missing.push('DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID');
     if (checks.ai) missing.push('At least one AI provider (OPENROUTER_API_KEY or GOOGLE_API_KEY)');
 
@@ -75,6 +83,19 @@ export class ConfigWizardService {
     // Serve static wizard files
     const wizardDir = path.resolve(__dirname, '../../wizard');
     app.use('/wizard', express.static(wizardDir));
+    app.use('/admin', express.static(wizardDir));
+
+    app.get('/api/health/live', (req, res) => {
+      res.json({
+        status: 'setup',
+        timestamp: new Date().toISOString(),
+        uptime: Math.round(process.uptime())
+      });
+    });
+
+    app.get('/admin/setup', (req, res) => {
+      res.sendFile(path.join(wizardDir, 'index.html'));
+    });
 
     // Configuration status endpoint
     app.get('/api/wizard/status', async (req, res) => {
@@ -95,9 +116,13 @@ export class ConfigWizardService {
             hasKey: !!process.env.ENCRYPTION_KEY,
             keyLength: process.env.ENCRYPTION_KEY?.length || 0
           },
+          storage: {
+            backend: process.env.DATA_BACKEND || process.env.STORAGE_DATA_BACKEND || DEFAULT_DATA_BACKEND,
+            sqliteDbPath: process.env.SQLITE_DB_PATH || DEFAULT_SQLITE_DB_PATH
+          },
           mongo: {
-            uri: process.env.MONGO_URI ? this._maskValue(process.env.MONGO_URI) : null,
-            dbName: process.env.MONGO_DB_NAME || 'cosyworld8'
+            uri: process.env.MONGO_URI ? this._maskValue(process.env.MONGO_URI) : DEFAULT_MONGO_URI,
+            dbName: process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME
           },
           discord: {
             botToken: process.env.DISCORD_BOT_TOKEN ? this._maskValue(process.env.DISCORD_BOT_TOKEN) : null,
@@ -123,8 +148,12 @@ export class ConfigWizardService {
               loraTrigger: process.env.REPLICATE_LORA_TRIGGER || process.env.LORA_TRIGGER_WORD || null
             },
             s3: {
+              backend: process.env.FILE_STORAGE_BACKEND || process.env.STORAGE_BACKEND || 'local',
+              localMediaDir: process.env.LOCAL_MEDIA_DIR || (process.env.NODE_ENV === 'production' ? '/data/media' : 'data/media'),
               endpoint: process.env.S3_API_ENDPOINT || null,
-              apiKey: process.env.S3_API_KEY ? this._maskValue(process.env.S3_API_KEY) : null
+              apiKey: process.env.S3_API_KEY ? this._maskValue(process.env.S3_API_KEY) : null,
+              uploadBaseUrl: process.env.UPLOAD_API_BASE_URL || null,
+              cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN || null
             },
             crossmint: {
               apiKey: process.env.CROSSMINT_CLIENT_API_KEY ? this._maskValue(process.env.CROSSMINT_CLIENT_API_KEY) : null,
@@ -197,9 +226,13 @@ export class ConfigWizardService {
 
         res.json({ 
           success: true, 
-          message: 'Configuration saved successfully! You can now use the application.',
-          requiresRestart: false
+          message: 'Configuration saved successfully! Restarting the application...',
+          requiresRestart: true
         });
+
+        if (process.env.NODE_ENV === 'production') {
+          setTimeout(() => process.exit(0), 750);
+        }
       } catch (error) {
         this.logger.error('[wizard] Save failed:', error);
         res.status(500).json({ error: error.message });
@@ -220,7 +253,7 @@ export class ConfigWizardService {
 
     // Redirect root to wizard
     app.get('/', (req, res) => {
-      res.redirect('/wizard/');
+      res.redirect('/admin/setup');
     });
 
     // Start server
@@ -236,7 +269,7 @@ export class ConfigWizardService {
 ║  🔧 CONFIGURATION WIZARD                                       ║
 ║                                                                ║
 ║  Your application needs to be configured.                     ║
-║  Please visit: http://localhost:${this.wizardPort}                         ║
+║  Please visit: http://localhost:${this.wizardPort}/admin/setup              ║
 ║                                                                ║
 ║  The wizard will guide you through setting up:                ║
 ║  • Database connection                                         ║
@@ -294,23 +327,22 @@ export class ConfigWizardService {
         }
         break;
 
-      case 'mongo':
-        // Allow KEEP_EXISTING for URI if it already exists
-        if (data.uri === 'KEEP_EXISTING') {
-          if (!process.env.MONGO_URI) {
-            errors.push('Cannot keep existing MongoDB URI - none found');
-          }
-        } else {
-          if (!data.uri) {
-            errors.push('MongoDB URI is required');
-          } else if (!data.uri.startsWith('mongodb://') && !data.uri.startsWith('mongodb+srv://')) {
+      case 'storage': {
+        const backend = String(data?.backend || DEFAULT_DATA_BACKEND).toLowerCase();
+        if (!['sqlite', 'mongo', 'mongodb'].includes(backend)) {
+          errors.push('Storage backend must be sqlite or mongo');
+        }
+        if (backend === 'sqlite' && !data?.sqliteDbPath) {
+          errors.push('SQLite database path is required');
+        }
+        if (backend === 'mongo' || backend === 'mongodb') {
+          const uri = data?.mongoUri || data?.uri || process.env.MONGO_URI || DEFAULT_MONGO_URI;
+          if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
             errors.push('MongoDB URI must start with mongodb:// or mongodb+srv://');
           }
         }
-        if (!data.dbName) {
-          errors.push('Database name is required');
-        }
         break;
+      }
 
       case 'discord':
         // Allow KEEP_EXISTING for bot token if it already exists
@@ -350,7 +382,7 @@ export class ConfigWizardService {
     const errors = [];
 
     // Check all required sections
-    const sections = ['encryption', 'mongo', 'discord', 'ai'];
+    const sections = ['encryption', 'storage', 'discord', 'ai'];
     for (const section of sections) {
       const validation = await this._validateSection(section, config[section]);
       if (!validation.valid) {
@@ -391,9 +423,13 @@ export class ConfigWizardService {
       ENCRYPTION_KEY: config.encryption.key === 'KEEP_EXISTING' ? process.env.ENCRYPTION_KEY : config.encryption.key,
       SERVER_SECRET_KEY: config.encryption.serverKey || process.env.SERVER_SECRET_KEY || crypto.randomBytes(32).toString('hex'),
       
-      // MongoDB
-      MONGO_URI: config.mongo.uri === 'KEEP_EXISTING' ? process.env.MONGO_URI : config.mongo.uri,
-      MONGO_DB_NAME: config.mongo.dbName,
+      // Data storage
+      DATA_BACKEND: config.storage?.backend || process.env.DATA_BACKEND || DEFAULT_DATA_BACKEND,
+      SQLITE_DB_PATH: config.storage?.sqliteDbPath || process.env.SQLITE_DB_PATH || DEFAULT_SQLITE_DB_PATH,
+      ...(String(config.storage?.backend || process.env.DATA_BACKEND || DEFAULT_DATA_BACKEND).toLowerCase().startsWith('mongo') && {
+        MONGO_URI: config.storage?.mongoUri || config.mongo?.uri || process.env.MONGO_URI || DEFAULT_MONGO_URI,
+        MONGO_DB_NAME: config.storage?.mongoDbName || config.mongo?.dbName || process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME
+      }),
       
       // Discord
       DISCORD_BOT_TOKEN: config.discord.botToken === 'KEEP_EXISTING' ? process.env.DISCORD_BOT_TOKEN : config.discord.botToken,
@@ -416,12 +452,15 @@ export class ConfigWizardService {
         GOOGLE_API_KEY: config.ai.google.apiKey === 'KEEP_EXISTING' ? (process.env.GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY) : config.ai.google.apiKey,
         GOOGLE_AI_MODEL: config.ai.google.model || 'gemini-2.5-flash'
       }),
-      
+
       // Optional services
+      FILE_STORAGE_BACKEND: config.optional?.s3?.backend || process.env.FILE_STORAGE_BACKEND || 'local',
+      LOCAL_MEDIA_DIR: config.optional?.s3?.localMediaDir || process.env.LOCAL_MEDIA_DIR || (process.env.NODE_ENV === 'production' ? '/data/media' : 'data/media'),
+
       ...(config.optional?.replicate?.apiToken && {
         REPLICATE_API_TOKEN: config.optional.replicate.apiToken
       }),
-      
+
       ...(config.optional?.s3?.endpoint && {
         S3_API_ENDPOINT: config.optional.s3.endpoint,
         S3_API_KEY: config.optional.s3.apiKey || '',
@@ -500,10 +539,11 @@ export class ConfigWizardService {
       .join('\n');
 
     // Save to .env file
-    const envPath = path.resolve(process.cwd(), '.env');
+    const envPath = this.envPath;
+    await fs.mkdir(path.dirname(envPath), { recursive: true });
     await fs.writeFile(envPath, envLines, 'utf8');
     
-    this.logger.info('[wizard] Configuration saved to .env file');
+    this.logger.info(`[wizard] Configuration saved to ${envPath}`);
 
     // Also save to secrets service if available
     if (this.secrets) {
@@ -524,6 +564,7 @@ export class ConfigWizardService {
     const lines = content.split('\n');
     const config = {
       encryption: {},
+      storage: {},
       mongo: {},
       discord: {},
       ai: { openrouter: {}, google: {} },
@@ -551,10 +592,19 @@ export class ConfigWizardService {
         case 'ENCRYPTION_KEY':
           config.encryption.key = value;
           break;
+        case 'DATA_BACKEND':
+          config.storage.backend = value;
+          break;
+        case 'SQLITE_DB_PATH':
+          config.storage.sqliteDbPath = value;
+          break;
         case 'MONGO_URI':
+          config.storage.backend = 'mongo';
+          config.storage.mongoUri = value;
           config.mongo.uri = value;
           break;
         case 'MONGO_DB_NAME':
+          config.storage.mongoDbName = value;
           config.mongo.dbName = value;
           break;
         case 'DISCORD_BOT_TOKEN':

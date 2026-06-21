@@ -8,11 +8,10 @@
  */
 
 import 'dotenv/config';
-import { MongoClient } from 'mongodb';
 import { createHelius } from 'helius-sdk';
 
-const MONGO_URI = process.env.MONGO_URI;
-const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'cosyworld8';
+import { openDatabase } from './lib/openDatabase.mjs';
+
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 
 async function testBuybot() {
@@ -23,17 +22,12 @@ async function testBuybot() {
     return;
   }
   
-  if (!MONGO_URI) {
-    console.error('❌ MONGO_URI not set');
-    return;
-  }
-  
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   const helius = createHelius({ apiKey: HELIUS_API_KEY });
   
   try {
-    await client.connect();
-    const db = client.db(MONGO_DB_NAME);
+    handle = await openDatabase();
+    const db = handle.db;
     
     // Get the first tracked token
     const token = await db.collection('buybot_tracked_tokens')
@@ -122,7 +116,7 @@ async function testBuybot() {
     console.error('❌ Error:', error.message);
     console.error(error.stack);
   } finally {
-    await client.close();
+    await handle?.close?.();
   }
 }
 

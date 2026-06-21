@@ -3,6 +3,8 @@
  * Licensed under the MIT License.
  */
 
+import { ObjectId } from '../../utils/objectId.mjs';
+
 /**
  * ChannelSummaryService
  * 
@@ -242,7 +244,6 @@ export class ChannelSummaryService {
       // Get avatar details
       let avatars = [];
       if (includeAvatars && allActiveAvatarIds.length > 0) {
-        const { ObjectId } = await import('mongodb');
         const objectIds = allActiveAvatarIds
           .filter(id => id && ObjectId.isValid(id))
           .map(id => new ObjectId(id));

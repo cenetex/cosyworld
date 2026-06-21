@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.mjs';
 export function toObjectId(id) {
     if (id instanceof ObjectId) return id;
     try {

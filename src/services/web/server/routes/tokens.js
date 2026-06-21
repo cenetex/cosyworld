@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import { processImage } from '../../../../utils/processImage.mjs'; 
 import { CrossmintService } from '../../../crossmint/crossmintService.mjs';
 

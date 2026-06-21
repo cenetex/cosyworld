@@ -125,6 +125,7 @@ import { MarketplaceServiceRegistry } from './services/marketplace/marketplaceSe
 import { MetricsService } from './services/monitoring/metricsService.mjs';
 import { validateEnv } from './config/validateEnv.mjs';
 import { ensureEncryptionKey } from './utils/ensureEncryptionKey.mjs';
+import { createDataLayer } from './data/dataLayer.mjs';
 
 // Setup __dirname in ESM for dynamic service discovery
 const __filename = fileURLToPath(import.meta.url);
@@ -444,6 +445,7 @@ async function initializeContainer() {
     })),
     metricsService: asClass(MetricsService).singleton(),
     databaseService: asClass(DatabaseService).singleton(),
+    dataLayer: asFunction(createDataLayer).singleton(),
     aiModelService: asClass(AIModelService).singleton(),
     xService: asClass(XService).singleton(),
     telegramService: asClass(TelegramService).singleton(),
@@ -474,12 +476,19 @@ async function initializeContainer() {
     chapterContextService: asClass(ChapterContextService).singleton(),
   });
 
-  // Load payment configuration from database before creating payment services
+  // Initialize V2 data layer and load config-backed settings before creating payment services.
   try {
-    const databaseService = container.resolve('databaseService');
-    const db = await databaseService.getDatabase();
-    if (!configService.db) {
-      configService.db = db;
+    const dataLayer = container.resolve('dataLayer');
+    await dataLayer.initialize();
+    configService.dataLayer = dataLayer;
+
+    let db = null;
+    if (dataLayer.backend === 'mongo') {
+      const databaseService = container.resolve('databaseService');
+      db = await databaseService.getDatabase();
+      if (!configService.db) {
+        configService.db = db;
+      }
     }
 
     try {
@@ -489,11 +498,7 @@ async function initializeContainer() {
       logger.warn('[container] ⚠️  Failed to load prompt defaults from database:', promptError?.message || promptError);
     }
 
-    const settingsCollection = db.collection('settings');
-    const paymentSettings = await settingsCollection.find({
-      key: { $regex: /^payment\./ },
-      scope: 'global'
-    }).toArray();
+    const paymentSettings = await dataLayer.config.listSettings({ keyPrefix: 'payment.', scope: 'global' });
 
     if (paymentSettings.length > 0) {
       if (!configService.config.payment) {
@@ -513,7 +518,7 @@ async function initializeContainer() {
       logger.debug('[container] Payment x402 config:', configService.config.payment.x402);
     }
   } catch (e) {
-    logger.debug('[container] Could not load payment config from database:', e.message);
+    logger.debug('[container] Could not load V2 config store settings:', e.message);
   }
 
   // Register payment services after loading config

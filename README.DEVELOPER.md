@@ -13,7 +13,6 @@
 ```bash
 # Required
 - Node.js 18.18 or higher
-- MongoDB 5.0 or higher (local or cloud)
 - Git
 
 # Optional but recommended
@@ -42,9 +41,6 @@ cp .env.example .env
 ### First-Time Setup
 
 ```bash
-# Start MongoDB (local)
-mongod --dbpath ./data/db
-
 # Start the application
 npm start
 
@@ -52,7 +48,7 @@ npm start
 open http://localhost:3000/admin/setup
 
 # Follow wizard to configure:
-# 1. Database connection
+# 1. SQLite data storage
 # 2. AI API keys (OpenRouter, Google, etc.)
 # 3. Discord bot token
 # 4. Optional services (S3, Twitter)
@@ -669,11 +665,11 @@ DEBUG=* npm run dev
 → Check PROXY injection mode is enabled
 ```
 
-**"Connection refused" (MongoDB)**
+**"Database unavailable"**
 ```
-→ MongoDB not running
-→ Start with: mongod --dbpath ./data/db
-→ Or check MONGO_URI in .env
+→ Check DATA_BACKEND and SQLITE_DB_PATH in .env
+→ Ensure the SQLite directory exists and is writable
+→ For Fly, use SQLITE_DB_PATH=/data/cosyworld.sqlite
 ```
 
 ---
@@ -909,8 +905,8 @@ A: ES modules are the standard, support top-level await, and work better with mo
 **Q: Why Awilix instead of other DI frameworks?**
 A: Lightweight, supports PROXY mode for circular deps, auto-discovery, and minimal boilerplate.
 
-**Q: Why MongoDB instead of PostgreSQL?**
-A: Flexible schema for evolving avatar attributes, native JSON support, easy horizontal scaling.
+**Q: Why SQLite now?**
+A: CosyWorld targets self-contained local and Fly deployments. SQLite keeps runtime data in one file, while the V2 data layer uses explicit stores for cleaner domain migrations.
 
 **Q: Can I use TypeScript?**
 A: Currently no, but JSDoc provides type hints. TypeScript support may come in future.
@@ -919,7 +915,7 @@ A: Currently no, but JSDoc provides type hints. TypeScript support may come in f
 A: Implement the AI service interface (chat, generateStructuredOutput), register in container, add to UnifiedAIService.
 
 **Q: Where are API keys stored?**
-A: Encrypted in MongoDB using AES-256-GCM. Encryption key in `.env.encryption.key` (gitignored).
+A: Encrypted in the configured data backend using AES-256-GCM. Encryption key in `.env.encryption.key` (gitignored).
 
 **Q: How do I reset the setup?**
 A: Run `npm run reset-setup` to clear config and restart wizard.

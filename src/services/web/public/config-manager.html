@@ -324,7 +324,7 @@
       <div class="alert alert-info">
         Paste your .env file contents below. Existing values will be overwritten.
       </div>
-      <textarea id="importText" placeholder="MONGO_URI=mongodb://...&#10;DISCORD_BOT_TOKEN=..."></textarea>
+      <textarea id="importText" placeholder="DATA_BACKEND=sqlite&#10;SQLITE_DB_PATH=/data/cosyworld.sqlite&#10;DISCORD_BOT_TOKEN=..."></textarea>
       <div class="button-group" style="margin-top: 15px; display: flex; gap: 10px;">
         <button class="btn-action btn-primary" onclick="importConfig()">📥 Import</button>
         <button class="btn-action btn-secondary" onclick="closeModal('importModal')">Cancel</button>
@@ -370,7 +370,7 @@
     function organizeSecrets(items) {
       const config = {
         encryption: { items: [] },
-        mongo: { items: [] },
+        storage: { items: [] },
         discord: { items: [] },
         ai: { items: [] },
         services: { items: [] },
@@ -380,8 +380,8 @@
       for (const item of items) {
         if (item.key.includes('ENCRYPTION') || item.key.includes('SECRET_KEY')) {
           config.encryption.items.push(item);
-        } else if (item.key.includes('MONGO')) {
-          config.mongo.items.push(item);
+        } else if (item.key.includes('MONGO') || item.key.includes('SQLITE') || item.key.includes('DATA_BACKEND')) {
+          config.storage.items.push(item);
         } else if (item.key.includes('DISCORD')) {
           config.discord.items.push(item);
         } else if (item.key.includes('OPENROUTER') || item.key.includes('GOOGLE') || item.key.includes('AI')) {

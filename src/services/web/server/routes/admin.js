@@ -6,7 +6,7 @@
 import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import { thumbnailService } from '../services/thumbnailService.js';
 
 import multer from 'multer';

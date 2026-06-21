@@ -10,6 +10,7 @@ export class WebService {
     logger,
     configService,
     databaseService,
+    dataLayer,
     discordService,
     s3Service,
     aiModelService,
@@ -45,6 +46,7 @@ export class WebService {
     this.logger = logger || console;
     this.configService = configService;
     this.databaseService = databaseService;
+    this.dataLayer = dataLayer;
     this.discordService = discordService;
     this.s3Service = s3Service;
     this.aiModelService = aiModelService;
@@ -83,6 +85,7 @@ export class WebService {
       logger: this.logger,
       configService: this.configService,
       databaseService: this.databaseService,
+      dataLayer: this.dataLayer,
       discordService: this.discordService,
       s3Service: this.s3Service,
       aiModelService: this.aiModelService,

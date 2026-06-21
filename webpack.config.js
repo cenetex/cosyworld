@@ -110,6 +110,7 @@ export default (env, argv) => {
         patterns: [
           // Root HTML
           { from: path.resolve(__dirname, 'src/services/web/public/index.html'), to: path.resolve(__dirname, 'dist/index.html') },
+          { from: path.resolve(__dirname, 'src/services/web/public/v2-launch.html'), to: path.resolve(__dirname, 'dist/v2-launch.html') },
           { from: path.resolve(__dirname, 'src/services/web/public/app.html'), to: path.resolve(__dirname, 'dist/app.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/checkout.html'), to: path.resolve(__dirname, 'dist/checkout.html'), transform: transformHtml },
           { from: path.resolve(__dirname, 'src/services/web/public/api-docs.html'), to: path.resolve(__dirname, 'dist/api-docs.html'), transform: transformHtml },

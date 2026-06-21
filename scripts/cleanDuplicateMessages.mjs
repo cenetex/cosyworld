@@ -3,22 +3,19 @@
  * Licensed under the MIT License.
  */
 
-// clean_duplicates.js
-import { MongoClient } from 'mongodb';
-
 import { configDotenv } from 'dotenv';
+import { openDatabase } from './lib/openDatabase.mjs';
+
 configDotenv();
 
-const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017'; // or your connection string
-const dbName = process.env.MONGO_DB_NAME || 'cosyworld8';
 const collectionName = 'messages';
 
 async function cleanDuplicates() {
-  const client = new MongoClient(uri);
+  let handle;
   try {
-    await client.connect();
-    console.log('Connected to MongoDB');
-    const db = client.db(dbName);
+    handle = await openDatabase();
+    console.log(`Connected to ${handle.backend} database`);
+    const db = handle.db;
     const collection = db.collection(collectionName);
 
     // Step 1: Find duplicates
@@ -45,7 +42,7 @@ async function cleanDuplicates() {
   } catch (err) {
     console.error('Error during cleanup:', err.message);
   } finally {
-    await client.close();
+    await handle?.close?.();
   }
 }
 

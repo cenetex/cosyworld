@@ -8,27 +8,20 @@
  * The old WalletAvatarService created a separate collection that needs to be merged
  */
 
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+
+import { openDatabase } from './lib/openDatabase.mjs';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-const DB_NAME = process.env.DB_NAME || 'cosyworld';
-
-if (!MONGO_URI) {
-  console.error('Error: MONGO_URI environment variable not set');
-  process.exit(1);
-}
-
 async function migrate() {
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    await client.connect();
-    console.log('Connected to MongoDB');
+    handle = await openDatabase();
+    console.log(`Connected to ${handle.backend} database`);
     
-    const db = client.db(DB_NAME);
+    const db = handle.db;
     
     // Check if wallet_avatars collection exists
     const collections = await db.listCollections().toArray();
@@ -141,7 +134,7 @@ async function migrate() {
     console.error('Migration failed:', error);
     throw error;
   } finally {
-    await client.close();
+    await handle?.close?.();
   }
 }
 

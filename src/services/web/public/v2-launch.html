@@ -1,0 +1,206 @@
+<!--
+  Copyright (c) 2019-2026 Cenetex Inc.
+  Licensed under the MIT License.
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosyWorld</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07100d;
+      --panel: rgba(8, 18, 15, 0.82);
+      --line: rgba(139, 190, 133, 0.28);
+      --line-strong: rgba(240, 211, 128, 0.46);
+      --text: #f5ecd7;
+      --muted: #b8c7ad;
+      --green: #59f088;
+      --gold: #f0d380;
+      --blue: #80b8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(5, 10, 8, 0.88), rgba(5, 10, 8, 0.36) 48%, rgba(5, 10, 8, 0.82)),
+        linear-gradient(180deg, rgba(5, 10, 8, 0.28), rgba(5, 10, 8, 0.86)),
+        url("/images/cosy-cottage.png") center / cover fixed no-repeat,
+        var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0;
+    }
+
+    main {
+      display: grid;
+      min-height: 100vh;
+      align-items: center;
+      padding: 28px;
+    }
+
+    .panel {
+      width: min(720px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(22px, 5vw, 42px);
+      background: var(--panel);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+      backdrop-filter: blur(12px);
+    }
+
+    .path {
+      margin: 0 0 34px;
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--gold);
+      font-size: clamp(32px, 8vw, 72px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 52ch;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: clamp(15px, 2vw, 18px);
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 16px;
+      background: rgba(89, 240, 136, 0.1);
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .button.secondary {
+      border-color: var(--line);
+      background: rgba(128, 184, 255, 0.08);
+      color: var(--blue);
+    }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.24);
+    }
+
+    @media (max-width: 560px) {
+      main {
+        align-items: stretch;
+        padding: 14px;
+      }
+
+      .panel {
+        align-self: center;
+      }
+
+      .button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel" aria-labelledby="title">
+      <p class="path">cosyworld://the-cosy-cottage</p>
+      <h1 id="title">CosyWorld</h1>
+      <p class="subtitle">The player runtime is the V2 shard. The Node service is here for admin work, integrations, and the legacy prototype.</p>
+      <div class="actions" aria-label="Launch actions">
+        <a id="launch-v2" class="button" href="http://127.0.0.1:3102/?wallet=dev-wallet">Launch V2</a>
+        <a class="button secondary" href="/legacy/cosyworld">Legacy Node Prototype</a>
+        <a class="button secondary" href="/admin">Admin</a>
+      </div>
+      <div class="status" aria-label="Runtime status">
+        <span id="v2-status" class="chip">V2 status: checking</span>
+        <span id="v2-url" class="chip">V2 shard: resolving</span>
+      </div>
+    </section>
+  </main>
+  <script>
+    const status = document.getElementById('v2-status');
+    const urlChip = document.getElementById('v2-url');
+    const launch = document.getElementById('launch-v2');
+
+    function fallbackRuntime() {
+      return {
+        v2: {
+          gameUrl: 'http://127.0.0.1:3102/?wallet=dev-wallet',
+          metaUrl: 'http://127.0.0.1:3102/meta',
+          publicUrl: 'http://127.0.0.1:3102'
+        }
+      };
+    }
+
+    function applyRuntime(runtime) {
+      launch.href = runtime.v2.gameUrl;
+      urlChip.textContent = `V2 shard: ${runtime.v2.publicUrl}`;
+      return runtime;
+    }
+
+    fetch('/api/runtime', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : fallbackRuntime())
+      .catch(fallbackRuntime)
+      .then(applyRuntime)
+      .then((runtime) => fetch(runtime.v2.metaUrl, { cache: 'no-store' }))
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('offline')))
+      .then((meta) => {
+        const profile = meta?.deployment?.profile || 'local';
+        status.textContent = `V2 status: online (${profile})`;
+      })
+      .catch(() => {
+        status.textContent = 'V2 status: offline';
+      });
+  </script>
+</body>
+</html>

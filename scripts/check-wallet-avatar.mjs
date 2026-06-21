@@ -7,27 +7,20 @@
  * Check for wallet avatar in database
  */
 
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+
+import { openDatabase } from './lib/openDatabase.mjs';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-const DB_NAME = process.env.DB_NAME || 'cosyworld';
-
-if (!MONGO_URI) {
-  console.error('Error: MONGO_URI environment variable not set');
-  process.exit(1);
-}
-
 async function checkWallet() {
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    await client.connect();
-    console.log('Connected to MongoDB\n');
+    handle = await openDatabase();
+    console.log(`Connected to ${handle.backend} database\n`);
     
-    const db = client.db(DB_NAME);
+    const db = handle.db;
     
     // List all collections
     const collections = await db.listCollections().toArray();
@@ -100,7 +93,7 @@ async function checkWallet() {
     console.error('Error:', error);
     throw error;
   } finally {
-    await client.close();
+    await handle?.close?.();
   }
 }
 

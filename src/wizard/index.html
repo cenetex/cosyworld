@@ -318,7 +318,7 @@
         <div class="import-area">
           <h3>Import Existing Configuration (Optional)</h3>
           <p class="hint" style="margin-bottom: 15px;">If you have an existing .env file, paste its contents here to pre-fill the wizard:</p>
-          <textarea id="importEnv" placeholder="MONGO_URI=mongodb://...&#10;DISCORD_BOT_TOKEN=...&#10;..."></textarea>
+          <textarea id="importEnv" placeholder="DATA_BACKEND=sqlite&#10;SQLITE_DB_PATH=/data/cosyworld.sqlite&#10;DISCORD_BOT_TOKEN=...&#10;..."></textarea>
           <button class="btn-primary" onclick="importEnv()" style="margin-top: 10px;">Import .env File</button>
         </div>
 
@@ -351,27 +351,31 @@
         </div>
       </div>
 
-      <!-- Step 3: Database -->
+      <!-- Step 3: Data Storage -->
       <div class="step" data-step="3">
-        <h2>🗄️ Database Configuration</h2>
-        <p>Connect to your MongoDB database where all data will be stored.</p>
+        <h2>🗄️ Data Storage</h2>
+        <p>Choose where application data will be stored.</p>
         
         <div id="alert-step3"></div>
 
         <div class="form-group">
-          <label>MongoDB Connection URI</label>
-          <input type="text" id="mongoUri" placeholder="mongodb+srv://username:password@cluster.mongodb.net/" required>
-          <p class="hint">Get your connection string from <a href="https://cloud.mongodb.com" target="_blank">MongoDB Atlas</a> or your self-hosted MongoDB instance.</p>
+          <label>Storage Backend</label>
+          <select id="storageBackend">
+            <option value="sqlite" selected>SQLite</option>
+            <option value="mongo">MongoDB (advanced)</option>
+          </select>
+          <p class="hint">SQLite is the self-contained default for local and Fly deployments.</p>
         </div>
 
         <div class="form-group">
-          <label>Database Name</label>
-          <input type="text" id="mongoDbName" value="cosyworld8" required>
+          <label>SQLite Database Path</label>
+          <input type="text" id="sqliteDbPath" value="/data/cosyworld.sqlite" required>
+          <p class="hint">Use /data/cosyworld.sqlite on Fly so the database lives on the mounted volume.</p>
         </div>
 
         <div class="button-group">
           <button class="btn-secondary" onclick="prevStep()">← Back</button>
-          <button class="btn-primary" onclick="validateAndNext('mongo')">Next →</button>
+          <button class="btn-primary" onclick="validateAndNext('storage')">Next →</button>
         </div>
       </div>
 
@@ -471,7 +475,7 @@
         <div class="section-group">
           <div class="checkbox-group">
             <input type="checkbox" id="enableS3" onchange="toggleSection('s3')">
-            <label for="enableS3" style="margin: 0;">S3/CloudFront (File Storage)</label>
+            <label for="enableS3" style="margin: 0;">External S3/CloudFront (optional)</label>
           </div>
           <div id="s3Fields" style="display: none; margin-top: 15px;">
             <div class="form-group">
@@ -541,7 +545,7 @@
           </div>
 
           <button class="btn-primary" onclick="window.close()">Close Window</button>
-          <button class="btn-secondary" onclick="window.location.href='http://localhost:3000/admin'" style="margin-top: 10px;">Go to Admin Panel</button>
+          <button class="btn-secondary" onclick="window.location.href='/admin'" style="margin-top: 10px;">Go to Admin Panel</button>
         </div>
       </div>
     </div>

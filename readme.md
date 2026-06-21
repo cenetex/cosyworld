@@ -1,8 +1,30 @@
-# CosyWorld Swarm Orchestrator
+# CosyWorld
 
-**A next-generation community management system that unifies Discord, X (Twitter), Telegram, and other platforms with built-in AI agents**
+**A shared, cozy AI MUD where players enter a living room, become an avatar, and act through one clear world command.**
 
 ---
+
+## Current Product Direction
+
+CosyWorld 2.0 is the canonical product path. It lives in [v2/](./v2/README.md) and runs as a C rules kernel with a Rust HTTP/SSE orchestrator. The Node service remains useful for admin surfaces, integrations, AI providers, auth, migration work, and legacy experiments, but gameplay truth should converge on the V2 runtime.
+
+For the current browser MVP:
+
+```bash
+npm run dev
+```
+
+For the local V2 gate:
+
+```bash
+npm run check:local
+```
+
+The legacy Node service still runs with `npm run dev:node`.
+
+For production, the V2 runtime is built by the root [Dockerfile](./Dockerfile) and [fly.toml](./fly.toml). If the Node companion service is exposed, set `COSYWORLD_V2_PUBLIC_URL` so its launch bridge can point users at the deployed shard.
+
+The older multi-platform community-management material below describes inherited capabilities and integration surface area. New gameplay work should preserve the one-button shared-world loop described in [PRD.md](./PRD.md).
 
 ## What is CosyWorld?
 
@@ -162,7 +184,7 @@ Execute multi-platform campaigns, track engagement, and respond to community fee
 ### Service-Oriented Design
 ```
 ├── Core Services
-│   ├── DatabaseService (MongoDB)
+│   ├── DatabaseService (SQLite default)
 │   ├── ConfigService (Environment + Secrets)
 │   ├── LoggingService (Winston)
 │   └── SchedulingService (Periodic tasks)
@@ -195,7 +217,7 @@ Execute multi-platform campaigns, track engagement, and respond to community fee
 
 ### Technology Stack
 - **Runtime**: Node.js 18+ with ES modules
-- **Database**: MongoDB with aggregation pipelines
+- **Database**: SQLite by default with a V2 store-oriented data layer
 - **AI**: OpenRouter, Google AI, Replicate, Ollama
 - **Frontend**: Vanilla JS + Tailwind CSS
 - **APIs**: Discord.js, Telegraf, Twitter API v2
@@ -208,7 +230,6 @@ Execute multi-platform campaigns, track engagement, and respond to community fee
 
 ### Prerequisites
 - Node.js 18 or higher
-- MongoDB 4.4 or higher
 - Discord Bot Token
 - API keys for desired platforms (X, Telegram, AI services)
 
@@ -234,7 +255,7 @@ npm start
    ```
 
 2. **Configure Core Services**
-   - Database connection (MongoDB URI)
+   - SQLite data storage path
    - Encryption keys (auto-generated)
    - Discord bot token
 
@@ -256,7 +277,8 @@ The wizard handles most configuration, but you can also use environment variable
 ```bash
 # Core
 NODE_ENV=production
-MONGO_URI=mongodb://localhost:27017/cosyworld
+DATA_BACKEND=sqlite
+SQLITE_DB_PATH=./data/cosyworld.sqlite
 ENCRYPTION_KEY=auto-generated-by-wizard
 
 # Discord
@@ -455,7 +477,7 @@ Built with:
 - [Telegraf](https://telegraf.js.org/) - Telegram bot framework
 - [OpenRouter](https://openrouter.ai/) - Unified AI model access
 - [Google AI](https://ai.google.dev/) - Gemini models and Veo video generation
-- [MongoDB](https://www.mongodb.com/) - Database
+- [SQLite](https://sqlite.org/) - Self-contained database
 - [Express](https://expressjs.com/) - Web framework
 
 Special thanks to our community contributors and testers!

@@ -4,26 +4,19 @@
  * Sets lastActiveAt to updatedAt (or createdAt if updatedAt is missing)
  */
 
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+
+import { openDatabase } from './lib/openDatabase.mjs';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-const DB_NAME = 'cosyworld8';
-
 async function backfillLastActiveAt() {
-  if (!MONGO_URI) {
-    console.error('❌ MONGO_URI not found in environment');
-    process.exit(1);
-  }
-
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    console.log('🔌 Connecting to MongoDB...');
-    await client.connect();
-    const db = client.db(DB_NAME);
+    handle = await openDatabase();
+    console.log(`🔌 Connected to ${handle.backend} database`);
+    const db = handle.db;
     const avatars = db.collection('avatars');
 
     // Find avatars without lastActiveAt
@@ -35,19 +28,17 @@ async function backfillLastActiveAt() {
       return;
     }
 
-    // Update avatars: set lastActiveAt to updatedAt or createdAt
-    const result = await avatars.updateMany(
-      { lastActiveAt: { $exists: false } },
-      [{
-        $set: {
-          lastActiveAt: {
-            $ifNull: ['$updatedAt', '$createdAt']
-          }
-        }
-      }]
-    );
+    const missing = await avatars.find({ lastActiveAt: { $exists: false } }).toArray();
+    let modifiedCount = 0;
+    for (const avatar of missing) {
+      await avatars.updateOne(
+        { _id: avatar._id },
+        { $set: { lastActiveAt: avatar.updatedAt || avatar.createdAt || new Date() } }
+      );
+      modifiedCount += 1;
+    }
 
-    console.log(`✅ Updated ${result.modifiedCount} avatars with lastActiveAt`);
+    console.log(`✅ Updated ${modifiedCount} avatars with lastActiveAt`);
     
     // Show some examples
     const samples = await avatars
@@ -67,7 +58,7 @@ async function backfillLastActiveAt() {
     console.error('❌ Error:', error.message);
     process.exit(1);
   } finally {
-    await client.close();
+    await handle?.close?.();
     console.log('\n👋 Done!');
   }
 }

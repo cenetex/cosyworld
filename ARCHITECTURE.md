@@ -66,7 +66,7 @@ CosyWorld is an AI-powered avatar universe where persistent, evolving entities w
         ┌─────────────▼─────────────┐
         │    Persistence Layer       │
         │  ┌─────────────────────┐  │
-        │  │  MongoDB (Primary)  │  │ ◄── Avatars, memory, config
+        │  │ SQLite (Primary)   │  │ ◄── Avatars, memory, config
         │  └─────────────────────┘  │
         │  ┌─────────────────────┐  │
         │  │  S3 (Optional)      │  │ ◄── Media storage
@@ -78,7 +78,7 @@ CosyWorld is an AI-powered avatar universe where persistent, evolving entities w
 
 - **Runtime**: Node.js 18+ (ES Modules)
 - **Framework**: Express.js (REST API & Web UI)
-- **Database**: MongoDB (primary storage)
+- **Database**: SQLite by default through the V2 data layer
 - **AI Providers**: OpenRouter (300+ models), Google AI (Gemini), Ollama (local)
 - **Discord**: discord.js v14
 - **DI Container**: Awilix (dependency injection)
@@ -780,7 +780,7 @@ Return top N memories
 
 ### Encrypted Secrets
 
-All sensitive configuration stored encrypted in MongoDB:
+All sensitive configuration is stored encrypted in the configured data backend:
 
 ```javascript
 // Encryption (AES-256-GCM)
@@ -873,8 +873,8 @@ Web UI: http://localhost:3000
 ```bash
 # Core
 NODE_ENV=production
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=cosyworld8
+DATA_BACKEND=sqlite
+SQLITE_DB_PATH=./data/cosyworld.sqlite
 
 # Web Server
 WEB_PORT=3000 # Override default port

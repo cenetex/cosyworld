@@ -52,15 +52,33 @@ function parseCookies(header) {
   return out;
 }
 
-export function attachUserFromCookie(req, _res, next) {
+export async function attachUserFromCookie(req, _res, next) {
   try {
     const cookies = parseCookies(req.headers.cookie || '');
     const token = cookies.authToken;
     const payload = verifyToken(token);
     if (payload) {
-      req.user = { walletAddress: payload.addr, isAdmin: !!payload.isAdmin };
+      if (payload.sid) {
+        const identityStore = req.app?.locals?.services?.dataLayer?.identity;
+        const session = await identityStore?.getSession?.(payload.sid);
+        if (session?.user) {
+          req.user = {
+            sessionId: session.id,
+            userId: session.user.id,
+            walletAddress: session.metadata?.walletAddress || null,
+            isAdmin: !!session.user.isAdmin
+          };
+        }
+      } else if (payload.addr) {
+        // Legacy cookie compatibility while /api/auth migrates to V2 sessions.
+        req.user = { walletAddress: payload.addr, isAdmin: !!payload.isAdmin };
+      }
     }
-  } catch {}
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[authCookie] failed to attach user:', e?.message || e);
+    }
+  }
   next();
 }
 
@@ -79,6 +97,16 @@ export function ensureAdmin(req, res, next) {
 export function issueAuthCookie(res, { addr, isAdmin }) {
   const now = Date.now();
   const payload = { addr, isAdmin: !!isAdmin, iat: now, exp: now + 7 * 24 * 60 * 60 * 1000 };
+  issueSignedAuthCookie(res, payload);
+}
+
+export function issueSessionAuthCookie(res, { sessionId }) {
+  const now = Date.now();
+  const payload = { sid: sessionId, iat: now, exp: now + 7 * 24 * 60 * 60 * 1000 };
+  issueSignedAuthCookie(res, payload);
+}
+
+function issueSignedAuthCookie(res, payload) {
   const token = signPayload(payload);
   // Decide secure cookie behavior
   const xfProto = res?.req?.headers?.['x-forwarded-proto'];
@@ -96,7 +124,7 @@ export function issueAuthCookie(res, { addr, isAdmin }) {
   });
 }
 
-export default { attachUserFromCookie, ensureAuthenticated, ensureAdmin, issueAuthCookie };
+export default { attachUserFromCookie, ensureAuthenticated, ensureAdmin, issueAuthCookie, issueSessionAuthCookie };
 
 // Additional write-safety middleware: require a fresh signed message
 import nacl from 'tweetnacl';

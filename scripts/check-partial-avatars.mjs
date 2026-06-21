@@ -8,19 +8,13 @@
  * Finds all partial avatars (no imageUrl) for RATi holders and generates images
  */
 
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+
+import { openDatabase } from './lib/openDatabase.mjs';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-const DB_NAME = process.env.DB_NAME || 'cosyworld';
 const RATI_TOKEN_ADDRESS = 'Ci6Y1UX8bY4jxn6YiogJmdCxFEu2jmZhCcG65PStpump';
-
-if (!MONGO_URI) {
-  console.error('Error: MONGO_URI environment variable not set');
-  process.exit(1);
-}
 
 /**
  * Get RATi balance for a wallet from Helius
@@ -49,13 +43,13 @@ async function getWalletRatiBalance(walletAddress) {
 }
 
 async function main() {
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    await client.connect();
-    console.log('✅ Connected to MongoDB\n');
+    handle = await openDatabase();
+    console.log(`✅ Connected to ${handle.backend} database\n`);
     
-    const db = client.db(DB_NAME);
+    const db = handle.db;
     const avatarsCollection = db.collection('avatars');
     
     // Find all wallet avatars without images
@@ -121,7 +115,7 @@ async function main() {
     console.error('❌ Error:', error);
     process.exit(1);
   } finally {
-    await client.close();
+    await handle?.close?.();
     console.log('\n✅ Database connection closed');
   }
 }

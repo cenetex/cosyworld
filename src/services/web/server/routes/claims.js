@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 

@@ -22,11 +22,12 @@ The prototype boots one shard with a tiny connected map:
 - Location `1`: The Cosy Cottage.
 - Location `2`: Rain-Soft Garden.
 - Location `3`: Moonlit Trail.
-- Location `10`: Science Class, backed by the Ruby High `location-science-lab` card.
-- Locations `11`-`15`: Homeroom, Library, Cafeteria, Greenhouse, and Courtyard, backed by their matching Ruby High First Bell location cards.
-- Exits: `1 <-> 2 <-> 3`.
+- Locations `2` and `3`: Rain-Soft Garden and Moonlit Trail, public CosyWorld Core rooms.
+- Locations `10`-`15`: Ruby High: First Bell expansion rooms. Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard require their matching Ruby High location cards on the official shard.
+- Locations `30`-`35`, `40`-`44`, `50`, and `60`-`63`: public CosyWorld Core seed rooms for free-world breadth.
+- Exits: `1 <-> 2 <-> 3`, plus Cottage hub doors to public seed rooms and locked Ruby High expansion doors.
 - Default public room: everyone can enter The Cosy Cottage without an NFT.
-- NFT-gated exits: every non-Cottage location requires its matching location card in the request access context; each room is still one shared global channel.
+- Official expansion exits: Ruby High: First Bell locations require their matching location card in the request access context; each expansion room is still one shared global channel, never a private copy.
 - NPC `1001`: Rati.
 - NPC `1002`: Whiskerwind.
 - NPC `1003`: Skull.
@@ -38,6 +39,21 @@ The prototype boots one shard with a tiny connected map:
 - Item `2005`: Story Button.
 - Item `2006`: Hearthstone Tag.
 - Item `2007`: Watch Bell.
+
+## Access Model
+
+CosyWorld Core is free and should feel complete: players can create an avatar, chat, listen, earn and spend Orbs, collect seed items, travel through public rooms, and resolve the public practice/combat loop without holding an NFT.
+
+Official NFTs unlock official expansions, not the base game. The first expansion is **Ruby High: First Bell**. On the official shard, Ruby High rooms use the trusted ownership feed and require their matching Ruby High location card:
+
+- `location-science-lab` unlocks Science Class.
+- `location-homeroom` unlocks Homeroom.
+- `location-library` unlocks Library.
+- `location-cafeteria` unlocks Cafeteria.
+- `location-greenhouse` unlocks Greenhouse.
+- `location-courtyard` unlocks Courtyard.
+
+Locked expansion doors can be shown as previews in the room state, but `/actions/move` and `/actions/flee` enforce access on the server. Self-hosted shards can define their own public rooms, gated rooms, and ownership adapters, while the official hosted shard only trusts official collection feeds.
 
 The C kernel currently resolves:
 
@@ -102,6 +118,22 @@ cargo run
 ```
 
 The server listens on `127.0.0.1:3102` by default.
+
+## Deploy
+
+The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
+
+The production Fly profile expects the protected Ruby High ownership feed, moderation token, event store, and Box burn verifier secrets to be configured before boot:
+
+```sh
+fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
+fly secrets set COSYWORLD_MODERATION_TOKEN=...
+fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
+fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
+fly deploy
+```
+
+If the Node companion service is also deployed, set `COSYWORLD_V2_PUBLIC_URL` there so `/api/runtime` and the launch bridge point at this V2 service.
 
 Override it with:
 
@@ -278,9 +310,9 @@ By default, a browser can only claim a wallet after signing a Solana wallet chal
 
 - `GET /wallet/challenge?wallet_address=<base58 public key>` returns the exact message to sign.
 - `POST /wallet/session` verifies the Ed25519 signature and returns a short-lived `wallet_session`.
-- `/state` and `/actions/move` use `wallet_session` to resolve server-owned Ruby High card access.
+- `/state`, `/actions/move`, and `/actions/flee` use `wallet_session` to resolve server-owned Ruby High: First Bell expansion access.
 
-The one-button browser shell exposes this as a contextual `connect wallet` command when a locked location is focused and no signed wallet session is present.
+The one-button browser shell exposes this as a contextual `connect wallet` command when a locked Ruby High expansion door is focused and no signed wallet session is present.
 
 For local smoke/demo only, enable unsigned wallet hints explicitly, then open `http://127.0.0.1:3102/?wallet=dev-wallet`:
 

@@ -105,7 +105,7 @@ export class ToolService {
     this.started = false;
     this.cooldownService = cooldownService || new CooldownService();
     // Tools & Logging
-    this.ActionLog = new ActionLog(this.logger);
+    this.ActionLog = new ActionLog({ logger: this.logger, databaseService: this.databaseService });
     this.tools = new Map();
     this.toolEmojis = new Map();
 

@@ -62,6 +62,7 @@ CosyWorld is an AI-powered virtual world platform that enables autonomous agents
 
 - **[Overview](overview/)** - Core concepts and system architecture
 - **[Systems](systems/)** - Platform systems (AI, story generation, combat)
+- **[V2 Data Layer](systems/08-v2-data-layer.md)** - Store-oriented persistence design with SQLite and MongoDB backends
 - **[Services](services/)** - Service-level documentation
 
 ### 🔧 Integration

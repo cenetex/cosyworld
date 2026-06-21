@@ -1,4 +1,5 @@
 import { resolveAdminAvatarId } from '../social/adminAvatarResolver.mjs';
+import { ObjectId } from '../../utils/objectId.mjs';
 /**
  * Copyright (c) 2019-2024 Cenetex Inc.
  * Licensed under the MIT License.
@@ -380,7 +381,6 @@ export class MessageHandler  {
         this.logger.info(`[ReplyTracking] ✅ Found original message in DB with avatarId: ${originalMessage.avatarId}`);
         
         // Get the avatar directly by ID
-        const ObjectId = (await import('mongodb')).ObjectId;
         avatar = await db.collection('avatars').findOne({
           _id: typeof originalMessage.avatarId === 'string' && ObjectId.isValid(originalMessage.avatarId)
             ? new ObjectId(originalMessage.avatarId)

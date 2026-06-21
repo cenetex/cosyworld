@@ -5,7 +5,7 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
-        Html, IntoResponse,
+        Html, IntoResponse, Redirect, Response,
     },
     routing::{get, post},
     Json, Router,
@@ -8830,9 +8830,9 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
     let Some(card_id) = card_file.strip_suffix(".png") else {
         return (StatusCode::NOT_FOUND, "unknown card").into_response();
     };
-    if ruby_high_card_spec(card_id).is_none() {
+    let Some(spec) = ruby_high_card_spec(card_id) else {
         return (StatusCode::NOT_FOUND, "unknown card").into_response();
-    }
+    };
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../app-ruby-high/assets/nft/cards")
@@ -8847,8 +8847,12 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
             bytes,
         )
             .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "card art missing").into_response(),
+        Err(_) => ruby_high_card_missing_asset_response(spec),
     }
+}
+
+fn ruby_high_card_missing_asset_response(spec: RubyHighCardSpec) -> Response {
+    Redirect::temporary(spec.chain_image_uri).into_response()
 }
 
 async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> impl IntoResponse {
@@ -12307,6 +12311,21 @@ mod tests {
             "wide"
         );
         assert_eq!(ruby_high_card_by_id("rati").unwrap().aspect, "tall");
+    }
+
+    #[test]
+    fn missing_ruby_high_card_asset_redirects_to_chain_image() {
+        let spec = ruby_high_card_spec("location-science-lab").expect("science lab card exists");
+        let response = ruby_high_card_missing_asset_response(spec);
+
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::LOCATION)
+                .and_then(|value| value.to_str().ok()),
+            Some(spec.chain_image_uri)
+        );
     }
 
     #[test]

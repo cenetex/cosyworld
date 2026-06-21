@@ -10,7 +10,7 @@ import {
   Partials,
   WebhookClient,
 } from 'discord.js';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 import { chunkMessage } from '../../utils/messageChunker.mjs';
 import { processMessageLinks } from '../../utils/linkProcessor.mjs';
 import { buildMiniAvatarEmbed, buildFullAvatarEmbed, buildMiniLocationEmbed, buildFullItemEmbed, buildFullLocationEmbed } from './discordEmbedLibrary.mjs';

@@ -11,6 +11,7 @@
  */
 
 import { container, containerReady } from '../src/container.mjs';
+import { ObjectId } from '../src/utils/objectId.mjs';
 
 async function cleanupArcs() {
   console.log('='.repeat(60));
@@ -101,7 +102,6 @@ async function cleanupArcs() {
             // Try to fetch the avatar to verify ID is valid
             try {
               const avatarsCollection = db.collection('avatars');
-              const { ObjectId } = await import('mongodb');
               const avatar = await avatarsCollection.findOne({ 
                 _id: new ObjectId(char.avatarId) 
               });

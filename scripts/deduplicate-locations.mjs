@@ -12,26 +12,20 @@
  * 4. Creates unique index on channelId if it doesn't exist
  */
 
-import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
+
+import { openDatabase } from './lib/openDatabase.mjs';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  console.error('Error: MONGO_URI environment variable is not set');
-  process.exit(1);
-}
-
 async function deduplicateLocations() {
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    await client.connect();
-    console.log('Connected to MongoDB');
+    handle = await openDatabase();
+    console.log(`Connected to ${handle.backend} database`);
     
-    const db = client.db();
+    const db = handle.db;
     const locationsCollection = db.collection('locations');
     
     // Find duplicate channelIds
@@ -125,8 +119,8 @@ async function deduplicateLocations() {
     console.error('Error:', error);
     process.exit(1);
   } finally {
-    await client.close();
-    console.log('\nDisconnected from MongoDB');
+    await handle?.close?.();
+    console.log('\nDisconnected from database');
   }
 }
 

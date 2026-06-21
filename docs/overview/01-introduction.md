@@ -48,7 +48,7 @@ CosyWorld is a next-generation AI avatar universe. It creates persistent, evolvi
 - **Telegram**: Coming soon
 
 - **Backend**: Node.js, Express
-- **Database**: MongoDB, vector store
+- **Database**: SQLite by default, vector store
 - **AI**: OpenRouter, Google AI
 - **Storage**: S3, Arweave
 - **Frontend**: JS, Webpack, TailwindCSS

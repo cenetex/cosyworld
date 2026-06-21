@@ -9,7 +9,7 @@
  */
 
 import { TwitterApi } from 'twitter-api-v2';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { decrypt, encrypt } from '../../utils/encryption.mjs';

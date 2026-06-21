@@ -44,8 +44,17 @@ jobs:
           ls -la node_modules/.bin/webpack*
           npx webpack-cli --version
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Lint
         run: npm run lint
+
+      - name: Canonical product checks
+        run: npm run check
+
+      - name: Build V2 release binary
+        run: npm run v2:rust:build
 
       - name: Build (fast)
         if: github.event_name == 'pull_request'

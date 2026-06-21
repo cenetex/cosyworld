@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import NodeCache from 'node-cache';
 import { thumbnailService } from '../services/thumbnailService.js';
 

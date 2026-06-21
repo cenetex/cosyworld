@@ -9,7 +9,7 @@
  */
 
 import express from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../../../utils/objectId.mjs';
 import { encrypt } from '../../../../utils/encryption.mjs';
 
 export default function telegramAuthRoutes(services) {

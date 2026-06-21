@@ -4,7 +4,7 @@
  */
 
 // avatarGateway.js  (tiny utility file)
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../../utils/objectId.mjs';
 
 /**
  * @param {Object} deps

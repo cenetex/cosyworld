@@ -8,10 +8,9 @@
  */
 
 import 'dotenv/config';
-import { MongoClient } from 'mongodb';
 
-const MONGO_URI = process.env.MONGO_URI;
-const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'moonstone';
+import { openDatabase } from './lib/openDatabase.mjs';
+
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 
 async function checkBuybotStatus() {
@@ -20,8 +19,8 @@ async function checkBuybotStatus() {
   // Check environment variables
   console.log('📋 Environment Configuration:');
   console.log(`   HELIUS_API_KEY: ${HELIUS_API_KEY ? '✅ Set' : '❌ Missing'}`);
-  console.log(`   MONGO_URI: ${MONGO_URI ? '✅ Set' : '❌ Missing'}`);
-  console.log(`   MONGO_DB_NAME: ${MONGO_DB_NAME}`);
+  console.log(`   DATA_BACKEND: ${process.env.DATA_BACKEND || 'sqlite'}`);
+  console.log(`   SQLITE_DB_PATH: ${process.env.SQLITE_DB_PATH || 'data/cosyworld.sqlite'}`);
   console.log(`   BUYBOT_POLL_INTERVAL_MS: ${process.env.BUYBOT_POLL_INTERVAL_MS || '300000 (default 5 min)'}`);
   console.log('');
   
@@ -30,19 +29,13 @@ async function checkBuybotStatus() {
     console.log('   Set HELIUS_API_KEY in your .env file to enable buybot functionality.\n');
   }
   
-  if (!MONGO_URI) {
-    console.log('❌ MONGO_URI is not set. Cannot check database.\n');
-    return;
-  }
-  
-  // Connect to database
-  const client = new MongoClient(MONGO_URI);
+  let handle;
   
   try {
-    await client.connect();
-    const db = client.db(MONGO_DB_NAME);
+    handle = await openDatabase();
+    const db = handle.db;
     
-    console.log('📊 Database Status:');
+    console.log(`📊 Database Status (${handle.backend}):`);
     
     // Check tracked tokens
     const trackedTokens = await db.collection('buybot_tracked_tokens')
@@ -137,7 +130,7 @@ async function checkBuybotStatus() {
   } catch (error) {
     console.error('❌ Error:', error.message);
   } finally {
-    await client.close();
+    await handle?.close?.();
   }
 }
 

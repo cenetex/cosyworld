@@ -5,10 +5,18 @@ primary_region = "sjc"
   dockerfile = "Dockerfile"
 
 [env]
+  COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_V2_ADDR = "0.0.0.0:3000"
   COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
   COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"
+  COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
+
+# Required production secrets:
+# fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
+# fly secrets set COSYWORLD_MODERATION_TOKEN=...
+# fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
+# fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
 
 [[mounts]]
   source = "cosyworld_data"

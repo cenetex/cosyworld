@@ -3,16 +3,13 @@
  * Licensed under the MIT License.
  */
 
-// scripts/add_uuid_to_items.js
-import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
 import { writeFileSync } from 'fs';
 import { stringify } from 'csv-stringify/sync';
-dotenv.config();
+import { openDatabase } from './lib/openDatabase.mjs';
 
-const uri = process.env.MONGO_URI || 'mongodb://localhost:27017'; // Update with your MongoDB URI
-const dbName = 'cosyworld89'; // Update if needed
+dotenv.config();
 
 // Define a basic schema for compliance checking
 const basicSchema = {
@@ -36,18 +33,15 @@ function checkCompliance(item) {
 }
 
 async function addUUIDsAndCheckCompliance() {
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db(dbName);
-  const collection = db.collection('items');
+  const handle = await openDatabase();
+  const collection = handle.db.collection('items');
 
-  const cursor = collection.find();
+  const docs = await collection.find().toArray();
   let updated = 0;
   let nonCompliant = [];
   let allItems = [];
 
-  while (await cursor.hasNext()) {
-    const doc = await cursor.next();
+  for (const doc of docs) {
     // Add uuid if missing
     if (!doc.uuid) {
       await collection.updateOne(
@@ -77,7 +71,7 @@ async function addUUIDsAndCheckCompliance() {
   } else {
     console.log('\nAll items are compliant with the basic schema.');
   }
-  await client.close();
+  await handle.close();
 }
 
 addUUIDsAndCheckCompliance();

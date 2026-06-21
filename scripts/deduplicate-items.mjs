@@ -4,20 +4,17 @@
  */
 
 import 'dotenv/config';
-import { MongoClient } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 
+import { openDatabase } from './lib/openDatabase.mjs';
+
 async function dedupeAndReindex() {
-  const uri = process.env.MONGO_URI || 'mongodb://localhost:27017';
-  const client = new MongoClient(uri, { useUnifiedTopology: true });
-  await client.connect();
-  const db = client.db('cosyworld8');
-  const coll = db.collection('items');
+  const handle = await openDatabase();
+  const coll = handle.db.collection('items');
 
   // 1) Assign new uuids for null or missing uuid fields
-  const nullCursor = coll.find({ $or: [{ uuid: null }, { uuid: { $exists: false } }] });
-  while (await nullCursor.hasNext()) {
-    const doc = await nullCursor.next();
+  const docsWithoutUuid = await coll.find({ $or: [{ uuid: null }, { uuid: { $exists: false } }] }).toArray();
+  for (const doc of docsWithoutUuid) {
     await coll.updateOne(
       { _id: doc._id },
       { $set: { uuid: uuidv4() } }
@@ -32,7 +29,7 @@ async function dedupeAndReindex() {
   ]);
 
   let totalDeleted = 0;
-  for await (const { _id: dupeUuid, ids } of dupCursor) {
+  for (const { _id: dupeUuid, ids } of await dupCursor.toArray()) {
     // keep first, delete the rest
     const [, ...toDelete] = ids;
     const { deletedCount } = await coll.deleteMany({ _id: { $in: toDelete } });
@@ -56,7 +53,7 @@ async function dedupeAndReindex() {
   );
   console.log('Created unique index on uuid (non-null strings only)');
 
-  await client.close();
+  await handle.close();
   console.log('Done!');
 }
 

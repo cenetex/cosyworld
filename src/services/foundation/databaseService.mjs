@@ -3,7 +3,12 @@
  * Licensed under the MIT License.
  */
 
-import { MongoClient, ObjectId } from 'mongodb';
+import { createSqliteConnection } from '../../data/sqlite/sqliteConnection.mjs';
+import { SqliteDocumentDatabase } from '../../data/sqlite/sqliteDocumentDatabase.mjs';
+import { ObjectId } from '../../utils/objectId.mjs';
+
+const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
+const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
 
 export class DatabaseService {
   static instance = null;
@@ -17,9 +22,12 @@ export class DatabaseService {
     this.configService = configService;
     this.dbClient = null;
     this.db = null;
+    this.sqliteConnection = null;
     this.connected = false;
     this.reconnectDelay = 5000;
-    this.dbName = process.env.MONGO_DB_NAME || 'moonstone';
+    this.backend = String(process.env.DATA_BACKEND || process.env.STORAGE_DATA_BACKEND || 'sqlite').toLowerCase();
+    this.mongoUri = this.configService?.config?.mongo?.uri || process.env.MONGO_URI || DEFAULT_MONGO_URI;
+    this.dbName = this.configService?.config?.mongo?.dbName || process.env.MONGO_DB_NAME || DEFAULT_MONGO_DB_NAME;
 
     DatabaseService.instance = this;
   }
@@ -31,13 +39,22 @@ export class DatabaseService {
 
   // Note: environment is determined via process.env.NODE_ENV when needed.
 
-    if (!process.env.MONGO_URI) {
-      throw new Error('MongoDB URI not provided in environment variables.');
+    if (this.backend !== 'mongo' && this.backend !== 'mongodb') {
+      this.sqliteConnection = this.sqliteConnection || createSqliteConnection({ logger: this.logger });
+      this.db = new SqliteDocumentDatabase({
+        sqliteConnection: this.sqliteConnection,
+        logger: this.logger
+      });
+      this.connected = true;
+      this.logger.info(`[database] SQLite document database connected at ${this.sqliteConnection.dbPath}`);
+      return this.db;
     }
 
     try {
-      this.logger.info('Connecting to MongoDB...');
-      this.dbClient = new MongoClient(process.env.MONGO_URI, {
+      const mongoUri = this.configService?.config?.mongo?.uri || process.env.MONGO_URI || this.mongoUri || DEFAULT_MONGO_URI;
+      this.logger.info(`Connecting to MongoDB: ${mongoUri.replace(/\/\/([^:/@]+):([^@]+)@/, '//***:***@')}`);
+      const { MongoClient } = await import('mongodb');
+      this.dbClient = new MongoClient(mongoUri, {
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 10000,
       });
@@ -60,11 +77,13 @@ export class DatabaseService {
         }
       }
 
-      // Set up reconnection with exponential backoff
-      const reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30000); // Maximum 30 seconds
-      this.logger.info(`Will attempt to reconnect in ${reconnectDelay / 1000} seconds...`);
-      setTimeout(() => this.connect(), reconnectDelay);
-      this.reconnectDelay = reconnectDelay;
+      if (process.env.NODE_ENV !== 'test') {
+        // Set up reconnection with exponential backoff for explicit Mongo deployments.
+        const reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30000); // Maximum 30 seconds
+        this.logger.info(`Will attempt to reconnect in ${reconnectDelay / 1000} seconds...`);
+        setTimeout(() => this.connect(), reconnectDelay);
+        this.reconnectDelay = reconnectDelay;
+      }
       return null;
     }
   }
@@ -256,6 +275,10 @@ export class DatabaseService {
   async createIndexes() {
     const db = await this.getDatabase();
     if (!db) return;
+    if (this.backend !== 'mongo' && this.backend !== 'mongodb') {
+      this.logger.info('[database] SQLite document database uses application-level indexes; skipping Mongo index creation');
+      return;
+    }
 
     try {
       // Helper to create an index, tolerant of missing collections
@@ -443,6 +466,14 @@ export class DatabaseService {
   }
 
   async close() {
+    if (this.sqliteConnection) {
+      this.sqliteConnection.close();
+      this.sqliteConnection = null;
+      this.connected = false;
+      this.db = null;
+      this.logger.info('SQLite database connection closed');
+      return;
+    }
     if (this.dbClient) {
       await this.dbClient.close();
       this.connected = false;

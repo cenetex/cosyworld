@@ -3,8 +3,7 @@
 
 const REQUIRED = [
   'DISCORD_BOT_TOKEN',
-  'DISCORD_CLIENT_ID',
-  'MONGO_URI'
+  'DISCORD_CLIENT_ID'
 ];
 
 const CONDITIONAL = [

@@ -105,11 +105,21 @@ Requirements:
 - The UI shape follows card aspect: avatars are round portrait crops, items are square, and locations are wide rectangles.
 - Card ownership is additive by default: identity, cosmetics, collection, provenance, community status, and sharing. It must not accidentally become required progression.
 
-Location access is the exception that proves the rule: owning a location card can unlock access to that shared location, but it never creates a private copy. If Alice and Bob both own the Science Class card, they enter the same Science Class channel, see the same shared timeline, and share the same AI residents. The system must not create one-on-one teacher DMs or per-user room instances for card owners.
+### Free Core And Official Expansions
+
+The free game must feel complete. CosyWorld Core includes the avatar gate, The Cosy Cottage, public nearby rooms, listening, Orbs, seed items, resident evolution, and the public practice/combat loop. A free player should feel like they live in the world, not like they are waiting in a storefront.
+
+Official NFTs unlock official expansions inside the shared world. The first official expansion is **Ruby High: First Bell**, tied to Ruby High ownership from the trusted official feed. Its school rooms, such as Science Class and Library, require matching Ruby High location cards on the official shard.
+
+Expansion ownership never creates private copies. If Alice and Bob both own the Science Class card, they enter the same Science Class channel, see the same shared timeline, and share the same AI residents. The system must not create one-on-one teacher DMs or per-user room instances for card owners.
+
+Self-hosted shards may define their own public rooms, gated rooms, collection adapters, and content manifests. Those custom gates are valid for that shard, but the official hosted shard only trusts official collection configs and feeds.
 
 Resident placement should come from aggregate card overlap:
 
 - Everyone can enter The Cosy Cottage by default; no NFT is required for the lobby.
+- Public CosyWorld Core rooms are accessible without NFTs.
+- Official expansion rooms can require matching official collection ownership.
 - A wallet holding an avatar card contributes the set of location cards also held by that wallet.
 - For each resident avatar, the world scores locations by counting those wallet-location overlaps.
 - The resident appears in the highest-scoring shared location.
