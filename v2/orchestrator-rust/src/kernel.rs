@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub const CW_MAX_ACTORS: usize = 64;
 pub const CW_MAX_ITEMS: usize = 128;
-pub const CW_MAX_LOCATIONS: usize = 16;
+pub const CW_MAX_LOCATIONS: usize = 64;
 pub const CW_MAX_EXITS: usize = 64;
 pub const CW_MAX_EVENTS: usize = 32;
 

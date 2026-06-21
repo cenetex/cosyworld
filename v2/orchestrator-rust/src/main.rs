@@ -2702,6 +2702,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
+        .route(
+            "/assets/generated/boxes/{box_state}/{box_file}",
+            get(generated_box_asset),
+        )
         .route("/assets/cosy-cottage.png", get(cosy_cottage_asset))
         .route("/assets/rati.png", get(legacy_rati_asset))
         .route("/health", get(health))
@@ -3456,6 +3460,22 @@ impl RuntimeWorld {
             (1, 13),
             (1, 14),
             (1, 15),
+            (1, 30),
+            (1, 31),
+            (1, 32),
+            (1, 33),
+            (1, 34),
+            (1, 35),
+            (1, 40),
+            (1, 41),
+            (1, 42),
+            (1, 43),
+            (1, 44),
+            (1, 50),
+            (1, 60),
+            (1, 61),
+            (1, 62),
+            (1, 63),
             (2, 1),
             (2, 3),
             (3, 2),
@@ -3465,6 +3485,22 @@ impl RuntimeWorld {
             (13, 1),
             (14, 1),
             (15, 1),
+            (30, 1),
+            (31, 1),
+            (32, 1),
+            (33, 1),
+            (34, 1),
+            (35, 1),
+            (40, 1),
+            (41, 1),
+            (42, 1),
+            (43, 1),
+            (44, 1),
+            (50, 1),
+            (60, 1),
+            (61, 1),
+            (62, 1),
+            (63, 1),
         ] {
             self.ensure_exit(from_location_id, to_location_id, 0);
         }
@@ -3904,18 +3940,22 @@ impl RuntimeWorld {
             .copied()
             .filter(|exit| exit.from_location_id == location_id)
             .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
-            .filter(|exit| location_access_allowed(exit.to_location_id, access))
             .map(|exit| {
                 let access_rule = location_access_rule(exit.to_location_id);
+                let accessible = location_access_allowed(exit.to_location_id, access);
                 ExitView {
                     destination_location_id: exit.to_location_id,
                     destination_location_name: self
                         .location_name(exit.to_location_id)
                         .unwrap_or_else(|| format!("Location {}", exit.to_location_id)),
                     locked: false,
-                    accessible: true,
+                    accessible,
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
-                    access_reason: None,
+                    access_reason: if accessible {
+                        None
+                    } else {
+                        Some("Ruby High: First Bell card required.".to_string())
+                    },
                 }
             })
             .collect()
@@ -4889,22 +4929,29 @@ fn location_id_for_card_id(card_id: &str) -> Option<u64> {
         "location-cafeteria" => Some(13),
         "location-greenhouse" => Some(14),
         "location-courtyard" => Some(15),
+        "location-the-heavens" => Some(30),
+        "location-lofty-peak" => Some(31),
+        "location-summit-trail" => Some(32),
+        "location-alpine-forest" => Some(33),
+        "location-goblin-cave" => Some(34),
+        "location-circle-of-the-moon" => Some(35),
+        "location-old-oak-tree" => Some(40),
+        "location-lost-woods" => Some(41),
+        "location-haunted-mansion" => Some(42),
+        "location-quiet-abbey" => Some(43),
+        "location-flower-meadow" => Some(44),
+        "location-great-library" => Some(50),
+        "location-turgid-swamp" => Some(60),
+        "location-wilting-jungle" => Some(61),
+        "location-endless-ocean" => Some(62),
+        "location-digital-realm" => Some(63),
         _ => None,
     }
 }
 
 fn required_location_card_id(location_id: u64) -> Option<&'static str> {
-    match location_id {
-        2 => Some("cosy-rain-soft-garden"),
-        3 => Some("cosy-moonlit-trail"),
-        10 => Some("location-science-lab"),
-        11 => Some("location-homeroom"),
-        12 => Some("location-library"),
-        13 => Some("location-cafeteria"),
-        14 => Some("location-greenhouse"),
-        15 => Some("location-courtyard"),
-        _ => None,
-    }
+    let _ = location_id;
+    None
 }
 
 fn current_day_index() -> u64 {
@@ -5010,11 +5057,13 @@ fn generated_avatar_svg(actor_id: u64) -> String {
 
 fn apply_location_access(mut card: CardView, location_id: u64, access: &AccessContext) -> CardView {
     let rule = location_access_rule(location_id);
+    let owned = access.owns_card(&card.card_id)
+        || rule
+            .required_card_id
+            .map(|card_id| access.owns_card(card_id))
+            .unwrap_or(false);
     card.requires_ownership = rule.required_card_id.is_some();
-    card.owned = rule
-        .required_card_id
-        .map(|card_id| access.owns_card(card_id))
-        .unwrap_or(false);
+    card.owned = owned;
     card.accessible = rule
         .required_card_id
         .map(|card_id| access.owns_card(card_id))
@@ -5394,8 +5443,130 @@ fn card_for_location(location_id: u64, name: &str) -> CardView {
             asset_status: "pending_art",
             image_url: None,
         }),
-        _ => unknown_location_card(location_id, name),
+        _ => free_world_location_card(location_id)
+            .unwrap_or_else(|| unknown_location_card(location_id, name)),
     }
+}
+
+fn free_world_location_card(location_id: u64) -> Option<CardView> {
+    let (card_id, display_name, title, blurb) = match location_id {
+        30 => (
+            "location-the-heavens",
+            "The Heavens",
+            "Forbidden Mountain",
+            "A high bright threshold where cloud paths gather above the mountain.",
+        ),
+        31 => (
+            "location-lofty-peak",
+            "Lofty Peak",
+            "Forbidden Mountain",
+            "Thin air, ringing stone, and a summit wind that listens back.",
+        ),
+        32 => (
+            "location-summit-trail",
+            "Summit Trail",
+            "Forbidden Mountain",
+            "A switchback path between cold scree and stubborn lantern light.",
+        ),
+        33 => (
+            "location-alpine-forest",
+            "Alpine Forest",
+            "Forbidden Mountain",
+            "Pines lean over snowmelt tracks and old mountain signs.",
+        ),
+        34 => (
+            "location-goblin-cave",
+            "Goblin Cave",
+            "Forbidden Mountain",
+            "A low cave mouth full of echoes, loose coins, and sharper choices.",
+        ),
+        35 => (
+            "location-circle-of-the-moon",
+            "Circle of the Moon",
+            "Forbidden Mountain",
+            "Silver stones mark a quiet circle where night keeps perfect time.",
+        ),
+        40 => (
+            "location-old-oak-tree",
+            "Old Oak Tree",
+            "Lonely Forest",
+            "A vast oak with roots like roads and leaves that remember names.",
+        ),
+        41 => (
+            "location-lost-woods",
+            "Lost Woods",
+            "Lonely Forest",
+            "Soft moss, repeating paths, and birdsong that refuses to point north.",
+        ),
+        42 => (
+            "location-haunted-mansion",
+            "Haunted Mansion",
+            "Lonely Forest",
+            "A leaning house with lit windows, patient dust, and doors that sigh.",
+        ),
+        43 => (
+            "location-quiet-abbey",
+            "Quiet Abbey",
+            "Lonely Forest",
+            "Stone arches hold a hush deep enough to hear small vows.",
+        ),
+        44 => (
+            "location-flower-meadow",
+            "Flower Meadow",
+            "Lonely Forest",
+            "A clear meadow of small flowers, warm bees, and open sky.",
+        ),
+        50 => (
+            "location-great-library",
+            "Great Library",
+            "The World",
+            "Endless shelves, brass ladders, and marginalia from travelers before you.",
+        ),
+        60 => (
+            "location-turgid-swamp",
+            "Turgid Swamp",
+            "Farthest Mists",
+            "Black water shifts under reeds while bubbles spell unfinished warnings.",
+        ),
+        61 => (
+            "location-wilting-jungle",
+            "Wilting Jungle",
+            "Farthest Mists",
+            "Heavy leaves droop over hot paths where every vine seems tired.",
+        ),
+        62 => (
+            "location-endless-ocean",
+            "Endless Ocean",
+            "Farthest Mists",
+            "A blue horizon with no visible shore and songs under the waves.",
+        ),
+        63 => (
+            "location-digital-realm",
+            "Digital Realm",
+            "Farthest Mists",
+            "Green cursors blink across a world made of doors, echoes, and code.",
+        ),
+        _ => return None,
+    };
+
+    Some(seed_card(SeedCardSpec {
+        card_id,
+        display_name,
+        role: "location",
+        rarity: "free",
+        title,
+        blurb,
+        aspect: "wide",
+        source: "cosyworld_seed",
+        asset_status: "pending_art",
+        image_url: None,
+    }))
+    .map(|mut card| {
+        card.subject = Some(title.to_string());
+        card.profile_id = Some(card_id.to_string());
+        card.blurb = blurb.to_string();
+        card
+    })
 }
 
 fn unknown_location_card(location_id: u64, name: &str) -> CardView {
@@ -6256,6 +6427,13 @@ async fn wallet_qr_code(
         .into_response()
 }
 
+fn no_store_headers() -> [(header::HeaderName, &'static str); 2] {
+    [
+        (header::CACHE_CONTROL, "no-store, max-age=0"),
+        (header::PRAGMA, "no-cache"),
+    ]
+}
+
 async fn wallet_qr_page(
     State(state): State<AppState>,
     AxumPath(login_id): AxumPath<String>,
@@ -6263,12 +6441,18 @@ async fn wallet_qr_page(
     let Some(login_id) = clean_qr_token(&login_id, 32) else {
         return (
             StatusCode::BAD_REQUEST,
+            no_store_headers(),
             Html("invalid QR login id".to_string()),
         )
             .into_response();
     };
     if !qr_wallet_login_is_pending(&state, &login_id) {
-        return (StatusCode::NOT_FOUND, Html("QR login expired".to_string())).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            no_store_headers(),
+            Html("QR login expired".to_string()),
+        )
+            .into_response();
     }
     let login_json = serde_json::to_string(&login_id).unwrap_or_else(|_| "\"\"".to_string());
     let title = html_escape("CosyWorld Wallet Sign-In");
@@ -6323,6 +6507,14 @@ async fn wallet_qr_page(
       document.getElementById("phantom-link").href = `https://phantom.app/ul/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
       walletLinks.hidden = false;
     }}
+    function walletErrorMessage(error) {{
+      const message = String(error?.message || error || "").trim();
+      if (/reject|denied|cancel/i.test(message)) return "Wallet request cancelled.";
+      if (/prompt\(\)|prompt|not supported/i.test(message)) {{
+        return "This browser could not open the wallet signing prompt. Open this same page inside Phantom or Solflare, then tap sign in again.";
+      }}
+      return message || "Sign-in failed.";
+    }}
     async function api(path, options) {{
       const response = await fetch(path, options);
       return response.json();
@@ -6359,7 +6551,7 @@ async fn wallet_qr_page(
         if (!session.ok) throw new Error(session.error || "Wallet signature rejected.");
         status("Connected. Return to the CosyWorld tab.");
       }} catch (error) {{
-        status(String(error?.message || error || "Sign-in failed."), true);
+        status(walletErrorMessage(error), true);
         button.disabled = false;
       }}
     }});
@@ -6367,7 +6559,7 @@ async fn wallet_qr_page(
 </body>
 </html>"##
     );
-    (StatusCode::OK, Html(page)).into_response()
+    (StatusCode::OK, no_store_headers(), Html(page)).into_response()
 }
 
 async fn wallet_challenge(
@@ -8609,8 +8801,8 @@ fn broadcast_events(state: &AppState, events: &[EventView]) {
     }
 }
 
-async fn index() -> Html<&'static str> {
-    Html(INDEX_HTML)
+async fn index() -> impl IntoResponse {
+    (no_store_headers(), Html(INDEX_HTML))
 }
 
 fn event_visible_to_locations(event: &EventView, location_ids: &BTreeSet<u64>) -> bool {
@@ -8691,6 +8883,35 @@ async fn generated_avatar_asset(AxumPath(avatar_file): AxumPath<String>) -> impl
             (header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         generated_avatar_svg(actor_id),
+    )
+        .into_response()
+}
+
+async fn generated_box_asset(
+    AxumPath((box_state, box_file)): AxumPath<(String, String)>,
+) -> impl IntoResponse {
+    let Some(box_id) = box_file.strip_suffix(".svg") else {
+        return (StatusCode::NOT_FOUND, "unknown box").into_response();
+    };
+    let state = match box_state.as_str() {
+        "closed" | "opening" | "open" => box_state.as_str(),
+        _ => return (StatusCode::NOT_FOUND, "unknown box").into_response(),
+    };
+    if box_id.is_empty()
+        || box_id.len() > 96
+        || !box_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
+    {
+        return (StatusCode::NOT_FOUND, "unknown box").into_response();
+    }
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=86400"),
+        ],
+        generated_box_svg(box_id, state),
     )
         .into_response()
 }
@@ -8828,6 +9049,166 @@ fn seed_card_art_spec(card_id: &str) -> Option<SeedCardArtSpec> {
             "#8bb7ff",
             "MT",
         )),
+        "location-the-heavens" => Some(seed_art(
+            card_id,
+            "The Heavens",
+            "location",
+            "wide",
+            "#182744",
+            "#d8f7dc",
+            "#8bb7ff",
+            "TH",
+        )),
+        "location-lofty-peak" => Some(seed_art(
+            card_id,
+            "Lofty Peak",
+            "location",
+            "wide",
+            "#1f2f3f",
+            "#d8f7dc",
+            "#efc96b",
+            "LP",
+        )),
+        "location-summit-trail" => Some(seed_art(
+            card_id,
+            "Summit Trail",
+            "location",
+            "wide",
+            "#223020",
+            "#d8f7dc",
+            "#efc96b",
+            "ST",
+        )),
+        "location-alpine-forest" => Some(seed_art(
+            card_id,
+            "Alpine Forest",
+            "location",
+            "wide",
+            "#123328",
+            "#d8f7dc",
+            "#65e68a",
+            "AF",
+        )),
+        "location-goblin-cave" => Some(seed_art(
+            card_id,
+            "Goblin Cave",
+            "location",
+            "wide",
+            "#2f2732",
+            "#d8f7dc",
+            "#efc96b",
+            "GC",
+        )),
+        "location-circle-of-the-moon" => Some(seed_art(
+            card_id,
+            "Circle of the Moon",
+            "location",
+            "wide",
+            "#202746",
+            "#f1edff",
+            "#bca1ff",
+            "CM",
+        )),
+        "location-old-oak-tree" => Some(seed_art(
+            card_id,
+            "Old Oak Tree",
+            "location",
+            "wide",
+            "#2d2b18",
+            "#d8f7dc",
+            "#65e68a",
+            "OO",
+        )),
+        "location-lost-woods" => Some(seed_art(
+            card_id,
+            "Lost Woods",
+            "location",
+            "wide",
+            "#173326",
+            "#d8f7dc",
+            "#8bb7ff",
+            "LW",
+        )),
+        "location-haunted-mansion" => Some(seed_art(
+            card_id,
+            "Haunted Mansion",
+            "location",
+            "wide",
+            "#30263a",
+            "#f1edff",
+            "#efc96b",
+            "HM",
+        )),
+        "location-quiet-abbey" => Some(seed_art(
+            card_id,
+            "Quiet Abbey",
+            "location",
+            "wide",
+            "#24313a",
+            "#d8f7dc",
+            "#8bb7ff",
+            "QA",
+        )),
+        "location-flower-meadow" => Some(seed_art(
+            card_id,
+            "Flower Meadow",
+            "location",
+            "wide",
+            "#20371f",
+            "#d8f7dc",
+            "#f29c9c",
+            "FM",
+        )),
+        "location-great-library" => Some(seed_art(
+            card_id,
+            "Great Library",
+            "location",
+            "wide",
+            "#2b2618",
+            "#f5e6b8",
+            "#efc96b",
+            "GL",
+        )),
+        "location-turgid-swamp" => Some(seed_art(
+            card_id,
+            "Turgid Swamp",
+            "location",
+            "wide",
+            "#142d27",
+            "#d8f7dc",
+            "#65e68a",
+            "TS",
+        )),
+        "location-wilting-jungle" => Some(seed_art(
+            card_id,
+            "Wilting Jungle",
+            "location",
+            "wide",
+            "#263316",
+            "#f5e6b8",
+            "#efc96b",
+            "WJ",
+        )),
+        "location-endless-ocean" => Some(seed_art(
+            card_id,
+            "Endless Ocean",
+            "location",
+            "wide",
+            "#12304a",
+            "#d8f7dc",
+            "#75e5d6",
+            "EO",
+        )),
+        "location-digital-realm" => Some(seed_art(
+            card_id,
+            "Digital Realm",
+            "location",
+            "wide",
+            "#101b25",
+            "#d8f7dc",
+            "#65e68a",
+            "DR",
+        )),
         _ => None,
     }
 }
@@ -8883,6 +9264,39 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
         bg = spec.bg,
         ink = spec.ink,
         accent = spec.accent,
+    )
+}
+
+fn generated_box_svg(box_id: &str, state: &str) -> String {
+    let hash = stable_hash_u64(&["wooden-box-art", box_id]);
+    let (bg, wood, dark, ink, accent) = match hash % 5 {
+        0 => ("#21160f", "#8a5a31", "#3a2415", "#f7e3bd", "#efc96b"),
+        1 => ("#17261f", "#6f5a35", "#2d2116", "#d8f7dc", "#65e68a"),
+        2 => ("#1b2030", "#76614a", "#30231b", "#e9efff", "#8bb7ff"),
+        3 => ("#2a1d26", "#7d5239", "#332016", "#f4dce9", "#f29c9c"),
+        _ => ("#1d2118", "#826331", "#312514", "#f5e6b8", "#d0a84e"),
+    };
+    let lid = match state {
+        "opening" => format!(
+            "<g class='box-opening'><path d='M67 126 L228 70 L257 108 L91 161 Z' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M108 127 L223 91' stroke='{ink}' stroke-opacity='.2' stroke-width='5'/><path d='M160 126 L160 45 M128 139 L96 61 M192 134 L229 57' stroke='{accent}' stroke-width='4' stroke-linecap='round' opacity='.72'/><rect class='card' x='133' y='88' width='34' height='48' rx='5' fill='{ink}' opacity='.92'/><rect class='card' x='169' y='97' width='34' height='48' rx='5' fill='{accent}' opacity='.88'/></g>"
+        ),
+        "open" => format!(
+            "<g class='box-open'><path d='M67 114 L232 54 L261 91 L94 151 Z' fill='{dark}' stroke='{accent}' stroke-width='4' opacity='.9'/><rect class='card' x='101' y='68' width='44' height='66' rx='6' fill='{ink}' transform='rotate(-10 123 101)'/><rect class='card' x='142' y='54' width='44' height='66' rx='6' fill='{accent}' transform='rotate(4 164 87)'/><rect class='card' x='183' y='73' width='44' height='66' rx='6' fill='{ink}' opacity='.88' transform='rotate(13 205 106)'/><path d='M91 144 C120 110 205 110 236 144' fill='{accent}' opacity='.18'/></g>"
+        ),
+        _ => format!(
+            "<g class='box-closed'><rect x='58' y='100' width='204' height='61' rx='13' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M74 130 H246' stroke='{dark}' stroke-width='8' opacity='.42'/><circle cx='160' cy='148' r='12' fill='{dark}' stroke='{accent}' stroke-width='4'/></g>"
+        ),
+    };
+    let box_id_xml = escape_xml(box_id);
+    let state_xml = escape_xml(state);
+    let label = match state {
+        "opening" => "OPENING",
+        "open" => "OPEN",
+        _ => "SEALED",
+    };
+
+    format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320' role='img' aria-label='Intricately Carved Wooden Box {state_xml}' data-box-id='{box_id_xml}' data-box-state='{state_xml}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='70%'><stop offset='0' stop-color='{accent}' stop-opacity='.3'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='16' height='16' patternUnits='userSpaceOnUse'><path d='M0 11 C5 5 10 5 16 0 M-2 16 C5 9 12 9 18 4' fill='none' stroke='{ink}' stroke-width='1.8' stroke-opacity='.08'/></pattern></defs><rect width='320' height='320' rx='26' fill='{bg}'/><rect width='320' height='320' fill='url(#glow)'/><rect width='320' height='320' fill='url(#grain)'/><rect x='14' y='14' width='292' height='292' rx='20' fill='none' stroke='{accent}' stroke-width='4' opacity='.72'/>{lid}<g class='box-base'><rect x='70' y='145' width='180' height='88' rx='12' fill='{wood}' stroke='{accent}' stroke-width='4'/><path d='M82 168 H238 M82 205 H238' stroke='{dark}' stroke-width='5' opacity='.35'/><path d='M104 151 V229 M216 151 V229' stroke='{dark}' stroke-width='5' opacity='.26'/><path d='M121 186 C138 173 180 173 198 186' fill='none' stroke='{accent}' stroke-width='3' opacity='.48'/></g><text x='160' y='270' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='21' font-weight='900' fill='{accent}'>{label}</text><text x='160' y='292' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='11' font-weight='800' fill='{ink}' opacity='.64'>{box_id_xml}</text></svg>"
     )
 }
 
@@ -10676,6 +11090,9 @@ mod tests {
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
         assert!(INDEX_HTML.contains("data-card-key"));
         assert!(INDEX_HTML.contains("data-room-more"));
+        assert!(INDEX_HTML.contains("room-title-main"));
+        assert!(INDEX_HTML.contains("fullPresenceCardLimit = 3"));
+        assert!(INDEX_HTML.contains("compact ? \" compact\""));
         assert!(INDEX_HTML.contains("id=\"wallet-modal\""));
         assert!(INDEX_HTML.contains("/wallet/qr/start"));
         assert!(INDEX_HTML.contains("Scan this with your phone"));
@@ -11214,7 +11631,7 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 1));
-        assert!(!state
+        assert!(state
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 3));
@@ -11734,6 +12151,28 @@ mod tests {
             Some("/assets/generated/cards/cosy-rain-soft-garden.svg")
         );
 
+        for (location_id, card_id) in [
+            (30, "location-the-heavens"),
+            (50, "location-great-library"),
+            (63, "location-digital-realm"),
+        ] {
+            let name = seed_content()
+                .locations
+                .iter()
+                .find(|location| location.id == location_id)
+                .map(|location| location.name.as_str())
+                .unwrap_or("Free Location");
+            let card = card_for_location(location_id, name);
+            assert_eq!(card.asset_status, "seed_art");
+            assert_eq!(card.rarity, "free");
+            assert_eq!(
+                card.image_url.as_deref(),
+                Some(format!("/assets/generated/cards/{card_id}.svg").as_str())
+            );
+            let spec = seed_card_art_spec(card_id).expect("free location seed card art spec");
+            assert!(generated_seed_card_svg(&spec).contains(&format!("data-card-id='{card_id}'")));
+        }
+
         for (item_id, card_id) in [
             (2001, "cosy-hearth-tonic"),
             (2002, "cosy-dewbright-button"),
@@ -11752,6 +12191,16 @@ mod tests {
             let spec = seed_card_art_spec(card_id).expect("seed card art spec");
             assert!(generated_seed_card_svg(&spec).contains(&format!("data-card-id='{card_id}'")));
         }
+
+        let closed_box = generated_box_svg("box-smoke-1", "closed");
+        assert!(closed_box.contains("data-box-id='box-smoke-1'"));
+        assert!(closed_box.contains("data-box-state='closed'"));
+        let opening_box = generated_box_svg("box-smoke-1", "opening");
+        assert!(opening_box.contains("data-box-state='opening'"));
+        assert!(opening_box.contains("class='card'"));
+        let open_box = generated_box_svg("box-smoke-1", "open");
+        assert!(open_box.contains("data-box-state='open'"));
+        assert!(open_box.contains("class='card'"));
     }
 
     #[test]
@@ -11759,7 +12208,7 @@ mod tests {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
         assert_eq!(content.actors.len(), 4);
         assert_eq!(content.items.len(), 7);
-        assert_eq!(content.locations.len(), 9);
+        assert_eq!(content.locations.len(), 25);
         assert_eq!(content.evolution_tracks.len(), 3);
 
         let runtime = RuntimeWorld::seeded();
@@ -12051,13 +12500,20 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "chat"));
-        assert!(!state
+        assert!(state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "move"));
+        let science = state
+            .exits
+            .iter()
+            .find(|exit| exit.destination_location_id == 10)
+            .expect("Ruby High: First Bell expansion door is visible");
+        assert!(science.accessible);
+        assert!(science.required_card_id.is_none());
 
-        let ownership = OwnershipIndex::parse("wallet-1:cosy-rain-soft-garden");
+        let ownership = OwnershipIndex::parse("wallet-1:location-science-lab");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.primary_action.kind, "chat");
@@ -12066,6 +12522,10 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "move"));
+        assert!(state
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == 10 && exit.accessible));
     }
 
     #[test]
@@ -12077,12 +12537,20 @@ mod tests {
         assert_eq!(gate.location.id, 1);
         assert_eq!(gate.location.name, "The Cosy Cottage");
         assert_eq!(gate.primary_action.kind, "create_avatar");
-        assert!(gate.exits.iter().all(|exit| exit.accessible));
-        assert!(!gate
+        assert!(gate
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 2));
-        assert!(!gate.cards.locations.contains_key(&2));
+        let science = gate
+            .exits
+            .iter()
+            .find(|exit| exit.destination_location_id == 10)
+            .expect("Ruby High expansion door is visible from the Cottage");
+        assert!(science.accessible);
+        assert!(science.required_card_id.is_none());
+        assert!(gate.access.locked_card_ids.is_empty());
+        assert!(gate.cards.locations.contains_key(&2));
+        assert!(gate.cards.locations.contains_key(&10));
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -12581,7 +13049,7 @@ mod tests {
                 name: "Library Guest".to_string(),
                 speech_mode: "prose".to_string(),
                 title: "Shared Room Tester".to_string(),
-                description: "A test avatar standing in a gated shared room.".to_string(),
+                description: "A test avatar standing in a shared room.".to_string(),
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
@@ -12597,11 +13065,16 @@ mod tests {
         assert!(cottage.public);
         assert!(cottage.accessible);
         assert!(cottage.actors.iter().any(|actor| actor.name == "Rati"));
-        assert!(!public.locations.iter().any(|location| location.id == 12));
-        assert!(!public
-            .access
-            .locked_card_ids
-            .contains(&"location-library".to_string()));
+        let public_library = public
+            .locations
+            .iter()
+            .find(|location| location.id == 12)
+            .expect("free Library world location");
+        assert!(public_library.public);
+        assert!(public_library.accessible);
+        assert!(public_library.card.accessible);
+        assert!(!public_library.card.owned);
+        assert!(public.access.locked_card_ids.is_empty());
 
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
@@ -12630,8 +13103,9 @@ mod tests {
         let public_locations = runtime.visible_event_locations(None, &public);
 
         assert!(public_locations.contains(&1));
-        assert!(!public_locations.contains(&10));
-        assert!(!public_locations.contains(&12));
+        assert!(public_locations.contains(&10));
+        assert!(public_locations.contains(&12));
+        assert!(public_locations.contains(&63));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let library_access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
@@ -12639,7 +13113,7 @@ mod tests {
 
         assert!(library_locations.contains(&1));
         assert!(library_locations.contains(&12));
-        assert!(!library_locations.contains(&10));
+        assert!(library_locations.contains(&10));
 
         let library_event = EventView {
             seq: 1,
@@ -12665,7 +13139,7 @@ mod tests {
             damage: None,
             current_hp: None,
         };
-        assert!(!event_visible_to_locations(
+        assert!(event_visible_to_locations(
             &library_event,
             &public_locations
         ));
@@ -12731,12 +13205,27 @@ mod tests {
     }
 
     #[test]
-    fn ruby_high_location_access_follows_owned_cards() {
+    fn free_world_locations_are_public_with_optional_card_ownership() {
         let runtime = RuntimeWorld::seeded();
         let no_wallet = AccessContext::default();
         let state = runtime.state_response(None, &no_wallet);
         for (location_id, card_id) in [
             (2, "cosy-rain-soft-garden"),
+            (30, "location-the-heavens"),
+            (34, "location-goblin-cave"),
+            (50, "location-great-library"),
+            (63, "location-digital-realm"),
+        ] {
+            assert!(state
+                .exits
+                .iter()
+                .any(|exit| exit.destination_location_id == location_id));
+            assert!(state.cards.locations[&location_id].accessible);
+            assert!(!state.cards.locations[&location_id].owned);
+            assert!(!state.access.locked_card_ids.contains(&card_id.to_string()));
+        }
+
+        for (location_id, card_id) in [
             (10, "location-science-lab"),
             (11, "location-homeroom"),
             (12, "location-library"),
@@ -12744,11 +13233,12 @@ mod tests {
             (14, "location-greenhouse"),
             (15, "location-courtyard"),
         ] {
-            assert!(!state
+            assert!(state
                 .exits
                 .iter()
-                .any(|exit| exit.destination_location_id == location_id));
-            assert!(!state.cards.locations.contains_key(&location_id));
+                .any(|exit| exit.destination_location_id == location_id && exit.accessible));
+            assert!(state.cards.locations[&location_id].accessible);
+            assert!(!state.cards.locations[&location_id].owned);
             assert!(!state.access.locked_card_ids.contains(&card_id.to_string()));
         }
 
@@ -12763,7 +13253,8 @@ mod tests {
         assert!(state.cards.locations[&12].owned);
         assert!(state.cards.locations[&14].accessible);
         assert!(state.cards.locations[&14].owned);
-        assert!(!state.cards.locations.contains_key(&10));
+        assert!(state.cards.locations[&10].accessible);
+        assert!(!state.cards.locations[&10].owned);
         assert_eq!(
             state.cards.locations[&12].set_number.as_deref(),
             Some("FB-021")

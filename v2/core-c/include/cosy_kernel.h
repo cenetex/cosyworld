@@ -12,7 +12,7 @@ extern "C" {
 
 #define CW_MAX_ACTORS 64u
 #define CW_MAX_ITEMS 128u
-#define CW_MAX_LOCATIONS 16u
+#define CW_MAX_LOCATIONS 64u
 #define CW_MAX_EXITS 64u
 #define CW_MAX_EVENTS 32u
 

@@ -151,6 +151,12 @@
       font-size: 16px;
     }
     .room-title span { min-width: 0; }
+    .room-title-main {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
     #location-name {
       overflow: hidden;
       white-space: nowrap;
@@ -174,6 +180,12 @@
       gap: 6px;
       min-width: 0;
       white-space: nowrap;
+    }
+    .room.collapsed #avatar {
+      display: none;
+    }
+    .room.collapsed .room-copy {
+      margin-top: 6px;
     }
     .room-tags {
       display: flex;
@@ -248,15 +260,35 @@
       color: var(--dim);
       opacity: 0.62;
     }
+    .chip.compact {
+      width: 36px;
+      max-width: 36px;
+      height: 34px;
+      justify-content: center;
+      padding: 5px;
+      gap: 0;
+    }
+    .chip.compact.path {
+      width: 46px;
+      max-width: 46px;
+    }
+    .chip.compact > span:not(.chip-thumb) {
+      display: none;
+    }
     .chip-thumb {
       width: 22px;
       height: 22px;
       flex: 0 0 auto;
+      display: grid;
+      place-items: center;
       border: 1px solid var(--line-strong);
       background-size: cover;
       background-position: center;
       background-color: rgba(101, 230, 138, 0.08);
       cursor: zoom-in;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 900;
     }
     .chip-thumb.avatar {
       border-radius: 999px;
@@ -348,6 +380,65 @@
       color: var(--text);
     }
     .account-empty { color: var(--dim); }
+    .account-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+    .account-button {
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: rgba(101, 230, 138, 0.1);
+      color: var(--green);
+      padding: 6px 9px;
+      font: inherit;
+      font-weight: 900;
+    }
+    .account-button.secondary {
+      color: var(--amber);
+      background: var(--terminal-2);
+    }
+    .account-assets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .account-asset {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: rgba(16, 25, 18, 0.72);
+      border-radius: 4px;
+      padding: 7px;
+      display: grid;
+      gap: 6px;
+    }
+    .account-asset img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border: 1px solid var(--line-strong);
+      background: rgba(101, 230, 138, 0.06);
+      border-radius: 4px;
+    }
+    .account-asset-title {
+      min-width: 0;
+      color: var(--amber);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .account-asset-subtitle {
+      color: var(--dim);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .prompt {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
@@ -633,6 +724,7 @@
         grid-template-columns: 1fr;
         gap: 2px;
       }
+      .room-title-main { min-width: 0; }
       #avatar {
         max-width: 100%;
         text-align: left;
@@ -685,7 +777,7 @@
     <main class="terminal">
       <section class="room">
         <div class="room-title">
-          <span id="location-name">The Cosy Cottage</span>
+          <span class="room-title-main"><span id="location-name">The Cosy Cottage</span></span>
           <span id="avatar">...</span>
         </div>
         <div class="room-copy" id="location-copy"></div>
@@ -738,6 +830,7 @@
   <script>
     const avatarGateVersion = "2";
     const walletRequestTimeoutMs = 20000;
+    const fullPresenceCardLimit = 3;
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
     if (wantsReset) clearLocalSession();
@@ -760,6 +853,7 @@
     let actionBusy = false;
     let pendingAction = null;
     let accountPanelPinned = false;
+    let openingBoxId = "";
     let roomCopyExpanded = false;
     let lastRoomCopyLocationId = null;
     let walletQrPollTimer = null;
@@ -940,6 +1034,9 @@
       const message = String(error?.message || error || "").trim();
       if (/reject|denied|cancel/i.test(message)) return "Wallet request cancelled.";
       if (/timed out/i.test(message)) return message;
+      if (/prompt\(\)|prompt|not supported/i.test(message)) {
+        return "Wallet signing prompt is not available in this browser. Open the QR page inside Phantom or Solflare and try again.";
+      }
       return message ? `${fallback}: ${message}` : fallback;
     }
 
@@ -959,8 +1056,6 @@
       const built = [];
       const economy = view.economy || {};
       const canChat = hasOpenRouterKey() || economy.can_chat_with_orbs !== false;
-      const accountActions = buildAccountActions(view);
-      const hasSignedWallet = view.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
       const heldEvolutionItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "evolution");
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
       const usableTargets = (view.actors || []).filter((actor) => actorNeedsHealing(actor));
@@ -1010,7 +1105,6 @@
           run: () => chatWith(actor.id),
         });
       }
-      built.push(...accountActions);
       if (options.has("pick_up")) {
         for (const item of view.items || []) {
           if (!item.location_id) continue;
@@ -1026,7 +1120,19 @@
       }
       for (const exit of view.exits || []) {
         if (exit.locked) continue;
-        if (exit.accessible === false) continue;
+        if (exit.accessible === false) {
+          if (!view.access?.owner_wallet_address) {
+            built.push({
+              label: "connect wallet",
+              detail: exit.destination_location_name,
+              focusKey: `wallet:${exit.destination_location_id}`,
+              card: cardForLocation(exit.destination_location_id),
+              shape: "location",
+              run: () => connectWallet(),
+            });
+          }
+          continue;
+        }
         const escaping = options.has("flee");
         if (escaping || options.has("move")) {
           built.push({
@@ -1083,50 +1189,8 @@
           run: () => connectOpenRouter(),
         });
       }
-      if (!hasSignedWallet) {
-        built.push({
-          label: "connect wallet",
-          detail: "discover cards",
-          focusKey: "wallet:connect",
-          card: accountCard("Wallet"),
-          shape: "item",
-          run: () => connectWallet(),
-        });
-      }
       if (!built.length) built.push({ label: "wait", detail: "", focusKey: "wait", run: async () => {} });
       return built;
-    }
-
-    function buildAccountActions(view) {
-      const access = view.access || {};
-      const signed = access.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
-      if (!signed) return [];
-      const boxes = Array.isArray(access.owned_box_ids) ? access.owned_box_ids : [];
-      const packs = Array.isArray(access.unopened_pack_ids) ? access.unopened_pack_ids : [];
-      const actions = [];
-      for (const packId of packs) {
-        actions.push({
-          label: "open pack",
-          detail: compactAssetId(packId),
-          focusKey: `account:pack:${packId}`,
-          card: accountCard("Avatar Pack"),
-          shape: "item",
-          account: true,
-          run: () => openPack(packId),
-        });
-      }
-      for (const boxId of boxes) {
-        actions.push({
-          label: "open box",
-          detail: compactAssetId(boxId),
-          focusKey: `account:box:${boxId}`,
-          card: accountCard("Wooden Box"),
-          shape: "item",
-          account: true,
-          run: () => openBox(boxId),
-        });
-      }
-      return actions;
     }
 
     function setWalletQrStatus(message, kind = "ok") {
@@ -1292,28 +1356,36 @@
         if (!connected) return;
       }
       setError("");
-      const prepared = await post("/nft/boxes/burn-prepare", {
-        wallet_session: walletSession,
-        box_asset_address: boxAssetAddress,
-      });
-      if (!prepared.ok) {
-        throw new Error(prepared.error || "Box cannot be opened.");
-      }
-      let packId = prepared.pack_id || "";
-      if (!String(prepared.burn_message || "").startsWith("Box already")) {
-        const burnSignature = await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
-        const confirmed = await post("/nft/boxes/burn-confirm", {
+      openingBoxId = boxAssetAddress;
+      accountPanelPinned = true;
+      render();
+      try {
+        const prepared = await post("/nft/boxes/burn-prepare", {
           wallet_session: walletSession,
           box_asset_address: boxAssetAddress,
-          burn_signature: burnSignature,
         });
-        if (!confirmed.ok) {
-          throw new Error(confirmed.error || "Box burn could not be recorded.");
+        if (!prepared.ok) {
+          throw new Error(prepared.error || "Box cannot be opened.");
         }
-        packId = confirmed.receipt?.pack_id || packId;
+        let packId = prepared.pack_id || "";
+        if (!String(prepared.burn_message || "").startsWith("Box already")) {
+          const burnSignature = await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
+          const confirmed = await post("/nft/boxes/burn-confirm", {
+            wallet_session: walletSession,
+            box_asset_address: boxAssetAddress,
+            burn_signature: burnSignature,
+          });
+          if (!confirmed.ok) {
+            throw new Error(confirmed.error || "Box burn could not be recorded.");
+          }
+          packId = confirmed.receipt?.pack_id || packId;
+        }
+        if (!packId) throw new Error("Box did not create a pack.");
+        await openPack(packId);
+      } finally {
+        openingBoxId = "";
+        render();
       }
-      if (!packId) throw new Error("Box did not create a pack.");
-      await openPack(packId);
     }
 
     async function openPack(packId) {
@@ -1469,9 +1541,11 @@
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)} / ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
+      document.querySelector(".room")?.classList.toggle("collapsed", !roomCopyExpanded);
       if (lastRoomCopyLocationId !== location.id) {
         roomCopyExpanded = false;
         lastRoomCopyLocationId = location.id || null;
+        document.querySelector(".room")?.classList.add("collapsed");
       }
       renderRoomCopy(location.id);
       $("presence").innerHTML = presenceHtml(state, me);
@@ -1484,69 +1558,79 @@
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
       const boxes = state?.access?.owned_box_ids?.length || 0;
       const packs = state?.access?.unopened_pack_ids?.length || 0;
+      const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
       const parts = [`<strong>${orbs}</strong> orbs`];
       if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
       if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
+      parts.push(signed ? "wallet" : "connect wallet");
       const economyNode = $("economy");
       economyNode.innerHTML = parts.join(" · ");
-      economyNode.setAttribute("aria-label", boxes || packs
-        ? `Focus account inventory with ${orbs} Orbs, ${boxes} Boxes, and ${packs} unopened packs`
-        : `Account has ${orbs} Orbs`);
-      economyNode.classList.toggle("focused", Boolean(focusedAction()?.account || accountPanelPinned));
+      economyNode.setAttribute("aria-label", `Focus account inventory with ${orbs} Orbs, ${boxes} Boxes, ${packs} unopened packs, and ${signed ? "a connected wallet" : "no connected wallet"}`);
+      economyNode.classList.toggle("focused", Boolean(accountPanelPinned));
     }
 
     function presenceHtml(view, me) {
       const parts = [];
+      let fullCardCount = 0;
+      const pushChip = (chip) => {
+        const compact = fullCardCount >= fullPresenceCardLimit;
+        fullCardCount += 1;
+        parts.push(chipHtml({ ...chip, compact }));
+      };
       for (const actor of view.actors || []) {
         const you = actor.id === actorId;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
         const evolved = actor.stats?.level > 1;
         const key = you ? "" : `actor:${actor.id}`;
-        parts.push(chipHtml({
+        pushChip({
           label,
           classes: `${you ? " you" : ""}${evolved ? " evolved" : ""}`,
           key,
           card: cardForActor(actor.id),
           shape: "avatar",
-        }));
+        });
       }
       for (const item of view.items || []) {
         if (item.location_id || item.holder_actor_id === actorId) {
           const held = item.holder_actor_id === actorId;
-          parts.push(chipHtml({
+          pushChip({
             label: held ? `${item.name} (held)` : item.name,
             classes: " item",
             key: `item:${item.id}`,
             card: cardForItem(item.id),
             shape: "item",
-          }));
+          });
         }
       }
       for (const exit of view.exits || []) {
         if (!exit.locked) {
-        parts.push(chipHtml({
-          label: exit.destination_location_name,
-          classes: ` path${exit.accessible === false ? " locked" : ""}`,
-          key: exit.accessible === false
-            ? (!view.access?.owner_wallet_address ? `wallet:${exit.destination_location_id}` : "")
-            : `exit:${exit.destination_location_id}`,
-          card: cardForLocation(exit.destination_location_id),
-          shape: "location",
-        }));
+          pushChip({
+            label: exit.destination_location_name,
+            classes: ` path${exit.accessible === false ? " locked" : ""}`,
+            key: exit.accessible === false
+              ? (!view.access?.owner_wallet_address ? `wallet:${exit.destination_location_id}` : "")
+              : `exit:${exit.destination_location_id}`,
+            card: cardForLocation(exit.destination_location_id),
+            shape: "location",
+          });
         }
       }
-      if (!parts.length && me) parts.push(chipHtml({ label: me.name, classes: " you", card: cardForActor(me.id), shape: "avatar" }));
+      if (!parts.length && me) pushChip({ label: me.name, classes: " you", card: cardForActor(me.id), shape: "avatar" });
       return parts.join("");
     }
 
-    function chipHtml({ label, classes = "", key = "", card = null, shape = "item" }) {
+    function chipHtml({ label, classes = "", key = "", card = null, shape = "item", compact = false }) {
       const index = key ? actions.findIndex((action) => action.focusKey === key) : -1;
       const selectable = index >= 0;
       const focused = selectable && index === focusIndex && !state?.branch;
-      const attrs = selectable ? ` data-focus-index="${index}" role="button" tabindex="0"` : "";
+      const title = escapeAttr(label);
+      const attrs = `${selectable ? ` data-focus-index="${index}" role="button" tabindex="0"` : ""} title="${title}" aria-label="${title}"`;
       const image = cardImage(card) || (card ? fallbackCardImage(card) : "");
-      const thumb = image ? `<span class="chip-thumb ${escapeAttr(shape)}"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>` : "";
-      return `<span class="chip${classes}${selectable ? " focusable" : ""}${focused ? " focused" : ""}"${attrs}>${thumb}<span>${escapeHtml(label)}</span></span>`;
+      const fallback = compact ? escapeHtml(label.trim().slice(0, 1) || "?") : "";
+      const thumb = image
+        ? `<span class="chip-thumb ${escapeAttr(shape)}"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>`
+        : `<span class="chip-thumb ${escapeAttr(shape)}">${fallback}</span>`;
+      return `<span class="chip${classes}${compact ? " compact" : ""}${selectable ? " focusable" : ""}${focused ? " focused" : ""}"${attrs}>${thumb}<span>${escapeHtml(label)}</span></span>`;
     }
 
     function renderLog() {
@@ -1562,14 +1646,21 @@
     }
 
     function accountPanelHtml() {
-      if (!focusedAction()?.account && !accountPanelPinned) return "";
-      if (!hasAccountPanelContent()) return "";
+      if (!accountPanelPinned) return "";
       const account = state?.account || {};
       const wallet = account.wallet_address || state?.access?.owner_wallet_address || "";
       const boxes = Array.isArray(account.active_box_ids) ? account.active_box_ids : [];
       const packs = Array.isArray(account.unopened_pack_ids) ? account.unopened_pack_ids : [];
       const receipts = Array.isArray(account.recent_box_receipts) ? account.recent_box_receipts : [];
       const openings = Array.isArray(account.recent_pack_openings) ? account.recent_pack_openings : [];
+      const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
+      const assets = [];
+      for (const boxId of boxes.slice(0, 6)) {
+        assets.push(accountBoxCard(boxId, openingBoxId === boxId ? "opening" : "closed"));
+      }
+      for (const packId of packs.slice(0, 6)) {
+        assets.push(accountPackCard(packId));
+      }
       const rows = [
         accountRow("boxes", boxes.length ? boxes.map(compactAssetId).join(", ") : "none"),
         accountRow("packs", packs.length ? packs.map(compactAssetId).join(", ") : "none"),
@@ -1581,8 +1672,28 @@
         const cards = (opening.card_ids || []).map(cardDisplayName).join(", ");
         rows.push(accountRow("reveal", `${compactAssetId(opening.pack_id)} -> ${cards || "cards"}`));
       }
-      if (!rows.length) rows.push(accountRow("account", "nothing waiting"));
-      return `<div class="account-panel" aria-label="Account inventory and provenance"><div class="account-title"><span>account inventory</span><span class="account-wallet">${escapeHtml(compactAssetId(wallet) || "wallet")}</span></div>${rows.join("")}</div>`;
+      const actions = signed
+        ? `<button class="account-button secondary" type="button" data-account-open-pack="first"${packs.length ? "" : " disabled"}>open pack</button>`
+        : `<button class="account-button" type="button" data-account-connect>connect wallet</button>`;
+      const inventory = assets.length
+        ? `<div class="account-assets">${assets.join("")}</div>`
+        : `<div class="account-empty">no Boxes or unopened packs</div>`;
+      return `<div class="account-panel" aria-label="Account inventory and provenance"><div class="account-title"><span>account inventory</span><span class="account-wallet">${escapeHtml(compactAssetId(wallet) || "walletless")}</span></div><div class="account-actions">${actions}</div>${inventory}${rows.join("")}</div>`;
+    }
+
+    function accountBoxCard(boxId, stateName) {
+      const title = "Intricately Carved Wooden Box";
+      const subtitle = stateName === "opening" ? "opening" : "burn for cards";
+      return `<div class="account-asset"><img src="${escapeAttr(boxImageUrl(boxId, stateName))}" alt="${escapeAttr(`${title} ${stateName}`)}" data-card-key="box:${escapeAttr(boxId)}" /><div class="account-asset-title">${escapeHtml(title)}</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(boxId))}</div><button class="account-button secondary" type="button" data-account-open-box="${escapeAttr(boxId)}"${stateName === "opening" ? " disabled" : ""}>${escapeHtml(subtitle)}</button></div>`;
+    }
+
+    function accountPackCard(packId) {
+      const image = fallbackCardImage(accountCard("Avatar Pack"));
+      return `<div class="account-asset"><img src="${escapeAttr(image)}" alt="Avatar Pack" data-card-key="pack:${escapeAttr(packId)}" /><div class="account-asset-title">Avatar Pack</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(packId))}</div><button class="account-button secondary" type="button" data-account-open-pack="${escapeAttr(packId)}">open pack</button></div>`;
+    }
+
+    function boxImageUrl(boxId, stateName = "closed") {
+      return `/assets/generated/boxes/${encodeURIComponent(stateName)}/${encodeURIComponent(boxId)}.svg`;
     }
 
     function accountRow(key, value) {
@@ -1630,7 +1741,7 @@
       if (locationId === 13) return "Cafeteria tables hold the soft thunder of commons diplomacy.";
       if (locationId === 14) return "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
       if (locationId === 15) return "Courtyard paths cross under open sky; every hallway seems to lead back here.";
-      return "The shard hums softly.";
+      return copyForLocation(locationId);
     }
 
     function messageHtml(event) {
@@ -1724,6 +1835,7 @@
       if (id === 13) return "Cafeteria trays clatter with commons gossip and trade routes.";
       if (id === 14) return "Greenhouse glass ticks softly around experiments that grow when revisited.";
       if (id === 15) return "Courtyard paths cross; footsteps remember where they came from.";
+      if (freeLocationCopy(id)) return `${freeLocationCopy(id)} A route back to the cottage stays warm.`;
       return "the shard hums back with a useful direction.";
     }
 
@@ -1773,6 +1885,36 @@
     }
 
     function cardByKey(key) {
+      if (key.startsWith("box:")) {
+        const boxId = key.slice(4);
+        return {
+          card_id: boxId,
+          display_name: "Intricately Carved Wooden Box",
+          title: "sealed world seed",
+          blurb: "A burnable NFT Box. Opening it creates an avatar card pack, then the revealed cards can be minted through the Ruby High-style pack flow.",
+          rarity: "mystery",
+          role: "item",
+          aspect: "square",
+          source: "cosyworld_box",
+          owned: true,
+          image_url: boxImageUrl(boxId, openingBoxId === boxId ? "opening" : "closed"),
+        };
+      }
+      if (key.startsWith("pack:")) {
+        const packId = key.slice(5);
+        return {
+          card_id: packId,
+          display_name: "Avatar Pack",
+          title: "unopened card pack",
+          blurb: "A Box-born pack waiting to reveal avatar cards from the shared world.",
+          rarity: "pack",
+          role: "item",
+          aspect: "square",
+          source: "cosyworld_pack",
+          owned: true,
+          image_url: fallbackCardImage(accountCard("Avatar Pack")),
+        };
+      }
       for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations]) {
         if (!group) continue;
         for (const card of Object.values(group)) {
@@ -1959,14 +2101,23 @@
 
     function renderRoomCopy(id) {
       const node = $("location-copy");
+      const titleMain = document.querySelector(".room-title-main");
+      const existingControl = titleMain?.querySelector("[data-room-more]");
+      existingControl?.remove();
+      const label = roomCopyExpanded ? "less" : "...";
+      titleMain?.insertAdjacentHTML(
+        "beforeend",
+        `<button class="room-more" type="button" data-room-more aria-expanded="${roomCopyExpanded ? "true" : "false"}">${label}</button>`
+      );
+      document.querySelector(".room")?.classList.toggle("collapsed", !roomCopyExpanded);
       node.classList.toggle("expanded", roomCopyExpanded);
       if (roomCopyExpanded) {
-        node.innerHTML = `<span class="room-full">${escapeHtml(copyForLocation(id))}</span><button class="room-more" type="button" data-room-more aria-expanded="true">less</button>`;
+        node.hidden = false;
+        node.innerHTML = `<span class="room-full">${escapeHtml(copyForLocation(id))}</span>`;
         return;
       }
-      const tags = roomTagsForLocation(id);
-      const tagHtml = tags.map((tag) => `<span class="room-tag">${escapeHtml(tag)}</span>`).join("");
-      node.innerHTML = `<span class="room-tags">${tagHtml}</span><button class="room-more" type="button" data-room-more aria-expanded="false">...</button>`;
+      node.hidden = true;
+      node.innerHTML = "";
     }
 
     function roomTagsForLocation(id) {
@@ -1979,7 +2130,33 @@
       if (id === 13) return ["cafeteria", "tables", "commons"];
       if (id === 14) return ["greenhouse", "glass", "leaves"];
       if (id === 15) return ["courtyard", "paths", "sky"];
+      if (id >= 30 && id < 40) return ["mountain", "wind", "stone"];
+      if (id >= 40 && id < 50) return ["forest", "roots", "paths"];
+      if (id === 50) return ["world", "shelves", "ladders"];
+      if (id >= 60 && id < 70) return ["mists", "threshold", "far"];
       return ["shard", "hum", "unknown"];
+    }
+
+    function freeLocationCopy(id) {
+      const copy = {
+        30: "Cloud paths gather over The Heavens above the forbidden mountain.",
+        31: "Thin air rings around Lofty Peak while summit wind listens back.",
+        32: "Summit Trail switches between cold scree and stubborn lantern light.",
+        33: "Alpine Forest leans over snowmelt tracks and old mountain signs.",
+        34: "Goblin Cave keeps low echoes, loose coins, and sharper choices.",
+        35: "Circle of the Moon marks silver stones where night keeps perfect time.",
+        40: "Old Oak Tree spreads roots like roads and leaves that remember names.",
+        41: "Lost Woods repeats soft moss, dim paths, and birdsong that refuses north.",
+        42: "Haunted Mansion leans under lit windows, patient dust, and sighing doors.",
+        43: "Quiet Abbey holds stone arches and a hush deep enough for small vows.",
+        44: "Flower Meadow opens into small flowers, warm bees, and open sky.",
+        50: "Great Library stacks brass ladders and marginalia from earlier travelers.",
+        60: "Turgid Swamp shifts under black water and bubbles unfinished warnings.",
+        61: "Wilting Jungle droops over hot paths where every vine seems tired.",
+        62: "Endless Ocean stretches blue horizon with songs moving under the waves.",
+        63: "Digital Realm blinks green cursors across doors, echoes, and code.",
+      };
+      return copy[id] || "";
     }
 
     function copyForLocation(id) {
@@ -1992,6 +2169,7 @@
       if (id === 13) return "Cafeteria tables hold the soft thunder of commons diplomacy.";
       if (id === 14) return "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
       if (id === 15) return "Courtyard paths cross under open sky; every hallway seems to lead back here.";
+      if (freeLocationCopy(id)) return freeLocationCopy(id);
       return "The shard hums softly.";
     }
 
@@ -2038,12 +2216,58 @@
       openCardModal(card);
     }, true);
 
-    $("location-copy").addEventListener("click", (event) => {
+    document.querySelector(".room").addEventListener("click", (event) => {
       const control = event.target.closest("[data-room-more]");
       if (!control) return;
       event.preventDefault();
       roomCopyExpanded = !roomCopyExpanded;
       renderRoomCopy(state?.location?.id);
+    });
+
+    $("log").addEventListener("click", (event) => {
+      const connect = event.target.closest("[data-account-connect]");
+      if (connect) {
+        event.preventDefault();
+        accountPanelPinned = true;
+        runAction({
+          label: "connect wallet",
+          detail: "account",
+          card: cardForActor(actorId) || cardForLocation(state?.location?.id),
+          shape: "avatar",
+          run: () => connectWallet(),
+        });
+        return;
+      }
+      const box = event.target.closest("[data-account-open-box]");
+      if (box) {
+        event.preventDefault();
+        const boxId = box.getAttribute("data-account-open-box") || "";
+        if (!boxId) return;
+        accountPanelPinned = true;
+        runAction({
+          label: "open box",
+          detail: compactAssetId(boxId),
+          card: cardByKey(`box:${boxId}`),
+          shape: "item",
+          run: () => openBox(boxId),
+        });
+        return;
+      }
+      const pack = event.target.closest("[data-account-open-pack]");
+      if (pack) {
+        event.preventDefault();
+        let packId = pack.getAttribute("data-account-open-pack") || "";
+        if (packId === "first") packId = (state?.account?.unopened_pack_ids || [])[0] || "";
+        if (!packId) return;
+        accountPanelPinned = true;
+        runAction({
+          label: "open pack",
+          detail: compactAssetId(packId),
+          card: cardByKey(`pack:${packId}`),
+          shape: "item",
+          run: () => openPack(packId),
+        });
+      }
     });
 
     $("card-modal").addEventListener("click", (event) => {
@@ -2105,9 +2329,6 @@
     });
 
     function focusFirstAccountAction() {
-      const accountAction = actions.find((action) => action.account);
-      if (accountAction) return focusActionByKey(accountAction.focusKey);
-      if (!hasAccountPanelContent()) return false;
       accountPanelPinned = true;
       render();
       return true;

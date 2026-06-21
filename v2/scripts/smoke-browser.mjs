@@ -299,6 +299,7 @@ async function main() {
   async function visibleCommandButtons() {
     return page.locator("footer.prompt button:visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
+        .filter(Boolean)
     ));
   }
 
@@ -390,20 +391,44 @@ async function main() {
   }
 
   async function assertCompactDescriptionAndCardModal() {
-    const collapsed = await page.locator("#location-copy").evaluate((node) => ({
-      tags: [...node.querySelectorAll(".room-tag")].map((tag) => tag.textContent),
-      more: node.querySelector("[data-room-more]")?.textContent,
-      wraps: node.scrollHeight > node.clientHeight + 4,
-    }));
-    assert(collapsed.tags.length >= 3, `room copy should collapse into tags: ${JSON.stringify(collapsed)}`);
-    assert(collapsed.more === "...", `room copy should expose ellipsis expansion: ${JSON.stringify(collapsed)}`);
-    assert(!collapsed.wraps, `collapsed room copy should stay one line: ${JSON.stringify(collapsed)}`);
+    const collapsed = await page.evaluate(() => {
+      const visible = (node) => {
+        if (!node) return false;
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      };
+      const copy = document.querySelector("#location-copy");
+      const avatar = document.querySelector("#avatar");
+      const more = document.querySelector(".room-title-main [data-room-more]");
+      return {
+        roomCollapsed: document.querySelector(".room")?.classList.contains("collapsed") || false,
+        copyVisible: visible(copy),
+        avatarVisible: visible(avatar),
+        more: more?.textContent,
+        tags: [...document.querySelectorAll(".room-tag")].map((tag) => tag.textContent),
+      };
+    });
+    assert(collapsed.roomCollapsed, `room header should default to collapsed: ${JSON.stringify(collapsed)}`);
+    assert(!collapsed.copyVisible && !collapsed.avatarVisible, `collapsed room header should hide prose and subtitle: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.tags.length === 0, `collapsed room header should not show tag clutter: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.more === "...", `room title should expose ellipsis expansion: ${JSON.stringify(collapsed)}`);
 
-    await page.locator("#location-copy [data-room-more]").click();
-    await page.waitForFunction(() => document.querySelector("#location-copy")?.classList.contains("expanded"));
-    const expandedText = await page.locator("#location-copy").innerText();
-    assert(expandedText.includes("firelight"), `expanded room copy should show the full description: ${expandedText}`);
-    await page.locator("#location-copy [data-room-more]").click();
+    await page.locator(".room-title-main [data-room-more]").click();
+    await page.waitForFunction(() => {
+      const node = document.querySelector("#location-copy");
+      return node && !node.hidden && node.classList.contains("expanded");
+    });
+    const expanded = await page.evaluate(() => ({
+      text: document.querySelector("#location-copy")?.innerText || "",
+      roomCollapsed: document.querySelector(".room")?.classList.contains("collapsed") || false,
+      more: document.querySelector(".room-title-main [data-room-more]")?.textContent,
+    }));
+    assert(!expanded.roomCollapsed, `expanded room header should clear collapsed state: ${JSON.stringify(expanded)}`);
+    assert(expanded.more === "less", `expanded room title should expose less control: ${JSON.stringify(expanded)}`);
+    assert(expanded.text.includes("firelight"), `expanded room copy should show the full description: ${JSON.stringify(expanded)}`);
+    await page.locator(".room-title-main [data-room-more]").click();
+    await page.waitForFunction(() => document.querySelector("#location-copy")?.hidden === true);
 
     await page.locator("#location-image[data-card-key]").click();
     await page.waitForSelector("#card-modal:not([hidden])");
@@ -440,9 +465,23 @@ async function main() {
   }
 
   async function focusChip(text) {
-    const chip = page.locator(".chip.focusable", { hasText: text }).first();
-    await chip.waitFor({ state: "visible" });
-    await chip.click();
+    await page.waitForFunction((needle) => (
+      [...document.querySelectorAll(".chip.focusable")]
+        .some((chip) => {
+          const label = chip.getAttribute("aria-label") || chip.getAttribute("title") || chip.textContent || "";
+          return label.includes(needle);
+        })
+    ), text);
+    const clicked = await page.evaluate((needle) => {
+      const chip = [...document.querySelectorAll(".chip.focusable")]
+        .find((candidate) => {
+          const label = candidate.getAttribute("aria-label") || candidate.getAttribute("title") || candidate.textContent || "";
+          return label.includes(needle);
+        });
+      chip?.click();
+      return Boolean(chip);
+    }, text);
+    assert(clicked, `focusable chip ${text} was not clickable`);
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     return primaryText();
@@ -629,8 +668,8 @@ async function main() {
       cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
       "Cottage projection should include the current avatar when accessible",
     );
-    assert(science?.accessible === true, "dev wallet should unlock Science Class in world projection");
-    assert(!library, "locked Library should not be visible before its location card is discovered");
+    assert(science?.accessible === true, "Science Class should be public in world projection");
+    assert(library?.accessible === true && library.card?.owned === false, "Library should be public without requiring its NFT");
     assert(trail?.actors.some((actor) => actor.name === "Moonlit Echo"), "Moonlit Trail projection should include the sparring target");
   }
 
@@ -712,15 +751,22 @@ async function main() {
         return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height };
       };
       const locationImage = document.querySelector("#location-image");
+      const avatarSubtitle = document.querySelector("#avatar");
+      const roomCopy = document.querySelector("#location-copy");
       const buttons = [...document.querySelectorAll("footer.prompt button")]
         .filter(visible)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "));
       return {
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         locationName: document.querySelector("#location-name")?.textContent?.trim() || "",
+        roomCollapsed: document.querySelector(".room")?.classList.contains("collapsed") || false,
+        avatarSubtitleVisible: visible(avatarSubtitle),
+        roomCopyVisible: visible(roomCopy),
         logRole: document.querySelector("#log")?.getAttribute("role") || "",
         lineCount: document.querySelectorAll("#log .line").length,
         chipThumbCount: document.querySelectorAll(".chip-thumb").length,
+        fullChipCount: document.querySelectorAll(".chip:not(.compact)").length,
+        compactChipCount: document.querySelectorAll(".chip.compact").length,
         buttons,
         topbar: rectFor(".topbar"),
         terminal: rectFor(".terminal"),
@@ -739,6 +785,10 @@ async function main() {
     assert(shell.logRole === "log", `${label}: transcript should be a semantic log`);
     assert(shell.lineCount > 0, `${label}: transcript should render at least one line`);
     assert(shell.chipThumbCount > 0, `${label}: presence/action context should render card thumbnails`);
+    assert(shell.fullChipCount <= 3, `${label}: presence strip should show at most three full cards: ${JSON.stringify(shell)}`);
+    assert(shell.compactChipCount > 0, `${label}: overflow presence cards should collapse to thumbnails: ${JSON.stringify(shell)}`);
+    assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
+    assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
     assert(shell.buttons.length === 1, `${label}: normal shell should expose exactly one visible command button`);
     assert(shell.topbar && shell.terminal && shell.prompt && shell.primary, `${label}: shell regions should be visible: ${JSON.stringify(shell)}`);
     assert(shell.locationImage.visible && shell.locationImage.complete, `${label}: location image should be rendered: ${JSON.stringify(shell.locationImage)}`);
@@ -879,15 +929,15 @@ async function main() {
     assert((await primaryText()).toLowerCase().includes("generate avatar"), "walletless first command should generate an avatar");
     await clickPrimary("walletless generate avatar");
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "focus wallet connect without wallet", primary: await focusPrimaryMatching("walletless connect wallet", (text) => text.includes("connect wallet")) });
-    assert((await visibleCommandButtons()).length === 1, "walletless wallet focus must stay one-button");
-    assert((await primaryText()).toLowerCase().includes("connect wallet"), "generic wallet focus should offer connect wallet");
+    steps.push({ label: "open walletless account inventory", primary: await focusAccountInventory() });
+    assert((await visibleCommandButtons()).length === 1, "walletless account inventory must keep one command button");
+    await page.waitForSelector(".account-panel [data-account-connect]");
     await page.evaluate(() => {
       window.cosySmokeProvider = window.solana;
       window.solana = undefined;
       window.phantom = undefined;
     });
-    await page.locator("#primary").click();
+    await page.locator("[data-account-connect]").click();
     await page.waitForSelector("#wallet-modal:not([hidden])");
     const qrProbe = await page.evaluate(async () => {
       const image = document.querySelector("#wallet-qr-image");
@@ -911,7 +961,8 @@ async function main() {
       window.solana = window.cosySmokeProvider;
       delete window.cosySmokeProvider;
     });
-    await clickPrimary("connect signed wallet");
+    await focusAccountInventory();
+    await page.locator("[data-account-connect]").click();
     await page.waitForFunction(
       (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
@@ -937,9 +988,9 @@ async function main() {
     await page.waitForSelector("#primary");
     await clickPrimary("box flow generate avatar");
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "box flow focus wallet connect", primary: await focusPrimaryMatching("box flow connect wallet", (text) => text.includes("connect wallet")) });
-    assert((await primaryText()).toLowerCase().includes("connect wallet"), "Box flow should connect the signed wallet from the account action cycle");
-    await clickPrimary("box flow connect signed wallet");
+    steps.push({ label: "box flow open account", primary: await focusAccountInventory() });
+    await page.waitForSelector(".account-panel [data-account-connect]");
+    await page.locator("[data-account-connect]").click();
     await page.waitForFunction(
       (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
@@ -952,14 +1003,28 @@ async function main() {
     });
     assert((beforeBoxOpen.access?.owned_box_ids || []).includes("box-smoke-1"), `signed wallet should have Box before opening: ${JSON.stringify(beforeBoxOpen.access)}`);
     steps.push({ label: "focus signed Wooden Box", primary: await focusAccountInventory() });
-    assert((await primaryText()).toLowerCase().includes("open box"), "account focus should offer Open Box");
     assert((await visibleCommandButtons()).length === 1, "account inventory focus must stay one-button");
+    await page.waitForSelector(".account-panel [data-account-open-box]");
     const accountBeforeText = await page.locator(".account-panel").innerText();
     assert(
-      accountBeforeText.includes("box-smoke-1") && accountBeforeText.toLowerCase().includes("boxes"),
+      accountBeforeText.includes("box-smoke-1") && accountBeforeText.toLowerCase().includes("intricately carved wooden box"),
       `account panel should show active Box before opening: ${accountBeforeText}`,
     );
-    await page.locator("#primary").click();
+    const boxArtProbe = await page.evaluate(async () => {
+      const image = document.querySelector(".account-panel [data-card-key^='box:']");
+      const response = await fetch(image?.getAttribute("src") || "");
+      const text = await response.text();
+      return {
+        src: image?.getAttribute("src") || "",
+        ok: response.ok,
+        contentType: response.headers.get("content-type") || "",
+        svgPrefix: text.slice(0, 80),
+        hasBoxState: text.includes("data-box-state='closed'"),
+      };
+    });
+    assert(boxArtProbe.src.includes("/assets/generated/boxes/closed/box-smoke-1.svg"), `Box art should use the generated closed route: ${JSON.stringify(boxArtProbe)}`);
+    assert(boxArtProbe.ok && boxArtProbe.contentType.includes("image/svg+xml") && boxArtProbe.svgPrefix.includes("<svg") && boxArtProbe.hasBoxState, `Box SVG should be fetchable: ${JSON.stringify(boxArtProbe)}`);
+    await page.locator("[data-account-open-box]").click();
     await page.waitForFunction(() => {
       const status = document.querySelector("#error");
       return status?.classList.contains("ok") && status.textContent.includes("Opened pack");
@@ -1166,6 +1231,7 @@ async function main() {
   await assertResidentHttpActionsRejected();
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 10_000 });
   await page.waitForSelector("#primary");
+  await page.waitForFunction(() => (document.querySelector("#primary")?.innerText || "").trim().length > 0);
   await assertNoVisibleOverflow();
   await assertNoComposerOrDebugChrome();
   assert((await visibleCommandButtons()).length === 1, "avatar gate must show one command button");
