@@ -1123,7 +1123,7 @@ impl DeploymentConfig {
         avatar_chat_delay: Duration,
         event_store_enabled: bool,
         moderation_enabled: bool,
-        box_burn_verifier_configured: bool,
+        _box_burn_verifier_configured: bool,
     ) -> io::Result<()> {
         if !self.profile.is_production() {
             return Ok(());
@@ -1169,12 +1169,6 @@ impl DeploymentConfig {
                 "production profile requires COSYWORLD_MODERATION_TOKEN",
             ));
         }
-        if !box_burn_verifier_configured {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_BOX_BURN_SOLANA_RPC_URL and COSYWORLD_BOX_CORE_COLLECTION_ADDRESS",
-            ));
-        }
-
         Ok(())
     }
 }
@@ -10961,24 +10955,8 @@ mod tests {
             .to_string()
             .contains("COSYWORLD_MODERATION_TOKEN"));
 
-        let no_box_verifier = deployment
-            .validate_runtime_options(
-                &feed,
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                true,
-                true,
-                false,
-            )
-            .expect_err("production should require Box burn verifier");
-        assert!(no_box_verifier
-            .to_string()
-            .contains("COSYWORLD_BOX_BURN_SOLANA_RPC_URL"));
-
         deployment
-            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, true, true)
+            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, true, false)
             .expect("production config should accept remote feed plus guardrails");
     }
 

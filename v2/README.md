@@ -123,14 +123,19 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
-The production Fly profile expects the protected Ruby High ownership feed, moderation token, event store, and Box burn verifier secrets to be configured before boot:
+The production Fly profile expects the protected Ruby High ownership feed, moderation token, and event store to be configured before boot:
 
 ```sh
 fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
+fly deploy
+```
+
+Before enabling production Box burns, set the chain verifier secrets:
+
+```sh
 fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
 fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
-fly deploy
 ```
 
 If the Node companion service is also deployed, set `COSYWORLD_V2_PUBLIC_URL` there so `/api/runtime` and the launch bridge point at this V2 service.
@@ -350,7 +355,7 @@ COSYWORLD_MODERATION_TOKEN=... \
 cargo run --release
 ```
 
-`COSYWORLD_DEPLOY_PROFILE=production` makes startup use the strict ownership-feed path and aborts if the protected remote feed or bearer token is missing, the SQLite event store is disabled, moderation is not configured, Box burn verifier config is missing, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm the running process is not accidentally in local mode or missing the chain verifier.
+`COSYWORLD_DEPLOY_PROFILE=production` makes startup use the strict ownership-feed path and aborts if the protected remote feed or bearer token is missing, the SQLite event store is disabled, moderation is not configured, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until those are present, production Box burn endpoints stay closed with `501` responses. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm whether chain verification is enabled.
 
 The local production-profile smoke uses the same guardrails without real Ruby High credentials:
 
@@ -359,7 +364,7 @@ cargo build
 node v2/scripts/smoke-production-profile.mjs
 ```
 
-It launches a temporary bearer-protected ownership feed, starts the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies `/meta` reports production mode, remote ownership, moderation, persistence, configured Box burn verification, and disabled dev shortcuts.
+It launches a temporary bearer-protected ownership feed, starts the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies `/meta` reports production mode, remote ownership, moderation, persistence, configured Box burn verification for the smoke process, and disabled dev shortcuts.
 
 The file uses the same line format:
 

@@ -37,6 +37,11 @@ Before the production machine boots, set the required secrets:
 ```bash
 fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
+```
+
+Before enabling production Box burns, set the chain verifier secrets:
+
+```bash
 fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
 fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
 ```
@@ -66,7 +71,8 @@ Create a `.env` file with:
 - **Storage:** `S3_API_ENDPOINT`, `S3_API_KEY`, `S3_API_SECRET`, `CLOUDFRONT_DOMAIN`
 - **Discord:** `DISCORD_BOT_TOKEN`
 - **Performance:** `MEMORY_CACHE_SIZE`, `MAX_CONCURRENT_REQUESTS`
-- **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`, `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`
+- **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`
+- **V2 Box Burns:** `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until these are configured, production Box burn endpoints stay closed.
 
 ---
 
