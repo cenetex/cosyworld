@@ -3442,55 +3442,75 @@ impl RuntimeWorld {
                 .or_insert_with(|| location.name.clone());
         }
 
+        // Treat the Rust seed topology as authoritative so old snapshots migrate
+        // away from the cottage-as-global-hub layout.
+        self.world.exit_count = 0;
+
         for (from_location_id, to_location_id) in [
             (1, 2),
-            (1, 10),
-            (1, 11),
-            (1, 12),
-            (1, 13),
-            (1, 14),
-            (1, 15),
-            (1, 30),
-            (1, 31),
-            (1, 32),
-            (1, 33),
-            (1, 34),
-            (1, 35),
-            (1, 40),
-            (1, 41),
-            (1, 42),
-            (1, 43),
-            (1, 44),
-            (1, 50),
-            (1, 60),
-            (1, 61),
-            (1, 62),
-            (1, 63),
             (2, 1),
+            (1, 11),
+            (11, 1),
             (2, 3),
             (3, 2),
-            (10, 1),
-            (11, 1),
-            (12, 1),
-            (13, 1),
-            (14, 1),
-            (15, 1),
-            (30, 1),
-            (31, 1),
-            (32, 1),
-            (33, 1),
-            (34, 1),
-            (35, 1),
-            (40, 1),
-            (41, 1),
-            (42, 1),
-            (43, 1),
-            (44, 1),
-            (50, 1),
-            (60, 1),
-            (61, 1),
-            (62, 1),
-            (63, 1),
+            (2, 40),
+            (40, 2),
+            (10, 11),
+            (11, 10),
+            (11, 12),
+            (12, 11),
+            (11, 13),
+            (13, 11),
+            (11, 15),
+            (15, 11),
+            (10, 14),
+            (14, 10),
+            (10, 15),
+            (15, 10),
+            (13, 15),
+            (15, 13),
+            (14, 15),
+            (15, 14),
+            (12, 50),
+            (50, 12),
+            (15, 32),
+            (32, 15),
+            (3, 35),
+            (35, 3),
+            (30, 31),
+            (31, 30),
+            (31, 32),
+            (32, 31),
+            (32, 33),
+            (33, 32),
+            (33, 34),
+            (34, 33),
+            (34, 35),
+            (35, 34),
+            (40, 41),
+            (41, 40),
+            (40, 44),
+            (44, 40),
+            (41, 42),
+            (42, 41),
+            (41, 43),
+            (43, 41),
+            (42, 43),
+            (43, 42),
+            (43, 44),
+            (44, 43),
+            (44, 14),
+            (14, 44),
+            (50, 60),
+            (60, 50),
+            (50, 63),
+            (63, 50),
+            (60, 61),
+            (61, 60),
+            (61, 62),
+            (62, 61),
+            (62, 63),
+            (63, 62),
         ] {
             self.ensure_exit(from_location_id, to_location_id, 0);
         }
@@ -10952,7 +10972,16 @@ mod tests {
             .contains("COSYWORLD_MODERATION_TOKEN"));
 
         deployment
-            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, true, false)
+            .validate_runtime_options(
+                &feed,
+                false,
+                false,
+                false,
+                Duration::ZERO,
+                true,
+                true,
+                false,
+            )
             .expect("production config should accept remote feed plus guardrails");
     }
 
@@ -12498,13 +12527,17 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "move"));
-        let science = state
+        let homeroom = state
             .exits
             .iter()
-            .find(|exit| exit.destination_location_id == 10)
-            .expect("Ruby High: First Bell expansion door is visible");
-        assert!(science.accessible);
-        assert!(science.required_card_id.is_none());
+            .find(|exit| exit.destination_location_id == 11)
+            .expect("Ruby High: First Bell school doorway is visible");
+        assert!(homeroom.accessible);
+        assert!(homeroom.required_card_id.is_none());
+        assert!(!state
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == 10));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-science-lab");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
@@ -12516,6 +12549,16 @@ mod tests {
             .iter()
             .any(|option| option.kind == "move"));
         assert!(state
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == 11 && exit.accessible));
+        let world = runtime.world_response(Some(5000), &access);
+        let homeroom = world
+            .locations
+            .iter()
+            .find(|location| location.id == 11)
+            .expect("Homeroom exists in world map");
+        assert!(homeroom
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 10 && exit.accessible));
@@ -12534,16 +12577,17 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 2));
-        let science = gate
+        let homeroom = gate
             .exits
             .iter()
-            .find(|exit| exit.destination_location_id == 10)
-            .expect("Ruby High expansion door is visible from the Cottage");
-        assert!(science.accessible);
-        assert!(science.required_card_id.is_none());
+            .find(|exit| exit.destination_location_id == 11)
+            .expect("Ruby High school doorway is visible from the Cottage");
+        assert!(homeroom.accessible);
+        assert!(homeroom.required_card_id.is_none());
         assert!(gate.access.locked_card_ids.is_empty());
         assert!(gate.cards.locations.contains_key(&2));
-        assert!(gate.cards.locations.contains_key(&10));
+        assert!(gate.cards.locations.contains_key(&11));
+        assert!(!gate.cards.locations.contains_key(&10));
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -13086,7 +13130,7 @@ mod tests {
         assert!(library
             .exits
             .iter()
-            .any(|exit| exit.destination_location_id == 1));
+            .any(|exit| exit.destination_location_id == 11));
     }
 
     #[test]
@@ -13202,6 +13246,16 @@ mod tests {
         let runtime = RuntimeWorld::seeded();
         let no_wallet = AccessContext::default();
         let state = runtime.state_response(None, &no_wallet);
+        let cottage_exits: BTreeSet<u64> = state
+            .exits
+            .iter()
+            .map(|exit| exit.destination_location_id)
+            .collect();
+        assert_eq!(cottage_exits, BTreeSet::from([2, 11]));
+        assert!(state.cards.locations[&2].accessible);
+        assert!(state.cards.locations[&11].accessible);
+
+        let world = runtime.world_response(None, &no_wallet);
         for (location_id, card_id) in [
             (2, "cosy-rain-soft-garden"),
             (30, "location-the-heavens"),
@@ -13209,13 +13263,15 @@ mod tests {
             (50, "location-great-library"),
             (63, "location-digital-realm"),
         ] {
-            assert!(state
-                .exits
+            let location = world
+                .locations
                 .iter()
-                .any(|exit| exit.destination_location_id == location_id));
-            assert!(state.cards.locations[&location_id].accessible);
-            assert!(!state.cards.locations[&location_id].owned);
-            assert!(!state.access.locked_card_ids.contains(&card_id.to_string()));
+                .find(|location| location.id == location_id)
+                .expect("free world location exists");
+            assert!(location.accessible);
+            assert!(location.card.accessible);
+            assert!(!location.card.owned);
+            assert!(!world.access.locked_card_ids.contains(&card_id.to_string()));
         }
 
         for (location_id, card_id) in [
@@ -13226,13 +13282,15 @@ mod tests {
             (14, "location-greenhouse"),
             (15, "location-courtyard"),
         ] {
-            assert!(state
-                .exits
+            let location = world
+                .locations
                 .iter()
-                .any(|exit| exit.destination_location_id == location_id && exit.accessible));
-            assert!(state.cards.locations[&location_id].accessible);
-            assert!(!state.cards.locations[&location_id].owned);
-            assert!(!state.access.locked_card_ids.contains(&card_id.to_string()));
+                .find(|location| location.id == location_id)
+                .expect("Ruby High location exists");
+            assert!(location.accessible);
+            assert!(location.card.accessible);
+            assert!(!location.card.owned);
+            assert!(!world.access.locked_card_ids.contains(&card_id.to_string()));
         }
 
         let ownership = OwnershipIndex::parse(
@@ -13242,18 +13300,34 @@ mod tests {
         let state = runtime.state_response(None, &with_location_cards);
         assert!(state.cards.locations[&2].accessible);
         assert!(state.cards.locations[&2].owned);
-        assert!(state.cards.locations[&12].accessible);
-        assert!(state.cards.locations[&12].owned);
-        assert!(state.cards.locations[&14].accessible);
-        assert!(state.cards.locations[&14].owned);
-        assert!(state.cards.locations[&10].accessible);
-        assert!(!state.cards.locations[&10].owned);
+        assert!(state.cards.locations[&11].accessible);
+        assert!(!state.cards.locations[&11].owned);
+
+        let world = runtime.world_response(None, &with_location_cards);
+        let library = world
+            .locations
+            .iter()
+            .find(|location| location.id == 12)
+            .expect("Library location exists");
+        assert!(library.card.accessible);
+        assert!(library.card.owned);
+        let greenhouse = world
+            .locations
+            .iter()
+            .find(|location| location.id == 14)
+            .expect("Greenhouse location exists");
+        assert!(greenhouse.card.accessible);
+        assert!(greenhouse.card.owned);
+        let science = world
+            .locations
+            .iter()
+            .find(|location| location.id == 10)
+            .expect("Science Class location exists");
+        assert!(science.card.accessible);
+        assert!(!science.card.owned);
+        assert_eq!(library.card.set_number.as_deref(), Some("FB-021"));
         assert_eq!(
-            state.cards.locations[&12].set_number.as_deref(),
-            Some("FB-021")
-        );
-        assert_eq!(
-            state.cards.locations[&14].profile_id.as_deref(),
+            greenhouse.card.profile_id.as_deref(),
             Some("location-greenhouse")
         );
     }
@@ -14203,8 +14277,13 @@ mod tests {
         let runtime = state.inner.lock().await;
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
-        let state_view = runtime.state_response(None, &access);
-        assert!(state_view
+        let world_view = runtime.world_response(None, &access);
+        let homeroom = world_view
+            .locations
+            .iter()
+            .find(|location| location.id == 11)
+            .expect("Homeroom exists in world map");
+        assert!(homeroom
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 10 && exit.accessible));

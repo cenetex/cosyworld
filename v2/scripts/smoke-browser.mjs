@@ -95,15 +95,19 @@ async function assertSignedWalletSession() {
 
   const state = await fetch(`${baseUrl}/state?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
-  const libraryExit = (state.exits || []).find((exit) => exit.destination_location_name === "Library");
+  const homeroomExit = (state.exits || []).find((exit) => exit.destination_location_name === "Homeroom");
+  const world = await fetch(`${baseUrl}/world?wallet_session=${encodeURIComponent(session.wallet_session)}`)
+    .then((response) => response.json());
+  const library = (world.locations || []).find((location) => location.name === "Library");
   assert(state.access?.mode === "signed_ruby_high_wallet", `expected signed wallet mode, got ${JSON.stringify(state.access)}`);
   assert(state.access?.owner_wallet_address === signedSmokeWalletAddress, "signed wallet owner did not round-trip");
-  assert(libraryExit?.accessible === true, `signed wallet should unlock Library: ${JSON.stringify(libraryExit)}`);
+  assert(homeroomExit?.accessible === true, `signed wallet should expose Homeroom from the cottage: ${JSON.stringify(homeroomExit)}`);
+  assert(library?.accessible === true && library.card?.owned === true, `signed wallet should unlock owned Library in the world map: ${JSON.stringify(library)}`);
   assert((state.access?.owned_box_ids || []).includes("box-smoke-1"), `signed smoke wallet should expose a Box: ${JSON.stringify(state.access)}`);
   return {
     wallet: signedSmokeWalletAddress,
     walletSession: session.wallet_session,
-    unlocked: libraryExit.destination_location_name,
+    unlocked: library.name,
     box: "box-smoke-1",
   };
 }
@@ -464,27 +468,35 @@ async function main() {
     assert(/teapot|rain cloud|sparkles|symbols/.test(label), `Whiskerwind aria-label should translate symbols: ${label}`);
   }
 
-  async function focusChip(text) {
-    await page.waitForFunction((needle) => (
-      [...document.querySelectorAll(".chip.focusable")]
+  async function focusBySelector(selector, text) {
+    await page.waitForFunction(({ selector, needle }) => (
+      [...document.querySelectorAll(selector)]
         .some((chip) => {
           const label = chip.getAttribute("aria-label") || chip.getAttribute("title") || chip.textContent || "";
           return label.includes(needle);
         })
-    ), text);
-    const clicked = await page.evaluate((needle) => {
-      const chip = [...document.querySelectorAll(".chip.focusable")]
+    ), { selector, needle: text });
+    const clicked = await page.evaluate(({ selector, needle }) => {
+      const chip = [...document.querySelectorAll(selector)]
         .find((candidate) => {
           const label = candidate.getAttribute("aria-label") || candidate.getAttribute("title") || candidate.textContent || "";
           return label.includes(needle);
         });
       chip?.click();
       return Boolean(chip);
-    }, text);
-    assert(clicked, `focusable chip ${text} was not clickable`);
+    }, { selector, needle: text });
+    assert(clicked, `focusable control ${text} was not clickable`);
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     return primaryText();
+  }
+
+  async function focusChip(text) {
+    return focusBySelector(".chip.focusable", text);
+  }
+
+  async function focusRoute(text) {
+    return focusBySelector(".route-node.destination[data-focus-index]", text);
   }
 
   async function focusPrimaryMatching(label, predicate, attempts = 24) {
@@ -529,14 +541,14 @@ async function main() {
   }
 
   async function travelTo(name) {
-    steps.push({ label: `focus ${name}`, primary: await focusChip(name) });
+    steps.push({ label: `focus ${name}`, primary: await focusRoute(name) });
     assert((await primaryText()).toLowerCase().includes("travel"), `${name} focus should travel`);
     await clickPrimary(`travel ${name}`);
     await waitForLocation(name);
   }
 
   async function fleeTo(name) {
-    steps.push({ label: `focus ${name} flee`, primary: await focusChip(name) });
+    steps.push({ label: `focus ${name} flee`, primary: await focusRoute(name) });
     assert((await primaryText()).toLowerCase().includes("flee"), `${name} focus should flee from combat`);
     await clickPrimary(`flee ${name}`);
     await waitForLocation(name);
@@ -663,10 +675,15 @@ async function main() {
     const science = world.locations.find((location) => location.name === "Science Class");
     const library = world.locations.find((location) => location.name === "Library");
     const trail = world.locations.find((location) => location.name === "Moonlit Trail");
+    const cottageExits = (cottage?.exits || []).map((exit) => exit.destination_location_name).sort();
     assert(cottage?.public && cottage.accessible, "Cottage should be public in world projection");
     assert(
       cottage.actors.some((actor) => String(actor.id) === String(world.current_actor_id)),
       "Cottage projection should include the current avatar when accessible",
+    );
+    assert(
+      JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Rain-Soft Garden"]),
+      `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
     assert(science?.accessible === true, "Science Class should be public in world projection");
     assert(library?.accessible === true && library.card?.owned === false, "Library should be public without requiring its NFT");
@@ -705,7 +722,7 @@ async function main() {
     const overflow = await page.evaluate(() => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const selector = ".shell,.topbar,.terminal,.room,.presence,.chip,.log,.line,.speaker,.text,.prompt,.cmd,.location-pill";
+      const selector = ".shell,.topbar,.terminal,.room,.route-map,.route-node,.route-destinations,.presence,.chip,.log,.line,.speaker,.text,.prompt,.cmd,.location-pill";
       return [...document.querySelectorAll(selector)]
         .filter((node) => {
           const style = getComputedStyle(node);
@@ -767,6 +784,7 @@ async function main() {
         chipThumbCount: document.querySelectorAll(".chip-thumb").length,
         fullChipCount: document.querySelectorAll(".chip:not(.compact)").length,
         compactChipCount: document.querySelectorAll(".chip.compact").length,
+        routeLabels: [...document.querySelectorAll(".route-node")].map((node) => node.textContent.trim().replace(/\s+/g, " ")),
         buttons,
         topbar: rectFor(".topbar"),
         terminal: rectFor(".terminal"),
@@ -785,6 +803,8 @@ async function main() {
     assert(shell.logRole === "log", `${label}: transcript should be a semantic log`);
     assert(shell.lineCount > 0, `${label}: transcript should render at least one line`);
     assert(shell.chipThumbCount > 0, `${label}: presence/action context should render card thumbnails`);
+    assert(shell.routeLabels.some((route) => route.includes("Rain-Soft Garden")), `${label}: route map should label the garden path: ${JSON.stringify(shell.routeLabels)}`);
+    assert(shell.routeLabels.some((route) => route.includes("Homeroom")), `${label}: route map should label the school path: ${JSON.stringify(shell.routeLabels)}`);
     assert(shell.fullChipCount <= 3, `${label}: presence strip should show at most three full cards: ${JSON.stringify(shell)}`);
     assert(shell.compactChipCount > 0, `${label}: overflow presence cards should collapse to thumbnails: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
@@ -968,7 +988,11 @@ async function main() {
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
       signedSmokeWalletAddress,
     );
-    steps.push({ label: "focus signed Library", primary: await focusChip("Library") });
+    steps.push({ label: "focus signed Homeroom", primary: await focusRoute("Homeroom") });
+    assert((await primaryText()).toLowerCase().includes("travel"), "signed wallet should make Homeroom travelable");
+    await clickPrimary("travel signed Homeroom");
+    await waitForLocation("Homeroom");
+    steps.push({ label: "focus signed Library", primary: await focusRoute("Library") });
     assert((await primaryText()).toLowerCase().includes("travel"), "signed wallet should make Library travelable");
     await clickPrimary("travel signed Library");
     await waitForLocation("Library");
@@ -1279,10 +1303,12 @@ async function main() {
   await fleeTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
   await evolveResident("Skull");
+  await travelTo("Homeroom");
   await travelTo("Science Class");
   assert(await currentLocation() === "Science Class", "Science Class should be a shared reachable Ruby High room");
   await takeItem("Moonwool Thread");
   await evolveResident("Rati");
+  await travelTo("Homeroom");
   await travelTo("The Cosy Cottage");
 
   steps.push({ label: "focus evolved resident", primary: await focusChip("Whiskerwind") });

@@ -136,6 +136,7 @@
       overflow: hidden;
     }
     .room {
+      min-width: 0;
       padding: 14px 16px 12px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(180deg, rgba(16, 25, 18, 0.98), rgba(11, 17, 12, 0.96));
@@ -224,6 +225,115 @@
     .room-full {
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+    .route-map {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: minmax(154px, 216px) auto minmax(0, 1fr);
+      align-items: stretch;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .route-current,
+    .route-destinations {
+      min-width: 0;
+    }
+    .route-destinations {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .route-node {
+      flex: 0 0 auto;
+      min-width: 154px;
+      max-width: 226px;
+      min-height: 58px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(16, 25, 18, 0.72);
+      color: var(--text);
+      padding: 6px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      text-align: left;
+      white-space: normal;
+    }
+    .route-current .route-node {
+      width: 100%;
+      max-width: none;
+    }
+    .route-destinations .route-node {
+      flex: 1 1 154px;
+    }
+    button.route-node {
+      font: inherit;
+    }
+    .route-node.current {
+      border-color: var(--line-strong);
+      color: var(--amber);
+    }
+    .route-node.destination {
+      color: var(--green);
+    }
+    .route-node.locked {
+      color: var(--dim);
+      opacity: 0.68;
+    }
+    .route-node.focused {
+      border-color: rgba(101, 230, 138, 0.82);
+      box-shadow: inset 0 0 0 1px rgba(101, 230, 138, 0.24);
+    }
+    .route-node:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+    .route-thumb {
+      width: 48px;
+      height: 34px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background-color: rgba(101, 230, 138, 0.08);
+      background-size: cover;
+      background-position: center;
+      display: grid;
+      place-items: center;
+      color: var(--dim);
+      font-weight: 900;
+      font-size: 12px;
+      cursor: zoom-in;
+    }
+    .route-copy {
+      min-width: 0;
+      display: grid;
+      gap: 1px;
+    }
+    .route-kicker {
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .route-name {
+      min-width: 0;
+      color: inherit;
+      font-weight: 900;
+      line-height: 1.18;
+      overflow-wrap: anywhere;
+    }
+    .route-edge {
+      flex: 0 0 auto;
+      align-self: center;
+      color: var(--dim);
+      font-weight: 900;
+      opacity: 0.82;
     }
     .presence {
       margin-top: 10px;
@@ -760,6 +870,19 @@
       .cmd { min-height: 48px; padding: 7px 8px; }
       .thumb { width: 30px; height: 30px; }
       .thumb.location { width: 44px; }
+      .route-map {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .route-edge { display: none; }
+      .route-destinations {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+      }
+      .route-node {
+        width: 100%;
+        max-width: none;
+      }
       .detail { display: none; }
     }
   </style>
@@ -781,6 +904,7 @@
           <span id="avatar">...</span>
         </div>
         <div class="room-copy" id="location-copy"></div>
+        <div class="route-map" id="route-map" aria-label="Room map"></div>
         <div class="presence" id="presence"></div>
       </section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room timeline"></section>
@@ -1548,6 +1672,7 @@
         document.querySelector(".room")?.classList.add("collapsed");
       }
       renderRoomCopy(location.id);
+      $("route-map").innerHTML = routeMapHtml(state);
       $("presence").innerHTML = presenceHtml(state, me);
       renderLog();
       renderCommands();
@@ -1567,6 +1692,51 @@
       economyNode.innerHTML = parts.join(" · ");
       economyNode.setAttribute("aria-label", `Focus account inventory with ${orbs} Orbs, ${boxes} Boxes, ${packs} unopened packs, and ${signed ? "a connected wallet" : "no connected wallet"}`);
       economyNode.classList.toggle("focused", Boolean(accountPanelPinned));
+    }
+
+    function routeMapHtml(view) {
+      const location = view?.location || {};
+      const exits = (view?.exits || []).filter((exit) => !exit.locked);
+      if (!location.id && !exits.length) return "";
+      const current = routeNodeHtml({
+        label: location.name || "Unknown",
+        kicker: "current room",
+        card: cardForLocation(location.id),
+        classes: " current",
+      });
+      if (!exits.length) return `<div class="route-current">${current}</div>`;
+      const destinations = exits.map((exit) => {
+        const key = exit.accessible === false
+          ? (!view.access?.owner_wallet_address ? `wallet:${exit.destination_location_id}` : "")
+          : `exit:${exit.destination_location_id}`;
+        const index = key ? actions.findIndex((action) => action.focusKey === key) : -1;
+        const locked = exit.accessible === false;
+        const kicker = locked
+          ? (exit.required_card_id ? "card locked" : "wallet needed")
+          : "path";
+        return routeNodeHtml({
+          label: exit.destination_location_name,
+          kicker,
+          card: cardForLocation(exit.destination_location_id),
+          classes: ` destination${locked ? " locked" : ""}`,
+          focusIndex: index,
+        });
+      });
+      return `<div class="route-current">${current}</div><div class="route-edge" aria-hidden="true">-&gt;</div><div class="route-destinations">${destinations.join("")}</div>`;
+    }
+
+    function routeNodeHtml({ label, kicker, card = null, classes = "", focusIndex: routeFocusIndex = -1 }) {
+      const selectable = routeFocusIndex >= 0;
+      const focused = selectable && routeFocusIndex === focusIndex && !state?.branch;
+      const tag = selectable ? "button" : "div";
+      const buttonType = selectable ? ` type="button" data-focus-index="${routeFocusIndex}"` : "";
+      const attrs = `${buttonType} title="${escapeAttr(label)}" aria-label="${escapeAttr(`${kicker}: ${label}`)}"`;
+      const image = cardImage(card) || (card ? fallbackCardImage(card) : "");
+      const fallback = escapeHtml(label.trim().slice(0, 2).toUpperCase() || "?");
+      const thumb = image
+        ? `<span class="route-thumb"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>`
+        : `<span class="route-thumb"${cardDataAttr(card)}>${fallback}</span>`;
+      return `<${tag} class="route-node${classes}${focused ? " focused" : ""}"${attrs}>${thumb}<span class="route-copy"><span class="route-kicker">${escapeHtml(kicker)}</span><span class="route-name">${escapeHtml(label)}</span></span></${tag}>`;
     }
 
     function presenceHtml(view, me) {
@@ -1599,19 +1769,6 @@
             key: `item:${item.id}`,
             card: cardForItem(item.id),
             shape: "item",
-          });
-        }
-      }
-      for (const exit of view.exits || []) {
-        if (!exit.locked) {
-          pushChip({
-            label: exit.destination_location_name,
-            classes: ` path${exit.accessible === false ? " locked" : ""}`,
-            key: exit.accessible === false
-              ? (!view.access?.owner_wallet_address ? `wallet:${exit.destination_location_id}` : "")
-              : `exit:${exit.destination_location_id}`,
-            card: cardForLocation(exit.destination_location_id),
-            shape: "location",
           });
         }
       }
@@ -2304,6 +2461,12 @@
       const chip = event.target.closest("[data-focus-index]");
       if (!chip) return;
       focusAction(Number(chip.getAttribute("data-focus-index") || 0));
+    });
+
+    $("route-map").addEventListener("click", (event) => {
+      const node = event.target.closest("[data-focus-index]");
+      if (!node) return;
+      focusAction(Number(node.getAttribute("data-focus-index") || 0));
     });
 
     const locationPill = document.querySelector(".location-pill");
