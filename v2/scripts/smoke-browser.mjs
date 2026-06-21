@@ -569,7 +569,7 @@ async function main() {
   }
 
   async function listenAtCurrentLocation() {
-    await page.locator(".location-pill").click();
+    await page.locator("#subtitle").click();
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
     assert((await primaryText()).toLowerCase().includes("listen"), "location tab focus should offer listen");

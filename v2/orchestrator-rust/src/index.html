@@ -820,12 +820,17 @@
       html, body { font-size: 13px; }
       .shell { grid-template-rows: 38px minmax(0, 1fr) auto; }
       .topbar {
-        grid-template-columns: minmax(0, 0.7fr) auto minmax(0, 1.3fr);
+        grid-template-columns: auto minmax(0, 1fr);
         gap: 8px;
         padding: 0 8px;
       }
       .brand::before { content: ""; }
-      .economy { font-size: 12px; max-width: 92px; }
+      .brand { display: none; }
+      .economy { font-size: 12px; max-width: none; }
+      .location-pill img {
+        width: 48px;
+        height: 28px;
+      }
       .terminal { margin: 8px; }
       .room { padding: 11px 12px; }
       .room-tag { font-size: 11px; padding: 2px 6px; }
@@ -874,16 +879,41 @@
         grid-template-columns: 1fr;
         gap: 6px;
       }
+      .route-current {
+        display: none;
+      }
       .route-edge { display: none; }
       .route-destinations {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
       }
       .route-node {
+        min-width: 0;
+        min-height: 52px;
         width: 100%;
         max-width: none;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 7px;
+        padding: 6px;
+      }
+      .route-thumb {
+        width: 40px;
+        height: 28px;
+      }
+      .route-kicker {
+        font-size: 10px;
+      }
+      .route-name {
+        font-size: 12px;
+        line-height: 1.16;
       }
       .detail { display: none; }
+    }
+    @media (max-width: 360px) {
+      .route-destinations {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -1685,9 +1715,12 @@
       const packs = state?.access?.unopened_pack_ids?.length || 0;
       const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
       const parts = [`<strong>${orbs}</strong> orbs`];
-      if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
-      if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
-      parts.push(signed ? "wallet" : "connect wallet");
+      const compact = window.matchMedia("(max-width: 900px)").matches;
+      if (!compact) {
+        if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
+        if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
+        parts.push(signed ? "wallet" : "connect wallet");
+      }
       const economyNode = $("economy");
       economyNode.innerHTML = parts.join(" · ");
       economyNode.setAttribute("aria-label", `Focus account inventory with ${orbs} Orbs, ${boxes} Boxes, ${packs} unopened packs, and ${signed ? "a connected wallet" : "no connected wallet"}`);
@@ -2547,6 +2580,9 @@
 
     window.addEventListener("pagehide", leavePresence);
     window.addEventListener("beforeunload", leavePresence);
+    window.addEventListener("resize", () => {
+      if (state) renderEconomy();
+    });
 
     (async function boot() {
       try {
