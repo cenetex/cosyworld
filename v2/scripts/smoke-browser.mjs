@@ -525,7 +525,7 @@ async function main() {
     await clickPrimary("listen");
     await page.waitForFunction(() => {
       const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("roll") && text.includes("dc");
+      return text.includes("listens:");
     });
     assert((await visibleCommandButtons()).length === 1, "listen should stay in one-button mode");
   }

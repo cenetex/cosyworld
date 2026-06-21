@@ -1071,7 +1071,7 @@
       }
       const listenCanHelp = canChat || economy.listen_reward_claimable !== false;
       if (options.has("check") && listenCanHelp) {
-        built.push({ label: "listen", detail: "Read the room.", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+        built.push({ label: "listen", detail: "for clues", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
       }
       if (!canChat && options.has("chat") && !built.length) {
         built.push({
@@ -1691,7 +1691,7 @@
       if (event.type === "branch.opened") return `opens a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.resolved") return `settles a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
-      if (event.type === "ability_check.rolled") return `listens carefully. roll ${event.total} vs dc ${event.dc}.`;
+      if (event.type === "ability_check.rolled") return listenEventText(event);
       if (event.type === "combat.defend") return `defends.`;
       if (event.type === "combat.attack.attempt") return `attacks ${event.target_actor_name}. roll ${event.total} vs ac ${event.dc}.`;
       if (event.type === "combat.attack.hit") return `hits ${event.target_actor_name} for ${event.damage} damage. ${event.current_hp} hp remains.`;
@@ -1700,6 +1700,31 @@
       if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}.`;
       if (event.type === "rule.rejected") return `hesitates.`;
       return event.type;
+    }
+
+    function listenEventText(event) {
+      const hint = listenHintForLocation(event.location_id, event.success);
+      const roll = Number.isFinite(Number(event.total)) && Number.isFinite(Number(event.dc))
+        ? ` (${event.total}/${event.dc})`
+        : "";
+      return `listens: ${hint}${roll}`;
+    }
+
+    function listenHintForLocation(id, success) {
+      if (!success) {
+        if (id === 3) return "the trail goes quiet, but something out there heard you first.";
+        return "the room keeps its secret for now.";
+      }
+      if (id === 1) return "the hearth points toward Story Button, Hearth Tonic, and a missing thread for Rati.";
+      if (id === 2) return "rain gathers around Dewbright Button; a small bell answers from the leaves.";
+      if (id === 3) return "moonlight catches Wolfprint Charm and Hearthstone Tag before the Echo circles back.";
+      if (id === 10) return "Science Class smells of Moonwool Thread, chalk dust, and questions that want testing.";
+      if (id === 11) return "Homeroom murmurs that every new day hides a useful routine.";
+      if (id === 12) return "Library shelves whisper that names, needs, and old paths are written somewhere.";
+      if (id === 13) return "Cafeteria trays clatter with commons gossip and trade routes.";
+      if (id === 14) return "Greenhouse glass ticks softly around experiments that grow when revisited.";
+      if (id === 15) return "Courtyard paths cross; footsteps remember where they came from.";
+      return "the shard hums back with a useful direction.";
     }
 
     function cardForActor(id) {
